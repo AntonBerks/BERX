@@ -1,0 +1,77 @@
+/**
+ * !!! VERIFICATION STATUS: UNVERIFIED — see BerxButton.tsx header.
+ * Three small, reusable primitives for the Business "Spatial Glass"
+ * language: a stat tile, an eyebrow section label, and a segmented
+ * tab switcher. Kept in one file since each is a handful of lines —
+ * not a reason to fragment into three near-empty files.
+ */
+import React from 'react';
+import {View, Text, Pressable, StyleSheet} from 'react-native';
+import {colors, spacing, typography, radius} from '../tokens';
+
+export interface BerxStatTileProps {
+	label: string;
+	value: string;
+	trend?: 'up' | 'down' | 'flat';
+}
+
+export function BerxStatTile({label, value, trend}: BerxStatTileProps) {
+	return (
+		<View style={tileStyles.tile}>
+			<Text style={tileStyles.value}>{value}</Text>
+			<Text style={tileStyles.label}>{label}</Text>
+			{trend ? (
+				<Text style={[tileStyles.trend, trend === 'up' ? tileStyles.trendUp : trend === 'down' ? tileStyles.trendDown : tileStyles.trendFlat]}>
+					{trend === 'up' ? '↑' : trend === 'down' ? '↓' : '→'}
+				</Text>
+			) : null}
+		</View>
+	);
+}
+
+const tileStyles = StyleSheet.create({
+	tile: {flex: 1, backgroundColor: colors.glassBusiness, borderWidth: 1, borderColor: colors.glassBusinessBorder, borderRadius: radius.md, padding: spacing.md, gap: 2},
+	value: {fontSize: typography.sizeXl, color: colors.white, fontWeight: typography.weightBold},
+	label: {fontSize: typography.sizeXs, color: colors.textFaint},
+	trend: {position: 'absolute', top: spacing.sm, right: spacing.sm, fontSize: typography.sizeSm, fontWeight: typography.weightBold},
+	trendUp: {color: colors.success},
+	trendDown: {color: colors.danger},
+	trendFlat: {color: colors.textFaint},
+});
+
+export function BerxEyebrow({children}: {children: React.ReactNode}) {
+	return <Text style={eyebrowStyles.text}>{children}</Text>;
+}
+
+const eyebrowStyles = StyleSheet.create({
+	text: {fontSize: typography.sizeXs, color: colors.accent, fontWeight: typography.weightBold, textTransform: 'uppercase', letterSpacing: 1.1},
+});
+
+export interface BerxSegmentTabsProps<T extends string> {
+	options: {key: T; label: string}[];
+	value: T;
+	onChange: (key: T) => void;
+}
+
+export function BerxSegmentTabs<T extends string>({options, value, onChange}: BerxSegmentTabsProps<T>) {
+	return (
+		<View style={segStyles.row}>
+			{options.map((opt) => {
+				const active = opt.key === value;
+				return (
+					<Pressable key={opt.key} style={[segStyles.tab, active && segStyles.tabActive]} onPress={() => onChange(opt.key)}>
+						<Text style={[segStyles.tabText, active && segStyles.tabTextActive]}>{opt.label}</Text>
+					</Pressable>
+				);
+			})}
+		</View>
+	);
+}
+
+const segStyles = StyleSheet.create({
+	row: {flexDirection: 'row', backgroundColor: colors.glass1, borderRadius: radius.pill, padding: 3, gap: 2},
+	tab: {flex: 1, paddingVertical: spacing.xs, borderRadius: radius.pill, alignItems: 'center'},
+	tabActive: {backgroundColor: colors.glassBusinessBorder},
+	tabText: {fontSize: typography.sizeSm, color: colors.textFaint, fontWeight: typography.weightMedium},
+	tabTextActive: {color: colors.white},
+});

@@ -1,0 +1,802 @@
+/**
+ * BERX shared types — mirror EXACTLY what components/OssnApi/v1/*.php
+ * actually return. Every field here traces to a real PHP response
+ * built this session. Do not add speculative fields for endpoints
+ * that don't exist yet (feed pagination cursors, reactions, etc.) —
+ * extend this file the same day the matching PHP endpoint ships, not
+ * before.
+ */
+
+export interface BerxUser {
+	guid: number;
+	username: string;
+	fullname: string;
+	email: string;
+	icon_url: string;
+	profile_url: string;
+	time_created: number;
+}
+
+export interface BerxAuthSession {
+	token: string;
+	user_guid: number;
+	expires_at: number;
+}
+
+export interface BerxFeedItem {
+	guid: number;
+	text: string;
+	owner_guid: number;
+	owner_username: string | null;
+	time_created: number;
+}
+
+/**
+ * Wraps a real endpoint's list field with the limit/offset the server
+ * actually echoes back — only used for endpoints confirmed in
+ * API_PAGINATION.md as "paginated" (feed, dating/discover,
+ * notifications). Endpoints marked "naturally bounded" or "requires
+ * future backend extension" there do NOT get this wrapper — adding it
+ * would claim a pagination contract the PHP side doesn't actually
+ * honor.
+ */
+export interface BerxPaginationMeta {
+	limit: number;
+	offset: number;
+}
+
+export interface BerxFeedResponse extends BerxPaginationMeta {
+	items: BerxFeedItem[];
+}
+
+export interface BerxPostDetail {
+	guid: number;
+	text: string;
+	owner_guid: number;
+	owner_username: string | null;
+	time_created: number;
+	/** Only on the single-post detail response — feed items deliberately don't carry these to avoid an N+1 count query per feed load (see feed.php's own comment). */
+	like_count: number;
+	comment_count: number;
+}
+
+export interface BerxConversationSummary {
+	with_guid: number;
+	with_username: string | null;
+	last_message: string;
+	time: number;
+}
+
+export interface BerxMessage {
+	id: number;
+	from_guid: number;
+	to_guid: number;
+	text: string;
+	time: number;
+}
+
+export interface BerxProfileSummary {
+	guid: number;
+	username: string;
+	fullname: string;
+	icon_url: string;
+	profile_url: string;
+	is_own: boolean;
+	is_friend: boolean;
+	is_creator: boolean;
+}
+
+export interface BerxSearchUsersResponse {
+	users: Array<{ guid: number; username: string; fullname: string }>;
+}
+
+export interface BerxDatingProfileCard {
+	guid: number;
+	pseudonym: string;
+	age: number | null;
+	city: string | null;
+	goal: string | null;
+	bio: string;
+	interests: string;
+}
+
+export interface BerxReportQueueItem {
+	id: number;
+	reporter_guid: number;
+	target_type: BerxReportTargetType;
+	target_guid: number;
+	reason: BerxReportReason;
+	note: string | null;
+	status: string;
+	time_created: number;
+}
+
+export interface BerxDatingOwnProfile {
+	guid: number;
+	pseudonym: string;
+	age: number;
+	city: string | null;
+	goal: string | null;
+	bio: string | null;
+	interests: string | null;
+}
+
+export interface BerxDatingOwnPhoto {
+	id: number;
+	original_name: string;
+	mime_type: string;
+	time_created: number;
+}
+
+export interface BerxDatingDiscoverResponse extends BerxPaginationMeta {
+	profiles: BerxDatingProfileCard[];
+}
+
+export interface BerxDatingMatch {
+	guid: number;
+	username: string;
+	fullname: string;
+}
+
+export interface BerxNotification {
+	guid: number;
+	type: string;
+	poster_guid: number;
+	subject_guid: number;
+	item_guid: number | null;
+	viewed: boolean;
+	time_created: number;
+}
+
+export interface BerxNotificationsResponse extends BerxPaginationMeta {
+	notifications: BerxNotification[];
+}
+
+export type BerxWrappedPeriod = 'week' | 'month';
+
+export interface BerxWrapped {
+	period: BerxWrappedPeriod;
+	insufficient_data: boolean;
+	posts_created?: number;
+	trips_created?: number;
+	experiences_count?: number;
+	events_going?: number;
+	places_saved?: number;
+}
+
+export interface BerxEventStoryItem {
+	id: number;
+	owner_guid: number;
+	owner_username: string | null;
+	caption: string;
+	time_created: number;
+	mime_type: string;
+}
+
+export interface BerxStorySummary {
+	id: number;
+	caption: string;
+	time_created: number;
+	mime_type: string;
+}
+
+export interface BerxOwnStorySummary extends BerxStorySummary {
+	time_expires: number;
+}
+
+export interface BerxStoryFeedGroup {
+	owner_guid: number;
+	owner_username: string | null;
+	stories: BerxStorySummary[];
+}
+
+export interface BerxBusinessMoment {
+	id: number;
+	place_guid: number;
+	text: string;
+	starts_at: number;
+	ends_at: number;
+}
+
+export interface BerxOpeningInterval {
+	/** 0 = Sunday, matching PHP date('w') and JS getDay(). */
+	weekday: number;
+	/** Minutes from midnight, place-local. */
+	open: number;
+	close: number;
+}
+
+export interface BerxPlaceHours {
+	intervals: BerxOpeningInterval[];
+	/** null = the place has no structured hours at all — genuinely different from "closed". */
+	is_open_now: boolean | null;
+}
+
+export interface BerxNearbyPlaceItem {
+	guid: number;
+	title: string;
+	category: string | null;
+	cover_url: string | null;
+	distance_km: number;
+	moments: {id: number; text: string; ends_at: number}[];
+	/** null = no structured hours entered; never conflate with closed. */
+	is_open_now: boolean | null;
+}
+
+export interface BerxNearbyEventItem {
+	guid: number;
+	title: string;
+	starts: number;
+	place_guid: number;
+	distance_km: number;
+}
+
+export interface BerxNearbyNow {
+	places: BerxNearbyPlaceItem[];
+	events: BerxNearbyEventItem[];
+	open_now_available: false;
+}
+
+export interface BerxPointsBalance {
+	balance: number;
+	lifetime_earned: number;
+	level: number;
+	level_floor: number;
+	level_ceiling: number | null;
+	level_progress_ratio: number;
+	current_streak: number;
+	longest_streak: number;
+	last_active_date: string | null;
+}
+
+export interface BerxStreakCheckIn {
+	current_streak: number;
+	longest_streak: number;
+	is_new_day: boolean;
+	milestone: 7 | 30 | null;
+}
+
+export interface BerxPointsHistoryEntry {
+	delta: number;
+	reason: string;
+	time_created: number;
+}
+
+export interface BerxCommunity {
+	guid: number;
+	name: string;
+	description: string;
+	owner_guid: number;
+	privacy: string | null;
+	is_member: boolean;
+}
+
+export interface BerxCommunitiesResponse {
+	communities: BerxCommunity[];
+}
+
+/**
+ * Places — mirrors ossn_api_place_to_json() in
+ * components/OssnApi/v1/places.php field-for-field. `category` is one
+ * of OssnPlaces::categories()'s slugs (fetched separately via
+ * placesCategories(), not hardcoded here as a union — the server owns
+ * the whitelist).
+ */
+export type BerxBusinessType = 'restaurant' | 'cafe' | 'bar' | 'hotel' | 'shop' | 'beauty' | 'fitness' | 'entertainment' | 'events' | 'services' | 'creators' | 'other';
+
+export interface BerxPlace {
+	guid: number;
+	title: string;
+	description: string;
+	category: string | null;
+	address: string | null;
+	phone: string | null;
+	website: string | null;
+	hours: string | null;
+	price: number | null;
+	lat: number | null;
+	lng: number | null;
+	owner_guid: number;
+	cover_url: string | null;
+	rating: number;
+	rating_count: number;
+	is_saved: boolean;
+	is_business: boolean;
+	business_type: BerxBusinessType | null;
+	verified: boolean;
+}
+
+export interface BerxNearbyImpressionSummary {
+	shown: number;
+	opened: number;
+	saved: number;
+	route: number;
+}
+
+export interface BerxBusinessDashboard {
+	place_guid: number;
+	is_business: boolean;
+	verified: boolean;
+	rating: number;
+	rating_count: number;
+	recent_reviews: BerxPlaceReview[];
+	nearby_impressions: BerxNearbyImpressionSummary | null;
+}
+
+export type BerxBusinessTeamRole = 'manager' | 'staff';
+
+export interface BerxBusinessTeamMember {
+	guid: number;
+	username: string;
+	fullname: string;
+	icon: string;
+	role: BerxBusinessTeamRole;
+}
+
+export type BerxSubscriptionStatus = 'none' | 'trial' | 'active' | 'expired';
+
+export interface BerxBusinessSubscription {
+	plan?: string;
+	status: BerxSubscriptionStatus;
+	trial_started_at?: number;
+	trial_ends_at?: number;
+	entitled: boolean;
+	monthly_price_rub?: number;
+}
+
+/** Only present on /places/nearby results — see places.php's own nearby branch. */
+export interface BerxNearbyPlace extends BerxPlace {
+	distance_km: number;
+}
+
+export interface BerxPlaceCategory {
+	slug: string;
+	label: string;
+}
+
+export interface BerxPlaceReview {
+	guid: number;
+	rating: number;
+	text: string;
+	time: number;
+	author: { guid: number; username: string; fullname: string; icon: string } | null;
+	owner_reply: BerxOwnerReply | null;
+}
+
+/**
+ * Events — mirrors ossn_api_event_to_json() field-for-field.
+ * seats_left is null when the event is uncapped (OssnEvents::
+ * seatsLeft() returns false in that case, which the PHP layer already
+ * translates to JSON null — not a client-side guess).
+ */
+export interface BerxEvent {
+	guid: number;
+	title: string;
+	description: string;
+	category: string | null;
+	starts: number;
+	ends: number | null;
+	location: string | null;
+	place: { guid: number; title: string } | null;
+	capacity: number | null;
+	seats_left: number | null;
+	attendee_count: number;
+	owner_guid: number;
+	cover_url: string | null;
+	has_ended: boolean;
+	is_going: boolean;
+}
+
+export interface BerxEventAttendee {
+	guid: number;
+	username: string;
+	fullname: string;
+	icon: string;
+}
+
+/**
+ * RSVP failure shapes — status_map in events.php's /rsvp branch, kept
+ * as a union so callers can branch on `error` without string-matching
+ * the human-readable `message`.
+ */
+export type BerxRsvpErrorCode = 'full' | 'already_going' | 'ended' | 'forbidden' | 'rsvp_failed';
+
+/**
+ * Comments on Places/Events — mirrors ossn_api_comment_to_json() in
+ * components/OssnApi/v1/comments.php. `type` here is the request
+ * discriminator the endpoint itself requires ('place' | 'event'), not
+ * a field the server echoes back on each comment row.
+ */
+export interface BerxObjectComment {
+	id: number;
+	text: string;
+	time: number;
+	photo_url: string | null;
+	author: { guid: number; username: string; fullname: string; icon: string } | null;
+}
+
+export type BerxCommentableType = 'place' | 'event';
+
+/** Mirrors OssnApiToken::listSessions()'s real columns, exposed via GET /me/sessions. */
+export interface BerxSession {
+	id: number;
+	device_label: string | null;
+	created_at: number;
+	last_used_at: number | null;
+	expires_at: number;
+}
+
+/** GET /communities/{id}/requests — pending join requests, owner/admin only. */
+export interface BerxCommunityRequest {
+	guid: number;
+	username: string;
+	fullname: string;
+	icon: string;
+}
+
+export interface BerxMessageSearchResult {
+	text: string;
+	time: number;
+	outgoing: boolean;
+	user: { guid: number; username: string; fullname: string; icon: string };
+}
+
+export interface BerxBlockedUser {
+	guid: number;
+	username: string;
+	fullname: string;
+	icon: string;
+}
+
+export type BerxReportTargetType = 'dating_profile' | 'post' | 'comment' | 'user' | 'group';
+export type BerxReportReason = 'spam' | 'fake_profile' | 'harassment' | 'inappropriate_content' | 'underage' | 'other';
+
+export interface BerxPlaceSearchResult {
+	guid: number;
+	title: string;
+	category: string | null;
+	cover_url: string | null;
+	rating: number;
+}
+
+export interface BerxEventSearchResult {
+	guid: number;
+	title: string;
+	category: string | null;
+	starts: number;
+	cover_url: string | null;
+}
+
+export interface BerxCommunitySearchResult {
+	guid: number;
+	title: string;
+	owner: string | null;
+	members: number;
+}
+
+export interface BerxDatingPhotoRequest {
+	access_id: number;
+	photo_id: number;
+	requester: { guid: number; username: string; fullname: string; icon: string };
+}
+
+export interface BerxUnvalidatedUser {
+	guid: number;
+	username: string;
+	fullname: string;
+	email: string;
+	time_created: number;
+}
+
+export interface BerxGroupModerator {
+	guid: number;
+	username: string;
+	fullname: string;
+	icon: string;
+}
+
+export interface BerxFriend {
+	guid: number;
+	username: string;
+	fullname: string;
+	icon: string;
+}
+
+export interface BerxCommunityMember {
+	guid: number;
+	username: string;
+	fullname: string;
+	icon: string;
+	is_owner: boolean;
+}
+
+export interface BerxAlbumPhoto {
+	guid: number;
+	url: string;
+}
+
+export interface BerxAlbum {
+	guid: number;
+	title: string;
+	owner_guid: number;
+	access: number | null;
+	time_created: number;
+}
+
+export interface BerxAlbumDetail extends BerxAlbum {
+	photos: BerxAlbumPhoto[];
+}
+
+export interface BerxPostComment {
+	id: number;
+	text: string;
+	time: number;
+	photo_url: string | null;
+	author: { guid: number; username: string; fullname: string; icon: string } | null;
+}
+
+export type BerxCollectionItemType = 'place' | 'event' | 'post';
+export type BerxCollectionVisibility = 'private' | 'public';
+
+export interface BerxCollection {
+	id: number;
+	title: string;
+	description: string;
+	visibility: BerxCollectionVisibility;
+	owner_guid: number;
+	is_own: boolean;
+	item_count: number;
+	time_updated: number;
+}
+
+export interface BerxCollectionItem {
+	item_type: BerxCollectionItemType;
+	item_guid: number;
+	title: string;
+	image_url: string | null;
+}
+
+export interface BerxCollectionDetail extends BerxCollection {
+	items: BerxCollectionItem[];
+}
+
+export type BerxCircleKind = 'family' | 'work' | 'travel' | 'close_friends' | null;
+
+export interface BerxCircleMember {
+	guid: number;
+	username: string;
+	fullname: string;
+	icon: string;
+}
+
+export interface BerxCircle {
+	id: number;
+	name: string;
+	kind: BerxCircleKind;
+	owner_guid: number;
+	member_count: number;
+	time_created: number;
+}
+
+export interface BerxCircleDetail extends BerxCircle {
+	members: BerxCircleMember[];
+}
+
+export type BerxTripItemType = 'place' | 'event';
+
+export interface BerxTripStop {
+	stop_id: number;
+	item_type: BerxTripItemType;
+	item_guid: number;
+	title: string;
+	image_url: string | null;
+	day_number: number;
+	note: string | null;
+}
+
+export interface BerxTripParticipant {
+	guid: number;
+	username: string;
+	fullname: string;
+	icon: string;
+}
+
+export interface BerxTrip {
+	id: number;
+	title: string;
+	description: string;
+	visibility: BerxCollectionVisibility;
+	owner_guid: number;
+	is_own: boolean;
+	start_date: number | null;
+	end_date: number | null;
+	stop_count: number;
+	time_updated: number;
+}
+
+export interface BerxTripDetail extends BerxTrip {
+	stops: BerxTripStop[];
+	participants: BerxTripParticipant[];
+}
+
+export type BerxExperienceAnchorType = 'place' | 'event';
+export type BerxParticipantStatus = 'invited' | 'accepted' | 'declined';
+
+export interface BerxExperienceAnchor {
+	type: BerxExperienceAnchorType;
+	guid: number;
+	title: string;
+	image_url: string | null;
+}
+
+export interface BerxExperienceParticipant {
+	guid: number;
+	username: string;
+	fullname: string;
+	icon: string;
+	status: BerxParticipantStatus;
+}
+
+export interface BerxExperience {
+	id: number;
+	title: string;
+	description: string;
+	anchor: BerxExperienceAnchor | null;
+	visibility: BerxCollectionVisibility;
+	owner_guid: number;
+	is_own: boolean;
+	scheduled_start: number;
+	scheduled_end: number | null;
+	my_status: BerxParticipantStatus | null;
+}
+
+export interface BerxExperienceDetail extends BerxExperience {
+	participants: BerxExperienceParticipant[];
+}
+
+export interface BerxCreatorAudience {
+	friend_count: number;
+	total_views: number;
+	views_last_30_days: number;
+}
+
+export interface BerxCreatorProfile {
+	user_guid: number;
+	category: string | null;
+	bio: string | null;
+	is_own: boolean;
+	time_enabled: number;
+	audience: BerxCreatorAudience;
+}
+
+export interface BerxCreatorPostItem {
+	guid: number;
+	text: string;
+	time: number;
+}
+
+export interface BerxCreatorAlbumItem {
+	guid: number;
+	title: string;
+}
+
+export interface BerxCreatorEventItem {
+	guid: number;
+	title: string;
+	starts: number;
+	image_url: string | null;
+}
+
+export interface BerxCreatorExperienceItem {
+	id: number;
+	title: string;
+	anchor_title: string | null;
+	image_url: string | null;
+	scheduled_start: number;
+}
+
+export interface BerxCreatorContent {
+	posts: BerxCreatorPostItem[];
+	albums: BerxCreatorAlbumItem[];
+	events: BerxCreatorEventItem[];
+	experiences: BerxCreatorExperienceItem[];
+}
+
+export type BerxMediaType = 'image' | 'video' | 'audio';
+
+export interface BerxMediaAsset {
+	guid: number;
+	owner_guid: number;
+	media_type: BerxMediaType;
+	mime: string;
+	width: number | null;
+	height: number | null;
+	duration_seconds: number | null;
+	status: string;
+	context_type: string | null;
+	context_guid: number | null;
+	url: string | null;
+	time_created: number;
+}
+
+export interface BerxVideoAsset {
+	asset_guid: number;
+	url: string;
+	width: number | null;
+	height: number | null;
+	duration_seconds: number | null;
+}
+
+export interface BerxVideoPost {
+	post_guid: number;
+	text: string;
+	owner_guid: number;
+	owner_username: string | null;
+	owner_icon: string | null;
+	time_created: number;
+	like_count: number;
+	comment_count: number;
+	video: BerxVideoAsset;
+}
+
+export interface BerxTrackAsset {
+	asset_guid: number;
+	url: string;
+	duration_seconds: number | null;
+}
+
+export interface BerxTrackPost {
+	post_guid: number;
+	text: string;
+	owner_guid: number;
+	owner_username: string | null;
+	owner_icon: string | null;
+	time_created: number;
+	like_count: number;
+	comment_count: number;
+	track: BerxTrackAsset;
+}
+
+export interface BerxOwnerReply {
+	text: string;
+	time_created: number;
+}
+
+export type BerxClaimStatus = 'pending' | 'approved' | 'rejected';
+
+export interface BerxPlaceClaim {
+	id: number;
+	place_guid: number;
+	requester_guid: number;
+	message: string | null;
+	status: BerxClaimStatus;
+	time_created: number;
+	time_reviewed: number | null;
+}
+
+export type BerxMemoryType = 'post' | 'photo';
+
+/**
+ * Post visibility — server-authoritative, checked at every read path
+ * (posts.php GET/comments, feed.php, videos.php, tracks.php,
+ * collections.php, OssnCreator::recentPosts()). Absent = 'public'.
+ * A `circle:{id}` value is only accepted server-side if the caller
+ * actually owns that circle.
+ */
+export type BerxPostVisibility = 'public' | 'friends' | `circle:${number}`;
+
+export interface BerxMemory {
+	type: BerxMemoryType;
+	guid: number;
+	years_ago: number;
+	time: number;
+	text?: string;
+	url?: string;
+	album_guid?: number;
+}
+
+/**
+ * Error response shape lives in @berx/core as BerxApiErrorBody, not
+ * duplicated here — this file is response/request DATA types only,
+ * transport-level error shape belongs with the transport primitives.
+ */

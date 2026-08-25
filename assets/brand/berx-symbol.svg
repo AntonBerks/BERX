@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" role="img" aria-label="Символ BERX">
+  <defs>
+    <linearGradient id="bg1" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#22F1E7"/>
+      <stop offset=".55" stop-color="#2F6DFF"/>
+      <stop offset="1" stop-color="#8A4BFF"/>
+    </linearGradient>
+    <linearGradient id="hl1" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity=".55"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+    </linearGradient>
+    <filter id="glow1" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="4.2" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <g filter="url(#glow1)">
+    <g fill="none" stroke="url(#bg1)" stroke-width="9" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M34 21V99"/>
+      <path d="M34 21h35a19 19 0 0 1 0 38H34"/>
+      <path d="M34 59h39a20 20 0 0 1 0 40H34"/>
+    </g>
+    <g fill="none" stroke="url(#hl1)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" opacity=".8">
+      <path d="M34 21h35a19 19 0 0 1 0 38"/>
+    </g>
+  </g>
+  <circle class="sp" cx="95" cy="27" r="5" fill="#22F1E7"/>
+</svg>

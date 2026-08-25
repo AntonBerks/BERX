@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 160" role="img" aria-label="BERX — место, где люди находят впечатления">
+  <defs>
+    <linearGradient id="lbg1" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#22F1E7"/><stop offset=".55" stop-color="#2F6DFF"/><stop offset="1" stop-color="#8A4BFF"/>
+    </linearGradient>
+  </defs>
+  <g transform="translate(100,6) scale(.66)">
+    <g fill="none" stroke="url(#lbg1)" stroke-width="9" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M34 21V99"/>
+      <path d="M34 21h35a19 19 0 0 1 0 38H34"/>
+      <path d="M34 59h39a20 20 0 0 1 0 40H34"/>
+    </g>
+    <circle cx="95" cy="27" r="5" fill="#22F1E7"/>
+  </g>
+  <text x="160" y="112" text-anchor="middle" font-family="'Inter Tight',Inter,-apple-system,'Segoe UI',Roboto,Arial,sans-serif"
+        font-weight="700" font-size="30" letter-spacing="4" fill="#EAF0FF">BERX</text>
+  <text x="160" y="136" text-anchor="middle" font-family="'Inter Tight',Inter,-apple-system,'Segoe UI',Roboto,Arial,sans-serif"
+        font-weight="500" font-size="12" letter-spacing=".2" fill="#9AA4C0">Место, где люди находят впечатления</text>
+</svg>

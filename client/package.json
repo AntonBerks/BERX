@@ -1,0 +1,17 @@
+{
+  "name": "berx-client",
+  "private": true,
+  "version": "0.1.0",
+  "description": "BERX mobile client monorepo foundation",
+  "workspaces": ["apps/mobile", "packages/*"],
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "verify:static": "bash ./scripts/verify-static.sh"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.3"
+  }
+}

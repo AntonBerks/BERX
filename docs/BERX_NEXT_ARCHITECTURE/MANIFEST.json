@@ -1,0 +1,13 @@
+{
+  "name": "BERX_NEXT_ARCHITECTURE",
+  "version": "2026-08-25",
+  "backend_authority": "OSSN/PHP/MySQL",
+  "frontend": ["React Native", "TypeScript", "Web client"],
+  "screen_target": 250,
+  "screen_registry": "docs/screens/SCREEN_REGISTRY_250.json",
+  "status_policy": "docs/release/STATUS_POLICY.md",
+  "implementation_rule": "docs/architecture/VERTICAL_SLICE_RULE.md",
+  "source_project": "../project",
+  "runtime_ready": false,
+  "note": "Architecture target and implementation map; not a claim that all 250 screens are runtime implemented."
+}

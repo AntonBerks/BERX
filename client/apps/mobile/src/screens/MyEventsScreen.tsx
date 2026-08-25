@@ -1,0 +1,81 @@
+/**
+ * !!! VERIFICATION STATUS: UNVERIFIED — see LoginScreen.tsx header.
+ * Real data: api.myGoingEvents() (components/OssnApi/v1/events.php).
+ */
+import React, {useCallback, useEffect, useState} from 'react';
+import {View, Text, FlatList, Image, Pressable, StyleSheet} from 'react-native';
+import type {BerxApiClient} from '@berx/api/client';
+import type {BerxEvent} from '@berx/api/types';
+import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
+import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
+import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
+
+interface Props {
+	api: BerxApiClient;
+	onOpenEvent: (guid: number) => void;
+	onBack?: () => void;
+}
+
+export default function MyEventsScreen({api, onOpenEvent, onBack}: Props) {
+	const [items, setItems] = useState<BerxEvent[]>([]);
+	const [loading, setLoading] = useState(true);
+	const [error, setError] = useState<string | null>(null);
+
+	const load = useCallback(async () => {
+		setLoading(true);
+		setError(null);
+		try {
+			const res = await api.myGoingEvents();
+			setItems(res.events);
+		} catch (e) {
+			setError(e instanceof Error ? e.message : 'Не удалось загрузить события');
+		} finally {
+			setLoading(false);
+		}
+	}, [api]);
+
+	useEffect(() => {
+		load();
+	}, [load]);
+
+	if (loading) return <BerxLoadingState />;
+	if (error) return <BerxErrorState message={error} onRetry={load} />;
+
+	return (
+		<View style={styles.screen}>
+			<BerxHeader title="Я иду" onBack={onBack} />
+			{items.length === 0 ? (
+				<BerxEmptyState title="Вы никуда не записаны" subtitle="Нажмите «Пойду» на странице события, чтобы оно появилось здесь." />
+			) : (
+				<FlatList
+					data={items}
+					keyExtractor={(e: BerxEvent) => String(e.guid)}
+					contentContainerStyle={styles.list}
+					renderItem={({item}: {item: BerxEvent}) => {
+						const date = new Date(item.starts * 1000);
+						return (
+							<Pressable style={styles.card} onPress={() => onOpenEvent(item.guid)}>
+								{item.cover_url ? <Image source={{uri: item.cover_url}} style={styles.cardImage} /> : <View style={styles.cardImageFallback} />}
+								<View style={styles.cardBody}>
+									<Text style={styles.cardTitle} numberOfLines={1}>{item.title}</Text>
+									<Text style={styles.cardMeta}>{date.toLocaleDateString('ru-RU', {day: 'numeric', month: 'long'})}</Text>
+								</View>
+							</Pressable>
+						);
+					}}
+				/>
+			)}
+		</View>
+	);
+}
+
+const styles = StyleSheet.create({
+	screen: {flex: 1, backgroundColor: colors.bg},
+	list: {padding: spacing.md, gap: spacing.sm},
+	card: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.surface, borderRadius: radius.md, padding: spacing.sm, marginBottom: spacing.sm},
+	cardImage: {width: 56, height: 56, borderRadius: radius.sm},
+	cardImageFallback: {width: 56, height: 56, borderRadius: radius.sm, backgroundColor: colors.graphite},
+	cardBody: {flex: 1},
+	cardTitle: {fontSize: typography.sizeBase, color: colors.white, fontWeight: typography.weightMedium},
+	cardMeta: {fontSize: typography.sizeXs, color: colors.textFaint},
+});

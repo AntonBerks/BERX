@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<theme xmlns="http://www.opensource-socialnetwork.org/theme/v/3.0">
+    <name>BERX</name>
+    <id>berx</id>
+    <author>BERX</author>
+    <author_url>https://berx.app/</author_url>
+    <description>BERX — premium dark theme (black / graphite / orange) built on the OSSN engine.</description>
+    <license>Open Source Social Network License (OSSN LICENSE)</license>
+    <license_url>https://www.opensource-socialnetwork.org/licence</license_url>
+    <version>1.0</version>
+    <requires>
+        <type>ossn_version</type>
+        <version>9.9</version>
+    </requires>
+</theme>

@@ -1,0 +1,29 @@
+<?php
+/**
+ * Open Source Social Network
+ *
+ * @package   Open Source Social Network (OSSN)
+ * @author    OSSN Core Team <info@openteknik.com>
+ * @copyright (C) OpenTeknik LLC
+ * @license   Open Source Social Network License (OSSN LICENSE)  http://www.opensource-socialnetwork.org/licence
+ * @link      https://www.opensource-socialnetwork.org/
+ */
+ossn_register_languages('pt', array(
+	'goblue:settings' => 'GoBlue',
+	'admin:theme:goblue' => 'GoBlue',
+	'theme:goblue:logo:site' => 'Logotipo do site',
+	'theme:goblue:logo:admin' => 'Logotipo da administração',
+	'theme:goblue:logo:large' => 'O arquivo do logotipo é muito grande!',
+	'theme:goblue:logo:failed' => 'O upload do logotipo falhou',
+	'theme:goblue:logo:changed' => 'O logotipo foi alterado.',
+	'theme:goblue:browercache' => 'No caso de não aparecerem imagens. Por favor, limpe o cache do seu navegador para fazer as imagens aparecerem',
+    'feature:homepage:groups'        => 'Criar e Entrar em Grupos',
+    'feature:homepage:profiles'      => 'Perfis Pessoais',
+    'feature:homepage:photos'        => 'Compartilhar Fotos e Vídeos',
+    'feature:homepage:comments'      => 'Deixar Comentários',
+    'feature:homepage:likes'         => 'Curtidas e Reações',
+    'feature:homepage:messaging'     => 'Mensagens Privadas',
+    'feature:homepage:notifications' => 'Notificações e Alertas',
+    'feature:homepage:search'        => 'Busca Fácil e Descobertas',
+    'feature:homepage:collaboration' => 'Compartilhar e Colaborar',	
+));

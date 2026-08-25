@@ -1,0 +1,29 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "noEmit": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "lib": ["ES2020", "DOM"],
+    "skipLibCheck": true,
+    "paths": {
+      "@berx/core": ["./packages/core/src/index.ts"],
+      "@berx/api/types": ["./packages/api/src/types.ts"],
+      "@berx/api/client": ["./packages/api/src/client.ts"],
+      "@berx/domain": ["./packages/domain/src/index.ts"],
+      "@berx/auth": ["./packages/auth/src/index.ts"],
+      "@berx/design-system/tokens": ["./packages/design-system/src/tokens/index.ts"],
+      "@berx/platform/mediaPicker": ["./packages/platform/src/mediaPicker.ts"],
+      "@berx/platform/audioPicker": ["./packages/platform/src/audioPicker.ts"],
+      "@berx/design-system/*": ["./packages/design-system/src/*"],
+      "@berx/platform/*": ["./packages/platform/src/*"]
+    },
+    "jsx": "react-jsx",
+    "allowJs": true
+  },
+  "include": ["packages/**/*.ts", "packages/**/*.tsx", "apps/**/*.ts", "apps/**/*.tsx", "index.js"],
+  "exclude": ["packages/platform/src/mediaPicker.ts", "packages/platform/src/audioPicker.ts"]
+}

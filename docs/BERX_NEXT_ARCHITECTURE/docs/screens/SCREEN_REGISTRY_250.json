@@ -1,0 +1,2002 @@
+[
+  {
+    "id": 1,
+    "screen": "Welcome",
+    "purpose": "Production surface for Auth",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 2,
+    "screen": "Login",
+    "purpose": "Production surface for Auth",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 3,
+    "screen": "Register",
+    "purpose": "Production surface for Auth",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 4,
+    "screen": "Email Verification",
+    "purpose": "Production surface for Auth",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 5,
+    "screen": "Password Recovery",
+    "purpose": "Production surface for Auth",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 6,
+    "screen": "Reset Password",
+    "purpose": "Production surface for Auth",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 7,
+    "screen": "Username Setup",
+    "purpose": "Production surface for Auth",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 8,
+    "screen": "Onboarding Complete",
+    "purpose": "Production surface for Auth",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 9,
+    "screen": "Home Feed",
+    "purpose": "Production surface for Feed",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 10,
+    "screen": "Following Feed",
+    "purpose": "Production surface for Feed",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 11,
+    "screen": "For You Feed",
+    "purpose": "Production surface for Feed",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 12,
+    "screen": "Feed Filters",
+    "purpose": "Production surface for Feed",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 13,
+    "screen": "Post Detail",
+    "purpose": "Production surface for Feed",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 14,
+    "screen": "Comments Sheet",
+    "purpose": "Production surface for Feed",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 15,
+    "screen": "Share Sheet",
+    "purpose": "Production surface for Feed",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 16,
+    "screen": "Saved Posts",
+    "purpose": "Production surface for Feed",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 17,
+    "screen": "Feed Preferences",
+    "purpose": "Production surface for Feed",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 18,
+    "screen": "Feed Error Recovery",
+    "purpose": "Production surface for Feed",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 19,
+    "screen": "My Profile",
+    "purpose": "Production surface for Profile",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 20,
+    "screen": "Edit Profile",
+    "purpose": "Production surface for Profile",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 21,
+    "screen": "Avatar Editor",
+    "purpose": "Production surface for Profile",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 22,
+    "screen": "Profile Posts",
+    "purpose": "Production surface for Profile",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 23,
+    "screen": "Profile Media",
+    "purpose": "Production surface for Profile",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 24,
+    "screen": "Profile Followers",
+    "purpose": "Production surface for Profile",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 25,
+    "screen": "Profile Following",
+    "purpose": "Production surface for Profile",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 26,
+    "screen": "Other User Profile",
+    "purpose": "Production surface for Profile",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 27,
+    "screen": "Profile About",
+    "purpose": "Production surface for Profile",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 28,
+    "screen": "Profile Privacy Preview",
+    "purpose": "Production surface for Profile",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 29,
+    "screen": "People Suggestions",
+    "purpose": "Production surface for Social Graph",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 30,
+    "screen": "Follow Requests",
+    "purpose": "Production surface for Social Graph",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 31,
+    "screen": "Friend Requests",
+    "purpose": "Production surface for Social Graph",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 32,
+    "screen": "Followers List",
+    "purpose": "Production surface for Social Graph",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 33,
+    "screen": "Following List",
+    "purpose": "Production surface for Social Graph",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 34,
+    "screen": "Close Friends",
+    "purpose": "Production surface for Social Graph",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 35,
+    "screen": "Circles Manager",
+    "purpose": "Production surface for Social Graph",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 36,
+    "screen": "Blocked Users",
+    "purpose": "Production surface for Social Graph",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 37,
+    "screen": "Muted Users",
+    "purpose": "Production surface for Social Graph",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 38,
+    "screen": "Relationship Actions",
+    "purpose": "Production surface for Social Graph",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 39,
+    "screen": "Create Post",
+    "purpose": "Production surface for Posts",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 40,
+    "screen": "Edit Post",
+    "purpose": "Production surface for Posts",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 41,
+    "screen": "Post Composer Media",
+    "purpose": "Production surface for Posts",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 42,
+    "screen": "Post Location",
+    "purpose": "Production surface for Posts",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 43,
+    "screen": "Post Audience",
+    "purpose": "Production surface for Posts",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 44,
+    "screen": "Post Poll",
+    "purpose": "Production surface for Posts",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 45,
+    "screen": "Post Reactions",
+    "purpose": "Production surface for Posts",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 46,
+    "screen": "Post Shares",
+    "purpose": "Production surface for Posts",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 47,
+    "screen": "Post Reports",
+    "purpose": "Production surface for Posts",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 48,
+    "screen": "Post Delete Confirmation",
+    "purpose": "Production surface for Posts",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 49,
+    "screen": "Stories Rail",
+    "purpose": "Production surface for Stories",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 50,
+    "screen": "Story Viewer",
+    "purpose": "Production surface for Stories",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 51,
+    "screen": "Create Story",
+    "purpose": "Production surface for Stories",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 52,
+    "screen": "Story Camera",
+    "purpose": "Production surface for Stories",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 53,
+    "screen": "Story Media Editor",
+    "purpose": "Production surface for Stories",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 54,
+    "screen": "Story Audience",
+    "purpose": "Production surface for Stories",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 55,
+    "screen": "Story Viewers",
+    "purpose": "Production surface for Stories",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 56,
+    "screen": "Story Replies",
+    "purpose": "Production surface for Stories",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 57,
+    "screen": "Story Archive",
+    "purpose": "Production surface for Stories",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 58,
+    "screen": "Story Highlights",
+    "purpose": "Production surface for Stories",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 59,
+    "screen": "Reels Feed",
+    "purpose": "Production surface for Reels / Video",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 60,
+    "screen": "Reel Viewer",
+    "purpose": "Production surface for Reels / Video",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 61,
+    "screen": "Create Reel",
+    "purpose": "Production surface for Reels / Video",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 62,
+    "screen": "Video Recorder",
+    "purpose": "Production surface for Reels / Video",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 63,
+    "screen": "Video Editor",
+    "purpose": "Production surface for Reels / Video",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 64,
+    "screen": "Video Upload",
+    "purpose": "Production surface for Reels / Video",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 65,
+    "screen": "Reel Audio Picker",
+    "purpose": "Production surface for Reels / Video",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 66,
+    "screen": "Reel Comments",
+    "purpose": "Production surface for Reels / Video",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 67,
+    "screen": "Reel Insights",
+    "purpose": "Production surface for Reels / Video",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 68,
+    "screen": "Video Report",
+    "purpose": "Production surface for Reels / Video",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 69,
+    "screen": "Conversation List",
+    "purpose": "Production surface for Messages / Chat",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 70,
+    "screen": "Conversation Detail",
+    "purpose": "Production surface for Messages / Chat",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 71,
+    "screen": "New Conversation",
+    "purpose": "Production surface for Messages / Chat",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 72,
+    "screen": "Message Composer",
+    "purpose": "Production surface for Messages / Chat",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 73,
+    "screen": "Attachment Picker",
+    "purpose": "Production surface for Messages / Chat",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 74,
+    "screen": "Media Attachment Preview",
+    "purpose": "Production surface for Messages / Chat",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 75,
+    "screen": "Typing State",
+    "purpose": "Production surface for Messages / Chat",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 76,
+    "screen": "Message Search",
+    "purpose": "Production surface for Messages / Chat",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 77,
+    "screen": "Message Info",
+    "purpose": "Production surface for Messages / Chat",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 78,
+    "screen": "Conversation Settings",
+    "purpose": "Production surface for Messages / Chat",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 79,
+    "screen": "Notification Center",
+    "purpose": "Production surface for Notifications",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 80,
+    "screen": "Unread Notifications",
+    "purpose": "Production surface for Notifications",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 81,
+    "screen": "Notification Detail",
+    "purpose": "Production surface for Notifications",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 82,
+    "screen": "Notification Preferences",
+    "purpose": "Production surface for Notifications",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 83,
+    "screen": "Community Discover",
+    "purpose": "Production surface for Communities",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 84,
+    "screen": "Community Home",
+    "purpose": "Production surface for Communities",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 85,
+    "screen": "Community Feed",
+    "purpose": "Production surface for Communities",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 86,
+    "screen": "Community Members",
+    "purpose": "Production surface for Communities",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 87,
+    "screen": "Community Join Request",
+    "purpose": "Production surface for Communities",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 88,
+    "screen": "Community Create",
+    "purpose": "Production surface for Communities",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 89,
+    "screen": "Community Settings",
+    "purpose": "Production surface for Communities",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 90,
+    "screen": "Community Roles",
+    "purpose": "Production surface for Communities",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 91,
+    "screen": "Community Moderation",
+    "purpose": "Production surface for Communities",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 92,
+    "screen": "Community Events",
+    "purpose": "Production surface for Communities",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 93,
+    "screen": "Places Discover",
+    "purpose": "Production surface for Places",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 94,
+    "screen": "Place Detail",
+    "purpose": "Production surface for Places",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 95,
+    "screen": "Place Map",
+    "purpose": "Production surface for Places",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 96,
+    "screen": "Place Reviews",
+    "purpose": "Production surface for Places",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 97,
+    "screen": "Write Place Review",
+    "purpose": "Production surface for Places",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 98,
+    "screen": "Place Photos",
+    "purpose": "Production surface for Places",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 99,
+    "screen": "Saved Places",
+    "purpose": "Production surface for Places",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 100,
+    "screen": "Place Check-In",
+    "purpose": "Production surface for Places",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 101,
+    "screen": "Place Hours",
+    "purpose": "Production surface for Places",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 102,
+    "screen": "Place Directions",
+    "purpose": "Production surface for Places",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 103,
+    "screen": "NOW Nearby",
+    "purpose": "Production surface for BERX NOW",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 104,
+    "screen": "NOW Map",
+    "purpose": "Production surface for BERX NOW",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 105,
+    "screen": "NOW Business Moments",
+    "purpose": "Production surface for BERX NOW",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 106,
+    "screen": "NOW Moment Detail",
+    "purpose": "Production surface for BERX NOW",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 107,
+    "screen": "NOW Filters",
+    "purpose": "Production surface for BERX NOW",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 108,
+    "screen": "NOW Check-In",
+    "purpose": "Production surface for BERX NOW",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 109,
+    "screen": "NOW Live Place Activity",
+    "purpose": "Production surface for BERX NOW",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 110,
+    "screen": "NOW Create Moment",
+    "purpose": "Production surface for BERX NOW",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 111,
+    "screen": "NOW Moment Expiry",
+    "purpose": "Production surface for BERX NOW",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 112,
+    "screen": "NOW Safety/Privacy",
+    "purpose": "Production surface for BERX NOW",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 113,
+    "screen": "Events Discover",
+    "purpose": "Production surface for Events",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 114,
+    "screen": "Event Detail",
+    "purpose": "Production surface for Events",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 115,
+    "screen": "Event Map",
+    "purpose": "Production surface for Events",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 116,
+    "screen": "Event Attendees",
+    "purpose": "Production surface for Events",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 117,
+    "screen": "Event RSVP",
+    "purpose": "Production surface for Events",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 118,
+    "screen": "Event Create",
+    "purpose": "Production surface for Events",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 119,
+    "screen": "Event Edit",
+    "purpose": "Production surface for Events",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 120,
+    "screen": "Event Schedule",
+    "purpose": "Production surface for Events",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 121,
+    "screen": "Event Discussion",
+    "purpose": "Production surface for Events",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 122,
+    "screen": "Event Notifications",
+    "purpose": "Production surface for Events",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 123,
+    "screen": "Match Discover",
+    "purpose": "Production surface for Match",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 124,
+    "screen": "Match Profile",
+    "purpose": "Production surface for Match",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 125,
+    "screen": "Like Confirmation",
+    "purpose": "Production surface for Match",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 126,
+    "screen": "Pass Flow",
+    "purpose": "Production surface for Match",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 127,
+    "screen": "Superlike Flow",
+    "purpose": "Production surface for Match",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 128,
+    "screen": "Matches List",
+    "purpose": "Production surface for Match",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 129,
+    "screen": "Match Detail",
+    "purpose": "Production surface for Match",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 130,
+    "screen": "Match Conversation",
+    "purpose": "Production surface for Match",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 131,
+    "screen": "Match Preferences",
+    "purpose": "Production surface for Match",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 132,
+    "screen": "Match Safety/Report",
+    "purpose": "Production surface for Match",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 133,
+    "screen": "Global Search",
+    "purpose": "Production surface for Discover / Search",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 134,
+    "screen": "People Search",
+    "purpose": "Production surface for Discover / Search",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 135,
+    "screen": "Places Search",
+    "purpose": "Production surface for Discover / Search",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 136,
+    "screen": "Events Search",
+    "purpose": "Production surface for Discover / Search",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 137,
+    "screen": "Communities Search",
+    "purpose": "Production surface for Discover / Search",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 138,
+    "screen": "Creator Search",
+    "purpose": "Production surface for Discover / Search",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 139,
+    "screen": "Hashtag Search",
+    "purpose": "Production surface for Discover / Search",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 140,
+    "screen": "Search Filters",
+    "purpose": "Production surface for Discover / Search",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 141,
+    "screen": "Trending",
+    "purpose": "Production surface for Discover / Search",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 142,
+    "screen": "Discover Home",
+    "purpose": "Production surface for Discover / Search",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 143,
+    "screen": "Creator Profile",
+    "purpose": "Production surface for Creator",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 144,
+    "screen": "Creator Dashboard",
+    "purpose": "Production surface for Creator",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 145,
+    "screen": "Creator Content",
+    "purpose": "Production surface for Creator",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 146,
+    "screen": "Creator Audience",
+    "purpose": "Production surface for Creator",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 147,
+    "screen": "Creator View Log",
+    "purpose": "Production surface for Creator",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 148,
+    "screen": "Creator Insights",
+    "purpose": "Production surface for Creator",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 149,
+    "screen": "Creator Media",
+    "purpose": "Production surface for Creator",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 150,
+    "screen": "Creator Settings",
+    "purpose": "Production surface for Creator",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 151,
+    "screen": "Collections Home",
+    "purpose": "Production surface for Collections",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 152,
+    "screen": "Create Collection",
+    "purpose": "Production surface for Collections",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 153,
+    "screen": "Collection Detail",
+    "purpose": "Production surface for Collections",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 154,
+    "screen": "Add to Collection",
+    "purpose": "Production surface for Collections",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 155,
+    "screen": "Collection Items",
+    "purpose": "Production surface for Collections",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 156,
+    "screen": "Edit Collection",
+    "purpose": "Production surface for Collections",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 157,
+    "screen": "Shared Collection",
+    "purpose": "Production surface for Collections",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 158,
+    "screen": "Collection Privacy",
+    "purpose": "Production surface for Collections",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 159,
+    "screen": "Collection Search",
+    "purpose": "Production surface for Collections",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 160,
+    "screen": "Collection Delete",
+    "purpose": "Production surface for Collections",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 161,
+    "screen": "Experience Discover",
+    "purpose": "Production surface for Experiences",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 162,
+    "screen": "Experience Detail",
+    "purpose": "Production surface for Experiences",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 163,
+    "screen": "Create Experience",
+    "purpose": "Production surface for Experiences",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 164,
+    "screen": "Experience Schedule",
+    "purpose": "Production surface for Experiences",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 165,
+    "screen": "Experience Participants",
+    "purpose": "Production surface for Experiences",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 166,
+    "screen": "Experience Check-In",
+    "purpose": "Production surface for Experiences",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 167,
+    "screen": "Experience Review",
+    "purpose": "Production surface for Experiences",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 168,
+    "screen": "Experience Media",
+    "purpose": "Production surface for Experiences",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 169,
+    "screen": "Experience Edit",
+    "purpose": "Production surface for Experiences",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 170,
+    "screen": "Experience Completion",
+    "purpose": "Production surface for Experiences",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 171,
+    "screen": "Trips Home",
+    "purpose": "Production surface for Trips",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 172,
+    "screen": "Create Trip",
+    "purpose": "Production surface for Trips",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 173,
+    "screen": "Trip Overview",
+    "purpose": "Production surface for Trips",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 174,
+    "screen": "Trip Day Planner",
+    "purpose": "Production surface for Trips",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 175,
+    "screen": "Trip Place Stop",
+    "purpose": "Production surface for Trips",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 176,
+    "screen": "Trip Event Stop",
+    "purpose": "Production surface for Trips",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 177,
+    "screen": "Trip Experience Stop",
+    "purpose": "Production surface for Trips",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 178,
+    "screen": "Trip Map",
+    "purpose": "Production surface for Trips",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 179,
+    "screen": "Trip Sharing",
+    "purpose": "Production surface for Trips",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 180,
+    "screen": "Trip Archive",
+    "purpose": "Production surface for Trips",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 181,
+    "screen": "Points Balance",
+    "purpose": "Production surface for Rewards",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 182,
+    "screen": "Points History",
+    "purpose": "Production surface for Rewards",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 183,
+    "screen": "Levels",
+    "purpose": "Production surface for Rewards",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 184,
+    "screen": "Achievements",
+    "purpose": "Production surface for Rewards",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 185,
+    "screen": "Reward Detail",
+    "purpose": "Production surface for Rewards",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 186,
+    "screen": "Reward Redemption",
+    "purpose": "Production surface for Rewards",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 187,
+    "screen": "Activity Verification",
+    "purpose": "Production surface for Rewards",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 188,
+    "screen": "Points Leaderboard",
+    "purpose": "Production surface for Rewards",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 189,
+    "screen": "Rewards History",
+    "purpose": "Production surface for Rewards",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 190,
+    "screen": "Rewards Rules",
+    "purpose": "Production surface for Rewards",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 191,
+    "screen": "Business Discover",
+    "purpose": "Production surface for Business",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 192,
+    "screen": "Business Profile",
+    "purpose": "Production surface for Business",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 193,
+    "screen": "Business Dashboard",
+    "purpose": "Production surface for Business",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 194,
+    "screen": "Business Edit Profile",
+    "purpose": "Production surface for Business",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 195,
+    "screen": "Business Media",
+    "purpose": "Production surface for Business",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 196,
+    "screen": "Business Team",
+    "purpose": "Production surface for Business",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 197,
+    "screen": "Business Claims",
+    "purpose": "Production surface for Business",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 198,
+    "screen": "Business Reviews",
+    "purpose": "Production surface for Business",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 199,
+    "screen": "Business Review Replies",
+    "purpose": "Production surface for Business",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 200,
+    "screen": "Business Analytics",
+    "purpose": "Production surface for Business",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 201,
+    "screen": "Business Moments",
+    "purpose": "Production surface for Business",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 202,
+    "screen": "Business Offers Dashboard",
+    "purpose": "Production surface for Business",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 203,
+    "screen": "Business Offers",
+    "purpose": "Production surface for Commerce",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 204,
+    "screen": "Offer Detail",
+    "purpose": "Production surface for Commerce",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 205,
+    "screen": "Create Offer",
+    "purpose": "Production surface for Commerce",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 206,
+    "screen": "Offer Management",
+    "purpose": "Production surface for Commerce",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 207,
+    "screen": "Product Catalog",
+    "purpose": "Production surface for Commerce",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 208,
+    "screen": "Product Detail",
+    "purpose": "Production surface for Commerce",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 209,
+    "screen": "Booking Flow",
+    "purpose": "Production surface for Commerce",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 210,
+    "screen": "Booking Management",
+    "purpose": "Production surface for Commerce",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 211,
+    "screen": "Payment Boundary",
+    "purpose": "Production surface for Commerce",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 212,
+    "screen": "Commerce Analytics",
+    "purpose": "Production surface for Commerce",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 213,
+    "screen": "Booking Confirmation",
+    "purpose": "Production surface for Commerce",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 214,
+    "screen": "Order/Booking History",
+    "purpose": "Production surface for Commerce",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 215,
+    "screen": "Settings Home",
+    "purpose": "Production surface for Settings / Security",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 216,
+    "screen": "Account Settings",
+    "purpose": "Production surface for Settings / Security",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 217,
+    "screen": "Privacy Settings",
+    "purpose": "Production surface for Settings / Security",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 218,
+    "screen": "Notification Settings",
+    "purpose": "Production surface for Settings / Security",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 219,
+    "screen": "Security Settings",
+    "purpose": "Production surface for Settings / Security",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 220,
+    "screen": "Sessions & Devices",
+    "purpose": "Production surface for Settings / Security",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 221,
+    "screen": "Password Change",
+    "purpose": "Production surface for Settings / Security",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 222,
+    "screen": "Data Export",
+    "purpose": "Production surface for Settings / Security",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 223,
+    "screen": "Account Deletion",
+    "purpose": "Production surface for Settings / Security",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 224,
+    "screen": "Legal & Consent",
+    "purpose": "Production surface for Settings / Security",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 225,
+    "screen": "Blocked & Muted Management",
+    "purpose": "Production surface for Settings / Security",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 226,
+    "screen": "Privacy Activity Log",
+    "purpose": "Production surface for Settings / Security",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 227,
+    "screen": "Admin Dashboard",
+    "purpose": "Production surface for Admin / Moderation",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 228,
+    "screen": "Reports Queue",
+    "purpose": "Production surface for Admin / Moderation",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 229,
+    "screen": "Report Detail",
+    "purpose": "Production surface for Admin / Moderation",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 230,
+    "screen": "User Moderation",
+    "purpose": "Production surface for Admin / Moderation",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 231,
+    "screen": "Content Moderation",
+    "purpose": "Production surface for Admin / Moderation",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 232,
+    "screen": "Business Verification",
+    "purpose": "Production surface for Admin / Moderation",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 233,
+    "screen": "Audit Log",
+    "purpose": "Production surface for Admin / Moderation",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 234,
+    "screen": "Admin Users",
+    "purpose": "Production surface for Admin / Moderation",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 235,
+    "screen": "Feature Flags",
+    "purpose": "Production surface for Admin / Moderation",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 236,
+    "screen": "System Health",
+    "purpose": "Production surface for Admin / Moderation",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 237,
+    "screen": "Media Library",
+    "purpose": "Production surface for Media",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 238,
+    "screen": "Image Viewer",
+    "purpose": "Production surface for Media",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 239,
+    "screen": "Video Player",
+    "purpose": "Production surface for Media",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 240,
+    "screen": "Audio Player",
+    "purpose": "Production surface for Media",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 241,
+    "screen": "Media Upload",
+    "purpose": "Production surface for Media",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 242,
+    "screen": "Media Processing",
+    "purpose": "Production surface for Media",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 243,
+    "screen": "Media Permissions",
+    "purpose": "Production surface for Media",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 244,
+    "screen": "Media Error Recovery",
+    "purpose": "Production surface for Media",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 245,
+    "screen": "Media Storage Status",
+    "purpose": "Production surface for Media",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 246,
+    "screen": "Media Cleanup",
+    "purpose": "Production surface for Media",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 247,
+    "screen": "Media Details",
+    "purpose": "Production surface for Media",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 248,
+    "screen": "Media Access Control",
+    "purpose": "Production surface for Media",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 249,
+    "screen": "Upload Queue",
+    "purpose": "Production surface for Media",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  },
+  {
+    "id": 250,
+    "screen": "Processing Failure Detail",
+    "purpose": "Production surface for Media",
+    "backend": "OSSN domain + `/api/v1` contract",
+    "primary_action": "Domain action",
+    "status": "PLANNED"
+  }
+]

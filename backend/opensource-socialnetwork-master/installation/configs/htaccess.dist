@@ -1,0 +1,96 @@
+# v9.1.0.0
+# Open Source Social Network
+#
+# @package   .htaccess.ossn
+# @author    OSSN Core Team <info@opensource-socialnetwork.org>
+# @copyright (c) Engr. Syed Arsalan Hussain Shah (OpenTeknik LLC)
+# @license   OPEN SOURCE SOCIAL NETWORK LICENSE https://opensource-socialnetwork.org/licence 
+# @link      https://www.opensource-socialnetwork.org 
+
+Options -Indexes
+Options +SymlinksIfOwnerMatch
+DirectoryIndex index.php
+
+<Files "error_log">
+	order allow,deny
+	deny from all
+</Files>
+
+<Files ".user.ini">
+	order allow,deny
+	deny from all
+</Files>
+
+<FilesMatch "(nginx|htaccess).dist">
+	order allow,deny
+	deny from all
+</FilesMatch>
+
+#Disallow CLI and CRON script and other from browser
+RedirectMatch 404 ^/system/handlers/cli$
+RedirectMatch 404 ^/system/handlers/cron$
+RedirectMatch 404 ^/upgrade/upgrades/
+RedirectMatch 404 /actions/
+RedirectMatch 404 /libraries/
+RedirectMatch 404 /classes/
+RedirectMatch 404 /plugins/default/
+
+<IfModule mod_mime.c>
+    AddType image/vnd.microsoft.icon .ico
+</IfModule>
+
+<IfModule mod_expires.c>
+	ExpiresActive On
+	ExpiresDefault "access plus 1 year"
+</IfModule>
+
+<FilesMatch "\.(jpg|jpeg|gif|png|mp3|flv|mov|avi|3pg|html|htm|swf|js|css|ico)$">
+	FileETag MTime Size
+</FilesMatch>
+
+<IfModule mod_rewrite.c>
+	RewriteEngine on
+
+	RewriteRule ^rewrite.php$ installation/tests/apache_rewrite.php [L]
+	RewriteRule ^action/([A-Za-z0-9\_\-\/]+)$ system/handlers/actions.php?action=$1&%{QUERY_STRING} [L]
+
+	RewriteCond %{REQUEST_FILENAME} !-d
+	RewriteCond %{REQUEST_FILENAME} !-f
+	RewriteRule ^([A-Za-z0-9\_\-\.]+)$ index.php?h=$1 [QSA,L]
+
+	RewriteCond %{REQUEST_FILENAME} !-d
+	RewriteCond %{REQUEST_FILENAME} !-f
+	RewriteRule ^([A-Za-z0-9\_\-\.]+)/(.*)$ index.php?h=$1&p=$2 [QSA,L]
+</IfModule>
+
+# BERX API v1 — pass the Authorization header through to PHP.
+# Added because this server is confirmed (via live admin panel) to run
+# Apache with mod_fcgid, a configuration class where PHP commonly does
+# NOT receive HTTP_AUTHORIZATION by default (unlike plain mod_php).
+# UNVERIFIED on the live BERX server specifically — this line has not
+# been confirmed present/active there. If /api/v1/me or any other
+# authenticated endpoint returns 401 with a token that /api/v1/auth/login
+# just issued, this is the first thing to check: confirm this rule is
+# actually in the live .htaccess (this template is only copied to
+# .htaccess by the installer — a manual file upload, like the one used
+# to deploy this BERX instance, does not necessarily include it).
+<IfModule mod_rewrite.c>
+	RewriteCond %{HTTP:Authorization} ^(.*)
+	RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+</IfModule>
+
+<IfModule mod_headers.c>
+    <FilesMatch "\.(jpg|jpeg|png|gif|webp|svg)$">
+        Header set Access-Control-Allow-Origin "*"
+    </FilesMatch>
+</IfModule>
+
+#https://github.com/nextcloud/server/issues/26569
+<IfModule mod_php.c>
+	php_value memory_limit 512M
+	php_value register_globals 0
+	php_value post_max_size 105M
+	php_value upload_max_filesize 100M
+	php_value default_charset "UTF-8"
+	php_flag session.cookie_httponly on
+</IfModule>

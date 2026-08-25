@@ -1,0 +1,76 @@
+/**
+ * !!! VERIFICATION STATUS: UNVERIFIED — see LoginScreen.tsx header.
+ * Real data: api.communityMembers() (components/OssnApi/v1/
+ * communities.php), wraps OssnGroup::getMembers() verbatim.
+ */
+import React, {useCallback, useEffect, useState} from 'react';
+import {View, Text, FlatList, Image, Pressable, StyleSheet} from 'react-native';
+import type {BerxApiClient} from '@berx/api/client';
+import type {BerxCommunityMember} from '@berx/api/types';
+import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
+import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
+import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
+
+interface Props {
+	api: BerxApiClient;
+	guid: number;
+	onOpenProfile: (username: string) => void;
+	onBack?: () => void;
+}
+
+export default function CommunityMembersScreen({api, guid, onOpenProfile, onBack}: Props) {
+	const [items, setItems] = useState<BerxCommunityMember[]>([]);
+	const [loading, setLoading] = useState(true);
+	const [error, setError] = useState<string | null>(null);
+
+	const load = useCallback(async () => {
+		setLoading(true);
+		setError(null);
+		try {
+			const res = await api.communityMembers(guid);
+			setItems(res.members);
+		} catch (e) {
+			setError(e instanceof Error ? e.message : 'Не удалось загрузить участников');
+		} finally {
+			setLoading(false);
+		}
+	}, [api, guid]);
+
+	useEffect(() => {
+		load();
+	}, [load]);
+
+	if (loading) return <BerxLoadingState />;
+	if (error) return <BerxErrorState message={error} onRetry={load} />;
+
+	return (
+		<View style={styles.screen}>
+			<BerxHeader title={`Участники (${items.length})`} onBack={onBack} />
+			{items.length === 0 ? (
+				<BerxEmptyState title="Участников пока нет" />
+			) : (
+				<FlatList
+					data={items}
+					keyExtractor={(m: BerxCommunityMember) => String(m.guid)}
+					contentContainerStyle={styles.list}
+					renderItem={({item}: {item: BerxCommunityMember}) => (
+						<Pressable style={styles.row} onPress={() => onOpenProfile(item.username)}>
+							<Image source={{uri: item.icon}} style={styles.avatar} />
+							<Text style={styles.name} numberOfLines={1}>{item.fullname}</Text>
+							{item.is_owner ? <Text style={styles.ownerBadge}>Владелец</Text> : null}
+						</Pressable>
+					)}
+				/>
+			)}
+		</View>
+	);
+}
+
+const styles = StyleSheet.create({
+	screen: {flex: 1, backgroundColor: colors.bg},
+	list: {padding: spacing.md, gap: spacing.sm},
+	row: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.borderSoft},
+	avatar: {width: 40, height: 40, borderRadius: radius.pill, backgroundColor: colors.graphite},
+	name: {flex: 1, fontSize: typography.sizeBase, color: colors.white, fontWeight: typography.weightMedium},
+	ownerBadge: {fontSize: typography.sizeXs, color: colors.accent, fontWeight: typography.weightBold},
+});

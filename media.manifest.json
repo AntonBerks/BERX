@@ -1,0 +1,26 @@
+{
+  "version": 2,
+  "brand": {
+    "symbol":       { "src": "assets/brand/berx-symbol.svg",        "status": "final" },
+    "wordmark":     { "src": "assets/brand/berx-logo-wordmark.svg", "status": "final" },
+    "lockup":       { "src": "assets/brand/berx-logo-lockup.svg",   "status": "final" },
+    "logoAnimated": { "src": "assets/brand/berx-logo-animated.svg", "status": "final" },
+    "appIcon":      { "src": "assets/icons/app/berx-icon-1024.png", "status": "final",
+                       "note": "Full size set in assets/icons/app/ + favicon/PWA icons in assets/brand/favicon/" }
+  },
+  "media": {
+    "trailer": {
+      "src": "assets/media/video/berx-trailer.mp4",
+      "webm": "assets/media/video/berx-trailer.webm",
+      "poster": "assets/media/video/berx-trailer.poster.jpg",
+      "posterStatus": "final",
+      "captions": "assets/media/video/berx-trailer.vtt",
+      "status": "placeholder",
+      "note": "Poster frame is final and renders in the trailer modal now. The .mp4/.webm/.vtt are the still-missing production files — drop them in and flip status to final, no code changes needed."
+    },
+    "heroAmbient": { "src": "assets/media/video/hero-ambient-loop.mp4", "status": "placeholder", "tier": 3 },
+    "atmosphere":  { "src": "assets/media/audio/berx-atmosphere.m4a", "ogg": "assets/media/audio/berx-atmosphere.ogg", "status": "placeholder" },
+    "ogImage":     { "src": "assets/media/og/berx-og-1200x630.jpg", "status": "final" },
+    "wallpaper":   { "src": "assets/media/atmosphere/berx-atmosphere-wallpaper-01.jpg", "status": "final" }
+  }
+}
