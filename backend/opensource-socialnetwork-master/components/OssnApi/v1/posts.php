@@ -35,6 +35,13 @@ function ossn_api_post_detail_json($post, $viewerGuid) {
 	$base['like_count'] = $likeCount ? intval($likeCount) : 0;
 	$base['comment_count'] = $commentCount ? intval($commentCount) : 0;
 	$base['is_saved'] = $viewerGuid ? ossn_relation_exists(intval($viewerGuid), intval($post->guid), POST_SAVE_RELATION) : false;
+	// MAX BUILD — real is_liked. OssnLikes::isLiked()/UnLike() were
+	// always real, callable methods (confirmed by reading the class
+	// directly) — the earlier "no updated like COUNT to reconcile
+	// against" note on the client was describing a real UI gap, not a
+	// real backend one; this closes it honestly rather than leaving a
+	// stale disclosed limitation once the real mechanism was found.
+	$base['is_liked'] = $viewerGuid ? (bool) $likes->isLiked($post->guid, intval($viewerGuid), 'post') : false;
 	return $base;
 }
 
@@ -122,6 +129,16 @@ if ($segment0 !== null && $segment1 === 'like' && $method === 'POST') {
 	}
 	$likes = new OssnLikes();
 	$likes->Like($post->guid, $api_user_guid, 'post');
+	ossn_api_json(array('status' => 'ok'));
+}
+
+if ($segment0 !== null && $segment1 === 'unlike' && $method === 'POST') {
+	$wall = new OssnWall();
+	$post = $wall->GetPost(intval($segment0));
+	if (!$post) {
+		ossn_api_error('not_found', 'Post not found', 404);
+	}
+	(new OssnLikes())->UnLike($post->guid, $api_user_guid, 'post');
 	ossn_api_json(array('status' => 'ok'));
 }
 

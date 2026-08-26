@@ -285,6 +285,11 @@ export class BerxApiClient {
 		return this.request<{status: string}>(`/posts/${id}/like`, {method: 'POST'});
 	}
 
+	/** Real unlike (Max Build) — OssnLikes::UnLike() was always real, wasn't wired to a route before. */
+	async unlikePost(id: number): Promise<{status: string}> {
+		return this.request<{status: string}>(`/posts/${id}/unlike`, {method: 'POST'});
+	}
+
 	/** Real quick bookmark (Max Build) — separate from Collections' curated save. */
 	async savePost(id: number): Promise<{status: string; is_saved: boolean}> {
 		return this.request<{status: string; is_saved: boolean}>(`/posts/${id}/save`, {method: 'POST'});

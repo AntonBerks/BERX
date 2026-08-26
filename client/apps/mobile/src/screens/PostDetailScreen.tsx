@@ -1,13 +1,14 @@
 /**
  * !!! VERIFICATION STATUS: UNVERIFIED — see LoginScreen.tsx header.
  *
- * MAX BUILD — real quick-bookmark (api.savePost()/unsavePost(),
- * components/OssnApi/v1/posts.php's save/unsave routes). Unlike
- * "liked" (ephemeral client-only state — the like response carries no
- * count to reconcile against, see handleLike()'s own comment),
- * is_saved comes back real from the server on every load, so it's
- * kept in `post` state and toggled the same optimistic-after-success
- * way PlaceDetailScreen's toggleSave() already does. Root View is now
+ * MAX BUILD — real quick-bookmark (api.savePost()/unsavePost()) AND
+ * real like state (api.unlikePost() — OssnLikes::UnLike()/isLiked()
+ * were always real, callable methods, just never wired to a route or
+ * surfaced in the post JSON before this). Both is_saved and is_liked
+ * come back real from the server on every load, kept in `post` state
+ * and toggled the same optimistic-after-success way
+ * PlaceDetailScreen's toggleSave() already does — no more ephemeral
+ * client-only "liked" state that resets on remount. Root View is now
  * a ScrollView — a post with a full comment thread had no way to
  * reach the bottom.
  */
@@ -38,7 +39,6 @@ export default function PostDetailScreen({api, postGuid, myGuid, onOpenProfile, 
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 	const [liking, setLiking] = useState(false);
-	const [liked, setLiked] = useState(false);
 	const [saving, setSaving] = useState(false);
 	const [commentText, setCommentText] = useState('');
 	const [posting, setPosting] = useState(false);
@@ -91,17 +91,18 @@ export default function PostDetailScreen({api, postGuid, myGuid, onOpenProfile, 
 	}, [postGuid]);
 
 	async function handleLike() {
+		if (!post) return;
 		setLiking(true);
 		try {
-			await api.likePost(postGuid);
-			setLiked(true);
+			if (post.is_liked) {
+				await api.unlikePost(postGuid);
+				setPost({...post, is_liked: false, like_count: Math.max(0, post.like_count - 1)});
+			} else {
+				await api.likePost(postGuid);
+				setPost({...post, is_liked: true, like_count: post.like_count + 1});
+			}
 		} catch {
-			// Real, honest limitation: the API's like response is just
-			// {status:string}, no updated like COUNT — so there's
-			// nothing to roll back to on failure beyond the boolean
-			// itself. A real like counter needs a backend change
-			// (posts/{id} would need to return a count), not invented
-			// here.
+			// best-effort — UI already reflects the pre-toggle state on failure
 		} finally {
 			setLiking(false);
 		}
@@ -174,7 +175,7 @@ export default function PostDetailScreen({api, postGuid, myGuid, onOpenProfile, 
 					<Text style={styles.author}>{post.owner_username ?? 'BERX'}</Text>
 				</Pressable>
 				<Text style={styles.text}>{post.text}</Text>
-				<Text style={styles.time}>{relativeTimeLabel(post.time_created)}</Text>
+				<Text style={styles.time}>{relativeTimeLabel(post.time_created)}{post.like_count > 0 ? ` · ${post.like_count} нравится` : ''}</Text>
 
 				{media.length > 0 ? (
 					<View style={styles.mediaWrap}>
@@ -190,11 +191,10 @@ export default function PostDetailScreen({api, postGuid, myGuid, onOpenProfile, 
 
 				<View style={styles.actions}>
 					<BerxButton
-						label={liked ? 'Понравилось ✓' : 'Нравится'}
-						variant={liked ? 'secondary' : 'primary'}
+						label={post.is_liked ? 'Понравилось ✓' : 'Нравится'}
+						variant={post.is_liked ? 'secondary' : 'primary'}
 						onPress={handleLike}
 						loading={liking}
-						disabled={liked}
 					/>
 					<BerxButton
 						label={post.is_saved ? 'Сохранено' : 'Сохранить'}

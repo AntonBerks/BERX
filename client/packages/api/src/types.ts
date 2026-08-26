@@ -61,6 +61,8 @@ export interface BerxPostDetail {
 	comment_count: number;
 	/** Real quick-bookmark state (Max Build) — a lighter, separate mechanism from Collections. Same N+1 reasoning as like_count/comment_count: not on feed items. */
 	is_saved: boolean;
+	/** Real server-verified state (Max Build) — OssnLikes::isLiked() was always real, just never surfaced here. */
+	is_liked: boolean;
 }
 
 export interface BerxConversationSummary {
