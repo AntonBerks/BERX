@@ -846,6 +846,7 @@ function RouteRenderer({name, params}: {name: BerxRouteName; params: unknown}) {
 					api={api}
 					onOpenPost={(guid) => nav.push('PostDetail', {postGuid: guid})}
 					onOpenAlbum={(guid) => nav.push('AlbumDetail', {guid})}
+					onOpenPlace={(guid) => nav.push('PlaceDetail', {guid})}
 					onBack={nav.pop}
 				/>
 			);

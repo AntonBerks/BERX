@@ -3,6 +3,11 @@
  * Real data: api.memories() (components/OssnApi/v1/memories.php,
  * pure read over existing OssnWall/OssnAlbums/OssnPhotos). No push —
  * no real push infrastructure exists in this codebase.
+ *
+ * MAX BUILD — a 'checkin' memory type (real geo-verified check-ins,
+ * same "on this day" prior-year matching as posts/photos, see
+ * memories.php's own header) closes the "remember" step of the
+ * Experience lifecycle with the "verify" step's real data.
  */
 import {useCallback, useEffect, useState} from 'react';
 import {View, Text, Image, FlatList, Pressable, StyleSheet} from 'react-native';
@@ -16,6 +21,7 @@ interface Props {
 	api: BerxApiClient;
 	onOpenPost: (guid: number) => void;
 	onOpenAlbum: (guid: number) => void;
+	onOpenPlace?: (guid: number) => void;
 	onBack?: () => void;
 }
 
@@ -45,7 +51,7 @@ function groupByYearsAgo(memories: BerxMemory[]): Section[] {
 		.map(([yearsAgo, items]) => ({yearsAgo, items}));
 }
 
-export default function MemoriesScreen({api, onOpenPost, onOpenAlbum, onBack}: Props) {
+export default function MemoriesScreen({api, onOpenPost, onOpenAlbum, onOpenPlace, onBack}: Props) {
 	const [memories, setMemories] = useState<BerxMemory[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
@@ -89,16 +95,20 @@ export default function MemoriesScreen({api, onOpenPost, onOpenAlbum, onBack}: P
 								<Pressable
 									key={`${m.type}-${m.guid}`}
 									style={styles.row}
-									onPress={() => (m.type === 'post' ? onOpenPost(m.guid) : onOpenAlbum(m.album_guid ?? m.guid))}>
+									onPress={() => (m.type === 'post' ? onOpenPost(m.guid) : m.type === 'checkin' ? onOpenPlace?.(m.guid) : onOpenAlbum(m.album_guid ?? m.guid))}>
 									{m.type === 'photo' && m.url ? (
 										<Image source={{uri: m.url}} style={styles.thumb} />
 									) : (
 										<View style={styles.thumbFallback}>
-											<Text style={styles.thumbFallbackText}>✎</Text>
+											<Text style={styles.thumbFallbackText}>{m.type === 'checkin' ? '📍' : '✎'}</Text>
 										</View>
 									)}
 									<View style={styles.rowBody}>
-										{m.text ? <Text style={styles.rowText} numberOfLines={2}>{m.text}</Text> : (
+										{m.type === 'checkin' ? (
+											<Text style={styles.rowText} numberOfLines={2}>Вы были здесь: {m.place_title}</Text>
+										) : m.text ? (
+											<Text style={styles.rowText} numberOfLines={2}>{m.text}</Text>
+										) : (
 											<Text style={styles.rowText}>Фото</Text>
 										)}
 										<Text style={styles.rowMeta}>{fmtDate(m.time)}</Text>

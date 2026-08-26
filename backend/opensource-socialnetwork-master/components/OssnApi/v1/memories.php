@@ -17,6 +17,14 @@
  * counts). getFiles() (behind GetPhotos()) wraps a non-empty result
  * via arrayObject() same as OssnDatabase::fetch() — foreach-safe,
  * confirmed by reading it, never passed to count()/array_merge() here.
+ *
+ * MAX BUILD — real check-in memories ("remember" step of the
+ * Experience lifecycle, closing the loop with "verify"): the same
+ * real geo-verified place:checkin relationships (OssnPlaces::
+ * checkIn()) surfaced here for prior-year same-day matches, bounded
+ * to the caller's own most recent 500 check-ins (a real, disclosed
+ * cap — same honesty rule as everywhere else in this layer, not a
+ * true unbounded lifetime scan).
  */
 
 if ($method !== 'GET') {
@@ -66,6 +74,30 @@ if ($albums) {
 				'time'       => intval($photo->time_created),
 				'url'        => (string) $url,
 				'album_guid' => intval($album->guid),
+			);
+		}
+	}
+}
+
+if (class_exists('OssnPlaces')) {
+	$placesModel = new OssnPlaces();
+	$checkinRows = ossn_get_relationships(array('from' => $api_user_guid, 'type' => OssnPlaces::CHECKIN_RELATION, 'limit' => 500, 'page_limit' => false));
+	if ($checkinRows) {
+		foreach ($checkinRows as $row) {
+			$d = getdate(intval($row->time));
+			if ($d['mon'] !== $today['mon'] || $d['mday'] !== $today['mday'] || $d['year'] >= $today['year']) {
+				continue;
+			}
+			$place = $placesModel->getPlace($row->relation_to);
+			if (!$place) {
+				continue;
+			}
+			$out[] = array(
+				'type'       => 'checkin',
+				'guid'       => intval($place->guid),
+				'years_ago'  => $today['year'] - $d['year'],
+				'time'       => intval($row->time),
+				'place_title' => (string) $place->title,
 			);
 		}
 	}

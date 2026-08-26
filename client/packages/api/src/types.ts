@@ -1002,7 +1002,7 @@ export interface BerxPlaceClaim {
 	time_reviewed: number | null;
 }
 
-export type BerxMemoryType = 'post' | 'photo';
+export type BerxMemoryType = 'post' | 'photo' | 'checkin';
 
 /**
  * Post visibility — server-authoritative, checked at every read path
@@ -1021,6 +1021,8 @@ export interface BerxMemory {
 	text?: string;
 	url?: string;
 	album_guid?: number;
+	/** 'checkin' only — real place title from the real check-in row. */
+	place_title?: string;
 }
 
 /**
