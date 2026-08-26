@@ -13,6 +13,12 @@
  * not exposed via API v1 yet. This screen honestly shows an initial-
  * letter placeholder instead of a photo, rather than pretending a
  * public photo URL exists when the real architecture never had one.
+ *
+ * Future UI pass: the card itself now sits on BerxGlassSurface
+ * (Spatial Glass, matching the rest of the app) instead of a flat
+ * colors.graphite box — the PanResponder/Animated transform stays on
+ * the outer Animated.View wrapper, unchanged, so the swipe gesture
+ * behavior is identical.
  */
 import React, {useRef, useState} from 'react';
 import {View, Text, Pressable, Animated, PanResponder, StyleSheet} from 'react-native';
@@ -21,6 +27,7 @@ import type {BerxDatingProfileCard} from '@berx/api/types';
 import {colors, spacing, radius, typography} from '@berx/design-system/tokens';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
+import {BerxGlassSurface} from '../../../../packages/design-system/src/components/BerxGlassSurface';
 
 interface Props {
 	api: BerxApiClient;
@@ -137,22 +144,24 @@ export default function DatingDiscoverScreen({api, onMatch, onOpenMatches, onOpe
 			<DatingTopBar onOpenMatches={onOpenMatches} onOpenPrivacy={onOpenPrivacy} />
 			<Animated.View
 				{...panResponder.panHandlers}
-				style={[styles.card, {transform: [{translateX: position.x}, {translateY: position.y}, {rotate}]}]}
+				style={[styles.cardWrap, {transform: [{translateX: position.x}, {translateY: position.y}, {rotate}]}]}
 			>
-				<View style={styles.photoPlaceholder}>
-					<Text style={styles.photoInitial}>{current.pseudonym.charAt(0).toUpperCase()}</Text>
-				</View>
-				<Text style={styles.name}>
-					{current.pseudonym}
-					{current.age ? `, ${current.age}` : ''}
-				</Text>
-				{current.city ? <Text style={styles.city}>{current.city}</Text> : null}
-				{current.goal ? <Text style={styles.goal}>{current.goal}</Text> : null}
-				{current.bio ? (
-					<Text style={styles.bio} numberOfLines={4}>
-						{current.bio}
+				<BerxGlassSurface elevated padding="lg" style={styles.card}>
+					<View style={styles.photoPlaceholder}>
+						<Text style={styles.photoInitial}>{current.pseudonym.charAt(0).toUpperCase()}</Text>
+					</View>
+					<Text style={styles.name}>
+						{current.pseudonym}
+						{current.age ? `, ${current.age}` : ''}
 					</Text>
-				) : null}
+					{current.city ? <Text style={styles.city}>{current.city}</Text> : null}
+					{current.goal ? <Text style={styles.goal}>{current.goal}</Text> : null}
+					{current.bio ? (
+						<Text style={styles.bio} numberOfLines={4}>
+							{current.bio}
+						</Text>
+					) : null}
+				</BerxGlassSurface>
 			</Animated.View>
 
 			<View style={styles.actions}>
@@ -189,15 +198,8 @@ const styles = StyleSheet.create({
 	},
 	topBarTitle: {color: colors.text, fontSize: typography.sizeLg, fontWeight: typography.weightMedium},
 	topBarLink: {color: colors.accent, fontSize: typography.sizeSm},
-	card: {
-		width: '88%',
-		backgroundColor: colors.graphite,
-		borderRadius: radius.lg,
-		borderWidth: 1,
-		borderColor: colors.borderSoft,
-		padding: spacing.lg,
-		alignItems: 'center',
-	},
+	cardWrap: {width: '88%'},
+	card: {alignItems: 'center'},
 	photoPlaceholder: {
 		width: '100%',
 		height: 320,
