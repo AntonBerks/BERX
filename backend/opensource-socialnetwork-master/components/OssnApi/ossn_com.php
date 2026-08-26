@@ -130,6 +130,9 @@ function ossn_api_v1_resources() {
 		// Business (top-level: claims/team/subscription/hours) — routing
 		// over already-real OssnBusiness/OssnPlaceHours/OssnPlaces.
 		'business'      => __OSSN_API__ . 'v1/business.php',
+		// Search — users/places/events/communities scopes, over already-
+		// real OssnUser/OssnPlaces/OssnEvents/OssnGroup query methods.
+		'search'        => __OSSN_API__ . 'v1/search.php',
 		// 'business' (the SEPARATE top-level resource — /business/
 		// places/{guid}/team|subscription|hours|claim|moments|
 		// impressions) still deliberately NOT listed: those branches
