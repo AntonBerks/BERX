@@ -19,6 +19,26 @@
  * before writing this file, not assumed by pattern.
  */
 
+/**
+ * `reputation` — Future Identity (see docs/BERX_FUTURE_LAYER_SPEC.md),
+ * same real live COUNT()s as profiles.php's own addition, for the
+ * caller's own account. No invented score.
+ */
+function ossn_api_me_reputation($guid) {
+	$guid = intval($guid);
+	$db = new OssnDatabase();
+	$reviewsRow = $db->select(array('from' => 'ossn_place_reviews', 'params' => array('COUNT(*) as cnt'), 'wheres' => array(OssnDatabase::wheres('author_guid', '=', $guid))));
+	$tripsRow = $db->select(array('from' => 'ossn_trips', 'params' => array('COUNT(*) as cnt'), 'wheres' => array(OssnDatabase::wheres('owner_guid', '=', $guid))));
+	$experiencesRow = $db->select(array('from' => 'ossn_experiences', 'params' => array('COUNT(*) as cnt'), 'wheres' => array(OssnDatabase::wheres('owner_guid', '=', $guid))));
+	$eventsGoing = class_exists('OssnEvents') ? intval(ossn_get_relationships(array('from' => $guid, 'type' => 'event:going', 'count' => true))) : 0;
+	return array(
+		'places_reviewed'     => $reviewsRow ? intval($reviewsRow->cnt) : 0,
+		'events_going'        => $eventsGoing,
+		'trips_created'       => $tripsRow ? intval($tripsRow->cnt) : 0,
+		'experiences_created' => $experiencesRow ? intval($experiencesRow->cnt) : 0,
+	);
+}
+
 function ossn_api_me_to_json($user) {
 	return array(
 		'guid'         => intval($user->guid),
@@ -31,6 +51,7 @@ function ossn_api_me_to_json($user) {
 		'icon_url'     => (string) $user->iconURL()->large,
 		'profile_url'  => (string) $user->profileURL(),
 		'time_created' => intval($user->time_created),
+		'reputation'   => ossn_api_me_reputation($user->guid),
 	);
 }
 

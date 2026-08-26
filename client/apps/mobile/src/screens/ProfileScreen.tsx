@@ -2,13 +2,13 @@
  * !!! VERIFICATION STATUS: UNVERIFIED — see LoginScreen.tsx header.
  *
  * The reference images showed a stats row (публикации/подписчики/
- * подписки) — deliberately NOT added: /me and /profiles/{username}
- * return guid/username/fullname/icon_url/profile_url(/email) only,
- * no counts of any kind (checked packages/api/src/types.ts directly
- * before writing this, not from memory). Showing fake numbers there
- * would be exactly the kind of fabricated UI this project has avoided
- * all session. time_created (real, own-profile-only) is used instead
- * for an honest "on BERX since {date}" line.
+ * подписки) — deliberately NOT added as follower/following counts
+ * (OSSN's real model is mutual friendship, not one-directional follow
+ * — see friend.php). What IS now shown: a real `reputation` row (see
+ * docs/BERX_FUTURE_LAYER_SPEC.md — Future Identity), both /me and
+ * /profiles/{username} return it as of this session, real live
+ * COUNT()s, not invented. time_created (real, own-profile-only) is
+ * used for an honest "on BERX since {date}" line.
  */
 import React, {useEffect, useState} from 'react';
 import {View, Text, Image, Pressable, StyleSheet} from 'react-native';
@@ -30,6 +30,7 @@ interface ProfileData {
 	time_created?: number;
 	is_friend?: boolean;
 	is_creator?: boolean;
+	reputation?: {places_reviewed: number; events_going: number; trips_created: number; experiences_created: number};
 }
 
 interface Props {
@@ -145,6 +146,14 @@ export default function ProfileScreen({api, authState, username, onBack, onMessa
 				<Text style={styles.fullname}>{profile.fullname}</Text>
 				<Text style={styles.username}>@{profile.username}</Text>
 				{year ? <Text style={styles.joined}>На BERX с {year} года</Text> : null}
+				{profile.reputation ? (
+					<View style={styles.reputationRow}>
+						{profile.reputation.places_reviewed > 0 ? <View style={styles.reputationStat}><Text style={styles.reputationValue}>{profile.reputation.places_reviewed}</Text><Text style={styles.reputationLabel}>отзывов</Text></View> : null}
+						{profile.reputation.events_going > 0 ? <View style={styles.reputationStat}><Text style={styles.reputationValue}>{profile.reputation.events_going}</Text><Text style={styles.reputationLabel}>событий</Text></View> : null}
+						{profile.reputation.trips_created > 0 ? <View style={styles.reputationStat}><Text style={styles.reputationValue}>{profile.reputation.trips_created}</Text><Text style={styles.reputationLabel}>поездок</Text></View> : null}
+						{profile.reputation.experiences_created > 0 ? <View style={styles.reputationStat}><Text style={styles.reputationValue}>{profile.reputation.experiences_created}</Text><Text style={styles.reputationLabel}>впечатлений</Text></View> : null}
+					</View>
+				) : null}
 			</View>
 
 			{!isOwn && profile.guid && onMessage ? (
@@ -310,6 +319,10 @@ const styles = StyleSheet.create({
 	fullname: {color: colors.text, fontSize: typography.sizeXl, fontWeight: typography.weightBold},
 	username: {color: colors.textDim, fontSize: typography.sizeBase, marginTop: 2},
 	joined: {color: colors.textFaint, fontSize: typography.sizeXs, marginTop: spacing.sm},
+	reputationRow: {flexDirection: 'row', gap: spacing.lg, marginTop: spacing.sm},
+	reputationStat: {alignItems: 'center'},
+	reputationValue: {color: colors.accent, fontSize: typography.sizeBase, fontWeight: typography.weightBold},
+	reputationLabel: {color: colors.textFaint, fontSize: typography.sizeXs},
 	actionRow: {paddingHorizontal: spacing.xl},
 	reportLink: {color: colors.textFaint, fontSize: typography.sizeXs, textDecorationLine: 'underline', textAlign: 'center'},
 	menuList: {paddingHorizontal: spacing.xl, paddingTop: spacing.lg, gap: spacing.md},

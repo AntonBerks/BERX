@@ -15,6 +15,7 @@ export interface BerxUser {
 	icon_url: string;
 	profile_url: string;
 	time_created: number;
+	reputation: BerxReputation;
 }
 
 export interface BerxAuthSession {
@@ -75,6 +76,14 @@ export interface BerxMessage {
 	time: number;
 }
 
+/** Future Identity — see docs/BERX_FUTURE_LAYER_SPEC.md. Real, live counts, no invented score. */
+export interface BerxReputation {
+	places_reviewed: number;
+	events_going: number;
+	trips_created: number;
+	experiences_created: number;
+}
+
 export interface BerxProfileSummary {
 	guid: number;
 	username: string;
@@ -84,6 +93,7 @@ export interface BerxProfileSummary {
 	is_own: boolean;
 	is_friend: boolean;
 	is_creator: boolean;
+	reputation: BerxReputation;
 }
 
 export interface BerxSearchUsersResponse {

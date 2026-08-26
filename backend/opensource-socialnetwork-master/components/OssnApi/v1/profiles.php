@@ -1,6 +1,14 @@
 <?php
 /**
  * BERX API v1 — Profiles (public view of another user by username).
+ *
+ * `reputation` — Future Identity (see docs/BERX_FUTURE_LAYER_SPEC.md):
+ * the same real, live COUNT()s as lifegraph.php's own summary, no
+ * invented score. Deliberately conservative here: only counts that
+ * are already independently public (a place review, an event you
+ * attended, an experience/trip you created) — no communities_joined
+ * or places_saved, which aren't independently exposed for OTHER users
+ * anywhere else in this API today, unlike the caller's own /lifegraph/me.
  */
 
 if ($method !== 'GET' || !isset($segments[0])) {
@@ -29,6 +37,15 @@ if (class_exists('OssnCreator')) {
 	$isCreator = $creatorModel->isCreator($user->guid);
 }
 
+$db = new OssnDatabase();
+$reviewsRow = $db->select(array('from' => 'ossn_place_reviews', 'params' => array('COUNT(*) as cnt'), 'wheres' => array(OssnDatabase::wheres('author_guid', '=', intval($user->guid)))));
+$tripsRow = $db->select(array('from' => 'ossn_trips', 'params' => array('COUNT(*) as cnt'), 'wheres' => array(OssnDatabase::wheres('owner_guid', '=', intval($user->guid)))));
+$experiencesRow = $db->select(array('from' => 'ossn_experiences', 'params' => array('COUNT(*) as cnt'), 'wheres' => array(OssnDatabase::wheres('owner_guid', '=', intval($user->guid)))));
+$eventsAttended = 0;
+if (class_exists('OssnEvents')) {
+	$eventsAttended = intval(ossn_get_relationships(array('from' => intval($user->guid), 'type' => 'event:going', 'count' => true)));
+}
+
 ossn_api_json(array(
 	'guid'        => intval($user->guid),
 	'username'    => (string) $user->username,
@@ -38,4 +55,10 @@ ossn_api_json(array(
 	'is_own'      => $isOwn,
 	'is_friend'   => $isFriend,
 	'is_creator'  => (bool) $isCreator,
+	'reputation'  => array(
+		'places_reviewed'     => $reviewsRow ? intval($reviewsRow->cnt) : 0,
+		'events_going'        => $eventsAttended,
+		'trips_created'       => $tripsRow ? intval($tripsRow->cnt) : 0,
+		'experiences_created' => $experiencesRow ? intval($experiencesRow->cnt) : 0,
+	),
 ));
