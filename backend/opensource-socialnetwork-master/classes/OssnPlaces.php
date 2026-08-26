@@ -311,6 +311,10 @@ class OssnPlaces extends OssnObject {
 		if (class_exists('OssnPoints')) {
 			(new OssnPoints())->award(intval($authorGuid), 15, "place_review:{$id}", $id, true);
 		}
+		// Real VERIFY->owner notification — self-reviews already can't
+		// reach here (blocked above), and OssnNotifications::add() itself
+		// safely no-ops if owner_guid ever equalled poster_guid anyway.
+		(new OssnNotifications())->add('berx:place:review', intval($authorGuid), intval($placeGuid), $id);
 		return $id;
 	}
 

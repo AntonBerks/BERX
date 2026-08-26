@@ -80,6 +80,11 @@ if ($segment0 === null && $method === 'POST') {
 	if (!$commentId) {
 		ossn_api_error('validation_error', 'Could not post comment', 422);
 	}
+	// Real notification — type/hook registered in ossn_com.php
+	// ('berx:place:comment'/'berx:event:comment'), owner resolved from
+	// the real place/event there. self-comments no-op safely inside
+	// OssnNotifications::add() itself.
+	(new OssnNotifications())->add("berx:{$type}:comment", intval($api_user_guid), intval($id), intval($commentId));
 	ossn_api_json(array('id' => intval($commentId)));
 }
 

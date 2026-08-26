@@ -305,6 +305,10 @@ class OssnEvents extends OssnObject {
 		if (class_exists('OssnPoints')) {
 			(new OssnPoints())->award(intval($userGuid), 10, 'rsvp_event:' . intval($eventGuid), intval($eventGuid), true);
 		}
+		// Real GO->owner notification. Own-event RSVP can't reach here
+		// (isGoing()/relation checks aside, OssnNotifications::add()
+		// itself safely no-ops when owner_guid==poster_guid anyway).
+		(new OssnNotifications())->add('berx:event:rsvp', intval($userGuid), intval($eventGuid), null);
 		return 'ok';
 	}
 
@@ -318,13 +322,9 @@ class OssnEvents extends OssnObject {
 
 	/**
 	 * Real, server-enforced friendship check — never trusts the caller.
-	 * Deliberately does NOT persist an invite record or send a
-	 * notification: no 'event:invite' notification type/hook exists
-	 * yet (registering one is its own small slice, not bundled here —
-	 * see OssnNotifications::add()'s real dependency on a registered
-	 * 'notification:add' hook per type). The real, working part of
-	 * this contract — that only an actual friend can be targeted — is
-	 * enforced here.
+	 * Real notification too, now that a 'berx:event:invite' hook is
+	 * registered (ossn_com.php) — owner_guid is the invitee directly
+	 * (notification_owner), not resolved from the event.
 	 *
 	 * @return string 'ok'|'not_found'|'forbidden'
 	 */
@@ -337,6 +337,7 @@ class OssnEvents extends OssnObject {
 		if (!$acting || !$acting->isFriend(intval($actingGuid), intval($targetGuid))) {
 			return 'forbidden';
 		}
+		(new OssnNotifications())->add('berx:event:invite', intval($actingGuid), intval($eventGuid), intval($eventGuid), intval($targetGuid));
 		return 'ok';
 	}
 

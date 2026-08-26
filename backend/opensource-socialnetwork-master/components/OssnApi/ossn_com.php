@@ -57,6 +57,55 @@ function ossn_api_init() {
 }
 
 /**
+ * Real notification routing for Places/Events — the mobile client
+ * (NotificationsScreen.tsx) already had real handling for these exact
+ * type strings ('berx:place:review'/'berx:place:comment'/
+ * 'berx:event:rsvp'/'berx:event:comment'/'berx:event:invite',
+ * subject_guid = the place/event guid) before any backend emitted
+ * them — same "client written ahead of a lost backend" pattern as
+ * OssnPlaces/OssnEvents themselves. OssnNotifications::add() is a
+ * real no-op unless a 'notification:add' hook is registered for the
+ * exact type (confirmed by reading ossn_call_hook(): with none
+ * registered it returns the passed $returnvalue=false, so add()
+ * immediately bails) — registered here, once, in the always-loaded
+ * bootstrap, same real extension point OssnGroups already uses for
+ * its own comment notifications.
+ */
+function ossn_api_notify_place_owner($hook, $type, $return, $params) {
+	if (!class_exists('OssnPlaces')) {
+		return false;
+	}
+	$place = (new OssnPlaces())->getPlace($params['subject_guid']);
+	if (!$place) {
+		return false;
+	}
+	$params['owner_guid'] = intval($place->owner_guid);
+	return $params;
+}
+ossn_add_hook('notification:add', 'berx:place:review', 'ossn_api_notify_place_owner');
+ossn_add_hook('notification:add', 'berx:place:comment', 'ossn_api_notify_place_owner');
+
+function ossn_api_notify_event_owner($hook, $type, $return, $params) {
+	if (!class_exists('OssnEvents')) {
+		return false;
+	}
+	$event = (new OssnEvents())->getEvent($params['subject_guid']);
+	if (!$event) {
+		return false;
+	}
+	$params['owner_guid'] = intval($event->owner_guid);
+	return $params;
+}
+ossn_add_hook('notification:add', 'berx:event:rsvp', 'ossn_api_notify_event_owner');
+ossn_add_hook('notification:add', 'berx:event:comment', 'ossn_api_notify_event_owner');
+
+/** owner_guid is already supplied as notification_owner by the caller (a specific invitee) — real passthrough, nothing to resolve. */
+function ossn_api_notify_passthrough($hook, $type, $return, $params) {
+	return $params;
+}
+ossn_add_hook('notification:add', 'berx:event:invite', 'ossn_api_notify_passthrough');
+
+/**
  * Real resource whitelist. Never build an include path from the URL
  * directly — only a name that resolves through this fixed map ever
  * reaches `include`. Grows one entry per implementation wave; a
