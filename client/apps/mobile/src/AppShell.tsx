@@ -33,6 +33,7 @@ import {BERX_BOTTOM_TABS, BerxRouteName} from './navigation/routes';
 import LoginScreen from './screens/LoginScreen';
 import WelcomeScreen from './screens/WelcomeScreen';
 import RegisterScreen from './screens/RegisterScreen';
+import OnboardingScreen from './screens/OnboardingScreen';
 import FeedScreen from './screens/FeedScreen';
 import PostDetailScreen from './screens/PostDetailScreen';
 import ProfileScreen from './screens/ProfileScreen';
@@ -122,6 +123,21 @@ const authState = new BerxAuthState(api);
  * `api`/`authState` in this exact file.
  */
 let currentStoryGroup: BerxStoryFeedGroup | null = null;
+
+/**
+ * Set by RegisterScreen's onRegistered callback, consumed once by
+ * AppShell the moment the FOLLOWING login (post email-activation)
+ * lands on 'authenticated' — shows OnboardingScreen exactly once for
+ * that session. Deliberately a session-local module flag, not a new
+ * persistent server field or a new local-storage dependency (this app
+ * has none — see secureTokenStorage.ts, which uses Keychain
+ * specifically for credentials, not general flags): if the app is
+ * killed between activation and first login, onboarding is silently
+ * skipped rather than faked or blocking — the same real, disclosed
+ * tradeoff pattern used elsewhere in this file/session, not a
+ * permanent loss since avatar stays reachable from Profile.
+ */
+let pendingOnboarding = false;
 
 /**
  * Real integration — see packages/platform/src/mediaPicker.ts's own
@@ -1000,6 +1016,14 @@ function TabPane({visible, children}: {visible: boolean; children: React.ReactNo
 
 export default function AppShell() {
 	const snapshot = useAuthSnapshot();
+	const [showOnboarding, setShowOnboarding] = useState(false);
+
+	useEffect(() => {
+		if (snapshot.status === 'authenticated' && pendingOnboarding) {
+			pendingOnboarding = false;
+			setShowOnboarding(true);
+		}
+	}, [snapshot.status]);
 
 	if (snapshot.status === 'booting') {
 		return <BerxLoadingState label="BERX" />;
@@ -1018,6 +1042,16 @@ export default function AppShell() {
 	}
 
 	if (snapshot.status === 'authenticated') {
+		if (showOnboarding && snapshot.user) {
+			return (
+				<OnboardingScreen
+					api={api}
+					user={snapshot.user}
+					pickImage={pickImage}
+					onComplete={() => setShowOnboarding(false)}
+				/>
+			);
+		}
 		return <AuthenticatedApp />;
 	}
 
@@ -1044,7 +1078,10 @@ function UnauthenticatedFlow() {
 		return (
 			<RegisterScreen
 				api={api}
-				onRegistered={() => setScreen('login')}
+				onRegistered={() => {
+					pendingOnboarding = true;
+					setScreen('login');
+				}}
 				onBack={() => setScreen('welcome')}
 			/>
 		);
