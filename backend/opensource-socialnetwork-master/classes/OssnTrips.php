@@ -75,7 +75,16 @@ class OssnTrips extends OssnDatabase {
 						'names'  => array('owner_guid', 'title', 'description', 'visibility', 'start_date', 'end_date', 'time_created', 'time_updated'),
 						'values' => array($ownerGuid, $title, (string) $description, intval($visibility), $startDate ? intval($startDate) : null, $endDate ? intval($endDate) : null, $now, $now),
 				));
-				return $ok ? $this->getLastEntry() : false;
+				if (!$ok) {
+						return false;
+				}
+				$id = $this->getLastEntry();
+				// Real EARN wiring — reason keyed on the trip's own real id,
+				// reuses OssnPoints, never a parallel reward mechanism.
+				if (class_exists('OssnPoints')) {
+						(new OssnPoints())->award($ownerGuid, 10, "trip_created:{$id}", $id, true);
+				}
+				return $id;
 		}
 
 		public function get($id) {

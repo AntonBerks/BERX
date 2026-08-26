@@ -80,7 +80,16 @@ class OssnExperiences extends OssnDatabase {
 						'names'  => array('owner_guid', 'title', 'description', 'place_guid', 'event_guid', 'scheduled_start', 'scheduled_end', 'visibility', 'time_created', 'time_updated'),
 						'values' => array($ownerGuid, $title, (string) $description, $anchor['place_guid'], $anchor['event_guid'], $scheduledStart, $scheduledEnd ? intval($scheduledEnd) : null, intval($visibility), $now, $now),
 				));
-				return $ok ? $this->getLastEntry() : false;
+				if (!$ok) {
+					return false;
+				}
+				$id = $this->getLastEntry();
+				// Real EARN wiring — reason keyed on the experience's own
+				// real id, reuses OssnPoints, never a parallel reward mechanism.
+				if (class_exists('OssnPoints')) {
+					(new OssnPoints())->award($ownerGuid, 10, "experience_created:{$id}", $id, true);
+				}
+				return $id;
 		}
 
 		public function get($id) {
@@ -277,7 +286,7 @@ class OssnExperiences extends OssnDatabase {
 				if ($status === null) {
 						return false;
 				}
-				return parent::update(array(
+				$ok = parent::update(array(
 						'table'  => self::PARTICIPANTS_TABLE,
 						'names'  => array('status'),
 						'values' => array($accept ? self::STATUS_ACCEPTED : self::STATUS_DECLINED),
@@ -286,6 +295,13 @@ class OssnExperiences extends OssnDatabase {
 								self::wheres('member_guid', '=', intval($actingGuid)),
 						),
 				));
+				// Real EARN wiring — accepting an invite is a real social
+				// connection completing, keyed per experience+member so
+				// declining then re-accepting the SAME invite never re-earns.
+				if ($ok && $accept && class_exists('OssnPoints')) {
+					(new OssnPoints())->award(intval($actingGuid), 10, 'experience_accept:' . intval($experienceId), intval($experienceId), true);
+				}
+				return $ok;
 		}
 
 		/** Owner removes an invitee, OR the invitee removes themselves — same "self or owner" rule as leaving vs. kicking. */
