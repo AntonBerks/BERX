@@ -18,6 +18,8 @@ import {relativeTimeLabel} from '@berx/domain';
 import {colors, spacing, typography} from '@berx/design-system/tokens';
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
+import {BerxAvatar} from '../../../../packages/design-system/src/components/BerxAvatar';
+import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
 
 interface Props {
 	api: BerxApiClient;
@@ -85,38 +87,38 @@ export default function ConversationListScreen({api, onOpenConversation, onOpenM
 			) : filtered.length === 0 ? (
 				<BerxEmptyState title="Никого не нашлось" />
 			) : (
-				<FlatList
-					style={styles.list}
-					data={filtered}
-					keyExtractor={(item: BerxConversationSummary) => String(item.with_guid)}
-					refreshControl={
-						<RefreshControl
-							refreshing={refreshing}
-							onRefresh={() => {
-								setRefreshing(true);
-								load();
-							}}
-							tintColor={colors.accent}
-						/>
-					}
-					renderItem={({item}: {item: BerxConversationSummary}) => (
-						<Pressable
-							style={styles.row}
-							onPress={() => onOpenConversation(item.with_guid, item.with_username ?? undefined)}
-						>
-							<View style={styles.avatar}>
-								<Text style={styles.avatarInitial}>{(item.with_username ?? '#').charAt(0).toUpperCase()}</Text>
-							</View>
-							<View style={styles.rowText}>
-								<Text style={styles.username}>{item.with_username ?? `Пользователь #${item.with_guid}`}</Text>
-								<Text style={styles.lastMessage} numberOfLines={1}>
-									{item.last_message}
-								</Text>
-							</View>
-							<Text style={styles.time}>{relativeTimeLabel(item.time)}</Text>
-						</Pressable>
-					)}
-				/>
+				<BerxFadeIn style={styles.listFade}>
+					<FlatList
+						style={styles.list}
+						data={filtered}
+						keyExtractor={(item: BerxConversationSummary) => String(item.with_guid)}
+						refreshControl={
+							<RefreshControl
+								refreshing={refreshing}
+								onRefresh={() => {
+									setRefreshing(true);
+									load();
+								}}
+								tintColor={colors.accent}
+							/>
+						}
+						renderItem={({item}: {item: BerxConversationSummary}) => (
+							<Pressable
+								style={styles.row}
+								onPress={() => onOpenConversation(item.with_guid, item.with_username ?? undefined)}
+							>
+								<BerxAvatar fallbackInitial={(item.with_username ?? '#').charAt(0)} size={48} />
+								<View style={styles.rowText}>
+									<Text style={styles.username}>{item.with_username ?? `Пользователь #${item.with_guid}`}</Text>
+									<Text style={styles.lastMessage} numberOfLines={1}>
+										{item.last_message}
+									</Text>
+								</View>
+								<Text style={styles.time}>{relativeTimeLabel(item.time)}</Text>
+							</Pressable>
+						)}
+					/>
+				</BerxFadeIn>
 			)}
 		</View>
 	);
@@ -128,6 +130,7 @@ const styles = StyleSheet.create({
 	title: {color: colors.text, fontSize: typography.sizeXl, fontWeight: typography.weightBold},
 	searchAllLink: {color: colors.accent, fontSize: typography.sizeXs, fontWeight: typography.weightMedium},
 	searchBar: {padding: spacing.lg, paddingBottom: spacing.sm},
+	listFade: {flex: 1},
 	list: {backgroundColor: colors.black, flex: 1},
 	row: {
 		flexDirection: 'row',
@@ -138,15 +141,6 @@ const styles = StyleSheet.create({
 		borderBottomWidth: 1,
 		borderBottomColor: colors.borderSoft,
 	},
-	avatar: {
-		width: 48,
-		height: 48,
-		borderRadius: 24,
-		backgroundColor: colors.glass2,
-		alignItems: 'center',
-		justifyContent: 'center',
-	},
-	avatarInitial: {color: colors.accent, fontSize: typography.sizeBase, fontWeight: typography.weightBold},
 	rowText: {flex: 1},
 	username: {color: colors.text, fontWeight: typography.weightMedium},
 	lastMessage: {color: colors.textDim, fontSize: typography.sizeSm, marginTop: 2},
