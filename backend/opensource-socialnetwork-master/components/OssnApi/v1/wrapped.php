@@ -7,6 +7,13 @@
  * BerxWrapped. Every number is a live query, never cached/estimated —
  * same principle already established for OssnCreator's view log and
  * OssnNearbyImpressions.
+ *
+ * MAX BUILD — checkins_count (same period-scoped real COUNT() as
+ * events_going/places_saved above) and top_place (the single
+ * most-visited real place this period, derived by tallying the same
+ * bounded period check-in rows in PHP — a real "your year in one
+ * place" stat, not invented) round out the recap with the new
+ * geo-verified check-in data.
  */
 
 if ($method !== 'GET') {
@@ -68,7 +75,43 @@ $placesSaved = intval(ossn_get_relationships(array(
 	'wheres' => "r.time >= {$cutoff}",
 )));
 
-$total = $postsCreated + $tripsCreated + $experiencesCount + $eventsGoing + $placesSaved;
+$checkinsCount = 0;
+$topPlace = null;
+if (class_exists('OssnPlaces')) {
+	$checkinsCount = intval(ossn_get_relationships(array(
+		'from'   => $userGuid,
+		'type'   => OssnPlaces::CHECKIN_RELATION,
+		'count'  => true,
+		'wheres' => "r.time >= {$cutoff}",
+	)));
+	if ($checkinsCount > 0) {
+		$periodCheckins = ossn_get_relationships(array(
+			'from'       => $userGuid,
+			'type'       => OssnPlaces::CHECKIN_RELATION,
+			'limit'      => 200,
+			'page_limit' => false,
+			'wheres'     => "r.time >= {$cutoff}",
+		));
+		$tally = array();
+		if ($periodCheckins) {
+			foreach ($periodCheckins as $row) {
+				$pg = intval($row->relation_to);
+				$tally[$pg] = isset($tally[$pg]) ? $tally[$pg] + 1 : 1;
+			}
+		}
+		if ($tally) {
+			arsort($tally);
+			$topGuid = array_key_first($tally);
+			$topCount = $tally[$topGuid];
+			$place = (new OssnPlaces())->getPlace($topGuid);
+			if ($place) {
+				$topPlace = array('guid' => intval($place->guid), 'title' => (string) $place->title, 'visits' => $topCount);
+			}
+		}
+	}
+}
+
+$total = $postsCreated + $tripsCreated + $experiencesCount + $eventsGoing + $placesSaved + $checkinsCount;
 
 ossn_api_json(array(
 	'period'            => $period,
@@ -78,4 +121,6 @@ ossn_api_json(array(
 	'experiences_count' => $experiencesCount,
 	'events_going'      => $eventsGoing,
 	'places_saved'      => $placesSaved,
+	'checkins_count'    => $checkinsCount,
+	'top_place'         => $topPlace,
 ));

@@ -362,6 +362,12 @@ export interface BerxMissionsResponse {
 
 export type BerxWrappedPeriod = 'week' | 'month';
 
+export interface BerxWrappedTopPlace {
+	guid: number;
+	title: string;
+	visits: number;
+}
+
 export interface BerxWrapped {
 	period: BerxWrappedPeriod;
 	insufficient_data: boolean;
@@ -370,6 +376,9 @@ export interface BerxWrapped {
 	experiences_count?: number;
 	events_going?: number;
 	places_saved?: number;
+	checkins_count?: number;
+	/** The single most-visited real place this period, or null with no check-ins. */
+	top_place?: BerxWrappedTopPlace | null;
 }
 
 export interface BerxEventStoryItem {

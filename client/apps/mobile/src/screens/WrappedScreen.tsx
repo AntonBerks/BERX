@@ -5,6 +5,10 @@
  * data, no new storage. No AI-generated insight text, no invented
  * "top X%" comparison — honest counts only, or an honest
  * insufficient-data state when there isn't enough real activity.
+ *
+ * MAX BUILD — checkins_count joins the same generic ROWS mapper as
+ * the other counts; top_place (the single most-visited real place
+ * this period) gets its own line since it's not a plain number.
  */
 import {useCallback, useEffect, useState} from 'react';
 import {View, Text, StyleSheet} from 'react-native';
@@ -25,6 +29,7 @@ const ROWS: {key: keyof BerxWrapped; label: string}[] = [
 	{key: 'experiences_count', label: 'Впечатлений'},
 	{key: 'events_going', label: 'Событий посещено'},
 	{key: 'places_saved', label: 'Мест сохранено'},
+	{key: 'checkins_count', label: 'Отметок в местах'},
 ];
 
 export default function WrappedScreen({api, onBack}: Props) {
@@ -76,6 +81,14 @@ export default function WrappedScreen({api, onBack}: Props) {
 					})}
 				</View>
 			)}
+
+			{data.top_place ? (
+				<View style={styles.topPlace}>
+					<Text style={styles.topPlaceLabel}>Чаще всего вы были здесь</Text>
+					<Text style={styles.topPlaceTitle}>{data.top_place.title}</Text>
+					<Text style={styles.topPlaceVisits}>{data.top_place.visits} {data.top_place.visits === 1 ? 'раз' : 'раза'}</Text>
+				</View>
+			) : null}
 		</View>
 	);
 }
@@ -89,4 +102,8 @@ const styles = StyleSheet.create({
 	row: {backgroundColor: colors.surface, borderRadius: radius.md, padding: spacing.md, flexDirection: 'row', alignItems: 'baseline', gap: spacing.sm},
 	value: {fontSize: typography.sizeXl, color: colors.white, fontWeight: typography.weightBold},
 	label: {fontSize: typography.sizeSm, color: colors.textDim},
+	topPlace: {margin: spacing.md, backgroundColor: colors.surface, borderRadius: radius.md, padding: spacing.md, gap: 2},
+	topPlaceLabel: {fontSize: typography.sizeXs, color: colors.textFaint, textTransform: 'uppercase'},
+	topPlaceTitle: {fontSize: typography.sizeLg, color: colors.accent, fontWeight: typography.weightBold},
+	topPlaceVisits: {fontSize: typography.sizeSm, color: colors.textDim},
 });
