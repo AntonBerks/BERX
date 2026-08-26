@@ -16,6 +16,8 @@ import {BerxHeader} from '../../../../packages/design-system/src/components/Berx
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
+import {BerxGlassSurface} from '../../../../packages/design-system/src/components/BerxGlassSurface';
+import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
 
 interface Props {
 	api: BerxApiClient;
@@ -92,31 +94,37 @@ export default function NearbyNowScreen({api, onOpenPlace, onOpenEvent, onBack}:
 			{places !== null && rows.length === 0 ? (
 				<BerxEmptyState title="Рядом ничего не найдено" subtitle="Попробуйте увеличить радиус или другие координаты." />
 			) : (
-				<FlatList
-					data={rows}
-					keyExtractor={(row: Row) => `${row.kind}-${row.item.guid}`}
-					contentContainerStyle={styles.list}
-					renderItem={({item: row}: {item: Row}) =>
-						row.kind === 'place' ? (
-							<Pressable style={styles.row2} onPress={() => { api.recordNearbyAction(row.item.guid, 'opened').catch(() => undefined); onOpenPlace(row.item.guid); }}>
-								{row.item.cover_url ? <Image source={{uri: row.item.cover_url}} style={styles.thumb} /> : <View style={styles.thumbFallback} />}
-								<View style={styles.rowBody}>
-									<Text style={styles.title} numberOfLines={1}>{row.item.title}</Text>
-									<Text style={styles.meta}>Место · {row.item.distance_km} км{row.item.is_open_now === true ? ' · Открыто' : row.item.is_open_now === false ? ' · Закрыто' : ''}{row.item.friends_count > 0 ? ` · 👥 ${row.item.friends_count}` : ''}</Text>
-									{row.item.moments.length > 0 ? <Text style={styles.momentText} numberOfLines={1}>🔥 {row.item.moments[0].text}</Text> : null}
-								</View>
-							</Pressable>
-						) : (
-							<Pressable style={styles.row2} onPress={() => onOpenEvent(row.item.guid)}>
-								<View style={styles.thumbFallback} />
-								<View style={styles.rowBody}>
-									<Text style={styles.title} numberOfLines={1}>{row.item.title}</Text>
-									<Text style={styles.meta}>Событие · {fmtWhen(row.item.starts)} · {row.item.distance_km} км{row.item.friends_count > 0 ? ` · 👥 ${row.item.friends_count}` : ''}</Text>
-								</View>
-							</Pressable>
-						)
-					}
-				/>
+				<BerxFadeIn style={styles.listFade}>
+					<FlatList
+						data={rows}
+						keyExtractor={(row: Row) => `${row.kind}-${row.item.guid}`}
+						contentContainerStyle={styles.list}
+						renderItem={({item: row}: {item: Row}) =>
+							row.kind === 'place' ? (
+								<Pressable onPress={() => { api.recordNearbyAction(row.item.guid, 'opened').catch(() => undefined); onOpenPlace(row.item.guid); }}>
+									<BerxGlassSurface padding="sm" style={styles.row2}>
+										{row.item.cover_url ? <Image source={{uri: row.item.cover_url}} style={styles.thumb} /> : <View style={styles.thumbFallback} />}
+										<View style={styles.rowBody}>
+											<Text style={styles.title} numberOfLines={1}>{row.item.title}</Text>
+											<Text style={styles.meta}>Место · {row.item.distance_km} км{row.item.is_open_now === true ? ' · Открыто' : row.item.is_open_now === false ? ' · Закрыто' : ''}{row.item.friends_count > 0 ? ` · 👥 ${row.item.friends_count}` : ''}</Text>
+											{row.item.moments.length > 0 ? <Text style={styles.momentText} numberOfLines={1}>🔥 {row.item.moments[0].text}</Text> : null}
+										</View>
+									</BerxGlassSurface>
+								</Pressable>
+							) : (
+								<Pressable onPress={() => onOpenEvent(row.item.guid)}>
+									<BerxGlassSurface padding="sm" style={styles.row2}>
+										<View style={styles.thumbFallback} />
+										<View style={styles.rowBody}>
+											<Text style={styles.title} numberOfLines={1}>{row.item.title}</Text>
+											<Text style={styles.meta}>Событие · {fmtWhen(row.item.starts)} · {row.item.distance_km} км{row.item.friends_count > 0 ? ` · 👥 ${row.item.friends_count}` : ''}</Text>
+										</View>
+									</BerxGlassSurface>
+								</Pressable>
+							)
+						}
+					/>
+				</BerxFadeIn>
 			)}
 		</View>
 	);
@@ -131,8 +139,9 @@ const styles = StyleSheet.create({
 	todayToggleText: {fontSize: typography.sizeSm, color: colors.textFaint},
 	todayToggleTextActive: {color: colors.accent, fontWeight: typography.weightMedium},
 	error: {fontSize: typography.sizeSm, color: colors.danger},
+	listFade: {flex: 1},
 	list: {padding: spacing.md},
-	row2: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.surface, borderRadius: radius.md, padding: spacing.sm, marginBottom: spacing.sm},
+	row2: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.sm},
 	thumb: {width: 48, height: 48, borderRadius: radius.sm},
 	thumbFallback: {width: 48, height: 48, borderRadius: radius.sm, backgroundColor: colors.graphite},
 	rowBody: {flex: 1, gap: 2},
