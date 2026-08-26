@@ -127,6 +127,9 @@ function ossn_api_v1_resources() {
 		// Nearby impression actions — feeds places.php's business
 		// dashboard real 'shown'/'opened'/'saved'/'route' counts.
 		'impressions'   => __OSSN_API__ . 'v1/impressions.php',
+		// Business (top-level: claims/team/subscription/hours) — routing
+		// over already-real OssnBusiness/OssnPlaceHours/OssnPlaces.
+		'business'      => __OSSN_API__ . 'v1/business.php',
 		// 'business' (the SEPARATE top-level resource — /business/
 		// places/{guid}/team|subscription|hours|claim|moments|
 		// impressions) still deliberately NOT listed: those branches
