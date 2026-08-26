@@ -113,6 +113,10 @@ function ossn_api_v1_resources() {
 		// Wrapped — real COUNT() aggregates over already-real data, no
 		// new class or table.
 		'wrapped'       => __OSSN_API__ . 'v1/wrapped.php',
+		// Live Presence — real ossn_users.last_activity (already kept
+		// live by core's update_last_activity(), called from
+		// system/start.php on every request) + real OssnUser::getFriends().
+		'presence'      => __OSSN_API__ . 'v1/presence.php',
 		// 'business' (the SEPARATE top-level resource — /business/
 		// places/{guid}/team|subscription|hours|claim|moments|
 		// impressions) still deliberately NOT listed: those branches
