@@ -1,6 +1,12 @@
 /**
  * !!! VERIFICATION STATUS: UNVERIFIED — see LoginScreen.tsx header.
  * Real data: api.myGoingEvents() (components/OssnApi/v1/events.php).
+ *
+ * MAX BUILD — "shared activities": each event now carries a real
+ * friends_going_count (computed server-side in the same request, no
+ * extra round trip), shown as a "👥 N идут" nudge — turning a flat
+ * list of your own plans into a real cross-reference of who else is
+ * already going, without a second screen or a second fetch.
  */
 import {useCallback, useEffect, useState} from 'react';
 import {View, Text, FlatList, Image, Pressable, StyleSheet} from 'react-native';
@@ -58,7 +64,7 @@ export default function MyEventsScreen({api, onOpenEvent, onBack}: Props) {
 								{item.cover_url ? <Image source={{uri: item.cover_url}} style={styles.cardImage} /> : <View style={styles.cardImageFallback} />}
 								<View style={styles.cardBody}>
 									<Text style={styles.cardTitle} numberOfLines={1}>{item.title}</Text>
-									<Text style={styles.cardMeta}>{date.toLocaleDateString('ru-RU', {day: 'numeric', month: 'long'})}</Text>
+									<Text style={styles.cardMeta}>{date.toLocaleDateString('ru-RU', {day: 'numeric', month: 'long'})}{item.friends_going_count ? ` · 👥 ${item.friends_going_count} идут` : ''}</Text>
 								</View>
 							</Pressable>
 						);

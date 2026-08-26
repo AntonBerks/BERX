@@ -33,7 +33,23 @@ if ($segment0 === 'categories' && $segment1 === null && $method === 'GET') {
 }
 
 if ($segment0 === 'going' && $segment1 === null && $method === 'GET') {
-	ossn_api_json(array('events' => $model->goingEvents($api_user_guid, $api_user_guid)));
+	$events = $model->goingEvents($api_user_guid, $api_user_guid);
+	// MAX BUILD — "shared activities": each of the caller's own
+	// upcoming plans now also carries how many real friends are ALSO
+	// going, a real nudge to coordinate (same friend-relevance
+	// intersection ossn_api_friend_relevance_event_count() already
+	// does for search/nearby, reused here — never a new computation).
+	$friendRows = (new OssnUser())->getFriends($api_user_guid, array('limit' => 2000, 'page_limit' => false));
+	$friendIds = array();
+	if ($friendRows) {
+		foreach ($friendRows as $f) {
+			$friendIds[intval($f->guid)] = true;
+		}
+	}
+	foreach ($events as $event) {
+		$event->friends_going_count = ossn_api_friend_relevance_event_count($model, intval($event->guid), $friendIds);
+	}
+	ossn_api_json(array('events' => $events));
 }
 
 if ($segment0 === null && $method === 'GET') {

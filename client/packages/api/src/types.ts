@@ -636,6 +636,8 @@ export interface BerxEvent {
 	cover_url: string | null;
 	has_ended: boolean;
 	is_going: boolean;
+	/** Real friend-relevance count (Max Build) — only populated by GET /events/going ("shared activities"), undefined everywhere else. */
+	friends_going_count?: number;
 }
 
 export interface BerxEventAttendee {
