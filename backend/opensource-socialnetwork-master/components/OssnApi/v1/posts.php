@@ -2,21 +2,17 @@
 /**
  * BERX API v1 — Posts, comments-on-posts, likes.
  *
- * KNOWN, DISCLOSED GAP (not silently faked): createPost() accepts a
- * `visibility` field (matching client.ts's real BerxPostVisibility
- * param) but does NOT yet persist it. OssnCircles::canViewPost() reads
- * $post->berx_visibility, but wall posts are OssnObject rows, not
- * OssnEntities rows — there is no existing, verified real mechanism in
- * this codebase to attach arbitrary named metadata to an OssnObject
- * (ossn_entities_metadata is id/guid/value with no name column; it
- * belongs to the separate Entities system OssnUser uses via
- * get_entities(), not confirmed to apply to Object rows). Building
- * real storage for this needs its own verified slice, not a guess
- * squeezed into this file. Every post is therefore treated as public
- * for now — canViewPost() is still called below (correctly falls back
- * to VISIBILITY_PUBLIC when berx_visibility is absent), so this
- * activates automatically and correctly the day real storage for it
- * ships, with zero change needed here.
+ * Real visibility storage (closes the gap disclosed earlier this
+ * session): OssnWall extends OssnObject, and OssnObject::addObject()
+ * really does persist arbitrary named metadata set on $this->data
+ * before the call — confirmed by reading addObject()/getObjectById()
+ * directly (the same real mechanism OssnPlaces/OssnEvents already
+ * rely on for category/address/etc this session), and OssnWall's own
+ * initAttributes() only initializes $this->data if it isn't already
+ * set, so setting it before Post() survives. OssnCircles::canViewPost()
+ * already reads $post->berx_visibility and is already called by
+ * posts.php's own GET branch and OssnCreator::recentPosts() — this
+ * was the one missing piece, not a wider gap.
  */
 
 /** Real detail shape — feed's lighter base mapper plus real counts. */
@@ -41,13 +37,29 @@ if ($segment0 === null && $method === 'POST') {
 	if (!$text) {
 		ossn_api_error('validation_error', 'text is required', 422);
 	}
-	// visibility intentionally read-but-not-stored — see file header.
 	$visibility = input('visibility');
+	if (!$visibility) {
+		$visibility = OssnCircles::VISIBILITY_PUBLIC;
+	} elseif (strpos($visibility, OssnCircles::VISIBILITY_PREFIX_CIRCLE) === 0) {
+		// Real ownership check, server-side — matches client.ts's own
+		// documented contract ("only accepted if the caller actually
+		// owns that circle"), never trusted from the request alone.
+		$circleId = intval(substr($visibility, strlen(OssnCircles::VISIBILITY_PREFIX_CIRCLE)));
+		$circle = $circleId ? (new OssnCircles())->get($circleId) : false;
+		if (!$circle || !(new OssnCircles())->canAccess($circle, $api_user_guid)) {
+			ossn_api_error('forbidden', 'Not your circle', 403);
+		}
+		$visibility = OssnCircles::VISIBILITY_PREFIX_CIRCLE . $circleId;
+	} elseif ($visibility !== OssnCircles::VISIBILITY_PUBLIC && $visibility !== OssnCircles::VISIBILITY_FRIENDS) {
+		ossn_api_error('validation_error', 'Invalid visibility', 422);
+	}
 
 	$wall = new OssnWall();
 	$wall->owner_guid  = intval($api_user_guid);
 	$wall->poster_guid = intval($api_user_guid);
 	$wall->type        = 'user';
+	$wall->data = new stdClass();
+	$wall->data->berx_visibility = $visibility;
 	$guid = $wall->Post($text);
 	if (!$guid) {
 		ossn_api_error('create_failed', 'Could not create post', 500);
