@@ -102,7 +102,7 @@ export default function NearbyNowScreen({api, onOpenPlace, onOpenEvent, onBack}:
 								{row.item.cover_url ? <Image source={{uri: row.item.cover_url}} style={styles.thumb} /> : <View style={styles.thumbFallback} />}
 								<View style={styles.rowBody}>
 									<Text style={styles.title} numberOfLines={1}>{row.item.title}</Text>
-									<Text style={styles.meta}>Место · {row.item.distance_km} км{row.item.is_open_now === true ? ' · Открыто' : row.item.is_open_now === false ? ' · Закрыто' : ''}</Text>
+									<Text style={styles.meta}>Место · {row.item.distance_km} км{row.item.is_open_now === true ? ' · Открыто' : row.item.is_open_now === false ? ' · Закрыто' : ''}{row.item.friends_count > 0 ? ` · 👥 ${row.item.friends_count}` : ''}</Text>
 									{row.item.moments.length > 0 ? <Text style={styles.momentText} numberOfLines={1}>🔥 {row.item.moments[0].text}</Text> : null}
 								</View>
 							</Pressable>
@@ -111,7 +111,7 @@ export default function NearbyNowScreen({api, onOpenPlace, onOpenEvent, onBack}:
 								<View style={styles.thumbFallback} />
 								<View style={styles.rowBody}>
 									<Text style={styles.title} numberOfLines={1}>{row.item.title}</Text>
-									<Text style={styles.meta}>Событие · {fmtWhen(row.item.starts)} · {row.item.distance_km} км</Text>
+									<Text style={styles.meta}>Событие · {fmtWhen(row.item.starts)} · {row.item.distance_km} км{row.item.friends_count > 0 ? ` · 👥 ${row.item.friends_count}` : ''}</Text>
 								</View>
 							</Pressable>
 						)

@@ -353,6 +353,8 @@ export interface BerxNearbyPlaceItem {
 	moments: {id: number; text: string; ends_at: number}[];
 	/** null = no structured hours entered; never conflate with closed. */
 	is_open_now: boolean | null;
+	/** Real friends who saved/reviewed this place — Personal World / Dynamic Discovery, see docs/BERX_FUTURE_LAYER_SPEC.md. Not a ranking BERX applies server-side; the client sorts by this if it wants a "who you know" view. */
+	friends_count: number;
 }
 
 export interface BerxNearbyEventItem {
@@ -361,6 +363,8 @@ export interface BerxNearbyEventItem {
 	starts: number;
 	place_guid: number;
 	distance_km: number;
+	/** Real friends who are going — see friends_count on BerxNearbyPlaceItem. */
+	friends_count: number;
 }
 
 export interface BerxNearbyNow {
