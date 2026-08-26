@@ -1,11 +1,10 @@
 /**
  * !!! VERIFICATION STATUS: UNVERIFIED — see LoginScreen.tsx header.
- * DESIGN REFERENCE SCREEN — establishes the "Spatial Glass" visual
+ * DESIGN REFERENCE SCREEN — established the "Spatial Glass" visual
  * language for Business. Real data via api.getPlace()/
- * businessDashboard()/getBusinessSubscription(). Not yet wired into
- * AppShell/routes — this pass is visual-system-first, per the
- * request; navigation wiring is a following step, not skipped
- * silently.
+ * businessDashboard()/getBusinessSubscription(). Now wired into
+ * AppShell/routes (the "not yet wired" note this comment previously
+ * carried is stale — a later session did the navigation wiring).
  */
 import {useCallback, useEffect, useState} from 'react';
 import {View, Text, ScrollView, Pressable, StyleSheet} from 'react-native';
@@ -16,6 +15,7 @@ import {BerxScrimHero, scrimBadgeStyles} from '../../../../../packages/design-sy
 import {BerxGlassSurface} from '../../../../../packages/design-system/src/components/BerxGlassSurface';
 import {BerxStatTile, BerxEyebrow} from '../../../../../packages/design-system/src/components/BerxBusinessPrimitives';
 import {BerxLoadingState, BerxErrorState} from '../../../../../packages/design-system/src/components/BerxStates';
+import {BerxFadeIn} from '../../../../../packages/design-system/src/components/BerxFadeIn';
 
 interface Props {
 	api: BerxApiClient;
@@ -96,17 +96,17 @@ export default function BusinessHomeScreen({api, placeGuid, onOpenProfile, onOpe
 			/>
 
 			<View style={styles.body}>
-				<View style={styles.statsRow}>
+				<BerxFadeIn style={styles.statsRow}>
 					<BerxStatTile label="рейтинг" value={dashboard.rating.toFixed(1)} />
 					<BerxStatTile label="отзывов" value={String(dashboard.rating_count)} />
 					<BerxStatTile
 						label="подписка"
 						value={subscription?.status === 'trial' ? 'Пробный период' : subscription?.status === 'active' ? 'Активна' : subscription?.status === 'expired' ? 'Истекла' : 'Не начата'}
 					/>
-				</View>
+				</BerxFadeIn>
 
 				<BerxEyebrow>Управление бизнесом</BerxEyebrow>
-				<View style={styles.grid}>
+				<BerxFadeIn style={styles.grid} delayMs={90}>
 					{NAV_CARDS.map((card) => (
 						<Pressable key={card.key} onPress={nav[card.key]} style={styles.cardWrap}>
 							<BerxGlassSurface padding="md" style={styles.card}>
@@ -115,7 +115,7 @@ export default function BusinessHomeScreen({api, placeGuid, onOpenProfile, onOpe
 							</BerxGlassSurface>
 						</Pressable>
 					))}
-				</View>
+				</BerxFadeIn>
 			</View>
 		</ScrollView>
 	);

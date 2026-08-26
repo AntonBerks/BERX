@@ -8,9 +8,21 @@
  * score, no growth chart, no visitor analytics, no payment: none of
  * those have a real data source or provider in BERX, so none appear
  * here.
+ *
+ * Future UI pass: this was still the pre-Phase-4 flat colors.surface
+ * look (the sibling "Spatial Glass" screens live in screens/business/
+ * now). Status/stats/subscription move onto BerxGlassSurface, the
+ * team list gets one grouped glass container instead of per-row
+ * boxes, and the whole body gets a BerxFadeIn entrance. Also switched
+ * the root View to a ScrollView -- this screen had no scroll
+ * container at all, unlike every sibling detail screen (Place/Event),
+ * so a business with a longer team/review list had no way to reach
+ * the bottom; a real bug fix, not a style choice. Review rows are
+ * left as plain divided rows, matching PlaceDetailScreen's own
+ * convention (not every list needs to be a card).
  */
 import {useCallback, useEffect, useState} from 'react';
-import {View, Text, Image, StyleSheet} from 'react-native';
+import {View, Text, Image, ScrollView, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxBusinessDashboard, BerxPlaceReview, BerxBusinessSubscription, BerxBusinessTeamMember, BerxBusinessMoment} from '@berx/api/types';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
@@ -18,6 +30,8 @@ import {BerxHeader} from '../../../../packages/design-system/src/components/Berx
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {BerxLoadingState, BerxErrorState} from '../../../../packages/design-system/src/components/BerxStates';
+import {BerxGlassSurface} from '../../../../packages/design-system/src/components/BerxGlassSurface';
+import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
 
 interface Props {
 	api: BerxApiClient;
@@ -114,14 +128,14 @@ export default function BusinessDashboardScreen({api, placeGuid, onBack}: Props)
 	if (error || !data) return <BerxErrorState message={error ?? 'Не удалось загрузить'} onRetry={load} />;
 
 	return (
-		<View style={styles.screen}>
+		<ScrollView style={styles.screen}>
 			<BerxHeader title="Панель бизнеса" onBack={onBack} />
-			<View style={styles.body}>
-				<View style={styles.statusRow}>
+			<BerxFadeIn style={styles.body}>
+				<BerxGlassSurface elevated padding="md" style={styles.statusRow}>
 					<Text style={styles.statusLabel}>{data.verified ? 'Верифицирован ✓' : 'Не верифицирован'}</Text>
-				</View>
+				</BerxGlassSurface>
 
-				<View style={styles.statsRow}>
+				<BerxGlassSurface padding="md" style={styles.statsRow}>
 					<View style={styles.stat}>
 						<Text style={styles.statValue}>{data.rating.toFixed(1)}</Text>
 						<Text style={styles.statLabel}>рейтинг</Text>
@@ -134,17 +148,17 @@ export default function BusinessDashboardScreen({api, placeGuid, onBack}: Props)
 						<Text style={styles.statValue}>{team.length}</Text>
 						<Text style={styles.statLabel}>сотрудников</Text>
 					</View>
-				</View>
+				</BerxGlassSurface>
 
 				{data.nearby_impressions ? (
 					<>
 						<Text style={styles.sectionTitle}>Nearby Now</Text>
-						<View style={styles.statsRow}>
+						<BerxGlassSurface padding="md" style={styles.statsRow}>
 							<View style={styles.stat}><Text style={styles.statValue}>{data.nearby_impressions.shown}</Text><Text style={styles.statLabel}>показов</Text></View>
 							<View style={styles.stat}><Text style={styles.statValue}>{data.nearby_impressions.opened}</Text><Text style={styles.statLabel}>открытий</Text></View>
 							<View style={styles.stat}><Text style={styles.statValue}>{data.nearby_impressions.saved}</Text><Text style={styles.statLabel}>сохранений</Text></View>
 							<View style={styles.stat}><Text style={styles.statValue}>{data.nearby_impressions.route}</Text><Text style={styles.statLabel}>маршрутов</Text></View>
-						</View>
+						</BerxGlassSurface>
 						{data.nearby_impressions.shown > 0 ? (
 							<Text style={styles.conversionNote}>
 								{Math.round((data.nearby_impressions.opened / data.nearby_impressions.shown) * 100)}% открывают ваш профиль после показа рядом
@@ -171,7 +185,7 @@ export default function BusinessDashboardScreen({api, placeGuid, onBack}: Props)
 
 				<Text style={styles.sectionTitle}>Подписка</Text>
 				{subscription ? (
-					<View style={styles.subscriptionCard}>
+					<BerxGlassSurface elevated padding="md" style={styles.subscriptionCard}>
 						<Text style={styles.subscriptionStatus}>{STATUS_LABEL[subscription.status]}</Text>
 						{subscription.status === 'trial' && subscription.trial_ends_at ? (
 							<Text style={styles.subscriptionMeta}>Пробный период до {fmtDate(subscription.trial_ends_at)}</Text>
@@ -185,20 +199,22 @@ export default function BusinessDashboardScreen({api, placeGuid, onBack}: Props)
 						{!subscription.entitled && subscription.status !== 'none' ? (
 							<Text style={styles.subscriptionExpired}>Доступ к бизнес-функциям приостановлен.</Text>
 						) : null}
-					</View>
+					</BerxGlassSurface>
 				) : null}
 
 				<Text style={styles.sectionTitle}>Команда</Text>
 				{team.length === 0 ? (
 					<Text style={styles.empty}>Пока только вы управляете этим местом.</Text>
 				) : (
-					team.map((m) => (
-						<View key={m.guid} style={styles.teamRow}>
-							<Image source={{uri: m.icon}} style={styles.teamAvatar} />
-							<Text style={styles.teamName}>{m.fullname}</Text>
-							<Text style={styles.teamRole}>{m.role === 'manager' ? 'Менеджер' : 'Сотрудник'}</Text>
-						</View>
-					))
+					<BerxGlassSurface padding="sm" style={styles.teamGroup}>
+						{team.map((m: BerxBusinessTeamMember, i: number) => (
+							<View key={m.guid} style={[styles.teamRow, i > 0 && styles.teamRowDivider]}>
+								<Image source={{uri: m.icon}} style={styles.teamAvatar} />
+								<Text style={styles.teamName}>{m.fullname}</Text>
+								<Text style={styles.teamRole}>{m.role === 'manager' ? 'Менеджер' : 'Сотрудник'}</Text>
+							</View>
+						))}
+					</BerxGlassSurface>
 				)}
 
 				<Text style={styles.sectionTitle}>Последние отзывы</Text>
@@ -219,15 +235,15 @@ export default function BusinessDashboardScreen({api, placeGuid, onBack}: Props)
 						</View>
 					))
 				)}
-			</View>
-		</View>
+			</BerxFadeIn>
+		</ScrollView>
 	);
 }
 
 const styles = StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.bg},
 	body: {padding: spacing.md, gap: spacing.md},
-	statusRow: {backgroundColor: colors.surface, borderRadius: radius.md, padding: spacing.md},
+	statusRow: {},
 	statusLabel: {color: colors.white, fontSize: typography.sizeBase, fontWeight: typography.weightMedium},
 	statsRow: {flexDirection: 'row', gap: spacing.lg},
 	stat: {alignItems: 'flex-start'},
@@ -241,11 +257,13 @@ const styles = StyleSheet.create({
 	momentRowText: {flex: 1, fontSize: typography.sizeSm, color: colors.accent},
 	momentRowRemove: {fontSize: typography.sizeXs, color: colors.danger, paddingLeft: spacing.sm},
 	empty: {color: colors.textFaint, fontSize: typography.sizeSm},
-	subscriptionCard: {backgroundColor: colors.surface, borderRadius: radius.md, padding: spacing.md, gap: spacing.sm},
+	subscriptionCard: {gap: spacing.sm},
 	subscriptionStatus: {color: colors.white, fontSize: typography.sizeBase, fontWeight: typography.weightMedium},
 	subscriptionMeta: {color: colors.textDim, fontSize: typography.sizeSm},
 	subscriptionExpired: {color: colors.danger, fontSize: typography.sizeSm},
-	teamRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.xs},
+	teamGroup: {gap: 0},
+	teamRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.sm},
+	teamRowDivider: {borderTopWidth: 1, borderTopColor: colors.borderSoft},
 	teamAvatar: {width: 32, height: 32, borderRadius: radius.pill, backgroundColor: colors.graphite},
 	teamName: {flex: 1, color: colors.white, fontSize: typography.sizeSm},
 	teamRole: {color: colors.textFaint, fontSize: typography.sizeXs},
