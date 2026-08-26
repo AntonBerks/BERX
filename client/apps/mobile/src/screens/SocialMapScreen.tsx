@@ -7,11 +7,18 @@
  * here, so this is a real list of real pins, not a pretend map view;
  * see docs/BERX_FUTURE_LAYER_SPEC.md. Friends are listed separately,
  * never plotted — no real friend-location data exists or is exposed.
+ *
+ * MAX BUILD — "City + People + Places + Events + Moments = one living
+ * environment": City Mode's response now carries the real active
+ * Moments themselves (not just a count), rendered here as a "live
+ * now" strip right under the stat row — the same real, owner-posted,
+ * time-bound announcements Nearby Now already shows per-place, now
+ * also visible as one pulse-of-the-city list.
  */
 import {useState} from 'react';
 import {View, Text, FlatList, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
-import type {BerxSocialMapPlacePin, BerxSocialMapEventPin, BerxSocialMapFriend, BerxCityModeResponse} from '@berx/api/types';
+import type {BerxSocialMapPlacePin, BerxSocialMapEventPin, BerxSocialMapFriend, BerxCityModeResponse, BerxCityModeMoment} from '@berx/api/types';
 import {colors, spacing, typography} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
@@ -90,6 +97,27 @@ export default function SocialMapScreen({api, onOpenPlace, onOpenEvent, onOpenPr
 				</BerxFadeIn>
 			) : null}
 
+			{city && city.moments.length > 0 ? (
+				<View style={styles.momentsSection}>
+					<Text style={styles.sectionTitle}>Сейчас в городе</Text>
+					<FlatList
+						horizontal
+						showsHorizontalScrollIndicator={false}
+						data={city.moments}
+						keyExtractor={(m: BerxCityModeMoment) => String(m.id)}
+						contentContainerStyle={styles.momentsList}
+						renderItem={({item}: {item: BerxCityModeMoment}) => (
+							<View onTouchEnd={() => onOpenPlace(item.place_guid)}>
+								<BerxGlassSurface padding="sm" style={styles.momentCard}>
+									<Text style={styles.momentText} numberOfLines={2}>🔥 {item.text}</Text>
+									<Text style={styles.momentPlace} numberOfLines={1}>{item.place_title}</Text>
+								</BerxGlassSurface>
+							</View>
+						)}
+					/>
+				</View>
+			) : null}
+
 			{friends.length > 0 ? (
 				<View style={styles.friendsRow}>
 					<Text style={styles.sectionTitle}>Друзья онлайн</Text>
@@ -140,6 +168,11 @@ const styles = StyleSheet.create({
 	cityStat: {alignItems: 'center'},
 	cityValue: {fontSize: typography.sizeLg, color: colors.accent, fontWeight: typography.weightBold},
 	cityLabel: {fontSize: typography.sizeXs, color: colors.textFaint},
+	momentsSection: {paddingVertical: spacing.sm},
+	momentsList: {paddingHorizontal: spacing.md, gap: spacing.sm},
+	momentCard: {width: 200, marginRight: spacing.sm, gap: 4},
+	momentText: {fontSize: typography.sizeSm, color: colors.accent},
+	momentPlace: {fontSize: typography.sizeXs, color: colors.textFaint},
 	friendsRow: {paddingVertical: spacing.sm},
 	friendItem: {alignItems: 'center', width: 64, marginHorizontal: spacing.xs, gap: spacing.xs},
 	friendName: {fontSize: typography.sizeSm, color: colors.textDim},

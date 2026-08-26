@@ -38,12 +38,43 @@ if (class_exists('OssnEvents')) {
 }
 
 $momentsCount = 0;
+$momentsOut = array();
 if ($placeRows) {
 	$placeGuids = array();
 	foreach ($placeRows as $row) {
 		$placeGuids[] = intval($row->object_guid);
 	}
-	$momentsCount = count((new OssnBusinessMoments())->activeForPlaces($placeGuids, 200));
+	$activeMoments = (new OssnBusinessMoments())->activeForPlaces($placeGuids, 200);
+	$momentsCount = count($activeMoments);
+
+	// MAX BUILD — "City + People + Places + Events + Moments = one
+	// living environment": City Mode already counted active moments,
+	// now it also surfaces the real ones (soonest-ending first, capped
+	// at 10 for a real "live now" strip, not the full count). Same
+	// activeForPlaces() rows nearby.php already trusts, just not
+	// discarded down to a bare count here anymore.
+	usort($activeMoments, function ($a, $b) {
+		return intval($a->ends_at) <=> intval($b->ends_at);
+	});
+	$placesModel = new OssnPlaces();
+	$shown = 0;
+	foreach ($activeMoments as $m) {
+		if ($shown >= 10) {
+			break;
+		}
+		$place = $placesModel->getPlace(intval($m->place_guid));
+		if (!$place) {
+			continue;
+		}
+		$momentsOut[] = array(
+			'id'         => intval($m->id),
+			'text'       => (string) $m->text,
+			'ends_at'    => intval($m->ends_at),
+			'place_guid' => intval($m->place_guid),
+			'place_title' => (string) $place->title,
+		);
+		$shown++;
+	}
 }
 
 $friendsOnlineCount = 0;
@@ -63,5 +94,6 @@ ossn_api_json(array(
 	'places_count'         => $placesCount,
 	'events_count'         => $eventsCount,
 	'active_moments_count' => $momentsCount,
+	'moments'              => $momentsOut,
 	'friends_online_count' => $friendsOnlineCount,
 ));

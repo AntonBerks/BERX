@@ -269,11 +269,21 @@ export interface BerxEventExperienceGraph {
 }
 
 /** Radius-scoped summary header — see docs/BERX_FUTURE_LAYER_SPEC.md. Counts are bounded by the same real cap OssnGeo::near() uses, not a true city-wide total. */
+export interface BerxCityModeMoment {
+	id: number;
+	text: string;
+	ends_at: number;
+	place_guid: number;
+	place_title: string;
+}
+
 export interface BerxCityModeResponse {
 	radius_km: number;
 	places_count: number;
 	events_count: number;
 	active_moments_count: number;
+	/** Real "live now" strip — soonest-ending first, capped at 10. Same rows nearby.php already trusts, not a new signal. */
+	moments: BerxCityModeMoment[];
 	friends_online_count: number;
 }
 
