@@ -84,6 +84,8 @@ interface Props {
 	onOpenCreatorSettings?: () => void;
 	onOpenMyVideos?: (userGuid: number, isOwn: boolean) => void;
 	onOpenMyTracks?: (userGuid: number, isOwn: boolean) => void;
+	/** Own-only quick bookmark list (Max Build) — separate from onOpenCollections, which is viewable for others too. */
+	onOpenSavedPosts?: () => void;
 	onReport?: (targetGuid: number) => void;
 }
 
@@ -92,7 +94,7 @@ function joinedYear(unixSeconds?: number): string | null {
 	return new Date(unixSeconds * 1000).getFullYear().toString();
 }
 
-export default function ProfileScreen({api, authState, username, onBack, onMessage, onOpenNotifications, onOpenPoints, onOpenMissions, onOpenLifeGraph, onOpenMemories, onOpenWrapped, onOpenDatingPrivacy, onOpenCommunities, onOpenDating, onOpenPlaces, onOpenEvents, onOpenSettings, onOpenBERXWorld, onOpenAlbums, onOpenCollections, onOpenTrips, onOpenExperiences, onOpenCreatorProfile, onOpenCreatorSettings, onOpenMyVideos, onOpenMyTracks, onReport}: Props) {
+export default function ProfileScreen({api, authState, username, onBack, onMessage, onOpenNotifications, onOpenPoints, onOpenMissions, onOpenLifeGraph, onOpenMemories, onOpenWrapped, onOpenDatingPrivacy, onOpenCommunities, onOpenDating, onOpenPlaces, onOpenEvents, onOpenSettings, onOpenBERXWorld, onOpenAlbums, onOpenCollections, onOpenTrips, onOpenExperiences, onOpenCreatorProfile, onOpenCreatorSettings, onOpenMyVideos, onOpenMyTracks, onOpenSavedPosts, onReport}: Props) {
 	const [profile, setProfile] = useState<ProfileData | null>(null);
 	const [identity, setIdentity] = useState<BerxIdentity | null>(null);
 	const [loading, setLoading] = useState(true);
@@ -322,6 +324,7 @@ export default function ProfileScreen({api, authState, username, onBack, onMessa
 						{onOpenMissions ? <MenuRow label="Задания дня" icon={<IconStar size={18} color={colors.text} />} onPress={onOpenMissions} /> : null}
 						{onOpenLifeGraph ? <MenuRow label="Ваш путь в BERX" icon={<IconStar size={18} color={colors.text} />} onPress={onOpenLifeGraph} /> : null}
 						{onOpenMemories ? <MenuRow label="Воспоминания" icon={<IconStar size={18} color={colors.text} />} onPress={onOpenMemories} /> : null}
+						{onOpenSavedPosts ? <MenuRow label="Сохранённые посты" icon={<IconStar size={18} color={colors.text} />} onPress={onOpenSavedPosts} /> : null}
 						{onOpenWrapped ? <MenuRow label="BERX Wrapped" icon={<IconStar size={18} color={colors.text} />} onPress={onOpenWrapped} /> : null}
 						{onOpenSettings ? <MenuRow label="Настройки" icon={<IconLock size={18} color={colors.text} />} onPress={onOpenSettings} isLast /> : null}
 					</View>

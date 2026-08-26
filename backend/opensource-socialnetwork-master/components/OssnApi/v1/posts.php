@@ -13,7 +13,17 @@
  * already reads $post->berx_visibility and is already called by
  * posts.php's own GET branch and OssnCreator::recentPosts() — this
  * was the one missing piece, not a wider gap.
+ *
+ * MAX BUILD — real post save/unsave/saved-list (closes routes.ts's
+ * long-disclosed "Post/wall bookmarking has no API endpoint" gap).
+ * Deliberately a separate, lighter mechanism from OssnCollections
+ * (which already accepts item_type='post' for curated, nameable,
+ * possibly-public collections) — this is the quick one-tap personal
+ * bookmark, same real ossn_relationships toggle pattern
+ * OssnPlaces::SAVE_RELATION already established, just on posts
+ * ('post:save'), no new table, no new class needed for two routes.
  */
+const POST_SAVE_RELATION = 'post:save';
 
 /** Real detail shape — feed's lighter base mapper plus real counts. */
 function ossn_api_post_detail_json($post, $viewerGuid) {
@@ -24,13 +34,34 @@ function ossn_api_post_detail_json($post, $viewerGuid) {
 	$commentCount = $comments->countComments($post->guid, 'post');
 	$base['like_count'] = $likeCount ? intval($likeCount) : 0;
 	$base['comment_count'] = $commentCount ? intval($commentCount) : 0;
+	$base['is_saved'] = $viewerGuid ? ossn_relation_exists(intval($viewerGuid), intval($post->guid), POST_SAVE_RELATION) : false;
 	return $base;
 }
 
-$segment0 = isset($segments[0]) ? $segments[0] : null; // post guid
-$segment1 = isset($segments[1]) ? $segments[1] : null; // 'like' | 'comments'
+$segment0 = isset($segments[0]) ? $segments[0] : null; // post guid | 'saved'
+$segment1 = isset($segments[1]) ? $segments[1] : null; // 'like' | 'comments' | 'save' | 'unsave'
 $segment2 = isset($segments[2]) ? $segments[2] : null; // comment id
 $segment3 = isset($segments[3]) ? $segments[3] : null; // 'delete'
+
+if ($segment0 === 'saved' && $segment1 === null && $method === 'GET') {
+	$rows = ossn_get_relationships(array('from' => intval($api_user_guid), 'type' => POST_SAVE_RELATION, 'limit' => 100, 'page_limit' => false));
+	$wall = new OssnWall();
+	$circles = new OssnCircles();
+	$out = array();
+	if ($rows) {
+		foreach ($rows as $row) {
+			$post = $wall->GetPost(intval($row->relation_to));
+			// Re-verified on every read, same as the single-post GET route:
+			// a post can be deleted, its visibility narrowed, or its author
+			// blocked AFTER it was saved — a stale save must never leak it.
+			if (!$post || ossn_api_is_blocked($api_user_guid, $post->owner_guid) || !$circles->canViewPost($post, $api_user_guid)) {
+				continue;
+			}
+			$out[] = ossn_api_post_detail_json($post, $api_user_guid);
+		}
+	}
+	ossn_api_json(array('posts' => $out));
+}
 
 if ($segment0 === null && $method === 'POST') {
 	$text = input('text');
@@ -92,6 +123,26 @@ if ($segment0 !== null && $segment1 === 'like' && $method === 'POST') {
 	$likes = new OssnLikes();
 	$likes->Like($post->guid, $api_user_guid, 'post');
 	ossn_api_json(array('status' => 'ok'));
+}
+
+if ($segment0 !== null && $segment1 === 'save' && $method === 'POST') {
+	$wall = new OssnWall();
+	$post = $wall->GetPost(intval($segment0));
+	if (!$post || ossn_api_is_blocked($api_user_guid, $post->owner_guid)) {
+		ossn_api_error('not_found', 'Post not found', 404);
+	}
+	if (!(new OssnCircles())->canViewPost($post, $api_user_guid)) {
+		ossn_api_error('not_found', 'Post not found', 404);
+	}
+	if (!ossn_relation_exists(intval($api_user_guid), intval($segment0), POST_SAVE_RELATION)) {
+		ossn_add_relation(intval($api_user_guid), intval($segment0), POST_SAVE_RELATION);
+	}
+	ossn_api_json(array('status' => 'ok', 'is_saved' => true));
+}
+
+if ($segment0 !== null && $segment1 === 'unsave' && $method === 'POST') {
+	ossn_delete_relationship(array('from' => intval($api_user_guid), 'to' => intval($segment0), 'type' => POST_SAVE_RELATION));
+	ossn_api_json(array('status' => 'ok', 'is_saved' => false));
 }
 
 if ($segment0 !== null && $segment1 === 'comments' && $segment2 === null && $method === 'POST') {

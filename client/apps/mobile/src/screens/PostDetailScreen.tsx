@@ -1,8 +1,18 @@
 /**
  * !!! VERIFICATION STATUS: UNVERIFIED — see LoginScreen.tsx header.
+ *
+ * MAX BUILD — real quick-bookmark (api.savePost()/unsavePost(),
+ * components/OssnApi/v1/posts.php's save/unsave routes). Unlike
+ * "liked" (ephemeral client-only state — the like response carries no
+ * count to reconcile against, see handleLike()'s own comment),
+ * is_saved comes back real from the server on every load, so it's
+ * kept in `post` state and toggled the same optimistic-after-success
+ * way PlaceDetailScreen's toggleSave() already does. Root View is now
+ * a ScrollView — a post with a full comment thread had no way to
+ * reach the bottom.
  */
 import {useCallback, useEffect, useState} from 'react';
-import {View, Text, Image, Pressable, StyleSheet} from 'react-native';
+import {View, Text, Image, Pressable, ScrollView, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxPostDetail, BerxPostComment, BerxMediaAsset} from '@berx/api/types';
 import {relativeTimeLabel} from '@berx/domain';
@@ -29,6 +39,7 @@ export default function PostDetailScreen({api, postGuid, myGuid, onOpenProfile, 
 	const [error, setError] = useState<string | null>(null);
 	const [liking, setLiking] = useState(false);
 	const [liked, setLiked] = useState(false);
+	const [saving, setSaving] = useState(false);
 	const [commentText, setCommentText] = useState('');
 	const [posting, setPosting] = useState(false);
 	const [commentStatus, setCommentStatus] = useState<string | null>(null);
@@ -96,6 +107,24 @@ export default function PostDetailScreen({api, postGuid, myGuid, onOpenProfile, 
 		}
 	}
 
+	async function toggleSave() {
+		if (!post) return;
+		setSaving(true);
+		try {
+			if (post.is_saved) {
+				await api.unsavePost(post.guid);
+				setPost({...post, is_saved: false});
+			} else {
+				await api.savePost(post.guid);
+				setPost({...post, is_saved: true});
+			}
+		} catch {
+			// best-effort — UI already reflects the pre-toggle state on failure
+		} finally {
+			setSaving(false);
+		}
+	}
+
 	async function handleComment() {
 		if (!commentText.trim()) return;
 		setPosting(true);
@@ -122,23 +151,23 @@ export default function PostDetailScreen({api, postGuid, myGuid, onOpenProfile, 
 
 	if (loading) {
 		return (
-			<View style={styles.screen}>
+			<ScrollView style={styles.screen}>
 				<BerxHeader onBack={onBack} />
 				<BerxLoadingState label="Загрузка поста..." />
-			</View>
+			</ScrollView>
 		);
 	}
 	if (error || !post) {
 		return (
-			<View style={styles.screen}>
+			<ScrollView style={styles.screen}>
 				<BerxHeader onBack={onBack} />
 				<BerxErrorState message={error ?? 'Пост не найден'} onRetry={load} />
-			</View>
+			</ScrollView>
 		);
 	}
 
 	return (
-		<View style={styles.screen}>
+		<ScrollView style={styles.screen}>
 			<BerxHeader onBack={onBack} title={post.owner_username ?? undefined} />
 			<View style={styles.container}>
 				<Pressable onPress={() => post.owner_username && onOpenProfile(post.owner_username)} disabled={!post.owner_username}>
@@ -159,13 +188,21 @@ export default function PostDetailScreen({api, postGuid, myGuid, onOpenProfile, 
 
 				<BerxMediaViewer assets={media} initialIndex={viewerIndex} visible={viewerOpen} onClose={() => setViewerOpen(false)} />
 
-				<BerxButton
-					label={liked ? 'Понравилось ✓' : 'Нравится'}
-					variant={liked ? 'secondary' : 'primary'}
-					onPress={handleLike}
-					loading={liking}
-					disabled={liked}
-				/>
+				<View style={styles.actions}>
+					<BerxButton
+						label={liked ? 'Понравилось ✓' : 'Нравится'}
+						variant={liked ? 'secondary' : 'primary'}
+						onPress={handleLike}
+						loading={liking}
+						disabled={liked}
+					/>
+					<BerxButton
+						label={post.is_saved ? 'Сохранено' : 'Сохранить'}
+						variant={post.is_saved ? 'primary' : 'secondary'}
+						onPress={toggleSave}
+						loading={saving}
+					/>
+				</View>
 
 				{/* Reporting your own post makes no sense — same real-target-only rule ReportScreen documents for dating/post/comment/user/group. */}
 				{myGuid && post.owner_guid !== myGuid ? (
@@ -219,7 +256,7 @@ export default function PostDetailScreen({api, postGuid, myGuid, onOpenProfile, 
 					)}
 				</View>
 			</View>
-		</View>
+		</ScrollView>
 	);
 }
 
@@ -229,6 +266,7 @@ const styles = StyleSheet.create({
 	author: {color: colors.accent, fontWeight: typography.weightMedium, fontSize: typography.sizeLg},
 	text: {color: colors.text, fontSize: typography.sizeBase, lineHeight: typography.sizeBase * typography.lineHeightBase},
 	mediaWrap: {borderRadius: radius.md, overflow: 'hidden'},
+	actions: {flexDirection: 'row', gap: spacing.sm},
 	time: {color: colors.textFaint, fontSize: typography.sizeXs},
 	commentBox: {
 		marginTop: spacing.lg,

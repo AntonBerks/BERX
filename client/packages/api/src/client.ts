@@ -285,6 +285,19 @@ export class BerxApiClient {
 		return this.request<{status: string}>(`/posts/${id}/like`, {method: 'POST'});
 	}
 
+	/** Real quick bookmark (Max Build) — separate from Collections' curated save. */
+	async savePost(id: number): Promise<{status: string; is_saved: boolean}> {
+		return this.request<{status: string; is_saved: boolean}>(`/posts/${id}/save`, {method: 'POST'});
+	}
+
+	async unsavePost(id: number): Promise<{status: string; is_saved: boolean}> {
+		return this.request<{status: string; is_saved: boolean}>(`/posts/${id}/unsave`, {method: 'POST'});
+	}
+
+	async savedPosts(): Promise<{posts: BerxPostDetail[]}> {
+		return this.request<{posts: BerxPostDetail[]}>('/posts/saved');
+	}
+
 	async commentOnPost(id: number, text: string): Promise<{status: string}> {
 		return this.request<{status: string}>(`/posts/${id}/comments`, {method: 'POST', body: {text}});
 	}

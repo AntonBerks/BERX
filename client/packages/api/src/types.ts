@@ -59,6 +59,8 @@ export interface BerxPostDetail {
 	/** Only on the single-post detail response — feed items deliberately don't carry these to avoid an N+1 count query per feed load (see feed.php's own comment). */
 	like_count: number;
 	comment_count: number;
+	/** Real quick-bookmark state (Max Build) — a lighter, separate mechanism from Collections. Same N+1 reasoning as like_count/comment_count: not on feed items. */
+	is_saved: boolean;
 }
 
 export interface BerxConversationSummary {

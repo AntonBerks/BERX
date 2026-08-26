@@ -282,7 +282,10 @@ export const BERX_ROUTES: BerxRouteMeta[] = [
 	{ name: 'BusinessTeam', connected: true },
 	{ name: 'BusinessSettings', connected: true },
 	{ name: 'BERXWorld', connected: true },
-	{ name: 'Saved', connected: false, notConnectedReason: 'Post/wall bookmarking has no API endpoint — Places has its own real save/unsave via SavedPlaces, this is about generic post saves.' },
+	// MAX BUILD — real post save/unsave/saved-list now exists
+	// (posts.php's post:save relation, separate from OssnCollections'
+	// curated item_type='post' support and from SavedPlaces).
+	{ name: 'Saved', connected: true },
 ];
 
 /** Bottom tab bar — mobile only; web/desktop use a sidebar (not yet built). Five items, matching common social-app conventions (home/search/create/messages/menu). Dating and CreatePost dropped from the tab bar per explicit design feedback — still reachable (Dating via a button on Profile, CreatePost via a header action on Home), just not permanent tab-bar real estate. */
