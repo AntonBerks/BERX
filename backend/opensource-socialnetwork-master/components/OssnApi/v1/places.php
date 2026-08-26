@@ -38,23 +38,11 @@ function ossn_api_place_review_json($row) {
 	);
 }
 
-/** Starter, curated set — not an enforced enum: createPlace()/updatePlace() accept any non-empty category string, same as OssnGroup never enforces a closed tag list. */
-function ossn_api_place_categories() {
-	return array(
-		array('slug' => 'restaurant', 'label' => 'Restaurant'),
-		array('slug' => 'cafe', 'label' => 'Cafe'),
-		array('slug' => 'bar', 'label' => 'Bar'),
-		array('slug' => 'hotel', 'label' => 'Hotel'),
-		array('slug' => 'shop', 'label' => 'Shop'),
-		array('slug' => 'beauty', 'label' => 'Beauty'),
-		array('slug' => 'fitness', 'label' => 'Fitness'),
-		array('slug' => 'entertainment', 'label' => 'Entertainment'),
-		array('slug' => 'culture', 'label' => 'Culture'),
-		array('slug' => 'nature', 'label' => 'Nature & Outdoors'),
-		array('slug' => 'services', 'label' => 'Services'),
-		array('slug' => 'other', 'label' => 'Other'),
-	);
-}
+// ossn_api_place_categories() moved to ossn_com.php (the always-loaded
+// bootstrap) — events.php needs the exact same curated list for
+// GET /events/categories (same BerxPlaceCategory shape), and only one
+// v1/*.php is ever include()'d per request, so a function needed by
+// more than one resource file can't live in either one.
 
 $segment0 = isset($segments[0]) ? $segments[0] : null; // guid | 'categories' | 'saved' | 'nearby'
 $segment1 = isset($segments[1]) ? $segments[1] : null; // 'reviews' | 'business' | 'save' | 'unsave' | 'cover'

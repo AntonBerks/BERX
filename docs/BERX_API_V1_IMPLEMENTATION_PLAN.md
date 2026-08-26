@@ -550,6 +550,40 @@ moments`) — код (`OssnBusiness`, `OssnPlaceHours`) уже реален и
 under-Places) и `types.ts`'s `BerxPlace`/`BerxPlaceReview`/
 `BerxBusinessDashboard`/`BerxNearbyPlace`/`BerxPlaceCategory`.
 
+### Wave 3b — Events (Future Build, срез 2): CLOUD-STATIC-VERIFIED, NOT RUNTIME-VERIFIED
+
+Тот же `OssnObject`-паттерн, что и Places (`subtype='ossnevent'`), без
+новой базовой таблицы. "Going"-посещаемость — через уже существующий
+`ossn_relationships` (тип `event:going`), без новой таблицы, тот же
+приём, что и save/unsave у Places. Geo: у события нет собственных
+lat/lng в реальном контракте клиента (только `location` текстом и
+опциональный `placeGuid`) — событие индексируется в `OssnGeo` только
+когда привязано к реальному Place с координатами; без места — честно
+без пина на карте, а не выдуманные координаты.
+
+Новое: `classes/OssnEvents.php`, `components/OssnApi/v1/events.php`.
+`ossn_api_place_categories()` перенесена из `places.php` в
+`ossn_com.php` (bootstrap) — она нужна и `/places/categories`, и
+`/events/categories` (`BerxPlaceCategory` — общий тип для обоих), а
+`ossn_com.php`, в отличие от отдельных `v1/*.php`, грузится всегда.
+
+Осознанно НЕ реализовано в этом срезе: `inviteToEvent` реально
+проверяет дружбу через `OssnUser::isFriend()` (сервер, не доверяет
+клиенту), но не создаёт запись приглашения и не шлёт уведомление —
+тип уведомления `event:invite` потребовал бы регистрации нового
+`notification:add`-хука (`OssnNotifications::add()` без
+зарегистрированного хука для типа тихо возвращает `false`) — это
+отдельный небольшой срез, не встроен сюда. `past/upcoming`-фильтр в
+`listEvents()` считается в PHP после ограниченной выборки (200 events),
+не через сравнение TEXT-колонки метаданных как числа в SQL — тот же
+принцип, что уже у `OssnGeo::near()` (box, потом точный проход).
+
+Проверки: `php -l` на все новые/изменённые файлы + полный релинт
+дерева (0 ошибок), грап-сверка на `count()/array_merge()/array_slice()`
+на `select(..., true)` и на коллизии имён, построчная сверка каждого
+метода `events.php` с `client.ts` и `types.ts`'s `BerxEvent`/
+`BerxEventAttendee`/`BerxRsvpErrorCode`.
+
 ## 11. Явно вне рамок этого плана
 
 Payments/Wallet/Tickets (нет провайдера), ban/suspend (нет backend-модели

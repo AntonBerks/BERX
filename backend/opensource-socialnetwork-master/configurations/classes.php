@@ -86,6 +86,10 @@ $OssnClasses = array(
 		// production; the only genuinely new table is
 		// ossn_place_reviews (upgrade/upgrades/1785170400.php).
 		'Places',
+		// BERX Events — same OssnObject pattern as Places. "Going"
+		// attendance reuses the existing ossn_relationships table
+		// (type 'event:going') — no new table at all.
+		'Events',
 );
 foreach ($OssnClasses as $class) {
 		$loadClass['Ossn' . $class] = ossn_route()->classes . "Ossn{$class}.php";

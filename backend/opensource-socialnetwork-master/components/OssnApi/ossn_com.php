@@ -102,14 +102,14 @@ function ossn_api_v1_resources() {
 		// exists (classes/OssnPlaces.php); places.php also serves its
 		// own /business/* sub-branches (enable/disable/verify/dashboard).
 		'places'        => __OSSN_API__ . 'v1/places.php',
+		'events'        => __OSSN_API__ . 'v1/events.php',
 		// 'business' (the SEPARATE top-level resource — /business/
 		// places/{guid}/team|subscription|hours|claim|moments|
 		// impressions) still deliberately NOT listed: those branches
 		// use the already-real OssnBusiness/OssnPlaceHours/
 		// OssnBusinessMoments/OssnNearbyImpressions classes as-is, but
 		// wiring them is its own small vertical slice, not bundled
-		// into this one. 'events' likewise not listed yet — same
-		// OssnObject pattern as OssnPlaces, next slice.
+		// into this one.
 	);
 }
 
@@ -337,6 +337,32 @@ function ossn_api_is_blocked($viewerGuid, $ownerGuid) {
 	$b = new stdClass();
 	$b->guid = intval($ownerGuid);
 	return (bool) OssnBlock::isBlocked($a, $b);
+}
+
+/**
+ * Starter, curated category taxonomy shared by Places AND Events
+ * (both use the real client.ts/types.ts `BerxPlaceCategory` shape) —
+ * not an enforced enum: createPlace()/createEvent() and their update
+ * branches accept any non-empty category string, same as OssnGroup
+ * never enforcing a closed tag list. Lives here (not in places.php or
+ * events.php) because both resources need it and only one v1/*.php
+ * loads per request.
+ */
+function ossn_api_place_categories() {
+	return array(
+		array('slug' => 'restaurant', 'label' => 'Restaurant'),
+		array('slug' => 'cafe', 'label' => 'Cafe'),
+		array('slug' => 'bar', 'label' => 'Bar'),
+		array('slug' => 'hotel', 'label' => 'Hotel'),
+		array('slug' => 'shop', 'label' => 'Shop'),
+		array('slug' => 'beauty', 'label' => 'Beauty'),
+		array('slug' => 'fitness', 'label' => 'Fitness'),
+		array('slug' => 'entertainment', 'label' => 'Entertainment'),
+		array('slug' => 'culture', 'label' => 'Culture'),
+		array('slug' => 'nature', 'label' => 'Nature & Outdoors'),
+		array('slug' => 'services', 'label' => 'Services'),
+		array('slug' => 'other', 'label' => 'Other'),
+	);
 }
 
 function ossn_api_post_base_json($post) {
