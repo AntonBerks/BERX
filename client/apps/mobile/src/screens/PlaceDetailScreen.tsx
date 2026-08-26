@@ -5,6 +5,12 @@
  * api.createPlaceReview (components/OssnApi/v1/places.php). No
  * booking/reservation UI — that backend does not exist (see
  * BERX_DECISIONS.md).
+ *
+ * Future UI pass: body content gets a real BerxFadeIn entrance, and
+ * the "friends here" row (Experience Graph signal) now sits on a
+ * small BerxGlassSurface strip instead of a plain inline row, giving
+ * that real social signal the same material weight it gets on
+ * Profile's reputation strip.
  */
 import {useCallback, useEffect, useState} from 'react';
 import {View, Text, ScrollView, Image, Pressable, Linking, StyleSheet} from 'react-native';
@@ -17,6 +23,8 @@ import {BerxInput} from '../../../../packages/design-system/src/components/BerxI
 import {BerxLoadingState, BerxErrorState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxDiscussion} from '../../../../packages/design-system/src/components/BerxDiscussion';
 import {BerxAvatar} from '../../../../packages/design-system/src/components/BerxAvatar';
+import {BerxGlassSurface} from '../../../../packages/design-system/src/components/BerxGlassSurface';
+import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
 
 interface Props {
 	api: BerxApiClient;
@@ -167,7 +175,7 @@ export default function PlaceDetailScreen({api, guid, myGuid, onAddToCollection,
 				)}
 			</View>
 
-			<View style={styles.body}>
+			<BerxFadeIn style={styles.body}>
 				<View style={styles.metaRow}>
 					{place.category ? <View style={styles.chip}><Text style={styles.chipText}>{place.category}</Text></View> : null}
 					{place.price ? <Text style={styles.priceText}>{'$'.repeat(place.price)}</Text> : null}
@@ -213,14 +221,14 @@ export default function PlaceDetailScreen({api, guid, myGuid, onAddToCollection,
 				</View>
 
 				{friendsHere.length > 0 ? (
-					<View style={styles.friendsHereRow}>
+					<BerxGlassSurface padding="sm" style={styles.friendsHereRow}>
 						{friendsHere.slice(0, 8).map((f: BerxExperienceGraphFriend) => (
 							<View key={f.guid} style={styles.friendHereItem}>
 								<BerxAvatar iconUrl={f.icon} fallbackInitial={f.username.charAt(0)} size={36} />
 							</View>
 						))}
 						<Text style={styles.friendsHereLabel}>{friendsHere.length === 1 ? '1 друг был здесь' : `${friendsHere.length} друзей были здесь`}</Text>
-					</View>
+					</BerxGlassSurface>
 				) : null}
 
 				<Text style={styles.sectionTitle}>Отзывы ({reviews.length})</Text>
@@ -275,7 +283,7 @@ export default function PlaceDetailScreen({api, guid, myGuid, onAddToCollection,
 				))}
 
 				<BerxDiscussion api={api} type="place" id={place.guid} myGuid={myGuid || undefined} />
-			</View>
+			</BerxFadeIn>
 		</ScrollView>
 	);
 }

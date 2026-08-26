@@ -4,6 +4,11 @@
  * Real data only: api.places(q, category) -> BerxPlace[]
  * (components/OssnApi/v1/places.php). Category filter uses the real
  * server whitelist via api.placeCategories(), not a hardcoded list.
+ *
+ * Future UI pass: kept the photo-first grid cards as-is (a media grid
+ * reading as glass would be worse, not better — real variety of
+ * surfaces on purpose) and instead gave the grid a real BerxFadeIn
+ * entrance, so Places doesn't feel like a static admin list on open.
  */
 import {useCallback, useEffect, useState} from 'react';
 import {View, Text, FlatList, Pressable, StyleSheet, Image} from 'react-native';
@@ -14,6 +19,7 @@ import {BerxHeader} from '../../../../packages/design-system/src/components/Berx
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
+import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
 
 interface Props {
 	api: BerxApiClient;
@@ -85,32 +91,34 @@ export default function PlacesListScreen({api, onOpenPlace, onCreate, onOpenNear
 			) : items.length === 0 ? (
 				<BerxEmptyState title="Мест не найдено" subtitle="Попробуйте другой запрос или добавьте первое место." />
 			) : (
-				<FlatList
-					data={items}
-					keyExtractor={(p: BerxPlace) => String(p.guid)}
-					numColumns={2}
-					contentContainerStyle={styles.grid}
-					renderItem={({item}: {item: BerxPlace}) => (
-						<Pressable style={styles.card} onPress={() => onOpenPlace(item.guid)}>
-							<View style={styles.cardMedia}>
-								{item.cover_url ? (
-									<Image source={{uri: item.cover_url}} style={styles.cardImage} />
-								) : (
-									<View style={styles.cardMediaFallback}>
-										<Text style={styles.cardMediaInitial}>{item.title.charAt(0).toUpperCase()}</Text>
-									</View>
-								)}
-								{item.rating_count > 0 ? (
-									<View style={styles.ratingBadge}>
-										<Text style={styles.ratingText}>★ {item.rating}</Text>
-									</View>
-								) : null}
-							</View>
-							<Text style={styles.cardTitle} numberOfLines={1}>{item.title}</Text>
-							{item.address ? <Text style={styles.cardAddress} numberOfLines={1}>{item.address}</Text> : null}
-						</Pressable>
-					)}
-				/>
+				<BerxFadeIn style={styles.gridFade} delayMs={60}>
+					<FlatList
+						data={items}
+						keyExtractor={(p: BerxPlace) => String(p.guid)}
+						numColumns={2}
+						contentContainerStyle={styles.grid}
+						renderItem={({item}: {item: BerxPlace}) => (
+							<Pressable style={styles.card} onPress={() => onOpenPlace(item.guid)}>
+								<View style={styles.cardMedia}>
+									{item.cover_url ? (
+										<Image source={{uri: item.cover_url}} style={styles.cardImage} />
+									) : (
+										<View style={styles.cardMediaFallback}>
+											<Text style={styles.cardMediaInitial}>{item.title.charAt(0).toUpperCase()}</Text>
+										</View>
+									)}
+									{item.rating_count > 0 ? (
+										<View style={styles.ratingBadge}>
+											<Text style={styles.ratingText}>★ {item.rating}</Text>
+										</View>
+									) : null}
+								</View>
+								<Text style={styles.cardTitle} numberOfLines={1}>{item.title}</Text>
+								{item.address ? <Text style={styles.cardAddress} numberOfLines={1}>{item.address}</Text> : null}
+							</Pressable>
+						)}
+					/>
+				</BerxFadeIn>
 			)}
 		</View>
 	);
@@ -125,6 +133,7 @@ const styles = StyleSheet.create({
 	chipActive: {backgroundColor: colors.accentSoft, borderWidth: 1, borderColor: colors.accent},
 	chipText: {fontSize: typography.sizeSm, color: colors.textDim},
 	chipTextActive: {color: colors.accent, fontWeight: typography.weightMedium},
+	gridFade: {flex: 1},
 	grid: {paddingHorizontal: spacing.sm, paddingBottom: spacing.xxl},
 	card: {flex: 1, margin: spacing.xs, borderRadius: radius.md, overflow: 'hidden', backgroundColor: colors.surface},
 	cardMedia: {aspectRatio: 1.3, backgroundColor: colors.graphite},
