@@ -133,6 +133,10 @@ function ossn_api_v1_resources() {
 		// Search — users/places/events/communities scopes, over already-
 		// real OssnUser/OssnPlaces/OssnEvents/OssnGroup query methods.
 		'search'        => __OSSN_API__ . 'v1/search.php',
+		// Comments on Places/Events — real OssnComments, annotation
+		// type 'comments:place'/'comments:event', separate from
+		// posts.php's own comment endpoints (different backing model).
+		'comments'      => __OSSN_API__ . 'v1/comments.php',
 		// 'business' (the SEPARATE top-level resource — /business/
 		// places/{guid}/team|subscription|hours|claim|moments|
 		// impressions) still deliberately NOT listed: those branches
