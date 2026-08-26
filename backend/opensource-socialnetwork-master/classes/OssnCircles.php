@@ -174,7 +174,16 @@ class OssnCircles extends OssnDatabase {
 		}
 
 		public function memberCount($circleId) {
-				return count($this->members($circleId, 2000));
+				// members() returns a real array only when EMPTY (see its own
+				// `return $rows ? $rows : array();`) — a non-empty result is
+				// select(..., true)'s real return value, arrayObject()'s
+				// stdClass wrapper (numeric properties, not a PHP array).
+				// count() on that throws TypeError on PHP 8+ (confirmed by
+				// tracing OssnDatabase::fetch()/arrayObject() before writing
+				// this fix, not assumed) — count() only ever worked here by
+				// accident, on the empty-array branch. (array) cast first,
+				// safe for both shapes.
+				return count((array) $this->members($circleId, 2000));
 		}
 
 		/* ---------------- Post visibility ----------------

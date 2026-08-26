@@ -291,7 +291,11 @@ class OssnCollections extends OssnDatabase {
 		}
 
 		public function itemCount($collectionId) {
-				return count($this->items($collectionId, 1000));
+				// Same real bug class as OssnCircles::memberCount() — see its
+				// comment. items() returns a real array only on the empty
+				// branch; a non-empty result is select(..., true)'s stdClass
+				// wrapper, and count() on that throws TypeError on PHP 8+.
+				return count((array) $this->items($collectionId, 1000));
 		}
 
 		/** Keeps time_updated meaningful as "last time contents changed". */

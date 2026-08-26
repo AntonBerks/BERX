@@ -66,8 +66,38 @@ function ossn_api_init() {
  */
 function ossn_api_v1_resources() {
 	return array(
-		'auth' => __OSSN_API__ . 'v1/auth.php',
-		'me'   => __OSSN_API__ . 'v1/me.php',
+		// Wave 0
+		'auth'          => __OSSN_API__ . 'v1/auth.php',
+		'me'            => __OSSN_API__ . 'v1/me.php',
+		// Wave 1 — domains with already-complete backend logic, no new
+		// domain class needed (see docs/BERX_API_V1_IMPLEMENTATION_PLAN.md §8)
+		'feed'          => __OSSN_API__ . 'v1/feed.php',
+		'posts'         => __OSSN_API__ . 'v1/posts.php',
+		'collections'   => __OSSN_API__ . 'v1/collections.php',
+		'circles'       => __OSSN_API__ . 'v1/circles.php',
+		'trips'         => __OSSN_API__ . 'v1/trips.php',
+		'experiences'   => __OSSN_API__ . 'v1/experiences.php',
+		'creator'       => __OSSN_API__ . 'v1/creator.php',
+		'media'         => __OSSN_API__ . 'v1/media.php',
+		'videos'        => __OSSN_API__ . 'v1/videos.php',
+		'tracks'        => __OSSN_API__ . 'v1/tracks.php',
+		'notifications' => __OSSN_API__ . 'v1/notifications.php',
+		'conversations' => __OSSN_API__ . 'v1/conversations.php',
+		'friends'       => __OSSN_API__ . 'v1/friends.php',
+		'friend'        => __OSSN_API__ . 'v1/friend.php',
+		'albums'        => __OSSN_API__ . 'v1/albums.php',
+		'block'         => __OSSN_API__ . 'v1/block.php',
+		'poke'          => __OSSN_API__ . 'v1/poke.php',
+		'profiles'      => __OSSN_API__ . 'v1/profiles.php',
+		'messagesearch' => __OSSN_API__ . 'v1/messagesearch.php',
+		// 'business' deliberately NOT listed yet: OssnBusiness::
+		// canManage()/addTeamMember() require a real Place object
+		// (->owner_guid, ->guid) to authorize against, and OssnPlaces
+		// doesn't exist until Wave 3 — there is no source of truth for
+		// "who owns this place" to build real authorization on right
+		// now. Shipping it early would mean either fake authorization
+		// or code that can never be reached. Moves to the Wave 3/4
+		// batch alongside places.php/events.php.
 	);
 }
 
@@ -187,4 +217,123 @@ function ossn_api_error($code, $message = '', $status = 400) {
 	http_response_code($status);
 	echo json_encode(array('error' => $code, 'message' => $message));
 	exit;
+}
+
+/**
+ * Shared post-row mapper — real OssnObject fields only (guid,
+ * description, owner_guid, time_created; the entity system stores post
+ * TEXT in `description`, not a `text` column). Used by both feed.php
+ * and posts.php, which is why it lives here rather than in either
+ * file — the dispatcher only ever includes one v1/*.php per request,
+ * so a helper needed by more than one file has to live in the always-
+ * loaded bootstrap. Matches BerxFeedItem's field set exactly;
+ * posts.php adds like_count/comment_count on top for the single-post
+ * BerxPostDetail shape, deliberately not included here (feed avoids an
+ * N+1 count query per item — see BerxPostDetail's own doc comment in
+ * client/packages/api/src/types.ts).
+ */
+/**
+ * Shared base for BerxVideoPost/BerxTrackPost — used by both
+ * videos.php and tracks.php (same reason ossn_api_post_base_json()
+ * lives here: only one v1/*.php loads per request). A video/track is
+ * a real OssnWall post with a real OssnMediaAssets asset attached via
+ * context ('post', post_guid) — never a separate content type.
+ */
+function ossn_api_media_post_base_json($post) {
+	$owner = ossn_user_by_guid($post->owner_guid);
+	$likes = new OssnLikes();
+	$comments = new OssnComments();
+	return array(
+		'post_guid'      => intval($post->guid),
+		'text'           => (string) $post->description,
+		'owner_guid'     => intval($post->owner_guid),
+		'owner_username' => $owner ? (string) $owner->username : null,
+		'owner_icon'     => $owner ? (string) $owner->iconURL()->large : null,
+		'time_created'   => intval($post->time_created),
+		'like_count'     => ($c = $likes->CountLikes($post->guid, 'post')) ? intval($c) : 0,
+		'comment_count'  => ($c = $comments->countComments($post->guid, 'post')) ? intval($c) : 0,
+	);
+}
+
+/**
+ * Shared item-resolver for Collections/Trips/Experiences items —
+ * 'place'/'event' gracefully degrade to null (not a fatal error) until
+ * OssnPlaces/OssnEvents exist (Wave 3), same class_exists() guard
+ * those domain classes already use internally for itemExists(). 'post'
+ * resolves now, via the real, already-existing OssnWall. Returns
+ * array('title'=>string,'image_url'=>string|null) or null if the
+ * referenced item no longer exists.
+ */
+function ossn_api_resolve_item($type, $guid) {
+	$guid = intval($guid);
+	if (!$guid) {
+		return null;
+	}
+	if ($type === 'post') {
+		$wall = new OssnWall();
+		$post = $wall->GetPost($guid);
+		if (!$post) {
+			return null;
+		}
+		$text = (string) $post->description;
+		return array(
+			'title'     => mb_strlen($text, 'UTF-8') > 60 ? mb_substr($text, 0, 60, 'UTF-8') . '…' : $text,
+			'image_url' => null,
+		);
+	}
+	if ($type === 'place' && class_exists('OssnPlaces')) {
+		$model = new OssnPlaces();
+		$place = $model->getPlace($guid);
+		if (!$place) {
+			return null;
+		}
+		return array('title' => (string) $place->title, 'image_url' => isset($place->cover_url) ? $place->cover_url : null);
+	}
+	if ($type === 'event' && class_exists('OssnEvents')) {
+		$model = new OssnEvents();
+		$event = $model->getEvent($guid);
+		if (!$event) {
+			return null;
+		}
+		return array('title' => (string) $event->title, 'image_url' => isset($event->cover_url) ? $event->cover_url : null);
+	}
+	// Place/Event not built yet in this environment — honest, non-fatal
+	// placeholder rather than a crash. Becomes real automatically once
+	// Wave 3 ships, with no change needed here.
+	return array('title' => ucfirst((string) $type), 'image_url' => null);
+}
+
+/**
+ * Shared block-check — real, used by every read/write path that
+ * exposes one user's content/messages to another (posts, comments,
+ * conversations). Lives here (not in one v1 file) because more than
+ * one resource needs it and only one v1/*.php loads per request.
+ */
+function ossn_api_is_blocked($viewerGuid, $ownerGuid) {
+	if (intval($viewerGuid) === intval($ownerGuid)) {
+		return false;
+	}
+	// OssnBlock::isBlocked($usera, $userb) reads ->guid off each
+	// argument (confirmed by reading its real body: `@param object
+	// $usera` and `isset($usera->guid)`) — it does NOT accept raw
+	// guids. Passing ints here would make isset($int->guid) silently
+	// false and isBlocked() always return false, never actually
+	// checking anything. Minimal stdClass stand-ins are enough; the
+	// method never reads anything else off either argument.
+	$a = new stdClass();
+	$a->guid = intval($viewerGuid);
+	$b = new stdClass();
+	$b->guid = intval($ownerGuid);
+	return (bool) OssnBlock::isBlocked($a, $b);
+}
+
+function ossn_api_post_base_json($post) {
+	$owner = ossn_user_by_guid($post->owner_guid);
+	return array(
+		'guid'           => intval($post->guid),
+		'text'           => (string) $post->description,
+		'owner_guid'     => intval($post->owner_guid),
+		'owner_username' => $owner ? (string) $owner->username : null,
+		'time_created'   => intval($post->time_created),
+	);
 }

@@ -200,6 +200,13 @@ class OssnCreator extends OssnDatabase {
 				}
 				$experiences = new OssnExperiences();
 				$rows = $experiences->listByOwner(intval($creatorGuid), $viewerGuid);
-				return array_slice($rows, 0, intval($limit));
+				// listByOwner() returns a real array only when empty — a
+				// non-empty result is OssnDatabase::select(...,true)'s real
+				// return value, arrayObject()'s stdClass wrapper, not a PHP
+				// array. array_slice() on that throws TypeError on PHP 8+
+				// (same real bug class fixed in OssnCollections::itemCount()/
+				// OssnCircles::memberCount() — confirmed by tracing
+				// OssnDatabase::fetch()/arrayObject(), not assumed).
+				return array_slice((array) $rows, 0, intval($limit));
 		}
 }

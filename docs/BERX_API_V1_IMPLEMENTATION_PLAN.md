@@ -388,6 +388,65 @@ Apache/Nginx/PHP-FPM VDS. Это остаётся первым, что нужн�
 VDS, когда до него дойдёт очередь — до тех пор Wave 0 годен только
 как "готов к рантайм-проверке", не как "работает".
 
+### Wave 1 — домены с готовой backend-логикой: CLOUD-STATIC-VERIFIED, NOT RUNTIME-VERIFIED
+
+18 новых REST-файлов: `feed.php`, `posts.php`, `collections.php`,
+`circles.php`, `trips.php`, `experiences.php`, `creator.php`, `media.php`,
+`videos.php`, `tracks.php`, `notifications.php`, `conversations.php`,
+`friends.php`, `friend.php`, `albums.php`, `block.php`, `poke.php`,
+`profiles.php`, `messagesearch.php`.
+
+**`business.php` сознательно НЕ включён.** `OssnBusiness::canManage()`/
+`addTeamMember()` требуют реальный объект Place (`->owner_guid`,
+`->guid`) для авторизации, а `OssnPlaces` не существует до Wave 3 — не
+на чем строить реальную проверку владения. Перенесено в Wave 3/4 вместе
+с `places.php`/`events.php`.
+
+**Три реальных бага, найденных и исправленных в уже существующем коде
+(не в новых файлах), до коммита:**
+
+1. `OssnCollections::itemCount()` и `OssnCircles::memberCount()` звали
+   `count()` напрямую на результате `select(..., true)` — который при
+   непустом результате возвращает НЕ настоящий PHP-массив, а
+   `stdClass`, обёрнутый `arrayObject()` (прослежено через реальный код
+   `OssnDatabase::fetch()`/`arrayObject()`, не предположено). `count()`
+   на таком объекте кидает `TypeError` в PHP 8+ — краш ровно в
+   момент, когда в коллекции/круге появляется хотя бы один элемент.
+   Тот же паттерн отдельно найден и исправлен в
+   `OssnCreator::recentExperiences()` (`array_slice()` на том же
+   некорректном типе) и в собственном новом `trips.php`/`experiences.php`
+   (`array_merge()` на списках участников/поездок). Везде — минимальный
+   `(array)`-cast, без переписывания структуры класса.
+2. Собственный `ossn_api_is_blocked()`-хелпер вызывал
+   `OssnBlock::isBlocked($viewerGuid, $ownerGuid)`, передавая сырые
+   int-guid — но `isBlocked($usera, $userb)` реально читает `->guid` с
+   каждого аргумента (объекты, не int). Проверка блокировки молча
+   всегда возвращала `false`. Исправлено передачей минимальных
+   `stdClass`-обёрток с `->guid`.
+3. `input()` (уже описано в Wave 0) — тот же класс бага повторно
+   проверен и не допущен во всех новых PATCH-ветках (`collections.php`,
+   `trips.php`, `experiences.php`, `creator.php`) через `!== false`,
+   а не `!== null`.
+
+**Session-bridge понадобился для (тот же класс фикса, что и `/feed` в
+Wave 0):** `OssnWall::GetUserPosts()` (уже в Wave 0), `OssnBlock::
+getBlocking()` (`/block` — статический метод без параметра guid вообще,
+читает `ossn_loggedin_user()` напрямую), `OssnPhotos::AddPhoto()`
+(`/albums/{id}/photos`).
+
+**Реально отсутствующая функция:** `ossn_messagesearch_query()`,
+упомянутая в комментарии `client.ts`, нигде не существует (проверено
+grep по всему дереву). `messagesearch.php` построен напрямую через уже
+реальный, уже параметризованный `wheres`-passthrough в
+`OssnMessages::searchMessages()` — не изобретён отдельный движок поиска.
+
+Проверки — тот же протокол, что и в Wave 0: `php -l` на все новые/
+изменённые файлы (0 ошибок) + полный релинт дерева (1175 файлов, 0
+регрессий), построчная сверка каждого метода с реальным определением,
+трассировка роутинга для каждого пути `client.ts`, systematic-грап на
+коллизии имён функций/классов и на паттерн `count()/array_merge()` на
+результатах `select(..., true)` по всем новым файлам.
+
 ## 11. Явно вне рамок этого плана
 
 Payments/Wallet/Tickets (нет провайдера), ban/suspend (нет backend-модели
