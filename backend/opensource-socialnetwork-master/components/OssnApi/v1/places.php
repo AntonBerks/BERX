@@ -346,6 +346,14 @@ if ($segment0 !== null && is_numeric($segment0) && $segment1 === 'business' && $
 		$recentReviews[] = ossn_api_place_review_json($row);
 	}
 	$impressions = class_exists('OssnNearbyImpressions') ? (new OssnNearbyImpressions())->summaryFor($segment0) : null;
+	// MAX BUILD — "Business + Places + Moments + Events + Offers +
+	// Reputation = one real-world business ecosystem": the dashboard
+	// already showed reviews/impressions/subscription; now also shows
+	// the business's own upcoming events at this place, and real
+	// customer activity (who actually, geo-verified, checked in) —
+	// owner-only, gated by the same canEditPlace() check above.
+	$upcomingEvents = class_exists('OssnEvents') ? (new OssnEvents())->upcomingByPlace($segment0, 10) : array();
+	$recentCheckins = $model->checkinsForPlace($segment0, 20);
 	ossn_api_json(array(
 		'place_guid'         => intval($segment0),
 		'is_business'        => $place->is_business,
@@ -354,6 +362,8 @@ if ($segment0 !== null && is_numeric($segment0) && $segment1 === 'business' && $
 		'rating_count'       => $place->rating_count,
 		'recent_reviews'     => $recentReviews,
 		'nearby_impressions' => $impressions,
+		'upcoming_events'    => $upcomingEvents,
+		'recent_checkins'    => $recentCheckins,
 	));
 }
 

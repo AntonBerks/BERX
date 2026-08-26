@@ -20,11 +20,21 @@
  * the bottom; a real bug fix, not a style choice. Review rows are
  * left as plain divided rows, matching PlaceDetailScreen's own
  * convention (not every list needs to be a card).
+ *
+ * MAX BUILD — "Business + Places + Moments + Events + Offers +
+ * Reputation = one real-world business ecosystem": the dashboard now
+ * also shows the business's own upcoming events at this place
+ * (upcoming_events, real OssnEvents filtered by place_guid) and real
+ * customer activity (recent_checkins — who actually, geo-verified,
+ * showed up, via the new check-in system). Both were previously
+ * invisible from this screen even though the underlying data was
+ * real (events already supported place_guid on create).
  */
 import {useCallback, useEffect, useState} from 'react';
 import {View, Text, Image, ScrollView, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
-import type {BerxBusinessDashboard, BerxPlaceReview, BerxBusinessSubscription, BerxBusinessTeamMember, BerxBusinessMoment} from '@berx/api/types';
+import type {BerxBusinessDashboard, BerxPlaceReview, BerxBusinessSubscription, BerxBusinessTeamMember, BerxBusinessMoment, BerxEvent, BerxBusinessCheckin} from '@berx/api/types';
+import {relativeTimeLabel} from '@berx/domain';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
@@ -167,6 +177,33 @@ export default function BusinessDashboardScreen({api, placeGuid, onBack}: Props)
 					</>
 				) : null}
 
+				<Text style={styles.sectionTitle}>Ближайшие события</Text>
+				{data.upcoming_events.length === 0 ? (
+					<Text style={styles.empty}>Нет запланированных событий в этом месте.</Text>
+				) : (
+					data.upcoming_events.map((e: BerxEvent) => (
+						<View key={e.guid} style={styles.eventRow}>
+							<Text style={styles.eventTitle} numberOfLines={1}>{e.title}</Text>
+							<Text style={styles.eventMeta}>{new Date(e.starts * 1000).toLocaleDateString('ru-RU', {day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'})} · {e.attendee_count} идут</Text>
+						</View>
+					))
+				)}
+
+				<Text style={styles.sectionTitle}>Активность гостей</Text>
+				{data.recent_checkins.length === 0 ? (
+					<Text style={styles.empty}>Пока никто не отмечался здесь.</Text>
+				) : (
+					<View style={styles.checkinsRow}>
+						{data.recent_checkins.slice(0, 8).map((c: BerxBusinessCheckin) => (
+							<View key={`${c.guid}-${c.time}`} style={styles.checkinItem}>
+								<Image source={{uri: c.icon}} style={styles.checkinAvatar} />
+								<Text style={styles.checkinName} numberOfLines={1}>{c.fullname}</Text>
+								<Text style={styles.checkinTime}>{relativeTimeLabel(c.time)}</Text>
+							</View>
+						))}
+					</View>
+				)}
+
 				<Text style={styles.sectionTitle}>Moment (2 часа)</Text>
 				<View style={styles.momentForm}>
 					<BerxInput placeholder="Например: Счастливые часы до 18:00" value={momentText} onChangeText={setMomentText} />
@@ -257,6 +294,14 @@ const styles = StyleSheet.create({
 	momentRowText: {flex: 1, fontSize: typography.sizeSm, color: colors.accent},
 	momentRowRemove: {fontSize: typography.sizeXs, color: colors.danger, paddingLeft: spacing.sm},
 	empty: {color: colors.textFaint, fontSize: typography.sizeSm},
+	eventRow: {gap: 2, paddingVertical: spacing.xs, borderTopWidth: 1, borderTopColor: colors.borderSoft},
+	eventTitle: {color: colors.white, fontSize: typography.sizeSm, fontWeight: typography.weightMedium},
+	eventMeta: {color: colors.textFaint, fontSize: typography.sizeXs},
+	checkinsRow: {flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md},
+	checkinItem: {alignItems: 'center', width: 68},
+	checkinAvatar: {width: 44, height: 44, borderRadius: 22, backgroundColor: colors.graphite},
+	checkinName: {color: colors.textDim, fontSize: typography.sizeXs, marginTop: 4, textAlign: 'center'},
+	checkinTime: {color: colors.textFaint, fontSize: 10},
 	subscriptionCard: {gap: spacing.sm},
 	subscriptionStatus: {color: colors.white, fontSize: typography.sizeBase, fontWeight: typography.weightMedium},
 	subscriptionMeta: {color: colors.textDim, fontSize: typography.sizeSm},

@@ -314,6 +314,35 @@ class OssnPlaces extends OssnObject {
 		return array('ok' => true, 'distance_m' => round($distanceM, 1));
 	}
 
+	/**
+	 * MAX BUILD — real customer activity for a business owner's own
+	 * dashboard (the "customer activity" piece of the Business
+	 * ecosystem): who actually, geo-verified, showed up at this place.
+	 * Caller-gated in places.php (canEditPlace) — never exposed on the
+	 * public place detail response.
+	 * @return array real PHP array — most recent check-ins first, each a real user
+	 */
+	public function checkinsForPlace($placeGuid, $limit = 20) {
+		$rows = ossn_get_relationships(array('to' => intval($placeGuid), 'type' => self::CHECKIN_RELATION, 'limit' => intval($limit), 'page_limit' => false, 'order_by' => 'r.time DESC'));
+		if (!$rows) {
+			return array();
+		}
+		$out = array();
+		foreach ($rows as $row) {
+			$user = ossn_user_by_guid($row->relation_from);
+			if ($user) {
+				$out[] = array(
+					'guid'     => intval($user->guid),
+					'username' => (string) $user->username,
+					'fullname' => trim($user->first_name . ' ' . $user->last_name),
+					'icon'     => (string) $user->iconURL()->large,
+					'time'     => intval($row->time),
+				);
+			}
+		}
+		return $out;
+	}
+
 	/** @return array real PHP array — most recent check-ins first, hydrated with the place */
 	public function recentCheckins($userGuid, $limit = 20) {
 		$rows = ossn_get_relationships(array('from' => intval($userGuid), 'type' => self::CHECKIN_RELATION, 'limit' => intval($limit), 'page_limit' => false, 'order_by' => 'r.time DESC'));

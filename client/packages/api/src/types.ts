@@ -525,6 +525,14 @@ export interface BerxNearbyImpressionSummary {
 	route: number;
 }
 
+export interface BerxBusinessCheckin {
+	guid: number;
+	username: string;
+	fullname: string;
+	icon: string;
+	time: number;
+}
+
 export interface BerxBusinessDashboard {
 	place_guid: number;
 	is_business: boolean;
@@ -533,6 +541,10 @@ export interface BerxBusinessDashboard {
 	rating_count: number;
 	recent_reviews: BerxPlaceReview[];
 	nearby_impressions: BerxNearbyImpressionSummary | null;
+	/** Real events this business created at this place (place_guid metadata filter), not-ended, soonest first. */
+	upcoming_events: BerxEvent[];
+	/** Real customer activity — who actually, geo-verified, checked in. Owner-only. */
+	recent_checkins: BerxBusinessCheckin[];
 }
 
 export type BerxBusinessTeamRole = 'manager' | 'staff';

@@ -136,6 +136,46 @@ class OssnEvents extends OssnObject {
 		return array_slice($out, 0, $limit);
 	}
 
+	/**
+	 * MAX BUILD — "Business + Places + Moments + Events + Offers +
+	 * Reputation = one real-world business ecosystem": a business could
+	 * already CREATE an event tied to their place (place_guid on
+	 * create/update), but had no way to see those events on their own
+	 * dashboard. Same entities_pairs metadata-filter mechanism
+	 * listEvents() already uses for category, just filtering on
+	 * place_guid instead — no new query pattern.
+	 * @return array real PHP array of upcoming (not-ended) hydrated events at this place, soonest first
+	 */
+	public function upcomingByPlace($placeGuid, $limit = 10) {
+		$objects = $this->searchObject(array(
+			'subtype'       => self::SUBTYPE,
+			'type'          => 'user',
+			'limit'         => 200,
+			'page_limit'    => false,
+			'entities_pairs' => array(
+				array('name' => 'place_guid', 'value' => (string) intval($placeGuid)),
+			),
+		));
+		if (!$objects) {
+			return array();
+		}
+		$out = array();
+		foreach ($objects as $object) {
+			if (!isset($object->subtype) || $object->subtype !== self::SUBTYPE) {
+				continue;
+			}
+			$hydrated = $this->hydrate($object);
+			if ($hydrated->has_ended) {
+				continue;
+			}
+			$out[] = $hydrated;
+		}
+		usort($out, function ($a, $b) {
+			return $a->starts <=> $b->starts;
+		});
+		return array_slice($out, 0, intval($limit));
+	}
+
 	/** @return array real PHP array of hydrated events the user has RSVP'd to, soonest first */
 	public function goingEvents($userGuid, $viewerGuid = null) {
 		$rows = ossn_get_relationships(array('from' => intval($userGuid), 'type' => self::GOING_RELATION, 'limit' => 100, 'page_limit' => false));
