@@ -70,7 +70,12 @@ class OssnBusinessMoments extends OssnDatabase {
 			return array();
 		}
 		$allowed = array_flip(array_map('intval', $placeGuids));
-		return array_values(array_filter($rows, function ($r) use ($allowed) {
+		// select(..., true) wraps a non-empty result in a stdClass (see
+		// OssnDatabase::fetch()/arrayObject()), not a real array —
+		// array_filter() on that throws TypeError on PHP 8+. Same bug
+		// class already found and fixed elsewhere this session
+		// (OssnCollections/OssnCircles/OssnCreator/OssnNearbyImpressions).
+		return array_values(array_filter((array) $rows, function ($r) use ($allowed) {
 			return isset($allowed[intval($r->place_guid)]);
 		}));
 	}

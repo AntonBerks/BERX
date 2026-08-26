@@ -103,6 +103,10 @@ function ossn_api_v1_resources() {
 		// own /business/* sub-branches (enable/disable/verify/dashboard).
 		'places'        => __OSSN_API__ . 'v1/places.php',
 		'events'        => __OSSN_API__ . 'v1/events.php',
+		// BERX NOW / Personal Radar foundation — pure composition over
+		// OssnGeo+OssnPlaces+OssnEvents+OssnBusinessMoments+OssnPlaceHours,
+		// no new class or table.
+		'nearby'        => __OSSN_API__ . 'v1/nearby.php',
 		// 'business' (the SEPARATE top-level resource — /business/
 		// places/{guid}/team|subscription|hours|claim|moments|
 		// impressions) still deliberately NOT listed: those branches

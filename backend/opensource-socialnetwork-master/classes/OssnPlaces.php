@@ -338,6 +338,35 @@ class OssnPlaces extends OssnObject {
 		return array('rating' => round(floatval($row->avg_rating), 1), 'count' => intval($row->cnt));
 	}
 
+	/** Raw review row by id — used by business.php to resolve a review's place before checking OssnBusiness::canReply(). @return object|false */
+	public function reviewById($id) {
+		$row = $this->select(array(
+			'from'   => 'ossn_place_reviews',
+			'wheres' => array(self::wheres('id', '=', intval($id))),
+		));
+		return $row ? $row : false;
+	}
+
+	const VALID_BUSINESS_TYPES = array('restaurant', 'cafe', 'bar', 'hotel', 'shop', 'beauty', 'fitness', 'entertainment', 'events', 'services', 'creators', 'other');
+
+	/** @return string 'ok'|'not_found'|'forbidden'|'invalid' */
+	public function setBusinessType($guid, $actingGuid, $type) {
+		if (!in_array((string) $type, self::VALID_BUSINESS_TYPES, true)) {
+			return 'invalid';
+		}
+		$place = $this->getPlace($guid);
+		if (!$place) {
+			return 'not_found';
+		}
+		if (!$this->canEditPlace($place, $actingGuid)) {
+			return 'forbidden';
+		}
+		$this->data = new stdClass();
+		$this->data->business_type = (string) $type;
+		$ok = $this->updateObject(array('title', 'description'), array($place->title, $place->description), intval($guid));
+		return $ok ? 'ok' : 'forbidden';
+	}
+
 	/* ---------------- Business (thin — reuses already-existing OssnBusiness for claims/team/subscription) ---------------- */
 
 	/** @return string 'ok'|'not_found'|'forbidden' */
