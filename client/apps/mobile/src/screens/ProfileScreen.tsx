@@ -9,6 +9,13 @@
  * /profiles/{username} return it as of this session, real live
  * COUNT()s, not invented. time_created (real, own-profile-only) is
  * used for an honest "on BERX since {date}" line.
+ *
+ * Future UI pass: the reputation row now sits on a BerxGlassSurface
+ * strip (Future Identity gets real material presence, not a plain
+ * text row) and the hero + menu sections get a staggered BerxFadeIn
+ * entrance. The menu's own grouped-sheet look (menuGroup) is left as
+ * is — it already reads as a distinct surface from the glass cards,
+ * which keeps the screen from becoming "everything the same card".
  */
 import React, {useEffect, useState} from 'react';
 import {View, Text, Image, Pressable, StyleSheet} from 'react-native';
@@ -19,6 +26,8 @@ import {BerxButton} from '../../../../packages/design-system/src/components/Berx
 import {BerxLoadingState, BerxErrorState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {IconHeart, IconLock, IconBell, IconStar, IconUsers, IconChevronRight} from '../../../../packages/design-system/src/components/BerxIcons';
+import {BerxGlassSurface} from '../../../../packages/design-system/src/components/BerxGlassSurface';
+import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
 
 interface ProfileData {
 	guid?: number;
@@ -139,7 +148,7 @@ export default function ProfileScreen({api, authState, username, onBack, onMessa
 	return (
 		<View style={styles.screen}>
 			{onBack ? <BerxHeader onBack={onBack} title={profile.username} /> : null}
-			<View style={styles.hero}>
+			<BerxFadeIn style={styles.hero} riseFrom={16}>
 				<View style={styles.avatarRing}>
 					<Image source={{uri: profile.icon_url}} style={styles.avatar} />
 				</View>
@@ -147,14 +156,14 @@ export default function ProfileScreen({api, authState, username, onBack, onMessa
 				<Text style={styles.username}>@{profile.username}</Text>
 				{year ? <Text style={styles.joined}>На BERX с {year} года</Text> : null}
 				{profile.reputation ? (
-					<View style={styles.reputationRow}>
+					<BerxGlassSurface elevated padding="sm" style={styles.reputationRow}>
 						{profile.reputation.places_reviewed > 0 ? <View style={styles.reputationStat}><Text style={styles.reputationValue}>{profile.reputation.places_reviewed}</Text><Text style={styles.reputationLabel}>отзывов</Text></View> : null}
 						{profile.reputation.events_going > 0 ? <View style={styles.reputationStat}><Text style={styles.reputationValue}>{profile.reputation.events_going}</Text><Text style={styles.reputationLabel}>событий</Text></View> : null}
 						{profile.reputation.trips_created > 0 ? <View style={styles.reputationStat}><Text style={styles.reputationValue}>{profile.reputation.trips_created}</Text><Text style={styles.reputationLabel}>поездок</Text></View> : null}
 						{profile.reputation.experiences_created > 0 ? <View style={styles.reputationStat}><Text style={styles.reputationValue}>{profile.reputation.experiences_created}</Text><Text style={styles.reputationLabel}>впечатлений</Text></View> : null}
-					</View>
+					</BerxGlassSurface>
 				) : null}
-			</View>
+			</BerxFadeIn>
 
 			{!isOwn && profile.guid && onMessage ? (
 				<View style={styles.actionRow}>
@@ -231,7 +240,7 @@ export default function ProfileScreen({api, authState, username, onBack, onMessa
 			) : null}
 
 			{isOwn ? (
-				<View style={styles.menuList}>
+				<BerxFadeIn style={styles.menuList} delayMs={100}>
 					<Text style={styles.sectionLabel}>Знакомства</Text>
 					<View style={styles.menuGroup}>
 						{onOpenDating ? <MenuRow label="Discover" icon={<IconHeart size={18} color={colors.text} />} onPress={onOpenDating} isFirst /> : null}
@@ -266,7 +275,7 @@ export default function ProfileScreen({api, authState, username, onBack, onMessa
 							fullWidth
 						/>
 					</View>
-				</View>
+				</BerxFadeIn>
 			) : null}
 		</View>
 	);
