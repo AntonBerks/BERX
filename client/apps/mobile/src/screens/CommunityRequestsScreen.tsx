@@ -7,7 +7,7 @@
  * still surfaces as a real error if permission was misjudged
  * client-side.
  */
-import React, {useCallback, useEffect, useState} from 'react';
+import {useCallback, useEffect, useState} from 'react';
 import {View, Text, FlatList, Image, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxCommunityRequest} from '@berx/api/types';

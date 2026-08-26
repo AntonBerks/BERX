@@ -11,7 +11,7 @@
  * actual device picker is a separate piece that plugs into this
  * prop; this screen owns everything after a file is selected.
  */
-import React, {useCallback, useEffect, useState} from 'react';
+import {useCallback, useEffect, useState} from 'react';
 import {View, Text, FlatList, Image, Pressable, Dimensions, StyleSheet} from 'react-native';
 import type {BerxApiClient, BerxFilePart} from '@berx/api/client';
 import type {BerxAlbumDetail, BerxAlbumPhoto} from '@berx/api/types';

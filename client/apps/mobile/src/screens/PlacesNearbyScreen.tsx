@@ -9,7 +9,7 @@
  * device location. A real build should add a Geolocation permission
  * flow here later; this does not pretend that already exists.
  */
-import React, {useState} from 'react';
+import {useState} from 'react';
 import {View, Text, FlatList, Image, Pressable, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxNearbyPlace} from '@berx/api/types';

@@ -11,7 +11,7 @@
  * sandbox, so device picking is a separate piece that plugs into
  * this prop; this screen owns everything after a file is selected.
  */
-import React, {useEffect, useState} from 'react';
+import {useEffect, useState} from 'react';
 import {View, Text, Image, Pressable, StyleSheet} from 'react-native';
 import type {BerxApiClient, BerxFilePart} from '@berx/api/client';
 import type {BerxCircle, BerxPostVisibility} from '@berx/api/types';

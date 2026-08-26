@@ -10,7 +10,6 @@
  * nothing actually linked. Simple shapes only, by design: this is a
  * real, honest substitute for an icon library, not a placeholder.
  */
-import React from 'react';
 import {View} from 'react-native';
 
 interface IconProps {

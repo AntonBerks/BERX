@@ -5,7 +5,6 @@
  * glow, BERX typography, real actions (message the match / keep
  * browsing) — not a static congratulations graphic.
  */
-import React from 'react';
 import {View, Text, StyleSheet} from 'react-native';
 import {colors, spacing, typography} from '@berx/design-system/tokens';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';

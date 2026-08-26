@@ -18,7 +18,6 @@
  * (or similar) from a library like react-native-track-player once
  * installed — `url`/`onPlay` map directly onto that kind of API.
  */
-import React from 'react';
 import { View, Text, Pressable, Linking, StyleSheet } from 'react-native';
 import { colors, spacing, radius, typography } from '../tokens';
 

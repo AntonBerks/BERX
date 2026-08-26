@@ -21,7 +21,7 @@
  * {uri, headers} pattern <Image> already uses (react-native-video
  * supports this), which isn't installable in this sandbox.
  */
-import React, {useEffect, useRef, useState} from 'react';
+import {useEffect, useRef, useState} from 'react';
 import {View, Text, Image, Pressable, Animated, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxStoryFeedGroup} from '@berx/api/types';

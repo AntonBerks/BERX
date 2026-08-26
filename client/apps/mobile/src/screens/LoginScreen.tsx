@@ -9,7 +9,7 @@
  * architectural point of Phase-4's "LoginScreen should be a UI layer"
  * requirement.
  */
-import React, {useState} from 'react';
+import {useState} from 'react';
 import {View, Text, Pressable, StyleSheet} from 'react-native';
 import type {BerxAuthState} from '@berx/auth';
 import {colors, spacing, typography} from '@berx/design-system/tokens';

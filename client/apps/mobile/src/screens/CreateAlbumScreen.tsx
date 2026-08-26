@@ -2,7 +2,7 @@
  * !!! VERIFICATION STATUS: UNVERIFIED — see LoginScreen.tsx header.
  * Real submit: api.createAlbum() (components/OssnApi/v1/albums.php).
  */
-import React, {useState} from 'react';
+import {useState} from 'react';
 import {View, Text, Pressable, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';

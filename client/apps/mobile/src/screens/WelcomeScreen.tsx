@@ -9,7 +9,6 @@
  * actual bitmap assets — those are AI-generated stock composites with
  * no rights attached, not something to embed as real app assets).
  */
-import React from 'react';
 import {View, Text, StyleSheet} from 'react-native';
 import {colors, spacing, typography} from '@berx/design-system/tokens';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';

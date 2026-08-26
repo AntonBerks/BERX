@@ -13,7 +13,6 @@
  * Foundation) shipped — this comment previously said Video had no
  * real backend, which is now stale and corrected.
  */
-import React from 'react';
 import {View, Text, Pressable, StyleSheet} from 'react-native';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';

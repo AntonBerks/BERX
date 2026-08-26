@@ -7,7 +7,7 @@
  * ossn_place_hours server-side. Places with no structured hours are
  * never hidden by it — "unknown" is not treated as "closed".
  */
-import React, {useState} from 'react';
+import {useState} from 'react';
 import {View, Text, FlatList, Image, Pressable, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxNearbyPlaceItem, BerxNearbyEventItem} from '@berx/api/types';
@@ -94,9 +94,9 @@ export default function NearbyNowScreen({api, onOpenPlace, onOpenEvent, onBack}:
 			) : (
 				<FlatList
 					data={rows}
-					keyExtractor={(row) => `${row.kind}-${row.item.guid}`}
+					keyExtractor={(row: Row) => `${row.kind}-${row.item.guid}`}
 					contentContainerStyle={styles.list}
-					renderItem={({item: row}) =>
+					renderItem={({item: row}: {item: Row}) =>
 						row.kind === 'place' ? (
 							<Pressable style={styles.row2} onPress={() => { api.recordNearbyAction(row.item.guid, 'opened').catch(() => undefined); onOpenPlace(row.item.guid); }}>
 								{row.item.cover_url ? <Image source={{uri: row.item.cover_url}} style={styles.thumb} /> : <View style={styles.thumbFallback} />}

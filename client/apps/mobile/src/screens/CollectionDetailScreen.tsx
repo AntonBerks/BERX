@@ -6,7 +6,7 @@
  * yet navigable from here (no PostDetail route param path wired for
  * this screen; not faked as clickable when it wouldn't do anything).
  */
-import React, {useCallback, useEffect, useState} from 'react';
+import {useCallback, useEffect, useState} from 'react';
 import {View, Text, FlatList, Image, Pressable, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxCollectionDetail, BerxCollectionItem} from '@berx/api/types';

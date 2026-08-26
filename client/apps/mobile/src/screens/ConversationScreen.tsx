@@ -10,7 +10,7 @@
  * than dressed up as live. Message editing still does not exist in
  * the OSSN core and is therefore still absent, not stubbed.
  */
-import React, {useCallback, useEffect, useRef, useState} from 'react';
+import {useCallback, useEffect, useRef, useState} from 'react';
 import {FlatList, Text, View, Pressable, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxMessage} from '@berx/api/types';

@@ -4,7 +4,7 @@
  * v1/events.php). No ticket/payment UI anywhere — that backend does
  * not exist (see BERX_DECISIONS.md).
  */
-import React, {useCallback, useEffect, useState} from 'react';
+import {useCallback, useEffect, useState} from 'react';
 import {View, Text, FlatList, Pressable, StyleSheet, Image} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxEvent, BerxPlaceCategory} from '@berx/api/types';

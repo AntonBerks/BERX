@@ -9,7 +9,6 @@
  * placeholder with a real play glyph rather than a fabricated
  * thumbnail. Real like/comment counts, never estimated.
  */
-import React from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { colors, spacing, radius, typography } from '../tokens';
 import type { BerxVideoPost } from '@berx/api/types';

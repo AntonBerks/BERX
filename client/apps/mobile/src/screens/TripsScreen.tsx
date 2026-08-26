@@ -4,7 +4,7 @@
  * domain this session). Own trips call also includes trips you're a
  * real participant on, not just ones you own.
  */
-import React, {useCallback, useEffect, useState} from 'react';
+import {useCallback, useEffect, useState} from 'react';
 import {View, Text, FlatList, Pressable, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxTrip} from '@berx/api/types';

@@ -3,7 +3,7 @@
  * Real data: api.communityMembers() (components/OssnApi/v1/
  * communities.php), wraps OssnGroup::getMembers() verbatim.
  */
-import React, {useCallback, useEffect, useState} from 'react';
+import {useCallback, useEffect, useState} from 'react';
 import {View, Text, FlatList, Image, Pressable, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxCommunityMember} from '@berx/api/types';

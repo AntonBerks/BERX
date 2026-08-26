@@ -2,7 +2,6 @@
  * !!! VERIFICATION STATUS: UNVERIFIED — see BerxButton.tsx header for
  * the full explanation. Same sandbox constraint applies here.
  */
-import React from 'react';
 import { View, Image, Text, StyleSheet } from 'react-native';
 import { colors, typography } from '../tokens';
 

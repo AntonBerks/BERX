@@ -5,7 +5,7 @@
  * server's is_numeric() branch accepts that directly (see the
  * comment on createEvent() in client.ts).
  */
-import React, {useEffect, useState} from 'react';
+import {useEffect, useState} from 'react';
 import {View, Text, ScrollView, Pressable, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxPlaceCategory, BerxPlace} from '@berx/api/types';

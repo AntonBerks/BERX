@@ -9,7 +9,7 @@
  * me.php) — this screen does not fabricate a soft-delete that
  * doesn't exist.
  */
-import React, {useState} from 'react';
+import {useState} from 'react';
 import {View, Text, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import {colors, spacing, typography} from '@berx/design-system/tokens';

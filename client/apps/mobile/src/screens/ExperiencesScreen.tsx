@@ -4,7 +4,7 @@
  * new domain this session). Includes both owned experiences and ones
  * you've been invited to, with your real invite status shown.
  */
-import React, {useCallback, useEffect, useState} from 'react';
+import {useCallback, useEffect, useState} from 'react';
 import {View, Text, FlatList, Image, Pressable, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxExperience} from '@berx/api/types';

@@ -4,7 +4,7 @@
  * experiences.php). Anchor must be a real place or event — search
  * results come from the real api.searchPlaces()/searchEvents().
  */
-import React, {useState} from 'react';
+import {useState} from 'react';
 import {View, Text, FlatList, Pressable, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxPlaceSearchResult, BerxEventSearchResult, BerxCollectionVisibility} from '@berx/api/types';

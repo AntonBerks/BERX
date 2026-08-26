@@ -5,7 +5,7 @@
  * same real fields PlaceDetailScreen already reads (address/phone/
  * hours/website/category), presented with the Spatial Glass language.
  */
-import React, {useCallback, useEffect, useState} from 'react';
+import {useCallback, useEffect, useState} from 'react';
 import {View, Text, ScrollView, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxPlace} from '@berx/api/types';

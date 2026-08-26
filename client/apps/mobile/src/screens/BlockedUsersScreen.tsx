@@ -3,7 +3,7 @@
  * Real data: api.blockedUsers()/unblockUser() (components/OssnApi/v1/
  * block.php, wraps OssnBlock::getBlocking()/removeBlock() verbatim).
  */
-import React, {useCallback, useEffect, useState} from 'react';
+import {useCallback, useEffect, useState} from 'react';
 import {View, Text, FlatList, Image, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxBlockedUser} from '@berx/api/types';

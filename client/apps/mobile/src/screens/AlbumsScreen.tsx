@@ -3,7 +3,7 @@
  * Real data: api.userAlbums() (components/OssnApi/v1/albums.php,
  * wraps OssnAlbums::GetAlbums() verbatim).
  */
-import React, {useCallback, useEffect, useState} from 'react';
+import {useCallback, useEffect, useState} from 'react';
 import {View, Text, FlatList, Pressable, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxAlbum} from '@berx/api/types';

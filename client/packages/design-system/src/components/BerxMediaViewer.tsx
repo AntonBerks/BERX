@@ -13,7 +13,7 @@
  * multiple assets uses a plain horizontal FlatList with paging, which
  * needs no external library.
  */
-import React, {useState} from 'react';
+import {useState} from 'react';
 import {View, Image, Text, FlatList, Modal, Pressable, Dimensions, StyleSheet} from 'react-native';
 import {colors, spacing, typography, radius} from '../tokens';
 import type {BerxMediaAsset} from '@berx/api/types';

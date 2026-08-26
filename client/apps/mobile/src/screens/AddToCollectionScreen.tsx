@@ -5,7 +5,7 @@
  * (place/event/post) to any of the caller's own collections — shown
  * as a picker, not duplicated per source screen.
  */
-import React, {useCallback, useEffect, useState} from 'react';
+import {useCallback, useEffect, useState} from 'react';
 import {View, Text, FlatList, Pressable, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxCollection, BerxCollectionItemType} from '@berx/api/types';

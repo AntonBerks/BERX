@@ -2,7 +2,7 @@
  * !!! VERIFICATION STATUS: UNVERIFIED — see LoginScreen.tsx header.
  * Real submit: api.createTrip() (components/OssnApi/v1/trips.php).
  */
-import React, {useState} from 'react';
+import {useState} from 'react';
 import {View, Text, Pressable, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxCollectionVisibility} from '@berx/api/types';

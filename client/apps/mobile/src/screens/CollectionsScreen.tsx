@@ -5,7 +5,7 @@
  * authorization). Someone else's collections show only what's marked
  * public — enforced in the SQL query server-side, not filtered here.
  */
-import React, {useCallback, useEffect, useState} from 'react';
+import {useCallback, useEffect, useState} from 'react';
 import {View, Text, FlatList, Pressable, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxCollection} from '@berx/api/types';

@@ -6,7 +6,7 @@
  * this session (a 'group:moderator' relation, checked server-side).
  * Owner/admin only, enforced server-side.
  */
-import React, {useCallback, useEffect, useState} from 'react';
+import {useCallback, useEffect, useState} from 'react';
 import {View, Text, FlatList, Image, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxGroupModerator} from '@berx/api/types';

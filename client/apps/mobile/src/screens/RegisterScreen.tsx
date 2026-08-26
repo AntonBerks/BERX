@@ -6,7 +6,7 @@
  * just added, but no screen ever called either — the auth flow only
  * ever had a way in for people who already had an account.
  */
-import React, {useState} from 'react';
+import {useState} from 'react';
 import {View, Text, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import {BerxApiError} from '@berx/core';

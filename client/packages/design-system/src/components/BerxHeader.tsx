@@ -6,7 +6,6 @@
  * ever called it — a user who pushed into PostDetail or a pushed
  * Profile had no way back. This header is that way back.
  */
-import React from 'react';
 import {View, Text, Pressable, StyleSheet} from 'react-native';
 import {colors, spacing, typography} from '../tokens';
 

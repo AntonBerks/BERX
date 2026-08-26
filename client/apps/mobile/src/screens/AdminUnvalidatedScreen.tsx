@@ -8,7 +8,7 @@
  * bug in core (see admin.php's header comment) — this screen never
  * forwards a search parameter, matching the API's own restriction.
  */
-import React, {useCallback, useEffect, useState} from 'react';
+import {useCallback, useEffect, useState} from 'react';
 import {View, Text, FlatList, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxUnvalidatedUser} from '@berx/api/types';

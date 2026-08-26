@@ -22,7 +22,7 @@
  * mounted simultaneously with visibility toggled, not conditionally
  * rendered — disclosed here rather than silently left unmentioned.
  */
-import React, {createContext, useCallback, useContext, useMemo, useState, ReactNode} from 'react';
+import {createContext, useCallback, useContext, useMemo, useState, ReactNode} from 'react';
 import type {BerxRouteName, BerxRouteParams} from './routes';
 
 interface StackEntry<K extends BerxRouteName = BerxRouteName> {
@@ -60,15 +60,15 @@ export function BerxNavigator<K extends BerxRouteName>({
 	const [stack, setStack] = useState<StackEntry[]>([{name: initialRoute, params: initialParams}]);
 
 	const push = useCallback(<K2 extends BerxRouteName>(name: K2, params: BerxRouteParams[K2]) => {
-		setStack((s) => [...s, {name, params}]);
+		setStack((s: StackEntry[]) => [...s, {name, params}]);
 	}, []);
 
 	const pop = useCallback(() => {
-		setStack((s) => (s.length > 1 ? s.slice(0, -1) : s));
+		setStack((s: StackEntry[]) => (s.length > 1 ? s.slice(0, -1) : s));
 	}, []);
 
 	const replace = useCallback(<K2 extends BerxRouteName>(name: K2, params: BerxRouteParams[K2]) => {
-		setStack((s) => [...s.slice(0, -1), {name, params}]);
+		setStack((s: StackEntry[]) => [...s.slice(0, -1), {name, params}]);
 	}, []);
 
 	const current = stack[stack.length - 1];

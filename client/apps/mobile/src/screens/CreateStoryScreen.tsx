@@ -19,7 +19,7 @@
  * a real filename label instead of a fake thumbnail — honest about
  * what it can and can't render before upload.
  */
-import React, {useState} from 'react';
+import {useState} from 'react';
 import {View, Text, Image, StyleSheet} from 'react-native';
 import type {BerxApiClient, BerxFilePart} from '@berx/api/client';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';

@@ -10,7 +10,7 @@
  * "Личные" tab only, no "Групповые" tab: the real API has no group
  * messaging, so a second tab would have nothing behind it.
  */
-import React, {useCallback, useEffect, useMemo, useState} from 'react';
+import {useCallback, useEffect, useMemo, useState} from 'react';
 import {FlatList, Pressable, Text, View, RefreshControl, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxConversationSummary} from '@berx/api/types';

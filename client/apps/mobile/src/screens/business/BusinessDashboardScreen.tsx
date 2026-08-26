@@ -7,7 +7,7 @@
  * untouched and still routed in AppShell; this is the reference for
  * when it's time to swap it in.
  */
-import React, {useCallback, useEffect, useState} from 'react';
+import {useCallback, useEffect, useState} from 'react';
 import {View, Text, Image, ScrollView, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxBusinessDashboard, BerxBusinessSubscription, BerxBusinessTeamMember, BerxPlaceReview} from '@berx/api/types';

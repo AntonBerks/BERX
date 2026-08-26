@@ -4,7 +4,6 @@
  * not compiled/run in this sandbox (npm registry confirmed blocked,
  * 403, tested directly). Verify by dropping into a real RN project.
  */
-import React from 'react';
 import { Pressable, Text, ActivityIndicator, StyleSheet, PressableProps } from 'react-native';
 import { colors, radius, spacing, typography } from '../tokens';
 

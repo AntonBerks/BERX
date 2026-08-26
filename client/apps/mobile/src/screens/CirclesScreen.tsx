@@ -4,7 +4,7 @@
  * domain this session). Always the caller's own — circles have no
  * public tier at all.
  */
-import React, {useCallback, useEffect, useState} from 'react';
+import {useCallback, useEffect, useState} from 'react';
 import {View, Text, FlatList, Pressable, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxCircle} from '@berx/api/types';

@@ -9,7 +9,7 @@
  * honest note further down), so tabs implying different underlying
  * feeds would be fake UI with no real data behind two of the three.
  */
-import React, {useCallback, useEffect, useState} from 'react';
+import {useCallback, useEffect, useState} from 'react';
 import {View, Text, FlatList, RefreshControl, StyleSheet, Pressable} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxFeedItem, BerxStoryFeedGroup} from '@berx/api/types';

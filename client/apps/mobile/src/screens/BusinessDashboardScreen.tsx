@@ -9,7 +9,7 @@
  * those have a real data source or provider in BERX, so none appear
  * here.
  */
-import React, {useCallback, useEffect, useState} from 'react';
+import {useCallback, useEffect, useState} from 'react';
 import {View, Text, Image, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxBusinessDashboard, BerxPlaceReview, BerxBusinessSubscription, BerxBusinessTeamMember, BerxBusinessMoment} from '@berx/api/types';
@@ -92,7 +92,7 @@ export default function BusinessDashboardScreen({api, placeGuid, onBack}: Props)
 	async function handleDeleteMoment(id: number) {
 		try {
 			await api.deleteBusinessMoment(id);
-			setMoments((prev) => prev.filter((x) => x.id !== id));
+			setMoments((prev: BerxBusinessMoment[]) => prev.filter((x) => x.id !== id));
 		} catch {
 			// list stays as-is on failure
 		}

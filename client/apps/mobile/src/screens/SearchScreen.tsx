@@ -14,7 +14,7 @@
  * here navigates to the real detail screen, which fetches the full
  * record.
  */
-import React, {useCallback, useRef, useState} from 'react';
+import {useCallback, useRef, useState} from 'react';
 import {View, Text, FlatList, Pressable, Image, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxPlaceSearchResult, BerxEventSearchResult, BerxCommunitySearchResult} from '@berx/api/types';

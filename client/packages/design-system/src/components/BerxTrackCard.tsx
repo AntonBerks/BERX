@@ -6,7 +6,6 @@
  * for either exists (no audio-analysis pipeline), so neither is
  * faked; a plain note-glyph badge stands in honestly.
  */
-import React from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { colors, spacing, radius, typography } from '../tokens';
 import type { BerxTrackPost } from '@berx/api/types';

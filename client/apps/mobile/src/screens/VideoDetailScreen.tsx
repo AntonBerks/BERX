@@ -8,7 +8,7 @@
  * system. Delete reuses api.deletePost() (author/admin only,
  * server-side), which also cleans up the real attached video file.
  */
-import React, {useCallback, useEffect, useState} from 'react';
+import {useCallback, useEffect, useState} from 'react';
 import {View, Text, Pressable, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxVideoPost, BerxPostComment} from '@berx/api/types';

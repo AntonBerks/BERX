@@ -4,7 +4,7 @@
  * These four cover the "every screen needs loading/error/empty state"
  * requirement — real components, not a checklist item left unbuilt.
  */
-import React, {useEffect, useRef} from 'react';
+import {useEffect, useRef} from 'react';
 import {View, Text, ActivityIndicator, Animated, StyleSheet} from 'react-native';
 import {colors, spacing, radius, typography} from '../tokens';
 import {BerxButton} from './BerxButton';

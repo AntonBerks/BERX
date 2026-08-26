@@ -3,7 +3,7 @@
  * Real submit: api.createPlace() (components/OssnApi/v1/places.php,
  * POST /places). Category select uses the real server whitelist.
  */
-import React, {useEffect, useState} from 'react';
+import {useEffect, useState} from 'react';
 import {View, Text, ScrollView, Pressable, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxPlaceCategory} from '@berx/api/types';

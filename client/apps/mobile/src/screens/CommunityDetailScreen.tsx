@@ -6,7 +6,7 @@
  * only wires join/leave/view, consistent with "add what's actually
  * built and tested, not a guessed full feature set."
  */
-import React, {useEffect, useState} from 'react';
+import {useEffect, useState} from 'react';
 import {View, Text, Pressable, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxCommunity} from '@berx/api/types';

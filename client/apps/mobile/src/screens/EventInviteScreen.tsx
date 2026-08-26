@@ -6,7 +6,7 @@
  * friends are listed — nobody can be invited who the caller isn't
  * actually connected to; the server re-checks this regardless.
  */
-import React, {useCallback, useEffect, useState} from 'react';
+import {useCallback, useEffect, useState} from 'react';
 import {View, Text, FlatList, Image, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxFriend} from '@berx/api/types';

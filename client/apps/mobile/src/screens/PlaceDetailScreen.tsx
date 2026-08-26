@@ -6,7 +6,7 @@
  * booking/reservation UI — that backend does not exist (see
  * BERX_DECISIONS.md).
  */
-import React, {useCallback, useEffect, useState} from 'react';
+import {useCallback, useEffect, useState} from 'react';
 import {View, Text, ScrollView, Image, Pressable, Linking, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxPlace, BerxPlaceReview} from '@berx/api/types';

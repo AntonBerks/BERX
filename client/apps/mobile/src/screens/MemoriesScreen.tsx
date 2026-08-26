@@ -4,7 +4,7 @@
  * pure read over existing OssnWall/OssnAlbums/OssnPhotos). No push —
  * no real push infrastructure exists in this codebase.
  */
-import React, {useCallback, useEffect, useState} from 'react';
+import {useCallback, useEffect, useState} from 'react';
 import {View, Text, Image, FlatList, Pressable, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxMemory} from '@berx/api/types';

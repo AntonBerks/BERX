@@ -7,7 +7,7 @@
  * (no "search users" picker exists in this pass); a real product
  * screen would wire a real user search here.
  */
-import React, {useCallback, useEffect, useState} from 'react';
+import {useCallback, useEffect, useState} from 'react';
 import {View, Text, Image, ScrollView, Pressable, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxBusinessTeamMember, BerxBusinessTeamRole} from '@berx/api/types';

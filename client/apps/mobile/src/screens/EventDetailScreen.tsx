@@ -6,7 +6,7 @@
  * always the source of truth for seats_left/attendee_count, not a
  * client-side guess.
  */
-import React, {useCallback, useEffect, useState} from 'react';
+import {useCallback, useEffect, useState} from 'react';
 import {View, Text, ScrollView, Image, FlatList, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxEvent, BerxEventAttendee} from '@berx/api/types';

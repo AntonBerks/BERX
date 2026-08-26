@@ -5,7 +5,7 @@
  * (components/OssnApi/v1/places.php). Category filter uses the real
  * server whitelist via api.placeCategories(), not a hardcoded list.
  */
-import React, {useCallback, useEffect, useState} from 'react';
+import {useCallback, useEffect, useState} from 'react';
 import {View, Text, FlatList, Pressable, StyleSheet, Image} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxPlace, BerxPlaceCategory} from '@berx/api/types';

@@ -1,7 +1,6 @@
 /**
  * !!! VERIFICATION STATUS: UNVERIFIED — see BerxButton.tsx header.
  */
-import React from 'react';
 import {TextInput, TextInputProps, StyleSheet} from 'react-native';
 import {colors, radius, spacing, typography} from '../tokens';
 

@@ -6,7 +6,6 @@
  * state, not a fake populated catalog. It establishes the visual
  * shape (list-card language) a real catalog would later fill.
  */
-import React from 'react';
 import {View, Text, StyleSheet} from 'react-native';
 import {colors, spacing, typography} from '@berx/design-system/tokens';
 import {BerxGlassSurface} from '../../../../../packages/design-system/src/components/BerxGlassSurface';

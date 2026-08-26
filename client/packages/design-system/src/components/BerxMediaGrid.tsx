@@ -8,7 +8,6 @@
  * fake inline player thumbnail — no video preview generation exists
  * in this environment (see BerxMediaViewer's own header for why).
  */
-import React from 'react';
 import { View, Image, Pressable, Text, StyleSheet } from 'react-native';
 import { colors, radius, typography } from '../tokens';
 

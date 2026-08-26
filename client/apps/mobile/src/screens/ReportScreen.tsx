@@ -8,7 +8,7 @@
  * places/events: those two are not in the real server whitelist, and
  * a report button there would 422 on every submission.
  */
-import React, {useState} from 'react';
+import {useState} from 'react';
 import {View, Text, Pressable, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxReportTargetType, BerxReportReason} from '@berx/api/types';

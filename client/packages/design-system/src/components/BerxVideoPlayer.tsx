@@ -21,7 +21,6 @@
  * (`url`, `posterColor`, `onPlay`) maps directly onto that library's
  * own real API, so no caller needs to change.
  */
-import React from 'react';
 import { View, Text, Pressable, Linking, StyleSheet } from 'react-native';
 import { colors, spacing, radius, typography } from '../tokens';
 
