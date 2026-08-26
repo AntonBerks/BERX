@@ -3,7 +3,6 @@
 /configurations/ossn.config.site.php
 
 #do not include following files
-/components/*
 /cache
 /installation/INSTALLED
 /.htaccess
@@ -12,31 +11,42 @@ Desktop.ini
 DISPLAY_ERRORS
 error_log
 
-#do not ignore ossn core components
-!/components/OssnAds
-!/components/OssnBlock
-!/components/OssnComments
-!/components/OssnEmbed
-!/components/OssnGroups
-!/components/OssnInvite
-!/components/OssnLikes
-!/components/OssnMessages
-!/components/OssnNotifications
-!/components/OssnPhotos
-!/components/OssnPoke
-!/components/OssnProfile
-!/components/OssnSearch
-!/components/OssnSitePages
-!/components/OssnSmilies
-!/components/OssnWall
-!/components/OssnChat
-!/components/OssnSounds
-!/components/OssnAutoPagination
-!/components/OssnMessageTyping
-!/components/OssnRealTimeComments
-!/components/OssnPostBackground
-!/components/OssnGiphy
-!/components/OssnLocation
+# NOTE: this file is BERX's fork of upstream OSSN's .gitignore. The original
+# upstream version blanket-ignored /components/* and then explicitly
+# un-ignored only the vanilla OSSN component list below — appropriate for a
+# thin patch layer over upstream, actively harmful for a fork whose whole
+# point is adding new components (OssnApi, OssnPlaces, OssnEvents, OssnDating,
+# etc.). That blanket ignore silently dropped every BERX-custom component
+# directory from version control (confirmed missing from the repo: see
+# `client/BERX_PROGRESS.md`'s claims vs. actual `components/` contents as of
+# 2026-08-26). Removed so all BERX components are tracked like everything
+# else in this fork. Kept the original whitelist below as a comment for
+# provenance only — it no longer has any exclusion to override.
+# was: /components/*
+# !/components/OssnAds
+# !/components/OssnBlock
+# !/components/OssnComments
+# !/components/OssnEmbed
+# !/components/OssnGroups
+# !/components/OssnInvite
+# !/components/OssnLikes
+# !/components/OssnMessages
+# !/components/OssnNotifications
+# !/components/OssnPhotos
+# !/components/OssnPoke
+# !/components/OssnProfile
+# !/components/OssnSearch
+# !/components/OssnSitePages
+# !/components/OssnSmilies
+# !/components/OssnWall
+# !/components/OssnChat
+# !/components/OssnSounds
+# !/components/OssnAutoPagination
+# !/components/OssnMessageTyping
+# !/components/OssnRealTimeComments
+# !/components/OssnPostBackground
+# !/components/OssnGiphy
+# !/components/OssnLocation
 
 #do not ignore config files
 !/.scrutinizer.yml
