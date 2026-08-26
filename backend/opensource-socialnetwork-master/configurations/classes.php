@@ -60,6 +60,11 @@ $OssnClasses = array(
 		'Signals',
 		// BERX Place Hours — real structured opening intervals.
 		'PlaceHours',
+		// BERX API Token — bearer-token auth for the stateless /api/v1
+		// layer (never touches $_SESSION). Restored 2026-08-26 after
+		// the .gitignore bug fixed in commit f915ff4 — see
+		// docs/BERX_SOURCE_INVENTORY_2026-08-26.md.
+		'ApiToken',
 );
 foreach ($OssnClasses as $class) {
 		$loadClass['Ossn' . $class] = ossn_route()->classes . "Ossn{$class}.php";

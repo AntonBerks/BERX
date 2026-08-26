@@ -321,7 +321,74 @@ Wave 0 — фундамент (всё остальное на этом стои�
 4. Начинать реализацию с Wave 0 (auth/me) сразу после утверждения этого
    плана, или сначала — отдельное подтверждение по каждому Wave?
 
-## 10. Явно вне рамок этого плана
+## 10. Статус реализации
+
+**Статус-легенда:** `CLOUD-STATIC-VERIFIED` = проверено в этом cloud-окружении
+статически (php -l, чтение реального кода зависимостей, ручная трассировка
+роутинга, сверка полей с `client.ts`/`types.ts`) — **БЕЗ реальной БД,
+без реального HTTP-запроса, без реального веб-сервера**, потому что
+в этом cloud-контейнере нет MySQL/MariaDB-сервера (проверено:
+`mysql`/`mysqld`/`mariadb` — нет ни одного бинарника, только PHP-драйверы).
+`RUNTIME-VERIFIED` = подтверждено реальным запросом к реально поднятому
+OSSN + MySQL (на VDS) — **не проставлено ни для чего в этом документе**,
+это отдельный, более сильный статус, который может дать только VDS.
+
+### Wave 0 — Bootstrap + Auth: CLOUD-STATIC-VERIFIED, NOT RUNTIME-VERIFIED
+
+| Файл | Статус |
+|---|---|
+| `classes/OssnApiToken.php` (новый) | CLOUD-STATIC-VERIFIED |
+| `configurations/classes.php` (изменён — добавлена регистрация `ApiToken`) | CLOUD-STATIC-VERIFIED |
+| `components/OssnApi/ossn_com.php` (новый — диспетчер) | CLOUD-STATIC-VERIFIED |
+| `components/OssnApi/v1/auth.php` (новый — register/login/logout) | CLOUD-STATIC-VERIFIED |
+| `components/OssnApi/v1/me.php` (новый — me/avatar/sessions/delete) | CLOUD-STATIC-VERIFIED |
+
+Что реально сделано для верификации:
+- `php -l` по всем изменённым/новым файлам — 0 ошибок; полный повторный
+  прогон по всему backend-дереву (1156 файлов) — 0 ошибок, регрессий нет.
+- Каждый вызванный метод/функция (`OssnUser::authenticate/getUser/save/
+  resetPassword/deleteUser/isUsername/isPassword/isEmail/isOssnUsername/
+  isOssnEmail/addUser/iconURL/profileURL`, `OssnFile::setFile/setPath/
+  setStore/setExtension/addFile/getFileUploadError`, `OssnProfile::
+  addPhotoWallPost`, `OssnDatabase::insert/select/update/delete/wheres`,
+  core `input()/ossn_register_page()/ossn_register_callback()/
+  ossn_route()`) подтверждён прямым чтением реального определения в
+  этой сессии — не предполагался по аналогии.
+- Ручная трассировка роутинга для каждого реального пути из `client.ts`
+  (`POST /auth/register|login|logout`, `GET|PATCH /me`, `POST /me/avatar`,
+  `GET /me/sessions`, `POST /me/sessions/{id}/revoke`, `POST /me/delete`)
+  через `$pages` → `$segments` → конкретную ветку — все совпадают.
+- Построчная сверка каждого ответа с реальными TS-типами
+  (`BerxAuthSession`, `BerxUser`, `BerxSession`, и точные `Promise<...>`
+  сигнатуры методов `client.ts`) — совпадение по составу полей.
+- **Найден и исправлен один реальный баг до коммита**: `input()`
+  реально возвращает `false` (не `null`) при отсутствии поля — прочитан
+  реальный код `libraries/ossn.lib.input.php` до конца, а не
+  предположен. Первая версия `me.php`'s PATCH-ветки проверяла
+  `!== null`, что пропускало бы `false` как "поле пришло" и затирало бы
+  `first_name`/`last_name`/`email` при каждом PATCH-запросе без этих
+  полей. Исправлено на прямую truthy-проверку, как в остальном кодбейзе
+  (`if (!empty($password))`-стиль).
+- Задокументирован и решён реальный PHP-нюанс: `$_REQUEST`/`input()`
+  не заполняются автоматически для PATCH/DELETE-тел
+  (`application/x-www-form-urlencoded`) — PHP делает это только для
+  POST. Решено один раз в диспетчере (`ossn_com.php`) через
+  `parse_str(file_get_contents('php://input'), ...)` перед `include`,
+  а не по одному разу в каждом v1-файле.
+- Миграции `ossn_api_tokens`/`ossn_api_login_attempts`
+  (`1785168400.php`/`1785168500.php`) НЕ создавались заново — только
+  прочитаны, имена колонок сверены 1:1 с тем, что использует
+  `OssnApiToken.php`.
+
+**Чего НЕ было и не может быть в этом окружении:** реального запроса
+через `index.php`, реальной MySQL-транзакции, реальной проверки
+`.htaccess`-rewrite на живом сервере, реальной проверки
+`getallheaders()`/`HTTP_AUTHORIZATION` под конкретной конфигурацией
+Apache/Nginx/PHP-FPM VDS. Это остаётся первым, что нужно проверить на
+VDS, когда до него дойдёт очередь — до тех пор Wave 0 годен только
+как "готов к рантайм-проверке", не как "работает".
+
+## 11. Явно вне рамок этого плана
 
 Payments/Wallet/Tickets (нет провайдера), ban/suspend (нет backend-модели
 в core OSSN), AI-ranking (канон — не требуется), WebSocket-транспорт
