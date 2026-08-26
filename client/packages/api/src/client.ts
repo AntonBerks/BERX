@@ -29,6 +29,7 @@ import type {
 	BerxSocialMapResponse,
 	BerxPlaceExperienceGraph,
 	BerxEventExperienceGraph,
+	BerxCityModeResponse,
 	BerxMissionsResponse,
 	BerxPointsHistoryEntry,
 	BerxPlace,
@@ -994,6 +995,11 @@ export class BerxApiClient {
 	/** The graph AROUND one event — real friends who are going. */
 	async eventExperienceGraph(eventGuid: number): Promise<BerxEventExperienceGraph> {
 		return this.request<BerxEventExperienceGraph>(`/experiencegraph/event/${eventGuid}`);
+	}
+
+	/** Radius-scoped "pulse of the city" summary — same real OssnGeo query as nearbyNow()/socialMap(). See docs/BERX_FUTURE_LAYER_SPEC.md. */
+	async cityMode(lat: number, lng: number, radiusKm = 5): Promise<BerxCityModeResponse> {
+		return this.request<BerxCityModeResponse>(`/citymode?lat=${lat}&lng=${lng}&radius_km=${radiusKm}`);
 	}
 
 	/** Real, fixed daily catalog — see components/OssnApi/v1/missions.php's own header. */

@@ -11,7 +11,7 @@
 import {useState} from 'react';
 import {View, Text, FlatList, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
-import type {BerxSocialMapPlacePin, BerxSocialMapEventPin, BerxSocialMapFriend} from '@berx/api/types';
+import type {BerxSocialMapPlacePin, BerxSocialMapEventPin, BerxSocialMapFriend, BerxCityModeResponse} from '@berx/api/types';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
@@ -35,6 +35,7 @@ export default function SocialMapScreen({api, onOpenPlace, onOpenEvent, onOpenPr
 	const [places, setPlaces] = useState<BerxSocialMapPlacePin[] | null>(null);
 	const [events, setEvents] = useState<BerxSocialMapEventPin[]>([]);
 	const [friends, setFriends] = useState<BerxSocialMapFriend[]>([]);
+	const [city, setCity] = useState<BerxCityModeResponse | null>(null);
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
@@ -52,6 +53,8 @@ export default function SocialMapScreen({api, onOpenPlace, onOpenEvent, onOpenPr
 			setPlaces(res.places);
 			setEvents(res.events);
 			setFriends(res.friends_online);
+			// City Mode — best-effort, same real lat/lng, never blocks the map itself.
+			api.cityMode(la, ln, 5).then(setCity).catch(() => undefined);
 		} catch (e) {
 			setError(e instanceof Error ? e.message : 'Не удалось загрузить');
 		} finally {
@@ -73,6 +76,15 @@ export default function SocialMapScreen({api, onOpenPlace, onOpenEvent, onOpenPr
 				{error ? <Text style={styles.error}>{error}</Text> : null}
 				<BerxButton label="Показать" onPress={search} loading={loading} fullWidth />
 			</View>
+
+			{city ? (
+				<View style={styles.cityRow}>
+					<View style={styles.cityStat}><Text style={styles.cityValue}>{city.places_count}</Text><Text style={styles.cityLabel}>мест</Text></View>
+					<View style={styles.cityStat}><Text style={styles.cityValue}>{city.events_count}</Text><Text style={styles.cityLabel}>событий</Text></View>
+					<View style={styles.cityStat}><Text style={styles.cityValue}>{city.active_moments_count}</Text><Text style={styles.cityLabel}>анонсов</Text></View>
+					<View style={styles.cityStat}><Text style={styles.cityValue}>{city.friends_online_count}</Text><Text style={styles.cityLabel}>друзей онлайн</Text></View>
+				</View>
+			) : null}
 
 			{friends.length > 0 ? (
 				<View style={styles.friendsRow}>
@@ -115,6 +127,10 @@ const styles = StyleSheet.create({
 	input: {marginBottom: 0},
 	error: {color: colors.danger, fontSize: typography.sizeSm},
 	sectionTitle: {fontSize: typography.sizeSm, color: colors.textFaint, paddingHorizontal: spacing.md, marginBottom: spacing.xs},
+	cityRow: {flexDirection: 'row', justifyContent: 'space-around', paddingVertical: spacing.sm, marginHorizontal: spacing.md, backgroundColor: colors.surface, borderRadius: radius.md},
+	cityStat: {alignItems: 'center'},
+	cityValue: {fontSize: typography.sizeLg, color: colors.accent, fontWeight: typography.weightBold},
+	cityLabel: {fontSize: typography.sizeXs, color: colors.textFaint},
 	friendsRow: {paddingVertical: spacing.sm},
 	friendItem: {alignItems: 'center', width: 64, marginHorizontal: spacing.xs, gap: spacing.xs},
 	friendName: {fontSize: typography.sizeSm, color: colors.textDim},

@@ -216,6 +216,15 @@ export interface BerxEventExperienceGraph {
 	friends_going: BerxExperienceGraphFriend[];
 }
 
+/** Radius-scoped summary header — see docs/BERX_FUTURE_LAYER_SPEC.md. Counts are bounded by the same real cap OssnGeo::near() uses, not a true city-wide total. */
+export interface BerxCityModeResponse {
+	radius_km: number;
+	places_count: number;
+	events_count: number;
+	active_moments_count: number;
+	friends_online_count: number;
+}
+
 export interface BerxSocialMapPlacePin {
 	guid: number;
 	title: string;

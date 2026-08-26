@@ -198,6 +198,9 @@ function ossn_api_v1_resources() {
 		// Experience Graph — see docs/BERX_FUTURE_LAYER_SPEC.md. The
 		// graph AROUND one place/event (real friends only).
 		'experiencegraph' => __OSSN_API__ . 'v1/experiencegraph.php',
+		// City Mode — see docs/BERX_FUTURE_LAYER_SPEC.md. Radius-scoped
+		// summary over the same real OssnGeo query nearby.php uses.
+		'citymode'      => __OSSN_API__ . 'v1/citymode.php',
 		// 'business' (the SEPARATE top-level resource — /business/
 		// places/{guid}/team|subscription|hours|claim|moments|
 		// impressions) still deliberately NOT listed: those branches
