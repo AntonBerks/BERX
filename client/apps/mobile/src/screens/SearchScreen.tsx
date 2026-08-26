@@ -13,6 +13,11 @@
  * php's/events.php's full JSON builder functions. Selecting a result
  * here navigates to the real detail screen, which fetches the full
  * record.
+ *
+ * MAX BUILD — Places/Events results are now already server-sorted
+ * friends-first (real friends_count social-relevance signal, same
+ * mechanism Nearby Now uses); a small "👥 N" badge surfaces that same
+ * signal here, same convention as NearbyNowScreen's own badge.
  */
 import {useCallback, useRef, useState} from 'react';
 import {View, Text, FlatList, Pressable, Image, StyleSheet} from 'react-native';
@@ -155,7 +160,7 @@ export default function SearchScreen({api, onOpenProfile, onOpenPlace, onOpenEve
 							{item.cover_url ? <Image source={{uri: item.cover_url}} style={styles.thumb} /> : <View style={styles.thumbFallback} />}
 							<View style={styles.mediaBody}>
 								<Text style={styles.fullname} numberOfLines={1}>{item.title}</Text>
-								{item.category ? <Text style={styles.username}>{item.category}</Text> : null}
+								<Text style={styles.username}>{item.category ?? ''}{item.friends_count > 0 ? `${item.category ? ' · ' : ''}👥 ${item.friends_count}` : ''}</Text>
 							</View>
 							{item.rating > 0 ? <Text style={styles.rating}>★ {item.rating}</Text> : null}
 						</Pressable>
@@ -170,7 +175,7 @@ export default function SearchScreen({api, onOpenProfile, onOpenPlace, onOpenEve
 							{item.cover_url ? <Image source={{uri: item.cover_url}} style={styles.thumb} /> : <View style={styles.thumbFallback} />}
 							<View style={styles.mediaBody}>
 								<Text style={styles.fullname} numberOfLines={1}>{item.title}</Text>
-								<Text style={styles.username}>{new Date(item.starts * 1000).toLocaleDateString('ru-RU')}</Text>
+								<Text style={styles.username}>{new Date(item.starts * 1000).toLocaleDateString('ru-RU')}{item.friends_count > 0 ? ` · 👥 ${item.friends_count}` : ''}</Text>
 							</View>
 						</Pressable>
 					)}

@@ -12,6 +12,16 @@
  * full record. Matches client.ts's searchPlaces()/searchEvents()/
  * searchCommunities() (existing) and the documented /search/users
  * scope, field-for-field against types.ts.
+ *
+ * MAX BUILD -- "Discover + Nearby + Social Map + Events = one
+ * contextual discovery engine": places/events results now carry the
+ * same real friends_count social-relevance signal Nearby Now already
+ * has (ossn_api_friend_relevance_place_count()/_event_count(), moved
+ * to ossn_com.php this session so both files can use them), and are
+ * re-sorted friends-first -- a text match a friend actually engaged
+ * with outranks an unconnected one, same relevance idea as Personal
+ * World/Dynamic Discovery, just applied to search instead of
+ * proximity. Ties keep their original relevance order (stable sort).
  */
 
 $segment0 = isset($segments[0]) ? $segments[0] : null; // 'users'|'places'|'events'|'communities'
@@ -23,6 +33,14 @@ if ($method !== 'GET' || $segment0 === null) {
 $q = trim((string) input('q'));
 if ($q === '') {
 	ossn_api_error('validation_error', 'q is required', 422);
+}
+
+$friendIds = array();
+$friendRows = (new OssnUser())->getFriends($api_user_guid, array('limit' => 2000, 'page_limit' => false));
+if ($friendRows) {
+	foreach ($friendRows as $f) {
+		$friendIds[intval($f->guid)] = true;
+	}
 }
 
 if ($segment0 === 'users') {
@@ -48,13 +66,18 @@ if ($segment0 === 'places') {
 	$out = array();
 	foreach ($rows as $row) {
 		$out[] = array(
-			'guid'      => intval($row->guid),
-			'title'     => (string) $row->title,
-			'category'  => $row->category,
-			'cover_url' => $row->cover_url,
-			'rating'    => $row->rating,
+			'guid'          => intval($row->guid),
+			'title'         => (string) $row->title,
+			'category'      => $row->category,
+			'cover_url'     => $row->cover_url,
+			'rating'        => $row->rating,
+			'friends_count' => ossn_api_friend_relevance_place_count(intval($row->guid), $friendIds),
 		);
 	}
+	// Friends-first, stable — ties keep listPlaces()'s own relevance order.
+	usort($out, function ($a, $b) {
+		return $b['friends_count'] <=> $a['friends_count'];
+	});
 	ossn_api_json(array('places' => $out));
 }
 
@@ -62,17 +85,23 @@ if ($segment0 === 'events') {
 	if (!class_exists('OssnEvents')) {
 		ossn_api_json(array('events' => array()));
 	}
-	$rows = (new OssnEvents())->listEvents(array('q' => $q, 'limit' => 20));
+	$eventsModel = new OssnEvents();
+	$rows = $eventsModel->listEvents(array('q' => $q, 'limit' => 20));
 	$out = array();
 	foreach ($rows as $row) {
 		$out[] = array(
-			'guid'      => intval($row->guid),
-			'title'     => (string) $row->title,
-			'category'  => $row->category,
-			'starts'    => $row->starts,
-			'cover_url' => $row->cover_url,
+			'guid'          => intval($row->guid),
+			'title'         => (string) $row->title,
+			'category'      => $row->category,
+			'starts'        => $row->starts,
+			'cover_url'     => $row->cover_url,
+			'friends_count' => ossn_api_friend_relevance_event_count($eventsModel, intval($row->guid), $friendIds),
 		);
 	}
+	// Friends-first, stable — ties keep listEvents()'s own relevance order.
+	usort($out, function ($a, $b) {
+		return $b['friends_count'] <=> $a['friends_count'];
+	});
 	ossn_api_json(array('events' => $out));
 }
 

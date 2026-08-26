@@ -47,44 +47,11 @@ if ($friendRows) {
 	}
 }
 
-/** Real friend-relevance count for one place: real friends among its real savers+reviewers. */
-function ossn_api_nearby_place_friends_count($placeGuid, array $friendIds) {
-	if (!$friendIds) {
-		return 0;
-	}
-	$matched = array();
-	$saveRows = ossn_get_relationships(array('to' => $placeGuid, 'type' => 'place:save', 'limit' => 200, 'page_limit' => false));
-	if ($saveRows) {
-		foreach ($saveRows as $r) {
-			if (isset($friendIds[intval($r->relation_from)])) {
-				$matched[intval($r->relation_from)] = true;
-			}
-		}
-	}
-	$reviewRows = (new OssnDatabase())->select(array('from' => 'ossn_place_reviews', 'wheres' => array(OssnDatabase::wheres('place_guid', '=', intval($placeGuid))), 'limit' => 200), true);
-	if ($reviewRows) {
-		foreach ($reviewRows as $row) {
-			if (isset($friendIds[intval($row->author_guid)])) {
-				$matched[intval($row->author_guid)] = true;
-			}
-		}
-	}
-	return count($matched);
-}
-
-/** Real friend-relevance count for one event: real friends among its real attendees. */
-function ossn_api_nearby_event_friends_count($eventsModel, $eventGuid, array $friendIds) {
-	if (!$friendIds) {
-		return 0;
-	}
-	$matched = array();
-	foreach ($eventsModel->attendees($eventGuid, 200) as $r) {
-		if (isset($friendIds[intval($r->relation_from)])) {
-			$matched[intval($r->relation_from)] = true;
-		}
-	}
-	return count($matched);
-}
+// Friend-relevance helpers MOVED to ossn_com.php this session (MAX
+// BUILD) as ossn_api_friend_relevance_place_count()/
+// ossn_api_friend_relevance_event_count() — search.php needed them
+// too, and the dispatcher only loads one v1/*.php per request, so a
+// shared helper has to live in the always-loaded bootstrap.
 
 $placeRows = $placesModel ? $geo->near(floatval($lat), floatval($lng), $radiusKm, 'place', 60) : array();
 $placeGuids = array();
@@ -122,7 +89,7 @@ foreach ($placeRows as $row) {
 		'distance_km' => floatval($row->distance),
 		'moments'       => isset($momentsByPlace[intval($place->guid)]) ? $momentsByPlace[intval($place->guid)] : array(),
 		'is_open_now'   => $isOpenNow,
-		'friends_count' => ossn_api_nearby_place_friends_count($place->guid, $friendIds),
+		'friends_count' => ossn_api_friend_relevance_place_count($place->guid, $friendIds),
 	);
 }
 
@@ -144,7 +111,7 @@ if ($eventsModel) {
 			'starts'        => intval($event->starts),
 			'place_guid'    => $event->place ? intval($event->place['guid']) : 0,
 			'distance_km'   => floatval($row->distance),
-			'friends_count' => ossn_api_nearby_event_friends_count($eventsModel, $event->guid, $friendIds),
+			'friends_count' => ossn_api_friend_relevance_event_count($eventsModel, $event->guid, $friendIds),
 		);
 	}
 }

@@ -681,6 +681,8 @@ export interface BerxPlaceSearchResult {
 	category: string | null;
 	cover_url: string | null;
 	rating: number;
+	/** Real social-relevance signal (Max Build) — results are already server-sorted friends-first by this. */
+	friends_count: number;
 }
 
 export interface BerxEventSearchResult {
@@ -689,6 +691,8 @@ export interface BerxEventSearchResult {
 	category: string | null;
 	starts: number;
 	cover_url: string | null;
+	/** Real social-relevance signal (Max Build) — results are already server-sorted friends-first by this. */
+	friends_count: number;
 }
 
 export interface BerxCommunitySearchResult {

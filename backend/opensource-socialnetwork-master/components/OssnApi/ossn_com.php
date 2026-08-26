@@ -468,6 +468,53 @@ function ossn_api_place_categories() {
 	);
 }
 
+/**
+ * Real friend-relevance count for one place: real friends among its
+ * real savers/reviewers. MOVED here from nearby.php (this session's
+ * MAX BUILD pass) so search.php can reuse it too, for the exact same
+ * reason ossn_api_place_categories() lives here — only one v1/*.php
+ * loads per request, so a helper needed by more than one resource has
+ * to live in the always-loaded bootstrap. $friendIds is a
+ * guid=>true lookup map, built once by the caller.
+ */
+function ossn_api_friend_relevance_place_count($placeGuid, array $friendIds) {
+	if (!$friendIds) {
+		return 0;
+	}
+	$matched = array();
+	$saveRows = ossn_get_relationships(array('to' => $placeGuid, 'type' => 'place:save', 'limit' => 200, 'page_limit' => false));
+	if ($saveRows) {
+		foreach ($saveRows as $r) {
+			if (isset($friendIds[intval($r->relation_from)])) {
+				$matched[intval($r->relation_from)] = true;
+			}
+		}
+	}
+	$reviewRows = (new OssnDatabase())->select(array('from' => 'ossn_place_reviews', 'wheres' => array(OssnDatabase::wheres('place_guid', '=', intval($placeGuid))), 'limit' => 200), true);
+	if ($reviewRows) {
+		foreach ($reviewRows as $row) {
+			if (isset($friendIds[intval($row->author_guid)])) {
+				$matched[intval($row->author_guid)] = true;
+			}
+		}
+	}
+	return count($matched);
+}
+
+/** Real friend-relevance count for one event: real friends among its real attendees. Also MOVED here from nearby.php — see ossn_api_friend_relevance_place_count()'s own comment. */
+function ossn_api_friend_relevance_event_count($eventsModel, $eventGuid, array $friendIds) {
+	if (!$friendIds) {
+		return 0;
+	}
+	$matched = array();
+	foreach ($eventsModel->attendees($eventGuid, 200) as $r) {
+		if (isset($friendIds[intval($r->relation_from)])) {
+			$matched[intval($r->relation_from)] = true;
+		}
+	}
+	return count($matched);
+}
+
 function ossn_api_post_base_json($post) {
 	$owner = ossn_user_by_guid($post->owner_guid);
 	return array(
