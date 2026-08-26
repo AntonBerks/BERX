@@ -5,6 +5,10 @@
  * double-tap here cannot oversell an event; the server response is
  * always the source of truth for seats_left/attendee_count, not a
  * client-side guess.
+ *
+ * Future UI pass: body gets a real BerxFadeIn entrance, and the
+ * "friends going" row (Experience Graph signal) moves onto a
+ * BerxGlassSurface strip, mirroring PlaceDetailScreen's treatment.
  */
 import {useCallback, useEffect, useState} from 'react';
 import {View, Text, ScrollView, Image, FlatList, StyleSheet} from 'react-native';
@@ -16,6 +20,8 @@ import {BerxButton} from '../../../../packages/design-system/src/components/Berx
 import {BerxLoadingState, BerxErrorState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxDiscussion} from '../../../../packages/design-system/src/components/BerxDiscussion';
 import {BerxAvatar} from '../../../../packages/design-system/src/components/BerxAvatar';
+import {BerxGlassSurface} from '../../../../packages/design-system/src/components/BerxGlassSurface';
+import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
 
 interface Props {
 	api: BerxApiClient;
@@ -98,7 +104,7 @@ export default function EventDetailScreen({api, guid, myGuid, onOpenPlace, onOpe
 				)}
 			</View>
 
-			<View style={styles.body}>
+			<BerxFadeIn style={styles.body}>
 				<Text style={styles.when}>
 					{date.toLocaleDateString('ru-RU', {day: 'numeric', month: 'long'})} · {date.toLocaleTimeString('ru-RU', {hour: '2-digit', minute: '2-digit'})}
 				</Text>
@@ -127,14 +133,14 @@ export default function EventDetailScreen({api, guid, myGuid, onOpenPlace, onOpe
 				{event.seats_left !== null ? <Text style={styles.seats}>Свободных мест: {event.seats_left}</Text> : null}
 
 				{friendsGoing.length > 0 ? (
-					<View style={styles.friendsHereRow}>
+					<BerxGlassSurface padding="sm" style={styles.friendsHereRow}>
 						{friendsGoing.slice(0, 8).map((f: BerxExperienceGraphFriend) => (
 							<View key={f.guid} style={styles.friendHereItem}>
 								<BerxAvatar iconUrl={f.icon} fallbackInitial={f.username.charAt(0)} size={36} />
 							</View>
 						))}
 						<Text style={styles.friendsHereLabel}>{friendsGoing.length === 1 ? '1 друг идёт' : `${friendsGoing.length} друзей идут`}</Text>
-					</View>
+					</BerxGlassSurface>
 				) : null}
 
 				<Text style={styles.sectionTitle}>Участники ({event.attendee_count})</Text>
@@ -152,7 +158,7 @@ export default function EventDetailScreen({api, guid, myGuid, onOpenPlace, onOpe
 				/>
 
 				<BerxDiscussion api={api} type="event" id={event.guid} myGuid={myGuid} />
-			</View>
+			</BerxFadeIn>
 		</ScrollView>
 	);
 }

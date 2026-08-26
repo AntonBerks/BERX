@@ -3,6 +3,11 @@
  * Real data: api.events(), api.eventCategories() (components/OssnApi/
  * v1/events.php). No ticket/payment UI anywhere — that backend does
  * not exist (see BERX_DECISIONS.md).
+ *
+ * Future UI pass: event rows move onto BerxGlassSurface (the date
+ * badge stays its own flat block inside it -- a real ticket-stub
+ * shape, not another glass card) and the list gets a real BerxFadeIn
+ * entrance.
  */
 import {useCallback, useEffect, useState} from 'react';
 import {View, Text, FlatList, Pressable, StyleSheet, Image} from 'react-native';
@@ -12,6 +17,8 @@ import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
+import {BerxGlassSurface} from '../../../../packages/design-system/src/components/BerxGlassSurface';
+import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
 
 interface Props {
 	api: BerxApiClient;
@@ -88,28 +95,32 @@ export default function EventsListScreen({api, onOpenEvent, onCreate, onOpenMine
 			) : items.length === 0 ? (
 				<BerxEmptyState title={tab === 'upcoming' ? 'Событий пока нет' : 'Прошедших событий нет'} subtitle="Создайте первое — оно появится здесь." />
 			) : (
-				<FlatList
-					data={items}
-					keyExtractor={(e: BerxEvent) => String(e.guid)}
-					contentContainerStyle={styles.list}
-					renderItem={({item}: {item: BerxEvent}) => {
-						const date = new Date(item.starts * 1000);
-						return (
-							<Pressable style={styles.card} onPress={() => onOpenEvent(item.guid)}>
-								<View style={styles.dateBadge}>
-									<Text style={styles.dateDay}>{date.getDate()}</Text>
-									<Text style={styles.dateMonth}>{date.toLocaleDateString('ru-RU', {month: 'short'}).toUpperCase()}</Text>
-								</View>
-								{item.cover_url ? <Image source={{uri: item.cover_url}} style={styles.cardImage} /> : null}
-								<View style={styles.cardBody}>
-									<Text style={styles.cardTitle} numberOfLines={1}>{item.title}</Text>
-									{item.location ? <Text style={styles.cardMeta} numberOfLines={1}>{item.location}</Text> : null}
-									<Text style={styles.cardGoing}>{item.attendee_count} идут{item.is_going ? ' · вы идёте' : ''}</Text>
-								</View>
-							</Pressable>
-						);
-					}}
-				/>
+				<BerxFadeIn style={styles.listFade} delayMs={60}>
+					<FlatList
+						data={items}
+						keyExtractor={(e: BerxEvent) => String(e.guid)}
+						contentContainerStyle={styles.list}
+						renderItem={({item}: {item: BerxEvent}) => {
+							const date = new Date(item.starts * 1000);
+							return (
+								<Pressable onPress={() => onOpenEvent(item.guid)}>
+									<BerxGlassSurface padding={0} style={styles.card}>
+										<View style={styles.dateBadge}>
+											<Text style={styles.dateDay}>{date.getDate()}</Text>
+											<Text style={styles.dateMonth}>{date.toLocaleDateString('ru-RU', {month: 'short'}).toUpperCase()}</Text>
+										</View>
+										{item.cover_url ? <Image source={{uri: item.cover_url}} style={styles.cardImage} /> : null}
+										<View style={styles.cardBody}>
+											<Text style={styles.cardTitle} numberOfLines={1}>{item.title}</Text>
+											{item.location ? <Text style={styles.cardMeta} numberOfLines={1}>{item.location}</Text> : null}
+											<Text style={styles.cardGoing}>{item.attendee_count} идут{item.is_going ? ' · вы идёте' : ''}</Text>
+										</View>
+									</BerxGlassSurface>
+								</Pressable>
+							);
+						}}
+					/>
+				</BerxFadeIn>
 			)}
 		</View>
 	);
@@ -128,8 +139,9 @@ const styles = StyleSheet.create({
 	chipActive: {backgroundColor: colors.accentSoft, borderWidth: 1, borderColor: colors.accent},
 	chipText: {fontSize: typography.sizeSm, color: colors.textDim},
 	chipTextActive: {color: colors.accent, fontWeight: typography.weightMedium},
+	listFade: {flex: 1},
 	list: {padding: spacing.md, gap: spacing.sm},
-	card: {flexDirection: 'row', backgroundColor: colors.surface, borderRadius: radius.md, overflow: 'hidden', marginBottom: spacing.sm},
+	card: {flexDirection: 'row', marginBottom: spacing.sm},
 	dateBadge: {width: 56, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.graphite},
 	dateDay: {fontSize: typography.sizeXl, color: colors.white, fontWeight: typography.weightBold},
 	dateMonth: {fontSize: typography.sizeXs, color: colors.accent, fontWeight: typography.weightBold},
