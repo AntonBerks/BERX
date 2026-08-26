@@ -295,7 +295,17 @@ class OssnEvents extends OssnObject {
 				return 'full';
 			}
 		}
-		return ossn_add_relation(intval($userGuid), intval($eventGuid), self::GOING_RELATION) ? 'ok' : 'rsvp_failed';
+		if (!ossn_add_relation(intval($userGuid), intval($eventGuid), self::GOING_RELATION)) {
+			return 'rsvp_failed';
+		}
+		// Real EARN wiring — reason keyed per real event, so re-RSVPing
+		// this SAME event (after a cancel) never re-earns, but a real
+		// RSVP to a DIFFERENT event does. Reuses OssnPoints, never a
+		// parallel reward mechanism.
+		if (class_exists('OssnPoints')) {
+			(new OssnPoints())->award(intval($userGuid), 10, 'rsvp_event:' . intval($eventGuid), intval($eventGuid), true);
+		}
+		return 'ok';
 	}
 
 	public function cancelRsvp($eventGuid, $userGuid) {

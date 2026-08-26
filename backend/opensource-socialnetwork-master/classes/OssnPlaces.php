@@ -300,7 +300,18 @@ class OssnPlaces extends OssnObject {
 			'names'  => array('place_guid', 'author_guid', 'rating', 'text', 'time_created'),
 			'values' => array(intval($placeGuid), intval($authorGuid), $rating, mb_substr(trim((string) $text), 0, 2000, 'UTF-8'), time()),
 		));
-		return $ok ? $this->getLastEntry() : 'invalid';
+		if (!$ok) {
+			return 'invalid';
+		}
+		$id = $this->getLastEntry();
+		// Real EARN wiring — the review itself IS the one-time reward
+		// trigger (reason keyed on the review's own real, unique id), not
+		// a second, separate claim step. Reuses OssnPoints, never a
+		// parallel reward mechanism.
+		if (class_exists('OssnPoints')) {
+			(new OssnPoints())->award(intval($authorGuid), 15, "place_review:{$id}", $id, true);
+		}
+		return $id;
 	}
 
 	public function hasReviewed($placeGuid, $authorGuid) {
