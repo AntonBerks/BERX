@@ -84,6 +84,48 @@ export interface BerxReputation {
 	experiences_created: number;
 }
 
+/**
+ * Future Identity (Max Build) — GET /identity/me. Profile + Life Graph
+ * counts + Reputation + real progression as ONE composed response.
+ * Achievements/interests are purely derived server-side (thresholds
+ * over real counts / real category metadata) — never invented.
+ */
+export interface BerxIdentityReputation extends BerxReputation {
+	places_saved: number;
+	communities_joined: number;
+	friends_count: number;
+}
+
+export interface BerxIdentityInterest {
+	category: string;
+	count: number;
+}
+
+export interface BerxIdentityAchievement {
+	key: string;
+	value: number;
+	/** 0 = not yet earned. label/tier_label are always real display text, never blank. */
+	tier: number;
+	label: string;
+	tier_label: string | null;
+	next_threshold: number | null;
+}
+
+export interface BerxIdentity {
+	level: number;
+	balance: number;
+	lifetime_earned: number;
+	current_streak: number;
+	longest_streak: number;
+	reputation: BerxIdentityReputation;
+	interests: BerxIdentityInterest[];
+	achievements: BerxIdentityAchievement[];
+}
+
+export interface BerxIdentityResponse {
+	identity: BerxIdentity;
+}
+
 export interface BerxProfileSummary {
 	guid: number;
 	username: string;

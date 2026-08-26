@@ -30,6 +30,7 @@ import type {
 	BerxPlaceExperienceGraph,
 	BerxEventExperienceGraph,
 	BerxCityModeResponse,
+	BerxIdentityResponse,
 	BerxMissionsResponse,
 	BerxPointsHistoryEntry,
 	BerxPlace,
@@ -1000,6 +1001,11 @@ export class BerxApiClient {
 	/** Radius-scoped "pulse of the city" summary — same real OssnGeo query as nearbyNow()/socialMap(). See docs/BERX_FUTURE_LAYER_SPEC.md. */
 	async cityMode(lat: number, lng: number, radiusKm = 5): Promise<BerxCityModeResponse> {
 		return this.request<BerxCityModeResponse>(`/citymode?lat=${lat}&lng=${lng}&radius_km=${radiusKm}`);
+	}
+
+	/** Future Identity (Max Build) — Profile + Life Graph counts + Reputation + real progression composed server-side, one call. Achievements/interests are purely derived, no invented score. */
+	async identity(): Promise<BerxIdentityResponse> {
+		return this.request<BerxIdentityResponse>('/identity/me');
 	}
 
 	/** Real, fixed daily catalog — see components/OssnApi/v1/missions.php's own header. */

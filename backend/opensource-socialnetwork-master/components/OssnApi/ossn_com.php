@@ -201,6 +201,11 @@ function ossn_api_v1_resources() {
 		// City Mode — see docs/BERX_FUTURE_LAYER_SPEC.md. Radius-scoped
 		// summary over the same real OssnGeo query nearby.php uses.
 		'citymode'      => __OSSN_API__ . 'v1/citymode.php',
+		// Future Identity (Max Build) -- Profile + Life Graph counts +
+		// Reputation + real progression as ONE composed response.
+		// Achievements/interests are purely derived (thresholds over
+		// real counts / real category metadata), no new table.
+		'identity'      => __OSSN_API__ . 'v1/identity.php',
 		// 'business' (the SEPARATE top-level resource — /business/
 		// places/{guid}/team|subscription|hours|claim|moments|
 		// impressions) still deliberately NOT listed: those branches

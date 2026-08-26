@@ -16,11 +16,25 @@
  * entrance. The menu's own grouped-sheet look (menuGroup) is left as
  * is — it already reads as a distinct surface from the glass cards,
  * which keeps the screen from becoming "everything the same card".
+ *
+ * MAX BUILD — Future Identity: for the own profile only (GET
+ * /identity/me is caller-scoped, there is no cross-user identity in
+ * v1), fetched best-effort alongside the profile itself and never
+ * blocking it on failure. Renders real level/streak, a horizontal
+ * strip of achievements (deterministic thresholds over real counts —
+ * see identity.php's own header, never an invented badge), and real
+ * interest tags derived from the categories of places the caller has
+ * actually saved/reviewed. This is "Profile + Life Graph + Reputation
+ * + Experiences = one living identity" — composed into the existing
+ * Profile screen rather than a new separate screen. Root View is now
+ * a ScrollView: this section makes the page long enough that it
+ * needed one (previously it didn't, on some accounts).
  */
 import React, {useEffect, useState} from 'react';
-import {View, Text, Image, Pressable, StyleSheet} from 'react-native';
+import {View, Text, Image, Pressable, ScrollView, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxAuthState} from '@berx/auth';
+import type {BerxIdentity, BerxIdentityAchievement, BerxIdentityInterest} from '@berx/api/types';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState} from '../../../../packages/design-system/src/components/BerxStates';
@@ -80,6 +94,7 @@ function joinedYear(unixSeconds?: number): string | null {
 
 export default function ProfileScreen({api, authState, username, onBack, onMessage, onOpenNotifications, onOpenPoints, onOpenMissions, onOpenLifeGraph, onOpenMemories, onOpenWrapped, onOpenDatingPrivacy, onOpenCommunities, onOpenDating, onOpenPlaces, onOpenEvents, onOpenSettings, onOpenBERXWorld, onOpenAlbums, onOpenCollections, onOpenTrips, onOpenExperiences, onOpenCreatorProfile, onOpenCreatorSettings, onOpenMyVideos, onOpenMyTracks, onReport}: Props) {
 	const [profile, setProfile] = useState<ProfileData | null>(null);
+	const [identity, setIdentity] = useState<BerxIdentity | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 	const [friendBusy, setFriendBusy] = useState(false);
@@ -91,6 +106,11 @@ export default function ProfileScreen({api, authState, username, onBack, onMessa
 			const data = isOwn ? await api.me() : await api.getProfile(username!);
 			setProfile(data);
 			setError(null);
+			// Future Identity — own profile only, best-effort: a failed
+			// fetch must never block the profile itself from showing.
+			if (isOwn) {
+				api.identity().then((res) => setIdentity(res.identity)).catch(() => undefined);
+			}
 		} catch {
 			setError(isOwn ? 'Не удалось загрузить профиль' : 'Профиль недоступен');
 		} finally {
@@ -128,25 +148,25 @@ export default function ProfileScreen({api, authState, username, onBack, onMessa
 
 	if (loading) {
 		return (
-			<View style={styles.screen}>
+			<ScrollView style={styles.screen}>
 				{onBack ? <BerxHeader onBack={onBack} /> : null}
 				<BerxLoadingState label="Загрузка профиля..." />
-			</View>
+			</ScrollView>
 		);
 	}
 	if (error || !profile) {
 		return (
-			<View style={styles.screen}>
+			<ScrollView style={styles.screen}>
 				{onBack ? <BerxHeader onBack={onBack} /> : null}
 				<BerxErrorState message={error ?? 'Профиль не найден'} onRetry={load} />
-			</View>
+			</ScrollView>
 		);
 	}
 
 	const year = joinedYear(profile.time_created);
 
 	return (
-		<View style={styles.screen}>
+		<ScrollView style={styles.screen}>
 			{onBack ? <BerxHeader onBack={onBack} title={profile.username} /> : null}
 			<BerxFadeIn style={styles.hero} riseFrom={16}>
 				<View style={styles.avatarRing}>
@@ -164,6 +184,46 @@ export default function ProfileScreen({api, authState, username, onBack, onMessa
 					</BerxGlassSurface>
 				) : null}
 			</BerxFadeIn>
+
+			{isOwn && identity ? (
+				<BerxFadeIn style={styles.identitySection} delayMs={60}>
+					{identity.current_streak > 0 || identity.level > 1 ? (
+						<BerxGlassSurface elevated padding="sm" style={styles.levelRow}>
+							<Text style={styles.levelText}>Уровень {identity.level}</Text>
+							{identity.current_streak > 0 ? <Text style={styles.streakText}>🔥 {identity.current_streak} {identity.current_streak === 1 ? 'день' : 'дней'} подряд</Text> : null}
+						</BerxGlassSurface>
+					) : null}
+
+					{identity.achievements.some((a: BerxIdentityAchievement) => a.tier > 0) ? (
+						<View>
+							<Text style={styles.identitySectionTitle}>Достижения</Text>
+							<View style={styles.achievementRow}>
+								{identity.achievements.filter((a: BerxIdentityAchievement) => a.tier > 0).map((a: BerxIdentityAchievement) => (
+									<View key={a.key} style={styles.achievementChipWrap}>
+										<BerxGlassSurface padding="sm" style={styles.achievementChip}>
+											<Text style={styles.achievementTitle} numberOfLines={1}>{a.tier_label}</Text>
+											<Text style={styles.achievementSubtitle} numberOfLines={1}>{a.label}</Text>
+										</BerxGlassSurface>
+									</View>
+								))}
+							</View>
+						</View>
+					) : null}
+
+					{identity.interests.length > 0 ? (
+						<View>
+							<Text style={styles.identitySectionTitle}>Интересы</Text>
+							<View style={styles.interestRow}>
+								{identity.interests.map((it: BerxIdentityInterest) => (
+									<View key={it.category} style={styles.interestPill}>
+										<Text style={styles.interestPillText}>{it.category}</Text>
+									</View>
+								))}
+							</View>
+						</View>
+					) : null}
+				</BerxFadeIn>
+			) : null}
 
 			{!isOwn && profile.guid && onMessage ? (
 				<View style={styles.actionRow}>
@@ -277,7 +337,7 @@ export default function ProfileScreen({api, authState, username, onBack, onMessa
 					</View>
 				</BerxFadeIn>
 			) : null}
-		</View>
+		</ScrollView>
 	);
 }
 
@@ -325,6 +385,19 @@ const styles = StyleSheet.create({
 		marginBottom: spacing.md,
 	},
 	avatar: {width: 96, height: 96, borderRadius: 48, backgroundColor: colors.graphite},
+	identitySection: {paddingHorizontal: spacing.xl, gap: spacing.md, marginBottom: spacing.md},
+	levelRow: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'},
+	levelText: {color: colors.white, fontSize: typography.sizeBase, fontWeight: typography.weightBold},
+	streakText: {color: colors.textDim, fontSize: typography.sizeSm},
+	identitySectionTitle: {color: colors.textFaint, fontSize: typography.sizeXs, textTransform: 'uppercase' as const, letterSpacing: 0.5, marginBottom: spacing.xs},
+	achievementRow: {flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm},
+	achievementChipWrap: {width: '31%'},
+	achievementChip: {gap: 2, minHeight: 60},
+	achievementTitle: {color: colors.accent, fontSize: typography.sizeXs, fontWeight: typography.weightBold},
+	achievementSubtitle: {color: colors.textFaint, fontSize: 10},
+	interestRow: {flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs},
+	interestPill: {paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: radius.pill, backgroundColor: colors.accentSoft, borderWidth: 1, borderColor: colors.accent},
+	interestPillText: {color: colors.accent, fontSize: typography.sizeXs, fontWeight: typography.weightMedium},
 	fullname: {color: colors.text, fontSize: typography.sizeXl, fontWeight: typography.weightBold},
 	username: {color: colors.textDim, fontSize: typography.sizeBase, marginTop: 2},
 	joined: {color: colors.textFaint, fontSize: typography.sizeXs, marginTop: spacing.sm},
