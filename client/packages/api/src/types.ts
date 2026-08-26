@@ -153,6 +153,49 @@ export interface BerxNotificationsResponse extends BerxPaginationMeta {
 }
 
 /**
+ * Life Graph — see docs/BERX_FUTURE_LAYER_SPEC.md. Real derived edges
+ * over already-real data (saves/RSVPs/reviews/memberships/creations/
+ * rewards/friend co-attendance), not a new store. `target_guid` is
+ * null for 'earned_reward' (rewards aren't a linkable object); `amount`
+ * is only present there; `context_guid` is only present on
+ * 'met_person' (the shared event guid).
+ */
+export type BerxLifeGraphEdgeType =
+	| 'saved_place'
+	| 'going_event'
+	| 'attended_event'
+	| 'reviewed_place'
+	| 'joined_community'
+	| 'created_trip'
+	| 'created_experience'
+	| 'earned_reward'
+	| 'met_person';
+
+export interface BerxLifeGraphEdge {
+	type: BerxLifeGraphEdgeType;
+	target_type: 'place' | 'event' | 'community' | 'trip' | 'experience' | 'reward' | 'person';
+	target_guid: number | null;
+	target_title: string;
+	time: number;
+	amount?: number;
+	context_guid?: number;
+}
+
+export interface BerxLifeGraphSummary {
+	places_saved: number;
+	places_reviewed: number;
+	events_going: number;
+	communities_joined: number;
+	trips_created: number;
+	experiences_created: number;
+}
+
+export interface BerxLifeGraphResponse {
+	edges: BerxLifeGraphEdge[];
+	summary: BerxLifeGraphSummary;
+}
+
+/**
  * Daily Missions — mirrors components/OssnApi/v1/missions.php's fixed
  * in-code catalog exactly (key/title/points), not a DB-configurable
  * list. `completed` reflects today's real OssnPoints reason-string

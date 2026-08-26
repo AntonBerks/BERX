@@ -188,6 +188,10 @@ function ossn_api_v1_resources() {
 		'comments'      => __OSSN_API__ . 'v1/comments.php',
 		// Admin — unvalidated users, real OssnUser methods, admin-only.
 		'admin'         => __OSSN_API__ . 'v1/admin.php',
+		// Future Layer foundation — see docs/BERX_FUTURE_LAYER_SPEC.md.
+		// Pure composition over already-real domain classes/relations,
+		// no new table.
+		'lifegraph'     => __OSSN_API__ . 'v1/lifegraph.php',
 		// 'business' (the SEPARATE top-level resource — /business/
 		// places/{guid}/team|subscription|hours|claim|moments|
 		// impressions) still deliberately NOT listed: those branches

@@ -99,6 +99,7 @@ import TrackFeedScreen from './screens/TrackFeedScreen';
 import TrackDetailScreen from './screens/TrackDetailScreen';
 import CreateTrackScreen from './screens/CreateTrackScreen';
 import MissionsScreen from './screens/MissionsScreen';
+import LifeGraphScreen from './screens/LifeGraphScreen';
 import MemoriesScreen from './screens/MemoriesScreen';
 import WrappedScreen from './screens/WrappedScreen';
 import NearbyNowScreen from './screens/NearbyNowScreen';
@@ -196,6 +197,7 @@ function RouteRenderer({name, params}: {name: BerxRouteName; params: unknown}) {
 					onOpenNotifications={!nav.canGoBack ? () => nav.push('Notifications', undefined) : undefined}
 					onOpenPoints={!nav.canGoBack ? () => nav.push('Points', undefined) : undefined}
 					onOpenMissions={!nav.canGoBack ? () => nav.push('Missions', undefined) : undefined}
+					onOpenLifeGraph={!nav.canGoBack ? () => nav.push('LifeGraph', undefined) : undefined}
 					onOpenMemories={!nav.canGoBack ? () => nav.push('Memories', undefined) : undefined}
 					onOpenWrapped={!nav.canGoBack ? () => nav.push('Wrapped', undefined) : undefined}
 					onOpenDatingPrivacy={!nav.canGoBack ? () => nav.push('DatingPrivacy', undefined) : undefined}
@@ -359,6 +361,8 @@ function RouteRenderer({name, params}: {name: BerxRouteName; params: unknown}) {
 			return <PointsScreen api={api} onBack={nav.pop} />;
 		case 'Missions':
 			return <MissionsScreen api={api} onBack={nav.pop} />;
+		case 'LifeGraph':
+			return <LifeGraphScreen api={api} onBack={nav.pop} />;
 		case 'Communities':
 			return (
 				<CommunitiesListScreen

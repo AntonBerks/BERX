@@ -25,6 +25,7 @@ import type {
 	BerxOpeningInterval,
 	BerxEventStoryItem,
 	BerxWrapped,
+	BerxLifeGraphResponse,
 	BerxMissionsResponse,
 	BerxPointsHistoryEntry,
 	BerxPlace,
@@ -970,6 +971,11 @@ export class BerxApiClient {
 	/** Pure read aggregation, real counts only — no invented insight text, no fake population comparison. */
 	async wrapped(period: 'week' | 'month' = 'month'): Promise<BerxWrapped> {
 		return this.request<BerxWrapped>(`/wrapped?period=${period}`);
+	}
+
+	/** Foundation of the Future Layer — see docs/BERX_FUTURE_LAYER_SPEC.md and components/OssnApi/v1/lifegraph.php's own header. Own graph only in v1. */
+	async lifeGraph(): Promise<BerxLifeGraphResponse> {
+		return this.request<BerxLifeGraphResponse>('/lifegraph/me');
 	}
 
 	/** Real, fixed daily catalog — see components/OssnApi/v1/missions.php's own header. */
