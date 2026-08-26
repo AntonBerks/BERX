@@ -98,14 +98,18 @@ function ossn_api_v1_resources() {
 		'communities'   => __OSSN_API__ . 'v1/communities.php',
 		'dating'        => __OSSN_API__ . 'v1/dating.php',
 		'stories'       => __OSSN_API__ . 'v1/stories.php',
-		// 'business' deliberately NOT listed yet: OssnBusiness::
-		// canManage()/addTeamMember() require a real Place object
-		// (->owner_guid, ->guid) to authorize against, and OssnPlaces
-		// doesn't exist until Wave 3 — there is no source of truth for
-		// "who owns this place" to build real authorization on right
-		// now. Shipping it early would mean either fake authorization
-		// or code that can never be reached. Moves to the Wave 3/4
-		// batch alongside places.php/events.php.
+		// Wave 3 — the real-world entity foundation. OssnPlaces now
+		// exists (classes/OssnPlaces.php); places.php also serves its
+		// own /business/* sub-branches (enable/disable/verify/dashboard).
+		'places'        => __OSSN_API__ . 'v1/places.php',
+		// 'business' (the SEPARATE top-level resource — /business/
+		// places/{guid}/team|subscription|hours|claim|moments|
+		// impressions) still deliberately NOT listed: those branches
+		// use the already-real OssnBusiness/OssnPlaceHours/
+		// OssnBusinessMoments/OssnNearbyImpressions classes as-is, but
+		// wiring them is its own small vertical slice, not bundled
+		// into this one. 'events' likewise not listed yet — same
+		// OssnObject pattern as OssnPlaces, next slice.
 	);
 }
 

@@ -80,6 +80,12 @@ $OssnClasses = array(
 		// ossn_stories_views, event_guid extension in
 		// upgrade/upgrades/1785170000.php).
 		'Stories',
+		// BERX Places — the real-world entity foundation for BERX
+		// World/NOW/Business/Trips/Experiences/Search. Same real
+		// OssnObject/ossn_object pattern OssnGroup already uses in
+		// production; the only genuinely new table is
+		// ossn_place_reviews (upgrade/upgrades/1785170400.php).
+		'Places',
 );
 foreach ($OssnClasses as $class) {
 		$loadClass['Ossn' . $class] = ossn_route()->classes . "Ossn{$class}.php";

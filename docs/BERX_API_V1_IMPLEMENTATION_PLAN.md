@@ -499,6 +499,57 @@ systematic-грап на `count()/array_merge()` на результатах
 **Wave 3 (Places/Events) сознательно НЕ начат в этой сессии** — по
 прямому указанию остановиться после безопасного завершения Wave 2.
 
+### Wave 3a — Places (первый срез Future Build): CLOUD-STATIC-VERIFIED, NOT RUNTIME-VERIFIED
+
+По новому запросу ("BERX FUTURE BUILD") определена наивысшая по
+ценности недостающая основа: реальной сущности Place не существовало
+вообще (ни класса, ни таблицы) — при этом на неё уже ссылаются Business/
+Trips/Experiences/Collections/NOW/Search. Реализовано как один
+vertical slice, полностью по существующему паттерну `OssnObject`
+(тот же, что уже в проде использует `OssnGroup`: `type='user'`,
+`subtype='ossnplace'`, `addObject()`/`updateObject()`/`searchObject()`,
+метаданные через `$this->data->x`) — без новой базовой таблицы для
+самой сущности, как и было согласовано в §3 п.5.
+
+Новое: `classes/OssnPlaces.php` (create/get/list/update/delete,
+save/unsave через существующий `ossn_relationships` — БЕЗ новой
+таблицы, reviews, rating-агрегат, business enable/disable/verify/
+dashboard — последнее переиспользует уже реальный `OssnBusiness`,
+не дублирует его), `components/OssnApi/v1/places.php`, миграция
+`1785170400.php` (`ossn_place_reviews` — единственная реально новая
+таблица, ровно как заранее согласовано в §6 п.1, с UNIQUE
+(place_guid, author_guid)).
+
+Один реальный баг найден и исправлен в уже существующем коде (не в
+новых файлах): `OssnNearbyImpressions::countFor()` звал `count()`
+напрямую на результате `select(..., true)` — тот же класс бага, что
+уже трижды находился и исправлялся в Wave 1 (`OssnCollections`/
+`OssnCircles`/`OssnCreator`). `(array)`-cast, тот же паттерн.
+
+Cover-URL строится напрямую через `ossn_site_url("media/get/{guid}")`
+внутри `OssnPlaces::hydrate()`, а не через `media.php`'s
+`ossn_api_media_asset_url()` — та функция существует только когда
+`media.php` сам является загруженным ресурсом (один `v1/*.php` на
+запрос), и была бы undefined при обращении из `places.php`.
+
+Осознанно отложено (не в этом срезе): отдельный top-level ресурс
+`business` (`/business/places/{guid}/team|subscription|hours|claim|
+moments`) — код (`OssnBusiness`, `OssnPlaceHours`) уже реален и
+переиспользуется, но подключение — отдельный небольшой срез;
+`events.php`/`OssnEvents` (тот же паттерн, следующий срез);
+`search.php`'s places-scope, `nearby.php`'s record-impression endpoint,
+`itemExists()`-проверки в `trips.php`/`experiences.php` против
+реальных Places (сейчас всё ещё через честный fallback в
+`ossn_api_resolve_item()`).
+
+Проверки: `php -l` на все новые/изменённые файлы + полный релинт
+дерева (0 ошибок), грап-сверка на `count()/array_merge()/array_slice()`
+на результатах `select(..., true)` и на коллизии имён функций/классов,
+построчная сверка каждого метода `places.php` с реальным
+`client/packages/api/src/client.ts` (все 18 методов Places/Business-
+under-Places) и `types.ts`'s `BerxPlace`/`BerxPlaceReview`/
+`BerxBusinessDashboard`/`BerxNearbyPlace`/`BerxPlaceCategory`.
+
 ## 11. Явно вне рамок этого плана
 
 Payments/Wallet/Tickets (нет провайдера), ban/suspend (нет backend-модели
