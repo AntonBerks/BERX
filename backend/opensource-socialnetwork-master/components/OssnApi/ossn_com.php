@@ -121,6 +121,9 @@ function ossn_api_v1_resources() {
 		// data, reward via existing OssnPoints::award(oneTime=true), no
 		// new table (date-suffixed reason string is the dedupe key).
 		'missions'      => __OSSN_API__ . 'v1/missions.php',
+		// Business Live — routing over already-real OssnBusinessMoments/
+		// OssnPlaces, no new class or table.
+		'moments'       => __OSSN_API__ . 'v1/moments.php',
 		// 'business' (the SEPARATE top-level resource — /business/
 		// places/{guid}/team|subscription|hours|claim|moments|
 		// impressions) still deliberately NOT listed: those branches
