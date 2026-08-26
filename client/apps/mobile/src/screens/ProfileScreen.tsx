@@ -41,6 +41,7 @@ interface Props {
 	onOpenNotifications?: () => void;
 	/** Placed right next to Notifications in the menu — real request: "меню рядом с уведомлением где копится опыт и баллы". */
 	onOpenPoints?: () => void;
+	onOpenMissions?: () => void;
 	onOpenMemories?: () => void;
 	onOpenWrapped?: () => void;
 	onOpenDatingPrivacy?: () => void;
@@ -66,7 +67,7 @@ function joinedYear(unixSeconds?: number): string | null {
 	return new Date(unixSeconds * 1000).getFullYear().toString();
 }
 
-export default function ProfileScreen({api, authState, username, onBack, onMessage, onOpenNotifications, onOpenPoints, onOpenMemories, onOpenWrapped, onOpenDatingPrivacy, onOpenCommunities, onOpenDating, onOpenPlaces, onOpenEvents, onOpenSettings, onOpenBERXWorld, onOpenAlbums, onOpenCollections, onOpenTrips, onOpenExperiences, onOpenCreatorProfile, onOpenCreatorSettings, onOpenMyVideos, onOpenMyTracks, onReport}: Props) {
+export default function ProfileScreen({api, authState, username, onBack, onMessage, onOpenNotifications, onOpenPoints, onOpenMissions, onOpenMemories, onOpenWrapped, onOpenDatingPrivacy, onOpenCommunities, onOpenDating, onOpenPlaces, onOpenEvents, onOpenSettings, onOpenBERXWorld, onOpenAlbums, onOpenCollections, onOpenTrips, onOpenExperiences, onOpenCreatorProfile, onOpenCreatorSettings, onOpenMyVideos, onOpenMyTracks, onReport}: Props) {
 	const [profile, setProfile] = useState<ProfileData | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
@@ -239,6 +240,7 @@ export default function ProfileScreen({api, authState, username, onBack, onMessa
 					<View style={styles.menuGroup}>
 						{onOpenNotifications ? <MenuRow label="Уведомления" icon={<IconBell size={18} color={colors.text} />} onPress={onOpenNotifications} isFirst /> : null}
 						{onOpenPoints ? <MenuRow label="Баллы и уровень" icon={<IconStar size={18} color={colors.text} />} onPress={onOpenPoints} /> : null}
+						{onOpenMissions ? <MenuRow label="Задания дня" icon={<IconStar size={18} color={colors.text} />} onPress={onOpenMissions} /> : null}
 						{onOpenMemories ? <MenuRow label="Воспоминания" icon={<IconStar size={18} color={colors.text} />} onPress={onOpenMemories} /> : null}
 						{onOpenWrapped ? <MenuRow label="BERX Wrapped" icon={<IconStar size={18} color={colors.text} />} onPress={onOpenWrapped} /> : null}
 						{onOpenSettings ? <MenuRow label="Настройки" icon={<IconLock size={18} color={colors.text} />} onPress={onOpenSettings} isLast /> : null}

@@ -152,6 +152,24 @@ export interface BerxNotificationsResponse extends BerxPaginationMeta {
 	notifications: BerxNotification[];
 }
 
+/**
+ * Daily Missions — mirrors components/OssnApi/v1/missions.php's fixed
+ * in-code catalog exactly (key/title/points), not a DB-configurable
+ * list. `completed` reflects today's real OssnPoints reason-string
+ * claim (server date), not client-guessed.
+ */
+export interface BerxMission {
+	key: string;
+	title: string;
+	points: number;
+	completed: boolean;
+}
+
+export interface BerxMissionsResponse {
+	date: string;
+	missions: BerxMission[];
+}
+
 export type BerxWrappedPeriod = 'week' | 'month';
 
 export interface BerxWrapped {

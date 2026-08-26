@@ -76,6 +76,7 @@ export type BerxRouteName =
 	| 'Memories'
 	| 'Wrapped'
 	| 'NearbyNow'
+	| 'Missions'
 	| 'BusinessDashboard'
 	| 'BusinessHome'
 	| 'BusinessProfile'
@@ -159,6 +160,7 @@ export interface BerxRouteParams {
 	Memories: undefined;
 	Wrapped: undefined;
 	NearbyNow: undefined;
+	Missions: undefined;
 	BusinessDashboard: { placeGuid: number };
 	BusinessHome: { placeGuid: number };
 	BusinessProfile: { placeGuid: number };
@@ -265,6 +267,7 @@ export const BERX_ROUTES: BerxRouteMeta[] = [
 	{ name: 'Memories', connected: true },
 	{ name: 'Wrapped', connected: true },
 	{ name: 'NearbyNow', connected: true },
+	{ name: 'Missions', connected: true },
 	{ name: 'BusinessDashboard', connected: true },
 	{ name: 'BusinessHome', connected: true },
 	{ name: 'BusinessProfile', connected: true },

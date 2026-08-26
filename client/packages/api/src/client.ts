@@ -25,6 +25,7 @@ import type {
 	BerxOpeningInterval,
 	BerxEventStoryItem,
 	BerxWrapped,
+	BerxMissionsResponse,
 	BerxPointsHistoryEntry,
 	BerxPlace,
 	BerxBusinessDashboard,
@@ -969,6 +970,16 @@ export class BerxApiClient {
 	/** Pure read aggregation, real counts only — no invented insight text, no fake population comparison. */
 	async wrapped(period: 'week' | 'month' = 'month'): Promise<BerxWrapped> {
 		return this.request<BerxWrapped>(`/wrapped?period=${period}`);
+	}
+
+	/** Real, fixed daily catalog — see components/OssnApi/v1/missions.php's own header. */
+	async missions(): Promise<BerxMissionsResponse> {
+		return this.request<BerxMissionsResponse>('/missions');
+	}
+
+	/** Re-verifies the real underlying action server-side before awarding — a 409 means "not completed yet today", not a client bug. */
+	async claimMission(key: string): Promise<{status: string; points: number}> {
+		return this.request<{status: string; points: number}>(`/missions/${key}/claim`, {method: 'POST'});
 	}
 
 	async pointsHistory(): Promise<{history: BerxPointsHistoryEntry[]}> {
