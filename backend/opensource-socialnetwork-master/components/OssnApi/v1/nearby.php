@@ -55,6 +55,9 @@ foreach ($placeRows as $row) {
 	if ($openNow && $isOpenNow !== true) {
 		continue;
 	}
+	// 'shown' is recorded here, server-side, per client.ts's own
+	// documented contract — never client-claimed (see impressions.php).
+	(new OssnNearbyImpressions())->record($place->guid, $api_user_guid, 'shown');
 	$outPlaces[] = array(
 		'guid'        => intval($place->guid),
 		'title'       => (string) $place->title,
