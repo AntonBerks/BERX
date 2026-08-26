@@ -7,16 +7,22 @@
  * server-side re-verification on claim (a 409 means the underlying
  * action genuinely hasn't happened yet today — shown honestly, not
  * silently retried as success).
+ *
+ * Future UI pass: mission cards move onto BerxGlassSurface and the
+ * list gets a real BerxFadeIn entrance, matching the rest of the
+ * Rewards-adjacent screens.
  */
 import {useCallback, useEffect, useState} from 'react';
 import {View, Text, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxMission} from '@berx/api/types';
 import {BerxApiError} from '@berx/core';
-import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
+import {colors, spacing, typography} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
+import {BerxGlassSurface} from '../../../../packages/design-system/src/components/BerxGlassSurface';
+import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
 
 interface Props {
 	api: BerxApiClient;
@@ -74,27 +80,29 @@ export default function MissionsScreen({api, onBack}: Props) {
 			{missions.length === 0 ? (
 				<BerxEmptyState title="Заданий пока нет" subtitle="Загляните позже — здесь появятся реальные ежедневные задания." />
 			) : (
-				<View style={styles.list}>
+				<BerxFadeIn style={styles.list}>
 					{missions.map((m: BerxMission) => (
-						<View key={m.key} style={styles.card}>
-							<View style={styles.cardInfo}>
-								<Text style={styles.title}>{m.title}</Text>
-								<Text style={styles.points}>+{m.points} баллов</Text>
-								{noticeKey === m.key ? <Text style={styles.notice}>Пока не выполнено — попробуйте ещё раз после действия</Text> : null}
-							</View>
-							{m.completed ? (
-								<Text style={styles.done}>Готово ✓</Text>
-							) : (
-								<BerxButton
-									label="Получить"
-									variant="secondary"
-									loading={claimingKey === m.key}
-									onPress={() => handleClaim(m.key)}
-								/>
-							)}
+						<View key={m.key}>
+							<BerxGlassSurface padding="md" style={styles.card}>
+								<View style={styles.cardInfo}>
+									<Text style={styles.title}>{m.title}</Text>
+									<Text style={styles.points}>+{m.points} баллов</Text>
+									{noticeKey === m.key ? <Text style={styles.notice}>Пока не выполнено — попробуйте ещё раз после действия</Text> : null}
+								</View>
+								{m.completed ? (
+									<Text style={styles.done}>Готово ✓</Text>
+								) : (
+									<BerxButton
+										label="Получить"
+										variant="secondary"
+										loading={claimingKey === m.key}
+										onPress={() => handleClaim(m.key)}
+									/>
+								)}
+							</BerxGlassSurface>
 						</View>
 					))}
-				</View>
+				</BerxFadeIn>
 			)}
 		</View>
 	);
@@ -103,7 +111,7 @@ export default function MissionsScreen({api, onBack}: Props) {
 const styles = StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.bg},
 	list: {padding: spacing.md, gap: spacing.sm},
-	card: {backgroundColor: colors.surface, borderRadius: radius.md, padding: spacing.md, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm},
+	card: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm},
 	cardInfo: {flex: 1, gap: spacing.xs},
 	title: {fontSize: typography.sizeBase, color: colors.white, fontWeight: typography.weightBold},
 	points: {fontSize: typography.sizeSm, color: colors.accent},
