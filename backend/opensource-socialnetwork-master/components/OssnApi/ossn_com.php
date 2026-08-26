@@ -110,6 +110,9 @@ function ossn_api_v1_resources() {
 		// Memories ("on this day") — pure read over the real, existing
 		// OssnWall::getPosterPosts(), no new class or table.
 		'memories'      => __OSSN_API__ . 'v1/memories.php',
+		// Wrapped — real COUNT() aggregates over already-real data, no
+		// new class or table.
+		'wrapped'       => __OSSN_API__ . 'v1/wrapped.php',
 		// 'business' (the SEPARATE top-level resource — /business/
 		// places/{guid}/team|subscription|hours|claim|moments|
 		// impressions) still deliberately NOT listed: those branches
