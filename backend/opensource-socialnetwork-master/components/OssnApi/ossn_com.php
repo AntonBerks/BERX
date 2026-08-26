@@ -117,6 +117,10 @@ function ossn_api_v1_resources() {
 		// live by core's update_last_activity(), called from
 		// system/start.php on every request) + real OssnUser::getFriends().
 		'presence'      => __OSSN_API__ . 'v1/presence.php',
+		// Daily Missions — real completion checks over already-real
+		// data, reward via existing OssnPoints::award(oneTime=true), no
+		// new table (date-suffixed reason string is the dedupe key).
+		'missions'      => __OSSN_API__ . 'v1/missions.php',
 		// 'business' (the SEPARATE top-level resource — /business/
 		// places/{guid}/team|subscription|hours|claim|moments|
 		// impressions) still deliberately NOT listed: those branches
