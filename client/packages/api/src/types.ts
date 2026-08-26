@@ -195,6 +195,27 @@ export interface BerxLifeGraphResponse {
 	summary: BerxLifeGraphSummary;
 }
 
+export interface BerxExperienceGraphFriend {
+	guid: number;
+	username: string;
+	fullname: string;
+	icon: string;
+}
+
+/** Graph AROUND one place/event (real friends only) — see docs/BERX_FUTURE_LAYER_SPEC.md. */
+export interface BerxPlaceExperienceGraph {
+	target_type: 'place';
+	target_guid: number;
+	friends_saved: BerxExperienceGraphFriend[];
+	friends_reviewed: BerxExperienceGraphFriend[];
+}
+
+export interface BerxEventExperienceGraph {
+	target_type: 'event';
+	target_guid: number;
+	friends_going: BerxExperienceGraphFriend[];
+}
+
 export interface BerxSocialMapPlacePin {
 	guid: number;
 	title: string;

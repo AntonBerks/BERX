@@ -195,6 +195,9 @@ function ossn_api_v1_resources() {
 		// Social Map — see docs/BERX_FUTURE_LAYER_SPEC.md. Places/Events
 		// pins (OssnGeo) + real friends-online (no new person-location).
 		'socialmap'     => __OSSN_API__ . 'v1/socialmap.php',
+		// Experience Graph — see docs/BERX_FUTURE_LAYER_SPEC.md. The
+		// graph AROUND one place/event (real friends only).
+		'experiencegraph' => __OSSN_API__ . 'v1/experiencegraph.php',
 		// 'business' (the SEPARATE top-level resource — /business/
 		// places/{guid}/team|subscription|hours|claim|moments|
 		// impressions) still deliberately NOT listed: those branches

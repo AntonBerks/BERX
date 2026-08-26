@@ -9,12 +9,13 @@
 import {useCallback, useEffect, useState} from 'react';
 import {View, Text, ScrollView, Image, FlatList, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
-import type {BerxEvent, BerxEventAttendee} from '@berx/api/types';
+import type {BerxEvent, BerxEventAttendee, BerxExperienceGraphFriend} from '@berx/api/types';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxDiscussion} from '../../../../packages/design-system/src/components/BerxDiscussion';
+import {BerxAvatar} from '../../../../packages/design-system/src/components/BerxAvatar';
 
 interface Props {
 	api: BerxApiClient;
@@ -34,6 +35,7 @@ export default function EventDetailScreen({api, guid, myGuid, onOpenPlace, onOpe
 	const [error, setError] = useState<string | null>(null);
 	const [rsvping, setRsvping] = useState(false);
 	const [rsvpError, setRsvpError] = useState<string | null>(null);
+	const [friendsGoing, setFriendsGoing] = useState<BerxExperienceGraphFriend[]>([]);
 
 	const load = useCallback(async () => {
 		setLoading(true);
@@ -42,6 +44,8 @@ export default function EventDetailScreen({api, guid, myGuid, onOpenPlace, onOpe
 			const [e, a] = await Promise.all([api.getEvent(guid), api.eventAttendees(guid)]);
 			setEvent(e);
 			setAttendees(a.attendees);
+			// Experience Graph — best-effort, never blocks the event itself.
+			api.eventExperienceGraph(guid).then((g) => setFriendsGoing(g.friends_going)).catch(() => undefined);
 		} catch (e2) {
 			setError(e2 instanceof Error ? e2.message : 'Не удалось загрузить событие');
 		} finally {
@@ -122,6 +126,17 @@ export default function EventDetailScreen({api, guid, myGuid, onOpenPlace, onOpe
 
 				{event.seats_left !== null ? <Text style={styles.seats}>Свободных мест: {event.seats_left}</Text> : null}
 
+				{friendsGoing.length > 0 ? (
+					<View style={styles.friendsHereRow}>
+						{friendsGoing.slice(0, 8).map((f: BerxExperienceGraphFriend) => (
+							<View key={f.guid} style={styles.friendHereItem}>
+								<BerxAvatar iconUrl={f.icon} fallbackInitial={f.username.charAt(0)} size={36} />
+							</View>
+						))}
+						<Text style={styles.friendsHereLabel}>{friendsGoing.length === 1 ? '1 друг идёт' : `${friendsGoing.length} друзей идут`}</Text>
+					</View>
+				) : null}
+
 				<Text style={styles.sectionTitle}>Участники ({event.attendee_count})</Text>
 				<FlatList
 					horizontal
@@ -156,6 +171,9 @@ const styles = StyleSheet.create({
 	description: {fontSize: typography.sizeBase, color: colors.text, lineHeight: typography.sizeBase * typography.lineHeightBase},
 	seats: {fontSize: typography.sizeSm, color: colors.textFaint},
 	sectionTitle: {fontSize: typography.sizeXs, color: colors.textFaint, fontWeight: typography.weightBold, textTransform: 'uppercase'},
+	friendsHereRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginTop: spacing.sm},
+	friendHereItem: {marginLeft: -spacing.xs},
+	friendsHereLabel: {fontSize: typography.sizeSm, color: colors.textDim, marginLeft: spacing.sm},
 	attendee: {alignItems: 'center', width: 64, marginRight: spacing.sm},
 	attendeeIcon: {width: 48, height: 48, borderRadius: radius.pill, backgroundColor: colors.graphite},
 	attendeeName: {fontSize: typography.sizeXs, color: colors.textDim, marginTop: 4},

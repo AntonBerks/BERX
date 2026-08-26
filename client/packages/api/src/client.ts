@@ -27,6 +27,8 @@ import type {
 	BerxWrapped,
 	BerxLifeGraphResponse,
 	BerxSocialMapResponse,
+	BerxPlaceExperienceGraph,
+	BerxEventExperienceGraph,
 	BerxMissionsResponse,
 	BerxPointsHistoryEntry,
 	BerxPlace,
@@ -982,6 +984,16 @@ export class BerxApiClient {
 	/** Real Places/Events pins (OssnGeo) + real friends-online — see docs/BERX_FUTURE_LAYER_SPEC.md. friends_online is never geolocated. */
 	async socialMap(lat: number, lng: number, radiusKm = 5): Promise<BerxSocialMapResponse> {
 		return this.request<BerxSocialMapResponse>(`/socialmap?lat=${lat}&lng=${lng}&radius_km=${radiusKm}`);
+	}
+
+	/** The graph AROUND one place — real friends who saved/reviewed it. See docs/BERX_FUTURE_LAYER_SPEC.md. */
+	async placeExperienceGraph(placeGuid: number): Promise<BerxPlaceExperienceGraph> {
+		return this.request<BerxPlaceExperienceGraph>(`/experiencegraph/place/${placeGuid}`);
+	}
+
+	/** The graph AROUND one event — real friends who are going. */
+	async eventExperienceGraph(eventGuid: number): Promise<BerxEventExperienceGraph> {
+		return this.request<BerxEventExperienceGraph>(`/experiencegraph/event/${eventGuid}`);
 	}
 
 	/** Real, fixed daily catalog — see components/OssnApi/v1/missions.php's own header. */

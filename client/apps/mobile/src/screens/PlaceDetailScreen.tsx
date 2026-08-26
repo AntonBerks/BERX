@@ -9,13 +9,14 @@
 import {useCallback, useEffect, useState} from 'react';
 import {View, Text, ScrollView, Image, Pressable, Linking, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
-import type {BerxPlace, BerxPlaceReview} from '@berx/api/types';
+import type {BerxPlace, BerxPlaceReview, BerxExperienceGraphFriend} from '@berx/api/types';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {BerxLoadingState, BerxErrorState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxDiscussion} from '../../../../packages/design-system/src/components/BerxDiscussion';
+import {BerxAvatar} from '../../../../packages/design-system/src/components/BerxAvatar';
 
 interface Props {
 	api: BerxApiClient;
@@ -38,6 +39,7 @@ export default function PlaceDetailScreen({api, guid, myGuid, onAddToCollection,
 	const [submitting, setSubmitting] = useState(false);
 	const [replyDrafts, setReplyDrafts] = useState<Record<number, string>>({});
 	const [replyBusy, setReplyBusy] = useState<number | null>(null);
+	const [friendsHere, setFriendsHere] = useState<BerxExperienceGraphFriend[]>([]);
 
 	const load = useCallback(async () => {
 		setLoading(true);
@@ -46,6 +48,11 @@ export default function PlaceDetailScreen({api, guid, myGuid, onAddToCollection,
 			const [p, r] = await Promise.all([api.getPlace(guid), api.placeReviews(guid)]);
 			setPlace(p);
 			setReviews(r.reviews);
+			// Experience Graph — best-effort, never blocks the place itself
+			// from loading (a real secondary signal, not core data).
+			api.placeExperienceGraph(guid)
+				.then((g) => setFriendsHere([...g.friends_saved, ...g.friends_reviewed].filter((f, i, arr) => arr.findIndex((x) => x.guid === f.guid) === i)))
+				.catch(() => undefined);
 		} catch (e) {
 			setError(e instanceof Error ? e.message : 'Не удалось загрузить место');
 		} finally {
@@ -205,6 +212,17 @@ export default function PlaceDetailScreen({api, guid, myGuid, onAddToCollection,
 					{place.website ? <Text style={styles.infoLine}>🔗 {place.website}</Text> : null}
 				</View>
 
+				{friendsHere.length > 0 ? (
+					<View style={styles.friendsHereRow}>
+						{friendsHere.slice(0, 8).map((f: BerxExperienceGraphFriend) => (
+							<View key={f.guid} style={styles.friendHereItem}>
+								<BerxAvatar iconUrl={f.icon} fallbackInitial={f.username.charAt(0)} size={36} />
+							</View>
+						))}
+						<Text style={styles.friendsHereLabel}>{friendsHere.length === 1 ? '1 друг был здесь' : `${friendsHere.length} друзей были здесь`}</Text>
+					</View>
+				) : null}
+
 				<Text style={styles.sectionTitle}>Отзывы ({reviews.length})</Text>
 
 				{!isOwner && !alreadyReviewed ? (
@@ -281,6 +299,9 @@ const styles = StyleSheet.create({
 	infoBlock: {gap: spacing.xs},
 	infoLine: {fontSize: typography.sizeSm, color: colors.textDim},
 	sectionTitle: {fontSize: typography.sizeXs, color: colors.textFaint, fontWeight: typography.weightBold, textTransform: 'uppercase', marginTop: spacing.sm},
+	friendsHereRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginTop: spacing.sm},
+	friendHereItem: {marginLeft: -spacing.xs},
+	friendsHereLabel: {fontSize: typography.sizeSm, color: colors.textDim, marginLeft: spacing.sm},
 	reviewForm: {gap: spacing.sm},
 	starRow: {flexDirection: 'row', gap: spacing.xs},
 	star: {fontSize: 24, color: colors.border},
