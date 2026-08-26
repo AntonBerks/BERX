@@ -107,6 +107,9 @@ function ossn_api_v1_resources() {
 		// OssnGeo+OssnPlaces+OssnEvents+OssnBusinessMoments+OssnPlaceHours,
 		// no new class or table.
 		'nearby'        => __OSSN_API__ . 'v1/nearby.php',
+		// Memories ("on this day") — pure read over the real, existing
+		// OssnWall::getPosterPosts(), no new class or table.
+		'memories'      => __OSSN_API__ . 'v1/memories.php',
 		// 'business' (the SEPARATE top-level resource — /business/
 		// places/{guid}/team|subscription|hours|claim|moments|
 		// impressions) still deliberately NOT listed: those branches
