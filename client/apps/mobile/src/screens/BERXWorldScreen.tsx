@@ -25,6 +25,7 @@ interface Props {
 	onOpenVideo: () => void;
 	onOpenMusic: () => void;
 	onOpenNearbyNow: () => void;
+	onOpenSocialMap: () => void;
 	onBack?: () => void;
 }
 
@@ -37,7 +38,7 @@ function WorldCard({label, subtitle, onPress}: {label: string; subtitle: string;
 	);
 }
 
-export default function BERXWorldScreen({onOpenPlaces, onOpenEvents, onOpenNearby, onOpenCommunities, onOpenVideo, onOpenMusic, onOpenNearbyNow, onBack}: Props) {
+export default function BERXWorldScreen({onOpenPlaces, onOpenEvents, onOpenNearby, onOpenCommunities, onOpenVideo, onOpenMusic, onOpenNearbyNow, onOpenSocialMap, onBack}: Props) {
 	return (
 		<View style={styles.screen}>
 			<BerxHeader title="BERX World" onBack={onBack} />
@@ -49,6 +50,7 @@ export default function BERXWorldScreen({onOpenPlaces, onOpenEvents, onOpenNearb
 				<WorldCard label="Видео" subtitle="Смотрите, что снимают вокруг" onPress={onOpenVideo} />
 				<WorldCard label="Музыка" subtitle="Треки, которые загружают другие" onPress={onOpenMusic} />
 				<WorldCard label="Рядом сейчас" subtitle="Реальные места и события поблизости" onPress={onOpenNearbyNow} />
+				<WorldCard label="Карта BERX" subtitle="Места, события и друзья онлайн рядом" onPress={onOpenSocialMap} />
 			</View>
 		</View>
 	);

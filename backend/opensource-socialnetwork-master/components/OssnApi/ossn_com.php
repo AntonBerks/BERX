@@ -192,6 +192,9 @@ function ossn_api_v1_resources() {
 		// Pure composition over already-real domain classes/relations,
 		// no new table.
 		'lifegraph'     => __OSSN_API__ . 'v1/lifegraph.php',
+		// Social Map — see docs/BERX_FUTURE_LAYER_SPEC.md. Places/Events
+		// pins (OssnGeo) + real friends-online (no new person-location).
+		'socialmap'     => __OSSN_API__ . 'v1/socialmap.php',
 		// 'business' (the SEPARATE top-level resource — /business/
 		// places/{guid}/team|subscription|hours|claim|moments|
 		// impressions) still deliberately NOT listed: those branches

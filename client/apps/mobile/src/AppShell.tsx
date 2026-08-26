@@ -100,6 +100,7 @@ import TrackDetailScreen from './screens/TrackDetailScreen';
 import CreateTrackScreen from './screens/CreateTrackScreen';
 import MissionsScreen from './screens/MissionsScreen';
 import LifeGraphScreen from './screens/LifeGraphScreen';
+import SocialMapScreen from './screens/SocialMapScreen';
 import MemoriesScreen from './screens/MemoriesScreen';
 import WrappedScreen from './screens/WrappedScreen';
 import NearbyNowScreen from './screens/NearbyNowScreen';
@@ -554,6 +555,17 @@ function RouteRenderer({name, params}: {name: BerxRouteName; params: unknown}) {
 					onOpenVideo={() => nav.push('VideoFeed', undefined)}
 					onOpenMusic={() => nav.push('TrackFeed', undefined)}
 					onOpenNearbyNow={() => nav.push('NearbyNow', undefined)}
+					onOpenSocialMap={() => nav.push('SocialMap', undefined)}
+					onBack={nav.pop}
+				/>
+			);
+		case 'SocialMap':
+			return (
+				<SocialMapScreen
+					api={api}
+					onOpenPlace={(guid) => nav.push('PlaceDetail', {guid})}
+					onOpenEvent={(guid) => nav.push('EventDetail', {guid})}
+					onOpenProfile={openProfile}
 					onBack={nav.pop}
 				/>
 			);

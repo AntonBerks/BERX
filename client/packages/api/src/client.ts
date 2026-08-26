@@ -26,6 +26,7 @@ import type {
 	BerxEventStoryItem,
 	BerxWrapped,
 	BerxLifeGraphResponse,
+	BerxSocialMapResponse,
 	BerxMissionsResponse,
 	BerxPointsHistoryEntry,
 	BerxPlace,
@@ -976,6 +977,11 @@ export class BerxApiClient {
 	/** Foundation of the Future Layer — see docs/BERX_FUTURE_LAYER_SPEC.md and components/OssnApi/v1/lifegraph.php's own header. Own graph only in v1. */
 	async lifeGraph(): Promise<BerxLifeGraphResponse> {
 		return this.request<BerxLifeGraphResponse>('/lifegraph/me');
+	}
+
+	/** Real Places/Events pins (OssnGeo) + real friends-online — see docs/BERX_FUTURE_LAYER_SPEC.md. friends_online is never geolocated. */
+	async socialMap(lat: number, lng: number, radiusKm = 5): Promise<BerxSocialMapResponse> {
+		return this.request<BerxSocialMapResponse>(`/socialmap?lat=${lat}&lng=${lng}&radius_km=${radiusKm}`);
 	}
 
 	/** Real, fixed daily catalog — see components/OssnApi/v1/missions.php's own header. */

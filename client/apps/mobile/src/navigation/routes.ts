@@ -78,6 +78,7 @@ export type BerxRouteName =
 	| 'NearbyNow'
 	| 'Missions'
 	| 'LifeGraph'
+	| 'SocialMap'
 	| 'BusinessDashboard'
 	| 'BusinessHome'
 	| 'BusinessProfile'
@@ -163,6 +164,7 @@ export interface BerxRouteParams {
 	NearbyNow: undefined;
 	Missions: undefined;
 	LifeGraph: undefined;
+	SocialMap: undefined;
 	BusinessDashboard: { placeGuid: number };
 	BusinessHome: { placeGuid: number };
 	BusinessProfile: { placeGuid: number };
@@ -271,6 +273,7 @@ export const BERX_ROUTES: BerxRouteMeta[] = [
 	{ name: 'NearbyNow', connected: true },
 	{ name: 'Missions', connected: true },
 	{ name: 'LifeGraph', connected: true },
+	{ name: 'SocialMap', connected: true },
 	{ name: 'BusinessDashboard', connected: true },
 	{ name: 'BusinessHome', connected: true },
 	{ name: 'BusinessProfile', connected: true },

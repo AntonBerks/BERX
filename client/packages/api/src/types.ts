@@ -195,6 +195,37 @@ export interface BerxLifeGraphResponse {
 	summary: BerxLifeGraphSummary;
 }
 
+export interface BerxSocialMapPlacePin {
+	guid: number;
+	title: string;
+	category: string | null;
+	lat: number | null;
+	lng: number | null;
+}
+
+export interface BerxSocialMapEventPin {
+	guid: number;
+	title: string;
+	starts: number;
+	lat: number;
+	lng: number;
+}
+
+export interface BerxSocialMapFriend {
+	guid: number;
+	username: string;
+	fullname: string;
+	icon: string;
+}
+
+/** See docs/BERX_FUTURE_LAYER_SPEC.md — friends_online is never geolocated (no real friend-location data exists or is exposed). */
+export interface BerxSocialMapResponse {
+	places: BerxSocialMapPlacePin[];
+	events: BerxSocialMapEventPin[];
+	friends_online: BerxSocialMapFriend[];
+	radius_km: number;
+}
+
 /**
  * Daily Missions — mirrors components/OssnApi/v1/missions.php's fixed
  * in-code catalog exactly (key/title/points), not a DB-configurable
