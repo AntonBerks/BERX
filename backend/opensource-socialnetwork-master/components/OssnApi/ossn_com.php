@@ -90,6 +90,14 @@ function ossn_api_v1_resources() {
 		'poke'          => __OSSN_API__ . 'v1/poke.php',
 		'profiles'      => __OSSN_API__ . 'v1/profiles.php',
 		'messagesearch' => __OSSN_API__ . 'v1/messagesearch.php',
+		// Wave 2 — new lightweight domain classes over already-existing
+		// schema, plus a thin REST wrapper over the already-real
+		// OssnGroup (communities).
+		'points'        => __OSSN_API__ . 'v1/points.php',
+		'report'        => __OSSN_API__ . 'v1/report.php',
+		'communities'   => __OSSN_API__ . 'v1/communities.php',
+		'dating'        => __OSSN_API__ . 'v1/dating.php',
+		'stories'       => __OSSN_API__ . 'v1/stories.php',
 		// 'business' deliberately NOT listed yet: OssnBusiness::
 		// canManage()/addTeamMember() require a real Place object
 		// (->owner_guid, ->guid) to authorize against, and OssnPlaces

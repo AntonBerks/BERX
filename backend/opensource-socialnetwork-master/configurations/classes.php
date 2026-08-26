@@ -65,6 +65,21 @@ $OssnClasses = array(
 		// the .gitignore bug fixed in commit f915ff4 — see
 		// docs/BERX_SOURCE_INVENTORY_2026-08-26.md.
 		'ApiToken',
+		// BERX Points — server-authoritative balance/level/history +
+		// real daily streak (ossn_points_balance/ossn_points_log,
+		// streak columns added in upgrade/upgrades/1785170300.php).
+		'Points',
+		// BERX Report — moderation queue (ossn_reports, already
+		// migrated in upgrade/upgrades/1785168200.php).
+		'Report',
+		// BERX Dating / Match — schema already existed in the base
+		// install SQL (ossn_dating_profiles/interests/passes/photos/
+		// photo_access); this class was the missing logic layer.
+		'Dating',
+		// BERX Stories — schema already existed (ossn_stories/
+		// ossn_stories_views, event_guid extension in
+		// upgrade/upgrades/1785170000.php).
+		'Stories',
 );
 foreach ($OssnClasses as $class) {
 		$loadClass['Ossn' . $class] = ossn_route()->classes . "Ossn{$class}.php";
