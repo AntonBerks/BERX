@@ -284,6 +284,8 @@ export interface BerxPlaceExperienceGraph {
 	target_guid: number;
 	friends_saved: BerxExperienceGraphFriend[];
 	friends_reviewed: BerxExperienceGraphFriend[];
+	/** Real friends with a real geo-verified check-in here — a stronger-than-saved signal ("a friend was actually here"). */
+	friends_checked_in: BerxExperienceGraphFriend[];
 }
 
 export interface BerxEventExperienceGraph {

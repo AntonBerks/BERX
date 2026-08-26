@@ -13,7 +13,9 @@
  * Profile's reputation strip.
  *
  * MAX BUILD — real geo-verified check-in (api.checkInAtPlace(),
- * components/OssnApi/v1/places.php's checkin route). Only offered
+ * components/OssnApi/v1/places.php's checkin route). "Friends here"
+ * now also includes friends_checked_in from the Experience Graph
+ * (a stronger-than-saved real signal). Only offered
  * when the place actually has a real location on file (server can't
  * verify distance otherwise). Same honest manual-lat/lng pattern as
  * NearbyNowScreen/SocialMapScreen (no device Geolocation library
@@ -74,7 +76,7 @@ export default function PlaceDetailScreen({api, guid, myGuid, onAddToCollection,
 			// Experience Graph — best-effort, never blocks the place itself
 			// from loading (a real secondary signal, not core data).
 			api.placeExperienceGraph(guid)
-				.then((g) => setFriendsHere([...g.friends_saved, ...g.friends_reviewed].filter((f, i, arr) => arr.findIndex((x) => x.guid === f.guid) === i)))
+				.then((g) => setFriendsHere([...g.friends_checked_in, ...g.friends_saved, ...g.friends_reviewed].filter((f, i, arr) => arr.findIndex((x) => x.guid === f.guid) === i)))
 				.catch(() => undefined);
 		} catch (e) {
 			setError(e instanceof Error ? e.message : 'Не удалось загрузить место');

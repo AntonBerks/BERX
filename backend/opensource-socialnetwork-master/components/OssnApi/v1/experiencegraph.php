@@ -9,6 +9,12 @@
  * scale pattern as lifegraph.php's met_person. Never exposes a
  * stranger's activity as belonging to the caller's graph — only
  * real friends surface here.
+ *
+ * MAX BUILD -- friends_checked_in (real friends with a real
+ * geo-verified place:checkin at this place, see OssnPlaces::
+ * checkIn()) joins friends_saved/friends_reviewed on the place
+ * branch: a stronger-than-saved signal ("a friend was actually
+ * here"), same bounded-intersection pattern as the rest of this file.
  */
 
 $segment0 = isset($segments[0]) ? $segments[0] : null; // 'place' | 'event'
@@ -69,7 +75,27 @@ if ($segment0 === 'place') {
 		}
 	}
 
-	ossn_api_json(array('target_type' => 'place', 'target_guid' => $targetGuid, 'friends_saved' => $friendsSaved, 'friends_reviewed' => $friendsReviewed));
+	$friendsCheckedIn = array();
+	if (class_exists('OssnPlaces')) {
+		$checkinRows = ossn_get_relationships(array('to' => $targetGuid, 'type' => OssnPlaces::CHECKIN_RELATION, 'limit' => 200, 'page_limit' => false));
+		if ($checkinRows) {
+			$seen = array();
+			foreach ($checkinRows as $r) {
+				$guid = intval($r->relation_from);
+				// A friend can have multiple real check-ins at the same
+				// place — dedupe to one entry per friend, same as
+				// friends_saved/friends_reviewed's implicit one-row-per-
+				// friend shape (place:save is already unique per pair;
+				// reviews are one-per-author-per-place).
+				if (isset($friendIds[$guid]) && !isset($seen[$guid])) {
+					$friendsCheckedIn[] = ossn_api_experiencegraph_friend_json($friendIds[$guid]);
+					$seen[$guid] = true;
+				}
+			}
+		}
+	}
+
+	ossn_api_json(array('target_type' => 'place', 'target_guid' => $targetGuid, 'friends_saved' => $friendsSaved, 'friends_reviewed' => $friendsReviewed, 'friends_checked_in' => $friendsCheckedIn));
 }
 
 // event
