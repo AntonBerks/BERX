@@ -12,12 +12,14 @@ import {useState} from 'react';
 import {View, Text, FlatList, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxSocialMapPlacePin, BerxSocialMapEventPin, BerxSocialMapFriend, BerxCityModeResponse} from '@berx/api/types';
-import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
+import {colors, spacing, typography} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxAvatar} from '../../../../packages/design-system/src/components/BerxAvatar';
 import {BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
+import {BerxGlassSurface} from '../../../../packages/design-system/src/components/BerxGlassSurface';
+import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
 
 interface Props {
 	api: BerxApiClient;
@@ -78,12 +80,14 @@ export default function SocialMapScreen({api, onOpenPlace, onOpenEvent, onOpenPr
 			</View>
 
 			{city ? (
-				<View style={styles.cityRow}>
-					<View style={styles.cityStat}><Text style={styles.cityValue}>{city.places_count}</Text><Text style={styles.cityLabel}>мест</Text></View>
-					<View style={styles.cityStat}><Text style={styles.cityValue}>{city.events_count}</Text><Text style={styles.cityLabel}>событий</Text></View>
-					<View style={styles.cityStat}><Text style={styles.cityValue}>{city.active_moments_count}</Text><Text style={styles.cityLabel}>анонсов</Text></View>
-					<View style={styles.cityStat}><Text style={styles.cityValue}>{city.friends_online_count}</Text><Text style={styles.cityLabel}>друзей онлайн</Text></View>
-				</View>
+				<BerxFadeIn style={styles.cityFade}>
+					<BerxGlassSurface elevated padding="sm" style={styles.cityRow}>
+						<View style={styles.cityStat}><Text style={styles.cityValue}>{city.places_count}</Text><Text style={styles.cityLabel}>мест</Text></View>
+						<View style={styles.cityStat}><Text style={styles.cityValue}>{city.events_count}</Text><Text style={styles.cityLabel}>событий</Text></View>
+						<View style={styles.cityStat}><Text style={styles.cityValue}>{city.active_moments_count}</Text><Text style={styles.cityLabel}>анонсов</Text></View>
+						<View style={styles.cityStat}><Text style={styles.cityValue}>{city.friends_online_count}</Text><Text style={styles.cityLabel}>друзей онлайн</Text></View>
+					</BerxGlassSurface>
+				</BerxFadeIn>
 			) : null}
 
 			{friends.length > 0 ? (
@@ -106,16 +110,20 @@ export default function SocialMapScreen({api, onOpenPlace, onOpenEvent, onOpenPr
 			{places === null ? null : rows.length === 0 ? (
 				<BerxEmptyState title="Пока ничего рядом" subtitle="Попробуйте другие координаты или увеличьте радиус." />
 			) : (
-				<FlatList
-					data={rows}
-					keyExtractor={(r: Row) => `${r.kind}-${r.item.guid}`}
-					renderItem={({item}: {item: Row}) => (
-						<View style={styles.pin} onTouchEnd={() => (item.kind === 'place' ? onOpenPlace(item.item.guid) : onOpenEvent(item.item.guid))}>
-							<Text style={styles.pinKind}>{item.kind === 'place' ? 'Место' : 'Событие'}</Text>
-							<Text style={styles.pinTitle}>{item.item.title}</Text>
-						</View>
-					)}
-				/>
+				<BerxFadeIn style={styles.pinsFade} delayMs={80}>
+					<FlatList
+						data={rows}
+						keyExtractor={(r: Row) => `${r.kind}-${r.item.guid}`}
+						renderItem={({item}: {item: Row}) => (
+							<View onTouchEnd={() => (item.kind === 'place' ? onOpenPlace(item.item.guid) : onOpenEvent(item.item.guid))}>
+								<BerxGlassSurface padding="md" style={styles.pin}>
+									<Text style={styles.pinKind}>{item.kind === 'place' ? 'Место' : 'Событие'}</Text>
+									<Text style={styles.pinTitle}>{item.item.title}</Text>
+								</BerxGlassSurface>
+							</View>
+						)}
+					/>
+				</BerxFadeIn>
 			)}
 		</View>
 	);
@@ -127,14 +135,16 @@ const styles = StyleSheet.create({
 	input: {marginBottom: 0},
 	error: {color: colors.danger, fontSize: typography.sizeSm},
 	sectionTitle: {fontSize: typography.sizeSm, color: colors.textFaint, paddingHorizontal: spacing.md, marginBottom: spacing.xs},
-	cityRow: {flexDirection: 'row', justifyContent: 'space-around', paddingVertical: spacing.sm, marginHorizontal: spacing.md, backgroundColor: colors.surface, borderRadius: radius.md},
+	cityFade: {marginHorizontal: spacing.md},
+	cityRow: {flexDirection: 'row', justifyContent: 'space-around'},
 	cityStat: {alignItems: 'center'},
 	cityValue: {fontSize: typography.sizeLg, color: colors.accent, fontWeight: typography.weightBold},
 	cityLabel: {fontSize: typography.sizeXs, color: colors.textFaint},
 	friendsRow: {paddingVertical: spacing.sm},
 	friendItem: {alignItems: 'center', width: 64, marginHorizontal: spacing.xs, gap: spacing.xs},
 	friendName: {fontSize: typography.sizeSm, color: colors.textDim},
-	pin: {backgroundColor: colors.surface, borderRadius: radius.md, padding: spacing.md, marginHorizontal: spacing.md, marginBottom: spacing.sm},
+	pinsFade: {flex: 1},
+	pin: {marginHorizontal: spacing.md, marginBottom: spacing.sm, gap: 4},
 	pinKind: {fontSize: typography.sizeSm, color: colors.accent},
 	pinTitle: {fontSize: typography.sizeBase, color: colors.white, fontWeight: typography.weightBold},
 });
