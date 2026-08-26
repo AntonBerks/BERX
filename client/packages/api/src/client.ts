@@ -31,6 +31,7 @@ import type {
 	BerxEventExperienceGraph,
 	BerxCityModeResponse,
 	BerxIdentityResponse,
+	BerxPeopleDiscoveryResponse,
 	BerxCheckInResponse,
 	BerxRecentCheckinsResponse,
 	BerxMissionsResponse,
@@ -1008,6 +1009,11 @@ export class BerxApiClient {
 	/** Future Identity (Max Build) — Profile + Life Graph counts + Reputation + real progression composed server-side, one call. Achievements/interests are purely derived, no invented score. */
 	async identity(): Promise<BerxIdentityResponse> {
 		return this.request<BerxIdentityResponse>('/identity/me');
+	}
+
+	/** Real mutual-friend "people you may know" (Max Build) — no AI, no similarity score, just real overlapping friendships. */
+	async peopleDiscovery(): Promise<BerxPeopleDiscoveryResponse> {
+		return this.request<BerxPeopleDiscoveryResponse>('/discovery/people');
 	}
 
 	/** Real geo-verified check-in (Max Build) — server re-verifies the submitted coordinates are actually within range of the place, never trusts a claimed result. */

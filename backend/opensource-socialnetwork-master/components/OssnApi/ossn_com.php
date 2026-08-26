@@ -206,6 +206,10 @@ function ossn_api_v1_resources() {
 		// Achievements/interests are purely derived (thresholds over
 		// real counts / real category metadata), no new table.
 		'identity'      => __OSSN_API__ . 'v1/identity.php',
+		// People Discovery (Max Build) -- real mutual-friend
+		// suggestions, no new table, no AI. See discovery.php's own
+		// header for the bounded-scan discipline.
+		'discovery'     => __OSSN_API__ . 'v1/discovery.php',
 		// 'business' (the SEPARATE top-level resource — /business/
 		// places/{guid}/team|subscription|hours|claim|moments|
 		// impressions) still deliberately NOT listed: those branches

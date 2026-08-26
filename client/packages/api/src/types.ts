@@ -148,6 +148,22 @@ export interface BerxIdentityResponse {
 	identity: BerxIdentity;
 }
 
+/**
+ * People Discovery (Max Build) — GET /discovery/people. Real mutual-
+ * friend suggestions, never a fake "similar interests" score.
+ */
+export interface BerxPeopleSuggestion {
+	guid: number;
+	username: string;
+	fullname: string;
+	icon: string;
+	mutual_count: number;
+}
+
+export interface BerxPeopleDiscoveryResponse {
+	people: BerxPeopleSuggestion[];
+}
+
 export interface BerxProfileSummary {
 	guid: number;
 	username: string;

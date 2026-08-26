@@ -18,11 +18,17 @@
  * friends-first (real friends_count social-relevance signal, same
  * mechanism Nearby Now uses); a small "👥 N" badge surfaces that same
  * signal here, same convention as NearbyNowScreen's own badge.
+ *
+ * "Discover + Nearby + Social Map + Events = one contextual discovery
+ * engine" continued: the empty Users tab (previously a bare "start
+ * typing" prompt) now shows real mutual-friend suggestions
+ * (api.peopleDiscovery()) — reusing this screen's own existing real
+ * estate for meaningful social discovery instead of a new screen.
  */
-import {useCallback, useRef, useState} from 'react';
+import {useCallback, useEffect, useRef, useState} from 'react';
 import {View, Text, FlatList, Pressable, Image, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
-import type {BerxPlaceSearchResult, BerxEventSearchResult, BerxCommunitySearchResult} from '@berx/api/types';
+import type {BerxPlaceSearchResult, BerxEventSearchResult, BerxCommunitySearchResult, BerxPeopleSuggestion} from '@berx/api/types';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {BerxEmptyState, BerxErrorState} from '../../../../packages/design-system/src/components/BerxStates';
@@ -61,7 +67,14 @@ export default function SearchScreen({api, onOpenProfile, onOpenPlace, onOpenEve
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [searched, setSearched] = useState(false);
+	const [suggestions, setSuggestions] = useState<BerxPeopleSuggestion[] | null>(null);
 	const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+	// Real mutual-friend suggestions — best-effort, fetched once, never
+	// blocks search itself if it fails.
+	useEffect(() => {
+		api.peopleDiscovery().then((res) => setSuggestions(res.people)).catch(() => setSuggestions([]));
+	}, [api]);
 
 	const runSearch = useCallback(
 		async (q: string, activeTab: Tab) => {
@@ -138,6 +151,19 @@ export default function SearchScreen({api, onOpenProfile, onOpenPlace, onOpenEve
 				<Text style={styles.hint}>Поиск...</Text>
 			) : searched && currentCount === 0 ? (
 				<BerxEmptyState title="Ничего не найдено" />
+			) : !searched && tab === 'users' && suggestions && suggestions.length > 0 ? (
+				<FlatList
+					data={suggestions}
+					keyExtractor={(p: BerxPeopleSuggestion) => String(p.guid)}
+					contentContainerStyle={styles.suggestionsList}
+					ListHeaderComponent={<Text style={styles.suggestionsTitle}>Возможно, вы знакомы</Text>}
+					renderItem={({item}: {item: BerxPeopleSuggestion}) => (
+						<Pressable style={styles.row} onPress={() => onOpenProfile(item.username)}>
+							<Text style={styles.fullname}>{item.fullname || item.username}</Text>
+							<Text style={styles.username}>@{item.username} · {item.mutual_count} общих {item.mutual_count === 1 ? 'друг' : 'друзей'}</Text>
+						</Pressable>
+					)}
+				/>
 			) : !searched ? (
 				<BerxEmptyState title="Начните вводить запрос" />
 			) : tab === 'users' ? (
@@ -205,6 +231,8 @@ const styles = StyleSheet.create({
 	tabText: {fontSize: typography.sizeSm, color: colors.textDim},
 	tabTextActive: {color: colors.accent, fontWeight: typography.weightMedium},
 	hint: {color: colors.textDim, textAlign: 'center', marginTop: spacing.xl, fontSize: typography.sizeBase},
+	suggestionsList: {paddingBottom: spacing.xl},
+	suggestionsTitle: {color: colors.textFaint, fontSize: typography.sizeXs, textTransform: 'uppercase', padding: spacing.lg, paddingBottom: spacing.xs},
 	row: {padding: spacing.lg, borderBottomWidth: 1, borderBottomColor: colors.borderSoft},
 	fullname: {color: colors.text, fontSize: typography.sizeBase, fontWeight: typography.weightMedium},
 	username: {color: colors.textDim, fontSize: typography.sizeSm, marginTop: spacing.xs},
