@@ -137,6 +137,8 @@ function ossn_api_v1_resources() {
 		// type 'comments:place'/'comments:event', separate from
 		// posts.php's own comment endpoints (different backing model).
 		'comments'      => __OSSN_API__ . 'v1/comments.php',
+		// Admin — unvalidated users, real OssnUser methods, admin-only.
+		'admin'         => __OSSN_API__ . 'v1/admin.php',
 		// 'business' (the SEPARATE top-level resource — /business/
 		// places/{guid}/team|subscription|hours|claim|moments|
 		// impressions) still deliberately NOT listed: those branches
