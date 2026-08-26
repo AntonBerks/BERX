@@ -208,6 +208,45 @@ if ($segment0 !== null && is_numeric($segment0) && $segment1 === 'unsave' && $me
 	ossn_api_json(array('status' => 'ok', 'is_saved' => false));
 }
 
+/**
+ * MAX BUILD — real geo-verified check-in (the "verify" step of
+ * discover/plan/go/participate/verify/review/earn/remember). Server
+ * re-verifies distance itself via OssnPlaces::checkIn() — the client
+ * only supplies its own device coordinates, never a claimed result.
+ * One real point award per (user, place, day) via the same
+ * OssnPoints one-time-reason mechanism missions/reviews already use.
+ */
+if ($segment0 !== null && is_numeric($segment0) && $segment1 === 'checkin' && $method === 'POST') {
+	$lat = input('lat');
+	$lng = input('lng');
+	if ($lat === false || $lng === false) {
+		ossn_api_error('validation_error', 'lat and lng are required', 422);
+	}
+	$result = $model->checkIn($segment0, $api_user_guid, floatval($lat), floatval($lng));
+	if (!$result['ok']) {
+		$status = $result['reason'] === 'not_found' ? 404 : ($result['reason'] === 'too_far' ? 422 : 400);
+		// ossn_api_error() only ever returns {error, message} — no room
+		// for a separate structured field, so the real distance (when
+		// known) is embedded directly in the message text itself.
+		$message = $result['reason'] === 'too_far'
+			? 'Слишком далеко: ' . round($result['distance_m']) . ' м от места'
+			: 'Check-in not verified: ' . $result['reason'];
+		ossn_api_error($result['reason'], $message, $status);
+	}
+	$today = date('Y-m-d');
+	$awarded = (new OssnPoints())->award($api_user_guid, 8, "checkin:{$segment0}:{$today}", intval($segment0), true);
+	ossn_api_json(array('status' => 'ok', 'distance_m' => $result['distance_m'], 'points_awarded' => $awarded ? 8 : 0));
+}
+
+if ($segment0 === 'checkins' && $segment1 === null && $method === 'GET') {
+	$rows = $model->recentCheckins($api_user_guid, 20);
+	$out = array();
+	foreach ($rows as $row) {
+		$out[] = array('place' => $row['place'], 'time' => $row['time']);
+	}
+	ossn_api_json(array('checkins' => $out));
+}
+
 if ($segment0 !== null && is_numeric($segment0) && $segment1 === 'cover' && $method === 'POST') {
 	$place = $model->getPlace($segment0);
 	if (!$place) {

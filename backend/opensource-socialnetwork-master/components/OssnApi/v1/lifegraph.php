@@ -35,6 +35,20 @@ if (class_exists('OssnPlaces')) {
 			}
 		}
 	}
+
+	// MAX BUILD — real geo-verified check-ins (see OssnPlaces::checkIn()),
+	// the "verify" step of the Experience lifecycle. Each row is its own
+	// real visit, not a toggle, so the same place can appear multiple
+	// times here across different real days — that's honest, not a bug.
+	$checkinRows = ossn_get_relationships(array('from' => $userGuid, 'type' => OssnPlaces::CHECKIN_RELATION, 'limit' => $perCategory, 'page_limit' => false, 'order_by' => 'r.time DESC'));
+	if ($checkinRows) {
+		foreach ($checkinRows as $r) {
+			$p = $places->getPlace($r->relation_to);
+			if ($p) {
+				$edges[] = array('type' => 'checked_in', 'target_type' => 'place', 'target_guid' => intval($p->guid), 'target_title' => (string) $p->title, 'time' => intval($r->time));
+			}
+		}
+	}
 }
 
 if (class_exists('OssnEvents')) {
@@ -165,6 +179,9 @@ $edges = array_slice($edges, 0, 60);
 $db = new OssnDatabase();
 
 $placesSavedCount = intval(ossn_get_relationships(array('from' => $userGuid, 'type' => 'place:save', 'count' => true)));
+// Real total check-in EVENTS, not distinct places (a place checked
+// into 3 times counts 3 here) — labeled by what it actually counts.
+$checkinsCount = class_exists('OssnPlaces') ? intval(ossn_get_relationships(array('from' => $userGuid, 'type' => OssnPlaces::CHECKIN_RELATION, 'count' => true))) : 0;
 $eventsGoingCount = intval(ossn_get_relationships(array('from' => $userGuid, 'type' => 'event:going', 'count' => true)));
 $communitiesJoinedCount = intval(ossn_get_relationships(array('to' => $userGuid, 'type' => 'group:join:approve', 'count' => true)));
 
@@ -176,6 +193,7 @@ ossn_api_json(array(
 	'edges'   => $edges,
 	'summary' => array(
 		'places_saved'        => $placesSavedCount,
+		'checkins_count'      => $checkinsCount,
 		'places_reviewed'     => $reviewCountRow ? intval($reviewCountRow->cnt) : 0,
 		'events_going'        => $eventsGoingCount,
 		'communities_joined'  => $communitiesJoinedCount,

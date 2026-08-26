@@ -275,6 +275,61 @@ class OssnPlaces extends OssnObject {
 		return $out;
 	}
 
+	/* ---------------- Check-in (MAX BUILD — real geo-verified "verify" step) ---------------- */
+
+	/**
+	 * A real check-in requires the caller's real submitted coordinates
+	 * to be within CHECKIN_RADIUS_METERS of the place's own real
+	 * OssnGeo location — actual proof of presence, not a client claim.
+	 * A place with no location on file cannot be checked into at all
+	 * (returned as 'no_location'), rather than trusting an unverifiable
+	 * claim. Every real check-in is its own new ossn_relationships row
+	 * (ossn_add_relation() is a plain INSERT, no dedup) — a repeatable
+	 * visit history, unlike the toggled place:save relation, on
+	 * purpose: you can genuinely check in at the same place many days.
+	 */
+	const CHECKIN_RELATION = 'place:checkin';
+	const CHECKIN_RADIUS_METERS = 300;
+
+	/** @return array {ok:bool, reason?:string, distance_m?:float} */
+	public function checkIn($guid, $userGuid, $lat, $lng) {
+		if (!OssnGeo::isValidLat($lat) || !OssnGeo::isValidLng($lng)) {
+			return array('ok' => false, 'reason' => 'invalid_coordinates');
+		}
+		$place = $this->getPlace($guid);
+		if (!$place) {
+			return array('ok' => false, 'reason' => 'not_found');
+		}
+		if ($place->lat === null || $place->lng === null) {
+			return array('ok' => false, 'reason' => 'no_location');
+		}
+		$distanceKm = OssnGeo::distanceKm(floatval($lat), floatval($lng), $place->lat, $place->lng);
+		$distanceM = $distanceKm * 1000;
+		if ($distanceM > self::CHECKIN_RADIUS_METERS) {
+			return array('ok' => false, 'reason' => 'too_far', 'distance_m' => round($distanceM, 1));
+		}
+		if (!ossn_add_relation(intval($userGuid), intval($guid), self::CHECKIN_RELATION)) {
+			return array('ok' => false, 'reason' => 'save_failed');
+		}
+		return array('ok' => true, 'distance_m' => round($distanceM, 1));
+	}
+
+	/** @return array real PHP array — most recent check-ins first, hydrated with the place */
+	public function recentCheckins($userGuid, $limit = 20) {
+		$rows = ossn_get_relationships(array('from' => intval($userGuid), 'type' => self::CHECKIN_RELATION, 'limit' => intval($limit), 'page_limit' => false, 'order_by' => 'r.time DESC'));
+		if (!$rows) {
+			return array();
+		}
+		$out = array();
+		foreach ($rows as $row) {
+			$place = $this->getPlace($row->relation_to);
+			if ($place) {
+				$out[] = array('place' => $place, 'time' => intval($row->time));
+			}
+		}
+		return $out;
+	}
+
 	/* ---------------- Reviews (ossn_place_reviews — the one genuinely new table) ---------------- */
 
 	/** @return int|string new review id, or 'forbidden'|'duplicate'|'invalid' */

@@ -31,6 +31,8 @@ import type {
 	BerxEventExperienceGraph,
 	BerxCityModeResponse,
 	BerxIdentityResponse,
+	BerxCheckInResponse,
+	BerxRecentCheckinsResponse,
 	BerxMissionsResponse,
 	BerxPointsHistoryEntry,
 	BerxPlace,
@@ -1006,6 +1008,16 @@ export class BerxApiClient {
 	/** Future Identity (Max Build) — Profile + Life Graph counts + Reputation + real progression composed server-side, one call. Achievements/interests are purely derived, no invented score. */
 	async identity(): Promise<BerxIdentityResponse> {
 		return this.request<BerxIdentityResponse>('/identity/me');
+	}
+
+	/** Real geo-verified check-in (Max Build) — server re-verifies the submitted coordinates are actually within range of the place, never trusts a claimed result. */
+	async checkInAtPlace(guid: number, lat: number, lng: number): Promise<BerxCheckInResponse> {
+		return this.request<BerxCheckInResponse>(`/places/${guid}/checkin`, {method: 'POST', body: {lat: String(lat), lng: String(lng)}});
+	}
+
+	/** The caller's own real check-in history, most recent first. */
+	async recentCheckins(): Promise<BerxRecentCheckinsResponse> {
+		return this.request<BerxRecentCheckinsResponse>('/places/checkins');
 	}
 
 	/** Real, fixed daily catalog — see components/OssnApi/v1/missions.php's own header. */

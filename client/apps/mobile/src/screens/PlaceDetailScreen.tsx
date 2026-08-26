@@ -11,11 +11,21 @@
  * small BerxGlassSurface strip instead of a plain inline row, giving
  * that real social signal the same material weight it gets on
  * Profile's reputation strip.
+ *
+ * MAX BUILD — real geo-verified check-in (api.checkInAtPlace(),
+ * components/OssnApi/v1/places.php's checkin route). Only offered
+ * when the place actually has a real location on file (server can't
+ * verify distance otherwise). Same honest manual-lat/lng pattern as
+ * NearbyNowScreen/SocialMapScreen (no device Geolocation library
+ * installable in this sandbox) — the server still re-verifies the
+ * submitted coordinates itself, so this isn't "trust the client",
+ * just "no on-device GPS reading available here".
  */
 import {useCallback, useEffect, useState} from 'react';
 import {View, Text, ScrollView, Image, Pressable, Linking, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxPlace, BerxPlaceReview, BerxExperienceGraphFriend} from '@berx/api/types';
+import {BerxApiError} from '@berx/core';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
@@ -48,6 +58,11 @@ export default function PlaceDetailScreen({api, guid, myGuid, onAddToCollection,
 	const [replyDrafts, setReplyDrafts] = useState<Record<number, string>>({});
 	const [replyBusy, setReplyBusy] = useState<number | null>(null);
 	const [friendsHere, setFriendsHere] = useState<BerxExperienceGraphFriend[]>([]);
+	const [checkinOpen, setCheckinOpen] = useState(false);
+	const [checkinLat, setCheckinLat] = useState('');
+	const [checkinLng, setCheckinLng] = useState('');
+	const [checkinBusy, setCheckinBusy] = useState(false);
+	const [checkinMessage, setCheckinMessage] = useState<string | null>(null);
 
 	const load = useCallback(async () => {
 		setLoading(true);
@@ -110,6 +125,34 @@ export default function PlaceDetailScreen({api, guid, myGuid, onAddToCollection,
 			// best-effort — UI already reflects the pre-toggle state on failure
 		} finally {
 			setSaving(false);
+		}
+	}
+
+	async function submitCheckin() {
+		if (!place) return;
+		const la = Number(checkinLat);
+		const ln = Number(checkinLng);
+		if (!Number.isFinite(la) || !Number.isFinite(ln)) {
+			setCheckinMessage('Введите корректные координаты.');
+			return;
+		}
+		setCheckinBusy(true);
+		setCheckinMessage(null);
+		try {
+			const res = await api.checkInAtPlace(place.guid, la, ln);
+			setCheckinMessage(res.points_awarded > 0 ? `✓ Отмечено — +${res.points_awarded} баллов` : '✓ Уже отмечались сегодня');
+			setCheckinOpen(false);
+		} catch (e) {
+			// Real, honest server verdict — the distance in the message
+			// came back from OssnPlaces::checkIn()'s own re-computation,
+			// not a client guess (see places.php's checkin route).
+			if (e instanceof BerxApiError && (e.code === 'too_far' || e.code === 'no_location')) {
+				setCheckinMessage(e.message);
+			} else {
+				setCheckinMessage('Не удалось отметиться');
+			}
+		} finally {
+			setCheckinBusy(false);
 		}
 	}
 
@@ -196,7 +239,20 @@ export default function PlaceDetailScreen({api, guid, myGuid, onAddToCollection,
 					/>
 					{onAddToCollection ? <BerxButton label="В подборку" variant="secondary" onPress={onAddToCollection} /> : null}
 					{place.lat !== null && place.lng !== null ? <BerxButton label="Маршрут" variant="secondary" onPress={buildRoute} /> : null}
+					{place.lat !== null && place.lng !== null ? <BerxButton label="Отметиться" variant="secondary" onPress={() => { setCheckinOpen(!checkinOpen); setCheckinMessage(null); }} /> : null}
 				</View>
+
+				{checkinOpen ? (
+					<BerxGlassSurface padding="sm" style={styles.checkinForm}>
+						<Text style={styles.checkinHint}>Введите ваши текущие координаты — сервер проверит, что вы действительно рядом.</Text>
+						<View style={styles.checkinRow}>
+							<View style={styles.checkinHalf}><BerxInput placeholder="Широта" value={checkinLat} onChangeText={setCheckinLat} keyboardType="decimal-pad" /></View>
+							<View style={styles.checkinHalf}><BerxInput placeholder="Долгота" value={checkinLng} onChangeText={setCheckinLng} keyboardType="decimal-pad" /></View>
+						</View>
+						<BerxButton label="Подтвердить" onPress={submitCheckin} loading={checkinBusy} fullWidth />
+					</BerxGlassSurface>
+				) : null}
+				{checkinMessage ? <Text style={styles.checkinMessage}>{checkinMessage}</Text> : null}
 
 				{myGuid === place.owner_guid ? (
 					<View style={styles.actions}>
@@ -302,7 +358,12 @@ const styles = StyleSheet.create({
 	ratingText: {fontSize: typography.sizeSm, color: colors.accent, fontWeight: typography.weightMedium},
 	verifiedBadge: {fontSize: typography.sizeXs, color: colors.accent, fontWeight: typography.weightBold},
 	address: {fontSize: typography.sizeSm, color: colors.textDim},
-	actions: {flexDirection: 'row', gap: spacing.sm},
+	actions: {flexDirection: 'row', gap: spacing.sm, flexWrap: 'wrap'},
+	checkinForm: {gap: spacing.sm},
+	checkinHint: {fontSize: typography.sizeXs, color: colors.textFaint},
+	checkinRow: {flexDirection: 'row', gap: spacing.sm},
+	checkinHalf: {flex: 1},
+	checkinMessage: {fontSize: typography.sizeSm, color: colors.accent},
 	description: {fontSize: typography.sizeBase, color: colors.text, lineHeight: typography.sizeBase * typography.lineHeightBase},
 	infoBlock: {gap: spacing.xs},
 	infoLine: {fontSize: typography.sizeSm, color: colors.textDim},

@@ -62,6 +62,7 @@ function ossn_api_identity_compose($guid) {
 		$balance = array('balance' => 0, 'lifetime_earned' => 0, 'level' => 1, 'current_streak' => 0, 'longest_streak' => 0);
 	}
 
+	$checkinsCount = class_exists('OssnPlaces') ? intval(ossn_get_relationships(array('from' => $guid, 'type' => OssnPlaces::CHECKIN_RELATION, 'count' => true))) : 0;
 	$reviewCountRow = $db->select(array('from' => 'ossn_place_reviews', 'params' => array('COUNT(*) as cnt'), 'wheres' => array(OssnDatabase::wheres('author_guid', '=', $guid))));
 	$tripsRow = $db->select(array('from' => 'ossn_trips', 'params' => array('COUNT(*) as cnt'), 'wheres' => array(OssnDatabase::wheres('owner_guid', '=', $guid))));
 	$experiencesRow = $db->select(array('from' => 'ossn_experiences', 'params' => array('COUNT(*) as cnt'), 'wheres' => array(OssnDatabase::wheres('owner_guid', '=', $guid))));
@@ -124,6 +125,7 @@ function ossn_api_identity_compose($guid) {
 		ossn_api_identity_achievement('connected', array('Социальный граф', 'Знакомый', 'Общительный', 'Хаб'), $friendsCount, array(5, 20, 50)),
 		ossn_api_identity_achievement('consistent', array('Стабильность', 'Стабильный', 'Непоколебимый'), intval($balance['longest_streak']), array(7, 30)),
 		ossn_api_identity_achievement('versatile', array('Разносторонность', 'Разносторонний', 'Универсал'), count($categoryCounts), array(3, 6)),
+		ossn_api_identity_achievement('wanderer', array('Странник', 'В пути', 'Странник', 'Кочевник'), $checkinsCount, array(1, 10, 30)),
 	);
 
 	return array(
@@ -140,6 +142,7 @@ function ossn_api_identity_compose($guid) {
 			'trips_created'       => $tripsCreated,
 			'experiences_created' => $experiencesCreated,
 			'friends_count'       => $friendsCount,
+			'checkins_count'      => $checkinsCount,
 		),
 		'interests'          => $interests,
 		'achievements'       => $achievements,

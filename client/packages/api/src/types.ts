@@ -94,6 +94,28 @@ export interface BerxIdentityReputation extends BerxReputation {
 	places_saved: number;
 	communities_joined: number;
 	friends_count: number;
+	checkins_count: number;
+}
+
+/**
+ * Real geo-verified check-in — POST /places/{guid}/checkin. The
+ * server re-verifies distance itself (OssnPlaces::checkIn()); this is
+ * the client-visible outcome of that verification, never a claim the
+ * client can assert on its own.
+ */
+export interface BerxCheckInResponse {
+	status: 'ok';
+	distance_m: number;
+	points_awarded: number;
+}
+
+export interface BerxRecentCheckin {
+	place: BerxPlace;
+	time: number;
+}
+
+export interface BerxRecentCheckinsResponse {
+	checkins: BerxRecentCheckin[];
 }
 
 export interface BerxIdentityInterest {
@@ -221,7 +243,8 @@ export type BerxLifeGraphEdgeType =
 	| 'created_trip'
 	| 'created_experience'
 	| 'earned_reward'
-	| 'met_person';
+	| 'met_person'
+	| 'checked_in';
 
 export interface BerxLifeGraphEdge {
 	type: BerxLifeGraphEdgeType;
@@ -235,6 +258,7 @@ export interface BerxLifeGraphEdge {
 
 export interface BerxLifeGraphSummary {
 	places_saved: number;
+	checkins_count: number;
 	places_reviewed: number;
 	events_going: number;
 	communities_joined: number;
