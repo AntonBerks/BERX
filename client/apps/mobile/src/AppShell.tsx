@@ -248,6 +248,7 @@ function RouteRenderer({name, params}: {name: BerxRouteName; params: unknown}) {
 						currentStoryGroup = group;
 						nav.push('StoryViewer', undefined);
 					}}
+					onOpenPost={(guid) => nav.push('PostDetail', {postGuid: guid})}
 				/>
 			);
 		case 'Messages':

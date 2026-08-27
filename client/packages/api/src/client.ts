@@ -314,6 +314,24 @@ export class BerxApiClient {
 		return this.request<{posts: BerxPostDetail[]}>('/posts/saved');
 	}
 
+	/**
+	 * MAX BUILD — real Pinned Post: owner-only (server re-checks
+	 * owner_guid, never trusts the caller). Pinning a second post
+	 * really replaces the first server-side — never two pins at once.
+	 */
+	async pinPost(id: number): Promise<{status: string; is_pinned: boolean}> {
+		return this.request<{status: string; is_pinned: boolean}>(`/posts/${id}/pin`, {method: 'POST'});
+	}
+
+	async unpinPost(id: number): Promise<{status: string; is_pinned: boolean}> {
+		return this.request<{status: string; is_pinned: boolean}>(`/posts/${id}/unpin`, {method: 'POST'});
+	}
+
+	/** Real, block/visibility-reverified on every read, same discipline as savedPosts(). `post` is null when the user has no pin (or it's no longer visible to the caller). */
+	async pinnedPost(userGuid: number): Promise<{post: BerxPostDetail | null}> {
+		return this.request<{post: BerxPostDetail | null}>(`/posts/pinned/${userGuid}`);
+	}
+
 	async commentOnPost(id: number, text: string): Promise<{status: string}> {
 		return this.request<{status: string}>(`/posts/${id}/comments`, {method: 'POST', body: {text}});
 	}

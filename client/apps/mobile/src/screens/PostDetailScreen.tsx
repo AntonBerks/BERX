@@ -40,6 +40,7 @@ export default function PostDetailScreen({api, postGuid, myGuid, onOpenProfile, 
 	const [error, setError] = useState<string | null>(null);
 	const [liking, setLiking] = useState(false);
 	const [saving, setSaving] = useState(false);
+	const [pinning, setPinning] = useState(false);
 	const [commentText, setCommentText] = useState('');
 	const [posting, setPosting] = useState(false);
 	const [commentStatus, setCommentStatus] = useState<string | null>(null);
@@ -148,6 +149,25 @@ export default function PostDetailScreen({api, postGuid, myGuid, onOpenProfile, 
 		}
 	}
 
+	/** MAX BUILD — real Pinned Post toggle, owner-only. Server re-verifies ownership regardless of what this button already knows. */
+	async function togglePin() {
+		if (!post) return;
+		setPinning(true);
+		try {
+			if (post.is_pinned) {
+				await api.unpinPost(post.guid);
+				setPost({...post, is_pinned: false});
+			} else {
+				await api.pinPost(post.guid);
+				setPost({...post, is_pinned: true});
+			}
+		} catch {
+			// best-effort — UI already reflects the pre-toggle state on failure
+		} finally {
+			setPinning(false);
+		}
+	}
+
 	async function handleComment() {
 		if (!commentText.trim()) return;
 		setPosting(true);
@@ -220,6 +240,14 @@ export default function PostDetailScreen({api, postGuid, myGuid, onOpenProfile, 
 						onPress={handleLike}
 						loading={liking}
 					/>
+					{myGuid && post.owner_guid === myGuid ? (
+						<BerxButton
+							label={post.is_pinned ? 'Открепить' : 'Закрепить'}
+							variant={post.is_pinned ? 'primary' : 'secondary'}
+							onPress={togglePin}
+							loading={pinning}
+						/>
+					) : null}
 					<BerxButton
 						label={post.is_saved ? 'Сохранено' : 'Сохранить'}
 						variant={post.is_saved ? 'primary' : 'secondary'}

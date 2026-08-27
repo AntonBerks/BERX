@@ -33,6 +33,8 @@
  * ossn_api_is_admin($api_user_guid).
  */
 const POST_SAVE_RELATION = 'post:save';
+/** MAX BUILD — real Pinned Post: same real ossn_relationships toggle pattern as POST_SAVE_RELATION, no new table. Exactly one pinned post per user, enforced at write time (see the /pin route below), not just by convention. */
+const POST_PIN_RELATION = 'post:pin';
 
 /** Real detail shape — feed's lighter base mapper plus real counts. */
 function ossn_api_post_detail_json($post, $viewerGuid) {
@@ -44,6 +46,10 @@ function ossn_api_post_detail_json($post, $viewerGuid) {
 	$base['like_count'] = $likeCount ? intval($likeCount) : 0;
 	$base['comment_count'] = $commentCount ? intval($commentCount) : 0;
 	$base['is_saved'] = $viewerGuid ? ossn_relation_exists(intval($viewerGuid), intval($post->guid), POST_SAVE_RELATION) : false;
+	// MAX BUILD — real, owner-scoped (pinning is never a per-viewer
+	// state like save/like — it's the same real relation regardless of
+	// who's asking, from the post owner outward).
+	$base['is_pinned'] = ossn_relation_exists(intval($post->owner_guid), intval($post->guid), POST_PIN_RELATION);
 	// MAX BUILD — real is_liked. OssnLikes::isLiked()/UnLike() were
 	// always real, callable methods (confirmed by reading the class
 	// directly) — the earlier "no updated like COUNT to reconcile
@@ -169,6 +175,52 @@ if ($segment0 !== null && $segment1 === 'save' && $method === 'POST') {
 if ($segment0 !== null && $segment1 === 'unsave' && $method === 'POST') {
 	ossn_delete_relationship(array('from' => intval($api_user_guid), 'to' => intval($segment0), 'type' => POST_SAVE_RELATION));
 	ossn_api_json(array('status' => 'ok', 'is_saved' => false));
+}
+
+/**
+ * MAX BUILD — real Pinned Post. Owner-only — checked against the
+ * post's own real owner_guid, never against anything the request
+ * sends. Exactly one pin per user: any existing pin relation FROM this
+ * owner is removed first, so pinning a second post really replaces
+ * the first, never stacks two.
+ */
+if ($segment0 !== null && $segment1 === 'pin' && $method === 'POST') {
+	$wall = new OssnWall();
+	$post = $wall->GetPost(intval($segment0));
+	if (!$post) {
+		ossn_api_error('not_found', 'Post not found', 404);
+	}
+	if (intval($post->owner_guid) !== intval($api_user_guid)) {
+		ossn_api_error('forbidden', 'Only the author can pin this post', 403);
+	}
+	ossn_delete_relationship(array('from' => intval($api_user_guid), 'type' => POST_PIN_RELATION));
+	ossn_add_relation(intval($api_user_guid), intval($segment0), POST_PIN_RELATION);
+	ossn_api_json(array('status' => 'ok', 'is_pinned' => true));
+}
+
+if ($segment0 !== null && $segment1 === 'unpin' && $method === 'POST') {
+	$wall = new OssnWall();
+	$post = $wall->GetPost(intval($segment0));
+	if ($post && intval($post->owner_guid) !== intval($api_user_guid)) {
+		ossn_api_error('forbidden', 'Only the author can unpin this post', 403);
+	}
+	ossn_delete_relationship(array('from' => intval($api_user_guid), 'to' => intval($segment0), 'type' => POST_PIN_RELATION));
+	ossn_api_json(array('status' => 'ok', 'is_pinned' => false));
+}
+
+/** Real, single pinned post for a profile (any viewer) — re-verified visibility/block on every read, same discipline as /saved above. */
+if ($segment0 === 'pinned' && $segment1 !== null && $method === 'GET') {
+	$rows = ossn_get_relationships(array('from' => intval($segment1), 'type' => POST_PIN_RELATION, 'limit' => 1));
+	if (!$rows) {
+		ossn_api_json(array('post' => null));
+	}
+	$row = is_array($rows) ? $rows[0] : $rows;
+	$wall = new OssnWall();
+	$post = $wall->GetPost(intval($row->relation_to));
+	if (!$post || ossn_api_is_blocked($api_user_guid, $post->owner_guid) || !(new OssnCircles())->canViewPost($post, $api_user_guid)) {
+		ossn_api_json(array('post' => null));
+	}
+	ossn_api_json(array('post' => ossn_api_post_detail_json($post, $api_user_guid)));
 }
 
 if ($segment0 !== null && $segment1 === 'comments' && $segment2 === null && $method === 'POST') {

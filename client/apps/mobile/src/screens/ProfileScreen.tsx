@@ -44,7 +44,7 @@ import React, {useEffect, useState} from 'react';
 import {View, Text, Image, Pressable, ScrollView, Alert, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxAuthState} from '@berx/auth';
-import type {BerxIdentity, BerxIdentityAchievement, BerxIdentityInterest, BerxStorySummary, BerxStoryFeedGroup} from '@berx/api/types';
+import type {BerxIdentity, BerxIdentityAchievement, BerxIdentityInterest, BerxStorySummary, BerxStoryFeedGroup, BerxPostDetail} from '@berx/api/types';
 import {BerxApiError} from '@berx/core';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
@@ -114,6 +114,8 @@ interface Props {
 	onReport?: (targetGuid: number) => void;
 	/** MAX BUILD — real Story Highlights rail (see classes/OssnStories.php's own header). Opens the same StoryViewer route the main Stories rail already uses. */
 	onOpenStoryGroup?: (group: BerxStoryFeedGroup) => void;
+	/** MAX BUILD — real Pinned Post card (see posts.php's own header for the pin mechanism). */
+	onOpenPost?: (guid: number) => void;
 }
 
 function joinedYear(unixSeconds?: number): string | null {
@@ -121,7 +123,7 @@ function joinedYear(unixSeconds?: number): string | null {
 	return new Date(unixSeconds * 1000).getFullYear().toString();
 }
 
-export default function ProfileScreen({api, authState, username, onBack, onMessage, onOpenNotifications, onOpenPoints, onOpenMissions, onOpenLifeGraph, onOpenMemories, onOpenWrapped, onOpenDatingPrivacy, onOpenDatingProfile, onOpenDatingPhotos, onOpenCommunities, onOpenDating, onOpenPlaces, onOpenEvents, onOpenSettings, onOpenBERXWorld, onOpenAlbums, onOpenCollections, onOpenTrips, onOpenExperiences, onOpenCreatorProfile, onOpenCreatorSettings, onOpenMyVideos, onOpenMyTracks, onOpenSavedPosts, onOpenEditProfile, onOpenMyPlaceClaims, onOpenRecentCheckins, onOpenAdminUnvalidated, onOpenAdminReports, onOpenAdminPlaceClaims, onReport, onOpenStoryGroup}: Props) {
+export default function ProfileScreen({api, authState, username, onBack, onMessage, onOpenNotifications, onOpenPoints, onOpenMissions, onOpenLifeGraph, onOpenMemories, onOpenWrapped, onOpenDatingPrivacy, onOpenDatingProfile, onOpenDatingPhotos, onOpenCommunities, onOpenDating, onOpenPlaces, onOpenEvents, onOpenSettings, onOpenBERXWorld, onOpenAlbums, onOpenCollections, onOpenTrips, onOpenExperiences, onOpenCreatorProfile, onOpenCreatorSettings, onOpenMyVideos, onOpenMyTracks, onOpenSavedPosts, onOpenEditProfile, onOpenMyPlaceClaims, onOpenRecentCheckins, onOpenAdminUnvalidated, onOpenAdminReports, onOpenAdminPlaceClaims, onReport, onOpenStoryGroup, onOpenPost}: Props) {
 	const [profile, setProfile] = useState<ProfileData | null>(null);
 	const [identity, setIdentity] = useState<BerxIdentity | null>(null);
 	const [loading, setLoading] = useState(true);
@@ -134,6 +136,7 @@ export default function ProfileScreen({api, authState, username, onBack, onMessa
 	const [unreadNotifications, setUnreadNotifications] = useState(0);
 	const [highlights, setHighlights] = useState<BerxStorySummary[]>([]);
 	const [storyAuthHeaders, setStoryAuthHeaders] = useState<Record<string, string>>({});
+	const [pinnedPost, setPinnedPost] = useState<BerxPostDetail | null>(null);
 	const isOwn = !username;
 
 	async function load() {
@@ -155,6 +158,7 @@ export default function ProfileScreen({api, authState, username, onBack, onMessa
 			if (data.guid) {
 				api.storyHighlights(data.guid).then((res) => setHighlights(res.stories)).catch(() => undefined);
 				api.getAuthHeaders().then(setStoryAuthHeaders).catch(() => undefined);
+				api.pinnedPost(data.guid).then((res) => setPinnedPost(res.post)).catch(() => undefined);
 			}
 		} catch {
 			setError(isOwn ? 'Не удалось загрузить профиль' : 'Профиль недоступен');
@@ -356,6 +360,17 @@ export default function ProfileScreen({api, authState, username, onBack, onMessa
 							</Pressable>
 						))}
 					</ScrollView>
+				</BerxFadeIn>
+			) : null}
+
+			{pinnedPost && onOpenPost ? (
+				<BerxFadeIn style={styles.pinnedSection} delayMs={50}>
+					<Pressable onPress={() => onOpenPost(pinnedPost.guid)}>
+						<BerxGlassSurface elevated padding="md" style={styles.pinnedCard}>
+							<Text style={styles.pinnedLabel}>📌 Закреплено</Text>
+							<Text style={styles.pinnedText} numberOfLines={3}>{pinnedPost.text}</Text>
+						</BerxGlassSurface>
+					</Pressable>
 				</BerxFadeIn>
 			) : null}
 
@@ -620,6 +635,10 @@ const styles = StyleSheet.create({
 	highlightVideoFallback: {width: 54, height: 54, borderRadius: 27, backgroundColor: colors.graphite, alignItems: 'center', justifyContent: 'center'},
 	highlightVideoIcon: {color: colors.white, fontSize: typography.sizeBase},
 	highlightLabel: {fontSize: typography.sizeXs, color: colors.textDim, marginTop: 4, textAlign: 'center'},
+	pinnedSection: {paddingHorizontal: spacing.lg, marginBottom: spacing.md},
+	pinnedCard: {gap: 4},
+	pinnedLabel: {fontSize: typography.sizeXs, color: colors.accent, fontWeight: typography.weightBold, textTransform: 'uppercase'},
+	pinnedText: {fontSize: typography.sizeSm, color: colors.text},
 	identitySection: {paddingHorizontal: spacing.xl, gap: spacing.md, marginBottom: spacing.md},
 	levelRow: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'},
 	levelText: {color: colors.white, fontSize: typography.sizeBase, fontWeight: typography.weightBold},

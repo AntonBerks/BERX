@@ -68,6 +68,8 @@ export interface BerxPostDetail {
 	is_saved: boolean;
 	/** Real server-verified state (Max Build) — OssnLikes::isLiked() was always real, just never surfaced here. */
 	is_liked: boolean;
+	/** MAX BUILD — real Pinned Post, owner-scoped (never per-viewer, unlike is_saved/is_liked) — see components/OssnApi/v1/posts.php's own header. */
+	is_pinned: boolean;
 }
 
 export interface BerxConversationSummary {
