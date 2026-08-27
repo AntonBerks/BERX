@@ -11,7 +11,7 @@
  * real place, mirroring SavedPlacesScreen's structure exactly.
  */
 import {useCallback, useEffect, useState} from 'react';
-import {View, Text, FlatList, Image, Pressable, StyleSheet} from 'react-native';
+import {View, Text, FlatList, Image, Pressable, RefreshControl, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxRecentCheckin} from '@berx/api/types';
 import {relativeTimeLabel} from '@berx/domain';
@@ -29,6 +29,7 @@ interface Props {
 export default function RecentCheckinsScreen({api, onOpenPlace, onBack}: Props) {
 	const [items, setItems] = useState<BerxRecentCheckin[]>([]);
 	const [loading, setLoading] = useState(true);
+	const [refreshing, setRefreshing] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
 	const load = useCallback(async () => {
@@ -41,6 +42,7 @@ export default function RecentCheckinsScreen({api, onOpenPlace, onBack}: Props) 
 			setError(e instanceof Error ? e.message : 'Не удалось загрузить отметки');
 		} finally {
 			setLoading(false);
+			setRefreshing(false);
 		}
 	}, [api]);
 
@@ -62,6 +64,16 @@ export default function RecentCheckinsScreen({api, onOpenPlace, onBack}: Props) 
 						data={items}
 						keyExtractor={(c: BerxRecentCheckin, index: number) => `${c.place.guid}-${c.time}-${index}`}
 						contentContainerStyle={styles.list}
+						refreshControl={
+							<RefreshControl
+								refreshing={refreshing}
+								onRefresh={() => {
+									setRefreshing(true);
+									load();
+								}}
+								tintColor={colors.accent}
+							/>
+						}
 						renderItem={({item}: {item: BerxRecentCheckin}) => (
 							<Pressable style={styles.row} onPress={() => onOpenPlace(item.place.guid)}>
 								{item.place.cover_url ? <Image source={{uri: item.place.cover_url}} style={styles.thumb} /> : <View style={styles.thumbFallback} />}

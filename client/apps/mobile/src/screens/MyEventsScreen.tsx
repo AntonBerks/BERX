@@ -9,7 +9,7 @@
  * already going, without a second screen or a second fetch.
  */
 import {useCallback, useEffect, useState} from 'react';
-import {View, Text, FlatList, Image, Pressable, StyleSheet} from 'react-native';
+import {View, Text, FlatList, Image, Pressable, RefreshControl, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxEvent} from '@berx/api/types';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
@@ -26,6 +26,7 @@ interface Props {
 export default function MyEventsScreen({api, onOpenEvent, onBack}: Props) {
 	const [items, setItems] = useState<BerxEvent[]>([]);
 	const [loading, setLoading] = useState(true);
+	const [refreshing, setRefreshing] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
 	const load = useCallback(async () => {
@@ -38,6 +39,7 @@ export default function MyEventsScreen({api, onOpenEvent, onBack}: Props) {
 			setError(e instanceof Error ? e.message : 'Не удалось загрузить события');
 		} finally {
 			setLoading(false);
+			setRefreshing(false);
 		}
 	}, [api]);
 
@@ -59,6 +61,16 @@ export default function MyEventsScreen({api, onOpenEvent, onBack}: Props) {
 						data={items}
 						keyExtractor={(e: BerxEvent) => String(e.guid)}
 						contentContainerStyle={styles.list}
+						refreshControl={
+							<RefreshControl
+								refreshing={refreshing}
+								onRefresh={() => {
+									setRefreshing(true);
+									load();
+								}}
+								tintColor={colors.accent}
+							/>
+						}
 						renderItem={({item}: {item: BerxEvent}) => {
 							const date = new Date(item.starts * 1000);
 							return (

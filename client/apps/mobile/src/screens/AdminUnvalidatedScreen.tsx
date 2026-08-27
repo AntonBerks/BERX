@@ -14,7 +14,7 @@
  * longer applies.
  */
 import {useCallback, useEffect, useState} from 'react';
-import {View, Text, FlatList, StyleSheet} from 'react-native';
+import {View, Text, FlatList, RefreshControl, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxUnvalidatedUser} from '@berx/api/types';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
@@ -33,6 +33,7 @@ export default function AdminUnvalidatedScreen({api, onBack}: Props) {
 	const [items, setItems] = useState<BerxUnvalidatedUser[]>([]);
 	const [q, setQ] = useState('');
 	const [loading, setLoading] = useState(true);
+	const [refreshing, setRefreshing] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [busyGuid, setBusyGuid] = useState<number | null>(null);
 
@@ -46,6 +47,7 @@ export default function AdminUnvalidatedScreen({api, onBack}: Props) {
 			setError(e instanceof Error ? e.message : 'Не удалось загрузить список');
 		} finally {
 			setLoading(false);
+			setRefreshing(false);
 		}
 	}, [api, q]);
 
@@ -87,6 +89,16 @@ export default function AdminUnvalidatedScreen({api, onBack}: Props) {
 						data={items}
 						keyExtractor={(u: BerxUnvalidatedUser) => String(u.guid)}
 						contentContainerStyle={styles.list}
+						refreshControl={
+							<RefreshControl
+								refreshing={refreshing}
+								onRefresh={() => {
+									setRefreshing(true);
+									load();
+								}}
+								tintColor={colors.accent}
+							/>
+						}
 						renderItem={({item}: {item: BerxUnvalidatedUser}) => (
 							<View style={styles.row}>
 								<View style={styles.info}>

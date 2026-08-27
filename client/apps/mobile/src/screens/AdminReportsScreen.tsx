@@ -25,7 +25,7 @@
  * fail" placeholder anymore.
  */
 import {useCallback, useEffect, useState} from 'react';
-import {View, Text, FlatList, StyleSheet} from 'react-native';
+import {View, Text, FlatList, RefreshControl, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxReportQueueItem} from '@berx/api/types';
 import {relativeTimeLabel} from '@berx/domain';
@@ -64,6 +64,7 @@ const HIDEABLE_TYPES = new Set(['dating_profile']);
 export default function AdminReportsScreen({api, onBack}: Props) {
 	const [items, setItems] = useState<BerxReportQueueItem[]>([]);
 	const [loading, setLoading] = useState(true);
+	const [refreshing, setRefreshing] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [busyId, setBusyId] = useState<number | null>(null);
 
@@ -77,6 +78,7 @@ export default function AdminReportsScreen({api, onBack}: Props) {
 			setError(e instanceof Error ? e.message : 'Не удалось загрузить жалобы');
 		} finally {
 			setLoading(false);
+			setRefreshing(false);
 		}
 	}, [api]);
 
@@ -122,6 +124,16 @@ export default function AdminReportsScreen({api, onBack}: Props) {
 					data={items}
 					keyExtractor={(r: BerxReportQueueItem) => String(r.id)}
 					contentContainerStyle={styles.list}
+					refreshControl={
+						<RefreshControl
+							refreshing={refreshing}
+							onRefresh={() => {
+								setRefreshing(true);
+								load();
+							}}
+							tintColor={colors.accent}
+						/>
+					}
 					renderItem={({item}: {item: BerxReportQueueItem}) => (
 						<View style={styles.card}>
 							<Text style={styles.target}>{TARGET_LABELS[item.target_type] ?? item.target_type} #{item.target_guid}</Text>
