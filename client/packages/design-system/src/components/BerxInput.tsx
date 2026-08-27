@@ -1,11 +1,35 @@
 /**
  * !!! VERIFICATION STATUS: UNVERIFIED — see BerxButton.tsx header.
+ *
+ * MAX BUILD — real focus state. RN's TextInput has no built-in focus
+ * visual (unlike a browser's native :focus outline), so every field
+ * in the app looked identical whether it was active or not — a real,
+ * fixable gap on the single most universal input primitive, not a
+ * cosmetic nice-to-have. Local-only state (never touches the caller's
+ * controlled value/onChangeText); any caller-supplied onFocus/onBlur
+ * still fires, this just also drives the visual ring.
  */
-import {TextInput, TextInputProps, StyleSheet} from 'react-native';
+import {useState} from 'react';
+import {TextInput, TextInputProps, NativeSyntheticEvent, TextInputFocusEventData, StyleSheet} from 'react-native';
 import {colors, radius, spacing, typography} from '../tokens';
 
 export function BerxInput(props: TextInputProps) {
-	return <TextInput placeholderTextColor={colors.textDim} style={[styles.input, props.style]} {...props} />;
+	const [focused, setFocused] = useState(false);
+	return (
+		<TextInput
+			placeholderTextColor={colors.textDim}
+			{...props}
+			onFocus={(e: NativeSyntheticEvent<TextInputFocusEventData>) => {
+				setFocused(true);
+				props.onFocus?.(e);
+			}}
+			onBlur={(e: NativeSyntheticEvent<TextInputFocusEventData>) => {
+				setFocused(false);
+				props.onBlur?.(e);
+			}}
+			style={[styles.input, focused && styles.inputFocused, props.style]}
+		/>
+	);
 }
 
 const styles = StyleSheet.create({
@@ -19,5 +43,9 @@ const styles = StyleSheet.create({
 		paddingHorizontal: spacing.lg,
 		fontSize: typography.sizeBase,
 		minHeight: 48,
+	},
+	inputFocused: {
+		borderColor: colors.accent,
+		backgroundColor: colors.glass2,
 	},
 });

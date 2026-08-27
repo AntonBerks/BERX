@@ -3,13 +3,13 @@
  * the full explanation. Same sandbox constraint applies here.
  */
 import { View, Image, Text, StyleSheet } from 'react-native';
-import { colors, typography } from '../tokens';
+import { colors, typography, shadow } from '../tokens';
 
 export interface BerxAvatarProps {
 	iconUrl?: string | null;
 	fallbackInitial: string;
 	size?: number;
-	/** Story ring — only meaningful once Stories UI actually calls this with hasActiveStory; not wired to any screen yet. */
+	/** Story ring — real, wired data (StoriesRailScreen.tsx passes it for every real active-story owner it renders). */
 	hasActiveStory?: boolean;
 }
 
@@ -42,6 +42,7 @@ const styles = StyleSheet.create({
 	ringActive: {
 		borderWidth: 2,
 		borderColor: colors.accent,
+		...shadow.glow,
 	},
 	image: {
 		resizeMode: 'cover',
