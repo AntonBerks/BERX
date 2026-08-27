@@ -735,8 +735,9 @@ export class BerxApiClient {
 		return this.request<{memories: BerxMemory[]}>('/memories');
 	}
 
-	async getProfile(username: string): Promise<BerxProfileSummary> {
-		return this.request<BerxProfileSummary>(`/profiles/${encodeURIComponent(username)}`);
+	/** `identifier` may be a real username OR a real numeric guid (as a string) — profiles.php resolves either. */
+	async getProfile(identifier: string): Promise<BerxProfileSummary> {
+		return this.request<BerxProfileSummary>(`/profiles/${encodeURIComponent(identifier)}`);
 	}
 
 	async searchUsers(q: string): Promise<BerxSearchUsersResponse> {

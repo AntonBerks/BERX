@@ -400,6 +400,7 @@ function RouteRenderer({name, params}: {name: BerxRouteName; params: unknown}) {
 					onOpenDating={() => nav.push('Dating', undefined)}
 					onOpenPlace={(guid) => nav.push('PlaceDetail', {guid})}
 					onOpenEvent={(guid) => nav.push('EventDetail', {guid})}
+					onOpenProfile={openProfile}
 					onBack={nav.canGoBack ? nav.pop : undefined}
 				/>
 			);

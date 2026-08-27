@@ -11,6 +11,13 @@
  * this is honest-but-imprecise rather than a fake specific
  * destination. Any other/unrecognized type just marks read without
  * navigating — never silently pretends to go somewhere.
+ *
+ * MAX BUILD — 'ossnpoke:poke' now routes to the real poker's profile
+ * (poster_guid), closing another real "backend exists, zero UI" gap
+ * (see ProfileScreen.tsx's handlePoke()). profiles.php was extended
+ * this same pass to resolve a real numeric guid as a fallback
+ * identifier (not just username), so poster_guid needs no separate
+ * username-lookup round trip — String(guid) resolves directly.
  */
 import {useCallback, useEffect, useState} from 'react';
 import {View, Text, FlatList, Pressable, RefreshControl, StyleSheet} from 'react-native';
@@ -29,6 +36,8 @@ interface Props {
 	onOpenPlace: (guid: number) => void;
 	/** Same real pattern for events — see OssnEvents' notify() calls. */
 	onOpenEvent: (guid: number) => void;
+	/** Real numeric-guid-or-username identifier — used here with String(poster_guid) for 'ossnpoke:poke'. */
+	onOpenProfile?: (identifier: string) => void;
 	onBack?: () => void;
 }
 
@@ -42,9 +51,10 @@ const NOTIFICATION_LABELS: Record<string, string> = {
 	'berx:event:rsvp': 'Кто-то идёт на ваше событие',
 	'berx:event:comment': 'Новый комментарий к вашему событию',
 	'berx:event:invite': 'Приглашение на событие',
+	'ossnpoke:poke': 'Вас «толкнули»',
 };
 
-export default function NotificationsScreen({api, onOpenConversation, onOpenDating, onOpenPlace, onOpenEvent, onBack}: Props) {
+export default function NotificationsScreen({api, onOpenConversation, onOpenDating, onOpenPlace, onOpenEvent, onOpenProfile, onBack}: Props) {
 	const [items, setItems] = useState<BerxNotification[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [refreshing, setRefreshing] = useState(false);
@@ -81,6 +91,8 @@ export default function NotificationsScreen({api, onOpenConversation, onOpenDati
 			onOpenPlace(n.subject_guid);
 		} else if (n.type === 'berx:event:rsvp' || n.type === 'berx:event:comment' || n.type === 'berx:event:invite') {
 			onOpenEvent(n.subject_guid);
+		} else if (n.type === 'ossnpoke:poke' && onOpenProfile) {
+			onOpenProfile(String(n.poster_guid));
 		}
 		// Anything else: marked read, no navigation — honest, not a fake destination.
 	}

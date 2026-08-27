@@ -1,6 +1,11 @@
 <?php
 /**
- * BERX API v1 — Profiles (public view of another user by username).
+ * BERX API v1 — Profiles (public view of another user by username,
+ * or by real numeric guid as a fallback — same is_numeric() disambiguation
+ * idiom already used elsewhere in this API, e.g. events.php/places.php's
+ * segment0 guid checks. Added so a real guid-only source, like a
+ * notification's poster_guid, can resolve to a real profile without a
+ * separate lookup endpoint).
  *
  * `reputation` — Future Identity (see docs/BERX_FUTURE_LAYER_SPEC.md):
  * the same real, live COUNT()s as lifegraph.php's own summary, no
@@ -26,8 +31,8 @@ if ($method !== 'GET' || !isset($segments[0])) {
 	ossn_api_error('not_found', 'Unknown profiles action', 404);
 }
 
-$username = urldecode($segments[0]);
-$user = ossn_user_by_username($username);
+$identifier = urldecode($segments[0]);
+$user = is_numeric($identifier) ? ossn_user_by_guid(intval($identifier)) : ossn_user_by_username($identifier);
 if (!$user) {
 	ossn_api_error('not_found', 'User not found', 404);
 }

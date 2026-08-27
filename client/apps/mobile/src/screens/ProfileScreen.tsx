@@ -45,6 +45,7 @@ import {View, Text, Image, Pressable, ScrollView, Alert, StyleSheet} from 'react
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxAuthState} from '@berx/auth';
 import type {BerxIdentity, BerxIdentityAchievement, BerxIdentityInterest} from '@berx/api/types';
+import {BerxApiError} from '@berx/core';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState} from '../../../../packages/design-system/src/components/BerxStates';
@@ -122,6 +123,8 @@ export default function ProfileScreen({api, authState, username, onBack, onMessa
 	const [error, setError] = useState<string | null>(null);
 	const [friendBusy, setFriendBusy] = useState(false);
 	const [blocking, setBlocking] = useState(false);
+	const [pokeBusy, setPokeBusy] = useState(false);
+	const [pokeStatus, setPokeStatus] = useState<string | null>(null);
 	const [unreadNotifications, setUnreadNotifications] = useState(0);
 	const isOwn = !username;
 
@@ -171,6 +174,28 @@ export default function ProfileScreen({api, authState, username, onBack, onMessa
 			// state left as-is on failure — never optimistically flipped before the server confirms
 		} finally {
 			setFriendBusy(false);
+		}
+	}
+
+	/**
+	 * MAX BUILD — closes a real gap found by an orphan-method sweep:
+	 * api.pokeUser() (real POST /poke/{guid}, OssnPoke::addPoke(), a
+	 * real notification for the target — see poke.php) was always a
+	 * real, working client method with zero UI caller anywhere.
+	 * Server-side cooldown (429, one real poke per pair per 24h,
+	 * poke.php) is surfaced honestly rather than silently swallowed.
+	 */
+	async function handlePoke() {
+		if (!profile?.guid) return;
+		setPokeBusy(true);
+		setPokeStatus(null);
+		try {
+			await api.pokeUser(profile.guid);
+			setPokeStatus('Отправлено!');
+		} catch (e) {
+			setPokeStatus(e instanceof BerxApiError && e.code === 'rate_limited' ? 'Вы уже толкали этого пользователя недавно' : 'Не удалось отправить');
+		} finally {
+			setPokeBusy(false);
 		}
 	}
 
@@ -302,6 +327,13 @@ export default function ProfileScreen({api, authState, username, onBack, onMessa
 						onPress={toggleFriend}
 						fullWidth
 					/>
+				</View>
+			) : null}
+
+			{!isOwn && profile.guid ? (
+				<View style={styles.actionRow}>
+					<BerxButton label="👋 Толкнуть" variant="secondary" loading={pokeBusy} onPress={handlePoke} fullWidth />
+					{pokeStatus ? <Text style={styles.pokeStatus}>{pokeStatus}</Text> : null}
 				</View>
 			) : null}
 
@@ -493,6 +525,7 @@ const styles = StyleSheet.create({
 	username: {color: colors.textDim, fontSize: typography.sizeBase, marginTop: 2},
 	joined: {color: colors.textFaint, fontSize: typography.sizeXs, marginTop: spacing.sm},
 	mutualFriends: {color: colors.accent, fontSize: typography.sizeSm, marginTop: spacing.xs, fontWeight: typography.weightMedium},
+	pokeStatus: {color: colors.textDim, fontSize: typography.sizeXs, textAlign: 'center', marginTop: spacing.xs},
 	reputationRow: {flexDirection: 'row', gap: spacing.lg, marginTop: spacing.sm},
 	reputationStat: {alignItems: 'center'},
 	reputationValue: {color: colors.accent, fontSize: typography.sizeBase, fontWeight: typography.weightBold},
