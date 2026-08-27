@@ -770,6 +770,11 @@ export class BerxApiClient {
 		return this.request<{status: string}>(`/conversations/${otherGuid}/messages/${messageId}`, {method: 'DELETE'});
 	}
 
+	/** Real, sender-only message edit (OssnMessages::editMessage()) — real 403 if the caller didn't write the message. */
+	async editMessage(otherGuid: number, messageId: number, text: string): Promise<{status: string}> {
+		return this.request<{status: string}>(`/conversations/${otherGuid}/messages/${messageId}`, {method: 'PATCH', body: {text}});
+	}
+
 	async getTypingStatus(otherGuid: number): Promise<{typing: boolean}> {
 		return this.request<{typing: boolean}>(`/conversations/${otherGuid}/typing`);
 	}

@@ -7,11 +7,16 @@
  * server-side participant check. Realtime is POLLING, not a socket —
  * no WebSocket infrastructure exists in BERX yet, so typing status
  * refreshes on an interval and that limitation is disclosed rather
- * than dressed up as live. Message editing still does not exist in
- * the OSSN core and is therefore still absent, not stubbed.
+ * than dressed up as live.
+ *
+ * MAX BUILD — real message editing (OssnMessages::editMessage(),
+ * sender-only) closes what was previously a real, honestly-disclosed
+ * gap. Long-press on your own message now offers Изменить/Удалить
+ * instead of deleting immediately; an edited message always shows
+ * "(изменено)" — never a silent rewrite of what was actually said.
  */
 import {useCallback, useEffect, useRef, useState} from 'react';
-import {FlatList, Text, View, Pressable, StyleSheet} from 'react-native';
+import {FlatList, Text, View, Pressable, Alert, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxMessage} from '@berx/api/types';
 import {relativeTimeLabel} from '@berx/domain';
@@ -39,6 +44,7 @@ export default function ConversationScreen({api, myGuid, otherGuid, otherUsernam
 	const listRef = useRef<FlatList<BerxMessage>>(null);
 	const [otherTyping, setOtherTyping] = useState(false);
 	const [deletingId, setDeletingId] = useState<number | null>(null);
+	const [editingId, setEditingId] = useState<number | null>(null);
 
 	const load = useCallback(async () => {
 		try {
@@ -107,23 +113,50 @@ export default function ConversationScreen({api, myGuid, otherGuid, otherUsernam
 		}
 	}
 
+	function startEdit(item: BerxMessage) {
+		setEditingId(item.id);
+		setDraft(item.text);
+		setSendError(null);
+	}
+
+	function cancelEdit() {
+		setEditingId(null);
+		setDraft('');
+	}
+
+	/** Real menu — Изменить only offered for the caller's own messages (server also re-checks: editMessage() is sender-only). */
+	function handleLongPress(item: BerxMessage) {
+		const options: Array<{text: string; style?: 'cancel' | 'destructive'; onPress?: () => void}> = [];
+		if (item.from_guid === myGuid) {
+			options.push({text: 'Изменить', onPress: () => startEdit(item)});
+		}
+		options.push({text: 'Удалить', style: 'destructive', onPress: () => handleDeleteMessage(item.id)});
+		options.push({text: 'Отмена', style: 'cancel'});
+		Alert.alert('Сообщение', undefined, options);
+	}
+
 	async function handleSend() {
 		const text = draft.trim();
 		if (!text) return;
 		setSending(true);
 		setSendError(null);
 		try {
-			await api.sendMessage(otherGuid, text);
+			if (editingId !== null) {
+				await api.editMessage(otherGuid, editingId, text);
+				setEditingId(null);
+			} else {
+				await api.sendMessage(otherGuid, text);
+				api.setTypingStatus(otherGuid, false).catch(() => undefined);
+			}
 			setDraft('');
-			api.setTypingStatus(otherGuid, false).catch(() => undefined);
 			// Server-confirmed, not optimistic: re-fetch the real thread
 			// rather than locally appending a guessed message object —
 			// the API's send response is just {status:string}, it
-			// doesn't echo back the created message's real id/time, so
-			// there's nothing honest to construct locally.
+			// doesn't echo back the created/edited message's real fields,
+			// so there's nothing honest to construct locally.
 			await load();
 		} catch {
-			setSendError('Не удалось отправить. Возможно, вы заблокированы.');
+			setSendError(editingId !== null ? 'Не удалось изменить сообщение.' : 'Не удалось отправить. Возможно, вы заблокированы.');
 		} finally {
 			setSending(false);
 		}
@@ -145,17 +178,29 @@ export default function ConversationScreen({api, myGuid, otherGuid, otherUsernam
 					keyExtractor={(m: BerxMessage) => String(m.id)}
 					renderItem={({item}: {item: BerxMessage}) => (
 						<Pressable
-							onLongPress={() => handleDeleteMessage(item.id)}
+							onLongPress={() => handleLongPress(item)}
 							disabled={deletingId === item.id}
-							style={[styles.bubble, item.from_guid === myGuid ? styles.bubbleMine : styles.bubbleTheirs, deletingId === item.id && styles.bubbleDeleting]}>
+							style={[styles.bubble, item.from_guid === myGuid ? styles.bubbleMine : styles.bubbleTheirs, deletingId === item.id && styles.bubbleDeleting, editingId === item.id && styles.bubbleEditing]}>
 							<Text style={styles.bubbleText}>{item.text}</Text>
-							<Text style={styles.bubbleTime}>{relativeTimeLabel(item.time)}</Text>
+							<Text style={styles.bubbleTime}>
+								{relativeTimeLabel(item.time)}
+								{item.edited ? ' · изменено' : ''}
+							</Text>
 						</Pressable>
 					)}
 				/>
 			)}
 
 			{otherTyping ? <Text style={styles.typingHint}>печатает…</Text> : null}
+
+			{editingId !== null ? (
+				<View style={styles.editingRow}>
+					<Text style={styles.editingHint}>Редактирование сообщения</Text>
+					<Pressable onPress={cancelEdit} hitSlop={8}>
+						<Text style={styles.editingCancel}>Отмена</Text>
+					</Pressable>
+				</View>
+			) : null}
 
 			<View style={styles.composer}>
 				<BerxInput
@@ -165,7 +210,7 @@ export default function ConversationScreen({api, myGuid, otherGuid, otherUsernam
 					onChangeText={handleDraftChange}
 					multiline
 				/>
-				<BerxButton label="Отправить" onPress={handleSend} loading={sending} disabled={!draft.trim()} />
+				<BerxButton label={editingId !== null ? 'Сохранить' : 'Отправить'} onPress={handleSend} loading={sending} disabled={!draft.trim()} />
 			</View>
 			{sendError ? <Text style={styles.sendError}>{sendError}</Text> : null}
 		</View>
@@ -192,7 +237,11 @@ const styles = StyleSheet.create({
 		borderColor: colors.borderSoft,
 	},
 	bubbleDeleting: {opacity: 0.4},
+	bubbleEditing: {borderWidth: 2, borderColor: colors.accent},
 	typingHint: {color: colors.textFaint, fontSize: typography.sizeXs, paddingHorizontal: spacing.md, paddingBottom: spacing.xs},
+	editingRow: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.md, paddingTop: spacing.xs},
+	editingHint: {color: colors.accent, fontSize: typography.sizeXs, fontWeight: typography.weightMedium},
+	editingCancel: {color: colors.textFaint, fontSize: typography.sizeXs, textDecorationLine: 'underline'},
 	bubbleText: {color: colors.text, fontSize: typography.sizeBase},
 	bubbleTime: {color: colors.textFaint, fontSize: typography.sizeXs, marginTop: spacing.xs},
 	composer: {

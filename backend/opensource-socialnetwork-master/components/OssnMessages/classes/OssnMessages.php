@@ -423,6 +423,44 @@ class OssnMessages extends OssnEntities {
 				return false;
 		}
 		/**
+		 * MAX BUILD -- real message editing (closes a real, previously
+		 * honestly-disclosed gap -- confirmed no edit/update-message
+		 * method existed anywhere in this codebase before adding one).
+		 * Sender-only, unlike delete (which either participant can do to
+		 * their own view) -- editing implies authorship, so only the
+		 * person who actually wrote the message can change it.
+		 * `edited`/`time_edited` are real, always-set disclosure fields --
+		 * never a silent rewrite of message history.
+		 *
+		 * @return string 'ok'|'not_found'|'forbidden'|'invalid'
+		 */
+		public function editMessage($id, $actingGuid, $newText) {
+				$message = $this->getMessage($id);
+				if (!$message) {
+						return 'not_found';
+				}
+				if (intval($message->message_from) !== intval($actingGuid)) {
+						return 'forbidden';
+				}
+				$newText = trim(strip_tags((string) $newText));
+				if ($newText === '') {
+						return 'invalid';
+				}
+				$ok = $this->update(array(
+						'table'  => 'ossn_messages',
+						'names'  => array('message', 'edited', 'time_edited'),
+						'values' => array($newText, 1, time()),
+						'wheres' => array(
+								array(
+										'name'       => 'id',
+										'comparator' => '=',
+										'value'      => intval($id),
+								),
+						),
+				));
+				return $ok ? 'ok' : 'invalid';
+		}
+		/**
 		 * Delete users all messages.
 		 * This will also delete someone else message to this user.
 		 *

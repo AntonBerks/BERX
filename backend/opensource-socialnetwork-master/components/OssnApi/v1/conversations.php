@@ -4,15 +4,23 @@
  * OssnMessages + MessageTyping classes. Realtime is POLLING, not a
  * socket — no WebSocket infrastructure exists in BERX (see
  * docs/BERX_API_V1_IMPLEMENTATION_PLAN.md §7, "Phase 2" deferred).
+ *
+ * MAX BUILD — real message editing (OssnMessages::editMessage()) now
+ * exists, closing what was previously a real, honestly-disclosed gap
+ * (ConversationScreen.tsx's own header used to say editing "does not
+ * exist in the OSSN core"). Sender-only, real edited/time_edited
+ * disclosure fields, never a silent rewrite.
  */
 
 function ossn_api_message_json($row) {
 	return array(
-		'id'        => intval($row->id),
-		'from_guid' => intval($row->message_from),
-		'to_guid'   => intval($row->message_to),
-		'text'      => (string) $row->message,
-		'time'      => intval($row->time),
+		'id'          => intval($row->id),
+		'from_guid'   => intval($row->message_from),
+		'to_guid'     => intval($row->message_to),
+		'text'        => (string) $row->message,
+		'time'        => intval($row->time),
+		'edited'      => !empty($row->edited),
+		'time_edited' => $row->time_edited !== null ? intval($row->time_edited) : null,
 	);
 }
 
@@ -86,6 +94,24 @@ if ($segment0 !== null && $segment1 === 'read' && $method === 'POST') {
 	// Marks the OTHER user's messages TO ME as read — real markViewed()
 	// semantics: ($from=$segment0, $to=me).
 	$messages->markViewed(intval($segment0), $api_user_guid);
+	ossn_api_json(array('status' => 'ok'));
+}
+
+if ($segment0 !== null && $segment1 === 'messages' && $segment2 !== null && $method === 'PATCH') {
+	$text = input('text');
+	if (!$text) {
+		ossn_api_error('validation_error', 'text is required', 422);
+	}
+	$result = $messages->editMessage(intval($segment2), $api_user_guid, $text);
+	if ($result === 'not_found') {
+		ossn_api_error('not_found', 'Message not found', 404);
+	}
+	if ($result === 'forbidden') {
+		ossn_api_error('forbidden', 'Not your message', 403);
+	}
+	if ($result === 'invalid') {
+		ossn_api_error('validation_error', 'Invalid text', 422);
+	}
 	ossn_api_json(array('status' => 'ok'));
 }
 
