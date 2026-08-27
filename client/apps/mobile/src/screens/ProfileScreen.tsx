@@ -83,6 +83,7 @@ interface Props {
 	onOpenWrapped?: () => void;
 	onOpenDatingPrivacy?: () => void;
 	onOpenDatingProfile?: () => void;
+	onOpenDatingPhotos?: () => void;
 	onOpenCommunities?: () => void;
 	onOpenDating?: () => void;
 	onOpenPlaces?: () => void;
@@ -111,7 +112,7 @@ function joinedYear(unixSeconds?: number): string | null {
 	return new Date(unixSeconds * 1000).getFullYear().toString();
 }
 
-export default function ProfileScreen({api, authState, username, onBack, onMessage, onOpenNotifications, onOpenPoints, onOpenMissions, onOpenLifeGraph, onOpenMemories, onOpenWrapped, onOpenDatingPrivacy, onOpenDatingProfile, onOpenCommunities, onOpenDating, onOpenPlaces, onOpenEvents, onOpenSettings, onOpenBERXWorld, onOpenAlbums, onOpenCollections, onOpenTrips, onOpenExperiences, onOpenCreatorProfile, onOpenCreatorSettings, onOpenMyVideos, onOpenMyTracks, onOpenSavedPosts, onOpenEditProfile, onOpenAdminUnvalidated, onOpenAdminReports, onReport}: Props) {
+export default function ProfileScreen({api, authState, username, onBack, onMessage, onOpenNotifications, onOpenPoints, onOpenMissions, onOpenLifeGraph, onOpenMemories, onOpenWrapped, onOpenDatingPrivacy, onOpenDatingProfile, onOpenDatingPhotos, onOpenCommunities, onOpenDating, onOpenPlaces, onOpenEvents, onOpenSettings, onOpenBERXWorld, onOpenAlbums, onOpenCollections, onOpenTrips, onOpenExperiences, onOpenCreatorProfile, onOpenCreatorSettings, onOpenMyVideos, onOpenMyTracks, onOpenSavedPosts, onOpenEditProfile, onOpenAdminUnvalidated, onOpenAdminReports, onReport}: Props) {
 	const [profile, setProfile] = useState<ProfileData | null>(null);
 	const [identity, setIdentity] = useState<BerxIdentity | null>(null);
 	const [loading, setLoading] = useState(true);
@@ -368,6 +369,7 @@ export default function ProfileScreen({api, authState, username, onBack, onMessa
 					<View style={styles.menuGroup}>
 						{onOpenDating ? <MenuRow label="Discover" icon={<IconHeart size={18} color={colors.text} />} onPress={onOpenDating} isFirst /> : null}
 						{onOpenDatingProfile ? <MenuRow label="Анкета" icon={<IconHeart size={18} color={colors.text} />} onPress={onOpenDatingProfile} /> : null}
+						{onOpenDatingPhotos ? <MenuRow label="Приватные фото" icon={<IconLock size={18} color={colors.text} />} onPress={onOpenDatingPhotos} /> : null}
 						{onOpenDatingPrivacy ? <MenuRow label="Приватность" icon={<IconLock size={18} color={colors.text} />} onPress={onOpenDatingPrivacy} isLast /> : null}
 					</View>
 

@@ -1,10 +1,16 @@
 <?php
 /**
  * BERX API v1 — Dating / Match. Wraps the new, real OssnDating class.
- * Photo UPLOAD is deliberately not exposed here — client.ts has no
- * corresponding method yet (only list/delete of already-uploaded
- * photos), so nothing here would be reachable; added the same day a
- * real client method ships, not before.
+ *
+ * MAX BUILD — photo upload/streaming/cross-user-listing are now real
+ * (OssnDating::addPhoto()/storagePath(), matching the comment this
+ * file previously carried — "added the same day a real client method
+ * ships"). GET .../media is private-by-default and token-gated: this
+ * whole resource already requires a valid bearer token before this
+ * file is even included (not on the dispatcher's public whitelist),
+ * and the real per-photo access check still happens via
+ * canViewPhoto() (owner OR a real granted access row) — same model as
+ * stories.php's own media route.
  */
 
 function ossn_api_dating_card_json($row) {
@@ -90,7 +96,7 @@ if ($segment0 === 'unmatch' && $method === 'POST') {
 	ossn_api_json(array('status' => $ok ? 'ok' : 'not_matched'));
 }
 
-if ($segment0 === 'photos' && $method === 'GET') {
+if ($segment0 === 'photos' && !isset($segments[1]) && $method === 'GET') {
 	$rows = $model->ownPhotos($api_user_guid);
 	$out = array();
 	foreach ($rows as $row) {
@@ -104,7 +110,54 @@ if ($segment0 === 'photos' && $method === 'GET') {
 	ossn_api_json(array('photos' => $out));
 }
 
-if ($segment0 === 'photos' && isset($segments[1]) && $method === 'DELETE') {
+/**
+ * Another user's photo list — `can_view` is the real, per-photo
+ * canViewPhoto() result (owner is never the caller here, so this is
+ * always the "am I the owner OR do I hold a granted access row"
+ * check), not the client's guess. Never returns the file itself —
+ * only the id a client then requests /media or /photo-request with.
+ */
+if ($segment0 === 'photos' && isset($segments[1]) && $segments[1] === 'user' && isset($segments[2]) && $method === 'GET') {
+	$rows = $model->ownPhotos(intval($segments[2]));
+	$out = array();
+	foreach ($rows as $row) {
+		$out[] = array(
+			'id'        => intval($row->id),
+			'mime_type' => (string) $row->mime_type,
+			'can_view'  => $model->canViewPhoto($row, $api_user_guid),
+		);
+	}
+	ossn_api_json(array('photos' => $out));
+}
+
+if ($segment0 === 'photos' && $method === 'POST') {
+	if (!isset($_FILES['photo']) || !isset($_FILES['photo']['tmp_name'])) {
+		ossn_api_error('validation_error', 'photo file is required', 422);
+	}
+	$originalName = isset($_FILES['photo']['name']) ? (string) $_FILES['photo']['name'] : '';
+	$id = $model->addPhoto($api_user_guid, $_FILES['photo']['tmp_name'], $originalName);
+	if (!$id) {
+		ossn_api_error('upload_failed', 'Could not upload photo — check format (JPEG/PNG/WebP/GIF)', 422);
+	}
+	ossn_api_json(array('id' => intval($id)));
+}
+
+if ($segment0 === 'photos' && isset($segments[1]) && isset($segments[2]) && $segments[2] === 'media' && $method === 'GET') {
+	$photo = $model->getPhoto(intval($segments[1]));
+	if (!$photo || !$model->canViewPhoto($photo, $api_user_guid)) {
+		ossn_api_error('not_found', 'Photo not found', 404);
+	}
+	$path = $model->storagePath($photo);
+	if (!is_file($path)) {
+		ossn_api_error('not_found', 'Photo file missing', 404);
+	}
+	header('Content-Type: ' . $photo->mime_type);
+	header('Content-Length: ' . filesize($path));
+	readfile($path);
+	exit;
+}
+
+if ($segment0 === 'photos' && isset($segments[1]) && $segments[1] !== 'user' && !isset($segments[2]) && $method === 'DELETE') {
 	$ok = $model->deletePhoto(intval($segments[1]), $api_user_guid);
 	ossn_api_json(array('status' => $ok ? 'ok' : 'forbidden'));
 }
@@ -248,6 +301,28 @@ if ($segment0 === 'photo-requests' && $method === 'GET') {
 		}
 	}
 	ossn_api_json(array('requests' => $out));
+}
+
+/** MAX BUILD — real list backing a revoke UI; photo-revoke's access_id had no way to be discovered by the owner until now. */
+if ($segment0 === 'photo-access' && $method === 'GET') {
+	$rows = $model->listGrantedAccess($api_user_guid);
+	$out = array();
+	foreach ($rows as $row) {
+		$requester = ossn_user_by_guid($row->requester_guid);
+		if ($requester) {
+			$out[] = array(
+				'access_id' => intval($row->id),
+				'photo_id'  => intval($row->photo_id),
+				'requester' => array(
+					'guid'     => intval($requester->guid),
+					'username' => (string) $requester->username,
+					'fullname' => trim($requester->first_name . ' ' . $requester->last_name),
+					'icon'     => (string) $requester->iconURL()->large,
+				),
+			);
+		}
+	}
+	ossn_api_json(array('access' => $out));
 }
 
 ossn_api_error('not_found', 'Unknown dating action', 404);

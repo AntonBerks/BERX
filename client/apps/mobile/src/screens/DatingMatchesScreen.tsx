@@ -18,10 +18,11 @@ import {BerxHeader} from '../../../../packages/design-system/src/components/Berx
 interface Props {
 	api: BerxApiClient;
 	onOpenConversation: (otherGuid: number, otherUsername: string) => void;
+	onOpenPhotos?: (userGuid: number, username: string) => void;
 	onBack: () => void;
 }
 
-export default function DatingMatchesScreen({api, onOpenConversation, onBack}: Props) {
+export default function DatingMatchesScreen({api, onOpenConversation, onOpenPhotos, onBack}: Props) {
 	const [matches, setMatches] = useState<BerxDatingMatch[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
@@ -87,6 +88,11 @@ export default function DatingMatchesScreen({api, onOpenConversation, onBack}: P
 								<Text style={styles.name}>{item.fullname || item.username}</Text>
 								<Text style={styles.username}>@{item.username}</Text>
 							</View>
+							{onOpenPhotos ? (
+								<Pressable onPress={() => onOpenPhotos(item.guid, item.username)} hitSlop={8}>
+									<Text style={styles.photosLink}>Фото</Text>
+								</Pressable>
+							) : null}
 							<Pressable onPress={() => confirmUnmatch(item)} disabled={busyGuid === item.guid} hitSlop={8}>
 								<Text style={styles.unmatch}>{busyGuid === item.guid ? '…' : 'Разорвать'}</Text>
 							</Pressable>
@@ -105,4 +111,5 @@ const styles = StyleSheet.create({
 	name: {color: colors.text, fontSize: typography.sizeBase, fontWeight: typography.weightMedium},
 	username: {color: colors.textDim, fontSize: typography.sizeSm, marginTop: spacing.xs},
 	unmatch: {color: colors.danger, fontSize: typography.sizeSm},
+	photosLink: {color: colors.accent, fontSize: typography.sizeSm, marginRight: spacing.md},
 });

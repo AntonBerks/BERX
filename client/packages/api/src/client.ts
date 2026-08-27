@@ -20,6 +20,7 @@ import type {
 	BerxBusinessMoment,
 	BerxDatingOwnProfile,
 	BerxDatingOwnPhoto,
+	BerxDatingUserPhoto,
 	BerxDatingProfileCard,
 	BerxPlaceHours,
 	BerxOpeningInterval,
@@ -809,6 +810,35 @@ export class BerxApiClient {
 	/** Ownership re-checked server-side; the real underlying file is unlinked too, not just the DB row. */
 	async deleteOwnDatingPhoto(photoId: number): Promise<{status: string}> {
 		return this.request<{status: string}>(`/dating/photos/${photoId}`, {method: 'DELETE'});
+	}
+
+	/** Real byte-sniffed MIME validation server-side (JPEG/PNG/WebP/GIF only) — client-reported type is never trusted. */
+	async uploadOwnDatingPhoto(part: BerxFilePart, filename = 'photo.jpg'): Promise<{id: number}> {
+		return this.request<{id: number}>('/dating/photos', {
+			method: 'POST',
+			multipart: {files: [{field: 'photo', part, filename}]},
+		});
+	}
+
+	/** Real, per-photo `can_view` from the server (owner OR a real granted access row) — never guessed client-side. */
+	async userDatingPhotos(userGuid: number): Promise<{photos: BerxDatingUserPhoto[]}> {
+		return this.request<{photos: BerxDatingUserPhoto[]}>(`/dating/photos/user/${userGuid}`);
+	}
+
+	/**
+	 * Returns a fetch-ready URL, not the bytes — same pattern as
+	 * storyMediaUrl(): private and token-gated (dating.php's own
+	 * /media route re-checks canViewPhoto() on every request), so
+	 * callers attach the same auth headers via getAuthHeaders() when
+	 * actually fetching it (e.g. <Image source={{uri, headers}}>).
+	 */
+	datingPhotoUrl(photoId: number): string {
+		return `${this.baseUrl}/api/v1/dating/photos/${photoId}/media`;
+	}
+
+	/** Real list backing a revoke UI — without this, revokeDatingPhotoAccess() had no way to discover which access_ids exist to revoke. */
+	async grantedDatingPhotoAccess(): Promise<{access: BerxDatingPhotoRequest[]}> {
+		return this.request<{access: BerxDatingPhotoRequest[]}>('/dating/photo-access');
 	}
 
 	async datingLike(userGuid: number): Promise<{status: string; mutual: boolean}> {

@@ -33,6 +33,24 @@ class OssnDating extends OssnDatabase {
 
 	const VALID_PHOTO_ACCESS_POLICIES = array('nobody', 'mutual', 'anyone');
 
+	/**
+	 * MAX BUILD — real upload finally added (the ossn_dating_photos
+	 * table + list/delete existed, but no addPhoto() ever wrote a row
+	 * into it — see dating.php's own now-corrected header comment).
+	 * Images only (a private "dating photo" is a photo, not a video);
+	 * same real byte-sniffed finfo MIME detection and bare-random-
+	 * filename storage pattern as OssnStories::addStory() — this table
+	 * predates OssnFile/OssnMediaAssets the same way stories' table
+	 * does, confirmed by its own schema comment ("storage_name is a
+	 * randomised on-disk filename, never derivable from the photo id").
+	 */
+	const ALLOWED_PHOTO_MIME = array(
+		'image/jpeg' => 'jpg',
+		'image/png'  => 'png',
+		'image/webp' => 'webp',
+		'image/gif'  => 'gif',
+	);
+
 	/* ---------------- Profile ---------------- */
 
 	public function getProfile($guid) {
@@ -412,6 +430,49 @@ class OssnDating extends OssnDatabase {
 
 	/* ---------------- Photos ---------------- */
 
+	/**
+	 * $tmpPath must be a real PHP-uploaded tmp file
+	 * ($_FILES[...]['tmp_name']) for this exact request — verified via
+	 * is_uploaded_file(), never accepted as an arbitrary server path.
+	 * Real MIME is byte-sniffed, never trusted from the client-reported
+	 * Content-Type — same discipline as OssnStories::addStory().
+	 */
+	public function addPhoto($ownerGuid, $tmpPath, $originalName = '') {
+		$ownerGuid = intval($ownerGuid);
+		if (!$ownerGuid || !$tmpPath || !is_uploaded_file($tmpPath)) {
+			return false;
+		}
+		$finfo = finfo_open(FILEINFO_MIME_TYPE);
+		$mime = $finfo ? finfo_file($finfo, $tmpPath) : false;
+		if ($finfo) {
+			finfo_close($finfo);
+		}
+		if (!$mime || !isset(self::ALLOWED_PHOTO_MIME[$mime])) {
+			return false;
+		}
+
+		$ext = self::ALLOWED_PHOTO_MIME[$mime];
+		$storageName = bin2hex(random_bytes(16)) . '.' . $ext;
+		$dir = ossn_get_userdata("dating_photos/{$ownerGuid}/");
+		if (!is_dir($dir) && !mkdir($dir, 0755, true) && !is_dir($dir)) {
+			return false;
+		}
+		if (!move_uploaded_file($tmpPath, $dir . $storageName)) {
+			return false;
+		}
+
+		$id = $this->insert(array(
+			'into'   => self::PHOTOS_TABLE,
+			'names'  => array('owner_guid', 'storage_name', 'original_name', 'mime_type', 'time_created'),
+			'values' => array($ownerGuid, $storageName, $originalName !== '' ? mb_substr((string) $originalName, 0, 255, 'UTF-8') : null, $mime, time()),
+		));
+		return $id ? $this->getLastEntry() : false;
+	}
+
+	public function storagePath($photo) {
+		return ossn_get_userdata("dating_photos/{$photo->owner_guid}/{$photo->storage_name}");
+	}
+
 	public function ownPhotos($guid) {
 		$rows = $this->select(array(
 			'from'     => self::PHOTOS_TABLE,
@@ -499,6 +560,16 @@ class OssnDating extends OssnDatabase {
 			'from'     => self::PHOTO_ACCESS_TABLE,
 			'wheres'   => array(self::wheres('owner_guid', '=', intval($ownerGuid)), self::wheres('status', '=', 'pending')),
 			'order_by' => 'time_created DESC',
+		), true);
+		return (array) $rows;
+	}
+
+	/** Same shape as listIncomingRequests(), status='granted' — real list to drive a revoke UI, which had no way to know which access_ids exist to revoke. */
+	public function listGrantedAccess($ownerGuid) {
+		$rows = $this->select(array(
+			'from'     => self::PHOTO_ACCESS_TABLE,
+			'wheres'   => array(self::wheres('owner_guid', '=', intval($ownerGuid)), self::wheres('status', '=', 'granted')),
+			'order_by' => 'time_responded DESC',
 		), true);
 		return (array) $rows;
 	}

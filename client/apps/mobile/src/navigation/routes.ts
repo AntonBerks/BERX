@@ -34,6 +34,8 @@ export type BerxRouteName =
 	| 'CreateStory'
 	| 'Dating'
 	| 'DatingProfile'
+	| 'DatingPhotos'
+	| 'DatingUserPhotos'
 	| 'DatingMatch'
 	| 'DatingMatches'
 	| 'DatingPrivacy'
@@ -127,6 +129,8 @@ export interface BerxRouteParams {
 	DatingMatch: { otherGuid: number; otherUsername: string };
 	DatingMatches: undefined;
 	DatingProfile: undefined;
+	DatingPhotos: undefined;
+	DatingUserPhotos: { userGuid: number; username: string };
 	DatingPrivacy: undefined;
 	Settings: undefined;
 	DeviceSessions: undefined;
@@ -231,6 +235,11 @@ export const BERX_ROUTES: BerxRouteMeta[] = [
 	// from mobile at all (DatingDiscoverScreen's own error message
 	// pointed users to the website instead).
 	{ name: 'DatingProfile', connected: true },
+	// MAX BUILD — real private-photo upload/access system: photos had
+	// list/delete client methods with no upload endpoint at all until
+	// this batch (dating.php's own header comment said so explicitly).
+	{ name: 'DatingPhotos', connected: true },
+	{ name: 'DatingUserPhotos', connected: true },
 	{ name: 'DatingPrivacy', connected: true },
 	{ name: 'Settings', connected: true },
 	{ name: 'DeviceSessions', connected: true },

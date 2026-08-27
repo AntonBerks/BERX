@@ -228,6 +228,13 @@ export interface BerxDatingOwnPhoto {
 	time_created: number;
 }
 
+/** Another user's photo — never carries the file itself, only enough to request /media (if can_view) or send a real access request. */
+export interface BerxDatingUserPhoto {
+	id: number;
+	mime_type: string;
+	can_view: boolean;
+}
+
 export interface BerxDatingDiscoverResponse extends BerxPaginationMeta {
 	profiles: BerxDatingProfileCard[];
 }
