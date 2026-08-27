@@ -7,11 +7,16 @@
  * activation code server-side, validate against it. Never a
  * client-supplied code.
  *
- * Search is deliberately NOT exposed here: getUnvalidatedUSERS($search)
- * interpolates $search directly into a raw SQL LIKE clause with zero
- * escaping (confirmed by reading it) — a real, unfixed core-OSSN
- * injection risk if fed external input. Called here with no search
- * arg at all.
+ * BERX WORLD MAX BUILD — real fix: getUnvalidatedUSERS($search) used
+ * to interpolate $search directly into a raw SQL LIKE clause with
+ * zero escaping — a real, previously-disclosed core-OSSN injection
+ * primitive, reachable via the classic web admin search box
+ * (system/plugins/.../unvalidated.php). Fixed at the source
+ * (OssnUser::getUnvalidatedUSERS()) by delegating to searchUsers()'s
+ * own already-safe, parameterized 'keyword' path instead of hand-
+ * building wheres — confirmed real (bound `?` placeholders via
+ * OssnDatabase::wheres()/wheresGroup()) by reading buildWheresContent()
+ * directly before trusting it. Search is now real and exposed here.
  *
  * MAX BUILD — real fix: this used to gate on ossn_isAdminLoggedin(),
  * which reads $_SESSION['OSSN_USER'] — but this dispatcher never
@@ -29,7 +34,8 @@ if (!ossn_api_is_admin($api_user_guid)) {
 $segment0 = isset($segments[0]) ? $segments[0] : null; // 'unvalidated' | 'validate'
 
 if ($segment0 === 'unvalidated' && $method === 'GET') {
-	$rows = (new OssnUser())->getUnvalidatedUSERS();
+	$q = input('q');
+	$rows = (new OssnUser())->getUnvalidatedUSERS($q ? $q : '');
 	$out = array();
 	if ($rows) {
 		foreach ($rows as $row) {

@@ -1065,20 +1065,28 @@ class OssnUser extends OssnEntities {
 		 *
 		 * @return false|object
 		 */
+		/**
+		 * MAX BUILD -- real fix: this used to interpolate $search directly
+		 * into a raw SQL LIKE fragment with zero escaping (a genuine SQL
+		 * injection primitive, reachable from the classic web admin
+		 * search box), documented as a known unresolved issue in
+		 * BERX_PROGRESS.md rather than routed around. searchUsers()
+		 * already has a real, safe, parameterized 'keyword' path (bound
+		 * `?` placeholders via OssnDatabase::wheres()/wheresGroup() --
+		 * confirmed by reading buildWheresContent() directly) that this
+		 * method simply never used. Delegating to it instead of hand-
+		 * building wheres closes the injection without touching
+		 * searchUsers()'s own already-correct query-building code.
+		 */
 		public function getUnvalidatedUSERS($search = '', $count = false) {
+				$params = array(
+						'wheres' => array("activation <> ''"),
+				);
 				if($count) {
 						$params['count'] = true;
 				}
-				if(empty($search)) {
-						$params['wheres'] = array(
-								"activation <> ''",
-						);
-				} else {
-						$params['wheres'] = array(
-								"activation <> ''",
-								"CONCAT(first_name, ' ', last_name) LIKE '%$search%' AND activation <> '' OR
-					 		 username LIKE '%$search%' AND activation <> '' OR email LIKE '%$search%' AND activation <> ''",
-						);
+				if(!empty($search)) {
+						$params['keyword'] = $search;
 				}
 				$users = $this->searchUsers($params);
 				if($users) {

@@ -1138,8 +1138,9 @@ export class BerxApiClient {
 	// comment in admin.php for the real SQL-injection reason.
 	// ---------------------------------------------------------------
 
-	async unvalidatedUsers(): Promise<{users: BerxUnvalidatedUser[]}> {
-		return this.request<{users: BerxUnvalidatedUser[]}>('/admin/unvalidated');
+	/** BERX WORLD MAX BUILD — `q` is real now: the underlying getUnvalidatedUSERS() SQL-injection primitive was fixed server-side (delegated to searchUsers()'s already-safe parameterized 'keyword' path), so this no longer has to withhold search from the API. */
+	async unvalidatedUsers(q?: string): Promise<{users: BerxUnvalidatedUser[]}> {
+		return this.request<{users: BerxUnvalidatedUser[]}>(q ? `/admin/unvalidated?q=${encodeURIComponent(q)}` : '/admin/unvalidated');
 	}
 
 	async validateUsers(guids: number[]): Promise<{results: Record<string, string>}> {

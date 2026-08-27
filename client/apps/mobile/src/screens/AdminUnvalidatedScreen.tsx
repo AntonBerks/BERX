@@ -3,10 +3,15 @@
  * Real data: api.unvalidatedUsers()/validateUsers() (components/
  * OssnApi/v1/admin.php). Server re-checks ossn_isAdminLoggedin() on
  * every call — reachability of this screen doesn't imply the caller
- * can act. Deliberately no search field: the underlying
- * getUnvalidatedUSERS($search) has a real, disclosed SQL-injection
- * bug in core (see admin.php's header comment) — this screen never
- * forwards a search parameter, matching the API's own restriction.
+ * can act.
+ *
+ * BERX WORLD MAX BUILD — real search box added: the underlying
+ * getUnvalidatedUSERS($search) SQL-injection primitive that made this
+ * screen deliberately withhold a search parameter is now fixed server-
+ * side (OssnUser::getUnvalidatedUSERS() delegates to searchUsers()'s
+ * already-safe, parameterized 'keyword' path instead of hand-building
+ * raw SQL), so the restriction this screen previously documented no
+ * longer applies.
  */
 import {useCallback, useEffect, useState} from 'react';
 import {View, Text, FlatList, StyleSheet} from 'react-native';
@@ -14,6 +19,7 @@ import type {BerxApiClient} from '@berx/api/client';
 import type {BerxUnvalidatedUser} from '@berx/api/types';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
+import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
 
@@ -24,6 +30,7 @@ interface Props {
 
 export default function AdminUnvalidatedScreen({api, onBack}: Props) {
 	const [items, setItems] = useState<BerxUnvalidatedUser[]>([]);
+	const [q, setQ] = useState('');
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 	const [busyGuid, setBusyGuid] = useState<number | null>(null);
@@ -32,18 +39,19 @@ export default function AdminUnvalidatedScreen({api, onBack}: Props) {
 		setLoading(true);
 		setError(null);
 		try {
-			const res = await api.unvalidatedUsers();
+			const res = await api.unvalidatedUsers(q || undefined);
 			setItems(res.users);
 		} catch (e) {
 			setError(e instanceof Error ? e.message : 'Не удалось загрузить список');
 		} finally {
 			setLoading(false);
 		}
-	}, [api]);
+	}, [api, q]);
 
 	useEffect(() => {
 		load();
-	}, [load]);
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, []);
 
 	async function validate(guid: number) {
 		setBusyGuid(guid);
@@ -57,14 +65,21 @@ export default function AdminUnvalidatedScreen({api, onBack}: Props) {
 		}
 	}
 
-	if (loading) return <BerxLoadingState />;
-	if (error && items.length === 0) return <BerxErrorState message={error} onRetry={load} />;
-
 	return (
 		<View style={styles.screen}>
 			<BerxHeader title="Неподтверждённые пользователи" onBack={onBack} />
-			{items.length === 0 ? (
-				<BerxEmptyState title="Все пользователи подтверждены" />
+			<View style={styles.searchRow}>
+				<View style={styles.searchInput}>
+					<BerxInput placeholder="Поиск по имени, логину, email" value={q} onChangeText={setQ} onSubmitEditing={load} autoCapitalize="none" />
+				</View>
+				<BerxButton label="Найти" loading={loading} onPress={load} />
+			</View>
+			{loading ? (
+				<BerxLoadingState />
+			) : error && items.length === 0 ? (
+				<BerxErrorState message={error} onRetry={load} />
+			) : items.length === 0 ? (
+				<BerxEmptyState title={q ? 'Никого не найдено' : 'Все пользователи подтверждены'} />
 			) : (
 				<FlatList
 					data={items}
@@ -87,6 +102,8 @@ export default function AdminUnvalidatedScreen({api, onBack}: Props) {
 
 const styles = StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.bg},
+	searchRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.md, paddingBottom: spacing.sm},
+	searchInput: {flex: 1},
 	list: {padding: spacing.md, gap: spacing.sm},
 	row: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.surface, borderRadius: radius.md, padding: spacing.md, marginBottom: spacing.sm},
 	info: {flex: 1, gap: 2},
