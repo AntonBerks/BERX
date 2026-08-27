@@ -539,6 +539,10 @@ function RouteRenderer({name, params}: {name: BerxRouteName; params: unknown}) {
 					onOpenInvite={(guid) => nav.push('EventInvite', {guid})}
 					onAddToCollection={() => nav.push('AddToCollection', {itemType: 'event', itemGuid: p.guid})}
 					onAddEventStory={(eventGuid) => nav.push('CreateStory', {eventGuid})}
+					onOpenStoryGroup={(group) => {
+						currentStoryGroup = group;
+						nav.push('StoryViewer', undefined);
+					}}
 					onEdit={() => nav.push('EditEvent', {guid: p.guid})}
 					onBack={nav.pop}
 				/>

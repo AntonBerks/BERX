@@ -9,11 +9,22 @@
  * Future UI pass: body gets a real BerxFadeIn entrance, and the
  * "friends going" row (Experience Graph signal) moves onto a
  * BerxGlassSurface strip, mirroring PlaceDetailScreen's treatment.
+ *
+ * MAX BUILD — closes a real gap: api.eventStories() was always a
+ * real, working client method (GET /stories/event/{guid}, real
+ * OssnStories::listForEvent()) with zero UI caller — a real event
+ * story could be created via onAddEventStory() but never actually
+ * seen again from the event itself. Grouped client-side by owner into
+ * the same BerxStoryFeedGroup shape StoriesRailScreen already builds
+ * (eventStories() returns a flat, already-mixed-owner list, unlike
+ * the feed's own per-owner grouping) and opened through the exact
+ * same currentStoryGroup + 'StoryViewer' route AppShell already uses
+ * for the main Stories rail — no new viewer, no duplicated logic.
  */
 import {useCallback, useEffect, useState} from 'react';
-import {View, Text, ScrollView, Image, FlatList, StyleSheet} from 'react-native';
+import {View, Text, ScrollView, Image, FlatList, Pressable, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
-import type {BerxEvent, BerxEventAttendee, BerxExperienceGraphFriend} from '@berx/api/types';
+import type {BerxEvent, BerxEventAttendee, BerxExperienceGraphFriend, BerxEventStoryItem, BerxStoryFeedGroup} from '@berx/api/types';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
@@ -31,11 +42,23 @@ interface Props {
 	onOpenInvite: (guid: number) => void;
 	onAddToCollection?: () => void;
 	onAddEventStory?: (eventGuid: number) => void;
+	onOpenStoryGroup?: (group: BerxStoryFeedGroup) => void;
 	onEdit?: () => void;
 	onBack?: () => void;
 }
 
-export default function EventDetailScreen({api, guid, myGuid, onOpenPlace, onOpenInvite, onAddToCollection, onAddEventStory, onEdit, onBack}: Props) {
+function groupStoriesByOwner(items: BerxEventStoryItem[]): BerxStoryFeedGroup[] {
+	const byOwner = new Map<number, BerxStoryFeedGroup>();
+	for (const item of items) {
+		if (!byOwner.has(item.owner_guid)) {
+			byOwner.set(item.owner_guid, {owner_guid: item.owner_guid, owner_username: item.owner_username, stories: []});
+		}
+		byOwner.get(item.owner_guid)!.stories.push({id: item.id, caption: item.caption, time_created: item.time_created, mime_type: item.mime_type});
+	}
+	return Array.from(byOwner.values());
+}
+
+export default function EventDetailScreen({api, guid, myGuid, onOpenPlace, onOpenInvite, onAddToCollection, onAddEventStory, onOpenStoryGroup, onEdit, onBack}: Props) {
 	const [event, setEvent] = useState<BerxEvent | null>(null);
 	const [attendees, setAttendees] = useState<BerxEventAttendee[]>([]);
 	const [loading, setLoading] = useState(true);
@@ -43,6 +66,8 @@ export default function EventDetailScreen({api, guid, myGuid, onOpenPlace, onOpe
 	const [rsvping, setRsvping] = useState(false);
 	const [rsvpError, setRsvpError] = useState<string | null>(null);
 	const [friendsGoing, setFriendsGoing] = useState<BerxExperienceGraphFriend[]>([]);
+	const [storyGroups, setStoryGroups] = useState<BerxStoryFeedGroup[]>([]);
+	const [authHeaders, setAuthHeaders] = useState<Record<string, string>>({});
 
 	const load = useCallback(async () => {
 		setLoading(true);
@@ -53,6 +78,8 @@ export default function EventDetailScreen({api, guid, myGuid, onOpenPlace, onOpe
 			setAttendees(a.attendees);
 			// Experience Graph — best-effort, never blocks the event itself.
 			api.eventExperienceGraph(guid).then((g) => setFriendsGoing(g.friends_going)).catch(() => undefined);
+			api.eventStories(guid).then((s) => setStoryGroups(groupStoriesByOwner(s.stories))).catch(() => undefined);
+			api.getAuthHeaders().then(setAuthHeaders).catch(() => undefined);
 		} catch (e2) {
 			setError(e2 instanceof Error ? e2.message : 'Не удалось загрузить событие');
 		} finally {
@@ -145,6 +172,31 @@ export default function EventDetailScreen({api, guid, myGuid, onOpenPlace, onOpe
 					</BerxGlassSurface>
 				) : null}
 
+				{storyGroups.length > 0 && onOpenStoryGroup ? (
+					<View>
+						<Text style={styles.sectionTitle}>Истории с события</Text>
+						<FlatList
+							horizontal
+							showsHorizontalScrollIndicator={false}
+							data={storyGroups}
+							keyExtractor={(g: BerxStoryFeedGroup) => String(g.owner_guid)}
+							contentContainerStyle={styles.storyRow}
+							renderItem={({item}: {item: BerxStoryFeedGroup}) => (
+								<Pressable style={styles.storyItem} onPress={() => onOpenStoryGroup(item)}>
+									<View style={styles.storyRing}>
+										{item.stories[0].mime_type === 'video/mp4' ? (
+											<View style={styles.storyVideoFallback}><Text style={styles.storyVideoIcon}>▶</Text></View>
+										) : (
+											<Image source={{uri: api.storyMediaUrl(item.stories[0].id), headers: authHeaders}} style={styles.storyThumb} />
+										)}
+									</View>
+									<Text style={styles.storyName} numberOfLines={1}>{item.owner_username ?? `#${item.owner_guid}`}</Text>
+								</Pressable>
+							)}
+						/>
+					</View>
+				) : null}
+
 				<Text style={styles.sectionTitle}>Участники ({event.attendee_count})</Text>
 				<FlatList
 					horizontal
@@ -182,6 +234,13 @@ const styles = StyleSheet.create({
 	friendsHereRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginTop: spacing.sm},
 	friendHereItem: {marginLeft: -spacing.xs},
 	friendsHereLabel: {fontSize: typography.sizeSm, color: colors.textDim, marginLeft: spacing.sm},
+	storyRow: {gap: spacing.sm, paddingVertical: spacing.xs},
+	storyItem: {alignItems: 'center', width: 64, marginRight: spacing.sm},
+	storyRing: {width: 56, height: 56, borderRadius: 28, borderWidth: 2, borderColor: colors.accent, alignItems: 'center', justifyContent: 'center', overflow: 'hidden'},
+	storyThumb: {width: 50, height: 50, borderRadius: 25},
+	storyVideoFallback: {width: 50, height: 50, borderRadius: 25, backgroundColor: colors.graphite, alignItems: 'center', justifyContent: 'center'},
+	storyVideoIcon: {color: colors.white, fontSize: typography.sizeBase},
+	storyName: {fontSize: typography.sizeXs, color: colors.textDim, marginTop: 4},
 	attendee: {alignItems: 'center', width: 64, marginRight: spacing.sm},
 	attendeeIcon: {width: 48, height: 48, borderRadius: radius.pill, backgroundColor: colors.graphite},
 	attendeeName: {fontSize: typography.sizeXs, color: colors.textDim, marginTop: 4},
