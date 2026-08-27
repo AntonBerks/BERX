@@ -29,9 +29,19 @@
  * Profile screen rather than a new separate screen. Root View is now
  * a ScrollView: this section makes the page long enough that it
  * needed one (previously it didn't, on some accounts).
+ *
+ * MAX BUILD — real safety gap closed: block.php/OssnBlock and
+ * BlockedUsersScreen (view/unblock) were fully real, but no screen
+ * ever called api.blockUser() — there was no way to actually block
+ * someone from the app, only to manage an already-existing block.
+ * Added "Заблокировать" next to the existing "Пожаловаться" link for
+ * other users, with a real native confirm (Alert.alert, no new
+ * dependency) since it's a consequential action, then a real
+ * navigation back — no reason to keep viewing someone you just
+ * blocked.
  */
 import React, {useEffect, useState} from 'react';
-import {View, Text, Image, Pressable, ScrollView, StyleSheet} from 'react-native';
+import {View, Text, Image, Pressable, ScrollView, Alert, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxAuthState} from '@berx/auth';
 import type {BerxIdentity, BerxIdentityAchievement, BerxIdentityInterest} from '@berx/api/types';
@@ -100,6 +110,7 @@ export default function ProfileScreen({api, authState, username, onBack, onMessa
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 	const [friendBusy, setFriendBusy] = useState(false);
+	const [blocking, setBlocking] = useState(false);
 	const isOwn = !username;
 
 	async function load() {
@@ -146,6 +157,32 @@ export default function ProfileScreen({api, authState, username, onBack, onMessa
 		} finally {
 			setFriendBusy(false);
 		}
+	}
+
+	function handleBlock() {
+		if (!profile?.guid) return;
+		Alert.alert(
+			'Заблокировать пользователя?',
+			`${profile.fullname || profile.username} больше не сможет писать вам и видеть ваш профиль. Вы сможете отменить это в любой момент в настройках.`,
+			[
+				{text: 'Отмена', style: 'cancel'},
+				{
+					text: 'Заблокировать',
+					style: 'destructive',
+					onPress: async () => {
+						setBlocking(true);
+						try {
+							await api.blockUser(profile.guid!);
+							onBack?.();
+						} catch {
+							// real server rejection — nothing optimistic, user stays on the profile
+						} finally {
+							setBlocking(false);
+						}
+					},
+				},
+			]
+		);
 	}
 
 	if (loading) {
@@ -293,6 +330,14 @@ export default function ProfileScreen({api, authState, username, onBack, onMessa
 				</View>
 			) : null}
 
+			{!isOwn && profile.guid ? (
+				<View style={styles.actionRow}>
+					<Pressable onPress={handleBlock} hitSlop={8} disabled={blocking}>
+						<Text style={styles.blockLink}>{blocking ? 'Блокировка…' : 'Заблокировать пользователя'}</Text>
+					</Pressable>
+				</View>
+			) : null}
+
 			{!isOwn && profile.guid && onReport ? (
 				<View style={styles.actionRow}>
 					<Pressable onPress={() => onReport(profile.guid!)} hitSlop={8}>
@@ -410,6 +455,7 @@ const styles = StyleSheet.create({
 	reputationLabel: {color: colors.textFaint, fontSize: typography.sizeXs},
 	actionRow: {paddingHorizontal: spacing.xl},
 	reportLink: {color: colors.textFaint, fontSize: typography.sizeXs, textDecorationLine: 'underline', textAlign: 'center'},
+	blockLink: {color: colors.danger, fontSize: typography.sizeXs, textDecorationLine: 'underline', textAlign: 'center'},
 	menuList: {paddingHorizontal: spacing.xl, paddingTop: spacing.lg, gap: spacing.md},
 	sectionLabel: {color: colors.textFaint, fontSize: typography.sizeXs, marginBottom: spacing.xs, marginLeft: spacing.xs, textTransform: 'uppercase' as const, letterSpacing: 0.5},
 	menuGroup: {
