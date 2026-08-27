@@ -10,9 +10,13 @@
  * library is installable in this sandbox (npm blocked), so the
  * actual device picker is a separate piece that plugs into this
  * prop; this screen owns everything after a file is selected.
+ *
+ * MAX BUILD — real Delete Album (OssnAlbums::deleteAlbum(), zero
+ * prior UI caller anywhere in this codebase — only single-photo
+ * delete existed before this). Owner-only, confirmed before sending.
  */
 import {useCallback, useEffect, useState} from 'react';
-import {View, Text, FlatList, Image, Pressable, Dimensions, RefreshControl, StyleSheet} from 'react-native';
+import {View, Text, FlatList, Image, Pressable, Alert, Dimensions, RefreshControl, StyleSheet} from 'react-native';
 import type {BerxApiClient, BerxFilePart} from '@berx/api/client';
 import type {BerxAlbumDetail, BerxAlbumPhoto} from '@berx/api/types';
 import type {BerxAuthState} from '@berx/auth';
@@ -28,17 +32,19 @@ interface Props {
 	authState: BerxAuthState;
 	pickImage: () => Promise<BerxFilePart | null>;
 	onBack?: () => void;
+	onDeleted?: () => void;
 }
 
 const TILE = Dimensions.get('window').width / 3;
 
-export default function AlbumDetailScreen({api, guid, authState, pickImage, onBack}: Props) {
+export default function AlbumDetailScreen({api, guid, authState, pickImage, onBack, onDeleted}: Props) {
 	const [album, setAlbum] = useState<BerxAlbumDetail | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [refreshing, setRefreshing] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [uploading, setUploading] = useState(false);
 	const [busyGuid, setBusyGuid] = useState<number | null>(null);
+	const [deletingAlbum, setDeletingAlbum] = useState(false);
 
 	const myGuid = authState.getSnapshot().user?.guid;
 	const isOwn = !!album && !!myGuid && album.owner_guid === myGuid;
@@ -89,6 +95,33 @@ export default function AlbumDetailScreen({api, guid, authState, pickImage, onBa
 		}
 	}
 
+	function confirmDeleteAlbum() {
+		if (!album) return;
+		Alert.alert(
+			'Удалить альбом?',
+			'Все фотографии в этом альбоме будут удалены безвозвратно.',
+			[
+				{text: 'Отмена', style: 'cancel'},
+				{
+					text: 'Удалить',
+					style: 'destructive',
+					onPress: async () => {
+						setDeletingAlbum(true);
+						try {
+							await api.deleteAlbum(album.guid);
+							if (onDeleted) onDeleted();
+							else if (onBack) onBack();
+						} catch {
+							setError('Не удалось удалить альбом');
+						} finally {
+							setDeletingAlbum(false);
+						}
+					},
+				},
+			]
+		);
+	}
+
 	if (loading) return <BerxLoadingState />;
 	if (error && !album) return <BerxErrorState message={error} onRetry={load} />;
 	if (!album) return null;
@@ -100,6 +133,9 @@ export default function AlbumDetailScreen({api, guid, authState, pickImage, onBa
 				<View style={styles.toolbar}>
 					<BerxButton label="Добавить фото" variant="secondary" loading={uploading} onPress={handleAddPhoto} fullWidth />
 					{error ? <Text style={styles.error}>{error}</Text> : null}
+					<Pressable onPress={confirmDeleteAlbum} disabled={deletingAlbum} hitSlop={8}>
+						<Text style={styles.deleteAlbumLink}>{deletingAlbum ? 'Удаление…' : 'Удалить альбом'}</Text>
+					</Pressable>
 				</View>
 			) : null}
 			{album.photos.length === 0 ? (
@@ -144,4 +180,5 @@ const styles = StyleSheet.create({
 	tile: {width: TILE, height: TILE, backgroundColor: colors.graphite},
 	hint: {fontSize: typography.sizeXs, color: colors.textFaint, textAlign: 'center', padding: spacing.sm},
 	error: {fontSize: typography.sizeSm, color: colors.danger},
+	deleteAlbumLink: {fontSize: typography.sizeSm, color: colors.danger, textAlign: 'center', textDecorationLine: 'underline', marginTop: spacing.sm},
 });

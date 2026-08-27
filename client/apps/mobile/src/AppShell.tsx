@@ -496,7 +496,7 @@ function RouteRenderer({name, params}: {name: BerxRouteName; params: unknown}) {
 		}
 		case 'AlbumDetail': {
 			const p = params as {guid: number};
-			return <AlbumDetailScreen api={api} guid={p.guid} authState={authState} pickImage={pickImage} onBack={nav.pop} />;
+			return <AlbumDetailScreen api={api} guid={p.guid} authState={authState} pickImage={pickImage} onBack={nav.pop} onDeleted={nav.pop} />;
 		}
 		case 'CreateAlbum':
 			return (

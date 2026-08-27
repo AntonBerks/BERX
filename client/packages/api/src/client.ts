@@ -1417,6 +1417,11 @@ export class BerxApiClient {
 		return this.request<{status: string}>(`/albums/${albumGuid}/photos/${photoGuid}`, {method: 'DELETE'});
 	}
 
+	/** MAX BUILD — real Delete Album (OssnAlbums::deleteAlbum(), zero prior UI caller — also removes every photo in it server-side, not just the album row). Owner-or-admin only. */
+	async deleteAlbum(albumGuid: number): Promise<{status: string}> {
+		return this.request<{status: string}>(`/albums/${albumGuid}`, {method: 'DELETE'});
+	}
+
 	// ---------------------------------------------------------------
 	// Friends — components/OssnApi/v1/friend.php (send/remove) and
 	// friends.php (list, above). OSSN's real model is mutual

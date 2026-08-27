@@ -69,6 +69,33 @@ if ($segment0 !== null && $segment1 === null && $method === 'GET') {
 	ossn_api_json($out);
 }
 
+/**
+ * MAX BUILD -- real Delete Album. OssnAlbums::deleteAlbum() was
+ * always real (also cleans up every photo in it, wall posts, and
+ * notifications — confirmed by reading its full body) but had zero
+ * UI caller anywhere in this codebase; only single-photo delete
+ * existed before this. Needs the same real $_SESSION['OSSN_USER']
+ * bridge as AddPhoto() above (deleteAlbum() calls ossn_loggedin_user()
+ * internally) — ownership is still re-checked here first, at the API
+ * layer, before that bridge is ever set.
+ */
+if ($segment0 !== null && $segment1 === null && $method === 'DELETE') {
+	$detail = $model->GetAlbum(intval($segment0));
+	if (!$detail || !isset($detail->album)) {
+		ossn_api_error('not_found', 'Album not found', 404);
+	}
+	if (intval($detail->album->owner_guid) !== intval($api_user_guid) && !ossn_api_is_admin($api_user_guid)) {
+		ossn_api_error('forbidden', 'Not your album', 403);
+	}
+	$userModel = new OssnUser();
+	$userModel->guid = intval($api_user_guid);
+	$user = $userModel->getUser();
+	$_SESSION['OSSN_USER'] = $user;
+	$ok = $model->deleteAlbum(intval($segment0));
+	unset($_SESSION['OSSN_USER']);
+	ossn_api_json(array('status' => $ok ? 'ok' : 'delete_failed'));
+}
+
 if ($segment0 !== null && $segment1 === 'photos' && $segment2 === null && $method === 'POST') {
 	$access = input('access') === 'private' ? OSSN_PRIVATE : OSSN_PUBLIC;
 
