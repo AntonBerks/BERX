@@ -19,11 +19,18 @@
  * colors.graphite box — the PanResponder/Animated transform stays on
  * the outer Animated.View wrapper, unchanged, so the swipe gesture
  * behavior is identical.
+ *
+ * MAX BUILD — datingLike()/datingPass() now DO distinguish rate
+ * limiting (a real 429 'rate_limited', see OssnDating::
+ * isActionRateLimited()) from any other failure — the ambiguity this
+ * screen previously disclosed is closed; a real "slow down" message
+ * shows instead of a silent spring-back.
  */
 import React, {useRef, useState} from 'react';
 import {View, Text, Pressable, Animated, PanResponder, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxDatingProfileCard} from '@berx/api/types';
+import {BerxApiError} from '@berx/core';
 import {colors, spacing, radius, typography} from '@berx/design-system/tokens';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
@@ -43,6 +50,7 @@ export default function DatingDiscoverScreen({api, onMatch, onOpenMatches, onOpe
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 	const [acting, setActing] = useState(false);
+	const [actionMessage, setActionMessage] = useState<string | null>(null);
 	const position = useRef(new Animated.ValueXY()).current;
 
 	async function load() {
@@ -67,6 +75,7 @@ export default function DatingDiscoverScreen({api, onMatch, onOpenMatches, onOpe
 	async function resolveCard(direction: 'like' | 'pass') {
 		if (!current || acting) return;
 		setActing(true);
+		setActionMessage(null);
 		try {
 			if (direction === 'like') {
 				const res = await api.datingLike(current.guid);
@@ -78,13 +87,13 @@ export default function DatingDiscoverScreen({api, onMatch, onOpenMatches, onOpe
 			}
 			setProfiles((prev) => prev.slice(1));
 			position.setValue({x: 0, y: 0});
-		} catch {
-			// Real, honest limitation: neither datingLike/datingPass
-			// distinguishes "actually failed" from "rate limited" in a
-			// way this screen can show separately (see
-			// API_SECURITY_MATRIX.md — dating/interests has a real
-			// 30/60s limit). The card stays in place either way rather
-			// than silently disappearing on a failure.
+		} catch (e) {
+			// Real, distinct server verdict now (OssnDating::
+			// isActionRateLimited()) — shown as-is instead of a silent
+			// spring-back for every failure alike.
+			if (e instanceof BerxApiError && e.code === 'rate_limited') {
+				setActionMessage('Слишком много действий — подождите минуту');
+			}
 			Animated.spring(position, {toValue: {x: 0, y: 0}, useNativeDriver: true}).start();
 		} finally {
 			setActing(false);
@@ -164,6 +173,7 @@ export default function DatingDiscoverScreen({api, onMatch, onOpenMatches, onOpe
 				</BerxGlassSurface>
 			</Animated.View>
 
+			{actionMessage ? <Text style={styles.actionMessage}>{actionMessage}</Text> : null}
 			<View style={styles.actions}>
 				<BerxButton label="Пропустить" variant="secondary" onPress={() => resolveCard('pass')} disabled={acting} />
 				<BerxButton label="Нравится" onPress={() => resolveCard('like')} disabled={acting} />
@@ -222,6 +232,7 @@ const styles = StyleSheet.create({
 		borderRadius: radius.pill,
 	},
 	bio: {color: colors.textDim, fontSize: typography.sizeBase, marginTop: spacing.md, textAlign: 'center'},
+	actionMessage: {color: colors.textFaint, fontSize: typography.sizeXs, marginTop: spacing.sm},
 	actions: {
 		flexDirection: 'row',
 		gap: spacing.lg,

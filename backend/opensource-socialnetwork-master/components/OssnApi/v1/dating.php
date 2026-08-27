@@ -115,6 +115,13 @@ if ($segment0 === 'interests' && $method === 'POST') {
 		ossn_api_error('validation_error', 'user is required', 422);
 	}
 	$result = $model->like($api_user_guid, intval($other));
+	// MAX BUILD — real, distinguishable 429 now that isActionRateLimited()
+	// exists — previously every failure looked identical to the client
+	// (see DatingDiscoverScreen.tsx's own now-stale disclosed-limitation
+	// comment about this exact ambiguity).
+	if ($result['status'] === 'rate_limited') {
+		ossn_api_error('rate_limited', 'Too many dating actions — try again in a minute', 429);
+	}
 	ossn_api_json($result);
 }
 
@@ -123,8 +130,11 @@ if ($segment0 === 'pass' && $method === 'POST') {
 	if (!$other) {
 		ossn_api_error('validation_error', 'user is required', 422);
 	}
-	$ok = $model->pass($api_user_guid, intval($other));
-	ossn_api_json(array('status' => $ok ? 'ok' : 'failed'));
+	$result = $model->pass($api_user_guid, intval($other));
+	if ($result === 'rate_limited') {
+		ossn_api_error('rate_limited', 'Too many dating actions — try again in a minute', 429);
+	}
+	ossn_api_json(array('status' => $result === 'ok' ? 'ok' : 'failed'));
 }
 
 if ($segment0 === 'boost' && $method === 'POST') {

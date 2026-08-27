@@ -263,6 +263,40 @@ class OssnDating extends OssnDatabase {
 
 	/* ---------------- Like / pass / undo / matches ---------------- */
 
+	/**
+	 * MAX BUILD — a real rate limit. API_SECURITY_MATRIX.md's own row
+	 * for POST /dating/interests already claimed "✅ 30/60сек" and
+	 * DatingDiscoverScreen.tsx's own comment already relied on it
+	 * existing ("dating/interests has a real 30/60s limit") — but no
+	 * such mechanism existed anywhere in code, only in that
+	 * documentation. Closed with the same real, disclosed reasoning as
+	 * OssnApiToken's login rate limit (identifier-keyed COUNT() over a
+	 * time window) — except here the caller is already an
+	 * authenticated $guid, so no separate attempts table is needed:
+	 * ossn_relationships already IS a generic timestamped edge log, so
+	 * a new relation type ('dating:action', one real row per like/pass
+	 * attempt, never deduped) reuses it instead of a new table.
+	 */
+	const ACTION_RELATION = 'dating:action';
+	const ACTION_WINDOW_SECONDS = 60;
+	const ACTION_MAX = 30;
+
+	private function isActionRateLimited($guid) {
+		$since = time() - self::ACTION_WINDOW_SECONDS;
+		$count = intval(ossn_get_relationships(array(
+			'from'   => intval($guid),
+			'type'   => self::ACTION_RELATION,
+			'count'  => true,
+			'wheres' => "r.time >= {$since}",
+		)));
+		return $count >= self::ACTION_MAX;
+	}
+
+	/** Recorded for EVERY real like/pass attempt, success or no-op — same real intent as OssnApiToken::recordLoginAttempt()'s own comment. */
+	private function recordAction($fromGuid, $toGuid) {
+		ossn_add_relation(intval($fromGuid), intval($toGuid), self::ACTION_RELATION);
+	}
+
 	public function isMutual($aGuid, $bGuid) {
 		$ab = $this->select(array(
 			'from'   => self::INTERESTS_TABLE,
@@ -281,6 +315,13 @@ class OssnDating extends OssnDatabase {
 		if (!$fromGuid || !$toGuid || $fromGuid === $toGuid) {
 			return array('status' => 'invalid', 'mutual' => false);
 		}
+		if ($this->isActionRateLimited($fromGuid)) {
+			return array('status' => 'rate_limited', 'mutual' => false);
+		}
+		// Recorded before we know the outcome — same real intent as
+		// OssnApiToken::recordLoginAttempt()'s own comment: a repeat
+		// like on an already-liked profile still counts as an attempt.
+		$this->recordAction($fromGuid, $toGuid);
 		$existing = $this->select(array(
 			'from'   => self::INTERESTS_TABLE,
 			'wheres' => array(self::wheres('from_guid', '=', $fromGuid), self::wheres('to_guid', '=', $toGuid)),
@@ -295,24 +336,29 @@ class OssnDating extends OssnDatabase {
 		return array('status' => 'ok', 'mutual' => $this->isMutual($fromGuid, $toGuid));
 	}
 
+	/** @return 'ok'|'rate_limited'|'invalid' */
 	public function pass($fromGuid, $toGuid) {
 		$fromGuid = intval($fromGuid);
 		$toGuid   = intval($toGuid);
 		if (!$fromGuid || !$toGuid || $fromGuid === $toGuid) {
-			return false;
+			return 'invalid';
 		}
+		if ($this->isActionRateLimited($fromGuid)) {
+			return 'rate_limited';
+		}
+		$this->recordAction($fromGuid, $toGuid);
 		$existing = $this->select(array(
 			'from'   => self::PASSES_TABLE,
 			'wheres' => array(self::wheres('from_guid', '=', $fromGuid), self::wheres('to_guid', '=', $toGuid)),
 		));
 		if ($existing) {
-			return true;
+			return 'ok';
 		}
-		return (bool) $this->insert(array(
+		return $this->insert(array(
 			'into'   => self::PASSES_TABLE,
 			'names'  => array('from_guid', 'to_guid', 'time_created'),
 			'values' => array($fromGuid, $toGuid, time()),
-		));
+		)) ? 'ok' : 'invalid';
 	}
 
 	/** Undoes the caller's own single most recent pass. */
