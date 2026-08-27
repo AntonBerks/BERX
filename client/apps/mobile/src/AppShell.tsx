@@ -306,10 +306,13 @@ function RouteRenderer({name, params}: {name: BerxRouteName; params: unknown}) {
 			);
 		case 'DatingPrivacy':
 			return <DatingPrivacyScreen api={api} onBack={nav.pop} />;
-		case 'Stories':
+		case 'Stories': {
+			const me = authState.getSnapshot().user;
 			return (
 				<StoriesRailScreen
 					api={api}
+					myGuid={me?.guid}
+					myUsername={me?.username}
 					onOpenGroup={(group) => {
 						currentStoryGroup = group;
 						nav.push('StoryViewer', undefined);
@@ -318,6 +321,7 @@ function RouteRenderer({name, params}: {name: BerxRouteName; params: unknown}) {
 					onBack={nav.canGoBack ? nav.pop : undefined}
 				/>
 			);
+		}
 		case 'StoryViewer': {
 			const myGuid = authState.getSnapshot().user?.guid;
 			if (!currentStoryGroup || !myGuid) {

@@ -7,11 +7,22 @@
  * hand-rolled ring View — every group in this rail is by definition
  * an active-story owner, so hasActiveStory is always real here. The
  * rail also gets a real BerxFadeIn entrance.
+ *
+ * MAX BUILD — closes a real gap: api.ownStories() was always a real,
+ * working client method (real GET /stories/own) with zero UI caller.
+ * storiesFeed()'s own real scope is "every OTHER user's active
+ * stories" (listActiveForViewer()'s own doc comment) — the caller's
+ * own active stories never appeared in this rail at all, meaning a
+ * story you just created was invisible (and thus unopenable/
+ * undeletable via StoryViewerScreen's real deleteStory()) from the
+ * moment you left CreateStoryScreen. A leading "Вы" ring, built from
+ * ownStories() into the same BerxStoryFeedGroup shape the rest of
+ * this rail already uses, closes that loop.
  */
 import {useCallback, useEffect, useState} from 'react';
 import {View, Text, FlatList, Pressable, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
-import type {BerxStoryFeedGroup} from '@berx/api/types';
+import type {BerxStoryFeedGroup, BerxOwnStorySummary} from '@berx/api/types';
 import {colors, spacing, typography} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
@@ -20,13 +31,16 @@ import {BerxFadeIn} from '../../../../packages/design-system/src/components/Berx
 
 interface Props {
 	api: BerxApiClient;
+	myGuid?: number;
+	myUsername?: string;
 	onOpenGroup: (group: BerxStoryFeedGroup) => void;
 	onCreateStory: () => void;
 	onBack?: () => void;
 }
 
-export default function StoriesRailScreen({api, onOpenGroup, onCreateStory, onBack}: Props) {
+export default function StoriesRailScreen({api, myGuid, myUsername, onOpenGroup, onCreateStory, onBack}: Props) {
 	const [groups, setGroups] = useState<BerxStoryFeedGroup[]>([]);
+	const [ownGroup, setOwnGroup] = useState<BerxStoryFeedGroup | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 
@@ -40,7 +54,14 @@ export default function StoriesRailScreen({api, onOpenGroup, onCreateStory, onBa
 		} finally {
 			setLoading(false);
 		}
-	}, [api]);
+		if (myGuid) {
+			// Best-effort, never blocks the main feed load — a failed
+			// own-stories fetch just means no "Вы" ring, not an error.
+			api.ownStories().then((res) => {
+				setOwnGroup(res.stories.length > 0 ? {owner_guid: myGuid, owner_username: myUsername ?? null, stories: res.stories.map((s: BerxOwnStorySummary) => ({id: s.id, caption: s.caption, time_created: s.time_created, mime_type: s.mime_type}))} : null);
+			}).catch(() => undefined);
+		}
+	}, [api, myGuid, myUsername]);
 
 	useEffect(() => {
 		load();
@@ -58,20 +79,20 @@ export default function StoriesRailScreen({api, onOpenGroup, onCreateStory, onBa
 					<BerxLoadingState label="Загрузка..." />
 				) : error ? (
 					<BerxErrorState message={error} onRetry={load} />
-				) : groups.length === 0 ? (
+				) : groups.length === 0 && !ownGroup ? (
 					<BerxEmptyState title="Пока нет активных историй" subtitle="Истории живут 24 часа с момента публикации." />
 				) : (
 					<FlatList
 						horizontal
 						showsHorizontalScrollIndicator={false}
-						data={groups}
+						data={ownGroup ? [ownGroup, ...groups] : groups}
 						keyExtractor={(g: BerxStoryFeedGroup) => String(g.owner_guid)}
 						contentContainerStyle={styles.rail}
 						renderItem={({item}: {item: BerxStoryFeedGroup}) => (
 							<Pressable style={styles.ringItem} onPress={() => onOpenGroup(item)}>
 								<BerxAvatar fallbackInitial={(item.owner_username ?? '?').charAt(0)} size={64} hasActiveStory />
 								<Text style={styles.ringLabel} numberOfLines={1}>
-									{item.owner_username ?? `#${item.owner_guid}`}
+									{item === ownGroup ? 'Вы' : item.owner_username ?? `#${item.owner_guid}`}
 								</Text>
 							</Pressable>
 						)}
