@@ -1333,6 +1333,11 @@ export class BerxApiClient {
 		return this.request<{status: string}>(`/communities/${guid}/moderators/${userGuid}`, {method: 'DELETE'});
 	}
 
+	/** MAX BUILD — real Transfer Ownership. OssnGroup::changeOwner() was always a real, callable core method with zero UI caller before this. Current-owner-or-admin only; the new owner must already be a real member, re-checked server-side. */
+	async transferCommunityOwnership(guid: number, newOwnerGuid: number): Promise<{status: string; owner_guid: number}> {
+		return this.request<{status: string; owner_guid: number}>(`/communities/${guid}/transfer`, {method: 'POST', body: {user: String(newOwnerGuid)}});
+	}
+
 	// ---------------------------------------------------------------
 	// Friends — components/OssnApi/v1/friends.php, wraps the caller's
 	// OWN OssnUser::getFriends(). Powers EventInviteScreen's picker.

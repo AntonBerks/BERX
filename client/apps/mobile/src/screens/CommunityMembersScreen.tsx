@@ -15,7 +15,7 @@
  * duplicate relation row server-side.
  */
 import {useCallback, useEffect, useState} from 'react';
-import {View, Text, FlatList, Image, Pressable, RefreshControl, StyleSheet} from 'react-native';
+import {View, Text, FlatList, Image, Pressable, Alert, RefreshControl, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxCommunityMember} from '@berx/api/types';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
@@ -29,10 +29,12 @@ interface Props {
 	guid: number;
 	isOwner?: boolean;
 	onOpenProfile: (username: string) => void;
+	/** MAX BUILD — real Transfer Ownership (OssnGroup::changeOwner()). Called after a successful transfer since this screen's own `isOwner` prop is a static route param that can't refresh itself mid-screen — see this file's own comment on the transfer flow. */
+	onTransferred?: () => void;
 	onBack?: () => void;
 }
 
-export default function CommunityMembersScreen({api, guid, isOwner, onOpenProfile, onBack}: Props) {
+export default function CommunityMembersScreen({api, guid, isOwner, onOpenProfile, onTransferred, onBack}: Props) {
 	const [items, setItems] = useState<BerxCommunityMember[]>([]);
 	const [moderatorGuids, setModeratorGuids] = useState<Set<number>>(new Set());
 	const [loading, setLoading] = useState(true);
@@ -74,6 +76,33 @@ export default function CommunityMembersScreen({api, guid, isOwner, onOpenProfil
 		}
 	}
 
+	/** MAX BUILD — real Transfer Ownership, owner-only, server re-checks regardless. Pops back after success — this screen's own isOwner is a static param that can't reflect "I'm no longer owner" mid-screen. */
+	function confirmTransfer(member: BerxCommunityMember) {
+		Alert.alert(
+			'Передать владение?',
+			`${member.fullname} станет владельцем сообщества, вы — обычным участником. Это действие нельзя отменить.`,
+			[
+				{text: 'Отмена', style: 'cancel'},
+				{
+					text: 'Передать',
+					style: 'destructive',
+					onPress: async () => {
+						setBusyGuid(member.guid);
+						try {
+							await api.transferCommunityOwnership(guid, member.guid);
+							if (onTransferred) onTransferred();
+							else onBack?.();
+						} catch (e) {
+							setError(e instanceof Error ? e.message : 'Не удалось передать владение');
+						} finally {
+							setBusyGuid(null);
+						}
+					},
+				},
+			]
+		);
+	}
+
 	if (loading) return <BerxLoadingState />;
 	if (error && items.length === 0) return <BerxErrorState message={error} onRetry={load} />;
 
@@ -108,12 +137,17 @@ export default function CommunityMembersScreen({api, guid, isOwner, onOpenProfil
 								) : isOwner && moderatorGuids.has(item.guid) ? (
 									<Text style={styles.moderatorBadge}>Модератор</Text>
 								) : isOwner ? (
-									<BerxButton
-										label="Сделать модератором"
-										variant="secondary"
-										loading={busyGuid === item.guid}
-										onPress={() => assignModerator(item.guid)}
-									/>
+									<View style={styles.ownerActions}>
+										<BerxButton
+											label="Сделать модератором"
+											variant="secondary"
+											loading={busyGuid === item.guid}
+											onPress={() => assignModerator(item.guid)}
+										/>
+										<Pressable onPress={() => confirmTransfer(item)} disabled={busyGuid === item.guid} hitSlop={8}>
+											<Text style={styles.transferLink}>Передать владение</Text>
+										</Pressable>
+									</View>
 								) : null}
 							</Pressable>
 						)}
@@ -133,5 +167,7 @@ const styles = StyleSheet.create({
 	name: {flex: 1, fontSize: typography.sizeBase, color: colors.white, fontWeight: typography.weightMedium},
 	ownerBadge: {fontSize: typography.sizeXs, color: colors.accent, fontWeight: typography.weightBold},
 	moderatorBadge: {fontSize: typography.sizeXs, color: colors.textFaint, fontWeight: typography.weightBold},
+	ownerActions: {alignItems: 'flex-end', gap: 4},
+	transferLink: {fontSize: typography.sizeXs, color: colors.danger},
 	errorBanner: {fontSize: typography.sizeSm, color: colors.danger, paddingHorizontal: spacing.md, paddingTop: spacing.sm},
 });

@@ -155,6 +155,40 @@ if ($segment0 !== null && $segment1 === 'leave' && $method === 'POST') {
 	ossn_api_json(array('status' => $ok ? 'ok' : 'not_a_member'));
 }
 
+/**
+ * MAX BUILD — real Transfer Ownership. OssnGroup::changeOwner() was
+ * always a real, callable core method with zero UI caller — this is
+ * the first real route to expose it. Current-owner-or-admin only; the
+ * new owner must be a real, current member (never an arbitrary guid),
+ * re-checked server-side against OssnGroup::isMember(), not trusted
+ * from the request.
+ */
+if ($segment0 !== null && $segment1 === 'transfer' && $method === 'POST') {
+	$group = $model->getGroup(intval($segment0));
+	if (!$group) {
+		ossn_api_error('not_found', 'Community not found', 404);
+	}
+	if (intval($group->owner_guid) !== intval($api_user_guid) && !ossn_api_is_admin($api_user_guid)) {
+		ossn_api_error('forbidden', 'Only the current owner can transfer this community', 403);
+	}
+	$newOwnerGuid = input('user');
+	if (!$newOwnerGuid || !is_numeric($newOwnerGuid)) {
+		ossn_api_error('validation_error', 'user is required', 422);
+	}
+	$newOwnerGuid = intval($newOwnerGuid);
+	if ($newOwnerGuid === intval($group->owner_guid)) {
+		ossn_api_error('validation_error', 'Already the owner', 422);
+	}
+	if (!$model->isMember($group->guid, $newOwnerGuid)) {
+		ossn_api_error('validation_error', 'New owner must already be a member', 422);
+	}
+	$ok = $model->changeOwner($newOwnerGuid, intval($segment0));
+	if (!$ok) {
+		ossn_api_error('create_failed', 'Could not transfer ownership', 500);
+	}
+	ossn_api_json(array('status' => 'ok', 'owner_guid' => $newOwnerGuid));
+}
+
 if ($segment0 !== null && $segment1 === 'requests' && $segment2 === null && $method === 'GET') {
 	$group = $model->getGroup(intval($segment0));
 	if (!$group) {
