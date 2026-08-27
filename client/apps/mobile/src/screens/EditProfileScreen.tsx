@@ -20,24 +20,34 @@
  * screen can honestly add is a client-side "repeat new password"
  * match check before submitting — never faked as a security control,
  * just a typo guard.
+ *
+ * MAX BUILD — real avatar + cover photo. api.uploadAvatar() previously
+ * had zero UI caller outside onboarding (a user could never change
+ * their photo again afterward); api.uploadProfileCover()/
+ * deleteProfileCover() wrap OssnProfile's own native cover mechanism
+ * (classes/OssnProfile.php), previously reachable only from a
+ * session-cookie web action. Same pickImage-injected-prop pattern as
+ * AlbumDetailScreen/EditPlaceScreen.
  */
 import {useCallback, useEffect, useState} from 'react';
-import {View, Text, ScrollView, StyleSheet} from 'react-native';
-import type {BerxApiClient} from '@berx/api/client';
+import {View, Text, Image, Pressable, ScrollView, StyleSheet} from 'react-native';
+import type {BerxApiClient, BerxFilePart} from '@berx/api/client';
 import type {BerxUser} from '@berx/api/types';
 import {colors, spacing, typography} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState} from '../../../../packages/design-system/src/components/BerxStates';
+import {Berx3DTilt} from '../../../../packages/design-system/src/components/Berx3DTilt';
 
 interface Props {
 	api: BerxApiClient;
+	pickImage?: () => Promise<BerxFilePart | null>;
 	onSaved: () => void;
 	onBack?: () => void;
 }
 
-export default function EditProfileScreen({api, onSaved, onBack}: Props) {
+export default function EditProfileScreen({api, pickImage, onSaved, onBack}: Props) {
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 	const [firstName, setFirstName] = useState('');
@@ -46,6 +56,10 @@ export default function EditProfileScreen({api, onSaved, onBack}: Props) {
 	const [newPassword, setNewPassword] = useState('');
 	const [repeatPassword, setRepeatPassword] = useState('');
 	const [submitting, setSubmitting] = useState(false);
+	const [iconUrl, setIconUrl] = useState<string | null>(null);
+	const [coverUrl, setCoverUrl] = useState<string | null>(null);
+	const [uploadingAvatar, setUploadingAvatar] = useState(false);
+	const [uploadingCover, setUploadingCover] = useState(false);
 
 	const load = useCallback(async () => {
 		setLoading(true);
@@ -55,12 +69,56 @@ export default function EditProfileScreen({api, onSaved, onBack}: Props) {
 			setFirstName(user.first_name);
 			setLastName(user.last_name);
 			setEmail(user.email);
+			setIconUrl(user.icon_url);
+			setCoverUrl(user.cover_url);
 		} catch (e) {
 			setError(e instanceof Error ? e.message : 'Не удалось загрузить профиль');
 		} finally {
 			setLoading(false);
 		}
 	}, [api]);
+
+	async function handleChangeAvatar() {
+		if (!pickImage) return;
+		const picked = await pickImage();
+		if (!picked) return;
+		setUploadingAvatar(true);
+		try {
+			const res = await api.uploadAvatar(picked);
+			setIconUrl(res.icon_url);
+		} catch (e) {
+			setError(e instanceof Error ? e.message : 'Не удалось загрузить фото');
+		} finally {
+			setUploadingAvatar(false);
+		}
+	}
+
+	async function handleChangeCover() {
+		if (!pickImage) return;
+		const picked = await pickImage();
+		if (!picked) return;
+		setUploadingCover(true);
+		try {
+			const res = await api.uploadProfileCover(picked);
+			setCoverUrl(res.cover_url);
+		} catch (e) {
+			setError(e instanceof Error ? e.message : 'Не удалось загрузить обложку');
+		} finally {
+			setUploadingCover(false);
+		}
+	}
+
+	async function handleRemoveCover() {
+		setUploadingCover(true);
+		try {
+			await api.deleteProfileCover();
+			setCoverUrl(null);
+		} catch (e) {
+			setError(e instanceof Error ? e.message : 'Не удалось удалить обложку');
+		} finally {
+			setUploadingCover(false);
+		}
+	}
 
 	useEffect(() => {
 		load();
@@ -120,6 +178,27 @@ export default function EditProfileScreen({api, onSaved, onBack}: Props) {
 	return (
 		<ScrollView style={styles.screen}>
 			<BerxHeader title="Редактировать профиль" onBack={onBack} />
+
+			<Berx3DTilt style={styles.hero} maxAngle={5}>
+				{coverUrl ? <Image source={{uri: coverUrl}} style={styles.heroImage} /> : <View style={styles.heroPlaceholder} />}
+				{pickImage ? (
+					<View style={styles.coverActions}>
+						<Pressable style={styles.coverActionButton} onPress={handleChangeCover} disabled={uploadingCover} hitSlop={8}>
+							<Text style={styles.coverActionLabel}>{uploadingCover ? 'Загрузка…' : 'Сменить обложку'}</Text>
+						</Pressable>
+						{coverUrl ? (
+							<Pressable style={styles.coverActionButton} onPress={handleRemoveCover} disabled={uploadingCover} hitSlop={8}>
+								<Text style={styles.coverActionLabel}>Удалить</Text>
+							</Pressable>
+						) : null}
+					</View>
+				) : null}
+				<Pressable style={styles.avatarWrap} onPress={pickImage ? handleChangeAvatar : undefined} disabled={!pickImage || uploadingAvatar}>
+					{iconUrl ? <Image source={{uri: iconUrl}} style={styles.avatar} /> : <View style={styles.avatar} />}
+					{pickImage ? <Text style={styles.avatarEditLabel}>{uploadingAvatar ? '…' : 'Изменить'}</Text> : null}
+				</Pressable>
+			</Berx3DTilt>
+
 			<View style={styles.body}>
 				<BerxInput placeholder="Имя" value={firstName} onChangeText={setFirstName} />
 				<BerxInput placeholder="Фамилия" value={lastName} onChangeText={setLastName} />
@@ -139,6 +218,15 @@ export default function EditProfileScreen({api, onSaved, onBack}: Props) {
 
 const styles = StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.bg},
+	hero: {height: 140, backgroundColor: colors.surface, marginBottom: 40},
+	heroImage: {width: '100%', height: '100%'},
+	heroPlaceholder: {width: '100%', height: '100%', backgroundColor: colors.surface},
+	coverActions: {position: 'absolute', right: spacing.sm, bottom: spacing.sm, flexDirection: 'row', gap: spacing.xs},
+	coverActionButton: {backgroundColor: colors.black, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs, borderRadius: 6, borderWidth: 1, borderColor: colors.accent},
+	coverActionLabel: {color: colors.accent, fontSize: typography.sizeXs, fontWeight: typography.weightMedium},
+	avatarWrap: {position: 'absolute', left: spacing.lg, bottom: -32, alignItems: 'center'},
+	avatar: {width: 72, height: 72, borderRadius: 36, backgroundColor: colors.graphite, borderWidth: 3, borderColor: colors.bg},
+	avatarEditLabel: {color: colors.accent, fontSize: typography.sizeXs, marginTop: 2},
 	body: {padding: spacing.md, gap: spacing.md},
 	sectionTitle: {fontSize: typography.sizeXs, color: colors.textFaint, fontWeight: typography.weightBold, textTransform: 'uppercase', marginTop: spacing.sm},
 	error: {fontSize: typography.sizeSm, color: colors.danger},

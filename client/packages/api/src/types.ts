@@ -16,6 +16,8 @@ export interface BerxUser {
 	last_name: string;
 	email: string;
 	icon_url: string;
+	/** Real profile cover photo (OssnProfile::getCoverURL()) — null until the user actually uploads one, never a placeholder URL. */
+	cover_url: string | null;
 	profile_url: string;
 	time_created: number;
 	reputation: BerxReputation;
@@ -210,6 +212,8 @@ export interface BerxProfileSummary {
 	username: string;
 	fullname: string;
 	icon_url: string;
+	/** Real profile cover photo (OssnProfile::getCoverURL()) — null until the user actually uploads one, never a placeholder URL. */
+	cover_url: string | null;
 	profile_url: string;
 	is_own: boolean;
 	is_friend: boolean;

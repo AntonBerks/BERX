@@ -60,6 +60,8 @@ interface ProfileData {
 	username: string;
 	fullname: string;
 	icon_url: string;
+	/** Real profile cover photo (OssnProfile::getCoverURL()) — null/absent until the user actually uploads one. */
+	cover_url?: string | null;
 	profile_url: string;
 	email?: string;
 	time_created?: number;
@@ -309,6 +311,11 @@ export default function ProfileScreen({api, authState, username, onBack, onMessa
 	return (
 		<ScrollView style={styles.screen}>
 			{onBack ? <BerxHeader onBack={onBack} title={profile.username} /> : null}
+			{profile.cover_url ? (
+				<Berx3DTilt style={styles.coverBanner} maxAngle={4}>
+					<Image source={{uri: profile.cover_url}} style={styles.coverBannerImage} />
+				</Berx3DTilt>
+			) : null}
 			<BerxFadeIn style={styles.hero} riseFrom={16}>
 				<Berx3DTilt style={styles.avatarRing} maxAngle={14}>
 					<Image source={{uri: profile.icon_url}} style={styles.avatar} />
@@ -616,6 +623,8 @@ function MenuRow({
 
 const styles = StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.black},
+	coverBanner: {height: 120, backgroundColor: colors.surface, overflow: 'hidden'},
+	coverBannerImage: {width: '100%', height: '100%'},
 	hero: {alignItems: 'center', paddingVertical: spacing.xxl, paddingHorizontal: spacing.xl},
 	avatarRing: {
 		width: 108,

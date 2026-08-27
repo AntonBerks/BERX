@@ -556,7 +556,7 @@ function RouteRenderer({name, params}: {name: BerxRouteName; params: unknown}) {
 			);
 		}
 		case 'EditProfile':
-			return <EditProfileScreen api={api} onSaved={nav.pop} onBack={nav.pop} />;
+			return <EditProfileScreen api={api} pickImage={pickImage} onSaved={nav.pop} onBack={nav.pop} />;
 		case 'PlacesNearby':
 			return <PlacesNearbyScreen api={api} onOpenPlace={(guid) => nav.push('PlaceDetail', {guid})} onBack={nav.pop} />;
 		case 'SavedPlaces':

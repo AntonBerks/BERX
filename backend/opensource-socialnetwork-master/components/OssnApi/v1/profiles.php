@@ -115,6 +115,12 @@ ossn_api_json(array(
 	'username'    => (string) $user->username,
 	'fullname'    => trim($user->first_name . ' ' . $user->last_name),
 	'icon_url'    => (string) $user->iconURL()->large,
+	// MAX BUILD — real profile cover photo (OssnProfile::getCoverURL()),
+	// same real mechanism/gate as me.php's own ossn_api_me_cover_url()
+	// (only one v1/*.php is ever include()'d per request — see this
+	// codebase's own dispatcher doc comment — so that helper isn't
+	// reachable here; duplicated inline rather than shared).
+	'cover_url'   => (!empty($user->cover_guid) && class_exists('OssnProfile')) ? (string) (new OssnProfile())->getCoverURL($user) : null,
 	'profile_url' => (string) $user->profileURL(),
 	'is_own'      => $isOwn,
 	'is_friend'   => $isFriend,

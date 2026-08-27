@@ -281,6 +281,18 @@ export class BerxApiClient {
 		});
 	}
 
+	/** MAX BUILD — real Profile Cover Photo (OssnProfile's own native mechanism, previously wired only to a session-cookie web action). Field name 'coverphoto' matches the real upload route exactly. */
+	async uploadProfileCover(part: BerxFilePart, filename = 'cover.jpg'): Promise<{status: string; cover_url: string | null}> {
+		return this.request<{status: string; cover_url: string | null}>('/me/cover', {
+			method: 'POST',
+			multipart: {files: [{field: 'coverphoto', part, filename}]},
+		});
+	}
+
+	async deleteProfileCover(): Promise<{status: string}> {
+		return this.request<{status: string}>('/me/cover', {method: 'DELETE'});
+	}
+
 	async feed(limit = 20, offset = 0): Promise<BerxFeedResponse> {
 		return this.request<BerxFeedResponse>(`/feed?limit=${limit}&offset=${offset}`);
 	}

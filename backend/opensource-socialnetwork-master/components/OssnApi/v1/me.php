@@ -56,6 +56,13 @@ function ossn_api_me_to_json($user) {
 		// existing size to a generic profile-icon use, there is no
 		// "medium" defined.
 		'icon_url'     => (string) $user->iconURL()->large,
+		// MAX BUILD — real profile cover photo (OssnProfile::getCoverURL(),
+		// classes/OssnProfile.php — the same real mechanism the web UI's
+		// own profile header already uses). Null, never a transparent
+		// placeholder URL dressed up as a real cover, until the user
+		// actually uploads one — matches OssnUser::getProfileCover()'s
+		// own real gate.
+		'cover_url'    => ossn_api_me_cover_url($user),
 		'profile_url'  => (string) $user->profileURL(),
 		'time_created' => intval($user->time_created),
 		'reputation'   => ossn_api_me_reputation($user->guid),
@@ -71,6 +78,15 @@ function ossn_api_me_to_json($user) {
 		// every actual admin route.
 		'is_admin'     => ossn_api_is_admin($user->guid),
 	);
+}
+
+/** Real gate matching OssnUser::getProfileCover()'s own check — a user with no uploaded cover gets null, never a transparent-placeholder URL. */
+function ossn_api_me_cover_url($user) {
+	if (!$user || empty($user->cover_guid) || !class_exists('OssnProfile')) {
+		return null;
+	}
+	$url = (new OssnProfile())->getCoverURL($user);
+	return $url ? (string) $url : null;
 }
 
 /** Real fetch, guid-scoped — never trusts anything the client asserts about itself. */
@@ -201,6 +217,93 @@ if ($segment0 === 'avatar' && $method === 'POST') {
 
 	$fresh = ossn_api_me_fetch($api_user_guid);
 	ossn_api_json(array('status' => 'ok', 'icon_url' => (string) $fresh->iconURL()->large));
+}
+
+/**
+ * MAX BUILD — real Profile Cover Photo. Wraps the exact real,
+ * already-shipped mechanism the web UI's own profile header uses
+ * (components/OssnProfile/actions/cover/upload.php) — subtype
+ * 'profile:cover', field 'coverphoto', the same max-1500px-then-2000px
+ * resize rule, OssnProfile::ResetCoverPostition() +
+ * ::addPhotoWallPost() (a real "changed their cover photo" wall post,
+ * same as the avatar upload right above). No session bridge needed —
+ * neither OssnFile::addFile() nor OssnProfile's methods here call
+ * ossn_loggedin_user() internally (confirmed by reading both before
+ * writing this, per this file's own header note on that constraint).
+ */
+if ($segment0 === 'cover' && $method === 'POST') {
+	$user = ossn_api_me_fetch($api_user_guid);
+	if (!$user) {
+		ossn_api_error('not_found', 'User not found', 404);
+	}
+
+	$file = new OssnFile();
+	$file->owner_guid = $user->guid;
+	$file->type       = 'user';
+	$file->subtype    = 'profile:cover';
+	// Field name 'coverphoto' matches the real web upload action exactly.
+	$file->setFile('coverphoto');
+	$file->setPath('profile/cover/');
+	if (function_exists('ossn_file_is_cdn_storage_enabled') && ossn_file_is_cdn_storage_enabled()) {
+		$file->setStore('cdn');
+	}
+	$file->setExtension(array('jpg', 'png', 'jpeg', 'jfif', 'gif', 'webp'));
+
+	// Same real dimension rule as the native action: cap the working
+	// image at 1500x1500 (preserving aspect ratio), and only THEN, if
+	// that capped width still comes out under 1200px, ask for a larger
+	// 2000x2000 working copy instead.
+	if (isset($file->file['tmp_name']) && is_file($file->file['tmp_name'])) {
+		$dim = @getimagesize($file->file['tmp_name']);
+		if ($dim && $dim[0] > 0) {
+			$maxW = 1500;
+			$maxH = 1500;
+			$ratio = $dim[1] / $dim[0];
+			$w = $maxW;
+			$h = $w * $ratio;
+			if ($h > $maxH) {
+				$h = $maxH;
+				$w = (int) round($h / $ratio);
+			}
+			if ($w < 1200) {
+				$file->setImageDim(2000, 2000, false);
+			}
+		}
+	}
+
+	$fileguid = $file->addFile();
+	if (!$fileguid) {
+		ossn_api_error('upload_failed', $file->getFileUploadError($file->error), 422);
+	}
+
+	$user->data->cover_time = time();
+	$user->data->cover_guid = $fileguid;
+	$user->save();
+
+	if (class_exists('OssnProfile')) {
+		$profile = new OssnProfile();
+		$profile->ResetCoverPostition($user->guid);
+		$profile->addPhotoWallPost($user->guid, $fileguid, 'cover:photo');
+	}
+
+	$fresh = ossn_api_me_fetch($api_user_guid);
+	ossn_api_json(array('status' => 'ok', 'cover_url' => ossn_api_me_cover_url($fresh)));
+}
+
+if ($segment0 === 'cover' && $method === 'DELETE') {
+	$user = ossn_api_me_fetch($api_user_guid);
+	if (!$user || empty($user->cover_guid)) {
+		ossn_api_error('not_found', 'No cover photo to delete', 404);
+	}
+	if (class_exists('OssnPhotos')) {
+		$photos = new OssnPhotos();
+		$photos->photoid = intval($user->cover_guid);
+		$photos->deleteProfileCoverPhoto();
+	}
+	$user->data->cover_time = time();
+	$user->data->cover_guid = false;
+	$user->save();
+	ossn_api_json(array('status' => 'ok'));
 }
 
 /**
