@@ -75,6 +75,7 @@ import DeviceSessionsScreen from './screens/DeviceSessionsScreen';
 import DeleteAccountScreen from './screens/DeleteAccountScreen';
 import PlacesNearbyScreen from './screens/PlacesNearbyScreen';
 import SavedPlacesScreen from './screens/SavedPlacesScreen';
+import RecentCheckinsScreen from './screens/RecentCheckinsScreen';
 import SavedPostsScreen from './screens/SavedPostsScreen';
 import MyEventsScreen from './screens/MyEventsScreen';
 import EventInviteScreen from './screens/EventInviteScreen';
@@ -210,6 +211,7 @@ function RouteRenderer({name, params}: {name: BerxRouteName; params: unknown}) {
 					onOpenMissions={!nav.canGoBack ? () => nav.push('Missions', undefined) : undefined}
 					onOpenLifeGraph={!nav.canGoBack ? () => nav.push('LifeGraph', undefined) : undefined}
 					onOpenMemories={!nav.canGoBack ? () => nav.push('Memories', undefined) : undefined}
+					onOpenRecentCheckins={!nav.canGoBack ? () => nav.push('RecentCheckins', undefined) : undefined}
 					onOpenSavedPosts={!nav.canGoBack ? () => nav.push('Saved', undefined) : undefined}
 					onOpenEditProfile={!nav.canGoBack ? () => nav.push('EditProfile', undefined) : undefined}
 					onOpenMyPlaceClaims={!nav.canGoBack ? () => nav.push('MyPlaceClaims', undefined) : undefined}
@@ -520,6 +522,8 @@ function RouteRenderer({name, params}: {name: BerxRouteName; params: unknown}) {
 			return <PlacesNearbyScreen api={api} onOpenPlace={(guid) => nav.push('PlaceDetail', {guid})} onBack={nav.pop} />;
 		case 'SavedPlaces':
 			return <SavedPlacesScreen api={api} onOpenPlace={(guid) => nav.push('PlaceDetail', {guid})} onBack={nav.pop} />;
+		case 'RecentCheckins':
+			return <RecentCheckinsScreen api={api} onOpenPlace={(guid) => nav.push('PlaceDetail', {guid})} onBack={nav.pop} />;
 		case 'Saved':
 			return <SavedPostsScreen api={api} onOpenPost={(guid) => nav.push('PostDetail', {postGuid: guid})} onBack={nav.pop} />;
 		case 'Events':

@@ -102,6 +102,7 @@ interface Props {
 	onOpenSavedPosts?: () => void;
 	onOpenEditProfile?: () => void;
 	onOpenMyPlaceClaims?: () => void;
+	onOpenRecentCheckins?: () => void;
 	onOpenAdminPlaceClaims?: () => void;
 	/** Real is_admin-gated section (Max Build) — see me.php's own header for why the client can finally know this. */
 	onOpenAdminUnvalidated?: () => void;
@@ -114,7 +115,7 @@ function joinedYear(unixSeconds?: number): string | null {
 	return new Date(unixSeconds * 1000).getFullYear().toString();
 }
 
-export default function ProfileScreen({api, authState, username, onBack, onMessage, onOpenNotifications, onOpenPoints, onOpenMissions, onOpenLifeGraph, onOpenMemories, onOpenWrapped, onOpenDatingPrivacy, onOpenDatingProfile, onOpenDatingPhotos, onOpenCommunities, onOpenDating, onOpenPlaces, onOpenEvents, onOpenSettings, onOpenBERXWorld, onOpenAlbums, onOpenCollections, onOpenTrips, onOpenExperiences, onOpenCreatorProfile, onOpenCreatorSettings, onOpenMyVideos, onOpenMyTracks, onOpenSavedPosts, onOpenEditProfile, onOpenMyPlaceClaims, onOpenAdminUnvalidated, onOpenAdminReports, onOpenAdminPlaceClaims, onReport}: Props) {
+export default function ProfileScreen({api, authState, username, onBack, onMessage, onOpenNotifications, onOpenPoints, onOpenMissions, onOpenLifeGraph, onOpenMemories, onOpenWrapped, onOpenDatingPrivacy, onOpenDatingProfile, onOpenDatingPhotos, onOpenCommunities, onOpenDating, onOpenPlaces, onOpenEvents, onOpenSettings, onOpenBERXWorld, onOpenAlbums, onOpenCollections, onOpenTrips, onOpenExperiences, onOpenCreatorProfile, onOpenCreatorSettings, onOpenMyVideos, onOpenMyTracks, onOpenSavedPosts, onOpenEditProfile, onOpenMyPlaceClaims, onOpenRecentCheckins, onOpenAdminUnvalidated, onOpenAdminReports, onOpenAdminPlaceClaims, onReport}: Props) {
 	const [profile, setProfile] = useState<ProfileData | null>(null);
 	const [identity, setIdentity] = useState<BerxIdentity | null>(null);
 	const [loading, setLoading] = useState(true);
@@ -390,6 +391,7 @@ export default function ProfileScreen({api, authState, username, onBack, onMessa
 						{onOpenMissions ? <MenuRow label="Задания дня" icon={<IconStar size={18} color={colors.text} />} onPress={onOpenMissions} /> : null}
 						{onOpenLifeGraph ? <MenuRow label="Ваш путь в BERX" icon={<IconStar size={18} color={colors.text} />} onPress={onOpenLifeGraph} /> : null}
 						{onOpenMemories ? <MenuRow label="Воспоминания" icon={<IconStar size={18} color={colors.text} />} onPress={onOpenMemories} /> : null}
+						{onOpenRecentCheckins ? <MenuRow label="Мои отметки" icon={<IconStar size={18} color={colors.text} />} onPress={onOpenRecentCheckins} /> : null}
 						{onOpenSavedPosts ? <MenuRow label="Сохранённые посты" icon={<IconStar size={18} color={colors.text} />} onPress={onOpenSavedPosts} /> : null}
 						{onOpenMyPlaceClaims ? <MenuRow label="Мои заявки на бизнес" icon={<IconStar size={18} color={colors.text} />} onPress={onOpenMyPlaceClaims} /> : null}
 						{onOpenWrapped ? <MenuRow label="BERX Wrapped" icon={<IconStar size={18} color={colors.text} />} onPress={onOpenWrapped} /> : null}

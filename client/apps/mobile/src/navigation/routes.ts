@@ -102,6 +102,7 @@ export type BerxRouteName =
 	| 'EditProfile'
 	| 'PlacesNearby'
 	| 'SavedPlaces'
+	| 'RecentCheckins'
 	| 'AdminUnvalidated'
 	| 'AdminReports'
 	| 'AdminPlaceClaims'
@@ -197,6 +198,7 @@ export interface BerxRouteParams {
 	EditProfile: undefined;
 	PlacesNearby: undefined;
 	SavedPlaces: undefined;
+	RecentCheckins: undefined;
 	AdminUnvalidated: undefined;
 	AdminReports: undefined;
 	AdminPlaceClaims: undefined;
@@ -285,6 +287,9 @@ export const BERX_ROUTES: BerxRouteMeta[] = [
 	{ name: 'EditProfile', connected: true },
 	{ name: 'PlacesNearby', connected: true },
 	{ name: 'SavedPlaces', connected: true },
+	// MAX BUILD — recentCheckins() was always a real client method
+	// (real geo-verified check-in history) with zero UI caller.
+	{ name: 'RecentCheckins', connected: true },
 	// MAX BUILD — both real screens now have a real entry point
 	// (Profile's own Admin menu section, is_admin-gated) and a real,
 	// working server-side admin gate (ossn_api_is_admin(), fixed from
