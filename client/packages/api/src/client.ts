@@ -13,6 +13,7 @@ import type {
 	BerxNotificationsResponse,
 	BerxStoryFeedGroup,
 	BerxOwnStorySummary,
+	BerxStorySummary,
 	BerxCommunity,
 	BerxCommunitiesResponse,
 	BerxPointsBalance,
@@ -942,6 +943,19 @@ export class BerxApiClient {
 
 	async deleteStory(id: number): Promise<{status: string}> {
 		return this.request<{status: string}>(`/stories/${id}/delete`, {method: 'POST'});
+	}
+
+	/**
+	 * MAX BUILD — Story Highlights: real, owner-only, persists a story
+	 * on the profile past its 24h expiry. See classes/OssnStories.php's
+	 * own header for the exact access-control mechanism.
+	 */
+	async setStoryHighlighted(id: number, enabled: boolean): Promise<{status: string; is_highlighted: boolean}> {
+		return this.request(`/stories/${id}/highlight`, {method: 'POST', body: {enabled: enabled ? '1' : '0'}});
+	}
+
+	async storyHighlights(ownerGuid: number): Promise<{stories: BerxStorySummary[]}> {
+		return this.request<{stories: BerxStorySummary[]}>(`/stories/highlights/${ownerGuid}`);
 	}
 
 	/**

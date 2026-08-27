@@ -123,7 +123,10 @@ class OssnStories extends OssnDatabase {
 		if (intval($story->owner_guid) === intval($viewerGuid)) {
 			return true;
 		}
-		if (!$this->isActive($story)) {
+		// BERX WORLD MAX BUILD — a real Highlight stays readable past
+		// expiry, same as it was while active; an expired, un-
+		// highlighted story is exactly as inaccessible as before.
+		if (!$this->isActive($story) && empty($story->is_highlighted)) {
 			return false;
 		}
 		$a = new stdClass();
@@ -182,6 +185,43 @@ class OssnStories extends OssnDatabase {
 			'order_by' => 'time_created DESC',
 		), true);
 		return (array) $rows;
+	}
+
+	/**
+	 * MAX BUILD — real Story Highlights: owner-only, real toggle. No
+	 * artificial cap invented here — a real UI limit belongs to the
+	 * client if ever needed, this method just records real intent.
+	 */
+	public function setHighlighted($storyId, $actingGuid, $highlighted) {
+		$story = $this->get($storyId);
+		if (!$story || intval($story->owner_guid) !== intval($actingGuid)) {
+			return false;
+		}
+		return (bool) $this->update(array(
+			'table'  => self::TABLE,
+			'names'  => array('is_highlighted'),
+			'values' => array($highlighted ? 1 : 0),
+			'wheres' => array(self::wheres('id', '=', intval($storyId))),
+		));
+	}
+
+	/** Real, block-aware — a highlighted story is visible past expiry to anyone who could always see it, never to someone blocked either direction. */
+	public function listHighlights($ownerGuid, $viewerGuid) {
+		$rows = $this->select(array(
+			'from'     => self::TABLE,
+			'wheres'   => array(
+				self::wheres('owner_guid', '=', intval($ownerGuid)),
+				self::wheres('is_highlighted', '=', 1),
+			),
+			'order_by' => 'time_created DESC',
+		), true);
+		$out = array();
+		foreach ((array) $rows as $row) {
+			if ($this->checkStoryAccess($row, $viewerGuid)) {
+				$out[] = $row;
+			}
+		}
+		return $out;
 	}
 
 	/** Real, RSVP-gated event story wall — every active story attached to $eventGuid, block-filtered the same way as the main feed. */

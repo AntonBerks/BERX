@@ -44,7 +44,7 @@ import React, {useEffect, useState} from 'react';
 import {View, Text, Image, Pressable, ScrollView, Alert, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxAuthState} from '@berx/auth';
-import type {BerxIdentity, BerxIdentityAchievement, BerxIdentityInterest} from '@berx/api/types';
+import type {BerxIdentity, BerxIdentityAchievement, BerxIdentityInterest, BerxStorySummary, BerxStoryFeedGroup} from '@berx/api/types';
 import {BerxApiError} from '@berx/core';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
@@ -112,6 +112,8 @@ interface Props {
 	onOpenAdminUnvalidated?: () => void;
 	onOpenAdminReports?: () => void;
 	onReport?: (targetGuid: number) => void;
+	/** MAX BUILD — real Story Highlights rail (see classes/OssnStories.php's own header). Opens the same StoryViewer route the main Stories rail already uses. */
+	onOpenStoryGroup?: (group: BerxStoryFeedGroup) => void;
 }
 
 function joinedYear(unixSeconds?: number): string | null {
@@ -119,7 +121,7 @@ function joinedYear(unixSeconds?: number): string | null {
 	return new Date(unixSeconds * 1000).getFullYear().toString();
 }
 
-export default function ProfileScreen({api, authState, username, onBack, onMessage, onOpenNotifications, onOpenPoints, onOpenMissions, onOpenLifeGraph, onOpenMemories, onOpenWrapped, onOpenDatingPrivacy, onOpenDatingProfile, onOpenDatingPhotos, onOpenCommunities, onOpenDating, onOpenPlaces, onOpenEvents, onOpenSettings, onOpenBERXWorld, onOpenAlbums, onOpenCollections, onOpenTrips, onOpenExperiences, onOpenCreatorProfile, onOpenCreatorSettings, onOpenMyVideos, onOpenMyTracks, onOpenSavedPosts, onOpenEditProfile, onOpenMyPlaceClaims, onOpenRecentCheckins, onOpenAdminUnvalidated, onOpenAdminReports, onOpenAdminPlaceClaims, onReport}: Props) {
+export default function ProfileScreen({api, authState, username, onBack, onMessage, onOpenNotifications, onOpenPoints, onOpenMissions, onOpenLifeGraph, onOpenMemories, onOpenWrapped, onOpenDatingPrivacy, onOpenDatingProfile, onOpenDatingPhotos, onOpenCommunities, onOpenDating, onOpenPlaces, onOpenEvents, onOpenSettings, onOpenBERXWorld, onOpenAlbums, onOpenCollections, onOpenTrips, onOpenExperiences, onOpenCreatorProfile, onOpenCreatorSettings, onOpenMyVideos, onOpenMyTracks, onOpenSavedPosts, onOpenEditProfile, onOpenMyPlaceClaims, onOpenRecentCheckins, onOpenAdminUnvalidated, onOpenAdminReports, onOpenAdminPlaceClaims, onReport, onOpenStoryGroup}: Props) {
 	const [profile, setProfile] = useState<ProfileData | null>(null);
 	const [identity, setIdentity] = useState<BerxIdentity | null>(null);
 	const [loading, setLoading] = useState(true);
@@ -130,6 +132,8 @@ export default function ProfileScreen({api, authState, username, onBack, onMessa
 	const [pokeStatus, setPokeStatus] = useState<string | null>(null);
 	const [banBusy, setBanBusy] = useState(false);
 	const [unreadNotifications, setUnreadNotifications] = useState(0);
+	const [highlights, setHighlights] = useState<BerxStorySummary[]>([]);
+	const [storyAuthHeaders, setStoryAuthHeaders] = useState<Record<string, string>>({});
 	const isOwn = !username;
 
 	async function load() {
@@ -145,6 +149,12 @@ export default function ProfileScreen({api, authState, username, onBack, onMessa
 				// MAX BUILD — real unread badge (unreadNotificationCount()
 				// was always a real client method with zero callers).
 				api.unreadNotificationCount().then((res) => setUnreadNotifications(res.unread_count)).catch(() => undefined);
+			}
+			// MAX BUILD — real Story Highlights rail, best-effort: a failed
+			// fetch must never block the profile itself from showing.
+			if (data.guid) {
+				api.storyHighlights(data.guid).then((res) => setHighlights(res.stories)).catch(() => undefined);
+				api.getAuthHeaders().then(setStoryAuthHeaders).catch(() => undefined);
 			}
 		} catch {
 			setError(isOwn ? 'Не удалось загрузить профиль' : 'Профиль недоступен');
@@ -319,6 +329,35 @@ export default function ProfileScreen({api, authState, username, onBack, onMessa
 					</BerxGlassSurface>
 				) : null}
 			</BerxFadeIn>
+
+			{highlights.length > 0 && onOpenStoryGroup && profile.guid ? (
+				<BerxFadeIn style={styles.highlightsRail} delayMs={40}>
+					<ScrollView horizontal showsHorizontalScrollIndicator={false}>
+						{highlights.map((s: BerxStorySummary) => (
+							<Pressable
+								key={s.id}
+								style={styles.highlightItem}
+								onPress={() =>
+									onOpenStoryGroup({
+										owner_guid: profile.guid!,
+										owner_username: profile.username,
+										stories: [s],
+									})
+								}
+							>
+								<View style={styles.highlightRing}>
+									{s.mime_type === 'video/mp4' ? (
+										<View style={styles.highlightVideoFallback}><Text style={styles.highlightVideoIcon}>▶</Text></View>
+									) : (
+										<Image source={{uri: api.storyMediaUrl(s.id), headers: storyAuthHeaders}} style={styles.highlightThumb} />
+									)}
+								</View>
+								{s.caption ? <Text style={styles.highlightLabel} numberOfLines={1}>{s.caption}</Text> : null}
+							</Pressable>
+						))}
+					</ScrollView>
+				</BerxFadeIn>
+			) : null}
 
 			{isOwn && identity ? (
 				<BerxFadeIn style={styles.identitySection} delayMs={60}>
@@ -574,6 +613,13 @@ const styles = StyleSheet.create({
 		marginBottom: spacing.md,
 	},
 	avatar: {width: 96, height: 96, borderRadius: 48, backgroundColor: colors.graphite},
+	highlightsRail: {paddingHorizontal: spacing.lg, marginBottom: spacing.md},
+	highlightItem: {alignItems: 'center', width: 68, marginRight: spacing.md},
+	highlightRing: {width: 60, height: 60, borderRadius: 30, borderWidth: 2, borderColor: colors.accent, alignItems: 'center', justifyContent: 'center', overflow: 'hidden'},
+	highlightThumb: {width: 54, height: 54, borderRadius: 27},
+	highlightVideoFallback: {width: 54, height: 54, borderRadius: 27, backgroundColor: colors.graphite, alignItems: 'center', justifyContent: 'center'},
+	highlightVideoIcon: {color: colors.white, fontSize: typography.sizeBase},
+	highlightLabel: {fontSize: typography.sizeXs, color: colors.textDim, marginTop: 4, textAlign: 'center'},
 	identitySection: {paddingHorizontal: spacing.xl, gap: spacing.md, marginBottom: spacing.md},
 	levelRow: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'},
 	levelText: {color: colors.white, fontSize: typography.sizeBase, fontWeight: typography.weightBold},

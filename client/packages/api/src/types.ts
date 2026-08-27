@@ -492,10 +492,13 @@ export interface BerxStorySummary {
 	caption: string;
 	time_created: number;
 	mime_type: string;
+	/** MAX BUILD — real Story Highlights (see classes/OssnStories.php's own header). Only populated where the source endpoint actually returns it (own stories, highlights list) — undefined elsewhere, never guessed. */
+	is_highlighted?: boolean;
 }
 
 export interface BerxOwnStorySummary extends BerxStorySummary {
 	time_expires: number;
+	is_highlighted: boolean;
 }
 
 export interface BerxStoryFeedGroup {

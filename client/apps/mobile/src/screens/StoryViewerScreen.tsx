@@ -41,6 +41,8 @@ export default function StoryViewerScreen({api, group, myGuid, onClose}: Props) 
 	const [paused, setPaused] = useState(false);
 	const [authHeaders, setAuthHeaders] = useState<Record<string, string>>({});
 	const [deleting, setDeleting] = useState(false);
+	const [highlighting, setHighlighting] = useState(false);
+	const [highlightOverrides, setHighlightOverrides] = useState<Record<number, boolean>>({});
 	const progress = useRef(new Animated.Value(0)).current;
 	const isOwn = group.owner_guid === myGuid;
 
@@ -104,7 +106,23 @@ export default function StoryViewerScreen({api, group, myGuid, onClose}: Props) 
 		}
 	}
 
+	async function toggleHighlight() {
+		if (!current || highlighting) return;
+		const next = !(highlightOverrides[current.id] ?? current.is_highlighted ?? false);
+		setHighlighting(true);
+		try {
+			await api.setStoryHighlighted(current.id, next);
+			setHighlightOverrides((prev: Record<number, boolean>) => ({...prev, [current.id]: next}));
+		} catch {
+			// real server rejection — highlight state stays as-is, nothing optimistic
+		} finally {
+			setHighlighting(false);
+		}
+	}
+
 	if (!current) return null;
+
+	const isHighlighted = highlightOverrides[current.id] ?? current.is_highlighted ?? false;
 
 	return (
 		<View style={styles.screen}>
@@ -161,9 +179,16 @@ export default function StoryViewerScreen({api, group, myGuid, onClose}: Props) 
 				<View style={styles.footerRow}>
 					<Text style={styles.owner}>{group.owner_username ?? `#${group.owner_guid}`}</Text>
 					{isOwn ? (
-						<Pressable onPress={handleDelete} disabled={deleting}>
-							<Text style={styles.deleteText}>{deleting ? '...' : 'Удалить'}</Text>
-						</Pressable>
+						<View style={styles.ownActions}>
+							<Pressable onPress={toggleHighlight} disabled={highlighting} hitSlop={8}>
+								<Text style={[styles.highlightText, isHighlighted && styles.highlightTextActive]}>
+									{highlighting ? '...' : isHighlighted ? '★ В актуальном' : '☆ В актуальное'}
+								</Text>
+							</Pressable>
+							<Pressable onPress={handleDelete} disabled={deleting} hitSlop={8}>
+								<Text style={styles.deleteText}>{deleting ? '...' : 'Удалить'}</Text>
+							</Pressable>
+						</View>
 					) : null}
 				</View>
 			</View>
@@ -191,6 +216,9 @@ const styles = StyleSheet.create({
 	footerRow: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'},
 	caption: {color: colors.text, fontSize: typography.sizeBase, marginBottom: spacing.sm},
 	owner: {color: colors.textDim, fontSize: typography.sizeSm},
+	ownActions: {flexDirection: 'row', alignItems: 'center', gap: spacing.md},
+	highlightText: {color: colors.textDim, fontSize: typography.sizeSm},
+	highlightTextActive: {color: colors.accent, fontWeight: typography.weightMedium},
 	deleteText: {color: colors.danger, fontSize: typography.sizeSm},
 	closeButton: {position: 'absolute', top: spacing.xl, right: spacing.md, padding: spacing.sm},
 	closeText: {color: colors.text, fontSize: typography.sizeLg},

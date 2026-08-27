@@ -243,6 +243,10 @@ function RouteRenderer({name, params}: {name: BerxRouteName; params: unknown}) {
 					onOpenMyVideos={(userGuid, isOwn) => nav.push('MyVideos', {userGuid, isOwn})}
 					onOpenMyTracks={(userGuid, isOwn) => nav.push('MyTracks', {userGuid, isOwn})}
 					onReport={(targetGuid) => nav.push('Report', {targetType: 'user', targetGuid})}
+					onOpenStoryGroup={(group) => {
+						currentStoryGroup = group;
+						nav.push('StoryViewer', undefined);
+					}}
 				/>
 			);
 		case 'Messages':

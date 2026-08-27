@@ -43,11 +43,42 @@ if ($segment0 === 'own' && $method === 'GET') {
 	$out = array();
 	foreach ($rows as $row) {
 		$out[] = array(
+			'id'             => intval($row->id),
+			'caption'        => $row->caption !== null ? (string) $row->caption : '',
+			'time_created'   => intval($row->time_created),
+			'mime_type'      => (string) $row->mime_type,
+			'time_expires'   => intval($row->time_expires),
+			'is_highlighted' => !empty($row->is_highlighted),
+		);
+	}
+	ossn_api_json(array('stories' => $out));
+}
+
+/**
+ * MAX BUILD — Story Highlights. Owner-only toggle; real, persists past
+ * the 24h expiry. See classes/OssnStories.php's own header for the
+ * exact access-control mechanism this activates.
+ */
+if ($segment0 !== null && $segment1 === 'highlight' && $method === 'POST') {
+	$enabledRaw = input('enabled');
+	$enabled = $enabledRaw === '1' || $enabledRaw === 'true' || $enabledRaw === true;
+	$ok = $model->setHighlighted(intval($segment0), $api_user_guid, $enabled);
+	if (!$ok) {
+		ossn_api_error('forbidden', 'Not allowed to highlight this story', 403);
+	}
+	ossn_api_json(array('status' => 'ok', 'is_highlighted' => $enabled));
+}
+
+/** Real, block-aware — see OssnStories::listHighlights()'s own header. */
+if ($segment0 === 'highlights' && $segment1 !== null && $method === 'GET') {
+	$rows = $model->listHighlights(intval($segment1), $api_user_guid);
+	$out = array();
+	foreach ($rows as $row) {
+		$out[] = array(
 			'id'           => intval($row->id),
 			'caption'      => $row->caption !== null ? (string) $row->caption : '',
 			'time_created' => intval($row->time_created),
 			'mime_type'    => (string) $row->mime_type,
-			'time_expires' => intval($row->time_expires),
 		);
 	}
 	ossn_api_json(array('stories' => $out));
