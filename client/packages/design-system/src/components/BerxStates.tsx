@@ -27,9 +27,13 @@ export function BerxErrorState({message, onRetry}: {message: string; onRetry?: (
 	);
 }
 
+/** Real glass badge instead of bare text — same glyph BusinessOffersScreen.tsx's own empty state already established, now the shared default every screen gets. */
 export function BerxEmptyState({title, subtitle}: {title: string; subtitle?: string}) {
 	return (
 		<View style={styles.center}>
+			<View style={styles.emptyBadge}>
+				<Text style={styles.emptyGlyph}>✦</Text>
+			</View>
 			<Text style={styles.emptyTitle}>{title}</Text>
 			{subtitle ? <Text style={styles.dimTextSmall}>{subtitle}</Text> : null}
 		</View>
@@ -72,6 +76,17 @@ const styles = StyleSheet.create({
 	dimText: {color: colors.textDim, fontSize: typography.sizeBase},
 	dimTextSmall: {color: colors.textFaint, fontSize: typography.sizeXs, textAlign: 'center'},
 	errorText: {color: colors.danger, fontSize: typography.sizeBase, textAlign: 'center'},
+	emptyBadge: {
+		width: 56,
+		height: 56,
+		borderRadius: radius.pill,
+		alignItems: 'center',
+		justifyContent: 'center',
+		backgroundColor: colors.glass2,
+		borderWidth: 1,
+		borderColor: colors.borderSoft,
+	},
+	emptyGlyph: {color: colors.accent, fontSize: typography.sizeLg},
 	emptyTitle: {color: colors.text, fontSize: typography.sizeLg, fontWeight: typography.weightMedium},
 	skeleton: {
 		backgroundColor: colors.glass2,

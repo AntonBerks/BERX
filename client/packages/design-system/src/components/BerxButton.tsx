@@ -5,7 +5,7 @@
  * 403, tested directly). Verify by dropping into a real RN project.
  */
 import { Pressable, Text, ActivityIndicator, StyleSheet, PressableProps } from 'react-native';
-import { colors, radius, spacing, typography } from '../tokens';
+import { colors, radius, spacing, typography, shadow } from '../tokens';
 
 export type BerxButtonVariant = 'primary' | 'secondary' | 'danger';
 
@@ -65,6 +65,12 @@ const styles = StyleSheet.create({
 	},
 	primary: {
 		backgroundColor: colors.accent,
+		// Real accent glow (tokens/shadow.glow) — designed for exactly this
+		// ("hero/primary surfaces") but never actually wired to a
+		// component before now. iOS renders it directly via shadow*;
+		// Android has no shadow blur/spread, so `elevation` (already part
+		// of shadow.glow) is the real fallback there.
+		...shadow.glow,
 	},
 	secondary: {
 		backgroundColor: colors.glass2,

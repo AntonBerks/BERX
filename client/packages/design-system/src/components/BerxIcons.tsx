@@ -148,6 +148,26 @@ export function IconChevronRight({size = 16, color}: IconProps) {
 	);
 }
 
+/** Same real corner-border construction as IconChevronRight, rotated the other way — built for BerxHeader's back button (previously a plain "‹ Назад" text glyph). */
+export function IconChevronLeft({size = 16, color}: IconProps) {
+	const thickness = Math.max(1.5, size * 0.13);
+	return (
+		<View style={{width: size * 0.5, height: size, alignItems: 'center', justifyContent: 'center'}}>
+			<View
+				style={{
+					width: size * 0.42,
+					height: size * 0.42,
+					borderTopWidth: thickness,
+					borderRightWidth: thickness,
+					borderTopColor: color,
+					borderRightColor: color,
+					transform: [{rotate: '225deg'}],
+				}}
+			/>
+		</View>
+	);
+}
+
 export function IconHeart({size = 20, color}: IconProps) {
 	const lobe = size * 0.32;
 	return (
