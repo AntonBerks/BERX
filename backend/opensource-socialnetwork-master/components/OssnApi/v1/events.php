@@ -171,6 +171,11 @@ if ($segment0 !== null && is_numeric($segment0) && $segment1 === 'rsvp' && $segm
 		list($code, $message, $status) = $statusMap[$result];
 		ossn_api_error($code, $message, $status);
 	}
+	// MAX BUILD -- real engagement signal (OssnSignals, BERX Future Core
+	// -- see places.php's own comment for the full story). Best-effort.
+	if (class_exists('OssnSignals')) {
+		(new OssnSignals())->record($api_user_guid, 'rsvp', 'event', intval($segment0));
+	}
 	$fresh = $model->getEvent($segment0, $api_user_guid);
 	ossn_api_json(array(
 		'status'         => 'ok',

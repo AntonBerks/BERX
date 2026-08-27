@@ -279,6 +279,12 @@ if ($segment0 !== null && $segment1 === 'like' && $method === 'POST') {
 	}
 	$likes = new OssnLikes();
 	$likes->Like($post->guid, $api_user_guid, 'post');
+	// MAX BUILD -- real engagement signal (OssnSignals, BERX Future Core
+	// -- see components/OssnApi/v1/places.php's own comment for the
+	// full story). Best-effort.
+	if (class_exists('OssnSignals')) {
+		(new OssnSignals())->record($api_user_guid, 'like', 'post', $post->guid);
+	}
 	ossn_api_json(array('status' => 'ok'));
 }
 

@@ -1463,6 +1463,11 @@ export class BerxApiClient {
 		return this.request<{categories: BerxPlaceCategory[]}>('/places/categories');
 	}
 
+	/** MAX BUILD — real Trending Places. Wires OssnSignals (BERX Future Core — previously built, migrated, and never instantiated anywhere) into a live-computed 7-day engagement ranking, never a fake/pre-baked score. */
+	async trendingPlaces(limit = 10): Promise<{places: Array<BerxPlace & {trending_score: number}>}> {
+		return this.request<{places: Array<BerxPlace & {trending_score: number}>}>(`/places/trending?limit=${limit}`);
+	}
+
 	async savedPlaces(): Promise<{places: BerxPlace[]}> {
 		return this.request<{places: BerxPlace[]}>('/places/saved');
 	}

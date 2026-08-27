@@ -9,6 +9,13 @@
  * reading as glass would be worse, not better — real variety of
  * surfaces on purpose) and instead gave the grid a real BerxFadeIn
  * entrance, so Places doesn't feel like a static admin list on open.
+ *
+ * MAX BUILD — real "🔥 В тренде" rail. api.trendingPlaces() wires
+ * OssnSignals (BERX Future Core — previously built, migrated, and
+ * never once instantiated anywhere) into a live 7-day engagement
+ * ranking. Best-effort, never blocks the list itself; hidden entirely
+ * when nothing has real signals yet (never shown as a fake all-zero
+ * ranking).
  */
 import {useCallback, useEffect, useState} from 'react';
 import {View, Text, FlatList, Pressable, RefreshControl, StyleSheet, Image} from 'react-native';
@@ -38,9 +45,11 @@ export default function PlacesListScreen({api, onOpenPlace, onCreate, onOpenNear
 	const [loading, setLoading] = useState(true);
 	const [refreshing, setRefreshing] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+	const [trending, setTrending] = useState<Array<BerxPlace & {trending_score: number}>>([]);
 
 	useEffect(() => {
 		api.placeCategories().then((r) => setCategories(r.categories)).catch(() => undefined);
+		api.trendingPlaces(10).then((r) => setTrending(r.places)).catch(() => undefined);
 	}, [api]);
 
 	const load = useCallback(async () => {
@@ -74,6 +83,30 @@ export default function PlacesListScreen({api, onOpenPlace, onCreate, onOpenNear
 					<BerxButton label="Добавить" onPress={onCreate} />
 				</View>
 			</View>
+			{trending.length > 0 ? (
+				<View>
+					<Text style={styles.trendingLabel}>В тренде</Text>
+					<FlatList
+						horizontal
+						showsHorizontalScrollIndicator={false}
+						data={trending}
+						keyExtractor={(p: BerxPlace & {trending_score: number}) => `trending-${p.guid}`}
+						contentContainerStyle={styles.trendingRow}
+						renderItem={({item}: {item: BerxPlace & {trending_score: number}}) => (
+							<Pressable style={styles.trendingCard} onPress={() => onOpenPlace(item.guid)}>
+								{item.cover_url ? (
+									<Image source={{uri: item.cover_url}} style={styles.trendingImage} />
+								) : (
+									<View style={styles.trendingImageFallback}>
+										<Text style={styles.cardMediaInitial}>{item.title.charAt(0).toUpperCase()}</Text>
+									</View>
+								)}
+								<Text style={styles.trendingTitle} numberOfLines={1}>🔥 {item.title}</Text>
+							</Pressable>
+						)}
+					/>
+				</View>
+			) : null}
 			<FlatList
 				horizontal
 				showsHorizontalScrollIndicator={false}
@@ -140,6 +173,12 @@ const styles = StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.bg},
 	toolbar: {paddingHorizontal: spacing.md, paddingTop: spacing.sm, gap: spacing.sm},
 	toolbarRow: {flexDirection: 'row', gap: spacing.sm},
+	trendingLabel: {color: colors.accent, fontSize: typography.sizeXs, fontWeight: typography.weightBold, textTransform: 'uppercase', paddingHorizontal: spacing.md, paddingTop: spacing.sm},
+	trendingRow: {paddingHorizontal: spacing.md, paddingVertical: spacing.sm, gap: spacing.sm},
+	trendingCard: {width: 140, marginRight: spacing.sm},
+	trendingImage: {width: 140, height: 90, borderRadius: radius.md, backgroundColor: colors.graphite},
+	trendingImageFallback: {width: 140, height: 90, borderRadius: radius.md, backgroundColor: colors.graphite, alignItems: 'center', justifyContent: 'center'},
+	trendingTitle: {color: colors.text, fontSize: typography.sizeXs, marginTop: 4},
 	chipRow: {paddingHorizontal: spacing.md, paddingVertical: spacing.sm, gap: spacing.xs},
 	chip: {paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: radius.pill, backgroundColor: colors.surface, marginRight: spacing.xs},
 	chipActive: {backgroundColor: colors.accentSoft, borderWidth: 1, borderColor: colors.accent},

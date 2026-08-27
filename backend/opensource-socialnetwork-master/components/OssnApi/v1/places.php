@@ -210,6 +210,13 @@ if ($segment0 !== null && is_numeric($segment0) && $segment1 === 'reviews' && $m
 	if ($result === 'duplicate') {
 		ossn_api_error('conflict', 'Already reviewed this place', 409);
 	}
+	// MAX BUILD -- real engagement signal (OssnSignals, BERX Future Core
+	// -- previously built, migrated, and completely unwired anywhere).
+	// Best-effort: a failed signal write must never block the review
+	// that actually matters.
+	if (class_exists('OssnSignals')) {
+		(new OssnSignals())->record($api_user_guid, 'review', 'place', intval($segment0));
+	}
 	ossn_api_json(array('guid' => intval($result)));
 }
 
@@ -219,6 +226,9 @@ if ($segment0 !== null && is_numeric($segment0) && $segment1 === 'save' && $meth
 		ossn_api_error('not_found', 'Place not found', 404);
 	}
 	$model->savePlace($segment0, $api_user_guid);
+	if (class_exists('OssnSignals')) {
+		(new OssnSignals())->record($api_user_guid, 'save', 'place', intval($segment0));
+	}
 	ossn_api_json(array('status' => 'ok', 'is_saved' => true));
 }
 
@@ -256,7 +266,40 @@ if ($segment0 !== null && is_numeric($segment0) && $segment1 === 'checkin' && $m
 	}
 	$today = date('Y-m-d');
 	$awarded = (new OssnPoints())->award($api_user_guid, 8, "checkin:{$segment0}:{$today}", intval($segment0), true);
+	if (class_exists('OssnSignals')) {
+		(new OssnSignals())->record($api_user_guid, 'checkin', 'place', intval($segment0));
+	}
 	ossn_api_json(array('status' => 'ok', 'distance_m' => $result['distance_m'], 'points_awarded' => $awarded ? 8 : 0));
+}
+
+/**
+ * MAX BUILD -- real Trending Places. Wires OssnSignals (BERX Future
+ * Core -- already built and migrated, but never once instantiated
+ * anywhere in the API before this) into a real ranked list:
+ * engagementScore() computed live over the last 7 days for each
+ * candidate, never a pre-baked/fake score. Candidate set is the same
+ * real listPlaces() every other places list route already uses; a
+ * place with zero real signals in the window is simply left out
+ * rather than shown with a fake zero-vs-zero tie.
+ */
+if ($segment0 === 'trending' && $segment1 === null && $method === 'GET') {
+	$limit = input('limit') ? max(1, min(50, intval(input('limit')))) : 10;
+	$candidates = $model->listPlaces(array('limit' => 100), $api_user_guid);
+	$scored = array();
+	if (class_exists('OssnSignals') && $candidates) {
+		$signals = new OssnSignals();
+		foreach ($candidates as $place) {
+			$score = $signals->engagementScore('place', intval($place->guid), 7 * 24 * 3600);
+			if ($score > 0) {
+				$place->trending_score = $score;
+				$scored[] = $place;
+			}
+		}
+		usort($scored, function ($a, $b) {
+			return $b->trending_score <=> $a->trending_score;
+		});
+	}
+	ossn_api_json(array('places' => array_slice($scored, 0, $limit)));
 }
 
 if ($segment0 === 'checkins' && $segment1 === null && $method === 'GET') {
