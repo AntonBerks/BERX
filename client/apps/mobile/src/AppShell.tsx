@@ -453,6 +453,7 @@ function RouteRenderer({name, params}: {name: BerxRouteName; params: unknown}) {
 					onOpenModerators={(guid) => nav.push('CommunityModerators', {guid})}
 					onOpenMembers={(guid, isOwner) => nav.push('CommunityMembers', {guid, isOwner})}
 					onOpenEvent={(guid) => nav.push('EventDetail', {guid})}
+					onOpenPost={(postGuid) => nav.push('PostDetail', {postGuid})}
 					onReport={(guid) => nav.push('Report', {targetType: 'group', targetGuid: guid})}
 					onDeleted={nav.pop}
 				/>

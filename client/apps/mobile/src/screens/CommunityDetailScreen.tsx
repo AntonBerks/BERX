@@ -1,10 +1,17 @@
 /**
  * !!! VERIFICATION STATUS: UNVERIFIED — see LoginScreen.tsx header.
  *
- * Honest scope: no group feed/posts/comments here — OssnGroup has
- * real methods for members (getMembers) but this pass only wires
- * join/leave/view/manage, consistent with "add what's actually built
- * and tested, not a guessed full feature set."
+ * MAX BUILD — real Community Wall: the earlier documented scope gap
+ * ("no group feed/posts/comments here") closed for posts specifically.
+ * Wraps the exact real, already-built core group-wall mechanism the
+ * web UI itself uses (components/OssnWall/actions/wall/post/group.php)
+ * — see communities.php's own header for the full mechanism. Tapping
+ * a wall post opens the real, existing PostDetailScreen — likes/
+ * comments on a group post already work through the existing real
+ * /posts/{guid}/like and /posts/{guid}/comments routes (confirmed by
+ * reading them: both key purely off the post guid via OssnWall::
+ * GetPost(), with no branch on owner type), so no new detail view was
+ * needed here.
  *
  * MAX BUILD — closes the same class of gap as EditPlaceScreen/
  * EditEventScreen/TripDetailScreen's inline edit: api.updateCommunity()/
@@ -24,7 +31,8 @@
 import {useEffect, useState} from 'react';
 import {View, Text, Pressable, Alert, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
-import type {BerxCommunity, BerxEvent} from '@berx/api/types';
+import type {BerxCommunity, BerxEvent, BerxFeedItem} from '@berx/api/types';
+import {relativeTimeLabel} from '@berx/domain';
 import {colors, spacing, typography} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
@@ -40,11 +48,13 @@ interface Props {
 	onOpenModerators?: (guid: number) => void;
 	onOpenMembers?: (guid: number, isOwner: boolean) => void;
 	onOpenEvent?: (guid: number) => void;
+	/** MAX BUILD — real Community Wall (see this file's own header). */
+	onOpenPost?: (guid: number) => void;
 	onReport?: (guid: number) => void;
 	onDeleted?: () => void;
 }
 
-export default function CommunityDetailScreen({api, guid, myGuid, onBack, onOpenRequests, onOpenModerators, onOpenMembers, onOpenEvent, onReport, onDeleted}: Props) {
+export default function CommunityDetailScreen({api, guid, myGuid, onBack, onOpenRequests, onOpenModerators, onOpenMembers, onOpenEvent, onOpenPost, onReport, onDeleted}: Props) {
 	const [community, setCommunity] = useState<BerxCommunity | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
@@ -56,6 +66,10 @@ export default function CommunityDetailScreen({api, guid, myGuid, onBack, onOpen
 	const [saving, setSaving] = useState(false);
 	const [deleting, setDeleting] = useState(false);
 	const [editError, setEditError] = useState<string | null>(null);
+	const [posts, setPosts] = useState<BerxFeedItem[]>([]);
+	const [postText, setPostText] = useState('');
+	const [posting, setPosting] = useState(false);
+	const [postError, setPostError] = useState<string | null>(null);
 
 	async function load() {
 		setLoading(true);
@@ -65,10 +79,29 @@ export default function CommunityDetailScreen({api, guid, myGuid, onBack, onOpen
 			setError(null);
 			// Best-effort — a community with no tagged events still loads normally.
 			api.communityEvents(guid).then((res) => setEvents(res.events)).catch(() => undefined);
+			// Best-effort — a private community the caller isn't in yet 403s server-side, handled as "no posts to show" rather than surfacing a fetch error on the whole screen.
+			api.communityPosts(guid).then((res) => setPosts(res.posts)).catch(() => undefined);
 		} catch {
 			setError('Сообщество недоступно');
 		} finally {
 			setLoading(false);
+		}
+	}
+
+	/** MAX BUILD — real Community Wall post. Server re-checks membership regardless of what this button already knows. */
+	async function handlePost() {
+		if (!postText.trim()) return;
+		setPosting(true);
+		setPostError(null);
+		try {
+			await api.createCommunityPost(guid, postText.trim());
+			setPostText('');
+			const res = await api.communityPosts(guid);
+			setPosts(res.posts);
+		} catch (e) {
+			setPostError(e instanceof Error ? e.message : 'Не удалось опубликовать');
+		} finally {
+			setPosting(false);
 		}
 	}
 
@@ -209,6 +242,27 @@ export default function CommunityDetailScreen({api, guid, myGuid, onBack, onOpen
 							</View>
 						) : null}
 
+						{community.is_member ? (
+							<View style={styles.wallComposer}>
+								<BerxInput placeholder="Написать в сообщество..." value={postText} onChangeText={setPostText} multiline />
+								<BerxButton label="Опубликовать" variant="secondary" onPress={handlePost} loading={posting} disabled={!postText.trim()} />
+								{postError ? <Text style={styles.error}>{postError}</Text> : null}
+							</View>
+						) : null}
+
+						{posts.length > 0 ? (
+							<View style={styles.wallSection}>
+								<Text style={styles.eventsTitle}>Стена сообщества</Text>
+								{posts.map((p: BerxFeedItem) => (
+									<Pressable key={p.guid} style={styles.wallRow} onPress={() => onOpenPost && onOpenPost(p.guid)} disabled={!onOpenPost}>
+										<Text style={styles.wallAuthor}>{p.owner_username ?? 'BERX'}</Text>
+										<Text style={styles.wallText} numberOfLines={4}>{p.text}</Text>
+										<Text style={styles.eventMeta}>{relativeTimeLabel(p.time_created)}</Text>
+									</Pressable>
+								))}
+							</View>
+						) : null}
+
 						{isOwner ? (
 							<View style={styles.ownerActions}>
 								{onOpenRequests ? <BerxButton label="Заявки на вступление" variant="secondary" onPress={() => onOpenRequests(guid)} fullWidth /> : null}
@@ -244,4 +298,9 @@ const styles = StyleSheet.create({
 	eventRow: {gap: 2, paddingVertical: spacing.xs, borderTopWidth: 1, borderTopColor: colors.borderSoft},
 	eventTitle: {color: colors.text, fontSize: typography.sizeSm, fontWeight: typography.weightMedium},
 	eventMeta: {color: colors.textFaint, fontSize: typography.sizeXs},
+	wallComposer: {gap: spacing.xs, marginTop: spacing.sm},
+	wallSection: {gap: spacing.xs, marginTop: spacing.sm},
+	wallRow: {gap: 2, paddingVertical: spacing.sm, borderTopWidth: 1, borderTopColor: colors.borderSoft},
+	wallAuthor: {color: colors.accent, fontSize: typography.sizeSm, fontWeight: typography.weightMedium},
+	wallText: {color: colors.text, fontSize: typography.sizeSm},
 });

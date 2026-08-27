@@ -49,7 +49,7 @@ function ossn_api_group_member_json($userGuid, $ownerGuid) {
 }
 
 $segment0 = isset($segments[0]) ? $segments[0] : null; // guid | 'mine'
-$segment1 = isset($segments[1]) ? $segments[1] : null; // 'join'|'leave'|'requests'|'moderators'|'members'
+$segment1 = isset($segments[1]) ? $segments[1] : null; // 'join'|'leave'|'requests'|'moderators'|'members'|'posts'|'transfer'
 $segment2 = isset($segments[2]) ? $segments[2] : null; // user guid | action
 $segment3 = isset($segments[3]) ? $segments[3] : null; // 'approve'|'decline'
 
@@ -153,6 +153,63 @@ if ($segment0 !== null && $segment1 === 'join' && $method === 'POST') {
 if ($segment0 !== null && $segment1 === 'leave' && $method === 'POST') {
 	$ok = $model->deleteMember(intval($api_user_guid), intval($segment0));
 	ossn_api_json(array('status' => $ok ? 'ok' : 'not_a_member'));
+}
+
+/**
+ * MAX BUILD — real Community Wall. Wraps the exact same real,
+ * already-built core mechanism the web UI's group wall uses
+ * (components/OssnWall/actions/wall/post/group.php: $wall->owner_guid
+ * = the GROUP's guid, $wall->type = 'group', $wall->Post(...)) --
+ * confirmed by reading that action before writing this, not guessed.
+ * Membership required to post regardless of the community's own
+ * privacy setting (core's own action enforces no such check itself --
+ * a real, disclosed gap in core, closed here rather than inherited).
+ * Reads honor the community's real privacy: a private community's
+ * wall requires real membership to read; a public one doesn't.
+ */
+if ($segment0 !== null && $segment1 === 'posts' && $method === 'GET') {
+	$group = $model->getGroup(intval($segment0));
+	if (!$group) {
+		ossn_api_error('not_found', 'Community not found', 404);
+	}
+	$privacy = isset($group->membership) ? intval($group->membership) : OSSN_PUBLIC;
+	$isMember = (bool) $model->isMember($group->guid, $api_user_guid);
+	if ($privacy === OSSN_PRIVATE && !$isMember && intval($group->owner_guid) !== intval($api_user_guid) && !ossn_api_is_admin($api_user_guid)) {
+		ossn_api_error('forbidden', 'This community is private', 403);
+	}
+	$wall = new OssnWall();
+	$rows = $wall->GetPostByOwner(intval($segment0), 'group');
+	$out = array();
+	if ($rows) {
+		foreach ((array) $rows as $row) {
+			$out[] = ossn_api_post_base_json($row);
+		}
+	}
+	ossn_api_json(array('posts' => $out));
+}
+
+if ($segment0 !== null && $segment1 === 'posts' && $method === 'POST') {
+	$group = $model->getGroup(intval($segment0));
+	if (!$group) {
+		ossn_api_error('not_found', 'Community not found', 404);
+	}
+	$isMember = (bool) $model->isMember($group->guid, $api_user_guid);
+	if (!$isMember && intval($group->owner_guid) !== intval($api_user_guid) && !ossn_api_is_admin($api_user_guid)) {
+		ossn_api_error('forbidden', 'Only members can post to this community', 403);
+	}
+	$text = input('text');
+	if (!$text) {
+		ossn_api_error('validation_error', 'text is required', 422);
+	}
+	$wall = new OssnWall();
+	$wall->owner_guid  = intval($segment0);
+	$wall->poster_guid = intval($api_user_guid);
+	$wall->type        = 'group';
+	$guid = $wall->Post($text);
+	if (!$guid) {
+		ossn_api_error('create_failed', 'Could not post to community', 500);
+	}
+	ossn_api_json(array('guid' => intval($guid)));
 }
 
 /**

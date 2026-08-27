@@ -1,6 +1,7 @@
 import type {
 	BerxAuthSession,
 	BerxFeedResponse,
+	BerxFeedItem,
 	BerxUser,
 	BerxPostDetail,
 	BerxConversationSummary,
@@ -1058,6 +1059,21 @@ export class BerxApiClient {
 	/** Real Communities <-> Events connection — this community's real hosted events (OssnEvents::upcomingByGroup()). Public, same visibility as getCommunity(). */
 	async communityEvents(guid: number): Promise<{events: BerxEvent[]}> {
 		return this.request<{events: BerxEvent[]}>(`/communities/${guid}/events`);
+	}
+
+	/**
+	 * MAX BUILD — real Community Wall, wrapping the exact real core
+	 * mechanism the web UI's group wall already uses (see
+	 * communities.php's own header comment). Reading a private
+	 * community's wall requires real membership (server-enforced);
+	 * posting always requires real membership regardless of privacy.
+	 */
+	async communityPosts(guid: number): Promise<{posts: BerxFeedItem[]}> {
+		return this.request<{posts: BerxFeedItem[]}>(`/communities/${guid}/posts`);
+	}
+
+	async createCommunityPost(guid: number, text: string): Promise<{guid: number}> {
+		return this.request<{guid: number}>(`/communities/${guid}/posts`, {method: 'POST', body: {text}});
 	}
 
 	async createCommunity(name: string, description: string, privacy: 'public' | 'private'): Promise<{guid: number}> {
