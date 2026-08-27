@@ -255,7 +255,7 @@ export default function CommunityDetailScreen({api, guid, myGuid, onBack, onOpen
 								<Text style={styles.eventsTitle}>Стена сообщества</Text>
 								{posts.map((p: BerxFeedItem) => (
 									<Pressable key={p.guid} style={styles.wallRow} onPress={() => onOpenPost && onOpenPost(p.guid)} disabled={!onOpenPost}>
-										<Text style={styles.wallAuthor}>{p.owner_username ?? 'BERX'}</Text>
+										<Text style={styles.wallAuthor}>{p.poster_username ?? 'BERX'}</Text>
 										<Text style={styles.wallText} numberOfLines={4}>{p.text}</Text>
 										<Text style={styles.eventMeta}>{relativeTimeLabel(p.time_created)}</Text>
 									</Pressable>

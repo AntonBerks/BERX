@@ -182,6 +182,12 @@ if ($segment0 !== null && $segment1 === 'posts' && $method === 'GET') {
 	$out = array();
 	if ($rows) {
 		foreach ((array) $rows as $row) {
+			// Real per-poster block check, same discipline as every other
+			// list this API returns — a blocked member's real post is
+			// never shown, even if the caller can otherwise read the wall.
+			if (ossn_api_is_blocked($api_user_guid, $row->poster_guid)) {
+				continue;
+			}
 			$out[] = ossn_api_post_base_json($row);
 		}
 	}

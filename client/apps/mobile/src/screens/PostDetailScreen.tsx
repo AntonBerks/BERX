@@ -251,10 +251,10 @@ export default function PostDetailScreen({api, postGuid, myGuid, onOpenProfile, 
 
 	return (
 		<ScrollView style={styles.screen}>
-			<BerxHeader onBack={onBack} title={post.owner_username ?? undefined} />
+			<BerxHeader onBack={onBack} title={post.poster_username ?? undefined} />
 			<View style={styles.container}>
-				<Pressable onPress={() => post.owner_username && onOpenProfile(post.owner_username)} disabled={!post.owner_username}>
-					<Text style={styles.author}>{post.owner_username ?? 'BERX'}</Text>
+				<Pressable onPress={() => post.poster_username && onOpenProfile(post.poster_username)} disabled={!post.poster_username}>
+					<Text style={styles.author}>{post.poster_username ?? 'BERX'}</Text>
 				</Pressable>
 				{post.text ? <Text style={styles.text}>{post.text}</Text> : null}
 				<View style={styles.timeRow}>
@@ -284,9 +284,9 @@ export default function PostDetailScreen({api, postGuid, myGuid, onOpenProfile, 
 
 				{post.repost_of ? (
 					post.reposted_post ? (
-						<Pressable onPress={() => post.reposted_post!.owner_username && onOpenProfile(post.reposted_post!.owner_username)}>
+						<Pressable onPress={() => post.reposted_post!.poster_username && onOpenProfile(post.reposted_post!.poster_username)}>
 							<View style={styles.repostBlock}>
-								<Text style={styles.repostAuthor}>{post.reposted_post.owner_username ?? 'BERX'}</Text>
+								<Text style={styles.repostAuthor}>{post.reposted_post.poster_username ?? 'BERX'}</Text>
 								<Text style={styles.repostText} numberOfLines={6}>{post.reposted_post.text}</Text>
 							</View>
 						</Pressable>
@@ -336,7 +336,7 @@ export default function PostDetailScreen({api, postGuid, myGuid, onOpenProfile, 
 						<BerxButton
 							label="Репост"
 							variant="secondary"
-							onPress={() => onRepost({guid: post.guid, text: post.text, owner_username: post.owner_username})}
+							onPress={() => onRepost({guid: post.guid, text: post.text, owner_username: post.poster_username})}
 						/>
 					) : null}
 				</View>

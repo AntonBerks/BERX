@@ -589,12 +589,25 @@ function ossn_api_friend_relevance_group_count($groupGuid, array $friendIds) {
 
 function ossn_api_post_base_json($post) {
 	$owner = ossn_user_by_guid($post->owner_guid);
+	// MAX BUILD — real, distinct poster identity. For a personal post
+	// owner_guid IS the poster (same value at creation, unchanged
+	// behavior). For a Community Wall post (type='group')
+	// owner_guid is the GROUP's own guid — ossn_user_by_guid() on that
+	// correctly returns false (a group is not a user), which used to
+	// leave every group post with a null owner_username and no way to
+	// show who actually wrote it. poster_guid is a real, separate
+	// column OssnWall::Post() always sets (confirmed by reading the
+	// real core group-wall action before adding this) — exposing it
+	// closes that gap without changing owner_guid's own meaning.
+	$poster = intval($post->poster_guid) === intval($post->owner_guid) ? $owner : ossn_user_by_guid($post->poster_guid);
 	return array(
-		'guid'           => intval($post->guid),
-		'text'           => (string) $post->description,
-		'owner_guid'     => intval($post->owner_guid),
-		'owner_username' => $owner ? (string) $owner->username : null,
-		'time_created'   => intval($post->time_created),
+		'guid'            => intval($post->guid),
+		'text'            => (string) $post->description,
+		'owner_guid'      => intval($post->owner_guid),
+		'owner_username'  => $owner ? (string) $owner->username : null,
+		'poster_guid'     => intval($post->poster_guid),
+		'poster_username' => $poster ? (string) $poster->username : null,
+		'time_created'    => intval($post->time_created),
 		// MAX BUILD — real Repost pointer (see posts.php's own comment
 		// on berx_repost_of). Read back the same flattened-onto-$post
 		// way berx_visibility already is (OssnCircles::canViewPost()'s

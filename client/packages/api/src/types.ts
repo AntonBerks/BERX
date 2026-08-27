@@ -34,6 +34,9 @@ export interface BerxFeedItem {
 	text: string;
 	owner_guid: number;
 	owner_username: string | null;
+	/** MAX BUILD — the real, distinct author. Equal to owner_guid/owner_username for a personal post; for a Community Wall post (see communities.php's own header on the group-wall mechanism) owner_guid is the GROUP's guid (owner_username is honestly null — a group has no username), so poster_username is the one to display. */
+	poster_guid: number;
+	poster_username: string | null;
 	time_created: number;
 	/** MAX BUILD — real Repost pointer (see posts.php's own comment on berx_repost_of). No embedded original on feed items — same N+1-avoidance reasoning as like_count/comment_count (feed.php's own comment); the full preview only renders on PostDetailScreen. */
 	repost_of: number | null;
@@ -62,6 +65,9 @@ export interface BerxPostDetail {
 	text: string;
 	owner_guid: number;
 	owner_username: string | null;
+	/** MAX BUILD — see BerxFeedItem's own comment on poster_guid/poster_username (same real distinction, same source). */
+	poster_guid: number;
+	poster_username: string | null;
 	time_created: number;
 	/** Only on the single-post detail response — feed items deliberately don't carry these to avoid an N+1 count query per feed load (see feed.php's own comment). */
 	like_count: number;
