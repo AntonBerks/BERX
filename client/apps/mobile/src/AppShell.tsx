@@ -1054,6 +1054,7 @@ function FeedScreenRoute({onOpenProfile}: {onOpenProfile: (username: string) => 
 
 function AuthenticatedApp() {
 	const [activeTab, setActiveTab] = useState<BerxRouteName>('Home');
+	const [unreadMessages, setUnreadMessages] = useState(0);
 
 	// Real, server-authoritative streak check-in — fires exactly once
 	// per real mount of the authenticated app (i.e. once per real app
@@ -1063,6 +1064,31 @@ function AuthenticatedApp() {
 	// this twice in the same real day is a documented, safe no-op.
 	useEffect(() => {
 		api.streakCheckIn().catch(() => undefined); // best-effort — a failed check-in must never block the app from loading
+	}, []);
+
+	// MAX BUILD — real unread-messages badge on the Messages tab.
+	// api.unreadMessageCount() was already real and already used inside
+	// ConversationListScreen.tsx, but nothing showed it at the tab-bar
+	// level — a user had no way to know they had a new message without
+	// actually opening the Messages tab. Same POLLING disclosure as
+	// typing status/read receipts elsewhere in this app (no WebSocket
+	// infra exists) — 20s interval, real value, never a guessed count.
+	useEffect(() => {
+		let active = true;
+		async function poll() {
+			try {
+				const res = await api.unreadMessageCount();
+				if (active) setUnreadMessages(res.unread_count);
+			} catch {
+				// polling failure is silent — never surfaces as an app-level error
+			}
+		}
+		poll();
+		const timer = setInterval(poll, 20000);
+		return () => {
+			active = false;
+			clearInterval(timer);
+		};
 	}, []);
 
 	// Real fix for the previously-disclosed limitation: all five tab
@@ -1111,6 +1137,11 @@ function AuthenticatedApp() {
 					return (
 						<Pressable key={tab} onPress={() => setActiveTab(tab)} style={styles.tabItem}>
 							<TabIcon tab={tab} color={color} />
+							{tab === 'Messages' && unreadMessages > 0 ? (
+								<View style={styles.tabBadge}>
+									<Text style={styles.tabBadgeText}>{unreadMessages > 9 ? '9+' : String(unreadMessages)}</Text>
+								</View>
+							) : null}
 						</Pressable>
 					);
 				})}
@@ -1192,10 +1223,13 @@ export default function AppShell() {
 		return <AuthenticatedApp />;
 	}
 
-	// unauthenticated / authenticating / authError / loggingOut all
-	// render the auth flow — loggingOut in particular means "we were
+	// unauthenticated / authenticating / authError / loggingOut / banned
+	// all render the auth flow — loggingOut in particular means "we were
 	// authenticated a moment ago and are transitioning out," which
-	// visually looks the same as the auth flow appearing again.
+	// visually looks the same as the auth flow appearing again; banned
+	// means a real ban was confirmed server-side (see OssnUser::ban()),
+	// and LoginScreen.tsx renders that real status with its own honest
+	// message rather than a generic "wrong password."
 	return <UnauthenticatedFlow />;
 }
 
@@ -1239,6 +1273,19 @@ const styles = StyleSheet.create({
 		paddingVertical: spacing.sm,
 	},
 	tabItem: {flex: 1, alignItems: 'center', paddingVertical: spacing.xs},
+	tabBadge: {
+		position: 'absolute',
+		top: 0,
+		right: '28%',
+		minWidth: 16,
+		height: 16,
+		borderRadius: 8,
+		paddingHorizontal: 3,
+		alignItems: 'center',
+		justifyContent: 'center',
+		backgroundColor: colors.danger,
+	},
+	tabBadgeText: {color: colors.white, fontSize: 10, fontWeight: typography.weightBold},
 	comingSoon: {flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.xl, gap: spacing.sm},
 	comingSoonTitle: {color: colors.accent, fontSize: typography.sizeXl, fontWeight: typography.weightBold},
 	comingSoonText: {color: colors.textDim, fontSize: typography.sizeBase, textAlign: 'center'},
