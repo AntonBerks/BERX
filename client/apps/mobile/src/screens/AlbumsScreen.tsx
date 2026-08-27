@@ -4,7 +4,7 @@
  * wraps OssnAlbums::GetAlbums() verbatim).
  */
 import {useCallback, useEffect, useState} from 'react';
-import {View, Text, FlatList, Pressable, StyleSheet} from 'react-native';
+import {View, Text, FlatList, Pressable, RefreshControl, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxAlbum} from '@berx/api/types';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
@@ -25,6 +25,7 @@ interface Props {
 export default function AlbumsScreen({api, userGuid, isOwn, onOpenAlbum, onCreate, onBack}: Props) {
 	const [items, setItems] = useState<BerxAlbum[]>([]);
 	const [loading, setLoading] = useState(true);
+	const [refreshing, setRefreshing] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
 	const load = useCallback(async () => {
@@ -37,6 +38,7 @@ export default function AlbumsScreen({api, userGuid, isOwn, onOpenAlbum, onCreat
 			setError(e instanceof Error ? e.message : 'Не удалось загрузить альбомы');
 		} finally {
 			setLoading(false);
+			setRefreshing(false);
 		}
 	}, [api, userGuid]);
 
@@ -64,6 +66,16 @@ export default function AlbumsScreen({api, userGuid, isOwn, onOpenAlbum, onCreat
 						keyExtractor={(a: BerxAlbum) => String(a.guid)}
 						numColumns={2}
 						contentContainerStyle={styles.grid}
+						refreshControl={
+							<RefreshControl
+								refreshing={refreshing}
+								onRefresh={() => {
+									setRefreshing(true);
+									load();
+								}}
+								tintColor={colors.accent}
+							/>
+						}
 						renderItem={({item}: {item: BerxAlbum}) => (
 							<Pressable style={styles.card} onPress={() => onOpenAlbum(item.guid)}>
 								<View style={styles.cardMedia}>

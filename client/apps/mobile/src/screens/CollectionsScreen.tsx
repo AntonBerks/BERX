@@ -6,7 +6,7 @@
  * public — enforced in the SQL query server-side, not filtered here.
  */
 import {useCallback, useEffect, useState} from 'react';
-import {View, Text, FlatList, Pressable, StyleSheet} from 'react-native';
+import {View, Text, FlatList, Pressable, RefreshControl, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxCollection} from '@berx/api/types';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
@@ -27,6 +27,7 @@ interface Props {
 export default function CollectionsScreen({api, userGuid, isOwn, onOpenCollection, onCreate, onBack}: Props) {
 	const [items, setItems] = useState<BerxCollection[]>([]);
 	const [loading, setLoading] = useState(true);
+	const [refreshing, setRefreshing] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
 	const load = useCallback(async () => {
@@ -39,6 +40,7 @@ export default function CollectionsScreen({api, userGuid, isOwn, onOpenCollectio
 			setError(e instanceof Error ? e.message : 'Не удалось загрузить подборки');
 		} finally {
 			setLoading(false);
+			setRefreshing(false);
 		}
 	}, [api, userGuid]);
 
@@ -65,6 +67,16 @@ export default function CollectionsScreen({api, userGuid, isOwn, onOpenCollectio
 						data={items}
 						keyExtractor={(c: BerxCollection) => String(c.id)}
 						contentContainerStyle={styles.list}
+						refreshControl={
+							<RefreshControl
+								refreshing={refreshing}
+								onRefresh={() => {
+									setRefreshing(true);
+									load();
+								}}
+								tintColor={colors.accent}
+							/>
+						}
 						renderItem={({item}: {item: BerxCollection}) => (
 							<Pressable style={styles.row} onPress={() => onOpenCollection(item.id)}>
 								<View style={styles.rowBody}>

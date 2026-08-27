@@ -5,7 +5,7 @@
  * real participant on, not just ones you own.
  */
 import {useCallback, useEffect, useState} from 'react';
-import {View, Text, FlatList, Pressable, StyleSheet} from 'react-native';
+import {View, Text, FlatList, Pressable, RefreshControl, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxTrip} from '@berx/api/types';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
@@ -31,6 +31,7 @@ function fmtDate(unix: number | null): string | null {
 export default function TripsScreen({api, userGuid, isOwn, onOpenTrip, onCreate, onBack}: Props) {
 	const [items, setItems] = useState<BerxTrip[]>([]);
 	const [loading, setLoading] = useState(true);
+	const [refreshing, setRefreshing] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
 	const load = useCallback(async () => {
@@ -43,6 +44,7 @@ export default function TripsScreen({api, userGuid, isOwn, onOpenTrip, onCreate,
 			setError(e instanceof Error ? e.message : 'Не удалось загрузить поездки');
 		} finally {
 			setLoading(false);
+			setRefreshing(false);
 		}
 	}, [api, userGuid]);
 
@@ -69,6 +71,16 @@ export default function TripsScreen({api, userGuid, isOwn, onOpenTrip, onCreate,
 						data={items}
 						keyExtractor={(t: BerxTrip) => String(t.id)}
 						contentContainerStyle={styles.list}
+						refreshControl={
+							<RefreshControl
+								refreshing={refreshing}
+								onRefresh={() => {
+									setRefreshing(true);
+									load();
+								}}
+								tintColor={colors.accent}
+							/>
+						}
 						renderItem={({item}: {item: BerxTrip}) => {
 							const start = fmtDate(item.start_date);
 							const end = fmtDate(item.end_date);

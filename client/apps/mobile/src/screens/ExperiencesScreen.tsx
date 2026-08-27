@@ -5,7 +5,7 @@
  * you've been invited to, with your real invite status shown.
  */
 import {useCallback, useEffect, useState} from 'react';
-import {View, Text, FlatList, Image, Pressable, StyleSheet} from 'react-native';
+import {View, Text, FlatList, Image, Pressable, RefreshControl, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxExperience} from '@berx/api/types';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
@@ -36,6 +36,7 @@ function fmtWhen(unix: number): string {
 export default function ExperiencesScreen({api, userGuid, isOwn, onOpenExperience, onCreate, onBack}: Props) {
 	const [items, setItems] = useState<BerxExperience[]>([]);
 	const [loading, setLoading] = useState(true);
+	const [refreshing, setRefreshing] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
 	const load = useCallback(async () => {
@@ -48,6 +49,7 @@ export default function ExperiencesScreen({api, userGuid, isOwn, onOpenExperienc
 			setError(e instanceof Error ? e.message : 'Не удалось загрузить впечатления');
 		} finally {
 			setLoading(false);
+			setRefreshing(false);
 		}
 	}, [api, userGuid]);
 
@@ -74,6 +76,16 @@ export default function ExperiencesScreen({api, userGuid, isOwn, onOpenExperienc
 						data={items}
 						keyExtractor={(e: BerxExperience) => String(e.id)}
 						contentContainerStyle={styles.list}
+						refreshControl={
+							<RefreshControl
+								refreshing={refreshing}
+								onRefresh={() => {
+									setRefreshing(true);
+									load();
+								}}
+								tintColor={colors.accent}
+							/>
+						}
 						renderItem={({item}: {item: BerxExperience}) => (
 							<Pressable style={styles.row} onPress={() => onOpenExperience(item.id)}>
 								{item.anchor?.image_url ? <Image source={{uri: item.anchor.image_url}} style={styles.thumb} /> : <View style={styles.thumbFallback} />}

@@ -5,7 +5,7 @@
  * public tier at all.
  */
 import {useCallback, useEffect, useState} from 'react';
-import {View, Text, FlatList, Pressable, StyleSheet} from 'react-native';
+import {View, Text, FlatList, Pressable, RefreshControl, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxCircle} from '@berx/api/types';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
@@ -31,6 +31,7 @@ const KIND_LABEL: Record<string, string> = {
 export default function CirclesScreen({api, onOpenCircle, onCreate, onBack}: Props) {
 	const [items, setItems] = useState<BerxCircle[]>([]);
 	const [loading, setLoading] = useState(true);
+	const [refreshing, setRefreshing] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
 	const load = useCallback(async () => {
@@ -43,6 +44,7 @@ export default function CirclesScreen({api, onOpenCircle, onCreate, onBack}: Pro
 			setError(e instanceof Error ? e.message : 'Не удалось загрузить круги');
 		} finally {
 			setLoading(false);
+			setRefreshing(false);
 		}
 	}, [api]);
 
@@ -67,6 +69,16 @@ export default function CirclesScreen({api, onOpenCircle, onCreate, onBack}: Pro
 						data={items}
 						keyExtractor={(c: BerxCircle) => String(c.id)}
 						contentContainerStyle={styles.list}
+						refreshControl={
+							<RefreshControl
+								refreshing={refreshing}
+								onRefresh={() => {
+									setRefreshing(true);
+									load();
+								}}
+								tintColor={colors.accent}
+							/>
+						}
 						renderItem={({item}: {item: BerxCircle}) => (
 							<Pressable style={styles.row} onPress={() => onOpenCircle(item.id)}>
 								<View style={styles.rowBody}>
