@@ -15,6 +15,7 @@ import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
+import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
 
 interface Props {
 	api: BerxApiClient;
@@ -70,21 +71,23 @@ export default function CommunityRequestsScreen({api, guid, onBack}: Props) {
 			{items.length === 0 ? (
 				<BerxEmptyState title="Заявок нет" subtitle="Новые заявки на вступление появятся здесь." />
 			) : (
-				<FlatList
-					data={items}
-					keyExtractor={(r: BerxCommunityRequest) => String(r.guid)}
-					contentContainerStyle={styles.list}
-					renderItem={({item}: {item: BerxCommunityRequest}) => (
-						<View style={styles.row}>
-							<Image source={{uri: item.icon}} style={styles.avatar} />
-							<Text style={styles.name} numberOfLines={1}>{item.fullname}</Text>
-							<View style={styles.actions}>
-								<BerxButton label="Принять" loading={busyGuid === item.guid} onPress={() => respond(item.guid, true)} />
-								<BerxButton label="Отклонить" variant="secondary" loading={busyGuid === item.guid} onPress={() => respond(item.guid, false)} />
+				<BerxFadeIn style={styles.fadeFlex}>
+					<FlatList
+						data={items}
+						keyExtractor={(r: BerxCommunityRequest) => String(r.guid)}
+						contentContainerStyle={styles.list}
+						renderItem={({item}: {item: BerxCommunityRequest}) => (
+							<View style={styles.row}>
+								<Image source={{uri: item.icon}} style={styles.avatar} />
+								<Text style={styles.name} numberOfLines={1}>{item.fullname}</Text>
+								<View style={styles.actions}>
+									<BerxButton label="Принять" loading={busyGuid === item.guid} onPress={() => respond(item.guid, true)} />
+									<BerxButton label="Отклонить" variant="secondary" loading={busyGuid === item.guid} onPress={() => respond(item.guid, false)} />
+								</View>
 							</View>
-						</View>
-					)}
-				/>
+						)}
+					/>
+				</BerxFadeIn>
 			)}
 		</View>
 	);
@@ -93,6 +96,7 @@ export default function CommunityRequestsScreen({api, guid, onBack}: Props) {
 const styles = StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.bg},
 	list: {padding: spacing.md, gap: spacing.sm},
+	fadeFlex: {flex: 1},
 	row: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.borderSoft},
 	avatar: {width: 40, height: 40, borderRadius: radius.pill, backgroundColor: colors.graphite},
 	name: {flex: 1, fontSize: typography.sizeBase, color: colors.white, fontWeight: typography.weightMedium},

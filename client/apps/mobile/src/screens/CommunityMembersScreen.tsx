@@ -22,6 +22,7 @@ import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
+import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
 
 interface Props {
 	api: BerxApiClient;
@@ -81,29 +82,31 @@ export default function CommunityMembersScreen({api, guid, isOwner, onOpenProfil
 			{items.length === 0 ? (
 				<BerxEmptyState title="Участников пока нет" />
 			) : (
-				<FlatList
-					data={items}
-					keyExtractor={(m: BerxCommunityMember) => String(m.guid)}
-					contentContainerStyle={styles.list}
-					renderItem={({item}: {item: BerxCommunityMember}) => (
-						<Pressable style={styles.row} onPress={() => onOpenProfile(item.username)}>
-							<Image source={{uri: item.icon}} style={styles.avatar} />
-							<Text style={styles.name} numberOfLines={1}>{item.fullname}</Text>
-							{item.is_owner ? (
-								<Text style={styles.ownerBadge}>Владелец</Text>
-							) : isOwner && moderatorGuids.has(item.guid) ? (
-								<Text style={styles.moderatorBadge}>Модератор</Text>
-							) : isOwner ? (
-								<BerxButton
-									label="Сделать модератором"
-									variant="secondary"
-									loading={busyGuid === item.guid}
-									onPress={() => assignModerator(item.guid)}
-								/>
-							) : null}
-						</Pressable>
-					)}
-				/>
+				<BerxFadeIn style={styles.fadeFlex}>
+					<FlatList
+						data={items}
+						keyExtractor={(m: BerxCommunityMember) => String(m.guid)}
+						contentContainerStyle={styles.list}
+						renderItem={({item}: {item: BerxCommunityMember}) => (
+							<Pressable style={styles.row} onPress={() => onOpenProfile(item.username)}>
+								<Image source={{uri: item.icon}} style={styles.avatar} />
+								<Text style={styles.name} numberOfLines={1}>{item.fullname}</Text>
+								{item.is_owner ? (
+									<Text style={styles.ownerBadge}>Владелец</Text>
+								) : isOwner && moderatorGuids.has(item.guid) ? (
+									<Text style={styles.moderatorBadge}>Модератор</Text>
+								) : isOwner ? (
+									<BerxButton
+										label="Сделать модератором"
+										variant="secondary"
+										loading={busyGuid === item.guid}
+										onPress={() => assignModerator(item.guid)}
+									/>
+								) : null}
+							</Pressable>
+						)}
+					/>
+				</BerxFadeIn>
 			)}
 		</View>
 	);
@@ -112,6 +115,7 @@ export default function CommunityMembersScreen({api, guid, isOwner, onOpenProfil
 const styles = StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.bg},
 	list: {padding: spacing.md, gap: spacing.sm},
+	fadeFlex: {flex: 1},
 	row: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.borderSoft},
 	avatar: {width: 40, height: 40, borderRadius: radius.pill, backgroundColor: colors.graphite},
 	name: {flex: 1, fontSize: typography.sizeBase, color: colors.white, fontWeight: typography.weightMedium},
