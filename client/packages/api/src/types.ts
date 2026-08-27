@@ -86,6 +86,8 @@ export interface BerxMessage {
 	/** Real disclosure — set by OssnMessages::editMessage(), never a silent rewrite of message history. */
 	edited: boolean;
 	time_edited: number | null;
+	/** Real read receipt — OssnMessages::markViewed(), already called on every thread open. */
+	viewed: boolean;
 }
 
 /** Future Identity — see docs/BERX_FUTURE_LAYER_SPEC.md. Real, live counts, no invented score. */

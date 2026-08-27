@@ -10,6 +10,13 @@
  * (ConversationScreen.tsx's own header used to say editing "does not
  * exist in the OSSN core"). Sender-only, real edited/time_edited
  * disclosure fields, never a silent rewrite.
+ *
+ * MAX BUILD — real read receipts. `viewed` was already a real,
+ * already-maintained column (OssnMessages::markViewed(), already
+ * called by this file's own POST .../read route, already called by
+ * ConversationScreen.tsx on every thread open) — the full pipeline
+ * was real end-to-end, it just never reached the JSON response or the
+ * UI. Now it does.
  */
 
 function ossn_api_message_json($row) {
@@ -21,6 +28,7 @@ function ossn_api_message_json($row) {
 		'time'        => intval($row->time),
 		'edited'      => !empty($row->edited),
 		'time_edited' => $row->time_edited !== null ? intval($row->time_edited) : null,
+		'viewed'      => !empty($row->viewed),
 	);
 }
 

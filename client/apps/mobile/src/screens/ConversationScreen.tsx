@@ -14,6 +14,15 @@
  * gap. Long-press on your own message now offers Изменить/Удалить
  * instead of deleting immediately; an edited message always shows
  * "(изменено)" — never a silent rewrite of what was actually said.
+ *
+ * MAX BUILD — real read receipts (✓ sent / ✓✓ seen) on your own
+ * messages. `viewed` was already a real, already-maintained column —
+ * the whole pipeline (markViewed() on thread open) was real end-to-end
+ * before this, it just never reached the JSON or the UI. Same POLLING
+ * disclosure as typing status applies here too: this only reflects
+ * the state as of the last load() (initial open, send, or edit/delete)
+ * — not live while the thread stays open, since there's no periodic
+ * message refresh here (only typing status polls on an interval).
  */
 import {useCallback, useEffect, useRef, useState} from 'react';
 import {FlatList, Text, View, Pressable, Alert, StyleSheet} from 'react-native';
@@ -182,10 +191,15 @@ export default function ConversationScreen({api, myGuid, otherGuid, otherUsernam
 							disabled={deletingId === item.id}
 							style={[styles.bubble, item.from_guid === myGuid ? styles.bubbleMine : styles.bubbleTheirs, deletingId === item.id && styles.bubbleDeleting, editingId === item.id && styles.bubbleEditing]}>
 							<Text style={styles.bubbleText}>{item.text}</Text>
-							<Text style={styles.bubbleTime}>
-								{relativeTimeLabel(item.time)}
-								{item.edited ? ' · изменено' : ''}
-							</Text>
+							<View style={styles.bubbleMetaRow}>
+								<Text style={styles.bubbleTime}>
+									{relativeTimeLabel(item.time)}
+									{item.edited ? ' · изменено' : ''}
+								</Text>
+								{item.from_guid === myGuid ? (
+									<Text style={[styles.readMark, item.viewed && styles.readMarkSeen]}>{item.viewed ? '✓✓' : '✓'}</Text>
+								) : null}
+							</View>
 						</Pressable>
 					)}
 				/>
@@ -243,7 +257,11 @@ const styles = StyleSheet.create({
 	editingHint: {color: colors.accent, fontSize: typography.sizeXs, fontWeight: typography.weightMedium},
 	editingCancel: {color: colors.textFaint, fontSize: typography.sizeXs, textDecorationLine: 'underline'},
 	bubbleText: {color: colors.text, fontSize: typography.sizeBase},
-	bubbleTime: {color: colors.textFaint, fontSize: typography.sizeXs, marginTop: spacing.xs},
+	bubbleMetaRow: {flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: spacing.xs},
+	bubbleTime: {color: colors.textFaint, fontSize: typography.sizeXs},
+	/** Real read receipt — single check = sent, double = the other side has actually opened the thread (OssnMessages::markViewed()), never a fake "delivered" guess. */
+	readMark: {color: colors.textFaint, fontSize: typography.sizeXs},
+	readMarkSeen: {color: colors.accent},
 	composer: {
 		flexDirection: 'row',
 		alignItems: 'flex-end',
