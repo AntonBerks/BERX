@@ -105,7 +105,15 @@ class OssnBusiness extends OssnDatabase {
 		 * effect of a claim, not just a status flag.
 		 */
 		public function reviewClaim($claimId, $adminGuid, $approve) {
-				if (!ossn_isAdminLoggedin()) {
+				// MAX BUILD -- real fix: ossn_isAdminLoggedin() reads
+				// $_SESSION, which no bearer-token API request ever
+				// populates (see ossn_com.php's own header). This made
+				// claim approve/reject 100% non-functional via the app for
+				// every caller, admin included -- there is no owner
+				// fallback on this check, unlike canReply()/canManage()
+				// below. ossn_api_is_admin() does a real guid-scoped DB
+				// lookup instead.
+				if (!ossn_api_is_admin($adminGuid)) {
 						return 'forbidden';
 				}
 				$claim = $this->getClaim($claimId);
@@ -135,7 +143,9 @@ class OssnBusiness extends OssnDatabase {
 				if (!$actingGuid) {
 						return false;
 				}
-				if (ossn_isAdminLoggedin()) {
+				// MAX BUILD -- same real fix as reviewClaim() above: session-
+				// dependent check replaced with a real guid-scoped lookup.
+				if (ossn_api_is_admin($actingGuid)) {
 						return true;
 				}
 				return intval($placeOwnerGuid) === intval($actingGuid);
@@ -212,7 +222,8 @@ class OssnBusiness extends OssnDatabase {
 				if (!$place || !$actingGuid) {
 						return false;
 				}
-				if (ossn_isAdminLoggedin()) {
+				// MAX BUILD -- same real fix as reviewClaim() above.
+				if (ossn_api_is_admin($actingGuid)) {
 						return true;
 				}
 				if (intval($place->owner_guid) === intval($actingGuid)) {
@@ -223,7 +234,7 @@ class OssnBusiness extends OssnDatabase {
 
 		/** Only the real owner (or admin) can add/remove team members — a manager cannot grant themselves more access or add others. */
 		public function addTeamMember($place, $actingGuid, $memberGuid, $role) {
-				if (!$place || (intval($place->owner_guid) !== intval($actingGuid) && !ossn_isAdminLoggedin())) {
+				if (!$place || (intval($place->owner_guid) !== intval($actingGuid) && !ossn_api_is_admin($actingGuid))) {
 						return 'forbidden';
 				}
 				$memberGuid = intval($memberGuid);
@@ -242,7 +253,7 @@ class OssnBusiness extends OssnDatabase {
 		}
 
 		public function removeTeamMember($place, $actingGuid, $memberGuid) {
-				if (!$place || (intval($place->owner_guid) !== intval($actingGuid) && !ossn_isAdminLoggedin())) {
+				if (!$place || (intval($place->owner_guid) !== intval($actingGuid) && !ossn_api_is_admin($actingGuid))) {
 						return false;
 				}
 				return parent::delete(array(
