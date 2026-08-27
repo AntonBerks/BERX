@@ -52,6 +52,17 @@ function ossn_api_me_to_json($user) {
 		'profile_url'  => (string) $user->profileURL(),
 		'time_created' => intval($user->time_created),
 		'reputation'   => ossn_api_me_reputation($user->guid),
+		// MAX BUILD — real signal for admin-only client UI (Admin
+		// screens like admin.php's own unvalidated-users queue and
+		// report.php's moderation queue were fully real but had no
+		// entry point anywhere, since the client had no way to know
+		// who's an admin to gate the menu item on). Uses
+		// ossn_api_is_admin() (ossn_com.php), not ossn_isAdminLoggedin()
+		// — the latter needs $_SESSION populated, which no bearer-token
+		// API request ever does; this field only controls what the
+		// client OFFERS to show, the server re-checks independently on
+		// every actual admin route.
+		'is_admin'     => ossn_api_is_admin($user->guid),
 	);
 }
 

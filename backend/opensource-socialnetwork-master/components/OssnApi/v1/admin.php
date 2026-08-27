@@ -12,9 +12,17 @@
  * escaping (confirmed by reading it) — a real, unfixed core-OSSN
  * injection risk if fed external input. Called here with no search
  * arg at all.
+ *
+ * MAX BUILD — real fix: this used to gate on ossn_isAdminLoggedin(),
+ * which reads $_SESSION['OSSN_USER'] — but this dispatcher never
+ * populates a session for bearer-token requests (see ossn_com.php's
+ * own header). Every real admin request through the mobile app was
+ * silently rejected as 403 regardless of who was calling. Now uses
+ * ossn_api_is_admin($api_user_guid) — a real guid-scoped DB lookup,
+ * no session needed.
  */
 
-if (!ossn_isAdminLoggedin()) {
+if (!ossn_api_is_admin($api_user_guid)) {
 	ossn_api_error('forbidden', 'Admin only', 403);
 }
 

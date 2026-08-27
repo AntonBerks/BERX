@@ -98,6 +98,7 @@ export type BerxRouteName =
 	| 'PlacesNearby'
 	| 'SavedPlaces'
 	| 'AdminUnvalidated'
+	| 'AdminReports'
 	| 'BERXWorld'
 	| 'Saved';
 
@@ -185,6 +186,7 @@ export interface BerxRouteParams {
 	PlacesNearby: undefined;
 	SavedPlaces: undefined;
 	AdminUnvalidated: undefined;
+	AdminReports: undefined;
 	BERXWorld: undefined;
 	Saved: undefined;
 }
@@ -251,7 +253,12 @@ export const BERX_ROUTES: BerxRouteMeta[] = [
 	{ name: 'CreatePlace', connected: true },
 	{ name: 'PlacesNearby', connected: true },
 	{ name: 'SavedPlaces', connected: true },
+	// MAX BUILD — both real screens now have a real entry point
+	// (Profile's own Admin menu section, is_admin-gated) and a real,
+	// working server-side admin gate (ossn_api_is_admin(), fixed from
+	// the previously-broken session-dependent ossn_isAdminLoggedin()).
 	{ name: 'AdminUnvalidated', connected: true },
+	{ name: 'AdminReports', connected: true },
 	{ name: 'Report', connected: true },
 	{ name: 'Collections', connected: true },
 	{ name: 'CollectionDetail', connected: true },

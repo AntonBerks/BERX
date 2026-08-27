@@ -447,6 +447,32 @@ function ossn_api_is_blocked($viewerGuid, $ownerGuid) {
 }
 
 /**
+ * MAX BUILD — a real, critical fix: ossn_isAdminLoggedin() reads
+ * $_SESSION['OSSN_USER'] directly (confirmed by reading its real body
+ * in libraries/ossn.lib.users.php), but this dispatcher's own header
+ * comment says it "never touches $_SESSION" -- and admin.php/
+ * report.php were both calling ossn_isAdminLoggedin() directly with
+ * no session bridge of their own, meaning EVERY real admin request
+ * through the bearer-token API was silently rejected as 403 "Admin
+ * only", session or no session, admin or not. This bypasses the
+ * session entirely: a real guid-scoped OssnUser::getUser() lookup
+ * (the same real DB fetch me.php's own ossn_api_me_fetch() already
+ * uses) checking the real `type` column directly, matching
+ * ossn_isAdminLoggedin()'s own real admin definition
+ * ($user->type === 'admin') without needing $_SESSION populated.
+ */
+function ossn_api_is_admin($guid) {
+	$guid = intval($guid);
+	if (!$guid) {
+		return false;
+	}
+	$userModel = new OssnUser();
+	$userModel->guid = $guid;
+	$user = $userModel->getUser();
+	return $user && $user->type === 'admin';
+}
+
+/**
  * Starter, curated category taxonomy shared by Places AND Events
  * (both use the real client.ts/types.ts `BerxPlaceCategory` shape) —
  * not an enforced enum: createPlace()/createEvent() and their update

@@ -4,6 +4,14 @@
  * target_type/reason are validated server-side against
  * OssnReport::VALID_TARGET_TYPES/VALID_REASONS — the real authority,
  * not the client's TS unions.
+ *
+ * MAX BUILD — real fix: the queue/resolve/action routes below used to
+ * gate on ossn_isAdminLoggedin(), which reads $_SESSION['OSSN_USER']
+ * — never populated for bearer-token API requests (see ossn_com.php's
+ * own "no session bridge" header). Every real admin moderation request
+ * through the mobile app was silently rejected as 403, admin or not.
+ * Now uses ossn_api_is_admin($api_user_guid) — a real guid-scoped DB
+ * lookup, no session needed.
  */
 
 function ossn_api_report_json($row) {
@@ -40,7 +48,7 @@ if ($segment0 === null && $method === 'POST') {
 }
 
 if ($segment0 === 'queue' && $method === 'GET') {
-	if (!ossn_isAdminLoggedin()) {
+	if (!ossn_api_is_admin($api_user_guid)) {
 		ossn_api_error('forbidden', 'Admin only', 403);
 	}
 	$rows = $model->listPending();
@@ -52,7 +60,7 @@ if ($segment0 === 'queue' && $method === 'GET') {
 }
 
 if ($segment0 !== null && $segment0 !== 'queue' && $segment1 === 'resolve' && $method === 'POST') {
-	if (!ossn_isAdminLoggedin()) {
+	if (!ossn_api_is_admin($api_user_guid)) {
 		ossn_api_error('forbidden', 'Admin only', 403);
 	}
 	$status = input('status') === 'dismissed' ? OssnReport::STATUS_DISMISSED : OssnReport::STATUS_REVIEWED;
@@ -61,7 +69,7 @@ if ($segment0 !== null && $segment0 !== 'queue' && $segment1 === 'resolve' && $m
 }
 
 if ($segment0 !== null && $segment0 !== 'queue' && $segment1 === 'action' && $method === 'POST') {
-	if (!ossn_isAdminLoggedin()) {
+	if (!ossn_api_is_admin($api_user_guid)) {
 		ossn_api_error('forbidden', 'Admin only', 403);
 	}
 	$report = $model->get(intval($segment0));

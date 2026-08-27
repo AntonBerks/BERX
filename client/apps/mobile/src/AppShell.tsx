@@ -74,6 +74,7 @@ import SavedPostsScreen from './screens/SavedPostsScreen';
 import MyEventsScreen from './screens/MyEventsScreen';
 import EventInviteScreen from './screens/EventInviteScreen';
 import AdminUnvalidatedScreen from './screens/AdminUnvalidatedScreen';
+import AdminReportsScreen from './screens/AdminReportsScreen';
 import MessageSearchScreen from './screens/MessageSearchScreen';
 import SettingsScreen from './screens/SettingsScreen';
 import BlockedUsersScreen from './screens/BlockedUsersScreen';
@@ -203,6 +204,8 @@ function RouteRenderer({name, params}: {name: BerxRouteName; params: unknown}) {
 					onOpenLifeGraph={!nav.canGoBack ? () => nav.push('LifeGraph', undefined) : undefined}
 					onOpenMemories={!nav.canGoBack ? () => nav.push('Memories', undefined) : undefined}
 					onOpenSavedPosts={!nav.canGoBack ? () => nav.push('Saved', undefined) : undefined}
+					onOpenAdminUnvalidated={!nav.canGoBack ? () => nav.push('AdminUnvalidated', undefined) : undefined}
+					onOpenAdminReports={!nav.canGoBack ? () => nav.push('AdminReports', undefined) : undefined}
 					onOpenWrapped={!nav.canGoBack ? () => nav.push('Wrapped', undefined) : undefined}
 					onOpenDatingPrivacy={!nav.canGoBack ? () => nav.push('DatingPrivacy', undefined) : undefined}
 					onOpenDatingProfile={!nav.canGoBack ? () => nav.push('DatingProfile', undefined) : undefined}
@@ -539,6 +542,8 @@ function RouteRenderer({name, params}: {name: BerxRouteName; params: unknown}) {
 			);
 		case 'AdminUnvalidated':
 			return <AdminUnvalidatedScreen api={api} onBack={nav.pop} />;
+		case 'AdminReports':
+			return <AdminReportsScreen api={api} onBack={nav.pop} />;
 		case 'MessageSearch':
 			return <MessageSearchScreen api={api} onOpenConversation={(otherGuid) => nav.replace('Conversation', {otherGuid, otherUsername: undefined})} onBack={nav.pop} />;
 		case 'Settings':

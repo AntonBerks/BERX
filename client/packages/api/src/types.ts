@@ -16,6 +16,8 @@ export interface BerxUser {
 	profile_url: string;
 	time_created: number;
 	reputation: BerxReputation;
+	/** Real signal (Max Build) — server re-checks independently on every actual admin route; this only controls what the client offers to show. */
+	is_admin: boolean;
 }
 
 export interface BerxAuthSession {
