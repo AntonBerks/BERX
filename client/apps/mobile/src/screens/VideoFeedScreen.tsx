@@ -16,6 +16,7 @@ import {BerxHeader} from '../../../../packages/design-system/src/components/Berx
 import {BerxVideoCard} from '../../../../packages/design-system/src/components/BerxVideoCard';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
+import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
 
 interface Props {
 	api: BerxApiClient;
@@ -64,14 +65,16 @@ export default function VideoFeedScreen({api, userGuid, isOwn, title, onOpenVide
 			{items.length === 0 ? (
 				<BerxEmptyState title="Видео пока нет" subtitle={isOwn ? 'Загрузите первое видео.' : undefined} />
 			) : (
-				<FlatList
-					data={items}
-					keyExtractor={(v: BerxVideoPost) => String(v.post_guid)}
-					contentContainerStyle={{padding: 16}}
-					renderItem={({item}: {item: BerxVideoPost}) => (
-						<BerxVideoCard video={item} onPress={(v) => onOpenVideo(v.post_guid)} onOpenProfile={onOpenProfile} />
-					)}
-				/>
+				<BerxFadeIn style={{flex: 1}}>
+					<FlatList
+						data={items}
+						keyExtractor={(v: BerxVideoPost) => String(v.post_guid)}
+						contentContainerStyle={{padding: 16}}
+						renderItem={({item}: {item: BerxVideoPost}) => (
+							<BerxVideoCard video={item} onPress={(v) => onOpenVideo(v.post_guid)} onOpenProfile={onOpenProfile} />
+						)}
+					/>
+				</BerxFadeIn>
 			)}
 		</View>
 	);

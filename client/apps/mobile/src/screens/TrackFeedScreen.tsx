@@ -13,6 +13,7 @@ import {BerxHeader} from '../../../../packages/design-system/src/components/Berx
 import {BerxTrackCard} from '../../../../packages/design-system/src/components/BerxTrackCard';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
+import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
 
 interface Props {
 	api: BerxApiClient;
@@ -61,14 +62,16 @@ export default function TrackFeedScreen({api, userGuid, isOwn, title, onOpenTrac
 			{items.length === 0 ? (
 				<BerxEmptyState title="Треков пока нет" subtitle={isOwn ? 'Загрузите первый трек.' : undefined} />
 			) : (
-				<FlatList
-					data={items}
-					keyExtractor={(t: BerxTrackPost) => String(t.post_guid)}
-					contentContainerStyle={{padding: 16}}
-					renderItem={({item}: {item: BerxTrackPost}) => (
-						<BerxTrackCard track={item} onPress={(t) => onOpenTrack(t.post_guid)} onOpenProfile={onOpenProfile} />
-					)}
-				/>
+				<BerxFadeIn style={{flex: 1}}>
+					<FlatList
+						data={items}
+						keyExtractor={(t: BerxTrackPost) => String(t.post_guid)}
+						contentContainerStyle={{padding: 16}}
+						renderItem={({item}: {item: BerxTrackPost}) => (
+							<BerxTrackCard track={item} onPress={(t) => onOpenTrack(t.post_guid)} onOpenProfile={onOpenProfile} />
+						)}
+					/>
+				</BerxFadeIn>
 			)}
 		</View>
 	);
