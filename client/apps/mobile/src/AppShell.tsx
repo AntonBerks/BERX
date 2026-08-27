@@ -74,6 +74,7 @@ import CreateEventScreen from './screens/CreateEventScreen';
 import EditEventScreen from './screens/EditEventScreen';
 import DeviceSessionsScreen from './screens/DeviceSessionsScreen';
 import NotificationPreferencesScreen from './screens/NotificationPreferencesScreen';
+import InviteFriendsScreen from './screens/InviteFriendsScreen';
 import DeleteAccountScreen from './screens/DeleteAccountScreen';
 import PlacesNearbyScreen from './screens/PlacesNearbyScreen';
 import SavedPlacesScreen from './screens/SavedPlacesScreen';
@@ -609,6 +610,8 @@ function RouteRenderer({name, params}: {name: BerxRouteName; params: unknown}) {
 			return <DeviceSessionsScreen api={api} onBack={nav.pop} />;
 		case 'NotificationPreferences':
 			return <NotificationPreferencesScreen api={api} onBack={nav.pop} />;
+		case 'InviteFriends':
+			return <InviteFriendsScreen api={api} onBack={nav.pop} />;
 		case 'DeleteAccount':
 			return (
 				<DeleteAccountScreen
@@ -640,6 +643,7 @@ function RouteRenderer({name, params}: {name: BerxRouteName; params: unknown}) {
 				<SettingsScreen
 					onOpenDeviceSessions={() => nav.push('DeviceSessions', undefined)}
 					onOpenNotificationPreferences={() => nav.push('NotificationPreferences', undefined)}
+					onOpenInviteFriends={() => nav.push('InviteFriends', undefined)}
 					onOpenBlockedUsers={() => nav.push('BlockedUsers', undefined)}
 					onOpenDeleteAccount={() => nav.push('DeleteAccount', undefined)}
 					onOpenDatingPrivacy={() => nav.push('DatingPrivacy', undefined)}

@@ -19,6 +19,7 @@ import {BerxHeader} from '../../../../packages/design-system/src/components/Berx
 interface Props {
 	onOpenDeviceSessions: () => void;
 	onOpenNotificationPreferences: () => void;
+	onOpenInviteFriends: () => void;
 	onOpenBlockedUsers: () => void;
 	onOpenDeleteAccount: () => void;
 	onOpenDatingPrivacy: () => void;
@@ -35,13 +36,18 @@ function Row({label, onPress, danger}: {label: string; onPress: () => void; dang
 	);
 }
 
-export default function SettingsScreen({onOpenDeviceSessions, onOpenNotificationPreferences, onOpenBlockedUsers, onOpenDeleteAccount, onOpenDatingPrivacy, onOpenCircles, onBack}: Props) {
+export default function SettingsScreen({onOpenDeviceSessions, onOpenNotificationPreferences, onOpenInviteFriends, onOpenBlockedUsers, onOpenDeleteAccount, onOpenDatingPrivacy, onOpenCircles, onBack}: Props) {
 	return (
 		<View style={styles.screen}>
 			<BerxHeader title="Настройки" onBack={onBack} />
 			<Text style={styles.sectionLabel}>Уведомления</Text>
 			<View style={styles.group}>
 				<Row label="Уведомления" onPress={onOpenNotificationPreferences} />
+			</View>
+
+			<Text style={styles.sectionLabel}>Рост</Text>
+			<View style={styles.group}>
+				<Row label="Пригласить друзей" onPress={onOpenInviteFriends} />
 			</View>
 
 			<Text style={styles.sectionLabel}>Приватность и безопасность</Text>

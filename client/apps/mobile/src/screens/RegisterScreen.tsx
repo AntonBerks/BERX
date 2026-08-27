@@ -26,6 +26,7 @@ export default function RegisterScreen({api, onRegistered, onBack}: Props) {
 	const [lastname, setLastname] = useState('');
 	const [email, setEmail] = useState('');
 	const [password, setPassword] = useState('');
+	const [referralCode, setReferralCode] = useState('');
 	const [submitting, setSubmitting] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [done, setDone] = useState<string | null>(null);
@@ -44,6 +45,7 @@ export default function RegisterScreen({api, onRegistered, onBack}: Props) {
 				lastname: lastname.trim(),
 				email: email.trim(),
 				password,
+				...(referralCode.trim() ? {referralCode: referralCode.trim()} : {}),
 			});
 			// Honest, not a fake "logged in" state: the real API requires
 			// email activation before login() will accept these
@@ -85,6 +87,7 @@ export default function RegisterScreen({api, onRegistered, onBack}: Props) {
 			<BerxInput placeholder="Логин" autoCapitalize="none" value={username} onChangeText={setUsername} style={styles.input} />
 			<BerxInput placeholder="Email" autoCapitalize="none" keyboardType="email-address" value={email} onChangeText={setEmail} style={styles.input} />
 			<BerxInput placeholder="Пароль" secureTextEntry value={password} onChangeText={setPassword} style={styles.input} />
+			<BerxInput placeholder="Код приглашения (необязательно)" autoCapitalize="none" value={referralCode} onChangeText={setReferralCode} style={styles.input} />
 			{error ? <Text style={styles.error}>{error}</Text> : null}
 			<BerxButton label="Зарегистрироваться" onPress={handleSubmit} loading={submitting} fullWidth />
 			<BerxButton label="Назад" variant="secondary" onPress={onBack} fullWidth />

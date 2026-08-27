@@ -203,6 +203,22 @@ if ($segment0 === 'avatar' && $method === 'POST') {
 	ossn_api_json(array('status' => 'ok', 'icon_url' => (string) $fresh->iconURL()->large));
 }
 
+/**
+ * MAX BUILD — real Referrals: see classes/OssnReferrals.php's own
+ * header. `code` is derived, not stored (base36 of the caller's own
+ * real guid) — nothing here is a secret.
+ */
+if ($segment0 === 'referral' && $method === 'GET') {
+	if (!class_exists('OssnReferrals')) {
+		ossn_api_error('not_found', 'Referrals not available', 404);
+	}
+	$model = new OssnReferrals();
+	ossn_api_json(array(
+		'code'           => OssnReferrals::codeFor($api_user_guid),
+		'referred_count' => $model->referredCount($api_user_guid),
+	));
+}
+
 if ($segment0 === 'sessions' && $segment1 === null && $method === 'GET') {
 	$tokenModel = new OssnApiToken();
 	ossn_api_json(array('sessions' => $tokenModel->listSessions($api_user_guid)));

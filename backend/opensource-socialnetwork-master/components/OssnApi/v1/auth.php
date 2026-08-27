@@ -48,7 +48,23 @@ if ($segment0 === 'register' && $method === 'POST') {
 		ossn_api_error('invalid_email', 'Invalid email', 422);
 	}
 
-	if ($add->addUser()) {
+	$newUserGuid = $add->addUser();
+	if ($newUserGuid) {
+		// MAX BUILD — real Referrals: recorded now (registration), the
+		// actual points reward waits for a real activated login below —
+		// a registration alone proves nothing about a genuine user. Best-
+		// effort: a malformed/unknown code never blocks account creation.
+		// addUser() returns the real new guid directly (never sets
+		// $this->guid on the instance — confirmed by reading it before
+		// writing this, not assumed), so that return value is the only
+		// real source for it here.
+		$referralCode = input('referral_code');
+		if ($referralCode && class_exists('OssnReferrals')) {
+			$referrerGuid = OssnReferrals::resolveCode($referralCode);
+			if ($referrerGuid) {
+				(new OssnReferrals())->record(intval($newUserGuid), $referrerGuid);
+			}
+		}
 		// No token here, deliberately — same real constraint the web
 		// signup flow has: the account needs email activation
 		// (validated=false above) before a real login can succeed.
@@ -108,6 +124,25 @@ if ($segment0 === 'login' && $method === 'POST') {
 	$issued = $tokenModel->issueToken($user->guid, $deviceLabel ? $deviceLabel : null);
 	if (!$issued) {
 		ossn_api_error('token_failed', 'Could not issue token', 500);
+	}
+
+	// MAX BUILD — real Referral reward: this is the first point a
+	// referred user's account is PROVEN real (activation !== null was
+	// already checked above — an unactivated account can never reach
+	// here). Both sides rewarded once, via OssnPoints' own real
+	// oneTime dedup keyed per referred user — a second login by the
+	// same referred user is a real, silent no-op, never a double
+	// reward. Best-effort: never blocks the login response itself.
+	if (class_exists('OssnReferrals') && class_exists('OssnPoints')) {
+		$referrerGuid = (new OssnReferrals())->getReferrer($user->guid);
+		if ($referrerGuid) {
+			$points = new OssnPoints();
+			$reason = 'referral_activated:' . intval($user->guid);
+			if (!$points->hasReason($referrerGuid, $reason)) {
+				$points->award($referrerGuid, 50, $reason, intval($user->guid), true);
+				$points->award($user->guid, 25, $reason, intval($referrerGuid), true);
+			}
+		}
 	}
 
 	ossn_api_json(array(

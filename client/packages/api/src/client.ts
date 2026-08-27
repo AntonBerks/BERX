@@ -221,11 +221,14 @@ export class BerxApiClient {
 		lastname: string;
 		email: string;
 		password: string;
+		/** MAX BUILD — real Referrals (see classes/OssnReferrals.php's own header). Optional, never blocks registration if malformed/unknown. */
+		referralCode?: string;
 	}): Promise<{status: string; message: string}> {
+		const {referralCode, ...rest} = fields;
 		return this.request<{status: string; message: string}>('/auth/register', {
 			method: 'POST',
 			auth: false,
-			body: fields,
+			body: referralCode ? {...rest, referral_code: referralCode} : rest,
 		});
 	}
 
@@ -1623,6 +1626,16 @@ export class BerxApiClient {
 	/** Author or admin only — enforced inside comments.php against the stored comment's own owner_guid, not against anything this call sends. */
 	async deleteObjectComment(commentId: number): Promise<{status: string}> {
 		return this.request<{status: string}>(`/comments/${commentId}/delete`, {method: 'POST'});
+	}
+
+	// ---------------------------------------------------------------
+	// Referrals — components/OssnApi/v1/me.php. Real invite tracking:
+	// see classes/OssnReferrals.php's own header. `code` is derived
+	// (base36 of the caller's real guid), never a stored secret.
+	// ---------------------------------------------------------------
+
+	async referralInfo(): Promise<{code: string; referred_count: number}> {
+		return this.request<{code: string; referred_count: number}>('/me/referral');
 	}
 
 	// ---------------------------------------------------------------

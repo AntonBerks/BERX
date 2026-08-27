@@ -43,6 +43,7 @@ export type BerxRouteName =
 	| 'Settings'
 	| 'DeviceSessions'
 	| 'NotificationPreferences'
+	| 'InviteFriends'
 	| 'DeleteAccount'
 	| 'BlockedUsers'
 	| 'Communities'
@@ -142,6 +143,7 @@ export interface BerxRouteParams {
 	Settings: undefined;
 	DeviceSessions: undefined;
 	NotificationPreferences: undefined;
+	InviteFriends: undefined;
 	DeleteAccount: undefined;
 	BlockedUsers: undefined;
 	Communities: undefined;
@@ -259,6 +261,7 @@ export const BERX_ROUTES: BerxRouteMeta[] = [
 	{ name: 'Settings', connected: true },
 	{ name: 'DeviceSessions', connected: true },
 	{ name: 'NotificationPreferences', connected: true },
+	{ name: 'InviteFriends', connected: true },
 	{ name: 'DeleteAccount', connected: true },
 	{ name: 'BlockedUsers', connected: true },
 	{ name: 'Communities', connected: true },
