@@ -375,6 +375,15 @@ export class BerxApiClient {
 		return this.request<{status: string}>(`/posts/${postId}/comments/${commentId}/delete`, {method: 'POST'});
 	}
 
+	/** MAX BUILD — real comment likes, same OssnLikes engine as post likes (see COMMENT_LIKE_TYPE's own comment in posts.php). */
+	async likeComment(postId: number, commentId: number): Promise<{status: string; is_liked: boolean}> {
+		return this.request<{status: string; is_liked: boolean}>(`/posts/${postId}/comments/${commentId}/like`, {method: 'POST'});
+	}
+
+	async unlikeComment(postId: number, commentId: number): Promise<{status: string; is_liked: boolean}> {
+		return this.request<{status: string; is_liked: boolean}>(`/posts/${postId}/comments/${commentId}/unlike`, {method: 'POST'});
+	}
+
 	// ---------------------------------------------------------------
 	// Collections — components/OssnApi/v1/collections.php. New domain
 	// this session, backed by real ossn_collections/ossn_collection_items

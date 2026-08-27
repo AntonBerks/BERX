@@ -35,6 +35,8 @@
 const POST_SAVE_RELATION = 'post:save';
 /** MAX BUILD — real Pinned Post: same real ossn_relationships toggle pattern as POST_SAVE_RELATION, no new table. Exactly one pinned post per user, enforced at write time (see the /pin route below), not just by convention. */
 const POST_PIN_RELATION = 'post:pin';
+/** MAX BUILD — real comment likes: OssnLikes' own $type param (default 'post') was always generic — passing 'comment' here reuses the exact same engine post likes use, no new table, no new class. */
+const COMMENT_LIKE_TYPE = 'comment';
 
 /** Real detail shape — feed's lighter base mapper plus real counts. */
 function ossn_api_post_detail_json($post, $viewerGuid) {
@@ -339,18 +341,25 @@ if ($segment0 !== null && $segment1 === 'comments' && $segment2 === null && $met
 		ossn_api_error('not_found', 'Post not found', 404);
 	}
 	$comments = new OssnComments();
+	$likes = new OssnLikes();
 	$rows = $comments->GetComments($post->guid, 'post');
 	$out = array();
 	if ($rows) {
 		foreach ($rows as $row) {
 			$author = ossn_user_by_guid($row->owner_guid);
 			$photo = $row->photoURL();
+			$commentLikeCount = $likes->CountLikes($row->id, COMMENT_LIKE_TYPE);
 			$out[] = array(
-				'id'        => intval($row->id),
-				'text'      => (string) $row->value,
-				'time'      => intval($row->time_created),
-				'photo_url' => $photo ? (string) $photo : null,
-				'author'    => $author ? array(
+				'id'         => intval($row->id),
+				'text'       => (string) $row->value,
+				'time'       => intval($row->time_created),
+				'photo_url'  => $photo ? (string) $photo : null,
+				// MAX BUILD — real comment likes, same OssnLikes engine
+				// posts already use, just a different $type bucket
+				// ('comment' vs 'post') — no new table needed.
+				'like_count' => $commentLikeCount ? intval($commentLikeCount) : 0,
+				'is_liked'   => (bool) $likes->isLiked($row->id, intval($api_user_guid), COMMENT_LIKE_TYPE),
+				'author'     => $author ? array(
 					'guid'     => intval($author->guid),
 					'username' => (string) $author->username,
 					'fullname' => trim($author->first_name . ' ' . $author->last_name),
@@ -373,6 +382,21 @@ if ($segment0 !== null && $segment1 === 'comments' && $segment2 !== null && $seg
 	}
 	$comments->deleteComment(intval($segment2));
 	ossn_api_json(array('status' => 'ok'));
+}
+
+/** MAX BUILD — real comment likes (see COMMENT_LIKE_TYPE's own comment above). Any real, non-blocked caller may like any comment they can already see (same reach as the post itself). */
+if ($segment0 !== null && $segment1 === 'comments' && $segment2 !== null && $segment3 === 'like' && $method === 'POST') {
+	$comment = (new OssnComments())->GetComment(intval($segment2));
+	if (!$comment) {
+		ossn_api_error('not_found', 'Comment not found', 404);
+	}
+	(new OssnLikes())->Like(intval($segment2), intval($api_user_guid), COMMENT_LIKE_TYPE);
+	ossn_api_json(array('status' => 'ok', 'is_liked' => true));
+}
+
+if ($segment0 !== null && $segment1 === 'comments' && $segment2 !== null && $segment3 === 'unlike' && $method === 'POST') {
+	(new OssnLikes())->UnLike(intval($segment2), intval($api_user_guid), COMMENT_LIKE_TYPE);
+	ossn_api_json(array('status' => 'ok', 'is_liked' => false));
 }
 
 if ($segment0 !== null && $segment1 === null && $method === 'DELETE') {

@@ -938,6 +938,9 @@ export interface BerxPostComment {
 	time: number;
 	photo_url: string | null;
 	author: { guid: number; username: string; fullname: string; icon: string } | null;
+	/** MAX BUILD — real comment likes (same OssnLikes engine as post likes, just $type='comment'). See components/OssnApi/v1/posts.php's own COMMENT_LIKE_TYPE comment. */
+	like_count: number;
+	is_liked: boolean;
 }
 
 export type BerxCollectionItemType = 'place' | 'event' | 'post';

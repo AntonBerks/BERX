@@ -183,6 +183,21 @@ export default function PostDetailScreen({api, postGuid, myGuid, onOpenProfile, 
 		}
 	}
 
+	/** MAX BUILD — real comment likes, same real OssnLikes engine as post likes. */
+	async function toggleCommentLike(comment: BerxPostComment) {
+		try {
+			if (comment.is_liked) {
+				await api.unlikeComment(postGuid, comment.id);
+				setComments((prev: BerxPostComment[]) => prev.map((c: BerxPostComment) => (c.id === comment.id ? {...c, is_liked: false, like_count: Math.max(0, c.like_count - 1)} : c)));
+			} else {
+				await api.likeComment(postGuid, comment.id);
+				setComments((prev: BerxPostComment[]) => prev.map((c: BerxPostComment) => (c.id === comment.id ? {...c, is_liked: true, like_count: c.like_count + 1} : c)));
+			}
+		} catch {
+			// best-effort — list stays at its pre-toggle state on failure
+		}
+	}
+
 	async function handleDeleteComment(commentId: number) {
 		try {
 			await api.deletePostComment(postGuid, commentId);
@@ -292,7 +307,14 @@ export default function PostDetailScreen({api, postGuid, myGuid, onOpenProfile, 
 								<View style={styles.commentBody}>
 									<Text style={styles.commentAuthor}>{c.author?.fullname ?? 'Пользователь'}</Text>
 									<Text style={styles.commentText}>{c.text}</Text>
-									<Text style={styles.commentTime}>{relativeTimeLabel(c.time)}</Text>
+									<View style={styles.commentMetaRow}>
+										<Text style={styles.commentTime}>{relativeTimeLabel(c.time)}</Text>
+										<Pressable onPress={() => toggleCommentLike(c)} hitSlop={8}>
+											<Text style={[styles.commentLike, c.is_liked && styles.commentLikeActive]}>
+												{c.is_liked ? '♥' : '♡'}{c.like_count > 0 ? ` ${c.like_count}` : ''}
+											</Text>
+										</Pressable>
+									</View>
 								</View>
 								{myGuid && c.author?.guid === myGuid ? (
 									<Pressable onPress={() => handleDeleteComment(c.id)} hitSlop={8}>
@@ -339,5 +361,8 @@ const styles = StyleSheet.create({
 	commentAuthor: {color: colors.text, fontSize: typography.sizeSm, fontWeight: typography.weightMedium},
 	commentText: {color: colors.textDim, fontSize: typography.sizeSm},
 	commentTime: {color: colors.textFaint, fontSize: typography.sizeXs},
+	commentMetaRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: 2},
+	commentLike: {color: colors.textFaint, fontSize: typography.sizeXs},
+	commentLikeActive: {color: colors.danger},
 	commentDelete: {color: colors.textFaint, fontSize: typography.sizeSm, padding: 4},
 });
