@@ -2,13 +2,26 @@
  * !!! VERIFICATION STATUS: UNVERIFIED — see LoginScreen.tsx header.
  * Real data: api.getExperience()/respondToExperience()/
  * inviteToExperience() (components/OssnApi/v1/experiences.php).
+ *
+ * MAX BUILD — closes the same class of gap as TripDetailScreen/
+ * CollectionDetailScreen's inline edit: api.updateExperience()/
+ * deleteExperience()/removeExperienceParticipant() were always real,
+ * working client methods (real PATCH/DELETE routes, ownership
+ * re-checked server-side) with zero UI callers — an organizer could
+ * create an experience and invite friends, but never fix the title/
+ * description, change visibility, remove a participant, or cancel it
+ * again. scheduled_start/scheduled_end are deliberately left
+ * unedited here, same reasoning as EditEventScreen: no native date/
+ * time picker library is installed, and updateExperience() only
+ * sends fields actually provided, so the real schedule stays intact.
  */
 import {useCallback, useEffect, useState} from 'react';
-import {View, Text, FlatList, Image, Pressable, StyleSheet} from 'react-native';
+import {View, Text, FlatList, Image, Pressable, Alert, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
-import type {BerxExperienceDetail, BerxExperienceParticipant, BerxFriend} from '@berx/api/types';
+import type {BerxExperienceDetail, BerxExperienceParticipant, BerxFriend, BerxCollectionVisibility} from '@berx/api/types';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
+import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState} from '../../../../packages/design-system/src/components/BerxStates';
 
@@ -17,6 +30,7 @@ interface Props {
 	id: number;
 	onOpenPlace: (guid: number) => void;
 	onOpenEvent: (guid: number) => void;
+	onDeleted?: () => void;
 	onBack?: () => void;
 }
 
@@ -30,13 +44,20 @@ function fmtWhen(unix: number): string {
 	return new Date(unix * 1000).toLocaleString('ru-RU', {day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit'});
 }
 
-export default function ExperienceDetailScreen({api, id, onOpenPlace, onOpenEvent, onBack}: Props) {
+export default function ExperienceDetailScreen({api, id, onOpenPlace, onOpenEvent, onDeleted, onBack}: Props) {
 	const [experience, setExperience] = useState<BerxExperienceDetail | null>(null);
 	const [friends, setFriends] = useState<BerxFriend[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 	const [showPicker, setShowPicker] = useState(false);
 	const [busy, setBusy] = useState(false);
+	const [editing, setEditing] = useState(false);
+	const [editTitle, setEditTitle] = useState('');
+	const [editDescription, setEditDescription] = useState('');
+	const [editVisibility, setEditVisibility] = useState<BerxCollectionVisibility>('private');
+	const [saving, setSaving] = useState(false);
+	const [deleting, setDeleting] = useState(false);
+	const [editError, setEditError] = useState<string | null>(null);
 
 	const load = useCallback(async () => {
 		setLoading(true);
@@ -82,6 +103,75 @@ export default function ExperienceDetailScreen({api, id, onOpenPlace, onOpenEven
 		}
 	}
 
+	function openEdit() {
+		if (!experience) return;
+		setEditTitle(experience.title);
+		setEditDescription(experience.description ?? '');
+		setEditVisibility(experience.visibility);
+		setEditError(null);
+		setEditing(true);
+	}
+
+	async function saveEdit() {
+		if (!experience) return;
+		if (!editTitle.trim()) {
+			setEditError('Введите название.');
+			return;
+		}
+		setSaving(true);
+		setEditError(null);
+		try {
+			const updated = await api.updateExperience(experience.id, {
+				title: editTitle.trim(),
+				description: editDescription.trim(),
+				visibility: editVisibility,
+			});
+			setExperience({...experience, ...updated});
+			setEditing(false);
+		} catch (e) {
+			setEditError(e instanceof Error ? e.message : 'Не удалось сохранить изменения');
+		} finally {
+			setSaving(false);
+		}
+	}
+
+	function confirmDeleteExperience() {
+		if (!experience) return;
+		Alert.alert(
+			'Удалить впечатление?',
+			'Это действие нельзя отменить. Список участников будет удалён.',
+			[
+				{text: 'Отмена', style: 'cancel'},
+				{
+					text: 'Удалить',
+					style: 'destructive',
+					onPress: async () => {
+						setDeleting(true);
+						try {
+							await api.deleteExperience(experience.id);
+							if (onDeleted) onDeleted();
+							else onBack?.();
+						} catch (e) {
+							setEditError(e instanceof Error ? e.message : 'Не удалось удалить впечатление');
+						} finally {
+							setDeleting(false);
+						}
+					},
+				},
+			]
+		);
+	}
+
+	async function removeParticipant(guid: number) {
+		if (!experience) return;
+		try {
+			await api.removeExperienceParticipant(experience.id, guid);
+			setExperience({...experience, participants: experience.participants.filter((p: BerxExperienceParticipant) => p.guid !== guid)});
+		} catch {
+			// list stays as-is on failure
+		}
+	}
+
 	if (loading) return <BerxLoadingState />;
 	if (error || !experience) return <BerxErrorState message={error ?? 'Впечатление не найдено'} onRetry={load} />;
 
@@ -92,6 +182,29 @@ export default function ExperienceDetailScreen({api, id, onOpenPlace, onOpenEven
 		<View style={styles.screen}>
 			<BerxHeader title={experience.title} onBack={onBack} />
 			<View style={styles.body}>
+				{editing ? (
+					<>
+						<BerxInput placeholder="Название" value={editTitle} onChangeText={setEditTitle} />
+						<BerxInput placeholder="Описание" value={editDescription} onChangeText={setEditDescription} multiline />
+						<View style={styles.visibilityRow}>
+							<Pressable style={[styles.chip, editVisibility === 'private' && styles.chipActive]} onPress={() => setEditVisibility('private')}>
+								<Text style={[styles.chipText, editVisibility === 'private' && styles.chipTextActive]}>Приватное</Text>
+							</Pressable>
+							<Pressable style={[styles.chip, editVisibility === 'public' && styles.chipActive]} onPress={() => setEditVisibility('public')}>
+								<Text style={[styles.chipText, editVisibility === 'public' && styles.chipTextActive]}>Открытое</Text>
+							</Pressable>
+						</View>
+						{editError ? <Text style={styles.error}>{editError}</Text> : null}
+						<BerxButton label="Сохранить" loading={saving} onPress={saveEdit} fullWidth />
+						<Pressable onPress={() => setEditing(false)} disabled={saving}>
+							<Text style={styles.toggleText}>Отмена</Text>
+						</Pressable>
+						<Pressable onPress={confirmDeleteExperience} disabled={deleting} hitSlop={8}>
+							<Text style={styles.deleteLink}>{deleting ? 'Удаление…' : 'Удалить впечатление'}</Text>
+						</Pressable>
+					</>
+				) : (
+					<>
 				<Text style={styles.when}>{fmtWhen(experience.scheduled_start)}</Text>
 
 				{experience.anchor ? (
@@ -116,9 +229,14 @@ export default function ExperienceDetailScreen({api, id, onOpenPlace, onOpenEven
 				) : null}
 
 				{experience.is_own ? (
-					<Pressable onPress={() => setShowPicker(!showPicker)}>
-						<Text style={styles.toggleText}>{showPicker ? 'Скрыть друзей' : 'Пригласить друга'}</Text>
-					</Pressable>
+					<View style={styles.ownerToolbar}>
+						<Pressable onPress={() => setShowPicker(!showPicker)}>
+							<Text style={styles.toggleText}>{showPicker ? 'Скрыть друзей' : 'Пригласить друга'}</Text>
+						</Pressable>
+						<Pressable onPress={openEdit}>
+							<Text style={styles.toggleText}>Редактировать</Text>
+						</Pressable>
+					</View>
 				) : null}
 
 				{showPicker ? (
@@ -147,8 +265,15 @@ export default function ExperienceDetailScreen({api, id, onOpenPlace, onOpenEven
 						<Image source={{uri: p.icon}} style={styles.participantAvatar} />
 						<Text style={styles.participantName} numberOfLines={1}>{p.fullname}</Text>
 						<Text style={styles.participantStatus}>{STATUS_LABEL[p.status]}</Text>
+						{experience.is_own ? (
+							<Pressable onPress={() => removeParticipant(p.guid)} hitSlop={8}>
+								<Text style={styles.remove}>✕</Text>
+							</Pressable>
+						) : null}
 					</View>
 				))}
+					</>
+				)}
 			</View>
 		</View>
 	);
@@ -177,4 +302,13 @@ const styles = StyleSheet.create({
 	participantAvatar: {width: 32, height: 32, borderRadius: radius.pill, backgroundColor: colors.graphite},
 	participantName: {flex: 1, fontSize: typography.sizeSm, color: colors.white},
 	participantStatus: {fontSize: typography.sizeXs, color: colors.textFaint},
+	remove: {fontSize: typography.sizeSm, color: colors.textFaint, padding: 4},
+	ownerToolbar: {flexDirection: 'row', gap: spacing.md},
+	visibilityRow: {flexDirection: 'row', gap: spacing.sm},
+	chip: {paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: radius.pill, backgroundColor: colors.surface},
+	chipActive: {backgroundColor: colors.accentSoft, borderWidth: 1, borderColor: colors.accent},
+	chipText: {fontSize: typography.sizeSm, color: colors.textDim},
+	chipTextActive: {color: colors.accent, fontWeight: typography.weightMedium},
+	error: {fontSize: typography.sizeSm, color: colors.danger},
+	deleteLink: {fontSize: typography.sizeSm, color: colors.danger, textAlign: 'center', textDecorationLine: 'underline', marginTop: spacing.sm},
 });
