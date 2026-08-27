@@ -35,6 +35,7 @@ export type BerxRouteName =
 	| 'Dating'
 	| 'DatingProfile'
 	| 'DatingPhotos'
+	| 'DatingSearch'
 	| 'DatingUserPhotos'
 	| 'DatingMatch'
 	| 'DatingMatches'
@@ -133,6 +134,7 @@ export interface BerxRouteParams {
 	DatingMatches: undefined;
 	DatingProfile: undefined;
 	DatingPhotos: undefined;
+	DatingSearch: undefined;
 	DatingUserPhotos: { userGuid: number; username: string };
 	DatingPrivacy: undefined;
 	Settings: undefined;
@@ -245,6 +247,9 @@ export const BERX_ROUTES: BerxRouteMeta[] = [
 	// list/delete client methods with no upload endpoint at all until
 	// this batch (dating.php's own header comment said so explicitly).
 	{ name: 'DatingPhotos', connected: true },
+	// MAX BUILD — searchDatingProfiles() was always a real client
+	// method (real pseudonym search) with zero UI caller.
+	{ name: 'DatingSearch', connected: true },
 	{ name: 'DatingUserPhotos', connected: true },
 	{ name: 'DatingPrivacy', connected: true },
 	{ name: 'Settings', connected: true },

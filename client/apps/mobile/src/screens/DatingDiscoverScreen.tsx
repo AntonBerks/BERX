@@ -42,11 +42,12 @@ interface Props {
 	onOpenMatches: () => void;
 	onOpenPrivacy: () => void;
 	onOpenDatingProfile: () => void;
+	onOpenSearch?: () => void;
 }
 
 const SWIPE_THRESHOLD = 120;
 
-export default function DatingDiscoverScreen({api, onMatch, onOpenMatches, onOpenPrivacy, onOpenDatingProfile}: Props) {
+export default function DatingDiscoverScreen({api, onMatch, onOpenMatches, onOpenPrivacy, onOpenDatingProfile, onOpenSearch}: Props) {
 	const [profiles, setProfiles] = useState<BerxDatingProfileCard[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
@@ -151,7 +152,7 @@ export default function DatingDiscoverScreen({api, onMatch, onOpenMatches, onOpe
 	if (loading) {
 		return (
 			<View style={styles.screen}>
-				<DatingTopBar onOpenMatches={onOpenMatches} onOpenPrivacy={onOpenPrivacy} onOpenDatingProfile={onOpenDatingProfile} />
+				<DatingTopBar onOpenMatches={onOpenMatches} onOpenPrivacy={onOpenPrivacy} onOpenDatingProfile={onOpenDatingProfile} onOpenSearch={onOpenSearch} />
 				<BerxLoadingState label="Загрузка анкет..." />
 			</View>
 		);
@@ -159,7 +160,7 @@ export default function DatingDiscoverScreen({api, onMatch, onOpenMatches, onOpe
 	if (error) {
 		return (
 			<View style={styles.screen}>
-				<DatingTopBar onOpenMatches={onOpenMatches} onOpenPrivacy={onOpenPrivacy} onOpenDatingProfile={onOpenDatingProfile} />
+				<DatingTopBar onOpenMatches={onOpenMatches} onOpenPrivacy={onOpenPrivacy} onOpenDatingProfile={onOpenDatingProfile} onOpenSearch={onOpenSearch} />
 				<BerxErrorState message={error} onRetry={load} />
 				{/* MAX BUILD — a real path to fix the most common cause of this
 				    error (no dating profile yet) instead of only a generic retry. */}
@@ -172,7 +173,7 @@ export default function DatingDiscoverScreen({api, onMatch, onOpenMatches, onOpe
 	if (!current) {
 		return (
 			<View style={styles.screen}>
-				<DatingTopBar onOpenMatches={onOpenMatches} onOpenPrivacy={onOpenPrivacy} onOpenDatingProfile={onOpenDatingProfile} />
+				<DatingTopBar onOpenMatches={onOpenMatches} onOpenPrivacy={onOpenPrivacy} onOpenDatingProfile={onOpenDatingProfile} onOpenSearch={onOpenSearch} />
 				<BerxEmptyState title="Анкеты закончились" subtitle="Загляните позже — появятся новые." />
 				{lastPassed ? (
 					<Pressable onPress={handleUndo} disabled={undoing} hitSlop={8} style={styles.undoWrap}>
@@ -187,7 +188,7 @@ export default function DatingDiscoverScreen({api, onMatch, onOpenMatches, onOpe
 
 	return (
 		<View style={styles.screen}>
-			<DatingTopBar onOpenMatches={onOpenMatches} onOpenPrivacy={onOpenPrivacy} onOpenDatingProfile={onOpenDatingProfile} />
+			<DatingTopBar onOpenMatches={onOpenMatches} onOpenPrivacy={onOpenPrivacy} onOpenDatingProfile={onOpenDatingProfile} onOpenSearch={onOpenSearch} />
 			<Animated.View
 				{...panResponder.panHandlers}
 				style={[styles.cardWrap, {transform: [{translateX: position.x}, {translateY: position.y}, {rotate}]}]}
@@ -224,7 +225,7 @@ export default function DatingDiscoverScreen({api, onMatch, onOpenMatches, onOpe
 	);
 }
 
-function DatingTopBar({onOpenMatches, onOpenPrivacy, onOpenDatingProfile}: {onOpenMatches: () => void; onOpenPrivacy: () => void; onOpenDatingProfile: () => void}) {
+function DatingTopBar({onOpenMatches, onOpenPrivacy, onOpenDatingProfile, onOpenSearch}: {onOpenMatches: () => void; onOpenPrivacy: () => void; onOpenDatingProfile: () => void; onOpenSearch?: () => void}) {
 	return (
 		<View style={styles.topBar}>
 			<View style={styles.topBarLinks}>
@@ -234,6 +235,11 @@ function DatingTopBar({onOpenMatches, onOpenPrivacy, onOpenDatingProfile}: {onOp
 				<Pressable onPress={onOpenDatingProfile} hitSlop={8}>
 					<Text style={styles.topBarLink}>Анкета</Text>
 				</Pressable>
+				{onOpenSearch ? (
+					<Pressable onPress={onOpenSearch} hitSlop={8}>
+						<Text style={styles.topBarLink}>Поиск</Text>
+					</Pressable>
+				) : null}
 			</View>
 			<Text style={styles.topBarTitle}>Знакомства</Text>
 			<Pressable onPress={onOpenPrivacy} hitSlop={8}>

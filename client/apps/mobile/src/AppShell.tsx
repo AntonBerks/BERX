@@ -45,6 +45,7 @@ import DatingMatchesScreen from './screens/DatingMatchesScreen';
 import DatingPrivacyScreen from './screens/DatingPrivacyScreen';
 import DatingProfileScreen from './screens/DatingProfileScreen';
 import DatingPhotosScreen from './screens/DatingPhotosScreen';
+import DatingSearchScreen from './screens/DatingSearchScreen';
 import DatingUserPhotosScreen from './screens/DatingUserPhotosScreen';
 import StoriesRailScreen from './screens/StoriesRailScreen';
 import StoryViewerScreen from './screens/StoryViewerScreen';
@@ -277,10 +278,19 @@ function RouteRenderer({name, params}: {name: BerxRouteName; params: unknown}) {
 					onOpenMatches={() => nav.push('DatingMatches', undefined)}
 					onOpenPrivacy={() => nav.push('DatingPrivacy', undefined)}
 					onOpenDatingProfile={() => nav.push('DatingProfile', undefined)}
+					onOpenSearch={() => nav.push('DatingSearch', undefined)}
 				/>
 			);
 		case 'DatingProfile':
 			return <DatingProfileScreen api={api} onBack={nav.pop} />;
+		case 'DatingSearch':
+			return (
+				<DatingSearchScreen
+					api={api}
+					onMatch={(otherGuid, otherUsername) => nav.replace('DatingMatch', {otherGuid, otherUsername})}
+					onBack={nav.pop}
+				/>
+			);
 		case 'DatingPhotos':
 			return <DatingPhotosScreen api={api} pickImage={pickImage} onBack={nav.pop} />;
 		case 'DatingUserPhotos': {
