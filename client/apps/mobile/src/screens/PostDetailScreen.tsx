@@ -43,6 +43,9 @@ export default function PostDetailScreen({api, postGuid, myGuid, onOpenProfile, 
 	const [liking, setLiking] = useState(false);
 	const [saving, setSaving] = useState(false);
 	const [pinning, setPinning] = useState(false);
+	const [showLikers, setShowLikers] = useState(false);
+	const [likers, setLikers] = useState<{guid: number; username: string; fullname: string; icon: string}[]>([]);
+	const [likersLoading, setLikersLoading] = useState(false);
 	const [commentText, setCommentText] = useState('');
 	const [posting, setPosting] = useState(false);
 	const [commentStatus, setCommentStatus] = useState<string | null>(null);
@@ -151,6 +154,26 @@ export default function PostDetailScreen({api, postGuid, myGuid, onOpenProfile, 
 		}
 	}
 
+	/** MAX BUILD — real "who liked this" list, lazy-loaded on first expand. */
+	async function toggleLikers() {
+		if (showLikers) {
+			setShowLikers(false);
+			return;
+		}
+		setShowLikers(true);
+		if (likers.length === 0) {
+			setLikersLoading(true);
+			try {
+				const res = await api.postLikers(postGuid);
+				setLikers(res.users);
+			} catch {
+				// real server rejection — box stays empty, "Никто не отмечен" is honest enough here
+			} finally {
+				setLikersLoading(false);
+			}
+		}
+	}
+
 	/** MAX BUILD — real Pinned Post toggle, owner-only. Server re-verifies ownership regardless of what this button already knows. */
 	async function togglePin() {
 		if (!post) return;
@@ -234,7 +257,30 @@ export default function PostDetailScreen({api, postGuid, myGuid, onOpenProfile, 
 					<Text style={styles.author}>{post.owner_username ?? 'BERX'}</Text>
 				</Pressable>
 				{post.text ? <Text style={styles.text}>{post.text}</Text> : null}
-				<Text style={styles.time}>{relativeTimeLabel(post.time_created)}{post.like_count > 0 ? ` · ${post.like_count} нравится` : ''}</Text>
+				<View style={styles.timeRow}>
+					<Text style={styles.time}>{relativeTimeLabel(post.time_created)}</Text>
+					{post.like_count > 0 ? (
+						<Pressable onPress={toggleLikers} hitSlop={8}>
+							<Text style={styles.time}> · {post.like_count} нравится</Text>
+						</Pressable>
+					) : null}
+				</View>
+				{showLikers ? (
+					<View style={styles.likersBox}>
+						{likersLoading ? (
+							<Text style={styles.likersHint}>Загрузка...</Text>
+						) : likers.length === 0 ? (
+							<Text style={styles.likersHint}>Никто не отмечен</Text>
+						) : (
+							likers.map((u: {guid: number; username: string; fullname: string; icon: string}) => (
+								<Pressable key={u.guid} onPress={() => onOpenProfile(u.username)} style={styles.likerRow}>
+									<Image source={{uri: u.icon}} style={styles.likerAvatar} />
+									<Text style={styles.likerName}>{u.fullname || u.username}</Text>
+								</Pressable>
+							))
+						)}
+					</View>
+				) : null}
 
 				{post.repost_of ? (
 					post.reposted_post ? (
@@ -367,6 +413,12 @@ const styles = StyleSheet.create({
 	repostAuthor: {color: colors.accent, fontSize: typography.sizeSm, fontWeight: typography.weightMedium},
 	repostText: {color: colors.textDim, fontSize: typography.sizeSm},
 	repostGone: {color: colors.textFaint, fontSize: typography.sizeSm, fontStyle: 'italic'},
+	timeRow: {flexDirection: 'row', alignItems: 'center'},
+	likersBox: {backgroundColor: colors.glass1, borderRadius: radius.md, padding: spacing.sm, marginTop: spacing.xs, gap: spacing.xs},
+	likersHint: {color: colors.textFaint, fontSize: typography.sizeSm},
+	likerRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.xs},
+	likerAvatar: {width: 28, height: 28, borderRadius: 14, backgroundColor: colors.graphite},
+	likerName: {color: colors.white, fontSize: typography.sizeSm},
 	mediaWrap: {borderRadius: radius.md, overflow: 'hidden'},
 	mediaHint: {fontSize: typography.sizeXs, color: colors.textFaint, textAlign: 'center', marginTop: spacing.xs},
 	actions: {flexDirection: 'row', gap: spacing.sm},

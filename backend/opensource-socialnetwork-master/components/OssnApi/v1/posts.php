@@ -292,6 +292,35 @@ if ($segment0 !== null && $segment1 === 'unlike' && $method === 'POST') {
 	ossn_api_json(array('status' => 'ok'));
 }
 
+/** MAX BUILD — real "who liked this" list. OssnLikes::GetLikes() was always a real, callable method with zero UI caller — this is the first real route to expose it. Block-filtered like every other user list in this API. */
+if ($segment0 !== null && $segment1 === 'likes' && $method === 'GET') {
+	$wall = new OssnWall();
+	$post = $wall->GetPost(intval($segment0));
+	if (!$post || ossn_api_is_blocked($api_user_guid, $post->owner_guid)) {
+		ossn_api_error('not_found', 'Post not found', 404);
+	}
+	$rows = (new OssnLikes())->GetLikes($post->guid, 'post');
+	$out = array();
+	if ($rows) {
+		foreach ($rows as $row) {
+			if (ossn_api_is_blocked($api_user_guid, $row->guid)) {
+				continue;
+			}
+			$liker = ossn_user_by_guid($row->guid);
+			if (!$liker) {
+				continue;
+			}
+			$out[] = array(
+				'guid'     => intval($liker->guid),
+				'username' => (string) $liker->username,
+				'fullname' => trim($liker->first_name . ' ' . $liker->last_name),
+				'icon'     => (string) $liker->iconURL()->large,
+			);
+		}
+	}
+	ossn_api_json(array('users' => $out));
+}
+
 if ($segment0 !== null && $segment1 === 'save' && $method === 'POST') {
 	$wall = new OssnWall();
 	$post = $wall->GetPost(intval($segment0));

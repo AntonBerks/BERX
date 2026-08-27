@@ -309,6 +309,11 @@ export class BerxApiClient {
 		return this.request<{status: string}>(`/posts/${id}/unlike`, {method: 'POST'});
 	}
 
+	/** MAX BUILD — real "who liked this" list. OssnLikes::GetLikes() was always a real, callable method with zero UI caller before this. */
+	async postLikers(id: number): Promise<{users: {guid: number; username: string; fullname: string; icon: string}[]}> {
+		return this.request<{users: {guid: number; username: string; fullname: string; icon: string}[]}>(`/posts/${id}/likes`);
+	}
+
 	/** Real quick bookmark (Max Build) — separate from Collections' curated save. */
 	async savePost(id: number): Promise<{status: string; is_saved: boolean}> {
 		return this.request<{status: string; is_saved: boolean}>(`/posts/${id}/save`, {method: 'POST'});
