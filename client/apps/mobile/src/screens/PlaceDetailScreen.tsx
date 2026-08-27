@@ -249,6 +249,19 @@ export default function PlaceDetailScreen({api, guid, myGuid, isAdmin, onAddToCo
 		}
 	}
 
+	/** MAX BUILD — closes a real gap: api.deleteReviewReply() was always real (owner/admin-only, enforced server-side via OssnBusiness::canReply()) with zero UI caller — a posted reply could never be retracted, only replaced by re-posting through a UI that didn't offer that either. */
+	async function deleteReply(reviewGuid: number) {
+		setReplyBusy(reviewGuid);
+		try {
+			await api.deleteReviewReply(reviewGuid);
+			await load();
+		} catch {
+			// real server rejection — reply stays as-is
+		} finally {
+			setReplyBusy(null);
+		}
+	}
+
 	if (loading && !place) return <BerxLoadingState />;
 	if (error && !place) return <BerxErrorState message={error} onRetry={load} />;
 	if (!place) return null;
@@ -395,6 +408,11 @@ export default function PlaceDetailScreen({api, guid, myGuid, isAdmin, onAddToCo
 							<View style={styles.replyBlock}>
 								<Text style={styles.replyLabel}>Ответ владельца</Text>
 								<Text style={styles.replyText}>{r.owner_reply.text}</Text>
+								{isOwner ? (
+									<Pressable onPress={() => deleteReply(r.guid)} disabled={replyBusy === r.guid} hitSlop={8}>
+										<Text style={styles.replyDeleteLink}>{replyBusy === r.guid ? 'Удаление…' : 'Удалить ответ'}</Text>
+									</Pressable>
+								) : null}
 							</View>
 						) : isOwner ? (
 							<View style={styles.replyForm}>
@@ -462,5 +480,6 @@ const styles = StyleSheet.create({
 	replyBlock: {marginTop: 4, paddingLeft: spacing.sm, borderLeftWidth: 2, borderLeftColor: colors.accent},
 	replyLabel: {fontSize: typography.sizeXs, color: colors.accent, fontWeight: typography.weightBold},
 	replyText: {fontSize: typography.sizeSm, color: colors.textDim},
+	replyDeleteLink: {fontSize: typography.sizeXs, color: colors.danger, marginTop: 4},
 	replyForm: {marginTop: spacing.xs, gap: spacing.xs},
 });
