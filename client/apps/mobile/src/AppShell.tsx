@@ -714,6 +714,7 @@ function RouteRenderer({name, params}: {name: BerxRouteName; params: unknown}) {
 					id={p.id}
 					onOpenPlace={(guid) => nav.push('PlaceDetail', {guid})}
 					onOpenEvent={(guid) => nav.push('EventDetail', {guid})}
+					onDeleted={nav.pop}
 					onBack={nav.pop}
 				/>
 			);
