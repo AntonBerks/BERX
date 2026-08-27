@@ -22,6 +22,7 @@ import {BerxHeader} from '../../../../packages/design-system/src/components/Berx
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
+import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
 
 interface Props {
 	api: BerxApiClient;
@@ -81,20 +82,22 @@ export default function AdminUnvalidatedScreen({api, onBack}: Props) {
 			) : items.length === 0 ? (
 				<BerxEmptyState title={q ? 'Никого не найдено' : 'Все пользователи подтверждены'} />
 			) : (
-				<FlatList
-					data={items}
-					keyExtractor={(u: BerxUnvalidatedUser) => String(u.guid)}
-					contentContainerStyle={styles.list}
-					renderItem={({item}: {item: BerxUnvalidatedUser}) => (
-						<View style={styles.row}>
-							<View style={styles.info}>
-								<Text style={styles.name} numberOfLines={1}>{item.fullname || item.username}</Text>
-								<Text style={styles.meta}>{item.email}</Text>
+				<BerxFadeIn style={styles.fadeFlex}>
+					<FlatList
+						data={items}
+						keyExtractor={(u: BerxUnvalidatedUser) => String(u.guid)}
+						contentContainerStyle={styles.list}
+						renderItem={({item}: {item: BerxUnvalidatedUser}) => (
+							<View style={styles.row}>
+								<View style={styles.info}>
+									<Text style={styles.name} numberOfLines={1}>{item.fullname || item.username}</Text>
+									<Text style={styles.meta}>{item.email}</Text>
+								</View>
+								<BerxButton label="Подтвердить" loading={busyGuid === item.guid} onPress={() => validate(item.guid)} />
 							</View>
-							<BerxButton label="Подтвердить" loading={busyGuid === item.guid} onPress={() => validate(item.guid)} />
-						</View>
-					)}
-				/>
+						)}
+					/>
+				</BerxFadeIn>
 			)}
 		</View>
 	);
@@ -105,6 +108,7 @@ const styles = StyleSheet.create({
 	searchRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.md, paddingBottom: spacing.sm},
 	searchInput: {flex: 1},
 	list: {padding: spacing.md, gap: spacing.sm},
+	fadeFlex: {flex: 1},
 	row: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.surface, borderRadius: radius.md, padding: spacing.md, marginBottom: spacing.sm},
 	info: {flex: 1, gap: 2},
 	name: {fontSize: typography.sizeBase, color: colors.white, fontWeight: typography.weightMedium},

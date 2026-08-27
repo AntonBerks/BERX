@@ -30,6 +30,7 @@ import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
+import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
 
 interface Props {
 	api: BerxApiClient;
@@ -93,25 +94,27 @@ export default function AdminPlaceClaimsScreen({api, onOpenPlace, onBack}: Props
 			{items.length === 0 ? (
 				<BerxEmptyState title="Заявок нет" subtitle="Все поданные заявки на владение местами рассмотрены." />
 			) : (
-				<FlatList
-					data={items}
-					keyExtractor={(c: BerxPlaceClaim) => String(c.id)}
-					contentContainerStyle={styles.list}
-					renderItem={({item}: {item: BerxPlaceClaim}) => (
-						<View style={styles.card}>
-							<Text style={styles.target} onPress={onOpenPlace ? () => onOpenPlace(item.place_guid) : undefined}>
-								Место #{item.place_guid}
-							</Text>
-							<Text style={styles.meta}>От пользователя #{item.requester_guid}</Text>
-							{item.message ? <Text style={styles.note}>{item.message}</Text> : null}
-							<Text style={styles.time}>{relativeTimeLabel(item.time_created)}</Text>
-							<View style={styles.actions}>
-								<BerxButton label="Отклонить" variant="secondary" loading={busyId === item.id} onPress={() => handleReject(item.id)} />
-								<BerxButton label="Одобрить" loading={busyId === item.id} onPress={() => handleApprove(item.id)} />
+				<BerxFadeIn style={styles.fadeFlex}>
+					<FlatList
+						data={items}
+						keyExtractor={(c: BerxPlaceClaim) => String(c.id)}
+						contentContainerStyle={styles.list}
+						renderItem={({item}: {item: BerxPlaceClaim}) => (
+							<View style={styles.card}>
+								<Text style={styles.target} onPress={onOpenPlace ? () => onOpenPlace(item.place_guid) : undefined}>
+									Место #{item.place_guid}
+								</Text>
+								<Text style={styles.meta}>От пользователя #{item.requester_guid}</Text>
+								{item.message ? <Text style={styles.note}>{item.message}</Text> : null}
+								<Text style={styles.time}>{relativeTimeLabel(item.time_created)}</Text>
+								<View style={styles.actions}>
+									<BerxButton label="Отклонить" variant="secondary" loading={busyId === item.id} onPress={() => handleReject(item.id)} />
+									<BerxButton label="Одобрить" loading={busyId === item.id} onPress={() => handleApprove(item.id)} />
+								</View>
 							</View>
-						</View>
-					)}
-				/>
+						)}
+					/>
+				</BerxFadeIn>
 			)}
 		</View>
 	);
@@ -120,6 +123,7 @@ export default function AdminPlaceClaimsScreen({api, onOpenPlace, onBack}: Props
 const styles = StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.bg},
 	list: {padding: spacing.md, gap: spacing.sm},
+	fadeFlex: {flex: 1},
 	card: {backgroundColor: colors.surface, borderRadius: radius.md, padding: spacing.md, gap: 4, marginBottom: spacing.sm},
 	target: {fontSize: typography.sizeBase, color: colors.accent, fontWeight: typography.weightMedium},
 	meta: {fontSize: typography.sizeSm, color: colors.textDim},
