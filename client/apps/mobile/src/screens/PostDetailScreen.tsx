@@ -83,6 +83,28 @@ export default function PostDetailScreen({api, postGuid, myGuid, onOpenProfile, 
 		}
 	}, [api, postGuid]);
 
+	/**
+	 * MAX BUILD — closes a real gap: api.deleteMediaAsset() was always
+	 * a real, working client method (real DELETE /media/{guid},
+	 * OssnMediaAssets::removeAsset() -> canAccess(), owner-or-admin,
+	 * fixed to a real session-free admin check earlier this session)
+	 * with zero UI caller — a post's attached photo/video/audio could
+	 * never be removed without deleting the whole post. Full delete,
+	 * not detach: this media item only exists for this one post
+	 * (uploadMedia()+attachMedia() is always called together in
+	 * CreatePostScreen/CreateVideoScreen/CreateTrackScreen, confirmed
+	 * by reading each), so detaching without deleting would just
+	 * orphan the file.
+	 */
+	async function handleDeleteMedia(mediaGuid: number) {
+		try {
+			await api.deleteMediaAsset(mediaGuid);
+			setMedia((prev: BerxMediaAsset[]) => prev.filter((m: BerxMediaAsset) => m.guid !== mediaGuid));
+		} catch {
+			// real server rejection — grid stays as-is, nothing optimistic
+		}
+	}
+
 	useEffect(() => {
 		load();
 		loadComments();
@@ -183,7 +205,9 @@ export default function PostDetailScreen({api, postGuid, myGuid, onOpenProfile, 
 							items={media.map((m) => ({guid: m.guid, url: m.url, media_type: m.media_type}))}
 							columns={media.length === 1 ? 1 : 3}
 							onPress={(_, idx) => { setViewerIndex(idx); setViewerOpen(true); }}
+							onLongPress={myGuid && post.owner_guid === myGuid ? (item) => handleDeleteMedia(item.guid) : undefined}
 						/>
+						{myGuid && post.owner_guid === myGuid ? <Text style={styles.mediaHint}>Удерживайте фото, чтобы удалить</Text> : null}
 					</View>
 				) : null}
 
@@ -266,6 +290,7 @@ const styles = StyleSheet.create({
 	author: {color: colors.accent, fontWeight: typography.weightMedium, fontSize: typography.sizeLg},
 	text: {color: colors.text, fontSize: typography.sizeBase, lineHeight: typography.sizeBase * typography.lineHeightBase},
 	mediaWrap: {borderRadius: radius.md, overflow: 'hidden'},
+	mediaHint: {fontSize: typography.sizeXs, color: colors.textFaint, textAlign: 'center', marginTop: spacing.xs},
 	actions: {flexDirection: 'row', gap: spacing.sm},
 	time: {color: colors.textFaint, fontSize: typography.sizeXs},
 	commentBox: {
