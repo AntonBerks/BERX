@@ -1000,8 +1000,10 @@ function RouteRenderer({name, params}: {name: BerxRouteName; params: unknown}) {
 		}
 		case 'BusinessProducts':
 			return <BusinessProductsScreen onBack={nav.pop} />;
-		case 'BusinessOffers':
-			return <BusinessOffersScreen onBack={nav.pop} />;
+		case 'BusinessOffers': {
+			const p = params as {placeGuid: number};
+			return <BusinessOffersScreen api={api} placeGuid={p.placeGuid} onBack={nav.pop} />;
+		}
 		case 'BusinessTeam': {
 			const p = params as {placeGuid: number};
 			return <BusinessTeamScreen api={api} placeGuid={p.placeGuid} onBack={nav.pop} />;
