@@ -18,7 +18,7 @@
  * isn't either.
  */
 import {useCallback, useEffect, useState} from 'react';
-import {View, Text, FlatList, Image, Pressable, Dimensions, StyleSheet} from 'react-native';
+import {View, Text, FlatList, Image, Pressable, Dimensions, RefreshControl, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxDatingUserPhoto} from '@berx/api/types';
 import {colors, spacing, typography} from '@berx/design-system/tokens';
@@ -39,6 +39,7 @@ export default function DatingUserPhotosScreen({api, userGuid, username, onBack}
 	const [photos, setPhotos] = useState<BerxDatingUserPhoto[]>([]);
 	const [authHeaders, setAuthHeaders] = useState<Record<string, string>>({});
 	const [loading, setLoading] = useState(true);
+	const [refreshing, setRefreshing] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [busyId, setBusyId] = useState<number | null>(null);
 	const [requestedIds, setRequestedIds] = useState<Set<number>>(new Set());
@@ -54,6 +55,7 @@ export default function DatingUserPhotosScreen({api, userGuid, username, onBack}
 			setError(e instanceof Error ? e.message : 'Не удалось загрузить фото');
 		} finally {
 			setLoading(false);
+			setRefreshing(false);
 		}
 	}, [api, userGuid]);
 
@@ -88,6 +90,16 @@ export default function DatingUserPhotosScreen({api, userGuid, username, onBack}
 						keyExtractor={(p: BerxDatingUserPhoto) => String(p.id)}
 						numColumns={3}
 						contentContainerStyle={styles.grid}
+						refreshControl={
+							<RefreshControl
+								refreshing={refreshing}
+								onRefresh={() => {
+									setRefreshing(true);
+									load();
+								}}
+								tintColor={colors.accent}
+							/>
+						}
 						renderItem={({item}: {item: BerxDatingUserPhoto}) =>
 							item.can_view ? (
 								<View style={styles.tileWrap}>

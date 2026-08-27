@@ -10,7 +10,7 @@
  * Experience lifecycle with the "verify" step's real data.
  */
 import {useCallback, useEffect, useState} from 'react';
-import {View, Text, Image, FlatList, Pressable, StyleSheet} from 'react-native';
+import {View, Text, Image, FlatList, Pressable, RefreshControl, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxMemory} from '@berx/api/types';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
@@ -55,6 +55,7 @@ function groupByYearsAgo(memories: BerxMemory[]): Section[] {
 export default function MemoriesScreen({api, onOpenPost, onOpenAlbum, onOpenPlace, onBack}: Props) {
 	const [memories, setMemories] = useState<BerxMemory[]>([]);
 	const [loading, setLoading] = useState(true);
+	const [refreshing, setRefreshing] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
 	const load = useCallback(async () => {
@@ -67,6 +68,7 @@ export default function MemoriesScreen({api, onOpenPost, onOpenAlbum, onOpenPlac
 			setError(e instanceof Error ? e.message : 'Не удалось загрузить воспоминания');
 		} finally {
 			setLoading(false);
+			setRefreshing(false);
 		}
 	}, [api]);
 
@@ -90,6 +92,16 @@ export default function MemoriesScreen({api, onOpenPost, onOpenAlbum, onOpenPlac
 						data={sections}
 						keyExtractor={(s: Section) => String(s.yearsAgo)}
 						contentContainerStyle={styles.list}
+						refreshControl={
+							<RefreshControl
+								refreshing={refreshing}
+								onRefresh={() => {
+									setRefreshing(true);
+									load();
+								}}
+								tintColor={colors.accent}
+							/>
+						}
 						renderItem={({item: section}: {item: Section}) => (
 							<View style={styles.section}>
 								<Text style={styles.sectionTitle}>{yearsAgoLabel(section.yearsAgo)}</Text>

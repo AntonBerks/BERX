@@ -10,7 +10,7 @@
  * server-side).
  */
 import {useCallback, useEffect, useState} from 'react';
-import {View, Text, FlatList, Image, Pressable, StyleSheet} from 'react-native';
+import {View, Text, FlatList, Image, Pressable, RefreshControl, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxCreatorProfile, BerxCreatorContent, BerxCreatorPostItem, BerxCreatorAlbumItem, BerxCreatorEventItem, BerxCreatorExperienceItem} from '@berx/api/types';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
@@ -42,6 +42,7 @@ export default function CreatorProfileScreen({api, username, onOpenPost, onOpenA
 	const [content, setContent] = useState<BerxCreatorContent | null>(null);
 	const [tab, setTab] = useState<Tab>('posts');
 	const [loading, setLoading] = useState(true);
+	const [refreshing, setRefreshing] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
 	const load = useCallback(async () => {
@@ -56,6 +57,7 @@ export default function CreatorProfileScreen({api, username, onOpenPost, onOpenA
 			setError(e instanceof Error ? e.message : 'Профиль автора недоступен');
 		} finally {
 			setLoading(false);
+			setRefreshing(false);
 		}
 	}, [api, username]);
 
@@ -117,6 +119,16 @@ export default function CreatorProfileScreen({api, username, onOpenPost, onOpenA
 						data={content.posts}
 						keyExtractor={(p: BerxCreatorPostItem) => String(p.guid)}
 						contentContainerStyle={styles.list}
+						refreshControl={
+							<RefreshControl
+								refreshing={refreshing}
+								onRefresh={() => {
+									setRefreshing(true);
+									load();
+								}}
+								tintColor={colors.accent}
+							/>
+						}
 						renderItem={({item}: {item: BerxCreatorPostItem}) => (
 							<Pressable style={styles.row} onPress={() => onOpenPost(item.guid)}>
 								<Text style={styles.rowText} numberOfLines={2}>{item.text}</Text>
@@ -132,6 +144,16 @@ export default function CreatorProfileScreen({api, username, onOpenPost, onOpenA
 						keyExtractor={(a: BerxCreatorAlbumItem) => String(a.guid)}
 						numColumns={2}
 						contentContainerStyle={styles.grid}
+						refreshControl={
+							<RefreshControl
+								refreshing={refreshing}
+								onRefresh={() => {
+									setRefreshing(true);
+									load();
+								}}
+								tintColor={colors.accent}
+							/>
+						}
 						renderItem={({item}: {item: BerxCreatorAlbumItem}) => (
 							<Pressable style={styles.gridCard} onPress={() => onOpenAlbum(item.guid)}>
 								<Text style={styles.gridTitle} numberOfLines={1}>{item.title}</Text>
@@ -145,6 +167,16 @@ export default function CreatorProfileScreen({api, username, onOpenPost, onOpenA
 						data={content.events}
 						keyExtractor={(e: BerxCreatorEventItem) => String(e.guid)}
 						contentContainerStyle={styles.list}
+						refreshControl={
+							<RefreshControl
+								refreshing={refreshing}
+								onRefresh={() => {
+									setRefreshing(true);
+									load();
+								}}
+								tintColor={colors.accent}
+							/>
+						}
 						renderItem={({item}: {item: BerxCreatorEventItem}) => (
 							<Pressable style={styles.mediaRow} onPress={() => onOpenEvent(item.guid)}>
 								{item.image_url ? <Image source={{uri: item.image_url}} style={styles.thumb} /> : <View style={styles.thumbFallback} />}
@@ -162,6 +194,16 @@ export default function CreatorProfileScreen({api, username, onOpenPost, onOpenA
 						data={content.experiences}
 						keyExtractor={(e: BerxCreatorExperienceItem) => String(e.id)}
 						contentContainerStyle={styles.list}
+						refreshControl={
+							<RefreshControl
+								refreshing={refreshing}
+								onRefresh={() => {
+									setRefreshing(true);
+									load();
+								}}
+								tintColor={colors.accent}
+							/>
+						}
 						renderItem={({item}: {item: BerxCreatorExperienceItem}) => (
 							<Pressable style={styles.mediaRow} onPress={() => onOpenExperience(item.id)}>
 								{item.image_url ? <Image source={{uri: item.image_url}} style={styles.thumb} /> : <View style={styles.thumbFallback} />}

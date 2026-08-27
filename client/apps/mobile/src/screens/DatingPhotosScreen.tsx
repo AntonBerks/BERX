@@ -27,7 +27,7 @@
  * image-picker library is installable in this sandbox.
  */
 import {useCallback, useEffect, useState} from 'react';
-import {View, Text, FlatList, Image, Pressable, Dimensions, StyleSheet} from 'react-native';
+import {View, Text, FlatList, Image, Pressable, Dimensions, RefreshControl, StyleSheet} from 'react-native';
 import type {BerxApiClient, BerxFilePart} from '@berx/api/client';
 import type {BerxDatingOwnPhoto, BerxDatingPhotoRequest} from '@berx/api/types';
 import {colors, spacing, typography} from '@berx/design-system/tokens';
@@ -51,6 +51,7 @@ export default function DatingPhotosScreen({api, pickImage, onBack}: Props) {
 	const [granted, setGranted] = useState<BerxDatingPhotoRequest[]>([]);
 	const [authHeaders, setAuthHeaders] = useState<Record<string, string>>({});
 	const [loading, setLoading] = useState(true);
+	const [refreshing, setRefreshing] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [uploading, setUploading] = useState(false);
 	const [busyId, setBusyId] = useState<number | null>(null);
@@ -73,6 +74,7 @@ export default function DatingPhotosScreen({api, pickImage, onBack}: Props) {
 			setError(e instanceof Error ? e.message : 'Не удалось загрузить фото');
 		} finally {
 			setLoading(false);
+			setRefreshing(false);
 		}
 	}, [api]);
 
@@ -193,6 +195,16 @@ export default function DatingPhotosScreen({api, pickImage, onBack}: Props) {
 					keyExtractor={(p: BerxDatingOwnPhoto) => String(p.id)}
 					numColumns={3}
 					contentContainerStyle={styles.grid}
+					refreshControl={
+						<RefreshControl
+							refreshing={refreshing}
+							onRefresh={() => {
+								setRefreshing(true);
+								load();
+							}}
+							tintColor={colors.accent}
+						/>
+					}
 					ListHeaderComponent={header}
 					ListFooterComponent={photos.length > 0 ? <Text style={styles.hint}>Удерживайте фото, чтобы удалить</Text> : null}
 					ListEmptyComponent={<BerxEmptyState title="Фотографий пока нет" />}
