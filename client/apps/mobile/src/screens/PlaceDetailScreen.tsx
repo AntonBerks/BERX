@@ -6,6 +6,11 @@
  * booking/reservation UI — that backend does not exist (see
  * BERX_DECISIONS.md).
  *
+ * MAX BUILD — real "Редактировать" for the owner (onEdit ->
+ * EditPlaceScreen). updatePlace()/deletePlace() were always real
+ * client methods with zero UI callers — an owner could create a
+ * place but never edit or delete it again.
+ *
  * Future UI pass: body content gets a real BerxFadeIn entrance, and
  * the "friends here" row (Experience Graph signal) now sits on a
  * small BerxGlassSurface strip instead of a plain inline row, giving
@@ -44,10 +49,11 @@ interface Props {
 	myGuid: number;
 	onAddToCollection?: () => void;
 	onOpenBusinessDashboard?: (placeGuid: number) => void;
+	onEdit?: () => void;
 	onBack?: () => void;
 }
 
-export default function PlaceDetailScreen({api, guid, myGuid, onAddToCollection, onOpenBusinessDashboard, onBack}: Props) {
+export default function PlaceDetailScreen({api, guid, myGuid, onAddToCollection, onOpenBusinessDashboard, onEdit, onBack}: Props) {
 	const [place, setPlace] = useState<BerxPlace | null>(null);
 	const [reviews, setReviews] = useState<BerxPlaceReview[]>([]);
 	const [loading, setLoading] = useState(true);
@@ -258,6 +264,7 @@ export default function PlaceDetailScreen({api, guid, myGuid, onAddToCollection,
 
 				{myGuid === place.owner_guid ? (
 					<View style={styles.actions}>
+						{onEdit ? <BerxButton label="Редактировать" variant="secondary" onPress={onEdit} /> : null}
 						<BerxButton
 							label={place.is_business ? 'Отключить бизнес-статус' : 'Стать бизнесом'}
 							variant="secondary"

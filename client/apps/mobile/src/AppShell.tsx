@@ -63,6 +63,7 @@ import CreateAlbumScreen from './screens/CreateAlbumScreen';
 import PlacesListScreen from './screens/PlacesListScreen';
 import PlaceDetailScreen from './screens/PlaceDetailScreen';
 import CreatePlaceScreen from './screens/CreatePlaceScreen';
+import EditPlaceScreen from './screens/EditPlaceScreen';
 import EventsListScreen from './screens/EventsListScreen';
 import EventDetailScreen from './screens/EventDetailScreen';
 import CreateEventScreen from './screens/CreateEventScreen';
@@ -464,6 +465,7 @@ function RouteRenderer({name, params}: {name: BerxRouteName; params: unknown}) {
 					myGuid={myGuid}
 					onAddToCollection={() => nav.push('AddToCollection', {itemType: 'place', itemGuid: p.guid})}
 					onOpenBusinessDashboard={(placeGuid) => nav.push('BusinessHome', {placeGuid})}
+					onEdit={() => nav.push('EditPlace', {guid: p.guid})}
 					onBack={nav.pop}
 				/>
 			);
@@ -476,6 +478,18 @@ function RouteRenderer({name, params}: {name: BerxRouteName; params: unknown}) {
 					onBack={nav.pop}
 				/>
 			);
+		case 'EditPlace': {
+			const p = params as {guid: number};
+			return (
+				<EditPlaceScreen
+					api={api}
+					guid={p.guid}
+					onSaved={nav.pop}
+					onDeleted={() => { nav.pop(); nav.pop(); }}
+					onBack={nav.pop}
+				/>
+			);
+		}
 		case 'PlacesNearby':
 			return <PlacesNearbyScreen api={api} onOpenPlace={(guid) => nav.push('PlaceDetail', {guid})} onBack={nav.pop} />;
 		case 'SavedPlaces':
