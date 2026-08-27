@@ -104,6 +104,8 @@ function ossn_api_notify_passthrough($hook, $type, $return, $params) {
 	return $params;
 }
 ossn_add_hook('notification:add', 'berx:event:invite', 'ossn_api_notify_passthrough');
+/** BERX WORLD MAX BUILD — Event Waitlist promotion: owner_guid is already supplied as notification_owner by OssnEvents::promoteNextWaitlisted() — same real passthrough. */
+ossn_add_hook('notification:add', 'berx:event:waitlist:promoted', 'ossn_api_notify_passthrough');
 
 /**
  * Real resource whitelist. Never build an include path from the URL

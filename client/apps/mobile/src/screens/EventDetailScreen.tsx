@@ -69,6 +69,7 @@ export default function EventDetailScreen({api, guid, myGuid, onOpenPlace, onOpe
 	const [error, setError] = useState<string | null>(null);
 	const [rsvping, setRsvping] = useState(false);
 	const [rsvpError, setRsvpError] = useState<string | null>(null);
+	const [waitlistPosition, setWaitlistPosition] = useState<number | null>(null);
 	const [friendsGoing, setFriendsGoing] = useState<BerxExperienceGraphFriend[]>([]);
 	const [storyGroups, setStoryGroups] = useState<BerxStoryFeedGroup[]>([]);
 	const [authHeaders, setAuthHeaders] = useState<Record<string, string>>({});
@@ -116,13 +117,44 @@ export default function EventDetailScreen({api, guid, myGuid, onOpenPlace, onOpe
 		}
 	}
 
+	/**
+	 * MAX BUILD — real Event Waitlist toggle. Only reachable once the
+	 * event is genuinely full (server re-checks either way) — cancelling
+	 * ANY attendee's RSVP on this event promotes the earliest waitlisted
+	 * person automatically, server-side, no client polling required to
+	 * see it happen (a real refresh here just reflects that real state).
+	 */
+	async function toggleWaitlist() {
+		if (!event) return;
+		setRsvping(true);
+		setRsvpError(null);
+		try {
+			if (event.is_waitlisted) {
+				await api.leaveEventWaitlist(event.guid);
+				setWaitlistPosition(null);
+			} else {
+				const res = await api.joinEventWaitlist(event.guid);
+				setWaitlistPosition(res.waitlist_position);
+			}
+			await load();
+		} catch (e) {
+			setRsvpError(e instanceof Error ? e.message : 'Не удалось изменить лист ожидания');
+		} finally {
+			setRsvping(false);
+		}
+	}
+
 	if (loading && !event) return <BerxLoadingState />;
 	if (error && !event) return <BerxErrorState message={error} onRetry={load} />;
 	if (!event) return null;
 
 	const date = new Date(event.starts * 1000);
-	const rsvpLabel = event.has_ended ? 'Завершено' : event.is_going ? 'Вы идёте' : event.seats_left === 0 ? 'Мест нет' : 'Пойду';
-	const rsvpDisabled = event.has_ended || (event.seats_left === 0 && !event.is_going);
+	const isFull = event.seats_left === 0 && !event.is_going;
+	const rsvpLabel = event.has_ended ? 'Завершено' : event.is_going ? 'Вы идёте' : isFull ? 'Мест нет' : 'Пойду';
+	const rsvpDisabled = event.has_ended || isFull;
+	const waitlistLabel = event.is_waitlisted
+		? `В листе ожидания${waitlistPosition !== null ? ` (№${waitlistPosition})` : ''}`
+		: `Встать в лист ожидания${event.waitlist_count > 0 ? ` (${event.waitlist_count})` : ''}`;
 
 	return (
 		<ScrollView
@@ -169,6 +201,14 @@ export default function EventDetailScreen({api, guid, myGuid, onOpenPlace, onOpe
 						disabled={rsvpDisabled}
 						onPress={toggleRsvp}
 					/>
+					{!event.has_ended && isFull ? (
+						<BerxButton
+							label={waitlistLabel}
+							variant={event.is_waitlisted ? 'primary' : 'secondary'}
+							loading={rsvping}
+							onPress={toggleWaitlist}
+						/>
+					) : null}
 					{!event.has_ended ? <BerxButton label="Пригласить" variant="secondary" onPress={() => onOpenInvite(event.guid)} /> : null}
 					{onAddToCollection ? <BerxButton label="В подборку" variant="secondary" onPress={onAddToCollection} /> : null}
 					{onAddToTrip ? <BerxButton label="В поездку" variant="secondary" onPress={onAddToTrip} /> : null}

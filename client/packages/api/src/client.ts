@@ -1560,8 +1560,23 @@ export class BerxApiClient {
 		return this.request(`/events/${guid}/rsvp`, {method: 'POST'});
 	}
 
-	async cancelRsvp(guid: number): Promise<{status: string; is_going: boolean}> {
-		return this.request<{status: string; is_going: boolean}>(`/events/${guid}/rsvp/cancel`, {method: 'POST'});
+	async cancelRsvp(guid: number): Promise<{status: string; is_going: boolean; seats_left: number | null; attendee_count: number}> {
+		return this.request(`/events/${guid}/rsvp/cancel`, {method: 'POST'});
+	}
+
+	/**
+	 * MAX BUILD — Event Waitlist: only accepted once the event is
+	 * really at capacity (server re-checks, same discipline as
+	 * rsvpEvent()'s own real capacity re-count). Cancelling any RSVP
+	 * on this event server-side promotes the earliest waitlisted
+	 * person automatically — see classes/OssnEvents.php's own header.
+	 */
+	async joinEventWaitlist(guid: number): Promise<{status: string; is_waitlisted: boolean; waitlist_position: number | null}> {
+		return this.request(`/events/${guid}/waitlist`, {method: 'POST'});
+	}
+
+	async leaveEventWaitlist(guid: number): Promise<{status: string; is_waitlisted: boolean}> {
+		return this.request(`/events/${guid}/waitlist/cancel`, {method: 'POST'});
 	}
 
 	/** userGuid must be a real friend of the caller — inviteFriend() re-checks this server-side regardless of what the UI already knows. */

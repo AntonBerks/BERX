@@ -21,8 +21,8 @@ function ossn_api_event_attendee_json($row) {
 }
 
 $segment0 = isset($segments[0]) ? $segments[0] : null; // guid | 'categories' | 'going'
-$segment1 = isset($segments[1]) ? $segments[1] : null; // 'attendees'|'rsvp'|'invite'|'cover'
-$segment2 = isset($segments[2]) ? $segments[2] : null; // 'cancel' (under rsvp)
+$segment1 = isset($segments[1]) ? $segments[1] : null; // 'attendees'|'rsvp'|'invite'|'cover'|'waitlist'
+$segment2 = isset($segments[2]) ? $segments[2] : null; // 'cancel' (under rsvp or waitlist)
 
 $model = new OssnEvents();
 
@@ -182,7 +182,41 @@ if ($segment0 !== null && is_numeric($segment0) && $segment1 === 'rsvp' && $segm
 
 if ($segment0 !== null && is_numeric($segment0) && $segment1 === 'rsvp' && $segment2 === 'cancel' && $method === 'POST') {
 	$model->cancelRsvp($segment0, $api_user_guid);
-	ossn_api_json(array('status' => 'ok', 'is_going' => false));
+	$fresh = $model->getEvent($segment0, $api_user_guid);
+	ossn_api_json(array(
+		'status'         => 'ok',
+		'is_going'       => false,
+		'seats_left'     => $fresh ? $fresh->seats_left : null,
+		'attendee_count' => $fresh ? $fresh->attendee_count : 0,
+	));
+}
+
+/* ---- Waitlist — real queue for a real-full event, see classes/OssnEvents.php's own header. ---- */
+
+if ($segment0 !== null && is_numeric($segment0) && $segment1 === 'waitlist' && $segment2 === null && $method === 'POST') {
+	$result = $model->joinWaitlist($segment0, $api_user_guid);
+	$statusMap = array(
+		'not_found'          => array('not_found', 'Event not found', 404),
+		'ended'              => array('ended', 'Event has already ended', 409),
+		'already_going'      => array('already_going', 'Already RSVPed to this event', 409),
+		'not_full'           => array('not_full', 'Event still has open seats — RSVP directly', 409),
+		'already_waitlisted' => array('already_waitlisted', 'Already on the waitlist', 409),
+		'rsvp_failed'        => array('rsvp_failed', 'Could not join the waitlist', 500),
+	);
+	if (isset($statusMap[$result])) {
+		list($code, $message, $status) = $statusMap[$result];
+		ossn_api_error($code, $message, $status);
+	}
+	ossn_api_json(array(
+		'status'          => 'ok',
+		'is_waitlisted'   => true,
+		'waitlist_position' => $model->waitlistPosition($segment0, $api_user_guid),
+	));
+}
+
+if ($segment0 !== null && is_numeric($segment0) && $segment1 === 'waitlist' && $segment2 === 'cancel' && $method === 'POST') {
+	$model->leaveWaitlist($segment0, $api_user_guid);
+	ossn_api_json(array('status' => 'ok', 'is_waitlisted' => false));
 }
 
 if ($segment0 !== null && is_numeric($segment0) && $segment1 === 'invite' && $method === 'POST') {

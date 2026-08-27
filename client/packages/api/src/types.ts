@@ -773,6 +773,9 @@ export interface BerxEvent {
 	is_going: boolean;
 	/** Real friend-relevance count (Max Build) — only populated by GET /events/going ("shared activities"), undefined everywhere else. */
 	friends_going_count?: number;
+	/** MAX BUILD — real waitlist state, viewer-scoped like is_going (see classes/OssnEvents.php's own Waitlist section). */
+	is_waitlisted: boolean;
+	waitlist_count: number;
 }
 
 export interface BerxEventAttendee {
@@ -788,6 +791,9 @@ export interface BerxEventAttendee {
  * the human-readable `message`.
  */
 export type BerxRsvpErrorCode = 'full' | 'already_going' | 'ended' | 'forbidden' | 'rsvp_failed';
+
+/** MAX BUILD — Event Waitlist failure shapes, same status_map idiom as BerxRsvpErrorCode. */
+export type BerxWaitlistErrorCode = 'not_found' | 'ended' | 'already_going' | 'not_full' | 'already_waitlisted' | 'rsvp_failed';
 
 /**
  * Comments on Places/Events — mirrors ossn_api_comment_to_json() in

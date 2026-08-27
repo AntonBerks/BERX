@@ -412,11 +412,142 @@ class OssnEvents extends OssnObject {
 	}
 
 	public function cancelRsvp($eventGuid, $userGuid) {
-		return (bool) ossn_delete_relationship(array(
+		$ok = (bool) ossn_delete_relationship(array(
 			'from' => intval($userGuid),
 			'to'   => intval($eventGuid),
 			'type' => self::GOING_RELATION,
 		));
+		// BERX WORLD MAX BUILD — a cancelled RSVP frees exactly one real
+		// seat; promote the real earliest waitlisted person into it
+		// immediately, same transaction turn, never left to a batch job.
+		if ($ok) {
+			$this->promoteNextWaitlisted($eventGuid);
+		}
+		return $ok;
+	}
+
+	/* ---------------- Waitlist (real table — capacity is a real, finite constraint, not a soft UI state) ---------------- */
+
+	const WAITLIST_TABLE = 'ossn_event_waitlist';
+
+	public function waitlistCount($eventGuid) {
+		$row = $this->select(array(
+			'from'   => self::WAITLIST_TABLE,
+			'params' => array('COUNT(*) AS c'),
+			'wheres' => array(self::wheres('event_guid', '=', intval($eventGuid))),
+		));
+		return $row ? intval($row->c) : 0;
+	}
+
+	public function isWaitlisted($eventGuid, $userGuid) {
+		if (!$userGuid) {
+			return false;
+		}
+		$row = $this->select(array(
+			'from'   => self::WAITLIST_TABLE,
+			'wheres' => array(
+				self::wheres('event_guid', '=', intval($eventGuid)),
+				self::wheres('user_guid', '=', intval($userGuid)),
+			),
+		));
+		return (bool) $row;
+	}
+
+	/** 1-based real position, derived from join order — never stored, never drifts. */
+	public function waitlistPosition($eventGuid, $userGuid) {
+		$mine = $this->select(array(
+			'from'   => self::WAITLIST_TABLE,
+			'wheres' => array(
+				self::wheres('event_guid', '=', intval($eventGuid)),
+				self::wheres('user_guid', '=', intval($userGuid)),
+			),
+		));
+		if (!$mine) {
+			return null;
+		}
+		$earlier = $this->select(array(
+			'from'   => self::WAITLIST_TABLE,
+			'params' => array('COUNT(*) AS c'),
+			'wheres' => array(
+				self::wheres('event_guid', '=', intval($eventGuid)),
+				self::wheres('time_created', '<', intval($mine->time_created)),
+			),
+		));
+		return ($earlier ? intval($earlier->c) : 0) + 1;
+	}
+
+	/**
+	 * @return string 'ok'|'not_found'|'ended'|'already_going'|'already_waitlisted'|'not_full'
+	 * A waitlist only makes sense once the event is real-full — joining
+	 * one for an event with open seats would just be a confusing detour
+	 * around the real rsvp() path, so it's rejected, not silently
+	 * accepted.
+	 */
+	public function joinWaitlist($eventGuid, $userGuid) {
+		$event = $this->getEvent($eventGuid);
+		if (!$event) {
+			return 'not_found';
+		}
+		if ($event->has_ended) {
+			return 'ended';
+		}
+		if ($this->isGoing($eventGuid, $userGuid)) {
+			return 'already_going';
+		}
+		if ($event->capacity === null || $this->attendeeCount($eventGuid) < $event->capacity) {
+			return 'not_full';
+		}
+		if ($this->isWaitlisted($eventGuid, $userGuid)) {
+			return 'already_waitlisted';
+		}
+		$ok = $this->insert(array(
+			'into'   => self::WAITLIST_TABLE,
+			'names'  => array('event_guid', 'user_guid', 'time_created'),
+			'values' => array(intval($eventGuid), intval($userGuid), time()),
+		));
+		return $ok ? 'ok' : 'rsvp_failed';
+	}
+
+	public function leaveWaitlist($eventGuid, $userGuid) {
+		return (bool) $this->delete(array(
+			'from'   => self::WAITLIST_TABLE,
+			'wheres' => array(
+				self::wheres('event_guid', '=', intval($eventGuid)),
+				self::wheres('user_guid', '=', intval($userGuid)),
+			),
+		));
+	}
+
+	/**
+	 * Promotes the single earliest real waitlist entry into a real
+	 * RSVP — called from cancelRsvp() itself, one promotion per freed
+	 * seat. Skips (and drops) any stale row for someone who is somehow
+	 * already going, rather than double-booking a seat.
+	 */
+	private function promoteNextWaitlisted($eventGuid) {
+		$next = $this->select(array(
+			'from'     => self::WAITLIST_TABLE,
+			'wheres'   => array(self::wheres('event_guid', '=', intval($eventGuid))),
+			'order_by' => 'time_created ASC',
+		));
+		if (!$next) {
+			return;
+		}
+		$this->leaveWaitlist($eventGuid, $next->user_guid);
+		if ($this->isGoing($eventGuid, $next->user_guid)) {
+			return;
+		}
+		if (!ossn_add_relation(intval($next->user_guid), intval($eventGuid), self::GOING_RELATION)) {
+			return;
+		}
+		$event = $this->getEvent($eventGuid);
+		if ($event) {
+			// poster_guid = the event's real owner (a real, non-empty
+			// actor id for a system-triggered notice) — owner_guid is
+			// overridden to the promoted user via notification_owner, the
+			// same real passthrough already used by 'berx:event:invite'.
+			(new OssnNotifications())->add('berx:event:waitlist:promoted', intval($event->owner_guid), intval($eventGuid), intval($eventGuid), intval($next->user_guid));
+		}
 	}
 
 	/**
@@ -525,6 +656,10 @@ class OssnEvents extends OssnObject {
 		$event->seats_left     = $event->capacity !== null ? max(0, $event->capacity - $event->attendee_count) : null;
 		$event->has_ended      = $event->ends !== null ? (time() > $event->ends) : (time() > $event->starts);
 		$event->is_going       = $this->isGoing($event->guid, $viewerGuid);
+		// BERX WORLD MAX BUILD — real waitlist state, same viewer-scoped
+		// idiom as is_going: never a client guess, always the real row.
+		$event->is_waitlisted  = $this->isWaitlisted($event->guid, $viewerGuid);
+		$event->waitlist_count = $this->waitlistCount($event->guid);
 
 		$event->owner_guid = intval($event->owner_guid);
 		$event->guid       = intval($event->guid);
