@@ -49,11 +49,19 @@ if ($segment0 === null && $method === 'GET') {
 		foreach ($chats as $chat) {
 			$withGuid = intval($chat->message_from) === intval($api_user_guid) ? intval($chat->message_to) : intval($chat->message_from);
 			$withUser = ossn_user_by_guid($withGuid);
+			// Real, free — recentChat()'s own query already selects m.*
+			// (confirmed by reading searchMessages() directly), so viewed
+			// is already on this row, no extra query needed. Real "has
+			// something new since you last opened this thread" signal:
+			// the most recent message was sent TO me and I haven't
+			// viewed it yet — not an exact unread count, but never fake.
+			$hasUnread = intval($chat->message_to) === intval($api_user_guid) && empty($chat->viewed);
 			$out[] = array(
 				'with_guid'     => $withGuid,
 				'with_username' => $withUser ? (string) $withUser->username : null,
 				'last_message'  => (string) $chat->message,
 				'time'          => intval($chat->time),
+				'has_unread'    => $hasUnread,
 			);
 		}
 	}

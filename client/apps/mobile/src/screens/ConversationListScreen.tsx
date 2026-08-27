@@ -138,12 +138,15 @@ export default function ConversationListScreen({api, onOpenConversation, onOpenM
 							>
 								<BerxAvatar fallbackInitial={(item.with_username ?? '#').charAt(0)} size={48} />
 								<View style={styles.rowText}>
-									<Text style={styles.username}>{item.with_username ?? `Пользователь #${item.with_guid}`}</Text>
-									<Text style={styles.lastMessage} numberOfLines={1}>
+									<Text style={[styles.username, item.has_unread && styles.usernameUnread]}>{item.with_username ?? `Пользователь #${item.with_guid}`}</Text>
+									<Text style={[styles.lastMessage, item.has_unread && styles.lastMessageUnread]} numberOfLines={1}>
 										{item.last_message}
 									</Text>
 								</View>
-								<Text style={styles.time}>{relativeTimeLabel(item.time)}</Text>
+								<View style={styles.rowEnd}>
+									<Text style={styles.time}>{relativeTimeLabel(item.time)}</Text>
+									{item.has_unread ? <View style={styles.unreadDot} /> : null}
+								</View>
 							</Pressable>
 						)}
 					/>
@@ -178,6 +181,11 @@ const styles = StyleSheet.create({
 	},
 	rowText: {flex: 1},
 	username: {color: colors.text, fontWeight: typography.weightMedium},
+	usernameUnread: {fontWeight: typography.weightBold},
 	lastMessage: {color: colors.textDim, fontSize: typography.sizeSm, marginTop: 2},
+	lastMessageUnread: {color: colors.text, fontWeight: typography.weightMedium},
+	rowEnd: {alignItems: 'flex-end', gap: 6},
 	time: {color: colors.textFaint, fontSize: typography.sizeXs},
+	/** Real signal — see BerxConversationSummary.has_unread's own doc comment. */
+	unreadDot: {width: 8, height: 8, borderRadius: 4, backgroundColor: colors.accent},
 });

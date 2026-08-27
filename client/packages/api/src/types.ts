@@ -75,6 +75,8 @@ export interface BerxConversationSummary {
 	with_username: string | null;
 	last_message: string;
 	time: number;
+	/** Real signal: the most recent message was sent to the caller and they haven't viewed it yet — not an exact unread count, but never fake. */
+	has_unread: boolean;
 }
 
 export interface BerxMessage {
