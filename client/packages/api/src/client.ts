@@ -95,6 +95,7 @@ import type {
 	BerxPostVisibility,
 	BerxNotificationPrefs,
 	BerxNotificationPrefType,
+	BerxPostDraft,
 } from './types';
 import type { BerxTokenStorage, BerxApiErrorBody } from '@berx/core';
 import { BerxApiError } from '@berx/core';
@@ -330,6 +331,34 @@ export class BerxApiClient {
 	/** Real, block/visibility-reverified on every read, same discipline as savedPosts(). `post` is null when the user has no pin (or it's no longer visible to the caller). */
 	async pinnedPost(userGuid: number): Promise<{post: BerxPostDetail | null}> {
 		return this.request<{post: BerxPostDetail | null}>(`/posts/pinned/${userGuid}`);
+	}
+
+	/**
+	 * MAX BUILD — real Post Drafts (see classes/OssnPostDrafts.php's own
+	 * header). A draft only ever stores text+visibility — a picked-but-
+	 * not-yet-uploaded photo is never included, so a screen restoring a
+	 * draft with a pending image attach honestly can't recover that
+	 * part; only the text side is real, saved state.
+	 */
+	async drafts(): Promise<{drafts: BerxPostDraft[]}> {
+		return this.request<{drafts: BerxPostDraft[]}>('/posts/drafts');
+	}
+
+	async saveDraft(text: string, visibility?: BerxPostVisibility): Promise<BerxPostDraft> {
+		return this.request<BerxPostDraft>('/posts/drafts', {method: 'POST', body: visibility ? {text, visibility} : {text}});
+	}
+
+	async updateDraft(id: number, text: string, visibility?: BerxPostVisibility): Promise<BerxPostDraft> {
+		return this.request<BerxPostDraft>(`/posts/drafts/${id}`, {method: 'PATCH', body: visibility ? {text, visibility} : {text}});
+	}
+
+	async deleteDraft(id: number): Promise<{status: string}> {
+		return this.request<{status: string}>(`/posts/drafts/${id}`, {method: 'DELETE'});
+	}
+
+	/** Real publish — the draft becomes a real post via the same server-side path createPost() itself uses; the draft row is only removed once that real post is confirmed created. */
+	async publishDraft(id: number): Promise<{status: string; guid: number}> {
+		return this.request<{status: string; guid: number}>(`/posts/drafts/${id}/publish`, {method: 'POST'});
 	}
 
 	async commentOnPost(id: number, text: string): Promise<{status: string}> {

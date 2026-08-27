@@ -44,6 +44,7 @@ export type BerxRouteName =
 	| 'DeviceSessions'
 	| 'NotificationPreferences'
 	| 'InviteFriends'
+	| 'MyDrafts'
 	| 'DeleteAccount'
 	| 'BlockedUsers'
 	| 'Communities'
@@ -121,7 +122,8 @@ export interface BerxRouteParams {
 	Register: undefined;
 	Home: undefined;
 	PostDetail: { postGuid: number };
-	CreatePost: undefined;
+	/** MAX BUILD — optional real draft to prefill (see MyDraftsScreen.tsx). */
+	CreatePost: {draft?: {id: number; text: string; visibility: string}} | undefined;
 	Profile: { username?: string };
 	Search: undefined;
 	Messages: undefined;
@@ -144,6 +146,7 @@ export interface BerxRouteParams {
 	DeviceSessions: undefined;
 	NotificationPreferences: undefined;
 	InviteFriends: undefined;
+	MyDrafts: undefined;
 	DeleteAccount: undefined;
 	BlockedUsers: undefined;
 	Communities: undefined;
@@ -262,6 +265,7 @@ export const BERX_ROUTES: BerxRouteMeta[] = [
 	{ name: 'DeviceSessions', connected: true },
 	{ name: 'NotificationPreferences', connected: true },
 	{ name: 'InviteFriends', connected: true },
+	{ name: 'MyDrafts', connected: true },
 	{ name: 'DeleteAccount', connected: true },
 	{ name: 'BlockedUsers', connected: true },
 	{ name: 'Communities', connected: true },

@@ -75,6 +75,7 @@ import EditEventScreen from './screens/EditEventScreen';
 import DeviceSessionsScreen from './screens/DeviceSessionsScreen';
 import NotificationPreferencesScreen from './screens/NotificationPreferencesScreen';
 import InviteFriendsScreen from './screens/InviteFriendsScreen';
+import MyDraftsScreen from './screens/MyDraftsScreen';
 import DeleteAccountScreen from './screens/DeleteAccountScreen';
 import PlacesNearbyScreen from './screens/PlacesNearbyScreen';
 import SavedPlacesScreen from './screens/SavedPlacesScreen';
@@ -126,7 +127,7 @@ import BusinessProductsScreen from './screens/business/BusinessProductsScreen';
 import BusinessOffersScreen from './screens/business/BusinessOffersScreen';
 import BusinessTeamScreen from './screens/business/BusinessTeamScreen';
 import BusinessSettingsScreen from './screens/business/BusinessSettingsScreen';
-import type {BerxStoryFeedGroup} from '@berx/api/types';
+import type {BerxStoryFeedGroup, BerxPostVisibility} from '@berx/api/types';
 
 const api = new BerxApiClient(BERX_PRODUCTION_ENV.apiBaseUrl, new BerxSecureTokenStorage());
 const authState = new BerxAuthState(api);
@@ -386,7 +387,8 @@ function RouteRenderer({name, params}: {name: BerxRouteName; params: unknown}) {
 					onOpenCommunity={(guid) => nav.push('CommunityDetail', {guid})}
 				/>
 			);
-		case 'CreatePost':
+		case 'CreatePost': {
+			const p = params as {draft?: {id: number; text: string; visibility: string}} | undefined;
 			return (
 				<CreatePostScreen
 					api={api}
@@ -397,6 +399,17 @@ function RouteRenderer({name, params}: {name: BerxRouteName; params: unknown}) {
 					// correctly stacks PostDetail on top within whichever
 					// tab's stack CreatePost itself was pushed onto.
 					onCreated={(guid) => nav.push('PostDetail', {postGuid: guid})}
+					draft={p?.draft as {id: number; text: string; visibility: BerxPostVisibility} | undefined}
+					onOpenDrafts={() => nav.push('MyDrafts', undefined)}
+				/>
+			);
+		}
+		case 'MyDrafts':
+			return (
+				<MyDraftsScreen
+					api={api}
+					onOpenDraft={(draft) => nav.push('CreatePost', {draft: {id: draft.id, text: draft.text, visibility: draft.visibility}})}
+					onBack={nav.pop}
 				/>
 			);
 		case 'Notifications':

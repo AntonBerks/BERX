@@ -1190,6 +1190,15 @@ export type BerxMemoryType = 'post' | 'photo' | 'checkin';
  */
 export type BerxPostVisibility = 'public' | 'friends' | `circle:${number}`;
 
+/** MAX BUILD — real Post Drafts (see classes/OssnPostDrafts.php's own header). `visibility` is a real, stored string here — it's whatever the caller sent, not narrowed to BerxPostVisibility server-side, so read it defensively. */
+export interface BerxPostDraft {
+	id: number;
+	text: string;
+	visibility: string;
+	time_created: number;
+	time_updated: number;
+}
+
 export interface BerxMemory {
 	type: BerxMemoryType;
 	guid: number;

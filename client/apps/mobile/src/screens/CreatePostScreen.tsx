@@ -23,20 +23,25 @@ interface Props {
 	api: BerxApiClient;
 	pickImage: () => Promise<BerxFilePart | null>;
 	onCreated: (postGuid: number) => void;
+	/** Real prefill from a saved draft (Max Build) — see MyDraftsScreen.tsx. Only text/visibility restore; a picked-but-unattached photo was never part of a draft's real saved state. */
+	draft?: {id: number; text: string; visibility: BerxPostVisibility};
+	onOpenDrafts?: () => void;
 }
 
-export default function CreatePostScreen({api, pickImage, onCreated}: Props) {
-	const [text, setText] = useState('');
+export default function CreatePostScreen({api, pickImage, onCreated, draft, onOpenDrafts}: Props) {
+	const [text, setText] = useState(draft?.text ?? '');
 	const [pickedPart, setPickedPart] = useState<BerxFilePart | null>(null);
 	const [previewUri, setPreviewUri] = useState<string | null>(null);
 	const [posting, setPosting] = useState(false);
+	const [savingDraft, setSavingDraft] = useState(false);
+	const [draftStatus, setDraftStatus] = useState<string | null>(null);
 	const [error, setError] = useState<string | null>(null);
 	// Real, server-checked at every read path (posts.php, feed.php,
 	// videos.php, tracks.php, collections.php, OssnCreator::recentPosts())
 	// — not client-side hiding. Circle list is the caller's own real
 	// circles (api.circles()); a circle:{id} value is only accepted
 	// server-side if the caller actually owns that circle.
-	const [visibility, setVisibility] = useState<BerxPostVisibility>('public');
+	const [visibility, setVisibility] = useState<BerxPostVisibility>(draft?.visibility ?? 'public');
 	const [myCircles, setMyCircles] = useState<BerxCircle[]>([]);
 
 	useEffect(() => {
@@ -78,6 +83,9 @@ export default function CreatePostScreen({api, pickImage, onCreated}: Props) {
 			setText('');
 			setPickedPart(null);
 			setPreviewUri(null);
+			if (draft) {
+				api.deleteDraft(draft.id).catch(() => undefined); // best-effort — the real post is already published either way
+			}
 			onCreated(res.guid);
 		} catch {
 			setError('Не удалось опубликовать. Попробуйте ещё раз.');
@@ -86,9 +94,35 @@ export default function CreatePostScreen({api, pickImage, onCreated}: Props) {
 		}
 	}
 
+	/** MAX BUILD — real save-for-later, own row (not AsyncStorage) — see classes/OssnPostDrafts.php's own header. Only text+visibility save; a picked photo is never included. */
+	async function handleSaveDraft() {
+		if (!text.trim()) return;
+		setSavingDraft(true);
+		setDraftStatus(null);
+		try {
+			if (draft) {
+				await api.updateDraft(draft.id, text.trim(), visibility);
+			} else {
+				await api.saveDraft(text.trim(), visibility);
+			}
+			setDraftStatus('Черновик сохранён');
+		} catch {
+			setDraftStatus('Не удалось сохранить черновик');
+		} finally {
+			setSavingDraft(false);
+		}
+	}
+
 	return (
 		<View style={styles.screen}>
-			<Text style={styles.title}>Новый пост</Text>
+			<View style={styles.titleRow}>
+				<Text style={styles.title}>Новый пост</Text>
+				{onOpenDrafts ? (
+					<Pressable onPress={onOpenDrafts} hitSlop={8}>
+						<Text style={styles.draftsLink}>Черновики</Text>
+					</Pressable>
+				) : null}
+			</View>
 			<BerxInput
 				placeholder="О чём думаете?"
 				value={text}
@@ -129,13 +163,18 @@ export default function CreatePostScreen({api, pickImage, onCreated}: Props) {
 
 			{error ? <Text style={styles.error}>{error}</Text> : null}
 			<BerxButton label="Опубликовать" onPress={handlePost} loading={posting} disabled={!text.trim() && !pickedPart} fullWidth />
+			<BerxButton label={draft ? 'Обновить черновик' : 'Сохранить черновик'} variant="secondary" onPress={handleSaveDraft} loading={savingDraft} disabled={!text.trim()} fullWidth />
+			{draftStatus ? <Text style={styles.draftStatus}>{draftStatus}</Text> : null}
 		</View>
 	);
 }
 
 const styles = StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.black, padding: spacing.lg, gap: spacing.md},
-	title: {color: colors.text, fontSize: typography.sizeXl, fontWeight: typography.weightBold, marginBottom: spacing.sm},
+	titleRow: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.sm},
+	title: {color: colors.text, fontSize: typography.sizeXl, fontWeight: typography.weightBold},
+	draftsLink: {color: colors.accent, fontSize: typography.sizeSm, fontWeight: typography.weightMedium},
+	draftStatus: {color: colors.textDim, fontSize: typography.sizeSm, textAlign: 'center'},
 	input: {minHeight: 120, textAlignVertical: 'top'},
 	previewWrap: {alignSelf: 'flex-start'},
 	preview: {width: 96, height: 96, borderRadius: radius.md, backgroundColor: colors.graphite},

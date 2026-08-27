@@ -60,10 +60,101 @@ function ossn_api_post_detail_json($post, $viewerGuid) {
 	return $base;
 }
 
-$segment0 = isset($segments[0]) ? $segments[0] : null; // post guid | 'saved'
-$segment1 = isset($segments[1]) ? $segments[1] : null; // 'like' | 'comments' | 'save' | 'unsave'
-$segment2 = isset($segments[2]) ? $segments[2] : null; // comment id
+$segment0 = isset($segments[0]) ? $segments[0] : null; // post guid | 'saved' | 'drafts' | 'pinned'
+$segment1 = isset($segments[1]) ? $segments[1] : null; // 'like' | 'comments' | 'save' | 'unsave' | draft id | profile guid
+$segment2 = isset($segments[2]) ? $segments[2] : null; // comment id | 'publish'
 $segment3 = isset($segments[3]) ? $segments[3] : null; // 'delete'
+
+/**
+ * Real, block/visibility-safe draft JSON — never leaked to anyone but
+ * the owner (every route below checks owner_guid). Placed, and its
+ * routes placed, BEFORE the generic single-post GET/POST branches
+ * further down: those match on bare "$segment0 !== null" with no
+ * is_numeric() guard, so a fixed keyword branch like this one must
+ * win the top-to-bottom match first, same real ordering constraint
+ * 'saved' below already lives under.
+ */
+function ossn_api_draft_json($draft) {
+	return array(
+		'id'           => intval($draft->id),
+		'text'         => (string) $draft->text,
+		'visibility'   => (string) $draft->visibility,
+		'time_created' => intval($draft->time_created),
+		'time_updated' => intval($draft->time_updated),
+	);
+}
+
+if ($segment0 === 'drafts' && $segment1 === null && $method === 'GET') {
+	$rows = (new OssnPostDrafts())->listOwn($api_user_guid);
+	$out = array();
+	foreach ($rows as $row) {
+		$out[] = ossn_api_draft_json($row);
+	}
+	ossn_api_json(array('drafts' => $out));
+}
+
+if ($segment0 === 'drafts' && $segment1 === null && $method === 'POST') {
+	$text = input('text');
+	if (!$text) {
+		ossn_api_error('validation_error', 'text is required', 422);
+	}
+	$visibility = input('visibility');
+	$id = (new OssnPostDrafts())->create($api_user_guid, $text, $visibility ? $visibility : 'public');
+	if (!$id) {
+		ossn_api_error('create_failed', 'Could not save draft', 422);
+	}
+	ossn_api_json(ossn_api_draft_json((new OssnPostDrafts())->get($id)));
+}
+
+if ($segment0 === 'drafts' && $segment1 !== null && $segment2 === null && $method === 'PATCH') {
+	$text = input('text');
+	if (!$text) {
+		ossn_api_error('validation_error', 'text is required', 422);
+	}
+	$ok = (new OssnPostDrafts())->updateDraft(intval($segment1), $api_user_guid, $text, input('visibility'));
+	if (!$ok) {
+		ossn_api_error('not_found', 'Draft not found', 404);
+	}
+	ossn_api_json(ossn_api_draft_json((new OssnPostDrafts())->get(intval($segment1))));
+}
+
+if ($segment0 === 'drafts' && $segment1 !== null && $segment2 === null && $method === 'DELETE') {
+	$ok = (new OssnPostDrafts())->deleteDraft(intval($segment1), $api_user_guid);
+	ossn_api_json(array('status' => $ok ? 'ok' : 'not_found'));
+}
+
+/** Real publish: the draft becomes a real post via the exact same OssnWall::Post() path the main /posts POST route uses — never a separate, lighter content type. The draft row is deleted only after the real post is confirmed created. */
+if ($segment0 === 'drafts' && $segment1 !== null && $segment2 === 'publish' && $method === 'POST') {
+	$draftModel = new OssnPostDrafts();
+	$draft = $draftModel->get(intval($segment1));
+	if (!$draft || intval($draft->owner_guid) !== intval($api_user_guid)) {
+		ossn_api_error('not_found', 'Draft not found', 404);
+	}
+	$visibility = $draft->visibility;
+	if (strpos($visibility, OssnCircles::VISIBILITY_PREFIX_CIRCLE) === 0) {
+		$circleId = intval(substr($visibility, strlen(OssnCircles::VISIBILITY_PREFIX_CIRCLE)));
+		$circle = $circleId ? (new OssnCircles())->get($circleId) : false;
+		if (!$circle || !(new OssnCircles())->canAccess($circle, $api_user_guid)) {
+			// The circle this draft was scoped to no longer belongs to the
+			// caller (deleted/transferred since the draft was saved) —
+			// fail honestly rather than silently publishing to the wrong
+			// audience.
+			ossn_api_error('forbidden', 'Draft circle is no longer accessible', 403);
+		}
+	}
+	$wall = new OssnWall();
+	$wall->owner_guid  = intval($api_user_guid);
+	$wall->poster_guid = intval($api_user_guid);
+	$wall->type        = 'user';
+	$wall->data = new stdClass();
+	$wall->data->berx_visibility = $visibility;
+	$guid = $wall->Post($draft->text);
+	if (!$guid) {
+		ossn_api_error('create_failed', 'Could not publish draft', 500);
+	}
+	$draftModel->deleteDraft(intval($segment1), $api_user_guid);
+	ossn_api_json(array('status' => 'ok', 'guid' => intval($guid)));
+}
 
 if ($segment0 === 'saved' && $segment1 === null && $method === 'GET') {
 	$rows = ossn_get_relationships(array('from' => intval($api_user_guid), 'type' => POST_SAVE_RELATION, 'limit' => 100, 'page_limit' => false));
