@@ -18,11 +18,15 @@
  * MAX BUILD — real read receipts (✓ sent / ✓✓ seen) on your own
  * messages. `viewed` was already a real, already-maintained column —
  * the whole pipeline (markViewed() on thread open) was real end-to-end
- * before this, it just never reached the JSON or the UI. Same POLLING
- * disclosure as typing status applies here too: this only reflects
- * the state as of the last load() (initial open, send, or edit/delete)
- * — not live while the thread stays open, since there's no periodic
- * message refresh here (only typing status polls on an interval).
+ * before this, it just never reached the JSON or the UI.
+ *
+ * MAX BUILD — real message polling: the thread now re-fetches
+ * alongside the existing typing-status interval (same 4s cadence,
+ * same POLLING-not-socket disclosure — no WebSocket infrastructure
+ * exists in BERX), so a reply from the other side now actually
+ * appears while the screen stays open, not only on next open/send.
+ * Skipped while a send/edit/delete is in flight to avoid clobbering
+ * that in-progress local state.
  */
 import {useCallback, useEffect, useRef, useState} from 'react';
 import {FlatList, Text, View, Pressable, Alert, StyleSheet} from 'react-native';
@@ -54,6 +58,15 @@ export default function ConversationScreen({api, myGuid, otherGuid, otherUsernam
 	const [otherTyping, setOtherTyping] = useState(false);
 	const [deletingId, setDeletingId] = useState<number | null>(null);
 	const [editingId, setEditingId] = useState<number | null>(null);
+	// Ref mirrors of state the message-polling interval below needs to
+	// read at call time (not at effect-creation time) — a plain
+	// closure over these would poll a stale snapshot from mount.
+	const sendingRef = useRef(sending);
+	const deletingIdRef = useRef(deletingId);
+	const editingIdRef = useRef(editingId);
+	useEffect(() => { sendingRef.current = sending; }, [sending]);
+	useEffect(() => { deletingIdRef.current = deletingId; }, [deletingId]);
+	useEffect(() => { editingIdRef.current = editingId; }, [editingId]);
 
 	const load = useCallback(async () => {
 		try {
@@ -95,6 +108,28 @@ export default function ConversationScreen({api, myGuid, otherGuid, otherUsernam
 				if (active) setOtherTyping(res.typing);
 			} catch {
 				// polling failure is silent — never surfaces as a conversation error
+			}
+			// Real message refresh, same tick — skipped while a
+			// send/edit/delete is in flight so a slow poll response can
+			// never overwrite that in-progress local state.
+			if (!sendingRef.current && deletingIdRef.current === null && editingIdRef.current === null) {
+				try {
+					const res = await api.conversationWith(otherGuid);
+					if (active) {
+						setMessages((prev: BerxMessage[]) => {
+							const changed = prev.length !== res.messages.length || prev.some((m: BerxMessage, i: number) => {
+								const n = res.messages[i];
+								return !n || m.id !== n.id || m.viewed !== n.viewed || m.edited !== n.edited || m.text !== n.text;
+							});
+							return changed ? res.messages : prev;
+						});
+						// A reply arriving while the thread is open is real,
+						// unread-until-now — best-effort, mirrors the mount-time mark-as-read above.
+						api.markConversationRead(otherGuid).catch(() => undefined);
+					}
+				} catch {
+					// polling failure is silent — the thread keeps showing its last-known state
+				}
 			}
 		}, 4000);
 		return () => {
