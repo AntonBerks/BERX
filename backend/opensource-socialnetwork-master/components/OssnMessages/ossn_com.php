@@ -146,16 +146,16 @@ function ossn_messages_page($pages) {
 						}				
 					break;
 				case 'attachment':
-					// MAX BUILD -- real bug fix: OssnMessages::send() always
-					// stores subtype 'attachment' for an uploaded message
-					// file (components/OssnMessages/classes/OssnMessages.php),
-					// but this check compared against 'file:attachment' -- a
-					// typo that meant every message attachment ever sent
-					// 404'd through this download route, even via the stock
-					// web UI. Fixed to match the real stored subtype. Same
-					// bug class as OssnGroup's cover-photo route.
+					// NOTE (MAX BUILD correction): an earlier pass here "fixed"
+					// this check to 'attachment', on a misreading of
+					// OssnMessages::send() setting $file->subtype = 'attachment'
+					// before calling addFile(). OssnFile::addFile() itself always
+					// prepends 'file:' to whatever subtype the caller set, before
+					// persisting it (classes/OssnFile.php) -- the real
+					// stored/returned value is 'file:attachment', so this check
+					// was correct all along. Reverted to the real value.
 					$file = ossn_get_file($pages[1]);
-					if($file && $file->type == 'message' && $file->subtype == 'attachment') {
+					if($file && $file->type == 'message' && $file->subtype == 'file:attachment') {
 						$file->output();
 					} else {
 						ossn_error_page();

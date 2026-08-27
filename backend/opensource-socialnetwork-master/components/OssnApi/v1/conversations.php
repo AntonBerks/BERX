@@ -24,9 +24,12 @@
  * = message id, type='message', subtype='attachment_guid'|
  * 'attachment_name') — the exact real path the web UI's own message
  * composer already uses, just never wired to this JSON API before.
- * Fixed a matching real bug in components/OssnMessages/ossn_com.php's
- * own download route while closing this gap (see that file's own
- * comment) — attachments 404'd through the web UI too until now.
+ * The download route itself (components/OssnMessages/ossn_com.php)
+ * was already correct — checked 'file:attachment', matching what
+ * OssnFile::addFile() actually persists (it always prepends 'file:'
+ * to whatever subtype the caller set, before storing it — confirmed
+ * by reading its real body, after an earlier pass here mistakenly
+ * "fixed" that check based on the pre-addFile() subtype string).
  * DELETE now also uses the real OssnMessages::deleteMessage() (cleans
  * up the entity metadata rows + the attachment file/dir on disk)
  * instead of a bare row delete, so a removed attachment message
