@@ -283,6 +283,11 @@ export class BerxApiClient {
 		});
 	}
 
+	/** MAX BUILD — real Remove Avatar (OssnPhotos::deleteProfilePhoto(), zero prior UI caller — resets to the default avatar). */
+	async deleteAvatar(): Promise<{status: string; icon_url: string}> {
+		return this.request<{status: string; icon_url: string}>('/me/avatar', {method: 'DELETE'});
+	}
+
 	/** MAX BUILD — real Profile Cover Photo (OssnProfile's own native mechanism, previously wired only to a session-cookie web action). Field name 'coverphoto' matches the real upload route exactly. */
 	async uploadProfileCover(part: BerxFilePart, filename = 'cover.jpg'): Promise<{status: string; cover_url: string | null}> {
 		return this.request<{status: string; cover_url: string | null}>('/me/cover', {

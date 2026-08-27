@@ -93,6 +93,18 @@ export default function EditProfileScreen({api, pickImage, onSaved, onBack}: Pro
 		}
 	}
 
+	async function handleRemoveAvatar() {
+		setUploadingAvatar(true);
+		try {
+			const res = await api.deleteAvatar();
+			setIconUrl(res.icon_url);
+		} catch (e) {
+			setError(e instanceof Error ? e.message : 'Не удалось удалить фото');
+		} finally {
+			setUploadingAvatar(false);
+		}
+	}
+
 	async function handleChangeCover() {
 		if (!pickImage) return;
 		const picked = await pickImage();
@@ -193,10 +205,21 @@ export default function EditProfileScreen({api, pickImage, onSaved, onBack}: Pro
 						) : null}
 					</View>
 				) : null}
-				<Pressable style={styles.avatarWrap} onPress={pickImage ? handleChangeAvatar : undefined} disabled={!pickImage || uploadingAvatar}>
-					{iconUrl ? <Image source={{uri: iconUrl}} style={styles.avatar} /> : <View style={styles.avatar} />}
-					{pickImage ? <Text style={styles.avatarEditLabel}>{uploadingAvatar ? '…' : 'Изменить'}</Text> : null}
-				</Pressable>
+				<View style={styles.avatarWrap}>
+					<Pressable onPress={pickImage ? handleChangeAvatar : undefined} disabled={!pickImage || uploadingAvatar}>
+						{iconUrl ? <Image source={{uri: iconUrl}} style={styles.avatar} /> : <View style={styles.avatar} />}
+					</Pressable>
+					{pickImage ? (
+						<View style={styles.avatarActionsRow}>
+							<Pressable onPress={handleChangeAvatar} disabled={uploadingAvatar} hitSlop={6}>
+								<Text style={styles.avatarEditLabel}>{uploadingAvatar ? '…' : 'Изменить'}</Text>
+							</Pressable>
+							<Pressable onPress={handleRemoveAvatar} disabled={uploadingAvatar} hitSlop={6}>
+								<Text style={styles.avatarEditLabel}>Удалить</Text>
+							</Pressable>
+						</View>
+					) : null}
+				</View>
 			</Berx3DTilt>
 
 			<View style={styles.body}>
@@ -226,7 +249,8 @@ const styles = StyleSheet.create({
 	coverActionLabel: {color: colors.accent, fontSize: typography.sizeXs, fontWeight: typography.weightMedium},
 	avatarWrap: {position: 'absolute', left: spacing.lg, bottom: -32, alignItems: 'center'},
 	avatar: {width: 72, height: 72, borderRadius: 36, backgroundColor: colors.graphite, borderWidth: 3, borderColor: colors.bg},
-	avatarEditLabel: {color: colors.accent, fontSize: typography.sizeXs, marginTop: 2},
+	avatarActionsRow: {flexDirection: 'row', gap: spacing.sm, marginTop: 2},
+	avatarEditLabel: {color: colors.accent, fontSize: typography.sizeXs},
 	body: {padding: spacing.md, gap: spacing.md},
 	sectionTitle: {fontSize: typography.sizeXs, color: colors.textFaint, fontWeight: typography.weightBold, textTransform: 'uppercase', marginTop: spacing.sm},
 	error: {fontSize: typography.sizeSm, color: colors.danger},

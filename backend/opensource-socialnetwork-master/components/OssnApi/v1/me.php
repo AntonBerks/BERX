@@ -163,6 +163,31 @@ if ($segment0 === null && $method === 'PATCH') {
 	ossn_api_json(ossn_api_me_to_json($fresh));
 }
 
+/**
+ * MAX BUILD — real Remove Avatar. OssnPhotos::deleteProfilePhoto() was
+ * always real (also deletes every resized copy on disk, confirmed by
+ * reading its full body) but had zero UI caller anywhere — a user
+ * could set an avatar but never remove it back to the default. Same
+ * real "only clear icon_guid if this was actually still the current
+ * photo" check as the native web action.
+ */
+if ($segment0 === 'avatar' && $method === 'DELETE') {
+	$user = ossn_api_me_fetch($api_user_guid);
+	if (!$user || empty($user->icon_guid)) {
+		ossn_api_error('not_found', 'No avatar to delete', 404);
+	}
+	if (class_exists('OssnPhotos')) {
+		$photos = new OssnPhotos();
+		$photos->photoid = intval($user->icon_guid);
+		$photos->deleteProfilePhoto();
+	}
+	$user->data->icon_time = time();
+	$user->data->icon_guid = false;
+	$user->save();
+	$fresh = ossn_api_me_fetch($api_user_guid);
+	ossn_api_json(array('status' => 'ok', 'icon_url' => (string) $fresh->iconURL()->large));
+}
+
 if ($segment0 === 'avatar' && $method === 'POST') {
 	$user = ossn_api_me_fetch($api_user_guid);
 	if (!$user) {
