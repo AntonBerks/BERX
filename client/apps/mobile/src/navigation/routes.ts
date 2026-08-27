@@ -42,6 +42,7 @@ export type BerxRouteName =
 	| 'DatingPrivacy'
 	| 'Settings'
 	| 'DeviceSessions'
+	| 'NotificationPreferences'
 	| 'DeleteAccount'
 	| 'BlockedUsers'
 	| 'Communities'
@@ -140,6 +141,7 @@ export interface BerxRouteParams {
 	DatingPrivacy: undefined;
 	Settings: undefined;
 	DeviceSessions: undefined;
+	NotificationPreferences: undefined;
 	DeleteAccount: undefined;
 	BlockedUsers: undefined;
 	Communities: undefined;
@@ -256,6 +258,7 @@ export const BERX_ROUTES: BerxRouteMeta[] = [
 	{ name: 'DatingPrivacy', connected: true },
 	{ name: 'Settings', connected: true },
 	{ name: 'DeviceSessions', connected: true },
+	{ name: 'NotificationPreferences', connected: true },
 	{ name: 'DeleteAccount', connected: true },
 	{ name: 'BlockedUsers', connected: true },
 	{ name: 'Communities', connected: true },

@@ -131,6 +131,7 @@ function ossn_api_v1_resources() {
 		'videos'        => __OSSN_API__ . 'v1/videos.php',
 		'tracks'        => __OSSN_API__ . 'v1/tracks.php',
 		'notifications' => __OSSN_API__ . 'v1/notifications.php',
+		'notificationprefs' => __OSSN_API__ . 'v1/notificationprefs.php',
 		'conversations' => __OSSN_API__ . 'v1/conversations.php',
 		'friends'       => __OSSN_API__ . 'v1/friends.php',
 		'friend'        => __OSSN_API__ . 'v1/friend.php',

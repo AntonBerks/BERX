@@ -2,10 +2,15 @@
  * !!! VERIFICATION STATUS: UNVERIFIED — see LoginScreen.tsx header.
  *
  * Real hub only: every row here links to a screen backed by a real
- * API. No rows for password/email change, notification preferences,
- * or theme — those either have no backend (per-user settings storage
- * doesn't exist in OSSN at all, see BERX_DECISIONS.md) or belong to
- * ProfileScreen's own edit flow, not duplicated here.
+ * API. No rows for password/email change or theme — those belong to
+ * ProfileScreen's own edit flow, not duplicated here (theme has no
+ * toggle at all: BERX is Premium Dark only, by decision).
+ *
+ * MAX BUILD — real "Уведомления" row: notification preferences now
+ * have a real, enforced backend (see classes/OssnNotificationPrefs.php
+ * and NotificationPreferencesScreen.tsx) — the earlier documented
+ * absence of per-user settings storage no longer applies to this one
+ * category.
  */
 import {View, Text, Pressable, StyleSheet} from 'react-native';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
@@ -13,6 +18,7 @@ import {BerxHeader} from '../../../../packages/design-system/src/components/Berx
 
 interface Props {
 	onOpenDeviceSessions: () => void;
+	onOpenNotificationPreferences: () => void;
 	onOpenBlockedUsers: () => void;
 	onOpenDeleteAccount: () => void;
 	onOpenDatingPrivacy: () => void;
@@ -29,10 +35,15 @@ function Row({label, onPress, danger}: {label: string; onPress: () => void; dang
 	);
 }
 
-export default function SettingsScreen({onOpenDeviceSessions, onOpenBlockedUsers, onOpenDeleteAccount, onOpenDatingPrivacy, onOpenCircles, onBack}: Props) {
+export default function SettingsScreen({onOpenDeviceSessions, onOpenNotificationPreferences, onOpenBlockedUsers, onOpenDeleteAccount, onOpenDatingPrivacy, onOpenCircles, onBack}: Props) {
 	return (
 		<View style={styles.screen}>
 			<BerxHeader title="Настройки" onBack={onBack} />
+			<Text style={styles.sectionLabel}>Уведомления</Text>
+			<View style={styles.group}>
+				<Row label="Уведомления" onPress={onOpenNotificationPreferences} />
+			</View>
+
 			<Text style={styles.sectionLabel}>Приватность и безопасность</Text>
 			<View style={styles.group}>
 				<Row label="Устройства и сессии" onPress={onOpenDeviceSessions} />

@@ -286,6 +286,27 @@ export interface BerxNotificationsResponse extends BerxPaginationMeta {
 }
 
 /**
+ * Notification Preferences — see classes/OssnNotificationPrefs.php's
+ * own header. Keys are the real notification type strings; `true`
+ * means "notify" (the honest default — matches server-side "no muted
+ * row exists"), `false` means muted, real and enforced server-side
+ * inside OssnNotifications::add() itself.
+ */
+export type BerxNotificationPrefType =
+	| 'dating:match'
+	| 'dating:interest'
+	| 'dating:photo:request'
+	| 'dating:photo:granted'
+	| 'berx:place:review'
+	| 'berx:place:comment'
+	| 'berx:event:rsvp'
+	| 'berx:event:comment'
+	| 'berx:event:invite'
+	| 'ossnpoke:poke';
+
+export type BerxNotificationPrefs = Record<BerxNotificationPrefType, boolean>;
+
+/**
  * Life Graph — see docs/BERX_FUTURE_LAYER_SPEC.md. Real derived edges
  * over already-real data (saves/RSVPs/reviews/memberships/creations/
  * rewards/friend co-attendance), not a new store. `target_guid` is

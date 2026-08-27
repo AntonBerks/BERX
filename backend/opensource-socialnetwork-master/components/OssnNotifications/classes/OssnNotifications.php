@@ -70,6 +70,18 @@ class OssnNotifications extends OssnDatabase {
 								));
 								return false;
 						}
+						// BERX WORLD MAX BUILD — real, enforced notification
+						// preferences: a muted type never reaches the insert
+						// below, not just hidden client-side. class_exists()
+						// guard matches the same defensive pattern OssnCreator.php
+						// uses for OssnCircles — this file is core OSSN and must
+						// stay safe to run even if the BERX class file is absent.
+						if(class_exists('OssnNotificationPrefs')) {
+								$prefs = new OssnNotificationPrefs();
+								if($prefs->isMuted($this->notification['owner_guid'], $this->notification['type'])) {
+										return false;
+								}
+						}
 						$callback = array(
 								'type'         => $this->notification['type'],
 								'poster_guid'  => $this->notification['poster_guid'],

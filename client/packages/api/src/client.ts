@@ -92,6 +92,8 @@ import type {
 	BerxBusinessType,
 	BerxMemory,
 	BerxPostVisibility,
+	BerxNotificationPrefs,
+	BerxNotificationPrefType,
 } from './types';
 import type { BerxTokenStorage, BerxApiErrorBody } from '@berx/core';
 import { BerxApiError } from '@berx/core';
@@ -1655,6 +1657,22 @@ export class BerxApiClient {
 
 	async deleteAllNotifications(): Promise<{status: string}> {
 		return this.request<{status: string}>('/notifications', {method: 'DELETE'});
+	}
+
+	// ---------------------------------------------------------------
+	// Notification Preferences — components/OssnApi/v1/
+	// notificationprefs.php. Real, enforced opt-out: see
+	// classes/OssnNotificationPrefs.php's own header — muting a type
+	// here stops OssnNotifications::add() from ever creating that
+	// notification row, not just from displaying it.
+	// ---------------------------------------------------------------
+
+	async notificationPrefs(): Promise<{prefs: BerxNotificationPrefs}> {
+		return this.request<{prefs: BerxNotificationPrefs}>('/notificationprefs');
+	}
+
+	async setNotificationPref(type: BerxNotificationPrefType, enabled: boolean): Promise<{status: string; prefs: BerxNotificationPrefs}> {
+		return this.request<{status: string; prefs: BerxNotificationPrefs}>(`/notificationprefs/${type}`, {method: 'PATCH', body: {enabled: enabled ? '1' : '0'}});
 	}
 
 	// ---------------------------------------------------------------
