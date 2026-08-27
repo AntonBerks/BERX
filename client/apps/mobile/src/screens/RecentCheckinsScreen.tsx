@@ -18,6 +18,7 @@ import {relativeTimeLabel} from '@berx/domain';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
+import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
 
 interface Props {
 	api: BerxApiClient;
@@ -56,20 +57,22 @@ export default function RecentCheckinsScreen({api, onOpenPlace, onBack}: Props) 
 			{items.length === 0 ? (
 				<BerxEmptyState title="Пока нет отметок" subtitle="Отметьтесь на странице места, когда будете рядом." />
 			) : (
-				<FlatList
-					data={items}
-					keyExtractor={(c: BerxRecentCheckin, index: number) => `${c.place.guid}-${c.time}-${index}`}
-					contentContainerStyle={styles.list}
-					renderItem={({item}: {item: BerxRecentCheckin}) => (
-						<Pressable style={styles.row} onPress={() => onOpenPlace(item.place.guid)}>
-							{item.place.cover_url ? <Image source={{uri: item.place.cover_url}} style={styles.thumb} /> : <View style={styles.thumbFallback} />}
-							<View style={styles.rowBody}>
-								<Text style={styles.title} numberOfLines={1}>{item.place.title}</Text>
-								<Text style={styles.time}>{relativeTimeLabel(item.time)}</Text>
-							</View>
-						</Pressable>
-					)}
-				/>
+				<BerxFadeIn style={styles.fadeFlex}>
+					<FlatList
+						data={items}
+						keyExtractor={(c: BerxRecentCheckin, index: number) => `${c.place.guid}-${c.time}-${index}`}
+						contentContainerStyle={styles.list}
+						renderItem={({item}: {item: BerxRecentCheckin}) => (
+							<Pressable style={styles.row} onPress={() => onOpenPlace(item.place.guid)}>
+								{item.place.cover_url ? <Image source={{uri: item.place.cover_url}} style={styles.thumb} /> : <View style={styles.thumbFallback} />}
+								<View style={styles.rowBody}>
+									<Text style={styles.title} numberOfLines={1}>{item.place.title}</Text>
+									<Text style={styles.time}>{relativeTimeLabel(item.time)}</Text>
+								</View>
+							</Pressable>
+						)}
+					/>
+				</BerxFadeIn>
 			)}
 		</View>
 	);
@@ -78,6 +81,7 @@ export default function RecentCheckinsScreen({api, onOpenPlace, onBack}: Props) 
 const styles = StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.bg},
 	list: {padding: spacing.md, gap: spacing.sm},
+	fadeFlex: {flex: 1},
 	row: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.surface, borderRadius: radius.md, padding: spacing.sm, marginBottom: spacing.sm},
 	thumb: {width: 48, height: 48, borderRadius: radius.sm},
 	thumbFallback: {width: 48, height: 48, borderRadius: radius.sm, backgroundColor: colors.graphite},

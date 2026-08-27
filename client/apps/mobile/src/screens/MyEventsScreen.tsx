@@ -15,6 +15,7 @@ import type {BerxEvent} from '@berx/api/types';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
+import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
 
 interface Props {
 	api: BerxApiClient;
@@ -53,23 +54,25 @@ export default function MyEventsScreen({api, onOpenEvent, onBack}: Props) {
 			{items.length === 0 ? (
 				<BerxEmptyState title="Вы никуда не записаны" subtitle="Нажмите «Пойду» на странице события, чтобы оно появилось здесь." />
 			) : (
-				<FlatList
-					data={items}
-					keyExtractor={(e: BerxEvent) => String(e.guid)}
-					contentContainerStyle={styles.list}
-					renderItem={({item}: {item: BerxEvent}) => {
-						const date = new Date(item.starts * 1000);
-						return (
-							<Pressable style={styles.card} onPress={() => onOpenEvent(item.guid)}>
-								{item.cover_url ? <Image source={{uri: item.cover_url}} style={styles.cardImage} /> : <View style={styles.cardImageFallback} />}
-								<View style={styles.cardBody}>
-									<Text style={styles.cardTitle} numberOfLines={1}>{item.title}</Text>
-									<Text style={styles.cardMeta}>{date.toLocaleDateString('ru-RU', {day: 'numeric', month: 'long'})}{item.friends_going_count ? ` · 👥 ${item.friends_going_count} идут` : ''}</Text>
-								</View>
-							</Pressable>
-						);
-					}}
-				/>
+				<BerxFadeIn style={styles.fadeFlex}>
+					<FlatList
+						data={items}
+						keyExtractor={(e: BerxEvent) => String(e.guid)}
+						contentContainerStyle={styles.list}
+						renderItem={({item}: {item: BerxEvent}) => {
+							const date = new Date(item.starts * 1000);
+							return (
+								<Pressable style={styles.card} onPress={() => onOpenEvent(item.guid)}>
+									{item.cover_url ? <Image source={{uri: item.cover_url}} style={styles.cardImage} /> : <View style={styles.cardImageFallback} />}
+									<View style={styles.cardBody}>
+										<Text style={styles.cardTitle} numberOfLines={1}>{item.title}</Text>
+										<Text style={styles.cardMeta}>{date.toLocaleDateString('ru-RU', {day: 'numeric', month: 'long'})}{item.friends_going_count ? ` · 👥 ${item.friends_going_count} идут` : ''}</Text>
+									</View>
+								</Pressable>
+							);
+						}}
+					/>
+				</BerxFadeIn>
 			)}
 		</View>
 	);
@@ -78,6 +81,7 @@ export default function MyEventsScreen({api, onOpenEvent, onBack}: Props) {
 const styles = StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.bg},
 	list: {padding: spacing.md, gap: spacing.sm},
+	fadeFlex: {flex: 1},
 	card: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.surface, borderRadius: radius.md, padding: spacing.sm, marginBottom: spacing.sm},
 	cardImage: {width: 56, height: 56, borderRadius: radius.sm},
 	cardImageFallback: {width: 56, height: 56, borderRadius: radius.sm, backgroundColor: colors.graphite},

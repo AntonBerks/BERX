@@ -33,6 +33,7 @@ import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
+import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
 
 interface Props {
 	api: BerxApiClient;
@@ -116,6 +117,7 @@ export default function AdminReportsScreen({api, onBack}: Props) {
 			{items.length === 0 ? (
 				<BerxEmptyState title="Жалоб нет" subtitle="Все поданные жалобы рассмотрены." />
 			) : (
+				<BerxFadeIn style={styles.fadeFlex}>
 				<FlatList
 					data={items}
 					keyExtractor={(r: BerxReportQueueItem) => String(r.id)}
@@ -142,6 +144,7 @@ export default function AdminReportsScreen({api, onBack}: Props) {
 						</View>
 					)}
 				/>
+				</BerxFadeIn>
 			)}
 		</View>
 	);
@@ -150,6 +153,7 @@ export default function AdminReportsScreen({api, onBack}: Props) {
 const styles = StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.bg},
 	list: {padding: spacing.md, gap: spacing.sm},
+	fadeFlex: {flex: 1},
 	card: {backgroundColor: colors.surface, borderRadius: radius.md, padding: spacing.md, gap: 4, marginBottom: spacing.sm},
 	target: {fontSize: typography.sizeBase, color: colors.white, fontWeight: typography.weightMedium},
 	reason: {fontSize: typography.sizeSm, color: colors.accent},

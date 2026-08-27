@@ -9,6 +9,7 @@ import type {BerxPlace} from '@berx/api/types';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
+import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
 
 interface Props {
 	api: BerxApiClient;
@@ -47,18 +48,20 @@ export default function SavedPlacesScreen({api, onOpenPlace, onBack}: Props) {
 			{items.length === 0 ? (
 				<BerxEmptyState title="Ничего не сохранено" subtitle="Нажмите «Сохранить» на странице места, чтобы вернуться к нему позже." />
 			) : (
-				<FlatList
-					data={items}
-					keyExtractor={(p: BerxPlace) => String(p.guid)}
-					numColumns={2}
-					contentContainerStyle={styles.grid}
-					renderItem={({item}: {item: BerxPlace}) => (
-						<Pressable style={styles.card} onPress={() => onOpenPlace(item.guid)}>
-							{item.cover_url ? <Image source={{uri: item.cover_url}} style={styles.cardImage} /> : <View style={styles.cardImageFallback} />}
-							<Text style={styles.cardTitle} numberOfLines={1}>{item.title}</Text>
-						</Pressable>
-					)}
-				/>
+				<BerxFadeIn style={styles.fadeFlex}>
+					<FlatList
+						data={items}
+						keyExtractor={(p: BerxPlace) => String(p.guid)}
+						numColumns={2}
+						contentContainerStyle={styles.grid}
+						renderItem={({item}: {item: BerxPlace}) => (
+							<Pressable style={styles.card} onPress={() => onOpenPlace(item.guid)}>
+								{item.cover_url ? <Image source={{uri: item.cover_url}} style={styles.cardImage} /> : <View style={styles.cardImageFallback} />}
+								<Text style={styles.cardTitle} numberOfLines={1}>{item.title}</Text>
+							</Pressable>
+						)}
+					/>
+				</BerxFadeIn>
 			)}
 		</View>
 	);
@@ -67,6 +70,7 @@ export default function SavedPlacesScreen({api, onOpenPlace, onBack}: Props) {
 const styles = StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.bg},
 	grid: {padding: spacing.sm},
+	fadeFlex: {flex: 1},
 	card: {flex: 1, margin: spacing.xs, borderRadius: radius.md, overflow: 'hidden', backgroundColor: colors.surface},
 	cardImage: {width: '100%', aspectRatio: 1.3},
 	cardImageFallback: {width: '100%', aspectRatio: 1.3, backgroundColor: colors.graphite},

@@ -11,6 +11,7 @@ import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
+import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
 
 interface Props {
 	api: BerxApiClient;
@@ -61,18 +62,20 @@ export default function BlockedUsersScreen({api, onBack}: Props) {
 			{items.length === 0 ? (
 				<BerxEmptyState title="Никого не заблокировано" />
 			) : (
-				<FlatList
-					data={items}
-					keyExtractor={(u: BerxBlockedUser) => String(u.guid)}
-					contentContainerStyle={styles.list}
-					renderItem={({item}: {item: BerxBlockedUser}) => (
-						<View style={styles.row}>
-							<Image source={{uri: item.icon}} style={styles.avatar} />
-							<Text style={styles.name} numberOfLines={1}>{item.fullname}</Text>
-							<BerxButton label="Разблокировать" variant="secondary" loading={busyGuid === item.guid} onPress={() => unblock(item.guid)} />
-						</View>
-					)}
-				/>
+				<BerxFadeIn style={styles.fadeFlex}>
+					<FlatList
+						data={items}
+						keyExtractor={(u: BerxBlockedUser) => String(u.guid)}
+						contentContainerStyle={styles.list}
+						renderItem={({item}: {item: BerxBlockedUser}) => (
+							<View style={styles.row}>
+								<Image source={{uri: item.icon}} style={styles.avatar} />
+								<Text style={styles.name} numberOfLines={1}>{item.fullname}</Text>
+								<BerxButton label="Разблокировать" variant="secondary" loading={busyGuid === item.guid} onPress={() => unblock(item.guid)} />
+							</View>
+						)}
+					/>
+				</BerxFadeIn>
 			)}
 		</View>
 	);
@@ -81,6 +84,7 @@ export default function BlockedUsersScreen({api, onBack}: Props) {
 const styles = StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.bg},
 	list: {padding: spacing.md, gap: spacing.sm},
+	fadeFlex: {flex: 1},
 	row: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.borderSoft},
 	avatar: {width: 40, height: 40, borderRadius: radius.pill, backgroundColor: colors.graphite},
 	name: {flex: 1, fontSize: typography.sizeBase, color: colors.white, fontWeight: typography.weightMedium},
