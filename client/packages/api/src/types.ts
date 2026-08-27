@@ -646,6 +646,8 @@ export interface BerxBusinessDashboard {
 	recent_checkins: BerxBusinessCheckin[];
 	/** Real Business <-> Communities connection — top 5 real communities this business's actual customers (checked-in or reviewed) belong to, most-overlapping first. Never a guessed audience. */
 	top_customer_communities: BerxTopCustomerCommunity[];
+	/** Real Business <-> Creators connection — up to 10 real Creator-mode customers of this business, a genuine basis for a collab outreach, never a guessed influence score. */
+	creator_customers: BerxCreatorCustomer[];
 }
 
 /** One row of BerxBusinessDashboard.top_customer_communities. */
@@ -653,6 +655,15 @@ export interface BerxTopCustomerCommunity {
 	guid: number;
 	title: string;
 	customer_count: number;
+}
+
+/** One row of BerxBusinessDashboard.creator_customers. */
+export interface BerxCreatorCustomer {
+	guid: number;
+	username: string;
+	fullname: string;
+	icon: string;
+	category: string | null;
 }
 
 export type BerxBusinessTeamRole = 'manager' | 'staff';

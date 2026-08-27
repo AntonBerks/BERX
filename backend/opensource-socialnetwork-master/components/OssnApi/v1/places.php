@@ -355,23 +355,25 @@ if ($segment0 !== null && is_numeric($segment0) && $segment1 === 'business' && $
 	$upcomingEvents = class_exists('OssnEvents') ? (new OssnEvents())->upcomingByPlace($segment0, 10) : array();
 	$recentCheckins = $model->checkinsForPlace($segment0, 20);
 
-	// MAX BUILD -- real Business <-> Communities connection: which real
-	// communities does this business's actual customer base belong to?
+	// MAX BUILD -- real Business <-> Communities/Creators connections.
 	// Real customers = everyone who ever checked in (geo-verified) or
-	// left a review here, deduped, bounded to CUSTOMER_SCAN_LIMIT. For
-	// each, a real 'group:join:approve' membership lookup, counted per
+	// left a review here, deduped, bounded to $customerScanLimit — the
+	// same real customer set feeds both insights below, computed once.
+	$customerScanLimit = 150;
+	$customerGuids = array();
+	foreach ($model->checkinsForPlace($segment0, $customerScanLimit) as $c) {
+		$customerGuids[intval($c['guid'])] = true;
+	}
+	foreach ($model->reviews($segment0, $customerScanLimit) as $r) {
+		$customerGuids[intval($r->author_guid)] = true;
+	}
+
+	// Which real communities do these customers belong to? For each, a
+	// real 'group:join:approve' membership lookup, counted per
 	// community, top 5 shown. A genuine owner insight ("your regulars
 	// mostly come from these communities"), never a guessed audience.
 	$topCommunities = array();
 	if (class_exists('OssnGroup')) {
-		$customerScanLimit = 150;
-		$customerGuids = array();
-		foreach ($model->checkinsForPlace($segment0, $customerScanLimit) as $c) {
-			$customerGuids[intval($c['guid'])] = true;
-		}
-		foreach ($model->reviews($segment0, $customerScanLimit) as $r) {
-			$customerGuids[intval($r->author_guid)] = true;
-		}
 		$communityCounts = array();
 		$i = 0;
 		foreach (array_keys($customerGuids) as $customerGuid) {
@@ -408,17 +410,48 @@ if ($segment0 !== null && is_numeric($segment0) && $segment1 === 'business' && $
 		}
 	}
 
+	// Which of these real customers are real Creators (OssnCreator::
+	// isCreator())? A genuine "your regulars include these creators"
+	// signal — a real basis for a collab outreach, never a guessed
+	// influence score. Bounded to the first 10 found within the same
+	// scan cap, real profile fields only.
+	$creatorCustomers = array();
+	if (class_exists('OssnCreator')) {
+		$creatorModel = new OssnCreator();
+		foreach (array_keys($customerGuids) as $customerGuid) {
+			if (count($creatorCustomers) >= 10) {
+				break;
+			}
+			if (!$creatorModel->isCreator($customerGuid)) {
+				continue;
+			}
+			$user = ossn_user_by_guid($customerGuid);
+			if (!$user) {
+				continue;
+			}
+			$profile = $creatorModel->getProfile($customerGuid);
+			$creatorCustomers[] = array(
+				'guid'     => intval($user->guid),
+				'username' => (string) $user->username,
+				'fullname' => trim($user->first_name . ' ' . $user->last_name),
+				'icon'     => (string) $user->iconURL()->large,
+				'category' => $profile && $profile->category !== null ? (string) $profile->category : null,
+			);
+		}
+	}
+
 	ossn_api_json(array(
-		'place_guid'            => intval($segment0),
-		'is_business'           => $place->is_business,
-		'verified'              => $place->verified,
-		'rating'                => $place->rating,
-		'rating_count'          => $place->rating_count,
-		'recent_reviews'        => $recentReviews,
-		'nearby_impressions'    => $impressions,
-		'upcoming_events'       => $upcomingEvents,
-		'recent_checkins'       => $recentCheckins,
-		'top_customer_communities' => $topCommunities,
+		'place_guid'                => intval($segment0),
+		'is_business'               => $place->is_business,
+		'verified'                  => $place->verified,
+		'rating'                    => $place->rating,
+		'rating_count'              => $place->rating_count,
+		'recent_reviews'            => $recentReviews,
+		'nearby_impressions'        => $impressions,
+		'upcoming_events'           => $upcomingEvents,
+		'recent_checkins'           => $recentCheckins,
+		'top_customer_communities'  => $topCommunities,
+		'creator_customers'         => $creatorCustomers,
 	));
 }
 

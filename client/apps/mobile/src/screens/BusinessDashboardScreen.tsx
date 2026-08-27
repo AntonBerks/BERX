@@ -41,6 +41,7 @@ import {useCallback, useEffect, useState} from 'react';
 import {View, Text, Image, ScrollView, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxBusinessDashboard, BerxPlaceReview, BerxBusinessSubscription, BerxBusinessTeamMember, BerxBusinessMoment, BerxEvent, BerxBusinessCheckin, BerxBusinessOffer, BerxOfferRedemption} from '@berx/api/types';
+import {BerxAvatar} from '../../../../packages/design-system/src/components/BerxAvatar';
 import {relativeTimeLabel} from '@berx/domain';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
@@ -302,6 +303,21 @@ export default function BusinessDashboardScreen({api, placeGuid, onBack}: Props)
 								<View key={c.guid} style={styles.communityInsightRow}>
 									<Text style={styles.communityInsightTitle} numberOfLines={1}>{c.title}</Text>
 									<Text style={styles.communityInsightCount}>{c.customer_count}</Text>
+								</View>
+							))}
+						</View>
+					</>
+				) : null}
+
+				{data.creator_customers.length > 0 ? (
+					<>
+						<Text style={styles.sectionTitle}>Криэйторы среди гостей</Text>
+						<View style={styles.checkinsRow}>
+							{data.creator_customers.map((c) => (
+								<View key={c.guid} style={styles.checkinItem}>
+									<BerxAvatar iconUrl={c.icon} fallbackInitial={c.fullname.charAt(0) || c.username.charAt(0)} size={44} />
+									<Text style={styles.checkinName} numberOfLines={1}>{c.fullname || c.username}</Text>
+									{c.category ? <Text style={styles.checkinTime} numberOfLines={1}>{c.category}</Text> : null}
 								</View>
 							))}
 						</View>
