@@ -14,6 +14,7 @@ import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
+import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
 
 interface Props {
 	api: BerxApiClient;
@@ -63,21 +64,23 @@ export default function MessageSearchScreen({api, onOpenConversation, onBack}: P
 			) : results.length === 0 ? (
 				<BerxEmptyState title="Ничего не найдено" subtitle="Попробуйте другой запрос." />
 			) : (
-				<FlatList
-					data={results}
-					keyExtractor={(r: BerxMessageSearchResult, i: number) => `${r.user.guid}-${r.time}-${i}`}
-					contentContainerStyle={styles.list}
-					renderItem={({item}: {item: BerxMessageSearchResult}) => (
-						<Pressable style={styles.row} onPress={() => onOpenConversation(item.user.guid)}>
-							<Image source={{uri: item.user.icon}} style={styles.avatar} />
-							<View style={styles.body}>
-								<Text style={styles.name} numberOfLines={1}>{item.user.fullname}</Text>
-								<Text style={styles.text} numberOfLines={2}>{item.outgoing ? 'Вы: ' : ''}{item.text}</Text>
-								<Text style={styles.time}>{fmtTime(item.time)}</Text>
-							</View>
-						</Pressable>
-					)}
-				/>
+				<BerxFadeIn style={styles.fadeFlex}>
+					<FlatList
+						data={results}
+						keyExtractor={(r: BerxMessageSearchResult, i: number) => `${r.user.guid}-${r.time}-${i}`}
+						contentContainerStyle={styles.list}
+						renderItem={({item}: {item: BerxMessageSearchResult}) => (
+							<Pressable style={styles.row} onPress={() => onOpenConversation(item.user.guid)}>
+								<Image source={{uri: item.user.icon}} style={styles.avatar} />
+								<View style={styles.body}>
+									<Text style={styles.name} numberOfLines={1}>{item.user.fullname}</Text>
+									<Text style={styles.text} numberOfLines={2}>{item.outgoing ? 'Вы: ' : ''}{item.text}</Text>
+									<Text style={styles.time}>{fmtTime(item.time)}</Text>
+								</View>
+							</Pressable>
+						)}
+					/>
+				</BerxFadeIn>
 			)}
 		</View>
 	);
@@ -87,6 +90,7 @@ const styles = StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.bg},
 	searchBar: {padding: spacing.md},
 	list: {padding: spacing.md, gap: spacing.sm},
+	fadeFlex: {flex: 1},
 	row: {flexDirection: 'row', gap: spacing.sm, paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.borderSoft},
 	avatar: {width: 40, height: 40, borderRadius: radius.pill, backgroundColor: colors.graphite},
 	body: {flex: 1, gap: 2},
