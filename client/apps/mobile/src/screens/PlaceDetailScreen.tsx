@@ -49,6 +49,7 @@ import {BerxDiscussion} from '../../../../packages/design-system/src/components/
 import {BerxAvatar} from '../../../../packages/design-system/src/components/BerxAvatar';
 import {BerxGlassSurface} from '../../../../packages/design-system/src/components/BerxGlassSurface';
 import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
+import {Berx3DTilt} from '../../../../packages/design-system/src/components/Berx3DTilt';
 
 interface Props {
 	api: BerxApiClient;
@@ -302,7 +303,7 @@ export default function PlaceDetailScreen({api, guid, myGuid, isAdmin, onAddToCo
 	return (
 		<ScrollView style={styles.screen}>
 			<BerxHeader title={place.title} onBack={onBack} />
-			<View style={styles.hero}>
+			<Berx3DTilt style={styles.hero} maxAngle={6}>
 				{place.cover_url ? (
 					<Image source={{uri: place.cover_url}} style={styles.heroImage} />
 				) : (
@@ -310,7 +311,7 @@ export default function PlaceDetailScreen({api, guid, myGuid, isAdmin, onAddToCo
 						<Text style={styles.heroInitial}>{place.title.charAt(0).toUpperCase()}</Text>
 					</View>
 				)}
-			</View>
+			</Berx3DTilt>
 
 			<BerxFadeIn style={styles.body}>
 				<View style={styles.metaRow}>

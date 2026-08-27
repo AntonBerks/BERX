@@ -53,6 +53,7 @@ import {BerxHeader} from '../../../../packages/design-system/src/components/Berx
 import {IconHeart, IconLock, IconBell, IconStar, IconUsers, IconChevronRight, IconEdit} from '../../../../packages/design-system/src/components/BerxIcons';
 import {BerxGlassSurface} from '../../../../packages/design-system/src/components/BerxGlassSurface';
 import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
+import {Berx3DTilt} from '../../../../packages/design-system/src/components/Berx3DTilt';
 
 interface ProfileData {
 	guid?: number;
@@ -295,9 +296,9 @@ export default function ProfileScreen({api, authState, username, onBack, onMessa
 		<ScrollView style={styles.screen}>
 			{onBack ? <BerxHeader onBack={onBack} title={profile.username} /> : null}
 			<BerxFadeIn style={styles.hero} riseFrom={16}>
-				<View style={styles.avatarRing}>
+				<Berx3DTilt style={styles.avatarRing} maxAngle={14}>
 					<Image source={{uri: profile.icon_url}} style={styles.avatar} />
-				</View>
+				</Berx3DTilt>
 				<Text style={styles.fullname}>{profile.fullname}</Text>
 				<Text style={styles.username}>@{profile.username}</Text>
 				{!isOwn && (profile.mutual_friends_count > 0 || profile.mutual_communities_count > 0) ? (

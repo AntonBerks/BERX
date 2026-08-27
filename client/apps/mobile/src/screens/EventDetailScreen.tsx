@@ -33,6 +33,7 @@ import {BerxDiscussion} from '../../../../packages/design-system/src/components/
 import {BerxAvatar} from '../../../../packages/design-system/src/components/BerxAvatar';
 import {BerxGlassSurface} from '../../../../packages/design-system/src/components/BerxGlassSurface';
 import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
+import {Berx3DTilt} from '../../../../packages/design-system/src/components/Berx3DTilt';
 
 interface Props {
 	api: BerxApiClient;
@@ -137,7 +138,7 @@ export default function EventDetailScreen({api, guid, myGuid, onOpenPlace, onOpe
 				/>
 			}>
 			<BerxHeader title={event.title} onBack={onBack} />
-			<View style={styles.hero}>
+			<Berx3DTilt style={styles.hero} maxAngle={6}>
 				{event.cover_url ? (
 					<Image source={{uri: event.cover_url}} style={styles.heroImage} />
 				) : (
@@ -145,7 +146,7 @@ export default function EventDetailScreen({api, guid, myGuid, onOpenPlace, onOpe
 						<Text style={styles.heroInitial}>{event.title.charAt(0).toUpperCase()}</Text>
 					</View>
 				)}
-			</View>
+			</Berx3DTilt>
 
 			<BerxFadeIn style={styles.body}>
 				<Text style={styles.when}>
