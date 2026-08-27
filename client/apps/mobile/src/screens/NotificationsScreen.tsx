@@ -26,7 +26,7 @@ import type {BerxNotification} from '@berx/api/types';
 import {relativeTimeLabel} from '@berx/domain';
 import {colors, spacing, typography} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
-import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
+import {BerxErrorState, BerxEmptyState, BerxSkeleton} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
 
 interface Props {
@@ -145,7 +145,16 @@ export default function NotificationsScreen({api, onOpenConversation, onOpenDati
 				</View>
 			) : null}
 			{loading ? (
-				<BerxLoadingState label="Загрузка..." />
+				<View style={styles.list}>
+					{[0, 1, 2, 3, 4, 5].map((i) => (
+						<View key={i} style={styles.row}>
+							<View style={styles.rowText}>
+								<BerxSkeleton width="60%" height={13} />
+								<BerxSkeleton width="30%" height={11} style={styles.skeletonGap} />
+							</View>
+						</View>
+					))}
+				</View>
 			) : error ? (
 				<BerxErrorState message={error} onRetry={load} />
 			) : items.length === 0 ? (
@@ -190,6 +199,8 @@ const styles = StyleSheet.create({
 	actionLink: {color: colors.accent, fontSize: typography.sizeSm, fontWeight: typography.weightMedium},
 	actionLinkDanger: {color: colors.danger},
 	fadeFlex: {flex: 1},
+	list: {flex: 1},
+	skeletonGap: {marginTop: 4},
 	row: {
 		flexDirection: 'row',
 		alignItems: 'center',

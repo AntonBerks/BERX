@@ -24,7 +24,7 @@ import type {BerxConversationSummary, BerxOnlineFriend} from '@berx/api/types';
 import {relativeTimeLabel} from '@berx/domain';
 import {colors, spacing, typography} from '@berx/design-system/tokens';
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
-import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
+import {BerxErrorState, BerxEmptyState, BerxSkeleton} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxAvatar} from '../../../../packages/design-system/src/components/BerxAvatar';
 import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
 
@@ -75,7 +75,26 @@ export default function ConversationListScreen({api, onOpenConversation, onOpenM
 		return items.filter((it) => (it.with_username ?? '').toLowerCase().includes(q));
 	}, [items, query]);
 
-	if (loading) return <BerxLoadingState label="Загрузка диалогов..." />;
+	if (loading) {
+		return (
+			<View style={styles.screen}>
+				<View style={styles.titleRow}>
+					<Text style={styles.title}>Сообщения</Text>
+				</View>
+				<View style={styles.list}>
+					{[0, 1, 2, 3, 4, 5].map((i) => (
+						<View key={i} style={styles.row}>
+							<BerxSkeleton width={48} height={48} style={styles.skeletonAvatar} />
+							<View style={styles.rowText}>
+								<BerxSkeleton width="45%" height={14} />
+								<BerxSkeleton width="70%" height={12} style={styles.skeletonGap} />
+							</View>
+						</View>
+					))}
+				</View>
+			</View>
+		);
+	}
 	if (error) return <BerxErrorState message={error} onRetry={load} />;
 
 	return (
@@ -179,7 +198,9 @@ const styles = StyleSheet.create({
 		borderBottomWidth: 1,
 		borderBottomColor: colors.borderSoft,
 	},
-	rowText: {flex: 1},
+	rowText: {flex: 1, gap: 2},
+	skeletonAvatar: {borderRadius: 24},
+	skeletonGap: {marginTop: 4},
 	username: {color: colors.text, fontWeight: typography.weightMedium},
 	usernameUnread: {fontWeight: typography.weightBold},
 	lastMessage: {color: colors.textDim, fontSize: typography.sizeSm, marginTop: 2},
