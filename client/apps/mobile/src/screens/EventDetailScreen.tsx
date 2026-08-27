@@ -39,6 +39,7 @@ interface Props {
 	guid: number;
 	myGuid?: number;
 	onOpenPlace?: (guid: number) => void;
+	onOpenCommunity?: (guid: number) => void;
 	onOpenInvite: (guid: number) => void;
 	onAddToCollection?: () => void;
 	onAddToTrip?: () => void;
@@ -59,7 +60,7 @@ function groupStoriesByOwner(items: BerxEventStoryItem[]): BerxStoryFeedGroup[] 
 	return Array.from(byOwner.values());
 }
 
-export default function EventDetailScreen({api, guid, myGuid, onOpenPlace, onOpenInvite, onAddToCollection, onAddToTrip, onAddEventStory, onOpenStoryGroup, onEdit, onBack}: Props) {
+export default function EventDetailScreen({api, guid, myGuid, onOpenPlace, onOpenCommunity, onOpenInvite, onAddToCollection, onAddToTrip, onAddEventStory, onOpenStoryGroup, onEdit, onBack}: Props) {
 	const [event, setEvent] = useState<BerxEvent | null>(null);
 	const [attendees, setAttendees] = useState<BerxEventAttendee[]>([]);
 	const [loading, setLoading] = useState(true);
@@ -141,6 +142,9 @@ export default function EventDetailScreen({api, guid, myGuid, onOpenPlace, onOpe
 					<Text style={styles.place} onPress={() => onOpenPlace?.(event.place!.guid)}>📍 {event.place.title}</Text>
 				) : event.location ? (
 					<Text style={styles.place}>📍 {event.location}</Text>
+				) : null}
+				{event.group ? (
+					<Text style={styles.place} onPress={() => onOpenCommunity?.(event.group!.guid)}>👥 Организовано сообществом «{event.group.title}»</Text>
 				) : null}
 
 				<View style={styles.actions}>

@@ -82,6 +82,9 @@ if ($segment0 === null && $method === 'POST') {
 	if (input('place_guid') !== false) {
 		$fields['place_guid'] = intval(input('place_guid'));
 	}
+	if (input('group_guid') !== false) {
+		$fields['group_guid'] = intval(input('group_guid'));
+	}
 	if (input('capacity') !== false) {
 		$fields['capacity'] = intval(input('capacity'));
 	}
@@ -112,6 +115,9 @@ if ($segment0 !== null && is_numeric($segment0) && $segment1 === null && $method
 	}
 	if (input('place_guid') !== false) {
 		$fields['place_guid'] = intval(input('place_guid'));
+	}
+	if (input('group_guid') !== false) {
+		$fields['group_guid'] = intval(input('group_guid'));
 	}
 	if (input('capacity') !== false) {
 		$fields['capacity'] = intval(input('capacity'));

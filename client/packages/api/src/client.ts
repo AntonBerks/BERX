@@ -962,6 +962,11 @@ export class BerxApiClient {
 		return this.request<BerxCommunity>(`/communities/${guid}`);
 	}
 
+	/** Real Communities <-> Events connection — this community's real hosted events (OssnEvents::upcomingByGroup()). Public, same visibility as getCommunity(). */
+	async communityEvents(guid: number): Promise<{events: BerxEvent[]}> {
+		return this.request<{events: BerxEvent[]}>(`/communities/${guid}/events`);
+	}
+
 	async createCommunity(name: string, description: string, privacy: 'public' | 'private'): Promise<{guid: number}> {
 		return this.request<{guid: number}>('/communities', {method: 'POST', body: {name, description, privacy}});
 	}
@@ -1481,6 +1486,8 @@ export class BerxApiClient {
 		description?: string;
 		location?: string;
 		placeGuid?: number;
+		/** Real Communities <-> Events connection — server rejects this (real 422) unless the caller is actually a member of the community. */
+		groupGuid?: number;
 		capacity?: number;
 	}): Promise<{guid: number}> {
 		const body: Record<string, string> = {
@@ -1492,6 +1499,7 @@ export class BerxApiClient {
 		if (fields.description) body.description = fields.description;
 		if (fields.location) body.location = fields.location;
 		if (fields.placeGuid !== undefined) body.place_guid = String(fields.placeGuid);
+		if (fields.groupGuid !== undefined) body.group_guid = String(fields.groupGuid);
 		if (fields.capacity !== undefined) body.capacity = String(fields.capacity);
 		return this.request<{guid: number}>('/events', {method: 'POST', body});
 	}
@@ -1505,6 +1513,7 @@ export class BerxApiClient {
 		capacity: number;
 		location: string;
 		placeGuid: number;
+		groupGuid: number;
 	}>): Promise<BerxEvent> {
 		const body: Record<string, string> = {};
 		if (fields.title !== undefined) body.title = fields.title;
@@ -1515,6 +1524,7 @@ export class BerxApiClient {
 		if (fields.capacity !== undefined) body.capacity = String(fields.capacity);
 		if (fields.location !== undefined) body.location = fields.location;
 		if (fields.placeGuid !== undefined) body.place_guid = String(fields.placeGuid);
+		if (fields.groupGuid !== undefined) body.group_guid = String(fields.groupGuid);
 		return this.request<BerxEvent>(`/events/${guid}`, {method: 'PATCH', body});
 	}
 

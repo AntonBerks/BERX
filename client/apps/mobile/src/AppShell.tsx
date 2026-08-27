@@ -429,6 +429,7 @@ function RouteRenderer({name, params}: {name: BerxRouteName; params: unknown}) {
 					onOpenRequests={(guid) => nav.push('CommunityRequests', {guid})}
 					onOpenModerators={(guid) => nav.push('CommunityModerators', {guid})}
 					onOpenMembers={(guid, isOwner) => nav.push('CommunityMembers', {guid, isOwner})}
+					onOpenEvent={(guid) => nav.push('EventDetail', {guid})}
 					onReport={(guid) => nav.push('Report', {targetType: 'group', targetGuid: guid})}
 					onDeleted={nav.pop}
 				/>
@@ -557,6 +558,7 @@ function RouteRenderer({name, params}: {name: BerxRouteName; params: unknown}) {
 					guid={p.guid}
 					myGuid={myGuid}
 					onOpenPlace={(guid) => nav.push('PlaceDetail', {guid})}
+					onOpenCommunity={(guid) => nav.push('CommunityDetail', {guid})}
 					onOpenInvite={(guid) => nav.push('EventInvite', {guid})}
 					onAddToCollection={() => nav.push('AddToCollection', {itemType: 'event', itemGuid: p.guid})}
 					onAddToTrip={() => nav.push('AddToTrip', {itemType: 'event', itemGuid: p.guid})}

@@ -30,7 +30,7 @@ class OssnEvents extends OssnObject {
 	 * @param int   $ownerGuid
 	 * @param array $fields title, category (required), starts (required,
 	 *              unix ts or parseable string), ends, description,
-	 *              location, place_guid, capacity
+	 *              location, place_guid, group_guid, capacity
 	 * @return int|false new event guid
 	 */
 	public function createEvent($ownerGuid, array $fields) {
@@ -49,6 +49,16 @@ class OssnEvents extends OssnObject {
 			return false;
 		}
 
+		// MAX BUILD -- real Communities <-> Events connection: an event
+		// can be tagged as hosted by a real community, same idea as
+		// place_guid. Requires the organizer to actually be a real member
+		// (OssnGroup::isMember(), real 'group:join:approve' relation) —
+		// never lets a stranger's event masquerade as community-hosted.
+		$groupGuid = isset($fields['group_guid']) ? intval($fields['group_guid']) : 0;
+		if ($groupGuid && (!class_exists('OssnGroup') || !(new OssnGroup())->isMember($groupGuid, $ownerGuid))) {
+			return false;
+		}
+
 		$this->owner_guid  = $ownerGuid;
 		$this->type        = 'user';
 		$this->subtype     = self::SUBTYPE;
@@ -61,6 +71,7 @@ class OssnEvents extends OssnObject {
 		$this->data->starts     = $starts;
 		$this->data->ends       = $ends ? $ends : 0;
 		$this->data->location   = isset($fields['location']) ? trim((string) $fields['location']) : '';
+		$this->data->group_guid = $groupGuid;
 		$this->data->place_guid = $placeGuid;
 		$this->data->capacity   = isset($fields['capacity']) ? max(0, intval($fields['capacity'])) : 0;
 		$this->data->cover_guid = 0;
@@ -176,6 +187,43 @@ class OssnEvents extends OssnObject {
 		return array_slice($out, 0, intval($limit));
 	}
 
+	/**
+	 * MAX BUILD -- real Communities <-> Events connection: a community's
+	 * real hosted events (group_guid on create/update), same
+	 * entities_pairs metadata-filter mechanism upcomingByPlace() already
+	 * uses, just filtering on group_guid instead — no new query pattern.
+	 * @return array real PHP array of upcoming (not-ended) hydrated events hosted by this community, soonest first
+	 */
+	public function upcomingByGroup($groupGuid, $limit = 10) {
+		$objects = $this->searchObject(array(
+			'subtype'       => self::SUBTYPE,
+			'type'          => 'user',
+			'limit'         => 200,
+			'page_limit'    => false,
+			'entities_pairs' => array(
+				array('name' => 'group_guid', 'value' => (string) intval($groupGuid)),
+			),
+		));
+		if (!$objects) {
+			return array();
+		}
+		$out = array();
+		foreach ($objects as $object) {
+			if (!isset($object->subtype) || $object->subtype !== self::SUBTYPE) {
+				continue;
+			}
+			$hydrated = $this->hydrate($object);
+			if ($hydrated->has_ended) {
+				continue;
+			}
+			$out[] = $hydrated;
+		}
+		usort($out, function ($a, $b) {
+			return $a->starts <=> $b->starts;
+		});
+		return array_slice($out, 0, intval($limit));
+	}
+
 	/** @return array real PHP array of hydrated events the user has RSVP'd to, soonest first */
 	public function goingEvents($userGuid, $viewerGuid = null) {
 		$rows = ossn_get_relationships(array('from' => intval($userGuid), 'type' => self::GOING_RELATION, 'limit' => 100, 'page_limit' => false));
@@ -248,6 +296,16 @@ class OssnEvents extends OssnObject {
 		$placeChanged = array_key_exists('place_guid', $fields);
 		if ($placeChanged) {
 			$this->data->place_guid = intval($fields['place_guid']);
+		}
+		if (array_key_exists('group_guid', $fields)) {
+			$newGroupGuid = intval($fields['group_guid']);
+			// Same real membership guard as createEvent() — an owner can't
+			// retroactively tag their event onto a community they aren't
+			// actually in.
+			if ($newGroupGuid && (!class_exists('OssnGroup') || !(new OssnGroup())->isMember($newGroupGuid, $actingGuid))) {
+				return 'invalid';
+			}
+			$this->data->group_guid = $newGroupGuid;
 		}
 		if (array_key_exists('capacity', $fields)) {
 			$this->data->capacity = max(0, intval($fields['capacity']));
@@ -444,6 +502,18 @@ class OssnEvents extends OssnObject {
 			}
 		}
 		unset($event->place_guid);
+
+		// MAX BUILD -- real Communities <-> Events connection, same
+		// hydration idiom as place above.
+		$groupGuid = !empty($event->group_guid) ? intval($event->group_guid) : 0;
+		$event->group = null;
+		if ($groupGuid && class_exists('OssnGroup')) {
+			$group = (new OssnGroup())->getGroup($groupGuid);
+			if ($group) {
+				$event->group = array('guid' => intval($group->guid), 'title' => (string) $group->title);
+			}
+		}
+		unset($event->group_guid);
 
 		$coverGuid = !empty($event->cover_guid) ? intval($event->cover_guid) : 0;
 		// Same inline route as OssnPlaces::hydrate() — ossn_api_media_asset_url()

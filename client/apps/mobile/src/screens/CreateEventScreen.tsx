@@ -4,11 +4,17 @@
  * POST /events). starts is sent as a real unix timestamp — the
  * server's is_numeric() branch accepts that directly (see the
  * comment on createEvent() in client.ts).
+ *
+ * MAX BUILD — real Communities <-> Events connection: an optional
+ * "hosted by" community picker, sourced from api.myCommunities() —
+ * only communities the caller is actually a member of, matching
+ * createEvent()'s own real server-side membership guard (a picker
+ * offering a community the caller isn't in would just 422 on submit).
  */
 import {useEffect, useState} from 'react';
 import {View, Text, ScrollView, Pressable, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
-import type {BerxPlaceCategory, BerxPlace} from '@berx/api/types';
+import type {BerxPlaceCategory, BerxPlace, BerxCommunity} from '@berx/api/types';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
@@ -37,6 +43,8 @@ export default function CreateEventScreen({api, onCreated, onBack}: Props) {
 	const [capacity, setCapacity] = useState('');
 	const [places, setPlaces] = useState<BerxPlace[]>([]);
 	const [placeGuid, setPlaceGuid] = useState<number | undefined>(undefined);
+	const [communities, setCommunities] = useState<BerxCommunity[]>([]);
+	const [groupGuid, setGroupGuid] = useState<number | undefined>(undefined);
 	const [start] = useState(defaultStart);
 	const [submitting, setSubmitting] = useState(false);
 	const [error, setError] = useState<string | null>(null);
@@ -44,6 +52,7 @@ export default function CreateEventScreen({api, onCreated, onBack}: Props) {
 	useEffect(() => {
 		api.eventCategories().then((r) => setCategories(r.categories)).catch(() => undefined);
 		api.places().then((r) => setPlaces(r.places.slice(0, 20))).catch(() => undefined);
+		api.myCommunities().then((r) => setCommunities(r.communities.slice(0, 20))).catch(() => undefined);
 	}, [api]);
 
 	async function submit() {
@@ -61,6 +70,7 @@ export default function CreateEventScreen({api, onCreated, onBack}: Props) {
 				description: description.trim() || undefined,
 				location: location.trim() || undefined,
 				placeGuid,
+				groupGuid,
 				capacity: capacity ? Number(capacity) : undefined,
 			});
 			onCreated(res.guid);
@@ -100,6 +110,22 @@ export default function CreateEventScreen({api, onCreated, onBack}: Props) {
 							{places.map((p) => (
 								<Pressable key={p.guid} style={[styles.chip, placeGuid === p.guid && styles.chipActive]} onPress={() => setPlaceGuid(p.guid)}>
 									<Text style={[styles.chipText, placeGuid === p.guid && styles.chipTextActive]} numberOfLines={1}>{p.title}</Text>
+								</Pressable>
+							))}
+						</View>
+					</>
+				) : null}
+
+				{communities.length > 0 ? (
+					<>
+						<Text style={styles.label}>Сообщество-организатор (необязательно)</Text>
+						<View style={styles.chipWrap}>
+							<Pressable style={[styles.chip, !groupGuid && styles.chipActive]} onPress={() => setGroupGuid(undefined)}>
+								<Text style={[styles.chipText, !groupGuid && styles.chipTextActive]}>Не выбрано</Text>
+							</Pressable>
+							{communities.map((c) => (
+								<Pressable key={c.guid} style={[styles.chip, groupGuid === c.guid && styles.chipActive]} onPress={() => setGroupGuid(c.guid)}>
+									<Text style={[styles.chipText, groupGuid === c.guid && styles.chipTextActive]} numberOfLines={1}>{c.name}</Text>
 								</Pressable>
 							))}
 						</View>

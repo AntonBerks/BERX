@@ -112,6 +112,16 @@ if ($segment0 !== null && $segment0 !== 'mine' && $segment1 === null && $method 
 	ossn_api_json(ossn_api_group_json($group, $api_user_guid));
 }
 
+/** MAX BUILD -- real Communities <-> Events connection: this community's real hosted events (OssnEvents::upcomingByGroup(), same real group_guid tag createEvent()/updateEvent() now accept). Public — same visibility as the community's own detail route above. */
+if ($segment0 !== null && $segment0 !== 'mine' && $segment1 === 'events' && $method === 'GET') {
+	$group = $model->getGroup(intval($segment0));
+	if (!$group) {
+		ossn_api_error('not_found', 'Community not found', 404);
+	}
+	$events = class_exists('OssnEvents') ? (new OssnEvents())->upcomingByGroup(intval($segment0), 10) : array();
+	ossn_api_json(array('events' => $events));
+}
+
 if ($segment0 !== null && $segment1 === null && $method === 'PATCH') {
 	$group = $model->getGroup(intval($segment0));
 	if (!$group || (intval($group->owner_guid) !== intval($api_user_guid) && !ossn_api_is_admin($api_user_guid))) {

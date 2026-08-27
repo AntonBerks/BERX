@@ -732,6 +732,8 @@ export interface BerxEvent {
 	ends: number | null;
 	location: string | null;
 	place: { guid: number; title: string } | null;
+	/** Real Communities <-> Events connection — set only when the organizer was actually a member of this community at tag time. */
+	group: { guid: number; title: string } | null;
 	capacity: number | null;
 	seats_left: number | null;
 	attendee_count: number;

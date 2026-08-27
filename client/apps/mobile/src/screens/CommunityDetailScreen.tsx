@@ -14,11 +14,17 @@
  * (name/description only — updateGroup()'s own real scope, matching
  * the web edit action) that the edit form lives inline here, same
  * principle as TripDetailScreen.
+ *
+ * MAX BUILD — real Communities <-> Events connection: a real
+ * "Ближайшие события" section (api.communityEvents(), real
+ * OssnEvents::upcomingByGroup() — only events an actual member
+ * organized and explicitly tagged to this community, never a guess).
+ * Best-effort, never blocks the community itself from loading.
  */
 import {useEffect, useState} from 'react';
 import {View, Text, Pressable, Alert, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
-import type {BerxCommunity} from '@berx/api/types';
+import type {BerxCommunity, BerxEvent} from '@berx/api/types';
 import {colors, spacing, typography} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
@@ -33,15 +39,17 @@ interface Props {
 	onOpenRequests?: (guid: number) => void;
 	onOpenModerators?: (guid: number) => void;
 	onOpenMembers?: (guid: number, isOwner: boolean) => void;
+	onOpenEvent?: (guid: number) => void;
 	onReport?: (guid: number) => void;
 	onDeleted?: () => void;
 }
 
-export default function CommunityDetailScreen({api, guid, myGuid, onBack, onOpenRequests, onOpenModerators, onOpenMembers, onReport, onDeleted}: Props) {
+export default function CommunityDetailScreen({api, guid, myGuid, onBack, onOpenRequests, onOpenModerators, onOpenMembers, onOpenEvent, onReport, onDeleted}: Props) {
 	const [community, setCommunity] = useState<BerxCommunity | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 	const [acting, setActing] = useState(false);
+	const [events, setEvents] = useState<BerxEvent[]>([]);
 	const [editing, setEditing] = useState(false);
 	const [editName, setEditName] = useState('');
 	const [editDescription, setEditDescription] = useState('');
@@ -55,6 +63,8 @@ export default function CommunityDetailScreen({api, guid, myGuid, onBack, onOpen
 			const data = await api.getCommunity(guid);
 			setCommunity(data);
 			setError(null);
+			// Best-effort — a community with no tagged events still loads normally.
+			api.communityEvents(guid).then((res) => setEvents(res.events)).catch(() => undefined);
 		} catch {
 			setError('Сообщество недоступно');
 		} finally {
@@ -187,6 +197,18 @@ export default function CommunityDetailScreen({api, guid, myGuid, onBack, onOpen
 
 						{onOpenMembers ? <BerxButton label="Участники" variant="secondary" onPress={() => onOpenMembers(guid, isOwner)} fullWidth /> : null}
 
+						{events.length > 0 ? (
+							<View style={styles.eventsSection}>
+								<Text style={styles.eventsTitle}>Ближайшие события</Text>
+								{events.map((e) => (
+									<Pressable key={e.guid} style={styles.eventRow} onPress={() => onOpenEvent && onOpenEvent(e.guid)} disabled={!onOpenEvent}>
+										<Text style={styles.eventTitle} numberOfLines={1}>{e.title}</Text>
+										<Text style={styles.eventMeta}>{new Date(e.starts * 1000).toLocaleDateString('ru-RU', {day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'})} · {e.attendee_count} идут</Text>
+									</Pressable>
+								))}
+							</View>
+						) : null}
+
 						{isOwner ? (
 							<View style={styles.ownerActions}>
 								{onOpenRequests ? <BerxButton label="Заявки на вступление" variant="secondary" onPress={() => onOpenRequests(guid)} fullWidth /> : null}
@@ -217,4 +239,9 @@ const styles = StyleSheet.create({
 	reportLink: {color: colors.textFaint, fontSize: typography.sizeXs, textDecorationLine: 'underline', textAlign: 'center', marginTop: spacing.sm},
 	error: {fontSize: typography.sizeSm, color: colors.danger},
 	deleteLink: {fontSize: typography.sizeSm, color: colors.danger, textAlign: 'center', textDecorationLine: 'underline', marginTop: spacing.sm},
+	eventsSection: {gap: spacing.xs, marginTop: spacing.sm},
+	eventsTitle: {fontSize: typography.sizeXs, color: colors.textFaint, fontWeight: typography.weightBold, textTransform: 'uppercase'},
+	eventRow: {gap: 2, paddingVertical: spacing.xs, borderTopWidth: 1, borderTopColor: colors.borderSoft},
+	eventTitle: {color: colors.text, fontSize: typography.sizeSm, fontWeight: typography.weightMedium},
+	eventMeta: {color: colors.textFaint, fontSize: typography.sizeXs},
 });
