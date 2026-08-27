@@ -251,6 +251,17 @@ export interface BerxDatingMatch {
 	fullname: string;
 }
 
+/** GET /dating/date-ideas — real Business World connection, top-rated real places near the caller's own dating location. */
+export interface BerxDateIdea {
+	guid: number;
+	title: string;
+	category: string | null;
+	cover_url: string | null;
+	rating: number;
+	rating_count: number;
+	distance_km: number;
+}
+
 export interface BerxNotification {
 	guid: number;
 	type: string;

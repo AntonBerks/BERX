@@ -220,6 +220,57 @@ if ($segment0 === 'matches' && $method === 'GET') {
 	ossn_api_json(array('matches' => $out));
 }
 
+/**
+ * MAX BUILD — real Dating <-> Places connection: "Идеи для свидания".
+ * A real mutual match is required (isMutual(), same guard every other
+ * match-scoped route in this file relies on) — never suggestible
+ * against a stranger. Real top-rated places within 10km of the
+ * caller's own real dating-profile coordinates (OssnGeo::near(), same
+ * bounding-box+haversine query nearby.php already uses), sorted by
+ * real rating, never a guessed "romantic spot" list.
+ */
+if ($segment0 === 'date-ideas' && $method === 'GET') {
+	$otherGuid = input('match');
+	if (!$otherGuid || !is_numeric($otherGuid)) {
+		ossn_api_error('validation_error', 'match is required', 422);
+	}
+	$otherGuid = intval($otherGuid);
+	if (!$model->isMutual($api_user_guid, $otherGuid)) {
+		ossn_api_error('forbidden', 'Not a mutual match', 403);
+	}
+	$myProfile = $model->getProfile($api_user_guid);
+	if (!$myProfile || $myProfile->latitude === null || $myProfile->longitude === null) {
+		ossn_api_error('no_location', 'Set your dating location first', 422);
+	}
+	$out = array();
+	if (class_exists('OssnGeo') && class_exists('OssnPlaces')) {
+		$geo = new OssnGeo();
+		$placesModel = new OssnPlaces();
+		$rows = $geo->near(floatval($myProfile->latitude), floatval($myProfile->longitude), 10, 'place', 60);
+		foreach ($rows as $row) {
+			$place = $placesModel->getPlace($row->object_guid);
+			if (!$place) {
+				continue;
+			}
+			$out[] = array(
+				'guid'          => intval($place->guid),
+				'title'         => (string) $place->title,
+				'category'      => $place->category !== null ? (string) $place->category : null,
+				'cover_url'     => $place->cover_url,
+				'rating'        => $place->rating,
+				'rating_count'  => $place->rating_count,
+				'distance_km'   => $row->distance,
+			);
+		}
+		// Real rating first (a genuine "worth going to" signal), distance as tiebreak — never a random/guessed order.
+		usort($out, function ($a, $b) {
+			return ($b['rating'] <=> $a['rating']) ?: ($a['distance_km'] <=> $b['distance_km']);
+		});
+		$out = array_slice($out, 0, 10);
+	}
+	ossn_api_json(array('places' => $out));
+}
+
 if ($segment0 === 'location' && $method === 'PATCH') {
 	$fields = array();
 	if (($v = input('latitude')) !== false) {

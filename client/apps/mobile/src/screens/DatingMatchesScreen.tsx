@@ -6,12 +6,20 @@
  * OssnDating::unmatch() removes the real match relation both
  * directions) with zero UI caller — a match could be created but
  * never undone from the app.
+ *
+ * MAX BUILD — real Dating <-> Places connection: "Идеи для свидания"
+ * expands inline per match into real top-rated places near the
+ * caller's own dating location (api.datingDateIdeas(), real
+ * OssnGeo::near() query) — fetched on demand, never eagerly for every
+ * match on load. A real 422 no_location surfaces as an honest prompt
+ * to set a dating location first, not a silent empty list.
  */
 import {useCallback, useEffect, useState} from 'react';
-import {View, FlatList, Pressable, Text, Alert, StyleSheet} from 'react-native';
+import {View, FlatList, Pressable, Text, Image, Alert, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
-import type {BerxDatingMatch} from '@berx/api/types';
-import {colors, spacing, typography} from '@berx/design-system/tokens';
+import type {BerxDatingMatch, BerxDateIdea} from '@berx/api/types';
+import {BerxApiError} from '@berx/core';
+import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 
@@ -27,6 +35,10 @@ export default function DatingMatchesScreen({api, onOpenConversation, onOpenPhot
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 	const [busyGuid, setBusyGuid] = useState<number | null>(null);
+	const [expandedGuid, setExpandedGuid] = useState<number | null>(null);
+	const [ideas, setIdeas] = useState<Record<number, BerxDateIdea[]>>({});
+	const [ideasError, setIdeasError] = useState<Record<number, string>>({});
+	const [ideasLoading, setIdeasLoading] = useState(false);
 
 	const load = useCallback(async () => {
 		try {
@@ -69,6 +81,27 @@ export default function DatingMatchesScreen({api, onOpenConversation, onOpenPhot
 		);
 	}
 
+	async function toggleIdeas(matchGuid: number) {
+		if (expandedGuid === matchGuid) {
+			setExpandedGuid(null);
+			return;
+		}
+		setExpandedGuid(matchGuid);
+		if (ideas[matchGuid] || ideasError[matchGuid]) return;
+		setIdeasLoading(true);
+		try {
+			const res = await api.datingDateIdeas(matchGuid);
+			setIdeas((prev) => ({...prev, [matchGuid]: res.places}));
+		} catch (e) {
+			const msg = e instanceof BerxApiError && e.code === 'no_location'
+				? 'Укажите свою геопозицию в настройках знакомств, чтобы видеть идеи для свидания.'
+				: 'Не удалось загрузить идеи';
+			setIdeasError((prev) => ({...prev, [matchGuid]: msg}));
+		} finally {
+			setIdeasLoading(false);
+		}
+	}
+
 	return (
 		<View style={styles.screen}>
 			<BerxHeader onBack={onBack} title="Совпадения" />
@@ -83,20 +116,50 @@ export default function DatingMatchesScreen({api, onOpenConversation, onOpenPhot
 					data={matches}
 					keyExtractor={(m: BerxDatingMatch) => String(m.guid)}
 					renderItem={({item}: {item: BerxDatingMatch}) => (
-						<Pressable style={styles.row} onPress={() => onOpenConversation(item.guid, item.username)}>
-							<View style={styles.rowBody}>
-								<Text style={styles.name}>{item.fullname || item.username}</Text>
-								<Text style={styles.username}>@{item.username}</Text>
-							</View>
-							{onOpenPhotos ? (
-								<Pressable onPress={() => onOpenPhotos(item.guid, item.username)} hitSlop={8}>
-									<Text style={styles.photosLink}>Фото</Text>
+						<View>
+							<Pressable style={styles.row} onPress={() => onOpenConversation(item.guid, item.username)}>
+								<View style={styles.rowBody}>
+									<Text style={styles.name}>{item.fullname || item.username}</Text>
+									<Text style={styles.username}>@{item.username}</Text>
+								</View>
+								<Pressable onPress={() => toggleIdeas(item.guid)} hitSlop={8}>
+									<Text style={styles.photosLink}>{expandedGuid === item.guid ? 'Скрыть идеи' : '💡 Идеи'}</Text>
 								</Pressable>
-							) : null}
-							<Pressable onPress={() => confirmUnmatch(item)} disabled={busyGuid === item.guid} hitSlop={8}>
-								<Text style={styles.unmatch}>{busyGuid === item.guid ? '…' : 'Разорвать'}</Text>
+								{onOpenPhotos ? (
+									<Pressable onPress={() => onOpenPhotos(item.guid, item.username)} hitSlop={8}>
+										<Text style={styles.photosLink}>Фото</Text>
+									</Pressable>
+								) : null}
+								<Pressable onPress={() => confirmUnmatch(item)} disabled={busyGuid === item.guid} hitSlop={8}>
+									<Text style={styles.unmatch}>{busyGuid === item.guid ? '…' : 'Разорвать'}</Text>
+								</Pressable>
 							</Pressable>
-						</Pressable>
+							{expandedGuid === item.guid ? (
+								<View style={styles.ideasPanel}>
+									{ideasLoading && !ideas[item.guid] && !ideasError[item.guid] ? (
+										<Text style={styles.ideasEmpty}>Загрузка…</Text>
+									) : ideasError[item.guid] ? (
+										<Text style={styles.ideasEmpty}>{ideasError[item.guid]}</Text>
+									) : (ideas[item.guid] ?? []).length === 0 ? (
+										<Text style={styles.ideasEmpty}>Рядом с вами пока нет мест с рейтингом.</Text>
+									) : (
+										(ideas[item.guid] ?? []).map((p) => (
+											<View key={p.guid} style={styles.ideaRow}>
+												{p.cover_url ? <Image source={{uri: p.cover_url}} style={styles.ideaCover} /> : <View style={[styles.ideaCover, styles.ideaCoverFallback]} />}
+												<View style={styles.ideaBody}>
+													<Text style={styles.ideaTitle} numberOfLines={1}>{p.title}</Text>
+													<Text style={styles.ideaMeta}>
+														{p.category ? `${p.category} · ` : ''}
+														{p.rating_count > 0 ? `★ ${p.rating.toFixed(1)} · ` : ''}
+														{p.distance_km.toFixed(1)} км
+													</Text>
+												</View>
+											</View>
+										))
+									)}
+								</View>
+							) : null}
+						</View>
 					)}
 				/>
 			)}
@@ -112,4 +175,12 @@ const styles = StyleSheet.create({
 	username: {color: colors.textDim, fontSize: typography.sizeSm, marginTop: spacing.xs},
 	unmatch: {color: colors.danger, fontSize: typography.sizeSm},
 	photosLink: {color: colors.accent, fontSize: typography.sizeSm, marginRight: spacing.md},
+	ideasPanel: {padding: spacing.md, gap: spacing.sm, backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.borderSoft},
+	ideasEmpty: {color: colors.textFaint, fontSize: typography.sizeSm},
+	ideaRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm},
+	ideaCover: {width: 44, height: 44, borderRadius: radius.sm, backgroundColor: colors.graphite},
+	ideaCoverFallback: {},
+	ideaBody: {flex: 1},
+	ideaTitle: {color: colors.text, fontSize: typography.sizeSm, fontWeight: typography.weightMedium},
+	ideaMeta: {color: colors.textFaint, fontSize: typography.sizeXs, marginTop: 2},
 });

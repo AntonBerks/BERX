@@ -9,6 +9,7 @@ import type {
 	BerxSearchUsersResponse,
 	BerxDatingDiscoverResponse,
 	BerxDatingMatch,
+	BerxDateIdea,
 	BerxNotificationsResponse,
 	BerxStoryFeedGroup,
 	BerxOwnStorySummary,
@@ -858,6 +859,11 @@ export class BerxApiClient {
 
 	async datingMatches(): Promise<{matches: BerxDatingMatch[]}> {
 		return this.request<{matches: BerxDatingMatch[]}>('/dating/matches');
+	}
+
+	/** Real Dating <-> Places connection — top-rated real places near the caller's own dating location, for a real mutual match. Requires the caller's own dating location to be set (real 422 no_location otherwise, surfaced verbatim). */
+	async datingDateIdeas(matchGuid: number): Promise<{places: BerxDateIdea[]}> {
+		return this.request<{places: BerxDateIdea[]}>(`/dating/date-ideas?match=${matchGuid}`);
 	}
 
 	/**
