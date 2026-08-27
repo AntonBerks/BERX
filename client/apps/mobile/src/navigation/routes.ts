@@ -90,6 +90,7 @@ export type BerxRouteName =
 	| 'Events'
 	| 'EventDetail'
 	| 'CreateEvent'
+	| 'EditEvent'
 	| 'EventInvite'
 	| 'MyEvents'
 	| 'Places'
@@ -179,6 +180,7 @@ export interface BerxRouteParams {
 	Events: undefined;
 	EventDetail: { guid: number };
 	CreateEvent: undefined;
+	EditEvent: { guid: number };
 	EventInvite: { guid: number };
 	MyEvents: undefined;
 	Places: undefined;
@@ -248,6 +250,10 @@ export const BERX_ROUTES: BerxRouteMeta[] = [
 	{ name: 'Events', connected: true },
 	{ name: 'EventDetail', connected: true },
 	{ name: 'CreateEvent', connected: true },
+	// MAX BUILD — updateEvent()/deleteEvent() were always real client
+	// methods (real PATCH/DELETE routes) with zero UI callers -- an
+	// organizer could create but never edit or cancel an event.
+	{ name: 'EditEvent', connected: true },
 	{ name: 'EventInvite', connected: true },
 	{ name: 'MyEvents', connected: true },
 	{ name: 'Places', connected: true },

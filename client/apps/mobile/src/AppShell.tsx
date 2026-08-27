@@ -67,6 +67,7 @@ import EditPlaceScreen from './screens/EditPlaceScreen';
 import EventsListScreen from './screens/EventsListScreen';
 import EventDetailScreen from './screens/EventDetailScreen';
 import CreateEventScreen from './screens/CreateEventScreen';
+import EditEventScreen from './screens/EditEventScreen';
 import DeviceSessionsScreen from './screens/DeviceSessionsScreen';
 import DeleteAccountScreen from './screens/DeleteAccountScreen';
 import PlacesNearbyScreen from './screens/PlacesNearbyScreen';
@@ -518,6 +519,7 @@ function RouteRenderer({name, params}: {name: BerxRouteName; params: unknown}) {
 					onOpenInvite={(guid) => nav.push('EventInvite', {guid})}
 					onAddToCollection={() => nav.push('AddToCollection', {itemType: 'event', itemGuid: p.guid})}
 					onAddEventStory={(eventGuid) => nav.push('CreateStory', {eventGuid})}
+					onEdit={() => nav.push('EditEvent', {guid: p.guid})}
 					onBack={nav.pop}
 				/>
 			);
@@ -530,6 +532,18 @@ function RouteRenderer({name, params}: {name: BerxRouteName; params: unknown}) {
 					onBack={nav.pop}
 				/>
 			);
+		case 'EditEvent': {
+			const p = params as {guid: number};
+			return (
+				<EditEventScreen
+					api={api}
+					guid={p.guid}
+					onSaved={nav.pop}
+					onDeleted={() => { nav.pop(); nav.pop(); }}
+					onBack={nav.pop}
+				/>
+			);
+		}
 		case 'MyEvents':
 			return <MyEventsScreen api={api} onOpenEvent={(guid) => nav.push('EventDetail', {guid})} onBack={nav.pop} />;
 		case 'EventInvite': {

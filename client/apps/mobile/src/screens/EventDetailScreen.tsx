@@ -31,10 +31,11 @@ interface Props {
 	onOpenInvite: (guid: number) => void;
 	onAddToCollection?: () => void;
 	onAddEventStory?: (eventGuid: number) => void;
+	onEdit?: () => void;
 	onBack?: () => void;
 }
 
-export default function EventDetailScreen({api, guid, myGuid, onOpenPlace, onOpenInvite, onAddToCollection, onAddEventStory, onBack}: Props) {
+export default function EventDetailScreen({api, guid, myGuid, onOpenPlace, onOpenInvite, onAddToCollection, onAddEventStory, onEdit, onBack}: Props) {
 	const [event, setEvent] = useState<BerxEvent | null>(null);
 	const [attendees, setAttendees] = useState<BerxEventAttendee[]>([]);
 	const [loading, setLoading] = useState(true);
@@ -125,6 +126,7 @@ export default function EventDetailScreen({api, guid, myGuid, onOpenPlace, onOpe
 					{!event.has_ended ? <BerxButton label="Пригласить" variant="secondary" onPress={() => onOpenInvite(event.guid)} /> : null}
 					{onAddToCollection ? <BerxButton label="В подборку" variant="secondary" onPress={onAddToCollection} /> : null}
 					{event.is_going && onAddEventStory ? <BerxButton label="Добавить историю" variant="secondary" onPress={() => onAddEventStory(event.guid)} /> : null}
+					{myGuid === event.owner_guid && onEdit ? <BerxButton label="Редактировать" variant="secondary" onPress={onEdit} /> : null}
 				</View>
 				{rsvpError ? <Text style={styles.error}>{rsvpError}</Text> : null}
 
