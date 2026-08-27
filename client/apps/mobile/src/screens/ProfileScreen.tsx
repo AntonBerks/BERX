@@ -49,7 +49,7 @@ import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
-import {IconHeart, IconLock, IconBell, IconStar, IconUsers, IconChevronRight} from '../../../../packages/design-system/src/components/BerxIcons';
+import {IconHeart, IconLock, IconBell, IconStar, IconUsers, IconChevronRight, IconEdit} from '../../../../packages/design-system/src/components/BerxIcons';
 import {BerxGlassSurface} from '../../../../packages/design-system/src/components/BerxGlassSurface';
 import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
 
@@ -99,6 +99,7 @@ interface Props {
 	onOpenMyTracks?: (userGuid: number, isOwn: boolean) => void;
 	/** Own-only quick bookmark list (Max Build) — separate from onOpenCollections, which is viewable for others too. */
 	onOpenSavedPosts?: () => void;
+	onOpenEditProfile?: () => void;
 	/** Real is_admin-gated section (Max Build) — see me.php's own header for why the client can finally know this. */
 	onOpenAdminUnvalidated?: () => void;
 	onOpenAdminReports?: () => void;
@@ -110,7 +111,7 @@ function joinedYear(unixSeconds?: number): string | null {
 	return new Date(unixSeconds * 1000).getFullYear().toString();
 }
 
-export default function ProfileScreen({api, authState, username, onBack, onMessage, onOpenNotifications, onOpenPoints, onOpenMissions, onOpenLifeGraph, onOpenMemories, onOpenWrapped, onOpenDatingPrivacy, onOpenDatingProfile, onOpenCommunities, onOpenDating, onOpenPlaces, onOpenEvents, onOpenSettings, onOpenBERXWorld, onOpenAlbums, onOpenCollections, onOpenTrips, onOpenExperiences, onOpenCreatorProfile, onOpenCreatorSettings, onOpenMyVideos, onOpenMyTracks, onOpenSavedPosts, onOpenAdminUnvalidated, onOpenAdminReports, onReport}: Props) {
+export default function ProfileScreen({api, authState, username, onBack, onMessage, onOpenNotifications, onOpenPoints, onOpenMissions, onOpenLifeGraph, onOpenMemories, onOpenWrapped, onOpenDatingPrivacy, onOpenDatingProfile, onOpenCommunities, onOpenDating, onOpenPlaces, onOpenEvents, onOpenSettings, onOpenBERXWorld, onOpenAlbums, onOpenCollections, onOpenTrips, onOpenExperiences, onOpenCreatorProfile, onOpenCreatorSettings, onOpenMyVideos, onOpenMyTracks, onOpenSavedPosts, onOpenEditProfile, onOpenAdminUnvalidated, onOpenAdminReports, onReport}: Props) {
 	const [profile, setProfile] = useState<ProfileData | null>(null);
 	const [identity, setIdentity] = useState<BerxIdentity | null>(null);
 	const [loading, setLoading] = useState(true);
@@ -358,6 +359,11 @@ export default function ProfileScreen({api, authState, username, onBack, onMessa
 
 			{isOwn ? (
 				<BerxFadeIn style={styles.menuList} delayMs={100}>
+					<Text style={styles.sectionLabel}>Аккаунт</Text>
+					<View style={styles.menuGroup}>
+						{onOpenEditProfile ? <MenuRow label="Редактировать профиль" icon={<IconEdit size={18} color={colors.text} />} onPress={onOpenEditProfile} isFirst isLast /> : null}
+					</View>
+
 					<Text style={styles.sectionLabel}>Знакомства</Text>
 					<View style={styles.menuGroup}>
 						{onOpenDating ? <MenuRow label="Discover" icon={<IconHeart size={18} color={colors.text} />} onPress={onOpenDating} isFirst /> : null}

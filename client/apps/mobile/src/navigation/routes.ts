@@ -97,6 +97,7 @@ export type BerxRouteName =
 	| 'PlaceDetail'
 	| 'CreatePlace'
 	| 'EditPlace'
+	| 'EditProfile'
 	| 'PlacesNearby'
 	| 'SavedPlaces'
 	| 'AdminUnvalidated'
@@ -187,6 +188,7 @@ export interface BerxRouteParams {
 	PlaceDetail: { guid: number };
 	CreatePlace: undefined;
 	EditPlace: { guid: number };
+	EditProfile: undefined;
 	PlacesNearby: undefined;
 	SavedPlaces: undefined;
 	AdminUnvalidated: undefined;
@@ -264,6 +266,10 @@ export const BERX_ROUTES: BerxRouteMeta[] = [
 	// zero UI callers -- a place owner could create but never edit or
 	// delete a place from the app.
 	{ name: 'EditPlace', connected: true },
+	// MAX BUILD — updateProfile() was always a real client method (real
+	// PATCH /me route) with zero UI callers anywhere -- a user could
+	// never change their own name/email/password from the app.
+	{ name: 'EditProfile', connected: true },
 	{ name: 'PlacesNearby', connected: true },
 	{ name: 'SavedPlaces', connected: true },
 	// MAX BUILD — both real screens now have a real entry point

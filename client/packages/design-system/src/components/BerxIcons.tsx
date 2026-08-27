@@ -232,3 +232,12 @@ export function IconUsers({size = 20, color}: IconProps) {
 		</View>
 	);
 }
+
+/** MAX BUILD — added for the new Edit Profile entry point; a plain rotated bar (the "pencil body") over a small tip, same View-primitive-only style as the rest of this file. */
+export function IconEdit({size = 20, color}: IconProps) {
+	return (
+		<View style={{width: size, height: size, alignItems: 'center', justifyContent: 'center'}}>
+			<View style={{width: size * 0.14, height: size * 0.82, backgroundColor: color, borderRadius: size * 0.07, transform: [{rotate: '45deg'}]}} />
+		</View>
+	);
+}

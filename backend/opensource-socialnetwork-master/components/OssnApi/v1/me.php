@@ -44,6 +44,13 @@ function ossn_api_me_to_json($user) {
 		'guid'         => intval($user->guid),
 		'username'     => (string) $user->username,
 		'fullname'     => trim($user->first_name . ' ' . $user->last_name),
+		// MAX BUILD — exposed alongside the existing combined `fullname`
+		// (kept as-is, still used everywhere else) so a real profile
+		// editor can pre-fill the two fields updateProfile() actually
+		// accepts separately, instead of guessing a split point in
+		// `fullname` on the client.
+		'first_name'   => (string) $user->first_name,
+		'last_name'    => (string) $user->last_name,
 		'email'        => (string) $user->email,
 		// ->large is 100x100 (see ossn_user_image_sizes()) — the closest
 		// existing size to a generic profile-icon use, there is no

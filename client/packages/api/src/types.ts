@@ -11,6 +11,9 @@ export interface BerxUser {
 	guid: number;
 	username: string;
 	fullname: string;
+	/** Real, separate fields (Max Build) alongside the combined `fullname` — lets a profile editor pre-fill exactly what updateProfile() accepts, no client-side guessing by splitting `fullname`. */
+	first_name: string;
+	last_name: string;
 	email: string;
 	icon_url: string;
 	profile_url: string;

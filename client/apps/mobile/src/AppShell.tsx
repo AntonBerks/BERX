@@ -64,6 +64,7 @@ import PlacesListScreen from './screens/PlacesListScreen';
 import PlaceDetailScreen from './screens/PlaceDetailScreen';
 import CreatePlaceScreen from './screens/CreatePlaceScreen';
 import EditPlaceScreen from './screens/EditPlaceScreen';
+import EditProfileScreen from './screens/EditProfileScreen';
 import EventsListScreen from './screens/EventsListScreen';
 import EventDetailScreen from './screens/EventDetailScreen';
 import CreateEventScreen from './screens/CreateEventScreen';
@@ -206,6 +207,7 @@ function RouteRenderer({name, params}: {name: BerxRouteName; params: unknown}) {
 					onOpenLifeGraph={!nav.canGoBack ? () => nav.push('LifeGraph', undefined) : undefined}
 					onOpenMemories={!nav.canGoBack ? () => nav.push('Memories', undefined) : undefined}
 					onOpenSavedPosts={!nav.canGoBack ? () => nav.push('Saved', undefined) : undefined}
+					onOpenEditProfile={!nav.canGoBack ? () => nav.push('EditProfile', undefined) : undefined}
 					onOpenAdminUnvalidated={!nav.canGoBack ? () => nav.push('AdminUnvalidated', undefined) : undefined}
 					onOpenAdminReports={!nav.canGoBack ? () => nav.push('AdminReports', undefined) : undefined}
 					onOpenWrapped={!nav.canGoBack ? () => nav.push('Wrapped', undefined) : undefined}
@@ -492,6 +494,8 @@ function RouteRenderer({name, params}: {name: BerxRouteName; params: unknown}) {
 				/>
 			);
 		}
+		case 'EditProfile':
+			return <EditProfileScreen api={api} onSaved={nav.pop} onBack={nav.pop} />;
 		case 'PlacesNearby':
 			return <PlacesNearbyScreen api={api} onOpenPlace={(guid) => nav.push('PlaceDetail', {guid})} onBack={nav.pop} />;
 		case 'SavedPlaces':
