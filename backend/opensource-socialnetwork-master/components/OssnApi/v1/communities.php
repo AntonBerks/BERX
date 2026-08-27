@@ -7,6 +7,14 @@
  * confirmed by reading its real body before writing this — NOT nested
  * under ->data for an already-fetched object, unlike the create-time
  * $this->data->membership = ... assignment).
+ *
+ * MAX BUILD — real fix: every admin-override check below used to call
+ * ossn_isAdminLoggedin(), which needs $_SESSION populated — never
+ * true for a bearer-token API request (same bug found and fixed
+ * across admin.php/report.php/business.php/comments.php). The real
+ * group owner could still act either way, but an actual admin
+ * moderating a group they don't own always silently failed on every
+ * one of these 7 checks. Now uses ossn_api_is_admin($api_user_guid).
  */
 
 function ossn_api_group_json($group, $viewerGuid) {
@@ -106,7 +114,7 @@ if ($segment0 !== null && $segment0 !== 'mine' && $segment1 === null && $method 
 
 if ($segment0 !== null && $segment1 === null && $method === 'PATCH') {
 	$group = $model->getGroup(intval($segment0));
-	if (!$group || (intval($group->owner_guid) !== intval($api_user_guid) && !ossn_isAdminLoggedin())) {
+	if (!$group || (intval($group->owner_guid) !== intval($api_user_guid) && !ossn_api_is_admin($api_user_guid))) {
 		ossn_api_error('forbidden', 'Not your community', 403);
 	}
 	$name = input('name');
@@ -120,7 +128,7 @@ if ($segment0 !== null && $segment1 === null && $method === 'PATCH') {
 
 if ($segment0 !== null && $segment1 === null && $method === 'DELETE') {
 	$group = $model->getGroup(intval($segment0));
-	if (!$group || (intval($group->owner_guid) !== intval($api_user_guid) && !ossn_isAdminLoggedin())) {
+	if (!$group || (intval($group->owner_guid) !== intval($api_user_guid) && !ossn_api_is_admin($api_user_guid))) {
 		ossn_api_error('forbidden', 'Not your community', 403);
 	}
 	$ok = $model->deleteGroup(intval($segment0));
@@ -145,7 +153,7 @@ if ($segment0 !== null && $segment1 === 'requests' && $segment2 === null && $met
 	$reqModel = new OssnGroup();
 	$reqModel->guid = intval($segment0);
 	$isModerator = $reqModel->isModerator(intval($api_user_guid));
-	if (intval($group->owner_guid) !== intval($api_user_guid) && !$isModerator && !ossn_isAdminLoggedin()) {
+	if (intval($group->owner_guid) !== intval($api_user_guid) && !$isModerator && !ossn_api_is_admin($api_user_guid)) {
 		ossn_api_error('forbidden', 'Not authorized', 403);
 	}
 	$users = $reqModel->getMembersRequests();
@@ -167,7 +175,7 @@ if ($segment0 !== null && $segment1 === 'requests' && $segment2 === null && $met
 
 if ($segment0 !== null && $segment1 === 'requests' && $segment2 !== null && $segment3 === 'approve' && $method === 'POST') {
 	$group = $model->getGroup(intval($segment0));
-	if (!$group || (intval($group->owner_guid) !== intval($api_user_guid) && !ossn_isAdminLoggedin())) {
+	if (!$group || (intval($group->owner_guid) !== intval($api_user_guid) && !ossn_api_is_admin($api_user_guid))) {
 		ossn_api_error('forbidden', 'Not authorized', 403);
 	}
 	$ok = $model->approveRequest(intval($segment2), intval($segment0));
@@ -176,7 +184,7 @@ if ($segment0 !== null && $segment1 === 'requests' && $segment2 !== null && $seg
 
 if ($segment0 !== null && $segment1 === 'requests' && $segment2 !== null && $segment3 === 'decline' && $method === 'POST') {
 	$group = $model->getGroup(intval($segment0));
-	if (!$group || (intval($group->owner_guid) !== intval($api_user_guid) && !ossn_isAdminLoggedin())) {
+	if (!$group || (intval($group->owner_guid) !== intval($api_user_guid) && !ossn_api_is_admin($api_user_guid))) {
 		ossn_api_error('forbidden', 'Not authorized', 403);
 	}
 	$ok = $model->deleteMember(intval($segment2), intval($segment0));
@@ -204,7 +212,7 @@ if ($segment0 !== null && $segment1 === 'moderators' && $segment2 === null && $m
 
 if ($segment0 !== null && $segment1 === 'moderators' && $segment2 !== null && $method === 'POST') {
 	$group = $model->getGroup(intval($segment0));
-	if (!$group || (intval($group->owner_guid) !== intval($api_user_guid) && !ossn_isAdminLoggedin())) {
+	if (!$group || (intval($group->owner_guid) !== intval($api_user_guid) && !ossn_api_is_admin($api_user_guid))) {
 		ossn_api_error('forbidden', 'Owner only', 403);
 	}
 	$memberModel = new OssnGroup();
@@ -217,7 +225,7 @@ if ($segment0 !== null && $segment1 === 'moderators' && $segment2 !== null && $m
 
 if ($segment0 !== null && $segment1 === 'moderators' && $segment2 !== null && $method === 'DELETE') {
 	$group = $model->getGroup(intval($segment0));
-	if (!$group || (intval($group->owner_guid) !== intval($api_user_guid) && !ossn_isAdminLoggedin())) {
+	if (!$group || (intval($group->owner_guid) !== intval($api_user_guid) && !ossn_api_is_admin($api_user_guid))) {
 		ossn_api_error('forbidden', 'Owner only', 403);
 	}
 	$ok = ossn_delete_relationship(array('from' => intval($segment0), 'to' => intval($segment2), 'type' => 'group:moderator'));

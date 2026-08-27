@@ -7,6 +7,14 @@
  * BerxPlaceClaim/BerxBusinessTeamMember/BerxBusinessSubscription/
  * BerxPlaceHours field-for-field. Distinct from places.php's own
  * /places/{guid}/business/enable|disable|verify|dashboard branches.
+ *
+ * MAX BUILD — real fix: the admin-override check below used to call
+ * ossn_isAdminLoggedin(), which needs $_SESSION populated — never
+ * true for a bearer-token API request (see ossn_com.php's own header
+ * and admin.php/report.php's own larger version of this same bug).
+ * The real owner still passed either way, but an actual admin trying
+ * to act on a claim they don't own always silently failed. Now uses
+ * ossn_api_is_admin($api_user_guid) — a real guid-scoped DB lookup.
  */
 
 function ossn_api_place_claim_json($row) {
@@ -84,7 +92,7 @@ if ($segment0 === 'claims' && $segment1 === 'mine' && $method === 'GET') {
 }
 
 if ($segment0 === 'claims' && $segment1 === 'pending' && $method === 'GET') {
-	if (!ossn_isAdminLoggedin()) {
+	if (!ossn_api_is_admin($api_user_guid)) {
 		ossn_api_error('forbidden', 'Admin only', 403);
 	}
 	$rows = $business->pendingClaims();

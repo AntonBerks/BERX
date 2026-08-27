@@ -14,6 +14,14 @@
  * "comments:event"), since that's `$annotation->type => $annotation->value`
  * before the object is reconstructed. Read via a variable property
  * name here, not assumed.
+ *
+ * MAX BUILD — real fix: the admin-override delete check below used to
+ * call ossn_isAdminLoggedin(), which needs $_SESSION populated —
+ * never true for a bearer-token API request (same bug found and
+ * fixed across admin.php/report.php/business.php/communities.php).
+ * The real comment owner could still delete their own either way, but
+ * an actual admin moderating someone else's comment always silently
+ * failed. Now uses ossn_api_is_admin($api_user_guid).
  */
 
 function ossn_api_object_comment_json($row, $type) {
@@ -95,7 +103,7 @@ if ($segment0 !== null && is_numeric($segment0) && $segment1 === 'delete' && $me
 	}
 	// Author or admin only — enforced here against the comment's own
 	// real owner_guid, never against anything the request itself sends.
-	if (intval($comment->owner_guid) !== intval($api_user_guid) && !ossn_isAdminLoggedin()) {
+	if (intval($comment->owner_guid) !== intval($api_user_guid) && !ossn_api_is_admin($api_user_guid)) {
 		ossn_api_error('forbidden', 'Not allowed to delete this comment', 403);
 	}
 	$ok = $model->deleteComment(intval($segment0));

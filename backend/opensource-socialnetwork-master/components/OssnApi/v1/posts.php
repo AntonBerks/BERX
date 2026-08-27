@@ -22,6 +22,15 @@
  * bookmark, same real ossn_relationships toggle pattern
  * OssnPlaces::SAVE_RELATION already established, just on posts
  * ('post:save'), no new table, no new class needed for two routes.
+ *
+ * MAX BUILD — real fix: the two admin-override delete checks below
+ * (comment delete, post delete) used to call ossn_isAdminLoggedin(),
+ * which needs $_SESSION populated — never true for a bearer-token API
+ * request (same bug found and fixed across admin.php/report.php/
+ * business.php/comments.php/communities.php). The real owner could
+ * still delete their own either way, but an actual admin moderating
+ * someone else's post/comment always silently failed. Now uses
+ * ossn_api_is_admin($api_user_guid).
  */
 const POST_SAVE_RELATION = 'post:save';
 
@@ -216,7 +225,7 @@ if ($segment0 !== null && $segment1 === 'comments' && $segment2 !== null && $seg
 	if (!$comment) {
 		ossn_api_error('not_found', 'Comment not found', 404);
 	}
-	if (intval($comment->owner_guid) !== intval($api_user_guid) && !ossn_isAdminLoggedin()) {
+	if (intval($comment->owner_guid) !== intval($api_user_guid) && !ossn_api_is_admin($api_user_guid)) {
 		ossn_api_error('forbidden', 'Not your comment', 403);
 	}
 	$comments->deleteComment(intval($segment2));
@@ -229,7 +238,7 @@ if ($segment0 !== null && $segment1 === null && $method === 'DELETE') {
 	if (!$post) {
 		ossn_api_error('not_found', 'Post not found', 404);
 	}
-	if (intval($post->owner_guid) !== intval($api_user_guid) && !ossn_isAdminLoggedin()) {
+	if (intval($post->owner_guid) !== intval($api_user_guid) && !ossn_api_is_admin($api_user_guid)) {
 		ossn_api_error('forbidden', 'Not your post', 403);
 	}
 	// A video/track/attachment post is a real OssnWall post with a real
