@@ -25,6 +25,7 @@ import {BerxHeader} from '../../../../packages/design-system/src/components/Berx
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
+import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
 
 interface Props {
 	api: BerxApiClient;
@@ -185,25 +186,27 @@ export default function CollectionDetailScreen({api, id, onOpenPlace, onOpenEven
 			{editing ? null : collection.items.length === 0 ? (
 				<BerxEmptyState title="Пока пусто" subtitle="Добавляйте места и события в эту подборку с их страниц." />
 			) : (
-				<FlatList
-					data={collection.items}
-					keyExtractor={(i: BerxCollectionItem) => `${i.item_type}-${i.item_guid}`}
-					contentContainerStyle={styles.list}
-					renderItem={({item}: {item: BerxCollectionItem}) => (
-						<Pressable style={styles.row} onPress={() => openItem(item)}>
-							{item.image_url ? <Image source={{uri: item.image_url}} style={styles.thumb} /> : <View style={styles.thumbFallback} />}
-							<View style={styles.rowBody}>
-								<Text style={styles.title} numberOfLines={1}>{item.title}</Text>
-								<Text style={styles.type}>{item.item_type === 'place' ? 'Место' : item.item_type === 'event' ? 'Событие' : 'Пост'}</Text>
-							</View>
-							{collection.is_own ? (
-								<Pressable onPress={() => removeItem(item)} hitSlop={8}>
-									<Text style={styles.remove}>✕</Text>
-								</Pressable>
-							) : null}
-						</Pressable>
-					)}
-				/>
+				<BerxFadeIn style={styles.fadeFlex}>
+					<FlatList
+						data={collection.items}
+						keyExtractor={(i: BerxCollectionItem) => `${i.item_type}-${i.item_guid}`}
+						contentContainerStyle={styles.list}
+						renderItem={({item}: {item: BerxCollectionItem}) => (
+							<Pressable style={styles.row} onPress={() => openItem(item)}>
+								{item.image_url ? <Image source={{uri: item.image_url}} style={styles.thumb} /> : <View style={styles.thumbFallback} />}
+								<View style={styles.rowBody}>
+									<Text style={styles.title} numberOfLines={1}>{item.title}</Text>
+									<Text style={styles.type}>{item.item_type === 'place' ? 'Место' : item.item_type === 'event' ? 'Событие' : 'Пост'}</Text>
+								</View>
+								{collection.is_own ? (
+									<Pressable onPress={() => removeItem(item)} hitSlop={8}>
+										<Text style={styles.remove}>✕</Text>
+									</Pressable>
+								) : null}
+							</Pressable>
+						)}
+					/>
+				</BerxFadeIn>
 			)}
 		</View>
 	);
@@ -213,6 +216,7 @@ const styles = StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.bg},
 	description: {fontSize: typography.sizeSm, color: colors.textDim, paddingHorizontal: spacing.md, paddingTop: spacing.sm},
 	list: {padding: spacing.md, gap: spacing.sm},
+	fadeFlex: {flex: 1},
 	row: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.surface, borderRadius: radius.md, padding: spacing.sm, marginBottom: spacing.sm},
 	thumb: {width: 48, height: 48, borderRadius: radius.sm},
 	thumbFallback: {width: 48, height: 48, borderRadius: radius.sm, backgroundColor: colors.graphite},

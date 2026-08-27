@@ -20,6 +20,7 @@ import {colors, spacing, typography} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
+import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
 
 interface Props {
 	api: BerxApiClient;
@@ -102,19 +103,21 @@ export default function AlbumDetailScreen({api, guid, authState, pickImage, onBa
 			{album.photos.length === 0 ? (
 				<BerxEmptyState title="Фотографий пока нет" />
 			) : (
-				<FlatList
-					data={album.photos}
-					keyExtractor={(p: BerxAlbumPhoto) => String(p.guid)}
-					numColumns={3}
-					renderItem={({item}: {item: BerxAlbumPhoto}) => (
-						<Pressable
-							style={styles.tileWrap}
-							onLongPress={isOwn ? () => handleDeletePhoto(item.guid) : undefined}
-							disabled={busyGuid === item.guid}>
-							<Image source={{uri: item.url}} style={styles.tile} />
-						</Pressable>
-					)}
-				/>
+				<BerxFadeIn style={styles.fadeFlex}>
+					<FlatList
+						data={album.photos}
+						keyExtractor={(p: BerxAlbumPhoto) => String(p.guid)}
+						numColumns={3}
+						renderItem={({item}: {item: BerxAlbumPhoto}) => (
+							<Pressable
+								style={styles.tileWrap}
+								onLongPress={isOwn ? () => handleDeletePhoto(item.guid) : undefined}
+								disabled={busyGuid === item.guid}>
+								<Image source={{uri: item.url}} style={styles.tile} />
+							</Pressable>
+						)}
+					/>
+				</BerxFadeIn>
 			)}
 			{isOwn && album.photos.length > 0 ? <Text style={styles.hint}>Удерживайте фото, чтобы удалить</Text> : null}
 		</View>
@@ -124,6 +127,7 @@ export default function AlbumDetailScreen({api, guid, authState, pickImage, onBa
 const styles = StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.bg},
 	toolbar: {padding: spacing.md, gap: spacing.xs},
+	fadeFlex: {flex: 1},
 	tileWrap: {width: TILE, height: TILE},
 	tile: {width: TILE, height: TILE, backgroundColor: colors.graphite},
 	hint: {fontSize: typography.sizeXs, color: colors.textFaint, textAlign: 'center', padding: spacing.sm},
