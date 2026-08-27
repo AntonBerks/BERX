@@ -1085,6 +1085,11 @@ export class BerxApiClient {
 		return this.request<BerxCommunitiesResponse>('/communities/mine');
 	}
 
+	/** MAX BUILD — real Trending Communities. Same real OssnSignals engagement ranking as trendingPlaces()/trendingEvents() — a real 'join' signal recorded when a join request is actually approved (membership begins). */
+	async trendingCommunities(limit = 10): Promise<{communities: Array<BerxCommunity & {trending_score: number}>}> {
+		return this.request<{communities: Array<BerxCommunity & {trending_score: number}>}>(`/communities/trending?limit=${limit}`);
+	}
+
 	async getCommunity(guid: number): Promise<BerxCommunity> {
 		return this.request<BerxCommunity>(`/communities/${guid}`);
 	}

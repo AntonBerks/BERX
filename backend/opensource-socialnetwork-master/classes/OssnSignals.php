@@ -28,6 +28,7 @@ class OssnSignals extends OssnDatabase {
 		'save'     => 5,
 		'share'    => 6,
 		'route'    => 7,
+		'join'     => 7,
 		'rsvp'     => 8,
 		'review'   => 10,
 		'checkin'  => 12,

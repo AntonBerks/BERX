@@ -110,6 +110,34 @@ if ($segment0 === 'mine' && $method === 'GET') {
 	ossn_api_json(array('communities' => $out));
 }
 
+/**
+ * MAX BUILD -- real Trending Communities. Same real
+ * OssnSignals::engagementScore() ranking as places.php/events.php's
+ * own trending routes -- live 7-day sum over the real 'join' signal
+ * (recorded on the requests/{guid}/approve route above, the point
+ * membership actually begins for every community, public or private).
+ */
+if ($segment0 === 'trending' && $method === 'GET') {
+	$limit = input('limit') ? max(1, min(50, intval(input('limit')))) : 10;
+	$candidates = $model->searchGroups('');
+	$scored = array();
+	if (class_exists('OssnSignals') && $candidates) {
+		$signals = new OssnSignals();
+		foreach ($candidates as $group) {
+			$score = $signals->engagementScore('community', intval($group->guid), 7 * 24 * 3600);
+			if ($score > 0) {
+				$row = ossn_api_group_json($group, $api_user_guid);
+				$row['trending_score'] = $score;
+				$scored[] = $row;
+			}
+		}
+		usort($scored, function ($a, $b) {
+			return $b['trending_score'] <=> $a['trending_score'];
+		});
+	}
+	ossn_api_json(array('communities' => array_slice($scored, 0, $limit)));
+}
+
 if ($segment0 !== null && $segment0 !== 'mine' && $segment1 === null && $method === 'GET') {
 	$group = $model->getGroup(intval($segment0));
 	if (!$group) {
@@ -340,6 +368,13 @@ if ($segment0 !== null && $segment1 === 'requests' && $segment2 !== null && $seg
 		ossn_api_error('forbidden', 'Not authorized', 403);
 	}
 	$ok = $model->approveRequest(intval($segment2), intval($segment0));
+	// MAX BUILD -- real engagement signal (OssnSignals, BERX Future
+	// Core -- see places.php's own comment for the full story).
+	// Attributed to the real requester (segment2) -- membership only
+	// actually begins here, not on the earlier join request.
+	if ($ok && class_exists('OssnSignals')) {
+		(new OssnSignals())->record(intval($segment2), 'join', 'community', intval($segment0));
+	}
 	ossn_api_json(array('status' => $ok ? 'ok' : 'failed'));
 }
 

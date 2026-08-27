@@ -6,9 +6,15 @@
  * UI caller — this screen only ever offered a full/searchable browse
  * list, with no way to filter down to communities you're actually a
  * member of.
+ *
+ * MAX BUILD — real "🔥 В тренде" rail. api.trendingCommunities() wires
+ * OssnSignals (BERX Future Core) into a live 7-day engagement ranking
+ * over real approved-join activity — same real mechanism as
+ * PlacesListScreen/EventsListScreen's own trending rails. Best-effort,
+ * hidden entirely when nothing has real signals yet.
  */
 import {useCallback, useEffect, useState} from 'react';
-import {View, Text, FlatList, Pressable, RefreshControl, StyleSheet} from 'react-native';
+import {View, Text, Image, FlatList, Pressable, RefreshControl, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxCommunity} from '@berx/api/types';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
@@ -34,6 +40,11 @@ export default function CommunitiesListScreen({api, onOpenCommunity, onCreate, o
 	const [loading, setLoading] = useState(true);
 	const [refreshing, setRefreshing] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+	const [trending, setTrending] = useState<Array<BerxCommunity & {trending_score: number}>>([]);
+
+	useEffect(() => {
+		api.trendingCommunities(10).then((r) => setTrending(r.communities)).catch(() => undefined);
+	}, [api]);
 
 	const load = useCallback(async () => {
 		setLoading(true);
@@ -65,6 +76,28 @@ export default function CommunitiesListScreen({api, onOpenCommunity, onCreate, o
 					<Text style={[styles.tabText, tab === 'mine' && styles.tabTextActive]}>Мои</Text>
 				</Pressable>
 			</View>
+			{tab === 'all' && trending.length > 0 ? (
+				<View>
+					<Text style={styles.trendingLabel}>В тренде</Text>
+					<FlatList
+						horizontal
+						showsHorizontalScrollIndicator={false}
+						data={trending}
+						keyExtractor={(c: BerxCommunity & {trending_score: number}) => `trending-${c.guid}`}
+						contentContainerStyle={styles.trendingRow}
+						renderItem={({item}: {item: BerxCommunity & {trending_score: number}}) => (
+							<Pressable style={styles.trendingCard} onPress={() => onOpenCommunity(item.guid)}>
+								{item.cover_url ? (
+									<Image source={{uri: item.cover_url}} style={styles.trendingImage} />
+								) : (
+									<View style={styles.trendingImageFallback} />
+								)}
+								<Text style={styles.trendingTitle} numberOfLines={1}>🔥 {item.name}</Text>
+							</Pressable>
+						)}
+					/>
+				</View>
+			) : null}
 			<View style={styles.searchRow}>
 				{tab === 'all' ? (
 					<View style={styles.searchInput}>
@@ -125,6 +158,12 @@ const styles = StyleSheet.create({
 	tabActive: {backgroundColor: colors.accentSoft, borderWidth: 1, borderColor: colors.accent},
 	tabText: {fontSize: typography.sizeSm, color: colors.textDim},
 	tabTextActive: {color: colors.accent, fontWeight: typography.weightMedium},
+	trendingLabel: {color: colors.accent, fontSize: typography.sizeXs, fontWeight: typography.weightBold, textTransform: 'uppercase', paddingHorizontal: spacing.lg, paddingTop: spacing.xs},
+	trendingRow: {paddingHorizontal: spacing.lg, paddingVertical: spacing.sm, gap: spacing.sm},
+	trendingCard: {width: 140, marginRight: spacing.sm},
+	trendingImage: {width: 140, height: 90, borderRadius: radius.md, backgroundColor: colors.graphite},
+	trendingImageFallback: {width: 140, height: 90, borderRadius: radius.md, backgroundColor: colors.graphite},
+	trendingTitle: {color: colors.text, fontSize: typography.sizeXs, marginTop: 4},
 	searchRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.lg, paddingBottom: spacing.md},
 	searchInput: {flex: 1},
 	fadeFlex: {flex: 1},
