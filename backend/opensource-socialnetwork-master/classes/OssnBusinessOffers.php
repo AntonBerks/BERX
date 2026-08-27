@@ -14,6 +14,13 @@
  * update()/delete() (the exact bug class documented in
  * BERX_PROGRESS.md across OssnCollections/OssnCircles/OssnTrips) —
  * every mutating method has its own distinct name.
+ *
+ * MAX BUILD — Trust & Safety: claim() is rate-limited (10/60s per
+ * caller) via the same real relation-row sliding-window pattern
+ * OssnDating::isActionRateLimited() already proved, closing a real
+ * "offer griefing" DoS (rapid-fire claim() exhausting a capped
+ * offer's max_redemptions before genuine customers get a chance) —
+ * distinct from the double-claim the unique index already blocks.
  */
 class OssnBusinessOffers extends OssnDatabase {
 
@@ -110,19 +117,54 @@ class OssnBusinessOffers extends OssnDatabase {
 	}
 
 	/**
+	 * Real abuse guard — without this, a script could rapid-fire claim()
+	 * across many different capped offers and exhaust a business's real
+	 * max_redemptions before genuine customers get a chance (a real
+	 * "offer griefing" DoS, distinct from the double-claim the unique
+	 * index already blocks). Same real sliding-window pattern already
+	 * proven by OssnDating::isActionRateLimited() — a real relation row
+	 * per attempt, no new table.
+	 */
+	const ACTION_RELATION = 'offer:claim:action';
+	const ACTION_WINDOW_SECONDS = 60;
+	const ACTION_MAX = 10;
+
+	private function isClaimRateLimited($guid) {
+		$since = time() - self::ACTION_WINDOW_SECONDS;
+		$count = intval(ossn_get_relationships(array(
+			'from'   => intval($guid),
+			'type'   => self::ACTION_RELATION,
+			'count'  => true,
+			'wheres' => "r.time >= {$since}",
+		)));
+		return $count >= self::ACTION_MAX;
+	}
+
+	/** Recorded for EVERY real claim attempt, success or no-op — same real intent as OssnDating::recordAction(). */
+	private function recordClaimAttempt($guid, $offerId) {
+		ossn_add_relation(intval($guid), intval($offerId), self::ACTION_RELATION);
+	}
+
+	/**
 	 * Real claim — the unique index on (offer_id, user_guid) is the
 	 * actual guarantee against a double-claim, not just this
 	 * in-PHP check (a real race between two near-simultaneous
 	 * requests still can't double-insert).
 	 */
 	public function claim($offerId, $userGuid) {
+		if ($this->isClaimRateLimited($userGuid)) {
+			return 'rate_limited';
+		}
 		$offer = $this->getOffer($offerId);
 		if (!$offer || !$this->isActive($offer)) {
+			$this->recordClaimAttempt($userGuid, $offerId);
 			return 'not_available';
 		}
 		if ($this->getRedemption($offerId, $userGuid)) {
+			$this->recordClaimAttempt($userGuid, $offerId);
 			return 'already_claimed';
 		}
+		$this->recordClaimAttempt($userGuid, $offerId);
 		$id = $this->insert(array(
 			'into'   => self::REDEMPTIONS_TABLE,
 			'names'  => array('offer_id', 'user_guid', 'fulfilled', 'time_created'),

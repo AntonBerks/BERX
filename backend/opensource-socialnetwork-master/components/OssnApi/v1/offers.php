@@ -100,6 +100,9 @@ if ($segment0 === 'places' && $segment1 !== null && is_numeric($segment1) && !is
 
 if ($segment0 !== null && is_numeric($segment0) && $segment1 === 'claim' && $method === 'POST') {
 	$result = $offers->claim(intval($segment0), $api_user_guid);
+	if ($result === 'rate_limited') {
+		ossn_api_error('rate_limited', 'Too many claim attempts — try again in a minute', 429);
+	}
 	if ($result === 'not_available') {
 		ossn_api_error('not_available', 'This offer is no longer available', 410);
 	}

@@ -82,6 +82,7 @@ export default function PlaceDetailScreen({api, guid, myGuid, isAdmin, onAddToCo
 	const [friendsHere, setFriendsHere] = useState<BerxExperienceGraphFriend[]>([]);
 	const [offers, setOffers] = useState<BerxBusinessOffer[]>([]);
 	const [claimingOfferId, setClaimingOfferId] = useState<number | null>(null);
+	const [offerMessage, setOfferMessage] = useState<string | null>(null);
 	const [checkinOpen, setCheckinOpen] = useState(false);
 	const [checkinLat, setCheckinLat] = useState('');
 	const [checkinLng, setCheckinLng] = useState('');
@@ -232,14 +233,18 @@ export default function PlaceDetailScreen({api, guid, myGuid, isAdmin, onAddToCo
 		}
 	}
 
-	/** Real claim — success flips already_claimed locally so the button updates without a full refetch; a real 409 from a race with another device just falls through to the catch and leaves the offer as-is. */
+	/** Real claim — success flips already_claimed locally so the button updates without a full refetch; a real 409 from a race with another device just falls through to the catch and leaves the offer as-is. A real 429 (server-side abuse guard, 10 claims/60s) surfaces its own honest message rather than the generic silent no-op. */
 	async function handleClaimOffer(offerId: number) {
 		setClaimingOfferId(offerId);
+		setOfferMessage(null);
 		try {
 			await api.claimOffer(offerId);
 			setOffers((prev) => prev.map((o) => (o.id === offerId ? {...o, already_claimed: true, redemptions_count: o.redemptions_count + 1} : o)));
-		} catch {
-			// real server rejection (expired, full, already claimed) — list stays as-is
+		} catch (e) {
+			if (e instanceof BerxApiError && e.code === 'rate_limited') {
+				setOfferMessage('Слишком много попыток — попробуйте через минуту.');
+			}
+			// other rejections (expired, full, already claimed) — list stays as-is
 		} finally {
 			setClaimingOfferId(null);
 		}
@@ -407,6 +412,7 @@ export default function PlaceDetailScreen({api, guid, myGuid, isAdmin, onAddToCo
 				{offers.length > 0 ? (
 					<>
 						<Text style={styles.sectionTitle}>Предложения</Text>
+						{offerMessage ? <Text style={styles.checkinMessage}>{offerMessage}</Text> : null}
 						{offers.map((o) => (
 							<BerxGlassSurface key={o.id} padding="sm" style={styles.offerRow}>
 								<Text style={styles.offerTitle}>{o.title}</Text>
