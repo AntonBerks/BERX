@@ -1055,6 +1055,7 @@ function FeedScreenRoute({onOpenProfile}: {onOpenProfile: (username: string) => 
 function AuthenticatedApp() {
 	const [activeTab, setActiveTab] = useState<BerxRouteName>('Home');
 	const [unreadMessages, setUnreadMessages] = useState(0);
+	const [unreadNotifications, setUnreadNotifications] = useState(0);
 
 	// Real, server-authoritative streak check-in — fires exactly once
 	// per real mount of the authenticated app (i.e. once per real app
@@ -1079,6 +1080,28 @@ function AuthenticatedApp() {
 			try {
 				const res = await api.unreadMessageCount();
 				if (active) setUnreadMessages(res.unread_count);
+			} catch {
+				// polling failure is silent — never surfaces as an app-level error
+			}
+		}
+		poll();
+		const timer = setInterval(poll, 20000);
+		return () => {
+			active = false;
+			clearInterval(timer);
+		};
+	}, []);
+
+	// Same real pattern for notifications — api.unreadNotificationCount()
+	// was already real (already shown as real "(N)" text inside
+	// ProfileScreen.tsx's own Notifications menu row) but, like
+	// messages, invisible from the tab bar itself.
+	useEffect(() => {
+		let active = true;
+		async function poll() {
+			try {
+				const res = await api.unreadNotificationCount();
+				if (active) setUnreadNotifications(res.unread_count);
 			} catch {
 				// polling failure is silent — never surfaces as an app-level error
 			}
@@ -1140,6 +1163,11 @@ function AuthenticatedApp() {
 							{tab === 'Messages' && unreadMessages > 0 ? (
 								<View style={styles.tabBadge}>
 									<Text style={styles.tabBadgeText}>{unreadMessages > 9 ? '9+' : String(unreadMessages)}</Text>
+								</View>
+							) : null}
+							{tab === 'Profile' && unreadNotifications > 0 ? (
+								<View style={styles.tabBadge}>
+									<Text style={styles.tabBadgeText}>{unreadNotifications > 9 ? '9+' : String(unreadNotifications)}</Text>
 								</View>
 							) : null}
 						</Pressable>
