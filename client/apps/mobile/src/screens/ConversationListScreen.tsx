@@ -155,7 +155,10 @@ export default function ConversationListScreen({api, onOpenConversation, onOpenM
 								style={styles.row}
 								onPress={() => onOpenConversation(item.with_guid, item.with_username ?? undefined)}
 							>
-								<BerxAvatar fallbackInitial={(item.with_username ?? '#').charAt(0)} size={48} />
+								<View style={styles.rowAvatarWrap}>
+									<BerxAvatar fallbackInitial={(item.with_username ?? '#').charAt(0)} size={48} />
+									{item.with_online ? <View style={styles.rowOnlineDot} /> : null}
+								</View>
 								<View style={styles.rowText}>
 									<Text style={[styles.username, item.has_unread && styles.usernameUnread]}>{item.with_username ?? `Пользователь #${item.with_guid}`}</Text>
 									<Text style={[styles.lastMessage, item.has_unread && styles.lastMessageUnread]} numberOfLines={1}>
@@ -198,6 +201,9 @@ const styles = StyleSheet.create({
 		borderBottomWidth: 1,
 		borderBottomColor: colors.borderSoft,
 	},
+	rowAvatarWrap: {width: 48, height: 48},
+	/** Real per-row presence — same OssnUser::isOnline(10) signal as the "В сети" rail above, just also on the row itself. */
+	rowOnlineDot: {position: 'absolute', bottom: 0, right: 0, width: 12, height: 12, borderRadius: 6, backgroundColor: colors.accent, borderWidth: 2, borderColor: colors.black},
 	rowText: {flex: 1, gap: 2},
 	skeletonAvatar: {borderRadius: 24},
 	skeletonGap: {marginTop: 4},

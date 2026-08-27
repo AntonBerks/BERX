@@ -90,6 +90,14 @@ export interface BerxConversationSummary {
 	time: number;
 	/** Real signal: the most recent message was sent to the caller and they haven't viewed it yet — not an exact unread count, but never fake. */
 	has_unread: boolean;
+	/** Real presence — OssnUser::isOnline(10), bulk-fetched via OssnMessages::onlineStatus(). */
+	with_online: boolean;
+}
+
+export interface BerxMessageAttachment {
+	type: 'image' | 'file' | null;
+	name: string;
+	url: string;
 }
 
 export interface BerxMessage {
@@ -103,6 +111,8 @@ export interface BerxMessage {
 	time_edited: number | null;
 	/** Real read receipt — OssnMessages::markViewed(), already called on every thread open. */
 	viewed: boolean;
+	/** Real — OssnMessages::send()'s own $_FILES['attachment'] upload, now wired end-to-end. */
+	attachment: BerxMessageAttachment | null;
 }
 
 /** Future Identity — see docs/BERX_FUTURE_LAYER_SPEC.md. Real, live counts, no invented score. */

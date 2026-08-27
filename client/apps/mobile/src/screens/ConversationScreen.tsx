@@ -27,10 +27,16 @@
  * appears while the screen stays open, not only on next open/send.
  * Skipped while a send/edit/delete is in flight to avoid clobbering
  * that in-progress local state.
+ *
+ * MAX BUILD — real Message Attachments + presence. OssnMessages::send()
+ * already uploads $_FILES['attachment'] server-side (a real bug in the
+ * download route's subtype check — fixed alongside this, see
+ * components/OssnMessages/ossn_com.php — meant attachments 404'd even
+ * on stock OSSN). with_online mirrors real OssnUser::isOnline(10).
  */
 import {useCallback, useEffect, useRef, useState} from 'react';
-import {FlatList, Text, View, Pressable, Alert, StyleSheet} from 'react-native';
-import type {BerxApiClient} from '@berx/api/client';
+import {FlatList, Text, View, Image, Pressable, Alert, StyleSheet, Linking} from 'react-native';
+import type {BerxApiClient, BerxFilePart} from '@berx/api/client';
 import type {BerxMessage} from '@berx/api/types';
 import {relativeTimeLabel} from '@berx/domain';
 import {colors, spacing, radius, typography} from '@berx/design-system/tokens';
@@ -44,16 +50,19 @@ interface Props {
 	myGuid: number;
 	otherGuid: number;
 	otherUsername?: string;
+	pickImage?: () => Promise<BerxFilePart | null>;
 	onBack: () => void;
 }
 
-export default function ConversationScreen({api, myGuid, otherGuid, otherUsername, onBack}: Props) {
+export default function ConversationScreen({api, myGuid, otherGuid, otherUsername, pickImage, onBack}: Props) {
 	const [messages, setMessages] = useState<BerxMessage[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 	const [draft, setDraft] = useState('');
 	const [sending, setSending] = useState(false);
 	const [sendError, setSendError] = useState<string | null>(null);
+	const [pendingAttachment, setPendingAttachment] = useState<BerxFilePart | null>(null);
+	const [withOnline, setWithOnline] = useState(false);
 	const listRef = useRef<FlatList<BerxMessage>>(null);
 	const [otherTyping, setOtherTyping] = useState(false);
 	const [deletingId, setDeletingId] = useState<number | null>(null);
@@ -72,6 +81,7 @@ export default function ConversationScreen({api, myGuid, otherGuid, otherUsernam
 		try {
 			const res = await api.conversationWith(otherGuid);
 			setMessages(res.messages);
+			setWithOnline(res.with_online);
 			setError(null);
 		} catch {
 			// Real, honest ambiguity this screen can't resolve itself:
@@ -123,6 +133,7 @@ export default function ConversationScreen({api, myGuid, otherGuid, otherUsernam
 							});
 							return changed ? res.messages : prev;
 						});
+						setWithOnline(res.with_online);
 						// A reply arriving while the thread is open is real,
 						// unread-until-now — best-effort, mirrors the mount-time mark-as-read above.
 						api.markConversationRead(otherGuid).catch(() => undefined);
@@ -137,6 +148,12 @@ export default function ConversationScreen({api, myGuid, otherGuid, otherUsernam
 			clearInterval(timer);
 		};
 	}, [api, otherGuid]);
+
+	async function handlePickAttachment() {
+		if (!pickImage) return;
+		const picked = await pickImage();
+		if (picked) setPendingAttachment(picked);
+	}
 
 	function handleDraftChange(text: string) {
 		setDraft(text);
@@ -189,7 +206,8 @@ export default function ConversationScreen({api, myGuid, otherGuid, otherUsernam
 				await api.editMessage(otherGuid, editingId, text);
 				setEditingId(null);
 			} else {
-				await api.sendMessage(otherGuid, text);
+				await api.sendMessage(otherGuid, text, pendingAttachment ?? undefined);
+				setPendingAttachment(null);
 				api.setTypingStatus(otherGuid, false).catch(() => undefined);
 			}
 			setDraft('');
@@ -208,7 +226,7 @@ export default function ConversationScreen({api, myGuid, otherGuid, otherUsernam
 
 	return (
 		<View style={styles.screen}>
-			<BerxHeader onBack={onBack} title={otherUsername ?? `Пользователь #${otherGuid}`} />
+			<BerxHeader onBack={onBack} title={otherUsername ?? `Пользователь #${otherGuid}`} subtitle={withOnline ? 'в сети' : undefined} />
 
 			{loading ? (
 				<BerxLoadingState label="Загрузка переписки..." />
@@ -225,6 +243,17 @@ export default function ConversationScreen({api, myGuid, otherGuid, otherUsernam
 							onLongPress={() => handleLongPress(item)}
 							disabled={deletingId === item.id}
 							style={[styles.bubble, item.from_guid === myGuid ? styles.bubbleMine : styles.bubbleTheirs, deletingId === item.id && styles.bubbleDeleting, editingId === item.id && styles.bubbleEditing]}>
+							{item.attachment ? (
+								item.attachment.type === 'image' ? (
+									<Pressable onPress={() => Linking.openURL(item.attachment!.url)}>
+										<Image source={{uri: item.attachment.url}} style={styles.attachmentImage} />
+									</Pressable>
+								) : (
+									<Pressable style={styles.attachmentFile} onPress={() => Linking.openURL(item.attachment!.url)}>
+										<Text style={styles.attachmentFileLabel} numberOfLines={1}>📎 {item.attachment.name}</Text>
+									</Pressable>
+								)
+							) : null}
 							<Text style={styles.bubbleText}>{item.text}</Text>
 							<View style={styles.bubbleMetaRow}>
 								<Text style={styles.bubbleTime}>
@@ -251,7 +280,21 @@ export default function ConversationScreen({api, myGuid, otherGuid, otherUsernam
 				</View>
 			) : null}
 
+			{pendingAttachment ? (
+				<View style={styles.pendingAttachmentRow}>
+					<Text style={styles.pendingAttachmentLabel} numberOfLines={1}>📎 {'name' in pendingAttachment ? pendingAttachment.name : 'вложение'}</Text>
+					<Pressable onPress={() => setPendingAttachment(null)} hitSlop={8}>
+						<Text style={styles.editingCancel}>Убрать</Text>
+					</Pressable>
+				</View>
+			) : null}
+
 			<View style={styles.composer}>
+				{pickImage && editingId === null ? (
+					<Pressable style={styles.attachButton} onPress={handlePickAttachment} hitSlop={8}>
+						<Text style={styles.attachButtonLabel}>📎</Text>
+					</Pressable>
+				) : null}
 				<BerxInput
 					style={styles.composerInput}
 					placeholder="Сообщение..."
@@ -307,4 +350,11 @@ const styles = StyleSheet.create({
 	},
 	composerInput: {flex: 1},
 	sendError: {color: colors.danger, fontSize: typography.sizeXs, paddingHorizontal: spacing.md, paddingBottom: spacing.sm},
+	attachmentImage: {width: 180, height: 180, borderRadius: radius.sm, marginBottom: spacing.xs},
+	attachmentFile: {backgroundColor: colors.glass2, borderRadius: radius.sm, padding: spacing.sm, marginBottom: spacing.xs},
+	attachmentFileLabel: {color: colors.text, fontSize: typography.sizeSm},
+	attachButton: {width: 36, height: 36, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.glass2, borderWidth: 1, borderColor: colors.borderSoft},
+	attachButtonLabel: {fontSize: typography.sizeBase},
+	pendingAttachmentRow: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.md, paddingTop: spacing.xs},
+	pendingAttachmentLabel: {color: colors.textDim, fontSize: typography.sizeXs, flex: 1, marginRight: spacing.sm},
 });

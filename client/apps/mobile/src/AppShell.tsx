@@ -276,6 +276,7 @@ function RouteRenderer({name, params}: {name: BerxRouteName; params: unknown}) {
 					myGuid={myGuid}
 					otherGuid={p.otherGuid}
 					otherUsername={p.otherUsername}
+					pickImage={pickImage}
 					onBack={nav.pop}
 				/>
 			);

@@ -20,10 +20,12 @@ import {IconChevronLeft} from './BerxIcons';
 
 export interface BerxHeaderProps {
 	title?: string;
+	/** Optional small line under the title — e.g. real presence ("в сети"). */
+	subtitle?: string;
 	onBack?: () => void;
 }
 
-export function BerxHeader({title, onBack}: BerxHeaderProps) {
+export function BerxHeader({title, subtitle, onBack}: BerxHeaderProps) {
 	return (
 		<View style={styles.header}>
 			{onBack ? (
@@ -34,9 +36,16 @@ export function BerxHeader({title, onBack}: BerxHeaderProps) {
 				<View style={styles.backButton} />
 			)}
 			{title ? (
-				<Text style={styles.title} numberOfLines={1}>
-					{title}
-				</Text>
+				<View style={styles.titleColumn}>
+					<Text style={styles.title} numberOfLines={1}>
+						{title}
+					</Text>
+					{subtitle ? (
+						<Text style={styles.subtitle} numberOfLines={1}>
+							{subtitle}
+						</Text>
+					) : null}
+				</View>
 			) : null}
 			<View style={styles.rightSpacer} />
 		</View>
@@ -65,6 +74,8 @@ const styles = StyleSheet.create({
 		borderColor: colors.borderSoft,
 	},
 	backChipPressed: {backgroundColor: colors.glass3, opacity: 0.9},
-	title: {flex: 1, color: colors.text, fontSize: typography.sizeLg, fontWeight: typography.weightMedium, textAlign: 'center'},
+	titleColumn: {flex: 1, alignItems: 'center'},
+	title: {color: colors.text, fontSize: typography.sizeLg, fontWeight: typography.weightMedium, textAlign: 'center'},
+	subtitle: {color: colors.accent, fontSize: typography.sizeXs, marginTop: 1},
 	rightSpacer: {minWidth: 40},
 });

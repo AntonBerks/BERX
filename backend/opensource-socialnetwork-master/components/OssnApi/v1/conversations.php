@@ -17,9 +17,59 @@
  * ConversationScreen.tsx on every thread open) — the full pipeline
  * was real end-to-end, it just never reached the JSON response or the
  * UI. Now it does.
+ *
+ * MAX BUILD — real Message Attachments. OssnMessages::send() already
+ * uploads $_FILES['attachment'] internally and stores it via the
+ * generic ossn_entities/ossn_entities_metadata mechanism (owner_guid
+ * = message id, type='message', subtype='attachment_guid'|
+ * 'attachment_name') — the exact real path the web UI's own message
+ * composer already uses, just never wired to this JSON API before.
+ * Fixed a matching real bug in components/OssnMessages/ossn_com.php's
+ * own download route while closing this gap (see that file's own
+ * comment) — attachments 404'd through the web UI too until now.
+ * DELETE now also uses the real OssnMessages::deleteMessage() (cleans
+ * up the entity metadata rows + the attachment file/dir on disk)
+ * instead of a bare row delete, so a removed attachment message
+ * doesn't leave an orphaned file behind.
  */
 
-function ossn_api_message_json($row) {
+function ossn_api_message_attachment($messages, $messageId) {
+	$rows = $messages->searchEntities(array(
+		'type'       => 'message',
+		'owner_guid' => intval($messageId),
+		'limit'      => false,
+	));
+	if (!$rows) {
+		return null;
+	}
+	$meta = array();
+	foreach ($rows as $r) {
+		$meta[$r->subtype] = $r->value;
+	}
+	if (empty($meta['attachment_guid']) || empty($meta['attachment_name'])) {
+		return null;
+	}
+	$name = (string) $meta['attachment_name'];
+	$kind = null;
+	if (str_starts_with($name, 'image:')) {
+		$kind = 'image';
+	} elseif (str_starts_with($name, 'file:')) {
+		$kind = 'file';
+	}
+	$cleanName = str_replace(array('image:', 'file:'), '', $name);
+	$pathInfo  = pathinfo($cleanName);
+	$urlName   = class_exists('OssnTranslit') && isset($pathInfo['filename'])
+		? OssnTranslit::urlize($pathInfo['filename'])
+		: $cleanName;
+	$ext = isset($pathInfo['extension']) ? $pathInfo['extension'] : '';
+	return array(
+		'type' => $kind,
+		'name' => $cleanName,
+		'url'  => ossn_site_url("messages/attachment/{$meta['attachment_guid']}/{$urlName}.{$ext}"),
+	);
+}
+
+function ossn_api_message_json($row, $messages) {
 	return array(
 		'id'          => intval($row->id),
 		'from_guid'   => intval($row->message_from),
@@ -29,6 +79,7 @@ function ossn_api_message_json($row) {
 		'edited'      => !empty($row->edited),
 		'time_edited' => $row->time_edited !== null ? intval($row->time_edited) : null,
 		'viewed'      => !empty($row->viewed),
+		'attachment'  => ossn_api_message_attachment($messages, $row->id),
 	);
 }
 
@@ -46,6 +97,14 @@ if ($segment0 === null && $method === 'GET') {
 	$chats = $messages->recentChat($api_user_guid);
 	$out = array();
 	if ($chats) {
+		// MAX BUILD -- real bulk presence (OssnMessages::onlineStatus(),
+		// zero prior UI caller). One query for the whole list instead of
+		// N — collect every "with" guid first, then a single lookup.
+		$withGuids = array();
+		foreach ($chats as $chat) {
+			$withGuids[] = intval($chat->message_from) === intval($api_user_guid) ? intval($chat->message_to) : intval($chat->message_from);
+		}
+		$onlineMap = $withGuids ? $messages->onlineStatus(implode(',', array_unique($withGuids))) : false;
 		foreach ($chats as $chat) {
 			$withGuid = intval($chat->message_from) === intval($api_user_guid) ? intval($chat->message_to) : intval($chat->message_from);
 			$withUser = ossn_user_by_guid($withGuid);
@@ -62,6 +121,7 @@ if ($segment0 === null && $method === 'GET') {
 				'last_message'  => (string) $chat->message,
 				'time'          => intval($chat->time),
 				'has_unread'    => $hasUnread,
+				'with_online'   => $onlineMap && isset($onlineMap[$withGuid]) ? (bool) $onlineMap[$withGuid] : false,
 			);
 		}
 	}
@@ -85,10 +145,12 @@ if ($segment0 !== null && $segment0 !== 'unread-count' && $segment1 === null && 
 	$out = array();
 	if ($rows) {
 		foreach ($rows as $row) {
-			$out[] = ossn_api_message_json($row);
+			$out[] = ossn_api_message_json($row, $messages);
 		}
 	}
-	ossn_api_json(array('messages' => $out));
+	$withUser = ossn_user_by_guid(intval($segment0));
+	$withOnline = $withUser instanceof OssnUser ? $withUser->isOnline(10) : false;
+	ossn_api_json(array('messages' => $out, 'with_online' => (bool) $withOnline));
 }
 
 if ($segment0 !== null && $segment1 === 'messages' && $segment2 === null && $method === 'POST') {
@@ -140,10 +202,12 @@ if ($segment0 !== null && $segment1 === 'messages' && $segment2 !== null && $met
 	if (intval($row->message_from) !== intval($api_user_guid) && intval($row->message_to) !== intval($api_user_guid)) {
 		ossn_api_error('forbidden', 'Not your message', 403);
 	}
-	$messages->delete(array(
-		'from'   => 'ossn_messages',
-		'wheres' => array(OssnDatabase::wheres('id', '=', intval($segment2))),
-	));
+	// Real OssnMessages::deleteMessage() (was zero-caller before this) --
+	// unlike a bare row delete, this also removes the entity metadata
+	// rows and the attachment file/dir on disk, so a deleted attachment
+	// message doesn't leave an orphaned upload behind.
+	$messages->id = intval($segment2);
+	$messages->deleteMessage();
 	ossn_api_json(array('status' => 'ok'));
 }
 

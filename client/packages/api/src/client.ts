@@ -823,11 +823,18 @@ export class BerxApiClient {
 		return this.request<{conversations: BerxConversationSummary[]}>('/conversations');
 	}
 
-	async conversationWith(otherGuid: number): Promise<{messages: BerxMessage[]}> {
-		return this.request<{messages: BerxMessage[]}>(`/conversations/${otherGuid}`);
+	async conversationWith(otherGuid: number): Promise<{messages: BerxMessage[]; with_online: boolean}> {
+		return this.request<{messages: BerxMessage[]; with_online: boolean}>(`/conversations/${otherGuid}`);
 	}
 
-	async sendMessage(otherGuid: number, text: string): Promise<{status: string}> {
+	/** MAX BUILD — real optional attachment. OssnMessages::send() already reads $_FILES['attachment'] internally (server-side, zero new mechanism) — passing `attachment` here sends a real image/file alongside the message text. */
+	async sendMessage(otherGuid: number, text: string, attachment?: BerxFilePart, attachmentFilename = 'attachment'): Promise<{status: string}> {
+		if (attachment) {
+			return this.request<{status: string}>(`/conversations/${otherGuid}/messages`, {
+				method: 'POST',
+				multipart: {fields: {text}, files: [{field: 'attachment', part: attachment, filename: attachmentFilename}]},
+			});
+		}
 		return this.request<{status: string}>(`/conversations/${otherGuid}/messages`, {method: 'POST', body: {text}});
 	}
 
