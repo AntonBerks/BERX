@@ -667,6 +667,20 @@ export interface BerxSitePage {
 	content: string;
 }
 
+/** Real Giphy search/trending (OssnGiphy — a real server-side proxy to api.giphy.com, admin-configured key). `available: false` is a real, honest signal for "no API key configured", never shown as an empty search result. */
+export interface BerxGifResult {
+	id: string;
+	thumb_url: string;
+	gif_url: string;
+	width: number | null;
+	height: number | null;
+}
+
+export interface BerxGifSearchResponse {
+	available: boolean;
+	results: BerxGifResult[];
+}
+
 /**
  * Places — mirrors ossn_api_place_to_json() in
  * components/OssnApi/v1/places.php field-for-field. `category` is one

@@ -29,21 +29,29 @@
  * that in-progress local state.
  *
  * MAX BUILD — real Message Attachments + presence. OssnMessages::send()
- * already uploads $_FILES['attachment'] server-side (a real bug in the
- * download route's subtype check — fixed alongside this, see
- * components/OssnMessages/ossn_com.php — meant attachments 404'd even
- * on stock OSSN). with_online mirrors real OssnUser::isOnline(10).
+ * already uploads $_FILES['attachment'] server-side, read back and
+ * exposed via conversations.php (previously wired to a real download
+ * route, components/OssnMessages/ossn_com.php, with no JSON API
+ * caller at all). with_online mirrors real OssnUser::isOnline(10).
+ *
+ * MAX BUILD — real GIF picker (OssnGiphy, a real server-side proxy to
+ * api.giphy.com with an admin-configured key), previously wired only
+ * to a session-cookie web action. A picked GIF is downloaded to a
+ * real Blob client-side (fetch().blob()) and sent through the exact
+ * same real attachment upload path as a picked photo — not a special
+ * case, just a different file part.
  */
 import {useCallback, useEffect, useRef, useState} from 'react';
 import {FlatList, Text, View, Image, Pressable, Alert, StyleSheet, Linking} from 'react-native';
 import type {BerxApiClient, BerxFilePart} from '@berx/api/client';
-import type {BerxMessage} from '@berx/api/types';
+import type {BerxMessage, BerxGifResult} from '@berx/api/types';
 import {relativeTimeLabel} from '@berx/domain';
 import {colors, spacing, radius, typography} from '@berx/design-system/tokens';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {BerxLoadingState, BerxErrorState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
+import {GifPickerModal} from '../../../../packages/design-system/src/components/GifPickerModal';
 
 interface Props {
 	api: BerxApiClient;
@@ -62,7 +70,10 @@ export default function ConversationScreen({api, myGuid, otherGuid, otherUsernam
 	const [sending, setSending] = useState(false);
 	const [sendError, setSendError] = useState<string | null>(null);
 	const [pendingAttachment, setPendingAttachment] = useState<BerxFilePart | null>(null);
+	const [pendingAttachmentLabel, setPendingAttachmentLabel] = useState<string | null>(null);
 	const [withOnline, setWithOnline] = useState(false);
+	const [gifPickerOpen, setGifPickerOpen] = useState(false);
+	const [gifDownloading, setGifDownloading] = useState(false);
 	const listRef = useRef<FlatList<BerxMessage>>(null);
 	const [otherTyping, setOtherTyping] = useState(false);
 	const [deletingId, setDeletingId] = useState<number | null>(null);
@@ -152,7 +163,26 @@ export default function ConversationScreen({api, myGuid, otherGuid, otherUsernam
 	async function handlePickAttachment() {
 		if (!pickImage) return;
 		const picked = await pickImage();
-		if (picked) setPendingAttachment(picked);
+		if (picked) {
+			setPendingAttachment(picked);
+			setPendingAttachmentLabel('name' in picked ? picked.name : 'вложение');
+		}
+	}
+
+	/** Real download — the picker only ever hands back Giphy's own real gif_url; this fetches the actual bytes and feeds them through the same real attachment path a picked photo uses. */
+	async function handleSelectGif(gif: BerxGifResult) {
+		setGifPickerOpen(false);
+		setGifDownloading(true);
+		try {
+			const res = await fetch(gif.gif_url);
+			const blob = await res.blob();
+			setPendingAttachment(blob);
+			setPendingAttachmentLabel(`GIF ${gif.id}`);
+		} catch {
+			Alert.alert('Не удалось загрузить GIF', 'Попробуйте другой вариант.');
+		} finally {
+			setGifDownloading(false);
+		}
 	}
 
 	function handleDraftChange(text: string) {
@@ -208,6 +238,7 @@ export default function ConversationScreen({api, myGuid, otherGuid, otherUsernam
 			} else {
 				await api.sendMessage(otherGuid, text, pendingAttachment ?? undefined);
 				setPendingAttachment(null);
+				setPendingAttachmentLabel(null);
 				api.setTypingStatus(otherGuid, false).catch(() => undefined);
 			}
 			setDraft('');
@@ -280,10 +311,14 @@ export default function ConversationScreen({api, myGuid, otherGuid, otherUsernam
 				</View>
 			) : null}
 
-			{pendingAttachment ? (
+			{gifDownloading ? (
 				<View style={styles.pendingAttachmentRow}>
-					<Text style={styles.pendingAttachmentLabel} numberOfLines={1}>📎 {'name' in pendingAttachment ? pendingAttachment.name : 'вложение'}</Text>
-					<Pressable onPress={() => setPendingAttachment(null)} hitSlop={8}>
+					<Text style={styles.pendingAttachmentLabel}>Загрузка GIF…</Text>
+				</View>
+			) : pendingAttachment ? (
+				<View style={styles.pendingAttachmentRow}>
+					<Text style={styles.pendingAttachmentLabel} numberOfLines={1}>📎 {pendingAttachmentLabel ?? 'вложение'}</Text>
+					<Pressable onPress={() => { setPendingAttachment(null); setPendingAttachmentLabel(null); }} hitSlop={8}>
 						<Text style={styles.editingCancel}>Убрать</Text>
 					</Pressable>
 				</View>
@@ -293,6 +328,11 @@ export default function ConversationScreen({api, myGuid, otherGuid, otherUsernam
 				{pickImage && editingId === null ? (
 					<Pressable style={styles.attachButton} onPress={handlePickAttachment} hitSlop={8}>
 						<Text style={styles.attachButtonLabel}>📎</Text>
+					</Pressable>
+				) : null}
+				{editingId === null ? (
+					<Pressable style={styles.attachButton} onPress={() => setGifPickerOpen(true)} hitSlop={8}>
+						<Text style={styles.gifButtonLabel}>GIF</Text>
 					</Pressable>
 				) : null}
 				<BerxInput
@@ -305,6 +345,14 @@ export default function ConversationScreen({api, myGuid, otherGuid, otherUsernam
 				<BerxButton label={editingId !== null ? 'Сохранить' : 'Отправить'} onPress={handleSend} loading={sending} disabled={!draft.trim()} />
 			</View>
 			{sendError ? <Text style={styles.sendError}>{sendError}</Text> : null}
+
+			<GifPickerModal
+				visible={gifPickerOpen}
+				onClose={() => setGifPickerOpen(false)}
+				onSelect={handleSelectGif}
+				search={(q) => api.giphySearch(q)}
+				trending={() => api.giphyTrending()}
+			/>
 		</View>
 	);
 }
@@ -355,6 +403,7 @@ const styles = StyleSheet.create({
 	attachmentFileLabel: {color: colors.text, fontSize: typography.sizeSm},
 	attachButton: {width: 36, height: 36, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.glass2, borderWidth: 1, borderColor: colors.borderSoft},
 	attachButtonLabel: {fontSize: typography.sizeBase},
+	gifButtonLabel: {fontSize: typography.sizeXs, fontWeight: typography.weightBold, color: colors.accent},
 	pendingAttachmentRow: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.md, paddingTop: spacing.xs},
 	pendingAttachmentLabel: {color: colors.textDim, fontSize: typography.sizeXs, flex: 1, marginRight: spacing.sm},
 });

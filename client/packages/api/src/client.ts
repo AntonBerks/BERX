@@ -18,6 +18,7 @@ import type {
 	BerxCommunity,
 	BerxCommunitiesResponse,
 	BerxSitePage,
+	BerxGifSearchResponse,
 	BerxSitePagePrefix,
 	BerxPointsBalance,
 	BerxStreakCheckIn,
@@ -1383,6 +1384,15 @@ export class BerxApiClient {
 	/** MAX BUILD — real About/Terms/Privacy content (OssnSitePages) — the same admin-editable content the site's own Settings → Site Pages and public /site/{prefix} route already serve, zero prior API caller. */
 	async sitePage(prefix: BerxSitePagePrefix | string): Promise<BerxSitePage> {
 		return this.request<BerxSitePage>(`/sitepages/${encodeURIComponent(prefix)}`);
+	}
+
+	/** MAX BUILD — real Giphy search/trending (OssnGiphy — a real server-side proxy to api.giphy.com, admin-configured key), previously wired only to a session-cookie web action. */
+	async giphySearch(q: string): Promise<BerxGifSearchResponse> {
+		return this.request<BerxGifSearchResponse>(`/giphy/search?q=${encodeURIComponent(q)}`);
+	}
+
+	async giphyTrending(): Promise<BerxGifSearchResponse> {
+		return this.request<BerxGifSearchResponse>('/giphy/trending');
 	}
 
 	/** MAX BUILD — real Community Cover Photo. Wraps OssnGroup's own native UploadCover()/coverURL(), previously reachable only from a session-cookie web action. Owner-or-admin only. */
