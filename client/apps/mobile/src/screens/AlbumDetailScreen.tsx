@@ -12,7 +12,7 @@
  * prop; this screen owns everything after a file is selected.
  */
 import {useCallback, useEffect, useState} from 'react';
-import {View, Text, FlatList, Image, Pressable, Dimensions, StyleSheet} from 'react-native';
+import {View, Text, FlatList, Image, Pressable, Dimensions, RefreshControl, StyleSheet} from 'react-native';
 import type {BerxApiClient, BerxFilePart} from '@berx/api/client';
 import type {BerxAlbumDetail, BerxAlbumPhoto} from '@berx/api/types';
 import type {BerxAuthState} from '@berx/auth';
@@ -35,6 +35,7 @@ const TILE = Dimensions.get('window').width / 3;
 export default function AlbumDetailScreen({api, guid, authState, pickImage, onBack}: Props) {
 	const [album, setAlbum] = useState<BerxAlbumDetail | null>(null);
 	const [loading, setLoading] = useState(true);
+	const [refreshing, setRefreshing] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [uploading, setUploading] = useState(false);
 	const [busyGuid, setBusyGuid] = useState<number | null>(null);
@@ -52,6 +53,7 @@ export default function AlbumDetailScreen({api, guid, authState, pickImage, onBa
 			setError(e instanceof Error ? e.message : 'Не удалось загрузить альбом');
 		} finally {
 			setLoading(false);
+			setRefreshing(false);
 		}
 	}, [api, guid]);
 
@@ -108,6 +110,16 @@ export default function AlbumDetailScreen({api, guid, authState, pickImage, onBa
 						data={album.photos}
 						keyExtractor={(p: BerxAlbumPhoto) => String(p.guid)}
 						numColumns={3}
+						refreshControl={
+							<RefreshControl
+								refreshing={refreshing}
+								onRefresh={() => {
+									setRefreshing(true);
+									load();
+								}}
+								tintColor={colors.accent}
+							/>
+						}
 						renderItem={({item}: {item: BerxAlbumPhoto}) => (
 							<Pressable
 								style={styles.tileWrap}

@@ -16,7 +16,7 @@
  * building empty screens just to hit a number.
  */
 import {useCallback, useEffect, useState} from 'react';
-import {View, Text, FlatList, Image, Pressable, Alert, StyleSheet} from 'react-native';
+import {View, Text, FlatList, Image, Pressable, Alert, RefreshControl, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxTripDetail, BerxTripStop, BerxTripParticipant, BerxFriend, BerxCollectionVisibility} from '@berx/api/types';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
@@ -48,6 +48,7 @@ export default function TripDetailScreen({api, id, onOpenPlace, onOpenEvent, onD
 	const [trip, setTrip] = useState<BerxTripDetail | null>(null);
 	const [friends, setFriends] = useState<BerxFriend[]>([]);
 	const [loading, setLoading] = useState(true);
+	const [refreshing, setRefreshing] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [showPicker, setShowPicker] = useState(false);
 	const [busy, setBusy] = useState(false);
@@ -70,6 +71,7 @@ export default function TripDetailScreen({api, id, onOpenPlace, onOpenEvent, onD
 			setError(e instanceof Error ? e.message : 'Поездка недоступна');
 		} finally {
 			setLoading(false);
+			setRefreshing(false);
 		}
 	}, [api, id]);
 
@@ -260,6 +262,16 @@ export default function TripDetailScreen({api, id, onOpenPlace, onOpenEvent, onD
 						data={days}
 						keyExtractor={([day]: [number, BerxTripStop[]]) => String(day)}
 						contentContainerStyle={styles.list}
+						refreshControl={
+							<RefreshControl
+								refreshing={refreshing}
+								onRefresh={() => {
+									setRefreshing(true);
+									load();
+								}}
+								tintColor={colors.accent}
+							/>
+						}
 						renderItem={({item: [day, stops]}: {item: [number, BerxTripStop[]]}) => (
 							<View style={styles.dayBlock}>
 								<Text style={styles.dayLabel}>День {day}</Text>

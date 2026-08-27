@@ -14,7 +14,7 @@
  * delete it again from the app.
  */
 import {useCallback, useEffect, useState} from 'react';
-import {View, Text, FlatList, Image, Pressable, Alert, StyleSheet} from 'react-native';
+import {View, Text, FlatList, Image, Pressable, Alert, RefreshControl, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxCircleDetail, BerxCircleMember, BerxFriend} from '@berx/api/types';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
@@ -35,6 +35,7 @@ export default function CircleDetailScreen({api, id, onDeleted, onBack}: Props) 
 	const [circle, setCircle] = useState<BerxCircleDetail | null>(null);
 	const [friends, setFriends] = useState<BerxFriend[]>([]);
 	const [loading, setLoading] = useState(true);
+	const [refreshing, setRefreshing] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [busyGuid, setBusyGuid] = useState<number | null>(null);
 	const [showPicker, setShowPicker] = useState(false);
@@ -55,6 +56,7 @@ export default function CircleDetailScreen({api, id, onDeleted, onBack}: Props) 
 			setError(e instanceof Error ? e.message : 'Круг недоступен');
 		} finally {
 			setLoading(false);
+			setRefreshing(false);
 		}
 	}, [api, id]);
 
@@ -202,6 +204,16 @@ export default function CircleDetailScreen({api, id, onDeleted, onBack}: Props) 
 						data={circle.members}
 						keyExtractor={(m: BerxCircleMember) => String(m.guid)}
 						contentContainerStyle={styles.list}
+						refreshControl={
+							<RefreshControl
+								refreshing={refreshing}
+								onRefresh={() => {
+									setRefreshing(true);
+									load();
+								}}
+								tintColor={colors.accent}
+							/>
+						}
 						renderItem={({item}: {item: BerxCircleMember}) => (
 							<View style={styles.row}>
 								<Image source={{uri: item.icon}} style={styles.avatar} />

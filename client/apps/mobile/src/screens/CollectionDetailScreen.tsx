@@ -17,7 +17,7 @@
  * than as a separate screen.
  */
 import {useCallback, useEffect, useState} from 'react';
-import {View, Text, FlatList, Image, Pressable, Alert, StyleSheet} from 'react-native';
+import {View, Text, FlatList, Image, Pressable, Alert, RefreshControl, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxCollectionDetail, BerxCollectionItem, BerxCollectionVisibility} from '@berx/api/types';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
@@ -40,6 +40,7 @@ interface Props {
 export default function CollectionDetailScreen({api, id, onOpenPlace, onOpenEvent, onOpenPost, onDeleted, onBack}: Props) {
 	const [collection, setCollection] = useState<BerxCollectionDetail | null>(null);
 	const [loading, setLoading] = useState(true);
+	const [refreshing, setRefreshing] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [editing, setEditing] = useState(false);
 	const [editTitle, setEditTitle] = useState('');
@@ -59,6 +60,7 @@ export default function CollectionDetailScreen({api, id, onOpenPlace, onOpenEven
 			setError(e instanceof Error ? e.message : 'Подборка недоступна');
 		} finally {
 			setLoading(false);
+			setRefreshing(false);
 		}
 	}, [api, id]);
 
@@ -191,6 +193,16 @@ export default function CollectionDetailScreen({api, id, onOpenPlace, onOpenEven
 						data={collection.items}
 						keyExtractor={(i: BerxCollectionItem) => `${i.item_type}-${i.item_guid}`}
 						contentContainerStyle={styles.list}
+						refreshControl={
+							<RefreshControl
+								refreshing={refreshing}
+								onRefresh={() => {
+									setRefreshing(true);
+									load();
+								}}
+								tintColor={colors.accent}
+							/>
+						}
 						renderItem={({item}: {item: BerxCollectionItem}) => (
 							<Pressable style={styles.row} onPress={() => openItem(item)}>
 								{item.image_url ? <Image source={{uri: item.image_url}} style={styles.thumb} /> : <View style={styles.thumbFallback} />}

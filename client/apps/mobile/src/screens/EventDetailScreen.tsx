@@ -22,7 +22,7 @@
  * for the main Stories rail — no new viewer, no duplicated logic.
  */
 import {useCallback, useEffect, useState} from 'react';
-import {View, Text, ScrollView, Image, FlatList, Pressable, StyleSheet} from 'react-native';
+import {View, Text, ScrollView, Image, FlatList, Pressable, RefreshControl, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxEvent, BerxEventAttendee, BerxExperienceGraphFriend, BerxEventStoryItem, BerxStoryFeedGroup} from '@berx/api/types';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
@@ -64,6 +64,7 @@ export default function EventDetailScreen({api, guid, myGuid, onOpenPlace, onOpe
 	const [event, setEvent] = useState<BerxEvent | null>(null);
 	const [attendees, setAttendees] = useState<BerxEventAttendee[]>([]);
 	const [loading, setLoading] = useState(true);
+	const [refreshing, setRefreshing] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [rsvping, setRsvping] = useState(false);
 	const [rsvpError, setRsvpError] = useState<string | null>(null);
@@ -86,6 +87,7 @@ export default function EventDetailScreen({api, guid, myGuid, onOpenPlace, onOpe
 			setError(e2 instanceof Error ? e2.message : 'Не удалось загрузить событие');
 		} finally {
 			setLoading(false);
+			setRefreshing(false);
 		}
 	}, [api, guid]);
 
@@ -122,7 +124,18 @@ export default function EventDetailScreen({api, guid, myGuid, onOpenPlace, onOpe
 	const rsvpDisabled = event.has_ended || (event.seats_left === 0 && !event.is_going);
 
 	return (
-		<ScrollView style={styles.screen}>
+		<ScrollView
+			style={styles.screen}
+			refreshControl={
+				<RefreshControl
+					refreshing={refreshing}
+					onRefresh={() => {
+						setRefreshing(true);
+						load();
+					}}
+					tintColor={colors.accent}
+				/>
+			}>
 			<BerxHeader title={event.title} onBack={onBack} />
 			<View style={styles.hero}>
 				{event.cover_url ? (
