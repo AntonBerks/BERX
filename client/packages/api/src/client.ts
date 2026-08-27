@@ -284,9 +284,16 @@ export class BerxApiClient {
 		return this.request<BerxFeedResponse>(`/feed?limit=${limit}&offset=${offset}`);
 	}
 
-	/** visibility defaults to public server-side when omitted — every pre-existing post stays exactly as visible as it always was. */
-	async createPost(text: string, visibility?: BerxPostVisibility): Promise<{guid: number}> {
-		return this.request<{guid: number}>('/posts', {method: 'POST', body: {text, ...(visibility ? {visibility} : {})}});
+	/**
+	 * visibility defaults to public server-side when omitted — every
+	 * pre-existing post stays exactly as visible as it always was.
+	 * MAX BUILD — `repostOf` (real original post guid, re-verified
+	 * viewable server-side) makes this a real Repost; `text` may be
+	 * empty only when repostOf is set ("just share, no comment") — the
+	 * server enforces this exactly, not a client-side guess.
+	 */
+	async createPost(text: string, visibility?: BerxPostVisibility, repostOf?: number): Promise<{guid: number}> {
+		return this.request<{guid: number}>('/posts', {method: 'POST', body: {text, ...(visibility ? {visibility} : {}), ...(repostOf ? {repost_of: String(repostOf)} : {})}});
 	}
 
 	async getPost(id: number): Promise<BerxPostDetail> {

@@ -31,10 +31,12 @@ interface Props {
 	myGuid?: number;
 	onOpenProfile: (username: string) => void;
 	onReport: (targetType: 'post' | 'comment', targetGuid: number) => void;
+	/** MAX BUILD — real Repost (see posts.php's own comment on berx_repost_of). */
+	onRepost?: (target: {guid: number; text: string; owner_username: string | null}) => void;
 	onBack: () => void;
 }
 
-export default function PostDetailScreen({api, postGuid, myGuid, onOpenProfile, onReport, onBack}: Props) {
+export default function PostDetailScreen({api, postGuid, myGuid, onOpenProfile, onReport, onRepost, onBack}: Props) {
 	const [post, setPost] = useState<BerxPostDetail | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
@@ -231,8 +233,23 @@ export default function PostDetailScreen({api, postGuid, myGuid, onOpenProfile, 
 				<Pressable onPress={() => post.owner_username && onOpenProfile(post.owner_username)} disabled={!post.owner_username}>
 					<Text style={styles.author}>{post.owner_username ?? 'BERX'}</Text>
 				</Pressable>
-				<Text style={styles.text}>{post.text}</Text>
+				{post.text ? <Text style={styles.text}>{post.text}</Text> : null}
 				<Text style={styles.time}>{relativeTimeLabel(post.time_created)}{post.like_count > 0 ? ` · ${post.like_count} нравится` : ''}</Text>
+
+				{post.repost_of ? (
+					post.reposted_post ? (
+						<Pressable onPress={() => post.reposted_post!.owner_username && onOpenProfile(post.reposted_post!.owner_username)}>
+							<View style={styles.repostBlock}>
+								<Text style={styles.repostAuthor}>{post.reposted_post.owner_username ?? 'BERX'}</Text>
+								<Text style={styles.repostText} numberOfLines={6}>{post.reposted_post.text}</Text>
+							</View>
+						</Pressable>
+					) : (
+						<View style={styles.repostBlock}>
+							<Text style={styles.repostGone}>Исходный пост больше недоступен</Text>
+						</View>
+					)
+				) : null}
 
 				{media.length > 0 ? (
 					<View style={styles.mediaWrap}>
@@ -269,6 +286,13 @@ export default function PostDetailScreen({api, postGuid, myGuid, onOpenProfile, 
 						onPress={toggleSave}
 						loading={saving}
 					/>
+					{onRepost && !post.repost_of ? (
+						<BerxButton
+							label="Репост"
+							variant="secondary"
+							onPress={() => onRepost({guid: post.guid, text: post.text, owner_username: post.owner_username})}
+						/>
+					) : null}
 				</View>
 
 				{/* Reporting your own post makes no sense — same real-target-only rule ReportScreen documents for dating/post/comment/user/group. */}
@@ -339,6 +363,10 @@ const styles = StyleSheet.create({
 	container: {flex: 1, padding: spacing.lg, gap: spacing.md},
 	author: {color: colors.accent, fontWeight: typography.weightMedium, fontSize: typography.sizeLg},
 	text: {color: colors.text, fontSize: typography.sizeBase, lineHeight: typography.sizeBase * typography.lineHeightBase},
+	repostBlock: {backgroundColor: colors.glass1, borderRadius: radius.md, padding: spacing.md, borderWidth: 1, borderColor: colors.borderSoft, gap: 4, marginTop: spacing.sm},
+	repostAuthor: {color: colors.accent, fontSize: typography.sizeSm, fontWeight: typography.weightMedium},
+	repostText: {color: colors.textDim, fontSize: typography.sizeSm},
+	repostGone: {color: colors.textFaint, fontSize: typography.sizeSm, fontStyle: 'italic'},
 	mediaWrap: {borderRadius: radius.md, overflow: 'hidden'},
 	mediaHint: {fontSize: typography.sizeXs, color: colors.textFaint, textAlign: 'center', marginTop: spacing.xs},
 	actions: {flexDirection: 'row', gap: spacing.sm},

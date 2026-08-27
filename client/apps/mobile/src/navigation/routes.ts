@@ -122,8 +122,8 @@ export interface BerxRouteParams {
 	Register: undefined;
 	Home: undefined;
 	PostDetail: { postGuid: number };
-	/** MAX BUILD — optional real draft to prefill (see MyDraftsScreen.tsx). */
-	CreatePost: {draft?: {id: number; text: string; visibility: string}} | undefined;
+	/** MAX BUILD — optional real draft to prefill (see MyDraftsScreen.tsx) or a real Repost target (see posts.php's own comment on berx_repost_of). */
+	CreatePost: {draft?: {id: number; text: string; visibility: string}; repostTarget?: {guid: number; text: string; owner_username: string | null}} | undefined;
 	Profile: { username?: string };
 	Search: undefined;
 	Messages: undefined;

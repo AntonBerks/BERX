@@ -595,5 +595,10 @@ function ossn_api_post_base_json($post) {
 		'owner_guid'     => intval($post->owner_guid),
 		'owner_username' => $owner ? (string) $owner->username : null,
 		'time_created'   => intval($post->time_created),
+		// MAX BUILD — real Repost pointer (see posts.php's own comment
+		// on berx_repost_of). Read back the same flattened-onto-$post
+		// way berx_visibility already is (OssnCircles::canViewPost()'s
+		// own header confirms this access pattern is real).
+		'repost_of'      => isset($post->berx_repost_of) && $post->berx_repost_of ? intval($post->berx_repost_of) : null,
 	);
 }

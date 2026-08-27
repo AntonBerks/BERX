@@ -197,6 +197,7 @@ function RouteRenderer({name, params}: {name: BerxRouteName; params: unknown}) {
 					myGuid={authState.getSnapshot().user?.guid}
 					onOpenProfile={openProfile}
 					onReport={(targetType, targetGuid) => nav.push('Report', {targetType, targetGuid})}
+					onRepost={(target) => nav.push('CreatePost', {repostTarget: target})}
 					onBack={nav.pop}
 				/>
 			);
@@ -388,7 +389,7 @@ function RouteRenderer({name, params}: {name: BerxRouteName; params: unknown}) {
 				/>
 			);
 		case 'CreatePost': {
-			const p = params as {draft?: {id: number; text: string; visibility: string}} | undefined;
+			const p = params as {draft?: {id: number; text: string; visibility: string}; repostTarget?: {guid: number; text: string; owner_username: string | null}} | undefined;
 			return (
 				<CreatePostScreen
 					api={api}
@@ -401,6 +402,7 @@ function RouteRenderer({name, params}: {name: BerxRouteName; params: unknown}) {
 					onCreated={(guid) => nav.push('PostDetail', {postGuid: guid})}
 					draft={p?.draft as {id: number; text: string; visibility: BerxPostVisibility} | undefined}
 					onOpenDrafts={() => nav.push('MyDrafts', undefined)}
+					repostTarget={p?.repostTarget}
 				/>
 			);
 		}

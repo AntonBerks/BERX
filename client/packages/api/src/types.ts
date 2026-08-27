@@ -35,6 +35,8 @@ export interface BerxFeedItem {
 	owner_guid: number;
 	owner_username: string | null;
 	time_created: number;
+	/** MAX BUILD — real Repost pointer (see posts.php's own comment on berx_repost_of). No embedded original on feed items — same N+1-avoidance reasoning as like_count/comment_count (feed.php's own comment); the full preview only renders on PostDetailScreen. */
+	repost_of: number | null;
 }
 
 /**
@@ -70,6 +72,9 @@ export interface BerxPostDetail {
 	is_liked: boolean;
 	/** MAX BUILD — real Pinned Post, owner-scoped (never per-viewer, unlike is_saved/is_liked) — see components/OssnApi/v1/posts.php's own header. */
 	is_pinned: boolean;
+	/** MAX BUILD — real Repost (see posts.php's own comment on berx_repost_of). `reposted_post` is re-verified block/visibility on every read — null if the original was deleted or is no longer viewable, even when repost_of itself is still set. */
+	repost_of: number | null;
+	reposted_post: BerxFeedItem | null;
 }
 
 export interface BerxConversationSummary {

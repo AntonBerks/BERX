@@ -59,6 +59,19 @@ function ossn_api_post_detail_json($post, $viewerGuid) {
 	// real backend one; this closes it honestly rather than leaving a
 	// stale disclosed limitation once the real mechanism was found.
 	$base['is_liked'] = $viewerGuid ? (bool) $likes->isLiked($post->guid, intval($viewerGuid), 'post') : false;
+	// MAX BUILD — real embedded original for a repost. Re-verified on
+	// every read (deleted/blocked/visibility-narrowed since the repost
+	// was made) — a stale repost pointer must never leak an original
+	// the viewer shouldn't see; honestly null instead, same discipline
+	// as /posts/saved and /posts/pinned above.
+	$base['reposted_post'] = null;
+	if ($base['repost_of']) {
+		$originalWall = new OssnWall();
+		$original = $originalWall->GetPost($base['repost_of']);
+		if ($original && !ossn_api_is_blocked($viewerGuid, $original->owner_guid) && (new OssnCircles())->canViewPost($original, $viewerGuid)) {
+			$base['reposted_post'] = ossn_api_post_base_json($original);
+		}
+	}
 	return $base;
 }
 
@@ -180,7 +193,11 @@ if ($segment0 === 'saved' && $segment1 === null && $method === 'GET') {
 
 if ($segment0 === null && $method === 'POST') {
 	$text = input('text');
-	if (!$text) {
+	// MAX BUILD — a real repost may carry no added commentary at all
+	// ("just share") — text is only required for a normal post; the
+	// repost_of validation below (which requires text OR a real,
+	// viewable original) enforces the actual constraint.
+	if (!$text && !input('repost_of')) {
 		ossn_api_error('validation_error', 'text is required', 422);
 	}
 	$visibility = input('visibility');
@@ -200,13 +217,38 @@ if ($segment0 === null && $method === 'POST') {
 		ossn_api_error('validation_error', 'Invalid visibility', 422);
 	}
 
+	// MAX BUILD — real Repost: same real OssnObject arbitrary-metadata
+	// mechanism berx_visibility already established (confirmed real by
+	// reading OssnObject::addObject()/getObjectById() before writing
+	// this file's own berx_visibility support) — a repost is a real new
+	// post row with a real pointer to the original, not a duplicated
+	// copy of its text/media.
+	$repostOfGuid = null;
+	$repostOfInput = input('repost_of');
+	if ($repostOfInput && is_numeric($repostOfInput)) {
+		$originalWall = new OssnWall();
+		$original = $originalWall->GetPost(intval($repostOfInput));
+		if (!$original || ossn_api_is_blocked($api_user_guid, $original->owner_guid) || !(new OssnCircles())->canViewPost($original, $api_user_guid)) {
+			ossn_api_error('not_found', 'Original post not found', 404);
+		}
+		$repostOfGuid = intval($original->guid);
+	}
+
 	$wall = new OssnWall();
 	$wall->owner_guid  = intval($api_user_guid);
 	$wall->poster_guid = intval($api_user_guid);
 	$wall->type        = 'user';
 	$wall->data = new stdClass();
 	$wall->data->berx_visibility = $visibility;
-	$guid = $wall->Post($text);
+	if ($repostOfGuid) {
+		$wall->data->berx_repost_of = $repostOfGuid;
+	}
+	// OssnWall::Post() only accepts a real string with strlen()>0 OR a
+	// literal null (its own real no-self-text branch, e.g. item_guid
+	// posts) — a bare empty string hits neither and silently fails to
+	// post. A no-commentary repost must pass null, not '', confirmed by
+	// reading Post() itself before writing this, not assumed.
+	$guid = $wall->Post($text !== '' ? $text : null);
 	if (!$guid) {
 		ossn_api_error('create_failed', 'Could not create post', 500);
 	}

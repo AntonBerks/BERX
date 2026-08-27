@@ -26,9 +26,11 @@ interface Props {
 	/** Real prefill from a saved draft (Max Build) — see MyDraftsScreen.tsx. Only text/visibility restore; a picked-but-unattached photo was never part of a draft's real saved state. */
 	draft?: {id: number; text: string; visibility: BerxPostVisibility};
 	onOpenDrafts?: () => void;
+	/** MAX BUILD — real Repost target (see posts.php's own comment on berx_repost_of). */
+	repostTarget?: {guid: number; text: string; owner_username: string | null};
 }
 
-export default function CreatePostScreen({api, pickImage, onCreated, draft, onOpenDrafts}: Props) {
+export default function CreatePostScreen({api, pickImage, onCreated, draft, onOpenDrafts, repostTarget}: Props) {
 	const [text, setText] = useState(draft?.text ?? '');
 	const [pickedPart, setPickedPart] = useState<BerxFilePart | null>(null);
 	const [previewUri, setPreviewUri] = useState<string | null>(null);
@@ -63,7 +65,7 @@ export default function CreatePostScreen({api, pickImage, onCreated, draft, onOp
 
 	async function handlePost() {
 		const trimmed = text.trim();
-		if (!trimmed && !pickedPart) return;
+		if (!trimmed && !pickedPart && !repostTarget) return;
 		setPosting(true);
 		setError(null);
 		try {
@@ -74,7 +76,7 @@ export default function CreatePostScreen({api, pickImage, onCreated, draft, onOp
 				const asset = await api.uploadMedia(pickedPart, 'post-photo.jpg');
 				mediaGuid = asset.guid;
 			}
-			const res = await api.createPost(trimmed, visibility !== 'public' ? visibility : undefined);
+			const res = await api.createPost(trimmed, visibility !== 'public' ? visibility : undefined, repostTarget?.guid);
 			if (mediaGuid !== null) {
 				// Best-effort attach — the post itself already succeeded;
 				// a failed attach shouldn't roll back a real, published post.
@@ -116,13 +118,20 @@ export default function CreatePostScreen({api, pickImage, onCreated, draft, onOp
 	return (
 		<View style={styles.screen}>
 			<View style={styles.titleRow}>
-				<Text style={styles.title}>Новый пост</Text>
+				<Text style={styles.title}>{repostTarget ? 'Репост' : 'Новый пост'}</Text>
 				{onOpenDrafts ? (
 					<Pressable onPress={onOpenDrafts} hitSlop={8}>
 						<Text style={styles.draftsLink}>Черновики</Text>
 					</Pressable>
 				) : null}
 			</View>
+
+			{repostTarget ? (
+				<View style={styles.repostPreview}>
+					<Text style={styles.repostPreviewLabel}>Репост от {repostTarget.owner_username ?? 'BERX'}</Text>
+					<Text style={styles.repostPreviewText} numberOfLines={4}>{repostTarget.text}</Text>
+				</View>
+			) : null}
 			<BerxInput
 				placeholder="О чём думаете?"
 				value={text}
@@ -162,7 +171,7 @@ export default function CreatePostScreen({api, pickImage, onCreated, draft, onOp
 			</View>
 
 			{error ? <Text style={styles.error}>{error}</Text> : null}
-			<BerxButton label="Опубликовать" onPress={handlePost} loading={posting} disabled={!text.trim() && !pickedPart} fullWidth />
+			<BerxButton label="Опубликовать" onPress={handlePost} loading={posting} disabled={!text.trim() && !pickedPart && !repostTarget} fullWidth />
 			<BerxButton label={draft ? 'Обновить черновик' : 'Сохранить черновик'} variant="secondary" onPress={handleSaveDraft} loading={savingDraft} disabled={!text.trim()} fullWidth />
 			{draftStatus ? <Text style={styles.draftStatus}>{draftStatus}</Text> : null}
 		</View>
@@ -175,6 +184,9 @@ const styles = StyleSheet.create({
 	title: {color: colors.text, fontSize: typography.sizeXl, fontWeight: typography.weightBold},
 	draftsLink: {color: colors.accent, fontSize: typography.sizeSm, fontWeight: typography.weightMedium},
 	draftStatus: {color: colors.textDim, fontSize: typography.sizeSm, textAlign: 'center'},
+	repostPreview: {backgroundColor: colors.glass1, borderRadius: radius.md, padding: spacing.md, borderWidth: 1, borderColor: colors.borderSoft, gap: 4},
+	repostPreviewLabel: {fontSize: typography.sizeXs, color: colors.accent, fontWeight: typography.weightBold, textTransform: 'uppercase'},
+	repostPreviewText: {fontSize: typography.sizeSm, color: colors.textDim},
 	input: {minHeight: 120, textAlignVertical: 'top'},
 	previewWrap: {alignSelf: 'flex-start'},
 	preview: {width: 96, height: 96, borderRadius: radius.md, backgroundColor: colors.graphite},
