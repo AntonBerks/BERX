@@ -220,9 +220,10 @@ class OssnStories extends OssnDatabase {
 		));
 	}
 
+	/** MAX BUILD -- real fix, same class of bug found/fixed elsewhere this session: ossn_isAdminLoggedin() reads $_SESSION, never populated for a bearer-token API request. */
 	public function deleteStory($id, $actingGuid) {
 		$story = $this->get($id);
-		if (!$story || (intval($story->owner_guid) !== intval($actingGuid) && !ossn_isAdminLoggedin())) {
+		if (!$story || (intval($story->owner_guid) !== intval($actingGuid) && !ossn_api_is_admin($actingGuid))) {
 			return false;
 		}
 		$path = $this->storagePath($story);

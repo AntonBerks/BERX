@@ -197,11 +197,12 @@ class OssnEvents extends OssnObject {
 
 	/* ---------------- Update / delete ---------------- */
 
+	/** MAX BUILD -- real fix, same class of bug found/fixed elsewhere this session: ossn_isAdminLoggedin() reads $_SESSION, never populated for a bearer-token API request. */
 	public function canEditEvent($event, $actingGuid) {
 		if (!$event || !$actingGuid) {
 			return false;
 		}
-		if (ossn_isAdminLoggedin()) {
+		if (ossn_api_is_admin($actingGuid)) {
 			return true;
 		}
 		return intval($event->owner_guid) === intval($actingGuid);

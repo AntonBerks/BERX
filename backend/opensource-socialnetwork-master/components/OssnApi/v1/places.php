@@ -311,7 +311,7 @@ if ($segment0 !== null && is_numeric($segment0) && $segment1 === 'business' && $
 }
 
 if ($segment0 !== null && is_numeric($segment0) && $segment1 === 'business' && $segment2 === 'verify' && $method === 'POST') {
-	$result = $model->setVerified($segment0, true);
+	$result = $model->setVerified($segment0, true, $api_user_guid);
 	if ($result === 'not_found') {
 		ossn_api_error('not_found', 'Place not found', 404);
 	}
@@ -322,7 +322,7 @@ if ($segment0 !== null && is_numeric($segment0) && $segment1 === 'business' && $
 }
 
 if ($segment0 !== null && is_numeric($segment0) && $segment1 === 'business' && $segment2 === 'verify' && $method === 'DELETE') {
-	$result = $model->setVerified($segment0, false);
+	$result = $model->setVerified($segment0, false, $api_user_guid);
 	if ($result === 'not_found') {
 		ossn_api_error('not_found', 'Place not found', 404);
 	}

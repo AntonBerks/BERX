@@ -109,6 +109,11 @@ class OssnCollections extends OssnDatabase {
 		/**
 		 * Whether $viewerGuid may READ this collection.
 		 */
+		/**
+		 * MAX BUILD -- real fix, same class of bug found/fixed elsewhere
+		 * this session: ossn_isAdminLoggedin() reads $_SESSION, never
+		 * populated for a bearer-token API request.
+		 */
 		public function canView($collection, $viewerGuid) {
 				if (!$collection) {
 						return false;
@@ -116,7 +121,7 @@ class OssnCollections extends OssnDatabase {
 				if (intval($collection->visibility) === self::VISIBILITY_PUBLIC) {
 						return true;
 				}
-				if (ossn_isAdminLoggedin()) {
+				if (ossn_api_is_admin($viewerGuid)) {
 						return true;
 				}
 				return intval($collection->owner_guid) === intval($viewerGuid);
@@ -130,7 +135,7 @@ class OssnCollections extends OssnDatabase {
 				if (!$collection || !$actingGuid) {
 						return false;
 				}
-				if (ossn_isAdminLoggedin()) {
+				if (ossn_api_is_admin($actingGuid)) {
 						return true;
 				}
 				return intval($collection->owner_guid) === intval($actingGuid);
@@ -149,7 +154,7 @@ class OssnCollections extends OssnDatabase {
 				// Someone viewing another user's collections only ever sees
 				// public ones — enforced in the QUERY, not by filtering a
 				// fuller result set in PHP afterwards.
-				if (intval($viewerGuid) !== $ownerGuid && !ossn_isAdminLoggedin()) {
+				if (intval($viewerGuid) !== $ownerGuid && !ossn_api_is_admin($viewerGuid)) {
 						$wheres[] = self::wheres('visibility', '=', self::VISIBILITY_PUBLIC);
 				}
 				$rows = $this->select(array(

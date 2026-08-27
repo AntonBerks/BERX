@@ -39,7 +39,7 @@ class OssnCreator extends OssnDatabase {
 		 */
 		public function enable($userGuid, $actingGuid, $category = null, $bio = '') {
 				$userGuid = intval($userGuid);
-				if (!$userGuid || (intval($actingGuid) !== $userGuid && !ossn_isAdminLoggedin())) {
+				if (!$userGuid || (intval($actingGuid) !== $userGuid && !ossn_api_is_admin($actingGuid))) {
 						return false;
 				}
 				if ($this->isCreator($userGuid)) {
@@ -55,7 +55,7 @@ class OssnCreator extends OssnDatabase {
 
 		public function disable($userGuid, $actingGuid) {
 				$userGuid = intval($userGuid);
-				if (!$userGuid || (intval($actingGuid) !== $userGuid && !ossn_isAdminLoggedin())) {
+				if (!$userGuid || (intval($actingGuid) !== $userGuid && !ossn_api_is_admin($actingGuid))) {
 						return false;
 				}
 				return $this->delete(array(
@@ -66,7 +66,7 @@ class OssnCreator extends OssnDatabase {
 
 		public function update($userGuid, $actingGuid, array $fields) {
 				$userGuid = intval($userGuid);
-				if (!$userGuid || (intval($actingGuid) !== $userGuid && !ossn_isAdminLoggedin())) {
+				if (!$userGuid || (intval($actingGuid) !== $userGuid && !ossn_api_is_admin($actingGuid))) {
 						return false;
 				}
 				if (!$this->isCreator($userGuid)) {

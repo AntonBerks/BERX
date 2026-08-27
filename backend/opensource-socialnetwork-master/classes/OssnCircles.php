@@ -53,12 +53,19 @@ class OssnCircles extends OssnDatabase {
 				return $row ? $row : false;
 		}
 
-		/** Strictly owner-or-admin — no read/write distinction, unlike Collections. */
+		/**
+		 * Strictly owner-or-admin — no read/write distinction, unlike
+		 * Collections.
+		 *
+		 * MAX BUILD -- real fix, same class of bug found/fixed elsewhere
+		 * this session: ossn_isAdminLoggedin() reads $_SESSION, never
+		 * populated for a bearer-token API request.
+		 */
 		public function canAccess($circle, $actingGuid) {
 				if (!$circle || !$actingGuid) {
 						return false;
 				}
-				if (ossn_isAdminLoggedin()) {
+				if (ossn_api_is_admin($actingGuid)) {
 						return true;
 				}
 				return intval($circle->owner_guid) === intval($actingGuid);
@@ -222,7 +229,9 @@ class OssnCircles extends OssnDatabase {
 				if (intval($post->owner_guid) === intval($viewerGuid)) {
 						return true;
 				}
-				if (ossn_isAdminLoggedin()) {
+				// MAX BUILD -- real fix, same class of bug found/fixed
+				// elsewhere this session.
+				if (ossn_api_is_admin($viewerGuid)) {
 						return true;
 				}
 				$visibility = (isset($post->berx_visibility) && $post->berx_visibility !== '') ? (string) $post->berx_visibility : self::VISIBILITY_PUBLIC;

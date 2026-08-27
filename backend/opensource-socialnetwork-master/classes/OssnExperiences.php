@@ -115,6 +115,12 @@ class OssnExperiences extends OssnDatabase {
 				return $row ? $row->status : null;
 		}
 
+		/**
+		 * MAX BUILD -- real fix, same class of bug already found/fixed
+		 * across OssnBusiness/OssnPlaces/admin.php/report.php/etc. this
+		 * session: ossn_isAdminLoggedin() reads $_SESSION, which no
+		 * bearer-token API request ever populates.
+		 */
 		public function canView($experience, $viewerGuid) {
 				if (!$experience) {
 						return false;
@@ -122,7 +128,7 @@ class OssnExperiences extends OssnDatabase {
 				if (intval($experience->visibility) === self::VISIBILITY_PUBLIC) {
 						return true;
 				}
-				if (ossn_isAdminLoggedin()) {
+				if (ossn_api_is_admin($viewerGuid)) {
 						return true;
 				}
 				if (intval($experience->owner_guid) === intval($viewerGuid)) {
@@ -136,7 +142,7 @@ class OssnExperiences extends OssnDatabase {
 				if (!$experience || !$actingGuid) {
 						return false;
 				}
-				if (ossn_isAdminLoggedin()) {
+				if (ossn_api_is_admin($actingGuid)) {
 						return true;
 				}
 				return intval($experience->owner_guid) === intval($actingGuid);
@@ -148,7 +154,7 @@ class OssnExperiences extends OssnDatabase {
 						return array();
 				}
 				$wheres = array(self::wheres('owner_guid', '=', $ownerGuid));
-				if (intval($viewerGuid) !== $ownerGuid && !ossn_isAdminLoggedin()) {
+				if (intval($viewerGuid) !== $ownerGuid && !ossn_api_is_admin($viewerGuid)) {
 						$wheres[] = self::wheres('visibility', '=', self::VISIBILITY_PUBLIC);
 				}
 				$rows = $this->select(array(

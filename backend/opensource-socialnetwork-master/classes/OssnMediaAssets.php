@@ -58,12 +58,21 @@ class OssnMediaAssets extends OssnDatabase {
 				return $row ? $row : false;
 		}
 
-		/** Honest, simple scope: owner or admin only. No independent asset-level privacy model exists yet — attaching to content with its own visibility rules is a separate future step, not invented here. */
+		/**
+		 * Honest, simple scope: owner or admin only. No independent
+		 * asset-level privacy model exists yet — attaching to content
+		 * with its own visibility rules is a separate future step, not
+		 * invented here.
+		 *
+		 * MAX BUILD -- real fix, same class of bug found/fixed elsewhere
+		 * this session: ossn_isAdminLoggedin() reads $_SESSION, never
+		 * populated for a bearer-token API request.
+		 */
 		public function canAccess($asset, $viewerGuid) {
 				if (!$asset) {
 						return false;
 				}
-				if (ossn_isAdminLoggedin()) {
+				if (ossn_api_is_admin($viewerGuid)) {
 						return true;
 				}
 				return intval($asset->owner_guid) === intval($viewerGuid);

@@ -134,7 +134,11 @@ class OssnPlaces extends OssnObject {
 		if (!$place || !$actingGuid) {
 			return false;
 		}
-		if (ossn_isAdminLoggedin()) {
+		// MAX BUILD -- same real fix as setVerified() above: the real
+		// owner/team checks below still worked (this admin override was
+		// only ever an OR branch), but an actual admin trying to edit
+		// someone else's place always silently failed via the API.
+		if (ossn_api_is_admin($actingGuid)) {
 			return true;
 		}
 		if (intval($place->owner_guid) === intval($actingGuid)) {
@@ -484,8 +488,18 @@ class OssnPlaces extends OssnObject {
 	}
 
 	/** Admin-only — enforced here, not just left to the caller. @return string 'ok'|'not_found'|'forbidden' */
-	public function setVerified($guid, $verified) {
-		if (!ossn_isAdminLoggedin()) {
+	/**
+	 * MAX BUILD -- real fix, same class of bug already found/fixed
+	 * across a dozen other call sites this session: ossn_isAdminLoggedin()
+	 * reads $_SESSION, which no bearer-token API request ever
+	 * populates. This is a pure admin-only gate with no owner fallback,
+	 * so verifyBusiness()/unverifyBusiness() were 100% non-functional
+	 * via the app for every caller, admin included, until $actingGuid
+	 * was added here and checked with the real, session-free
+	 * ossn_api_is_admin().
+	 */
+	public function setVerified($guid, $verified, $actingGuid) {
+		if (!ossn_api_is_admin($actingGuid)) {
 			return 'forbidden';
 		}
 		$place = $this->getPlace($guid);
