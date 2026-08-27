@@ -22,7 +22,7 @@
  * fixed to ossn_api_is_admin($adminGuid).
  */
 import {useCallback, useEffect, useState} from 'react';
-import {View, Text, FlatList, StyleSheet} from 'react-native';
+import {View, Text, FlatList, RefreshControl, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxPlaceClaim} from '@berx/api/types';
 import {relativeTimeLabel} from '@berx/domain';
@@ -41,6 +41,7 @@ interface Props {
 export default function AdminPlaceClaimsScreen({api, onOpenPlace, onBack}: Props) {
 	const [items, setItems] = useState<BerxPlaceClaim[]>([]);
 	const [loading, setLoading] = useState(true);
+	const [refreshing, setRefreshing] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [busyId, setBusyId] = useState<number | null>(null);
 
@@ -54,6 +55,7 @@ export default function AdminPlaceClaimsScreen({api, onOpenPlace, onBack}: Props
 			setError(e instanceof Error ? e.message : 'Не удалось загрузить заявки');
 		} finally {
 			setLoading(false);
+			setRefreshing(false);
 		}
 	}, [api]);
 
@@ -99,6 +101,16 @@ export default function AdminPlaceClaimsScreen({api, onOpenPlace, onBack}: Props
 						data={items}
 						keyExtractor={(c: BerxPlaceClaim) => String(c.id)}
 						contentContainerStyle={styles.list}
+						refreshControl={
+							<RefreshControl
+								refreshing={refreshing}
+								onRefresh={() => {
+									setRefreshing(true);
+									load();
+								}}
+								tintColor={colors.accent}
+							/>
+						}
 						renderItem={({item}: {item: BerxPlaceClaim}) => (
 							<View style={styles.card}>
 								<Text style={styles.target} onPress={onOpenPlace ? () => onOpenPlace(item.place_guid) : undefined}>

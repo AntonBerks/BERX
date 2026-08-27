@@ -7,7 +7,7 @@
  * Owner/admin only, enforced server-side.
  */
 import {useCallback, useEffect, useState} from 'react';
-import {View, Text, FlatList, Image, StyleSheet} from 'react-native';
+import {View, Text, FlatList, Image, RefreshControl, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxGroupModerator} from '@berx/api/types';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
@@ -25,6 +25,7 @@ interface Props {
 export default function CommunityModeratorsScreen({api, guid, onBack}: Props) {
 	const [items, setItems] = useState<BerxGroupModerator[]>([]);
 	const [loading, setLoading] = useState(true);
+	const [refreshing, setRefreshing] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [busyGuid, setBusyGuid] = useState<number | null>(null);
 
@@ -38,6 +39,7 @@ export default function CommunityModeratorsScreen({api, guid, onBack}: Props) {
 			setError(e instanceof Error ? e.message : 'Не удалось загрузить список модераторов');
 		} finally {
 			setLoading(false);
+			setRefreshing(false);
 		}
 	}, [api, guid]);
 
@@ -71,6 +73,16 @@ export default function CommunityModeratorsScreen({api, guid, onBack}: Props) {
 						data={items}
 						keyExtractor={(m: BerxGroupModerator) => String(m.guid)}
 						contentContainerStyle={styles.list}
+						refreshControl={
+							<RefreshControl
+								refreshing={refreshing}
+								onRefresh={() => {
+									setRefreshing(true);
+									load();
+								}}
+								tintColor={colors.accent}
+							/>
+						}
 						renderItem={({item}: {item: BerxGroupModerator}) => (
 							<View style={styles.row}>
 								<Image source={{uri: item.icon}} style={styles.avatar} />

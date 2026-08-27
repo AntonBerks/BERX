@@ -8,7 +8,7 @@
  * logins only, honestly, not a fabricated "this device" entry.
  */
 import {useCallback, useEffect, useState} from 'react';
-import {View, Text, FlatList, StyleSheet} from 'react-native';
+import {View, Text, FlatList, RefreshControl, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxSession} from '@berx/api/types';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
@@ -30,6 +30,7 @@ function fmtTime(unix: number | null): string {
 export default function DeviceSessionsScreen({api, onBack}: Props) {
 	const [items, setItems] = useState<BerxSession[]>([]);
 	const [loading, setLoading] = useState(true);
+	const [refreshing, setRefreshing] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [busyId, setBusyId] = useState<number | null>(null);
 
@@ -43,6 +44,7 @@ export default function DeviceSessionsScreen({api, onBack}: Props) {
 			setError(e instanceof Error ? e.message : 'Не удалось загрузить устройства');
 		} finally {
 			setLoading(false);
+			setRefreshing(false);
 		}
 	}, [api]);
 
@@ -76,6 +78,16 @@ export default function DeviceSessionsScreen({api, onBack}: Props) {
 						data={items}
 						keyExtractor={(s: BerxSession) => String(s.id)}
 						contentContainerStyle={styles.list}
+						refreshControl={
+							<RefreshControl
+								refreshing={refreshing}
+								onRefresh={() => {
+									setRefreshing(true);
+									load();
+								}}
+								tintColor={colors.accent}
+							/>
+						}
 						renderItem={({item}: {item: BerxSession}) => (
 							<View style={styles.row}>
 								<View style={styles.info}>

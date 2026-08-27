@@ -5,7 +5,7 @@
  * with zero UI caller.
  */
 import {useCallback, useEffect, useState} from 'react';
-import {View, Text, FlatList, Pressable, StyleSheet} from 'react-native';
+import {View, Text, FlatList, Pressable, RefreshControl, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxPlaceClaim, BerxClaimStatus} from '@berx/api/types';
 import {relativeTimeLabel} from '@berx/domain';
@@ -29,6 +29,7 @@ const STATUS_LABEL: Record<BerxClaimStatus, string> = {
 export default function MyPlaceClaimsScreen({api, onOpenPlace, onBack}: Props) {
 	const [items, setItems] = useState<BerxPlaceClaim[]>([]);
 	const [loading, setLoading] = useState(true);
+	const [refreshing, setRefreshing] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
 	const load = useCallback(async () => {
@@ -41,6 +42,7 @@ export default function MyPlaceClaimsScreen({api, onOpenPlace, onBack}: Props) {
 			setError(e instanceof Error ? e.message : 'Не удалось загрузить заявки');
 		} finally {
 			setLoading(false);
+			setRefreshing(false);
 		}
 	}, [api]);
 
@@ -62,6 +64,16 @@ export default function MyPlaceClaimsScreen({api, onOpenPlace, onBack}: Props) {
 						data={items}
 						keyExtractor={(c: BerxPlaceClaim) => String(c.id)}
 						contentContainerStyle={styles.list}
+						refreshControl={
+							<RefreshControl
+								refreshing={refreshing}
+								onRefresh={() => {
+									setRefreshing(true);
+									load();
+								}}
+								tintColor={colors.accent}
+							/>
+						}
 						renderItem={({item}: {item: BerxPlaceClaim}) => (
 							<Pressable style={styles.card} onPress={() => onOpenPlace(item.place_guid)}>
 								<Text style={styles.target}>Место #{item.place_guid}</Text>
