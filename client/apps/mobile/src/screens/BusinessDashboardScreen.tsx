@@ -294,6 +294,20 @@ export default function BusinessDashboardScreen({api, placeGuid, onBack}: Props)
 					</View>
 				)}
 
+				{data.top_customer_communities.length > 0 ? (
+					<>
+						<Text style={styles.sectionTitle}>Сообщества ваших гостей</Text>
+						<View style={styles.momentsList}>
+							{data.top_customer_communities.map((c) => (
+								<View key={c.guid} style={styles.communityInsightRow}>
+									<Text style={styles.communityInsightTitle} numberOfLines={1}>{c.title}</Text>
+									<Text style={styles.communityInsightCount}>{c.customer_count}</Text>
+								</View>
+							))}
+						</View>
+					</>
+				) : null}
+
 				<Text style={styles.sectionTitle}>Moment (2 часа)</Text>
 				<View style={styles.momentForm}>
 					<BerxInput placeholder="Например: Счастливые часы до 18:00" value={momentText} onChangeText={setMomentText} />
@@ -438,6 +452,9 @@ const styles = StyleSheet.create({
 	offerExpandLink: {fontSize: typography.sizeXs, color: colors.accent, fontWeight: typography.weightMedium},
 	offerFulfilledLabel: {fontSize: typography.sizeXs, color: colors.accent},
 	redemptionRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.xs, borderTopWidth: 1, borderTopColor: colors.borderSoft},
+	communityInsightRow: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: spacing.xs, borderTopWidth: 1, borderTopColor: colors.borderSoft},
+	communityInsightTitle: {flex: 1, color: colors.white, fontSize: typography.sizeSm},
+	communityInsightCount: {color: colors.accent, fontSize: typography.sizeSm, fontWeight: typography.weightBold},
 	eventRow: {gap: 2, paddingVertical: spacing.xs, borderTopWidth: 1, borderTopColor: colors.borderSoft},
 	eventTitle: {color: colors.white, fontSize: typography.sizeSm, fontWeight: typography.weightMedium},
 	eventMeta: {color: colors.textFaint, fontSize: typography.sizeXs},

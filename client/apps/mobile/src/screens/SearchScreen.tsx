@@ -162,7 +162,10 @@ export default function SearchScreen({api, onOpenProfile, onOpenPlace, onOpenEve
 					renderItem={({item}: {item: BerxPeopleSuggestion}) => (
 						<Pressable style={styles.row} onPress={() => onOpenProfile(item.username)}>
 							<Text style={styles.fullname}>{item.fullname || item.username}</Text>
-							<Text style={styles.username}>@{item.username} · {item.mutual_count} общих {item.mutual_count === 1 ? 'друг' : 'друзей'}</Text>
+							<Text style={styles.username}>
+								@{item.username} · {item.mutual_count} общих {item.mutual_count === 1 ? 'друг' : 'друзей'}
+								{item.mutual_communities_count > 0 ? ` · 👥 ${item.mutual_communities_count}` : ''}
+							</Text>
 						</Pressable>
 					)}
 				/>

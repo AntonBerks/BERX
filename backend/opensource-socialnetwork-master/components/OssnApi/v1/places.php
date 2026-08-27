@@ -354,16 +354,71 @@ if ($segment0 !== null && is_numeric($segment0) && $segment1 === 'business' && $
 	// owner-only, gated by the same canEditPlace() check above.
 	$upcomingEvents = class_exists('OssnEvents') ? (new OssnEvents())->upcomingByPlace($segment0, 10) : array();
 	$recentCheckins = $model->checkinsForPlace($segment0, 20);
+
+	// MAX BUILD -- real Business <-> Communities connection: which real
+	// communities does this business's actual customer base belong to?
+	// Real customers = everyone who ever checked in (geo-verified) or
+	// left a review here, deduped, bounded to CUSTOMER_SCAN_LIMIT. For
+	// each, a real 'group:join:approve' membership lookup, counted per
+	// community, top 5 shown. A genuine owner insight ("your regulars
+	// mostly come from these communities"), never a guessed audience.
+	$topCommunities = array();
+	if (class_exists('OssnGroup')) {
+		$customerScanLimit = 150;
+		$customerGuids = array();
+		foreach ($model->checkinsForPlace($segment0, $customerScanLimit) as $c) {
+			$customerGuids[intval($c['guid'])] = true;
+		}
+		foreach ($model->reviews($segment0, $customerScanLimit) as $r) {
+			$customerGuids[intval($r->author_guid)] = true;
+		}
+		$communityCounts = array();
+		$i = 0;
+		foreach (array_keys($customerGuids) as $customerGuid) {
+			if ($i >= $customerScanLimit) {
+				break;
+			}
+			$i++;
+			$memberships = ossn_get_relationships(array('to' => intval($customerGuid), 'type' => 'group:join:approve', 'limit' => 50, 'page_limit' => false));
+			if (!$memberships) {
+				continue;
+			}
+			foreach ($memberships as $m) {
+				$groupGuid = intval($m->relation_from);
+				$communityCounts[$groupGuid] = isset($communityCounts[$groupGuid]) ? $communityCounts[$groupGuid] + 1 : 1;
+			}
+		}
+		arsort($communityCounts);
+		$shown = 0;
+		$groupModel = new OssnGroup();
+		foreach ($communityCounts as $groupGuid => $count) {
+			if ($shown >= 5) {
+				break;
+			}
+			$group = $groupModel->getGroup($groupGuid);
+			if (!$group) {
+				continue;
+			}
+			$topCommunities[] = array(
+				'guid'            => intval($group->guid),
+				'title'           => (string) $group->title,
+				'customer_count'  => intval($count),
+			);
+			$shown++;
+		}
+	}
+
 	ossn_api_json(array(
-		'place_guid'         => intval($segment0),
-		'is_business'        => $place->is_business,
-		'verified'           => $place->verified,
-		'rating'             => $place->rating,
-		'rating_count'       => $place->rating_count,
-		'recent_reviews'     => $recentReviews,
-		'nearby_impressions' => $impressions,
-		'upcoming_events'    => $upcomingEvents,
-		'recent_checkins'    => $recentCheckins,
+		'place_guid'            => intval($segment0),
+		'is_business'           => $place->is_business,
+		'verified'              => $place->verified,
+		'rating'                => $place->rating,
+		'rating_count'          => $place->rating_count,
+		'recent_reviews'        => $recentReviews,
+		'nearby_impressions'    => $impressions,
+		'upcoming_events'       => $upcomingEvents,
+		'recent_checkins'       => $recentCheckins,
+		'top_customer_communities' => $topCommunities,
 	));
 }
 

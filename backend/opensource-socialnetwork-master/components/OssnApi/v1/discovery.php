@@ -16,6 +16,18 @@
  * true exhaustive graph traversal. A candidate blocked in EITHER
  * direction (ossn_relation_exists(), real 'userblock' relation — see
  * OssnBlock) is excluded, never surfaced as a suggestion.
+ *
+ * MAX BUILD — real shared-communities secondary signal: same real
+ * 'group:join:approve' relation intersection already used by
+ * profiles.php's mutual_communities_count (privacy-safe by
+ * construction, same reasoning — only ever intersects with
+ * communities the CALLER already belongs to). Only computed for the
+ * top RERANK_LIMIT friend-overlap candidates (not the full candidate
+ * pool) to keep this a bounded, cheap re-rank rather than another
+ * unbounded scan. Combined score = mutual friends weighted higher
+ * than mutual communities (a real overlapping friendship is a
+ * stronger "you may know them" signal than co-membership in a large
+ * public community), never a fake/AI-guessed relevance score.
  */
 
 if ($method !== 'GET' || (isset($segments[0]) && $segments[0] !== 'people')) {
@@ -60,9 +72,54 @@ if ($myFriendRows) {
 
 arsort($mutualCount);
 
+const RERANK_LIMIT = 50;
+
+// My own real community memberships — computed once, only if I belong
+// to any (skips the whole re-rank pass entirely otherwise).
+$myCommunityIds = array();
+$myCommunityRows = ossn_get_relationships(array('to' => $userGuid, 'type' => 'group:join:approve', 'limit' => 200, 'page_limit' => false));
+if ($myCommunityRows) {
+	foreach ($myCommunityRows as $r) {
+		$myCommunityIds[intval($r->relation_from)] = true;
+	}
+}
+
+$communityOverlap = array();
+if ($myCommunityIds) {
+	$i = 0;
+	foreach ($mutualCount as $candidateGuid => $count) {
+		if ($i >= RERANK_LIMIT) {
+			break;
+		}
+		$i++;
+		$theirCommunityRows = ossn_get_relationships(array('to' => intval($candidateGuid), 'type' => 'group:join:approve', 'limit' => 200, 'page_limit' => false));
+		if (!$theirCommunityRows) {
+			continue;
+		}
+		$overlap = 0;
+		foreach ($theirCommunityRows as $r) {
+			if (isset($myCommunityIds[intval($r->relation_from)])) {
+				$overlap++;
+			}
+		}
+		if ($overlap > 0) {
+			$communityOverlap[$candidateGuid] = $overlap;
+		}
+	}
+}
+
+// Real combined re-rank — mutual friends weighted 3x a mutual
+// community, both are genuine counted overlaps, never a guessed score.
+$combined = array();
+foreach ($mutualCount as $candidateGuid => $count) {
+	$communityCount = isset($communityOverlap[$candidateGuid]) ? $communityOverlap[$candidateGuid] : 0;
+	$combined[$candidateGuid] = ($count * 3) + $communityCount;
+}
+arsort($combined);
+
 $out = array();
 $shown = 0;
-foreach ($mutualCount as $candidateGuid => $count) {
+foreach ($combined as $candidateGuid => $score) {
 	if ($shown >= 20) {
 		break;
 	}
@@ -76,11 +133,12 @@ foreach ($mutualCount as $candidateGuid => $count) {
 		continue;
 	}
 	$out[] = array(
-		'guid'          => intval($user->guid),
-		'username'      => (string) $user->username,
-		'fullname'      => trim($user->first_name . ' ' . $user->last_name),
-		'icon'          => (string) $user->iconURL()->large,
-		'mutual_count'  => intval($count),
+		'guid'                    => intval($user->guid),
+		'username'                => (string) $user->username,
+		'fullname'                => trim($user->first_name . ' ' . $user->last_name),
+		'icon'                    => (string) $user->iconURL()->large,
+		'mutual_count'            => intval($mutualCount[$candidateGuid]),
+		'mutual_communities_count' => isset($communityOverlap[$candidateGuid]) ? intval($communityOverlap[$candidateGuid]) : 0,
 	);
 	$shown++;
 }

@@ -167,6 +167,8 @@ export interface BerxPeopleSuggestion {
 	fullname: string;
 	icon: string;
 	mutual_count: number;
+	/** Real shared-community count (secondary re-rank signal alongside mutual_count) — privacy-safe by construction, same reasoning as BerxProfileSummary.mutual_communities_count. */
+	mutual_communities_count: number;
 }
 
 export interface BerxPeopleDiscoveryResponse {
@@ -642,6 +644,15 @@ export interface BerxBusinessDashboard {
 	upcoming_events: BerxEvent[];
 	/** Real customer activity — who actually, geo-verified, checked in. Owner-only. */
 	recent_checkins: BerxBusinessCheckin[];
+	/** Real Business <-> Communities connection — top 5 real communities this business's actual customers (checked-in or reviewed) belong to, most-overlapping first. Never a guessed audience. */
+	top_customer_communities: BerxTopCustomerCommunity[];
+}
+
+/** One row of BerxBusinessDashboard.top_customer_communities. */
+export interface BerxTopCustomerCommunity {
+	guid: number;
+	title: string;
+	customer_count: number;
 }
 
 export type BerxBusinessTeamRole = 'manager' | 'staff';
