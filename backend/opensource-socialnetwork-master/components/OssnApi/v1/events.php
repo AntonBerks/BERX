@@ -32,6 +32,34 @@ if ($segment0 === 'categories' && $segment1 === null && $method === 'GET') {
 	ossn_api_json(array('categories' => ossn_api_place_categories()));
 }
 
+/**
+ * MAX BUILD -- real Trending Events. Same real OssnSignals
+ * ('rsvp' recorded on the real RSVP route below) engagement ranking
+ * as places.php's own GET /places/trending — see that file's own
+ * comment for the full story. A live 7-day sum, never a
+ * pre-baked/fake score; events with zero real signals in the window
+ * are left out, not shown as a fake tie.
+ */
+if ($segment0 === 'trending' && $segment1 === null && $method === 'GET') {
+	$limit = input('limit') ? max(1, min(50, intval(input('limit')))) : 10;
+	$candidates = $model->listEvents(array('past' => false, 'limit' => 100), $api_user_guid);
+	$scored = array();
+	if (class_exists('OssnSignals') && $candidates) {
+		$signals = new OssnSignals();
+		foreach ($candidates as $event) {
+			$score = $signals->engagementScore('event', intval($event->guid), 7 * 24 * 3600);
+			if ($score > 0) {
+				$event->trending_score = $score;
+				$scored[] = $event;
+			}
+		}
+		usort($scored, function ($a, $b) {
+			return $b->trending_score <=> $a->trending_score;
+		});
+	}
+	ossn_api_json(array('events' => array_slice($scored, 0, $limit)));
+}
+
 if ($segment0 === 'going' && $segment1 === null && $method === 'GET') {
 	$events = $model->goingEvents($api_user_guid, $api_user_guid);
 	// MAX BUILD — "shared activities": each of the caller's own

@@ -1661,6 +1661,11 @@ export class BerxApiClient {
 		return this.request<{categories: BerxPlaceCategory[]}>('/events/categories');
 	}
 
+	/** MAX BUILD — real Trending Events. Same real OssnSignals engagement ranking as trendingPlaces() — see places.php's own comment for the full story. */
+	async trendingEvents(limit = 10): Promise<{events: Array<BerxEvent & {trending_score: number}>}> {
+		return this.request<{events: Array<BerxEvent & {trending_score: number}>}>(`/events/trending?limit=${limit}`);
+	}
+
 	async myGoingEvents(): Promise<{events: BerxEvent[]}> {
 		return this.request<{events: BerxEvent[]}>('/events/going');
 	}

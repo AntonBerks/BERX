@@ -8,6 +8,12 @@
  * badge stays its own flat block inside it -- a real ticket-stub
  * shape, not another glass card) and the list gets a real BerxFadeIn
  * entrance.
+ *
+ * MAX BUILD — real "🔥 В тренде" rail. api.trendingEvents() wires
+ * OssnSignals (BERX Future Core) into a live 7-day engagement ranking
+ * over real RSVP activity — same real mechanism as PlacesListScreen's
+ * own trending rail. Best-effort, hidden entirely when nothing has
+ * real signals yet.
  */
 import {useCallback, useEffect, useState} from 'react';
 import {View, Text, FlatList, Pressable, RefreshControl, StyleSheet, Image} from 'react-native';
@@ -36,9 +42,11 @@ export default function EventsListScreen({api, onOpenEvent, onCreate, onOpenMine
 	const [loading, setLoading] = useState(true);
 	const [refreshing, setRefreshing] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+	const [trending, setTrending] = useState<Array<BerxEvent & {trending_score: number}>>([]);
 
 	useEffect(() => {
 		api.eventCategories().then((r) => setCategories(r.categories)).catch(() => undefined);
+		api.trendingEvents(10).then((r) => setTrending(r.events)).catch(() => undefined);
 	}, [api]);
 
 	const load = useCallback(async () => {
@@ -78,6 +86,28 @@ export default function EventsListScreen({api, onOpenEvent, onCreate, onOpenMine
 				</View>
 				<BerxButton label="Создать событие" onPress={onCreate} fullWidth />
 			</View>
+			{trending.length > 0 ? (
+				<View>
+					<Text style={styles.trendingLabel}>В тренде</Text>
+					<FlatList
+						horizontal
+						showsHorizontalScrollIndicator={false}
+						data={trending}
+						keyExtractor={(e: BerxEvent & {trending_score: number}) => `trending-${e.guid}`}
+						contentContainerStyle={styles.trendingRow}
+						renderItem={({item}: {item: BerxEvent & {trending_score: number}}) => (
+							<Pressable style={styles.trendingCard} onPress={() => onOpenEvent(item.guid)}>
+								{item.cover_url ? (
+									<Image source={{uri: item.cover_url}} style={styles.trendingImage} />
+								) : (
+									<View style={styles.trendingImageFallback} />
+								)}
+								<Text style={styles.trendingTitle} numberOfLines={1}>🔥 {item.title}</Text>
+							</Pressable>
+						)}
+					/>
+				</View>
+			) : null}
 			<FlatList
 				horizontal
 				showsHorizontalScrollIndicator={false}
@@ -146,6 +176,12 @@ const styles = StyleSheet.create({
 	tabActive: {backgroundColor: colors.accentSoft},
 	tabText: {fontSize: typography.sizeSm, color: colors.textDim, fontWeight: typography.weightMedium},
 	tabTextActive: {color: colors.accent},
+	trendingLabel: {color: colors.accent, fontSize: typography.sizeXs, fontWeight: typography.weightBold, textTransform: 'uppercase', paddingHorizontal: spacing.md, paddingTop: spacing.sm},
+	trendingRow: {paddingHorizontal: spacing.md, paddingVertical: spacing.sm, gap: spacing.sm},
+	trendingCard: {width: 140, marginRight: spacing.sm},
+	trendingImage: {width: 140, height: 90, borderRadius: radius.md, backgroundColor: colors.graphite},
+	trendingImageFallback: {width: 140, height: 90, borderRadius: radius.md, backgroundColor: colors.graphite},
+	trendingTitle: {color: colors.text, fontSize: typography.sizeXs, marginTop: 4},
 	chipRow: {paddingHorizontal: spacing.md, paddingVertical: spacing.sm, gap: spacing.xs},
 	chip: {paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: radius.pill, backgroundColor: colors.surface, marginRight: spacing.xs},
 	chipActive: {backgroundColor: colors.accentSoft, borderWidth: 1, borderColor: colors.accent},
