@@ -47,17 +47,19 @@ interface Props {
 	api: BerxApiClient;
 	guid: number;
 	myGuid: number;
+	isAdmin?: boolean;
 	onAddToCollection?: () => void;
 	onOpenBusinessDashboard?: (placeGuid: number) => void;
 	onEdit?: () => void;
 	onBack?: () => void;
 }
 
-export default function PlaceDetailScreen({api, guid, myGuid, onAddToCollection, onOpenBusinessDashboard, onEdit, onBack}: Props) {
+export default function PlaceDetailScreen({api, guid, myGuid, isAdmin, onAddToCollection, onOpenBusinessDashboard, onEdit, onBack}: Props) {
 	const [claimOpen, setClaimOpen] = useState(false);
 	const [claimMessage, setClaimMessage] = useState('');
 	const [claimBusy, setClaimBusy] = useState(false);
 	const [claimResult, setClaimResult] = useState<string | null>(null);
+	const [verifyBusy, setVerifyBusy] = useState(false);
 	const [place, setPlace] = useState<BerxPlace | null>(null);
 	const [reviews, setReviews] = useState<BerxPlaceReview[]>([]);
 	const [loading, setLoading] = useState(true);
@@ -189,6 +191,20 @@ export default function PlaceDetailScreen({api, guid, myGuid, onAddToCollection,
 	 * pending claim from the same person with a real 409, shown here
 	 * verbatim rather than a generic failure message.
 	 */
+	/** Admin-only server-side (OssnPlaces::setVerified()) — a business can never self-verify, and this button is only ever shown when isAdmin is true, matching that real gate. */
+	async function toggleVerified() {
+		if (!place) return;
+		setVerifyBusy(true);
+		try {
+			const updated = place.verified ? await api.unverifyBusiness(place.guid) : await api.verifyBusiness(place.guid);
+			setPlace(updated);
+		} catch {
+			// real server rejection — nothing optimistic
+		} finally {
+			setVerifyBusy(false);
+		}
+	}
+
 	async function submitClaim() {
 		if (!place) return;
 		setClaimBusy(true);
@@ -318,6 +334,17 @@ export default function PlaceDetailScreen({api, guid, myGuid, onAddToCollection,
 					</BerxGlassSurface>
 				) : null}
 				{claimResult ? <Text style={styles.checkinMessage}>{claimResult}</Text> : null}
+
+				{isAdmin && place.is_business ? (
+					<View style={styles.actions}>
+						<BerxButton
+							label={place.verified ? 'Снять верификацию' : 'Верифицировать бизнес'}
+							variant="secondary"
+							loading={verifyBusy}
+							onPress={toggleVerified}
+						/>
+					</View>
+				) : null}
 
 				{place.description ? <Text style={styles.description}>{place.description}</Text> : null}
 

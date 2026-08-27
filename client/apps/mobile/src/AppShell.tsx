@@ -481,6 +481,7 @@ function RouteRenderer({name, params}: {name: BerxRouteName; params: unknown}) {
 					api={api}
 					guid={p.guid}
 					myGuid={myGuid}
+					isAdmin={authState.getSnapshot().user?.is_admin}
 					onAddToCollection={() => nav.push('AddToCollection', {itemType: 'place', itemGuid: p.guid})}
 					onOpenBusinessDashboard={(placeGuid) => nav.push('BusinessHome', {placeGuid})}
 					onEdit={() => nav.push('EditPlace', {guid: p.guid})}
