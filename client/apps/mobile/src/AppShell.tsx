@@ -43,6 +43,7 @@ import DatingDiscoverScreen from './screens/DatingDiscoverScreen';
 import DatingMatchScreen from './screens/DatingMatchScreen';
 import DatingMatchesScreen from './screens/DatingMatchesScreen';
 import DatingPrivacyScreen from './screens/DatingPrivacyScreen';
+import DatingProfileScreen from './screens/DatingProfileScreen';
 import StoriesRailScreen from './screens/StoriesRailScreen';
 import StoryViewerScreen from './screens/StoryViewerScreen';
 import CreateStoryScreen from './screens/CreateStoryScreen';
@@ -204,6 +205,7 @@ function RouteRenderer({name, params}: {name: BerxRouteName; params: unknown}) {
 					onOpenSavedPosts={!nav.canGoBack ? () => nav.push('Saved', undefined) : undefined}
 					onOpenWrapped={!nav.canGoBack ? () => nav.push('Wrapped', undefined) : undefined}
 					onOpenDatingPrivacy={!nav.canGoBack ? () => nav.push('DatingPrivacy', undefined) : undefined}
+					onOpenDatingProfile={!nav.canGoBack ? () => nav.push('DatingProfile', undefined) : undefined}
 					onOpenCommunities={!nav.canGoBack ? () => nav.push('Communities', undefined) : undefined}
 					onOpenDating={!nav.canGoBack ? () => nav.push('Dating', undefined) : undefined}
 					onOpenPlaces={!nav.canGoBack ? () => nav.push('Places', undefined) : undefined}
@@ -258,8 +260,11 @@ function RouteRenderer({name, params}: {name: BerxRouteName; params: unknown}) {
 					onMatch={(otherGuid, otherUsername) => nav.replace('DatingMatch', {otherGuid, otherUsername})}
 					onOpenMatches={() => nav.push('DatingMatches', undefined)}
 					onOpenPrivacy={() => nav.push('DatingPrivacy', undefined)}
+					onOpenDatingProfile={() => nav.push('DatingProfile', undefined)}
 				/>
 			);
+		case 'DatingProfile':
+			return <DatingProfileScreen api={api} onBack={nav.pop} />;
 		case 'DatingMatch': {
 			const p = params as {otherGuid: number; otherUsername: string};
 			return (

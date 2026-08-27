@@ -41,11 +41,12 @@ interface Props {
 	onMatch: (otherGuid: number, otherUsername: string) => void;
 	onOpenMatches: () => void;
 	onOpenPrivacy: () => void;
+	onOpenDatingProfile: () => void;
 }
 
 const SWIPE_THRESHOLD = 120;
 
-export default function DatingDiscoverScreen({api, onMatch, onOpenMatches, onOpenPrivacy}: Props) {
+export default function DatingDiscoverScreen({api, onMatch, onOpenMatches, onOpenPrivacy, onOpenDatingProfile}: Props) {
 	const [profiles, setProfiles] = useState<BerxDatingProfileCard[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
@@ -120,11 +121,10 @@ export default function DatingDiscoverScreen({api, onMatch, onOpenMatches, onOpe
 		})
 	).current;
 
-	if (loading) return <BerxLoadingState label="Загрузка анкет..." />;
 	if (loading) {
 		return (
 			<View style={styles.screen}>
-				<DatingTopBar onOpenMatches={onOpenMatches} onOpenPrivacy={onOpenPrivacy} />
+				<DatingTopBar onOpenMatches={onOpenMatches} onOpenPrivacy={onOpenPrivacy} onOpenDatingProfile={onOpenDatingProfile} />
 				<BerxLoadingState label="Загрузка анкет..." />
 			</View>
 		);
@@ -132,15 +132,20 @@ export default function DatingDiscoverScreen({api, onMatch, onOpenMatches, onOpe
 	if (error) {
 		return (
 			<View style={styles.screen}>
-				<DatingTopBar onOpenMatches={onOpenMatches} onOpenPrivacy={onOpenPrivacy} />
+				<DatingTopBar onOpenMatches={onOpenMatches} onOpenPrivacy={onOpenPrivacy} onOpenDatingProfile={onOpenDatingProfile} />
 				<BerxErrorState message={error} onRetry={load} />
+				{/* MAX BUILD — a real path to fix the most common cause of this
+				    error (no dating profile yet) instead of only a generic retry. */}
+				<View style={styles.errorAction}>
+					<BerxButton label="Заполнить анкету" variant="secondary" onPress={onOpenDatingProfile} fullWidth />
+				</View>
 			</View>
 		);
 	}
 	if (!current) {
 		return (
 			<View style={styles.screen}>
-				<DatingTopBar onOpenMatches={onOpenMatches} onOpenPrivacy={onOpenPrivacy} />
+				<DatingTopBar onOpenMatches={onOpenMatches} onOpenPrivacy={onOpenPrivacy} onOpenDatingProfile={onOpenDatingProfile} />
 				<BerxEmptyState title="Анкеты закончились" subtitle="Загляните позже — появятся новые." />
 			</View>
 		);
@@ -150,7 +155,7 @@ export default function DatingDiscoverScreen({api, onMatch, onOpenMatches, onOpe
 
 	return (
 		<View style={styles.screen}>
-			<DatingTopBar onOpenMatches={onOpenMatches} onOpenPrivacy={onOpenPrivacy} />
+			<DatingTopBar onOpenMatches={onOpenMatches} onOpenPrivacy={onOpenPrivacy} onOpenDatingProfile={onOpenDatingProfile} />
 			<Animated.View
 				{...panResponder.panHandlers}
 				style={[styles.cardWrap, {transform: [{translateX: position.x}, {translateY: position.y}, {rotate}]}]}
@@ -182,12 +187,17 @@ export default function DatingDiscoverScreen({api, onMatch, onOpenMatches, onOpe
 	);
 }
 
-function DatingTopBar({onOpenMatches, onOpenPrivacy}: {onOpenMatches: () => void; onOpenPrivacy: () => void}) {
+function DatingTopBar({onOpenMatches, onOpenPrivacy, onOpenDatingProfile}: {onOpenMatches: () => void; onOpenPrivacy: () => void; onOpenDatingProfile: () => void}) {
 	return (
 		<View style={styles.topBar}>
-			<Pressable onPress={onOpenMatches} hitSlop={8}>
-				<Text style={styles.topBarLink}>Совпадения</Text>
-			</Pressable>
+			<View style={styles.topBarLinks}>
+				<Pressable onPress={onOpenMatches} hitSlop={8}>
+					<Text style={styles.topBarLink}>Совпадения</Text>
+				</Pressable>
+				<Pressable onPress={onOpenDatingProfile} hitSlop={8}>
+					<Text style={styles.topBarLink}>Анкета</Text>
+				</Pressable>
+			</View>
 			<Text style={styles.topBarTitle}>Знакомства</Text>
 			<Pressable onPress={onOpenPrivacy} hitSlop={8}>
 				<Text style={styles.topBarLink}>Приватность</Text>
@@ -207,6 +217,8 @@ const styles = StyleSheet.create({
 		paddingBottom: spacing.md,
 	},
 	topBarTitle: {color: colors.text, fontSize: typography.sizeLg, fontWeight: typography.weightMedium},
+	topBarLinks: {flexDirection: 'row', gap: spacing.md},
+	errorAction: {paddingHorizontal: spacing.lg, marginTop: spacing.md},
 	topBarLink: {color: colors.accent, fontSize: typography.sizeSm},
 	cardWrap: {width: '88%'},
 	card: {alignItems: 'center'},

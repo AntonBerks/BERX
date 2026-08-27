@@ -33,6 +33,7 @@ export type BerxRouteName =
 	| 'StoryViewer'
 	| 'CreateStory'
 	| 'Dating'
+	| 'DatingProfile'
 	| 'DatingMatch'
 	| 'DatingMatches'
 	| 'DatingPrivacy'
@@ -121,6 +122,7 @@ export interface BerxRouteParams {
 	Dating: undefined;
 	DatingMatch: { otherGuid: number; otherUsername: string };
 	DatingMatches: undefined;
+	DatingProfile: undefined;
 	DatingPrivacy: undefined;
 	Settings: undefined;
 	DeviceSessions: undefined;
@@ -215,6 +217,12 @@ export const BERX_ROUTES: BerxRouteMeta[] = [
 	{ name: 'Dating', connected: true },
 	{ name: 'DatingMatch', connected: true },
 	{ name: 'DatingMatches', connected: true },
+	// MAX BUILD — real profile create/edit form. saveDatingProfile()/
+	// getOwnDatingProfile() were always real client methods with zero
+	// callers anywhere — there was no way to create a dating profile
+	// from mobile at all (DatingDiscoverScreen's own error message
+	// pointed users to the website instead).
+	{ name: 'DatingProfile', connected: true },
 	{ name: 'DatingPrivacy', connected: true },
 	{ name: 'Settings', connected: true },
 	{ name: 'DeviceSessions', connected: true },

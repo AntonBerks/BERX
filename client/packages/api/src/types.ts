@@ -208,7 +208,8 @@ export interface BerxReportQueueItem {
 export interface BerxDatingOwnProfile {
 	guid: number;
 	pseudonym: string;
-	age: number;
+	/** Real, matches the server response exactly — dating.php's own GET /dating/profile returns null when unset (fixed a real type inaccuracy that previously claimed this was never null). */
+	age: number | null;
 	city: string | null;
 	goal: string | null;
 	bio: string | null;
