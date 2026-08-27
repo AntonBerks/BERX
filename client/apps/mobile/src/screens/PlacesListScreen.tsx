@@ -21,6 +21,7 @@ import {useCallback, useEffect, useState} from 'react';
 import {View, Text, FlatList, Pressable, RefreshControl, StyleSheet, Image} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxPlace, BerxPlaceCategory} from '@berx/api/types';
+import {ruPeopleLabel} from '@berx/domain';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
@@ -45,7 +46,7 @@ export default function PlacesListScreen({api, onOpenPlace, onCreate, onOpenNear
 	const [loading, setLoading] = useState(true);
 	const [refreshing, setRefreshing] = useState(false);
 	const [error, setError] = useState<string | null>(null);
-	const [trending, setTrending] = useState<Array<BerxPlace & {trending_score: number}>>([]);
+	const [trending, setTrending] = useState<Array<BerxPlace & {trending_score: number; distinct_actors: number}>>([]);
 
 	useEffect(() => {
 		api.placeCategories().then((r) => setCategories(r.categories)).catch(() => undefined);
@@ -90,9 +91,9 @@ export default function PlacesListScreen({api, onOpenPlace, onCreate, onOpenNear
 						horizontal
 						showsHorizontalScrollIndicator={false}
 						data={trending}
-						keyExtractor={(p: BerxPlace & {trending_score: number}) => `trending-${p.guid}`}
+						keyExtractor={(p: BerxPlace & {trending_score: number; distinct_actors: number}) => `trending-${p.guid}`}
 						contentContainerStyle={styles.trendingRow}
-						renderItem={({item}: {item: BerxPlace & {trending_score: number}}) => (
+						renderItem={({item}: {item: BerxPlace & {trending_score: number; distinct_actors: number}}) => (
 							<Pressable style={styles.trendingCard} onPress={() => onOpenPlace(item.guid)}>
 								{item.cover_url ? (
 									<Image source={{uri: item.cover_url}} style={styles.trendingImage} />
@@ -102,6 +103,7 @@ export default function PlacesListScreen({api, onOpenPlace, onCreate, onOpenNear
 									</View>
 								)}
 								<Text style={styles.trendingTitle} numberOfLines={1}>🔥 {item.title}</Text>
+								<Text style={styles.trendingSubtitle}>{ruPeopleLabel(item.distinct_actors)}</Text>
 							</Pressable>
 						)}
 					/>
@@ -179,6 +181,7 @@ const styles = StyleSheet.create({
 	trendingImage: {width: 140, height: 90, borderRadius: radius.md, backgroundColor: colors.graphite},
 	trendingImageFallback: {width: 140, height: 90, borderRadius: radius.md, backgroundColor: colors.graphite, alignItems: 'center', justifyContent: 'center'},
 	trendingTitle: {color: colors.text, fontSize: typography.sizeXs, marginTop: 4},
+	trendingSubtitle: {color: colors.textFaint, fontSize: typography.sizeXs},
 	chipRow: {paddingHorizontal: spacing.md, paddingVertical: spacing.sm, gap: spacing.xs},
 	chip: {paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: radius.pill, backgroundColor: colors.surface, marginRight: spacing.xs},
 	chipActive: {backgroundColor: colors.accentSoft, borderWidth: 1, borderColor: colors.accent},

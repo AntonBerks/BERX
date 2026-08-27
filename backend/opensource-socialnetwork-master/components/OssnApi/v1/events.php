@@ -50,6 +50,10 @@ if ($segment0 === 'trending' && $segment1 === null && $method === 'GET') {
 			$score = $signals->engagementScore('event', intval($event->guid), 7 * 24 * 3600);
 			if ($score > 0) {
 				$event->trending_score = $score;
+				// Real, more legible than the raw weighted score alone —
+				// see places.php's own comment for the full story
+				// (OssnSignals::distinctActors(), previously zero-caller).
+				$event->distinct_actors = $signals->distinctActors('event', intval($event->guid), 7 * 24 * 3600);
 				$scored[] = $event;
 			}
 		}

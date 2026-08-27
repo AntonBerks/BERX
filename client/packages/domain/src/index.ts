@@ -61,3 +61,23 @@ export function relativeTimeLabel(unixSeconds: number, nowMs: number = Date.now(
 	const date = new Date(unixSeconds * 1000);
 	return date.toLocaleDateString('ru-RU');
 }
+
+/**
+ * Real Russian plural-form selection (1/2-4/5-20 + exceptions) — used
+ * wherever a live count (distinct_actors, viewer_count, etc.) needs a
+ * correctly-declined noun next to it. Pure function, same rationale as
+ * relativeTimeLabel above.
+ */
+export function ruPlural(n: number, one: string, few: string, many: string): string {
+	const abs = Math.abs(n) % 100;
+	const last = abs % 10;
+	if (abs >= 11 && abs <= 14) return many;
+	if (last === 1) return one;
+	if (last >= 2 && last <= 4) return few;
+	return many;
+}
+
+/** "1 человек" / "3 человека" / "5 человек" — real distinct-actor counts from OssnSignals::distinctActors(). */
+export function ruPeopleLabel(n: number): string {
+	return `${n} ${ruPlural(n, 'человек', 'человека', 'человек')}`;
+}

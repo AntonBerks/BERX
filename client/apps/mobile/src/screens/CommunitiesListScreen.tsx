@@ -17,6 +17,7 @@ import {useCallback, useEffect, useState} from 'react';
 import {View, Text, Image, FlatList, Pressable, RefreshControl, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxCommunity} from '@berx/api/types';
+import {ruPeopleLabel} from '@berx/domain';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
@@ -40,7 +41,7 @@ export default function CommunitiesListScreen({api, onOpenCommunity, onCreate, o
 	const [loading, setLoading] = useState(true);
 	const [refreshing, setRefreshing] = useState(false);
 	const [error, setError] = useState<string | null>(null);
-	const [trending, setTrending] = useState<Array<BerxCommunity & {trending_score: number}>>([]);
+	const [trending, setTrending] = useState<Array<BerxCommunity & {trending_score: number; distinct_actors: number}>>([]);
 
 	useEffect(() => {
 		api.trendingCommunities(10).then((r) => setTrending(r.communities)).catch(() => undefined);
@@ -83,9 +84,9 @@ export default function CommunitiesListScreen({api, onOpenCommunity, onCreate, o
 						horizontal
 						showsHorizontalScrollIndicator={false}
 						data={trending}
-						keyExtractor={(c: BerxCommunity & {trending_score: number}) => `trending-${c.guid}`}
+						keyExtractor={(c: BerxCommunity & {trending_score: number; distinct_actors: number}) => `trending-${c.guid}`}
 						contentContainerStyle={styles.trendingRow}
-						renderItem={({item}: {item: BerxCommunity & {trending_score: number}}) => (
+						renderItem={({item}: {item: BerxCommunity & {trending_score: number; distinct_actors: number}}) => (
 							<Pressable style={styles.trendingCard} onPress={() => onOpenCommunity(item.guid)}>
 								{item.cover_url ? (
 									<Image source={{uri: item.cover_url}} style={styles.trendingImage} />
@@ -93,6 +94,7 @@ export default function CommunitiesListScreen({api, onOpenCommunity, onCreate, o
 									<View style={styles.trendingImageFallback} />
 								)}
 								<Text style={styles.trendingTitle} numberOfLines={1}>🔥 {item.name}</Text>
+								<Text style={styles.trendingSubtitle}>{ruPeopleLabel(item.distinct_actors)}</Text>
 							</Pressable>
 						)}
 					/>
@@ -164,6 +166,7 @@ const styles = StyleSheet.create({
 	trendingImage: {width: 140, height: 90, borderRadius: radius.md, backgroundColor: colors.graphite},
 	trendingImageFallback: {width: 140, height: 90, borderRadius: radius.md, backgroundColor: colors.graphite},
 	trendingTitle: {color: colors.text, fontSize: typography.sizeXs, marginTop: 4},
+	trendingSubtitle: {color: colors.textFaint, fontSize: typography.sizeXs},
 	searchRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.lg, paddingBottom: spacing.md},
 	searchInput: {flex: 1},
 	fadeFlex: {flex: 1},

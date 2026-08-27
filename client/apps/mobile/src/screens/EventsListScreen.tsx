@@ -19,6 +19,7 @@ import {useCallback, useEffect, useState} from 'react';
 import {View, Text, FlatList, Pressable, RefreshControl, StyleSheet, Image} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxEvent, BerxPlaceCategory} from '@berx/api/types';
+import {ruPeopleLabel} from '@berx/domain';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
@@ -42,7 +43,7 @@ export default function EventsListScreen({api, onOpenEvent, onCreate, onOpenMine
 	const [loading, setLoading] = useState(true);
 	const [refreshing, setRefreshing] = useState(false);
 	const [error, setError] = useState<string | null>(null);
-	const [trending, setTrending] = useState<Array<BerxEvent & {trending_score: number}>>([]);
+	const [trending, setTrending] = useState<Array<BerxEvent & {trending_score: number; distinct_actors: number}>>([]);
 
 	useEffect(() => {
 		api.eventCategories().then((r) => setCategories(r.categories)).catch(() => undefined);
@@ -93,9 +94,9 @@ export default function EventsListScreen({api, onOpenEvent, onCreate, onOpenMine
 						horizontal
 						showsHorizontalScrollIndicator={false}
 						data={trending}
-						keyExtractor={(e: BerxEvent & {trending_score: number}) => `trending-${e.guid}`}
+						keyExtractor={(e: BerxEvent & {trending_score: number; distinct_actors: number}) => `trending-${e.guid}`}
 						contentContainerStyle={styles.trendingRow}
-						renderItem={({item}: {item: BerxEvent & {trending_score: number}}) => (
+						renderItem={({item}: {item: BerxEvent & {trending_score: number; distinct_actors: number}}) => (
 							<Pressable style={styles.trendingCard} onPress={() => onOpenEvent(item.guid)}>
 								{item.cover_url ? (
 									<Image source={{uri: item.cover_url}} style={styles.trendingImage} />
@@ -103,6 +104,7 @@ export default function EventsListScreen({api, onOpenEvent, onCreate, onOpenMine
 									<View style={styles.trendingImageFallback} />
 								)}
 								<Text style={styles.trendingTitle} numberOfLines={1}>🔥 {item.title}</Text>
+								<Text style={styles.trendingSubtitle}>{ruPeopleLabel(item.distinct_actors)}</Text>
 							</Pressable>
 						)}
 					/>
@@ -182,6 +184,7 @@ const styles = StyleSheet.create({
 	trendingImage: {width: 140, height: 90, borderRadius: radius.md, backgroundColor: colors.graphite},
 	trendingImageFallback: {width: 140, height: 90, borderRadius: radius.md, backgroundColor: colors.graphite},
 	trendingTitle: {color: colors.text, fontSize: typography.sizeXs, marginTop: 4},
+	trendingSubtitle: {color: colors.textFaint, fontSize: typography.sizeXs},
 	chipRow: {paddingHorizontal: spacing.md, paddingVertical: spacing.sm, gap: spacing.xs},
 	chip: {paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: radius.pill, backgroundColor: colors.surface, marginRight: spacing.xs},
 	chipActive: {backgroundColor: colors.accentSoft, borderWidth: 1, borderColor: colors.accent},

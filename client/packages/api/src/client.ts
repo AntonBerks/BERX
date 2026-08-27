@@ -1086,8 +1086,8 @@ export class BerxApiClient {
 	}
 
 	/** MAX BUILD — real Trending Communities. Same real OssnSignals engagement ranking as trendingPlaces()/trendingEvents() — a real 'join' signal recorded when a join request is actually approved (membership begins). */
-	async trendingCommunities(limit = 10): Promise<{communities: Array<BerxCommunity & {trending_score: number}>}> {
-		return this.request<{communities: Array<BerxCommunity & {trending_score: number}>}>(`/communities/trending?limit=${limit}`);
+	async trendingCommunities(limit = 10): Promise<{communities: Array<BerxCommunity & {trending_score: number; distinct_actors: number}>}> {
+		return this.request<{communities: Array<BerxCommunity & {trending_score: number; distinct_actors: number}>}>(`/communities/trending?limit=${limit}`);
 	}
 
 	async getCommunity(guid: number): Promise<BerxCommunity> {
@@ -1509,8 +1509,8 @@ export class BerxApiClient {
 	}
 
 	/** MAX BUILD — real Trending Places. Wires OssnSignals (BERX Future Core — previously built, migrated, and never instantiated anywhere) into a live-computed 7-day engagement ranking, never a fake/pre-baked score. */
-	async trendingPlaces(limit = 10): Promise<{places: Array<BerxPlace & {trending_score: number}>}> {
-		return this.request<{places: Array<BerxPlace & {trending_score: number}>}>(`/places/trending?limit=${limit}`);
+	async trendingPlaces(limit = 10): Promise<{places: Array<BerxPlace & {trending_score: number; distinct_actors: number}>}> {
+		return this.request<{places: Array<BerxPlace & {trending_score: number; distinct_actors: number}>}>(`/places/trending?limit=${limit}`);
 	}
 
 	async savedPlaces(): Promise<{places: BerxPlace[]}> {
@@ -1667,8 +1667,8 @@ export class BerxApiClient {
 	}
 
 	/** MAX BUILD — real Trending Events. Same real OssnSignals engagement ranking as trendingPlaces() — see places.php's own comment for the full story. */
-	async trendingEvents(limit = 10): Promise<{events: Array<BerxEvent & {trending_score: number}>}> {
-		return this.request<{events: Array<BerxEvent & {trending_score: number}>}>(`/events/trending?limit=${limit}`);
+	async trendingEvents(limit = 10): Promise<{events: Array<BerxEvent & {trending_score: number; distinct_actors: number}>}> {
+		return this.request<{events: Array<BerxEvent & {trending_score: number; distinct_actors: number}>}>(`/events/trending?limit=${limit}`);
 	}
 
 	async myGoingEvents(): Promise<{events: BerxEvent[]}> {

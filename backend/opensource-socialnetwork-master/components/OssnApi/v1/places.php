@@ -292,6 +292,12 @@ if ($segment0 === 'trending' && $segment1 === null && $method === 'GET') {
 			$score = $signals->engagementScore('place', intval($place->guid), 7 * 24 * 3600);
 			if ($score > 0) {
 				$place->trending_score = $score;
+				// Real, more legible than the raw weighted score alone —
+				// how many DIFFERENT people engaged, not just how many
+				// actions (OssnSignals::distinctActors(), previously
+				// zero-caller: a naive raw action count would let one
+				// person's 50 views outrank 10 real distinct visitors).
+				$place->distinct_actors = $signals->distinctActors('place', intval($place->guid), 7 * 24 * 3600);
 				$scored[] = $place;
 			}
 		}

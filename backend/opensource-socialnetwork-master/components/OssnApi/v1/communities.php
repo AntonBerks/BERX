@@ -128,6 +128,10 @@ if ($segment0 === 'trending' && $method === 'GET') {
 			if ($score > 0) {
 				$row = ossn_api_group_json($group, $api_user_guid);
 				$row['trending_score'] = $score;
+				// Real, more legible than the raw weighted score alone —
+				// see places.php's own comment for the full story
+				// (OssnSignals::distinctActors(), previously zero-caller).
+				$row['distinct_actors'] = $signals->distinctActors('community', intval($group->guid), 7 * 24 * 3600);
 				$scored[] = $row;
 			}
 		}
