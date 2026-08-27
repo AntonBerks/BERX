@@ -58,6 +58,7 @@ export type BerxRouteName =
 	| 'CollectionDetail'
 	| 'CreateCollection'
 	| 'AddToCollection'
+	| 'AddToTrip'
 	| 'Circles'
 	| 'CircleDetail'
 	| 'CreateCircle'
@@ -155,6 +156,7 @@ export interface BerxRouteParams {
 	CollectionDetail: { id: number };
 	CreateCollection: undefined;
 	AddToCollection: { itemType: 'place' | 'event' | 'post'; itemGuid: number };
+	AddToTrip: { itemType: 'place' | 'event'; itemGuid: number };
 	Circles: undefined;
 	CircleDetail: { id: number };
 	CreateCircle: undefined;
@@ -312,6 +314,10 @@ export const BERX_ROUTES: BerxRouteMeta[] = [
 	{ name: 'CollectionDetail', connected: true },
 	{ name: 'CreateCollection', connected: true },
 	{ name: 'AddToCollection', connected: true },
+	// MAX BUILD — addTripStop() was always a real client method with
+	// zero UI caller: a trip's itinerary could only ever shrink
+	// (removeTripStop already wired), never actually be built.
+	{ name: 'AddToTrip', connected: true },
 	{ name: 'Circles', connected: true },
 	{ name: 'CircleDetail', connected: true },
 	{ name: 'CreateCircle', connected: true },

@@ -41,6 +41,7 @@ interface Props {
 	onOpenPlace?: (guid: number) => void;
 	onOpenInvite: (guid: number) => void;
 	onAddToCollection?: () => void;
+	onAddToTrip?: () => void;
 	onAddEventStory?: (eventGuid: number) => void;
 	onOpenStoryGroup?: (group: BerxStoryFeedGroup) => void;
 	onEdit?: () => void;
@@ -58,7 +59,7 @@ function groupStoriesByOwner(items: BerxEventStoryItem[]): BerxStoryFeedGroup[] 
 	return Array.from(byOwner.values());
 }
 
-export default function EventDetailScreen({api, guid, myGuid, onOpenPlace, onOpenInvite, onAddToCollection, onAddEventStory, onOpenStoryGroup, onEdit, onBack}: Props) {
+export default function EventDetailScreen({api, guid, myGuid, onOpenPlace, onOpenInvite, onAddToCollection, onAddToTrip, onAddEventStory, onOpenStoryGroup, onEdit, onBack}: Props) {
 	const [event, setEvent] = useState<BerxEvent | null>(null);
 	const [attendees, setAttendees] = useState<BerxEventAttendee[]>([]);
 	const [loading, setLoading] = useState(true);
@@ -152,6 +153,7 @@ export default function EventDetailScreen({api, guid, myGuid, onOpenPlace, onOpe
 					/>
 					{!event.has_ended ? <BerxButton label="Пригласить" variant="secondary" onPress={() => onOpenInvite(event.guid)} /> : null}
 					{onAddToCollection ? <BerxButton label="В подборку" variant="secondary" onPress={onAddToCollection} /> : null}
+					{onAddToTrip ? <BerxButton label="В поездку" variant="secondary" onPress={onAddToTrip} /> : null}
 					{event.is_going && onAddEventStory ? <BerxButton label="Добавить историю" variant="secondary" onPress={() => onAddEventStory(event.guid)} /> : null}
 					{myGuid === event.owner_guid && onEdit ? <BerxButton label="Редактировать" variant="secondary" onPress={onEdit} /> : null}
 				</View>

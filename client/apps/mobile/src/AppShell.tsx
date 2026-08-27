@@ -93,6 +93,7 @@ import CollectionsScreen from './screens/CollectionsScreen';
 import CollectionDetailScreen from './screens/CollectionDetailScreen';
 import CreateCollectionScreen from './screens/CreateCollectionScreen';
 import AddToCollectionScreen from './screens/AddToCollectionScreen';
+import AddToTripScreen from './screens/AddToTripScreen';
 import CirclesScreen from './screens/CirclesScreen';
 import CircleDetailScreen from './screens/CircleDetailScreen';
 import CreateCircleScreen from './screens/CreateCircleScreen';
@@ -499,6 +500,7 @@ function RouteRenderer({name, params}: {name: BerxRouteName; params: unknown}) {
 					myGuid={myGuid}
 					isAdmin={authState.getSnapshot().user?.is_admin}
 					onAddToCollection={() => nav.push('AddToCollection', {itemType: 'place', itemGuid: p.guid})}
+					onAddToTrip={() => nav.push('AddToTrip', {itemType: 'place', itemGuid: p.guid})}
 					onOpenBusinessDashboard={(placeGuid) => nav.push('BusinessHome', {placeGuid})}
 					onEdit={() => nav.push('EditPlace', {guid: p.guid})}
 					onBack={nav.pop}
@@ -557,6 +559,7 @@ function RouteRenderer({name, params}: {name: BerxRouteName; params: unknown}) {
 					onOpenPlace={(guid) => nav.push('PlaceDetail', {guid})}
 					onOpenInvite={(guid) => nav.push('EventInvite', {guid})}
 					onAddToCollection={() => nav.push('AddToCollection', {itemType: 'event', itemGuid: p.guid})}
+					onAddToTrip={() => nav.push('AddToTrip', {itemType: 'event', itemGuid: p.guid})}
 					onAddEventStory={(eventGuid) => nav.push('CreateStory', {eventGuid})}
 					onOpenStoryGroup={(group) => {
 						currentStoryGroup = group;
@@ -716,6 +719,21 @@ function RouteRenderer({name, params}: {name: BerxRouteName; params: unknown}) {
 					itemType={p.itemType}
 					itemGuid={p.itemGuid}
 					onCreateCollection={() => nav.push('CreateCollection', undefined)}
+					onDone={nav.pop}
+					onBack={nav.pop}
+				/>
+			);
+		}
+		case 'AddToTrip': {
+			const p = params as {itemType: 'place' | 'event'; itemGuid: number};
+			const myGuid = authState.getSnapshot().user?.guid ?? 0;
+			return (
+				<AddToTripScreen
+					api={api}
+					myGuid={myGuid}
+					itemType={p.itemType}
+					itemGuid={p.itemGuid}
+					onCreateTrip={() => nav.push('CreateTrip', undefined)}
 					onDone={nav.pop}
 					onBack={nav.pop}
 				/>
