@@ -52,6 +52,12 @@ export default function DatingDiscoverScreen({api, onMatch, onOpenMatches, onOpe
 	const [error, setError] = useState<string | null>(null);
 	const [acting, setActing] = useState(false);
 	const [actionMessage, setActionMessage] = useState<string | null>(null);
+	// MAX BUILD — real undo (api.datingUndo() was always a real client
+	// method with zero callers). Keeps the just-passed card itself
+	// (the server only returns restored_guid, not full card data) so a
+	// confirmed undo can put it back exactly where it was.
+	const [lastPassed, setLastPassed] = useState<BerxDatingProfileCard | null>(null);
+	const [undoing, setUndoing] = useState(false);
 	const position = useRef(new Animated.ValueXY()).current;
 
 	async function load() {
@@ -83,8 +89,10 @@ export default function DatingDiscoverScreen({api, onMatch, onOpenMatches, onOpe
 				if (res.mutual) {
 					onMatch(current.guid, current.pseudonym);
 				}
+				setLastPassed(null);
 			} else {
 				await api.datingPass(current.guid);
+				setLastPassed(current);
 			}
 			setProfiles((prev) => prev.slice(1));
 			position.setValue({x: 0, y: 0});
@@ -98,6 +106,25 @@ export default function DatingDiscoverScreen({api, onMatch, onOpenMatches, onOpe
 			Animated.spring(position, {toValue: {x: 0, y: 0}, useNativeDriver: true}).start();
 		} finally {
 			setActing(false);
+		}
+	}
+
+	async function handleUndo() {
+		if (!lastPassed || undoing) return;
+		setUndoing(true);
+		try {
+			const res = await api.datingUndo();
+			// Only restore if the server confirms it undid THIS exact
+			// pass — never assume, since another real pass could have
+			// happened in between (e.g. a second tab/device).
+			if (res.restored_guid === lastPassed.guid) {
+				setProfiles((prev: BerxDatingProfileCard[]) => [lastPassed, ...prev]);
+				setLastPassed(null);
+			}
+		} catch {
+			// real server rejection (e.g. nothing to undo) — lastPassed stays as-is, button just does nothing more
+		} finally {
+			setUndoing(false);
 		}
 	}
 
@@ -147,6 +174,11 @@ export default function DatingDiscoverScreen({api, onMatch, onOpenMatches, onOpe
 			<View style={styles.screen}>
 				<DatingTopBar onOpenMatches={onOpenMatches} onOpenPrivacy={onOpenPrivacy} onOpenDatingProfile={onOpenDatingProfile} />
 				<BerxEmptyState title="Анкеты закончились" subtitle="Загляните позже — появятся новые." />
+				{lastPassed ? (
+					<Pressable onPress={handleUndo} disabled={undoing} hitSlop={8} style={styles.undoWrap}>
+						<Text style={styles.undoLink}>{undoing ? 'Отмена…' : `↺ Вернуть «${lastPassed.pseudonym}»`}</Text>
+					</Pressable>
+				) : null}
 			</View>
 		);
 	}
@@ -179,6 +211,11 @@ export default function DatingDiscoverScreen({api, onMatch, onOpenMatches, onOpe
 			</Animated.View>
 
 			{actionMessage ? <Text style={styles.actionMessage}>{actionMessage}</Text> : null}
+			{lastPassed ? (
+				<Pressable onPress={handleUndo} disabled={undoing} hitSlop={8}>
+					<Text style={styles.undoLink}>{undoing ? 'Отмена…' : `↺ Вернуть «${lastPassed.pseudonym}»`}</Text>
+				</Pressable>
+			) : null}
 			<View style={styles.actions}>
 				<BerxButton label="Пропустить" variant="secondary" onPress={() => resolveCard('pass')} disabled={acting} />
 				<BerxButton label="Нравится" onPress={() => resolveCard('like')} disabled={acting} />
@@ -245,6 +282,8 @@ const styles = StyleSheet.create({
 	},
 	bio: {color: colors.textDim, fontSize: typography.sizeBase, marginTop: spacing.md, textAlign: 'center'},
 	actionMessage: {color: colors.textFaint, fontSize: typography.sizeXs, marginTop: spacing.sm},
+	undoWrap: {marginTop: spacing.lg},
+	undoLink: {color: colors.accent, fontSize: typography.sizeSm, fontWeight: typography.weightMedium, marginTop: spacing.sm},
 	actions: {
 		flexDirection: 'row',
 		gap: spacing.lg,

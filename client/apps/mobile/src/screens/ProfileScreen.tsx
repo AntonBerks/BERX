@@ -112,6 +112,7 @@ export default function ProfileScreen({api, authState, username, onBack, onMessa
 	const [error, setError] = useState<string | null>(null);
 	const [friendBusy, setFriendBusy] = useState(false);
 	const [blocking, setBlocking] = useState(false);
+	const [unreadNotifications, setUnreadNotifications] = useState(0);
 	const isOwn = !username;
 
 	async function load() {
@@ -124,6 +125,9 @@ export default function ProfileScreen({api, authState, username, onBack, onMessa
 			// fetch must never block the profile itself from showing.
 			if (isOwn) {
 				api.identity().then((res) => setIdentity(res.identity)).catch(() => undefined);
+				// MAX BUILD — real unread badge (unreadNotificationCount()
+				// was always a real client method with zero callers).
+				api.unreadNotificationCount().then((res) => setUnreadNotifications(res.unread_count)).catch(() => undefined);
 			}
 		} catch {
 			setError(isOwn ? 'Не удалось загрузить профиль' : 'Профиль недоступен');
@@ -366,7 +370,7 @@ export default function ProfileScreen({api, authState, username, onBack, onMessa
 
 					<Text style={styles.sectionLabel}>Активность</Text>
 					<View style={styles.menuGroup}>
-						{onOpenNotifications ? <MenuRow label="Уведомления" icon={<IconBell size={18} color={colors.text} />} onPress={onOpenNotifications} isFirst /> : null}
+						{onOpenNotifications ? <MenuRow label={unreadNotifications > 0 ? `Уведомления (${unreadNotifications})` : 'Уведомления'} icon={<IconBell size={18} color={colors.text} />} onPress={onOpenNotifications} isFirst /> : null}
 						{onOpenPoints ? <MenuRow label="Баллы и уровень" icon={<IconStar size={18} color={colors.text} />} onPress={onOpenPoints} /> : null}
 						{onOpenMissions ? <MenuRow label="Задания дня" icon={<IconStar size={18} color={colors.text} />} onPress={onOpenMissions} /> : null}
 						{onOpenLifeGraph ? <MenuRow label="Ваш путь в BERX" icon={<IconStar size={18} color={colors.text} />} onPress={onOpenLifeGraph} /> : null}
