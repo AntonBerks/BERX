@@ -19,6 +19,12 @@
  * class's own header) — the action route below now actually bans the
  * reported user, enforced platform-wide at ossn_com.php's real
  * bearer-token choke point.
+ *
+ * MAX BUILD — real fix: target_type='dating_profile' was the last
+ * real, honest 501 in this file. OssnDating::hideProfile() now exists
+ * — a real, reversible admin-only hide (not a destructive delete; a
+ * dating profile carries real photos/interests/passes across four
+ * other tables), enforced in both discover() and search().
  */
 
 function ossn_api_report_json($row) {
@@ -106,9 +112,18 @@ if ($segment0 !== null && $segment0 !== 'queue' && $segment1 === 'action' && $me
 			// accountable to the report that triggered it.
 			$deleted = (bool) (new OssnUser())->ban(intval($report->target_guid), $api_user_guid, (string) $report->reason);
 			break;
+		case 'dating_profile':
+			// MAX BUILD -- real fix: same real, honest 501 as 'user' used
+			// to be. OssnDating::hideProfile() now exists -- a real,
+			// reversible moderation hide (not a destructive delete; see
+			// that method's own header for why), enforced in both
+			// discover() and search().
+			if (!class_exists('OssnDating')) {
+				ossn_api_error('not_implemented', 'No removal mechanism for this target type', 501);
+			}
+			$deleted = (bool) (new OssnDating())->hideProfile(intval($report->target_guid), $api_user_guid);
+			break;
 		default:
-			// 'dating_profile' still has no real removal mechanism --
-			// a real 501, not a fake success.
 			ossn_api_error('not_implemented', 'No removal mechanism for this target type', 501);
 	}
 	if ($deleted) {

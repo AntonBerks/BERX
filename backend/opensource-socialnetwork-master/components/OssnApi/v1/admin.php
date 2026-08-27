@@ -97,4 +97,17 @@ if ($segment0 === 'unban' && $method === 'POST') {
 	ossn_api_json(array('status' => $ok ? 'ok' : 'failed'));
 }
 
+/** MAX BUILD -- real, reversible dating-profile moderation (OssnDating::hideProfile()/unhideProfile(), see report.php's own dating_profile action for the real hide side of this). */
+if ($segment0 === 'dating-unhide' && $method === 'POST') {
+	if (!class_exists('OssnDating')) {
+		ossn_api_error('not_found', 'Dating module not available', 404);
+	}
+	$userGuid = input('user_guid');
+	if (!$userGuid || !is_numeric($userGuid)) {
+		ossn_api_error('validation_error', 'user_guid is required', 422);
+	}
+	$ok = (new OssnDating())->unhideProfile(intval($userGuid), $api_user_guid);
+	ossn_api_json(array('status' => $ok ? 'ok' : 'failed'));
+}
+
 ossn_api_error('not_found', 'Unknown admin route', 404);

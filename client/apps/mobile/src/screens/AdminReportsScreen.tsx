@@ -18,9 +18,11 @@
  * "Забанить" for user reports — report.php now performs a real ban
  * (OssnUser::ban(), reason = the report's own reason) for target_type
  * 'user', enforced platform-wide at ossn_com.php's bearer-token choke
- * point. 'dating_profile' still has no real removal mechanism and
- * still returns a real 501 — shown honestly rather than a button that
- * would always fail.
+ * point. "Скрыть анкету" for dating_profile reports — real, reversible
+ * admin-only hide (OssnDating::hideProfile()), not a destructive
+ * delete. Every real target_type report.php's action route supports
+ * now has a real button here — none of the four are a "would always
+ * fail" placeholder anymore.
  */
 import {useCallback, useEffect, useState} from 'react';
 import {View, Text, FlatList, StyleSheet} from 'react-native';
@@ -56,6 +58,7 @@ const TARGET_LABELS: Record<string, string> = {
 
 const REMOVABLE_TYPES = new Set(['post', 'comment', 'group']);
 const BANNABLE_TYPES = new Set(['user']);
+const HIDEABLE_TYPES = new Set(['dating_profile']);
 
 export default function AdminReportsScreen({api, onBack}: Props) {
 	const [items, setItems] = useState<BerxReportQueueItem[]>([]);
@@ -129,6 +132,9 @@ export default function AdminReportsScreen({api, onBack}: Props) {
 								) : null}
 								{BANNABLE_TYPES.has(item.target_type) ? (
 									<BerxButton label="Забанить" variant="danger" loading={busyId === item.id} onPress={() => handleDeleteContent(item.id)} />
+								) : null}
+								{HIDEABLE_TYPES.has(item.target_type) ? (
+									<BerxButton label="Скрыть анкету" variant="danger" loading={busyId === item.id} onPress={() => handleDeleteContent(item.id)} />
 								) : null}
 								<BerxButton label="Отклонить" variant="secondary" loading={busyId === item.id} onPress={() => handleResolve(item.id, 'dismissed')} />
 								<BerxButton label="Принято" loading={busyId === item.id} onPress={() => handleResolve(item.id, 'reviewed')} />

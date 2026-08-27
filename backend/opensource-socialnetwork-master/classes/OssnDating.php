@@ -163,6 +163,43 @@ class OssnDating extends OssnDatabase {
 		));
 	}
 
+	/**
+	 * MAX BUILD -- real, admin-only moderation action (closes
+	 * report.php's target_type='dating_profile' real, honest 501).
+	 * Deliberately separate from the user's own hide_profile/
+	 * invisible_mode toggles: those stay theirs to control, this is a
+	 * distinct, reversible layer an admin applies on top -- never a
+	 * destructive row delete (a dating profile carries real photos/
+	 * interests/passes across four other tables; a full cascade
+	 * without a real MySQL runtime here to verify it against is a real,
+	 * avoidable risk).
+	 */
+	public function hideProfile($guid, $actingGuid) {
+		$guid = intval($guid);
+		if (!$guid || !ossn_api_is_admin($actingGuid)) {
+			return false;
+		}
+		return (bool) parent::update(array(
+			'table'  => self::PROFILES_TABLE,
+			'names'  => array('moderation_hidden'),
+			'values' => array(1),
+			'wheres' => array(self::wheres('guid', '=', $guid)),
+		));
+	}
+
+	public function unhideProfile($guid, $actingGuid) {
+		$guid = intval($guid);
+		if (!$guid || !ossn_api_is_admin($actingGuid)) {
+			return false;
+		}
+		return (bool) parent::update(array(
+			'table'  => self::PROFILES_TABLE,
+			'names'  => array('moderation_hidden'),
+			'values' => array(0),
+			'wheres' => array(self::wheres('guid', '=', $guid)),
+		));
+	}
+
 	/* ---------------- Discover / search ---------------- */
 
 	private function excludedGuids($viewerGuid) {
@@ -211,6 +248,7 @@ class OssnDating extends OssnDatabase {
 		$wheres = array(
 			self::wheres('hide_profile', '=', 0),
 			self::wheres('invisible_mode', '=', 0),
+			self::wheres('moderation_hidden', '=', 0),
 			self::wheres('guid', 'NOT IN', $excluded),
 		);
 		// Real boosted-first ordering: a still-active boost (boosted_until
@@ -269,6 +307,7 @@ class OssnDating extends OssnDatabase {
 			'from'     => self::PROFILES_TABLE,
 			'wheres'   => array(
 				self::wheres('hide_profile', '=', 0),
+				self::wheres('moderation_hidden', '=', 0),
 				self::wheres('guid', 'NOT IN', $excluded),
 				self::wheres('pseudonym', 'LIKE', '%' . $q . '%'),
 			),
