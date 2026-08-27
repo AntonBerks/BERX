@@ -19,10 +19,16 @@
  * the event's real date is left untouched rather than silently
  * overwritten with a fake value. Rescheduling stays a "delete and
  * recreate" operation until a real picker exists.
+ *
+ * Also closes uploadEventCover() from the same sweep — real, working,
+ * zero UI callers. Its response only echoes {status}, not a fresh
+ * cover_url (unlike uploadPlaceCover()) — confirmed by reading
+ * events.php's real /cover route — so a successful upload re-fetches
+ * the event to pick up the real new cover_url rather than guessing it.
  */
 import {useCallback, useEffect, useState} from 'react';
-import {View, Text, ScrollView, Pressable, Alert, StyleSheet} from 'react-native';
-import type {BerxApiClient} from '@berx/api/client';
+import {View, Text, ScrollView, Image, Pressable, Alert, StyleSheet} from 'react-native';
+import type {BerxApiClient, BerxFilePart} from '@berx/api/client';
 import type {BerxPlaceCategory} from '@berx/api/types';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
@@ -33,12 +39,13 @@ import {BerxLoadingState, BerxErrorState} from '../../../../packages/design-syst
 interface Props {
 	api: BerxApiClient;
 	guid: number;
+	pickImage: () => Promise<BerxFilePart | null>;
 	onSaved: () => void;
 	onDeleted: () => void;
 	onBack?: () => void;
 }
 
-export default function EditEventScreen({api, guid, onSaved, onDeleted, onBack}: Props) {
+export default function EditEventScreen({api, guid, pickImage, onSaved, onDeleted, onBack}: Props) {
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 	const [title, setTitle] = useState('');
@@ -47,6 +54,8 @@ export default function EditEventScreen({api, guid, onSaved, onDeleted, onBack}:
 	const [capacity, setCapacity] = useState('');
 	const [category, setCategory] = useState<string | undefined>(undefined);
 	const [categories, setCategories] = useState<BerxPlaceCategory[]>([]);
+	const [coverUrl, setCoverUrl] = useState<string | null>(null);
+	const [uploadingCover, setUploadingCover] = useState(false);
 	const [submitting, setSubmitting] = useState(false);
 	const [deleting, setDeleting] = useState(false);
 
@@ -61,6 +70,7 @@ export default function EditEventScreen({api, guid, onSaved, onDeleted, onBack}:
 			setCapacity(event.capacity !== null ? String(event.capacity) : '');
 			setCategory(event.category ?? undefined);
 			setCategories(cats.categories);
+			setCoverUrl(event.cover_url);
 		} catch (e) {
 			setError(e instanceof Error ? e.message : 'Не удалось загрузить событие');
 		} finally {
@@ -71,6 +81,22 @@ export default function EditEventScreen({api, guid, onSaved, onDeleted, onBack}:
 	useEffect(() => {
 		load();
 	}, [load]);
+
+	async function handleUploadCover() {
+		const picked = await pickImage();
+		if (!picked) return; // cancelled — real optional action, not an error
+		setUploadingCover(true);
+		setError(null);
+		try {
+			await api.uploadEventCover(guid, picked);
+			const fresh = await api.getEvent(guid);
+			setCoverUrl(fresh.cover_url);
+		} catch {
+			setError('Не удалось загрузить обложку. Проверьте формат (JPEG/PNG/WebP/GIF).');
+		} finally {
+			setUploadingCover(false);
+		}
+	}
 
 	async function submit() {
 		if (!title.trim() || !category) {
@@ -146,6 +172,17 @@ export default function EditEventScreen({api, guid, onSaved, onDeleted, onBack}:
 		<ScrollView style={styles.screen}>
 			<BerxHeader title="Редактировать событие" onBack={onBack} />
 			<View style={styles.body}>
+				<Pressable onPress={handleUploadCover} disabled={uploadingCover}>
+					{coverUrl ? (
+						<Image source={{uri: coverUrl}} style={styles.cover} />
+					) : (
+						<View style={styles.coverPlaceholder}>
+							<Text style={styles.coverPlaceholderText}>{uploadingCover ? 'Загрузка…' : '+ Добавить обложку'}</Text>
+						</View>
+					)}
+					{coverUrl ? <Text style={styles.coverChangeText}>{uploadingCover ? 'Загрузка…' : 'Изменить обложку'}</Text> : null}
+				</Pressable>
+
 				<BerxInput placeholder="Название" value={title} onChangeText={setTitle} />
 
 				<Text style={styles.label}>Категория</Text>
@@ -186,4 +223,8 @@ const styles = StyleSheet.create({
 	hint: {fontSize: typography.sizeXs, color: colors.textFaint},
 	error: {fontSize: typography.sizeSm, color: colors.danger},
 	deleteLink: {fontSize: typography.sizeSm, color: colors.danger, textAlign: 'center', textDecorationLine: 'underline', marginTop: spacing.sm},
+	cover: {width: '100%', aspectRatio: 1.6, borderRadius: radius.md, backgroundColor: colors.graphite},
+	coverPlaceholder: {width: '100%', aspectRatio: 1.6, borderRadius: radius.md, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center'},
+	coverPlaceholderText: {fontSize: typography.sizeSm, color: colors.accent, fontWeight: typography.weightMedium},
+	coverChangeText: {fontSize: typography.sizeXs, color: colors.accent, textAlign: 'center', marginTop: spacing.xs},
 });

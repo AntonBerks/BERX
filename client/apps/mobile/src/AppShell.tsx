@@ -503,6 +503,7 @@ function RouteRenderer({name, params}: {name: BerxRouteName; params: unknown}) {
 				<EditPlaceScreen
 					api={api}
 					guid={p.guid}
+					pickImage={pickImage}
 					onSaved={nav.pop}
 					onDeleted={() => { nav.pop(); nav.pop(); }}
 					onBack={nav.pop}
@@ -562,6 +563,7 @@ function RouteRenderer({name, params}: {name: BerxRouteName; params: unknown}) {
 				<EditEventScreen
 					api={api}
 					guid={p.guid}
+					pickImage={pickImage}
 					onSaved={nav.pop}
 					onDeleted={() => { nav.pop(); nav.pop(); }}
 					onBack={nav.pop}
