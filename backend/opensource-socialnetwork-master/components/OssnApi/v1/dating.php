@@ -127,6 +127,15 @@ if ($segment0 === 'pass' && $method === 'POST') {
 	ossn_api_json(array('status' => $ok ? 'ok' : 'failed'));
 }
 
+if ($segment0 === 'boost' && $method === 'POST') {
+	$result = $model->boostProfile($api_user_guid);
+	if ($result['status'] !== 'ok') {
+		$status = $result['status'] === 'no_profile' ? 404 : ($result['status'] === 'insufficient_balance' ? 402 : 422);
+		ossn_api_error($result['status'], 'Could not boost profile', $status);
+	}
+	ossn_api_json(array('status' => 'ok', 'boosted_until' => $result['boosted_until']));
+}
+
 if ($segment0 === 'undo' && $method === 'POST') {
 	$restored = $model->undoLastPass($api_user_guid);
 	ossn_api_json(array('status' => $restored !== null ? 'ok' : 'nothing_to_undo', 'restored_guid' => $restored));

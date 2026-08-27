@@ -4,10 +4,17 @@
  * Every number here is real: balance/level/progress from
  * GET /api/v1/points, history from GET /api/v1/points/history, spend
  * via the real POST /api/v1/dating/boost (server-checked price, can't
- * be spoofed from the client — see points.php/dating.php). No level
- * definitions invented here — REWARDS/LEVEL_THRESHOLDS live once, in
- * OssnPoints.php, and this screen only displays what the server
- * computed from them.
+ * be spoofed from the client — see points.php/dating.php).
+ *
+ * MAX BUILD — /dating/boost was previously a dead route (this file's
+ * own comment claimed it was "server-checked" while dating.php had no
+ * such branch at all, and the boost button's price/disabled-threshold
+ * here said 30 while OssnPoints::SPEND_PRICES['dating_boost'] was
+ * always 50 — two real bugs in one feature, both fixed together: a
+ * real /dating/boost route now exists, and the button matches the
+ * real price). No level definitions invented here — REWARDS/
+ * LEVEL_THRESHOLDS live once, in OssnPoints.php, and this screen only
+ * displays what the server computed from them.
  *
  * Future UI pass: the streak row and the boost/spend card move onto
  * BerxGlassSurface, and the hero + spend section get a real BerxFadeIn
@@ -18,6 +25,7 @@ import {useCallback, useEffect, useState} from 'react';
 import {View, Text, FlatList, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxPointsBalance, BerxPointsHistoryEntry} from '@berx/api/types';
+import {BerxApiError} from '@berx/core';
 import {relativeTimeLabel} from '@berx/domain';
 import {colors, spacing, typography} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
@@ -71,8 +79,16 @@ export default function PointsScreen({api, onBack}: Props) {
 			await api.boostDatingProfile();
 			setBoostMessage('Анкета в буст на 30 минут');
 			await load(); // refresh balance after a real spend
-		} catch {
-			setBoostMessage('Недостаточно баллов или нет анкеты знакомств');
+		} catch (e) {
+			// Real, distinct server verdicts (dating.php's /boost route) —
+			// shown as-is rather than one generic guess.
+			if (e instanceof BerxApiError && e.code === 'no_profile') {
+				setBoostMessage('Сначала создайте анкету знакомств');
+			} else if (e instanceof BerxApiError && e.code === 'insufficient_balance') {
+				setBoostMessage('Недостаточно баллов');
+			} else {
+				setBoostMessage('Не удалось активировать буст');
+			}
 		} finally {
 			setBoosting(false);
 		}
@@ -138,7 +154,7 @@ export default function PointsScreen({api, onBack}: Props) {
 									<Text style={styles.spendCardTitle}>Буст анкеты знакомств</Text>
 									<Text style={styles.spendCardSubtitle}>Показ выше в Discover на 30 минут</Text>
 								</View>
-								<BerxButton label="30" onPress={handleBoost} loading={boosting} disabled={balance.balance < 30} />
+								<BerxButton label="50" onPress={handleBoost} loading={boosting} disabled={balance.balance < 50} />
 							</BerxGlassSurface>
 							{boostMessage ? <Text style={styles.boostMessage}>{boostMessage}</Text> : null}
 						</View>

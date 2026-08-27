@@ -13,13 +13,15 @@
  * No method here is named update()/delete() — same self-recursion
  * class of bug documented across the other BERX classes this session.
  *
- * NOT built here (real, disclosed gap, not faked): profile "boost" —
- * client.ts's boostDatingProfile()/POST /dating/boost expects a
- * boosted_until timestamp, but no such column exists anywhere in the
- * real, already-migrated ossn_dating_profiles schema. Adding one needs
- * its own verified migration + decision on how boost should actually
- * affect discover() ordering, not a rushed addition here. /dating/boost
- * is therefore not implemented in dating.php either.
+ * MAX BUILD — "profile boost" is now real: a prior session already
+ * added the boosted_until column via upgrade/upgrades/1785168700.php
+ * (idempotent, confirmed by reading it) but boostProfile() itself,
+ * discover()'s boosted-first ordering, and the /dating/boost route
+ * were never actually written — this comment previously claimed the
+ * column didn't exist, which was stale/false. boostProfile() spends
+ * real points via OssnPoints::spend('dating_boost', 50 — the same
+ * SPEND_PRICES entry points.php's own /spend route already
+ * authorizes), never a client-claimed spend.
  */
 class OssnDating extends OssnDatabase {
 
@@ -193,10 +195,14 @@ class OssnDating extends OssnDatabase {
 			self::wheres('invisible_mode', '=', 0),
 			self::wheres('guid', 'NOT IN', $excluded),
 		);
+		// Real boosted-first ordering: a still-active boost (boosted_until
+		// in the future) sorts ahead of everything else, ties broken by
+		// the existing recency order — the actual point of spending real
+		// points on a boost, not decorative.
 		$rows = $this->select(array(
 			'from'     => self::PROFILES_TABLE,
 			'wheres'   => $wheres,
-			'order_by' => 'time_updated DESC',
+			'order_by' => '(boosted_until > ' . time() . ') DESC, time_updated DESC',
 			'limit'    => intval($limit),
 			'offset'   => intval($offset) > 0 ? intval($offset) : 0,
 		), true);
@@ -208,6 +214,35 @@ class OssnDating extends OssnDatabase {
 			$out[] = $row;
 		}
 		return $out;
+	}
+
+	/**
+	 * @return array {status: 'ok', boosted_until: int} on success, or
+	 *         {status: 'no_profile'|'insufficient_balance'|'failed'}
+	 */
+	public function boostProfile($guid) {
+		$guid = intval($guid);
+		if (!$this->hasProfile($guid)) {
+			return array('status' => 'no_profile');
+		}
+		$result = (new OssnPoints())->spend($guid, 'dating_boost', OssnPoints::SPEND_PRICES['dating_boost']);
+		if (!is_int($result)) {
+			return array('status' => (string) $result);
+		}
+		// 30 minutes — the real, already-shipped UI copy on PointsScreen
+		// ("Показ выше в Discover на 30 минут") promised this exact
+		// duration before the backend existed to honor it.
+		$boostedUntil = time() + (30 * 60);
+		$ok = parent::update(array(
+			'table'  => self::PROFILES_TABLE,
+			'names'  => array('boosted_until'),
+			'values' => array($boostedUntil),
+			'wheres' => array(self::wheres('guid', '=', $guid)),
+		));
+		if (!$ok) {
+			return array('status' => 'failed');
+		}
+		return array('status' => 'ok', 'boosted_until' => $boostedUntil);
 	}
 
 	public function search($viewerGuid, $q, $limit = 20, $offset = 0) {
