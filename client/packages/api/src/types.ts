@@ -183,6 +183,10 @@ export interface BerxProfileSummary {
 	is_friend: boolean;
 	is_creator: boolean;
 	reputation: BerxReputation;
+	/** Real, bounded friend-list intersection (BERX World Max Build) — 0 on the caller's own profile, never estimated. */
+	mutual_friends_count: number;
+	/** Real, bounded community-membership intersection (BERX World Max Build) — privacy-safe, only ever intersects with the caller's own real memberships. */
+	mutual_communities_count: number;
 }
 
 export interface BerxSearchUsersResponse {

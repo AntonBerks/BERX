@@ -9,6 +9,17 @@
  * attended, an experience/trip you created) — no communities_joined
  * or places_saved, which aren't independently exposed for OTHER users
  * anywhere else in this API today, unlike the caller's own /lifegraph/me.
+ *
+ * BERX WORLD MAX BUILD — `mutual_friends_count`: real, bounded
+ * intersection of the caller's and the viewed user's real friend
+ * lists (same personal-scale bounded pattern as discovery.php's own
+ * "people you may know" computation) — never a guessed number, only
+ * computed for non-own profiles. `mutual_communities_count`: same
+ * real intersection over 'group:join:approve' relations — privacy-
+ * safe by construction, since it only ever intersects with
+ * communities the CALLER already belongs to (never reveals a
+ * stranger's membership the caller couldn't already see by opening
+ * that community's own real member list).
  */
 
 if ($method !== 'GET' || !isset($segments[0])) {
@@ -27,9 +38,57 @@ if (ossn_api_is_blocked($api_user_guid, $user->guid)) {
 
 $isOwn = intval($user->guid) === intval($api_user_guid);
 $isFriend = false;
+$mutualFriendsCount = 0;
+$mutualCommunitiesCount = 0;
 if (!$isOwn) {
 	$checker = new OssnUser();
 	$isFriend = (bool) $checker->isFriend($api_user_guid, $user->guid);
+
+	// BERX WORLD MAX BUILD — real mutual-friends count, same bounded
+	// real-intersection pattern discovery.php already uses (never a
+	// guessed/estimated number). Surfaced on every non-own profile,
+	// not just discovery suggestions — the directive's own "mutual
+	// friends" example applies wherever two real people meet, not one
+	// screen.
+	$myFriendRows = $checker->getFriends(intval($api_user_guid), array('limit' => 2000, 'page_limit' => false));
+	$myFriendIds = array();
+	if ($myFriendRows) {
+		foreach ($myFriendRows as $f) {
+			$myFriendIds[intval($f->guid)] = true;
+		}
+	}
+	if ($myFriendIds) {
+		$theirFriendRows = $checker->getFriends(intval($user->guid), array('limit' => 2000, 'page_limit' => false));
+		if ($theirFriendRows) {
+			foreach ($theirFriendRows as $f) {
+				if (isset($myFriendIds[intval($f->guid)])) {
+					$mutualFriendsCount++;
+				}
+			}
+		}
+	}
+
+	// Real shared-communities count — privacy-safe by construction:
+	// only intersects with communities the CALLER is already a member
+	// of (never reveals a stranger's membership the caller couldn't
+	// already see by opening that community's own member list).
+	$myCommunityRows = ossn_get_relationships(array('to' => intval($api_user_guid), 'type' => 'group:join:approve', 'limit' => 200, 'page_limit' => false));
+	$myCommunityIds = array();
+	if ($myCommunityRows) {
+		foreach ($myCommunityRows as $r) {
+			$myCommunityIds[intval($r->relation_from)] = true;
+		}
+	}
+	if ($myCommunityIds) {
+		$theirCommunityRows = ossn_get_relationships(array('to' => intval($user->guid), 'type' => 'group:join:approve', 'limit' => 200, 'page_limit' => false));
+		if ($theirCommunityRows) {
+			foreach ($theirCommunityRows as $r) {
+				if (isset($myCommunityIds[intval($r->relation_from)])) {
+					$mutualCommunitiesCount++;
+				}
+			}
+		}
+	}
 }
 $isCreator = false;
 if (class_exists('OssnCreator')) {
@@ -55,6 +114,8 @@ ossn_api_json(array(
 	'is_own'      => $isOwn,
 	'is_friend'   => $isFriend,
 	'is_creator'  => (bool) $isCreator,
+	'mutual_friends_count' => $mutualFriendsCount,
+	'mutual_communities_count' => $mutualCommunitiesCount,
 	'reputation'  => array(
 		'places_reviewed'     => $reviewsRow ? intval($reviewsRow->cnt) : 0,
 		'events_going'        => $eventsAttended,

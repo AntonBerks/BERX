@@ -228,6 +228,14 @@ export default function ProfileScreen({api, authState, username, onBack, onMessa
 				</View>
 				<Text style={styles.fullname}>{profile.fullname}</Text>
 				<Text style={styles.username}>@{profile.username}</Text>
+				{!isOwn && (profile.mutual_friends_count > 0 || profile.mutual_communities_count > 0) ? (
+					<Text style={styles.mutualFriends}>
+						{[
+							profile.mutual_friends_count > 0 ? (profile.mutual_friends_count === 1 ? '1 общий друг' : `${profile.mutual_friends_count} общих друзей`) : null,
+							profile.mutual_communities_count > 0 ? (profile.mutual_communities_count === 1 ? '1 общее сообщество' : `${profile.mutual_communities_count} общих сообществ`) : null,
+						].filter(Boolean).join(' · ')}
+					</Text>
+				) : null}
 				{year ? <Text style={styles.joined}>На BERX с {year} года</Text> : null}
 				{profile.reputation ? (
 					<BerxGlassSurface elevated padding="sm" style={styles.reputationRow}>
@@ -484,6 +492,7 @@ const styles = StyleSheet.create({
 	fullname: {color: colors.text, fontSize: typography.sizeXl, fontWeight: typography.weightBold},
 	username: {color: colors.textDim, fontSize: typography.sizeBase, marginTop: 2},
 	joined: {color: colors.textFaint, fontSize: typography.sizeXs, marginTop: spacing.sm},
+	mutualFriends: {color: colors.accent, fontSize: typography.sizeSm, marginTop: spacing.xs, fontWeight: typography.weightMedium},
 	reputationRow: {flexDirection: 'row', gap: spacing.lg, marginTop: spacing.sm},
 	reputationStat: {alignItems: 'center'},
 	reputationValue: {color: colors.accent, fontSize: typography.sizeBase, fontWeight: typography.weightBold},
