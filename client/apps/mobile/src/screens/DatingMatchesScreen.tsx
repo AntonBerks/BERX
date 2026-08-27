@@ -15,7 +15,7 @@
  * to set a dating location first, not a silent empty list.
  */
 import {useCallback, useEffect, useState} from 'react';
-import {View, FlatList, Pressable, Text, Image, Alert, StyleSheet} from 'react-native';
+import {View, FlatList, Pressable, Text, Image, Alert, RefreshControl, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxDatingMatch, BerxDateIdea} from '@berx/api/types';
 import {BerxApiError} from '@berx/core';
@@ -34,6 +34,7 @@ interface Props {
 export default function DatingMatchesScreen({api, onOpenConversation, onOpenPhotos, onBack}: Props) {
 	const [matches, setMatches] = useState<BerxDatingMatch[]>([]);
 	const [loading, setLoading] = useState(true);
+	const [refreshing, setRefreshing] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [busyGuid, setBusyGuid] = useState<number | null>(null);
 	const [expandedGuid, setExpandedGuid] = useState<number | null>(null);
@@ -50,6 +51,7 @@ export default function DatingMatchesScreen({api, onOpenConversation, onOpenPhot
 			setError('Не удалось загрузить совпадения');
 		} finally {
 			setLoading(false);
+			setRefreshing(false);
 		}
 	}, [api]);
 
@@ -117,6 +119,16 @@ export default function DatingMatchesScreen({api, onOpenConversation, onOpenPhot
 				<FlatList
 					data={matches}
 					keyExtractor={(m: BerxDatingMatch) => String(m.guid)}
+					refreshControl={
+						<RefreshControl
+							refreshing={refreshing}
+							onRefresh={() => {
+								setRefreshing(true);
+								load();
+							}}
+							tintColor={colors.accent}
+						/>
+					}
 					renderItem={({item}: {item: BerxDatingMatch}) => (
 						<View>
 							<Pressable style={styles.row} onPress={() => onOpenConversation(item.guid, item.username)}>

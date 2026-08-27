@@ -22,7 +22,7 @@
  * "not every list is a card" convention used across Messages/Places.
  */
 import {useCallback, useEffect, useState} from 'react';
-import {View, Text, FlatList, StyleSheet} from 'react-native';
+import {View, Text, FlatList, RefreshControl, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxPointsBalance, BerxPointsHistoryEntry} from '@berx/api/types';
 import {BerxApiError} from '@berx/core';
@@ -51,6 +51,7 @@ export default function PointsScreen({api, onBack}: Props) {
 	const [balance, setBalance] = useState<BerxPointsBalance | null>(null);
 	const [history, setHistory] = useState<BerxPointsHistoryEntry[]>([]);
 	const [loading, setLoading] = useState(true);
+	const [refreshing, setRefreshing] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [boosting, setBoosting] = useState(false);
 	const [boostMessage, setBoostMessage] = useState<string | null>(null);
@@ -65,6 +66,7 @@ export default function PointsScreen({api, onBack}: Props) {
 			setError('Не удалось загрузить баллы');
 		} finally {
 			setLoading(false);
+			setRefreshing(false);
 		}
 	}, [api]);
 
@@ -120,6 +122,16 @@ export default function PointsScreen({api, onBack}: Props) {
 			<FlatList
 				data={history}
 				keyExtractor={(item: BerxPointsHistoryEntry, i: number) => `${item.time_created}-${i}`}
+				refreshControl={
+					<RefreshControl
+						refreshing={refreshing}
+						onRefresh={() => {
+							setRefreshing(true);
+							load();
+						}}
+						tintColor={colors.accent}
+					/>
+				}
 				ListHeaderComponent={
 					<BerxFadeIn>
 						<View style={styles.hero}>

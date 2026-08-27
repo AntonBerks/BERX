@@ -3,7 +3,7 @@
  * Real data: api.savedPlaces() (components/OssnApi/v1/places.php).
  */
 import {useCallback, useEffect, useState} from 'react';
-import {View, Text, FlatList, Image, Pressable, StyleSheet} from 'react-native';
+import {View, Text, FlatList, Image, Pressable, RefreshControl, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxPlace} from '@berx/api/types';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
@@ -20,6 +20,7 @@ interface Props {
 export default function SavedPlacesScreen({api, onOpenPlace, onBack}: Props) {
 	const [items, setItems] = useState<BerxPlace[]>([]);
 	const [loading, setLoading] = useState(true);
+	const [refreshing, setRefreshing] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
 	const load = useCallback(async () => {
@@ -32,6 +33,7 @@ export default function SavedPlacesScreen({api, onOpenPlace, onBack}: Props) {
 			setError(e instanceof Error ? e.message : 'Не удалось загрузить сохранённые места');
 		} finally {
 			setLoading(false);
+			setRefreshing(false);
 		}
 	}, [api]);
 
@@ -54,6 +56,16 @@ export default function SavedPlacesScreen({api, onOpenPlace, onBack}: Props) {
 						keyExtractor={(p: BerxPlace) => String(p.guid)}
 						numColumns={2}
 						contentContainerStyle={styles.grid}
+						refreshControl={
+							<RefreshControl
+								refreshing={refreshing}
+								onRefresh={() => {
+									setRefreshing(true);
+									load();
+								}}
+								tintColor={colors.accent}
+							/>
+						}
 						renderItem={({item}: {item: BerxPlace}) => (
 							<Pressable style={styles.card} onPress={() => onOpenPlace(item.guid)}>
 								{item.cover_url ? <Image source={{uri: item.cover_url}} style={styles.cardImage} /> : <View style={styles.cardImageFallback} />}

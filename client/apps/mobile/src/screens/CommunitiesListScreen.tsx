@@ -8,7 +8,7 @@
  * member of.
  */
 import {useCallback, useEffect, useState} from 'react';
-import {View, Text, FlatList, Pressable, StyleSheet} from 'react-native';
+import {View, Text, FlatList, Pressable, RefreshControl, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxCommunity} from '@berx/api/types';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
@@ -32,6 +32,7 @@ export default function CommunitiesListScreen({api, onOpenCommunity, onCreate, o
 	const [q, setQ] = useState('');
 	const [items, setItems] = useState<BerxCommunity[]>([]);
 	const [loading, setLoading] = useState(true);
+	const [refreshing, setRefreshing] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
 	const load = useCallback(async () => {
@@ -44,6 +45,7 @@ export default function CommunitiesListScreen({api, onOpenCommunity, onCreate, o
 			setError('Не удалось загрузить сообщества');
 		} finally {
 			setLoading(false);
+			setRefreshing(false);
 		}
 	}, [api, q, tab]);
 
@@ -88,6 +90,16 @@ export default function CommunitiesListScreen({api, onOpenCommunity, onCreate, o
 					<FlatList
 						data={items}
 						keyExtractor={(c: BerxCommunity) => String(c.guid)}
+						refreshControl={
+							<RefreshControl
+								refreshing={refreshing}
+								onRefresh={() => {
+									setRefreshing(true);
+									load();
+								}}
+								tintColor={colors.accent}
+							/>
+						}
 						renderItem={({item}: {item: BerxCommunity}) => (
 							<Pressable style={styles.row} onPress={() => onOpenCommunity(item.guid)}>
 								<Text style={styles.name}>{item.name}</Text>

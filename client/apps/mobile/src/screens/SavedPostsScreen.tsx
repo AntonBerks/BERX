@@ -11,7 +11,7 @@
  * this is the quick one-tap personal bookmark list.
  */
 import {useCallback, useEffect, useState} from 'react';
-import {Text, Pressable, View, FlatList, StyleSheet} from 'react-native';
+import {Text, Pressable, View, FlatList, RefreshControl, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxPostDetail} from '@berx/api/types';
 import {relativeTimeLabel} from '@berx/domain';
@@ -30,6 +30,7 @@ interface Props {
 export default function SavedPostsScreen({api, onOpenPost, onBack}: Props) {
 	const [items, setItems] = useState<BerxPostDetail[]>([]);
 	const [loading, setLoading] = useState(true);
+	const [refreshing, setRefreshing] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [removingGuid, setRemovingGuid] = useState<number | null>(null);
 
@@ -43,6 +44,7 @@ export default function SavedPostsScreen({api, onOpenPost, onBack}: Props) {
 			setError(e instanceof Error ? e.message : 'Не удалось загрузить сохранённые посты');
 		} finally {
 			setLoading(false);
+			setRefreshing(false);
 		}
 	}, [api]);
 
@@ -76,6 +78,16 @@ export default function SavedPostsScreen({api, onOpenPost, onBack}: Props) {
 						data={items}
 						keyExtractor={(p: BerxPostDetail) => String(p.guid)}
 						contentContainerStyle={styles.list}
+						refreshControl={
+							<RefreshControl
+								refreshing={refreshing}
+								onRefresh={() => {
+									setRefreshing(true);
+									load();
+								}}
+								tintColor={colors.accent}
+							/>
+						}
 						renderItem={({item}: {item: BerxPostDetail}) => (
 							<View>
 								<BerxGlassSurface padding="md" style={styles.card}>

@@ -11,7 +11,7 @@
  * entrance, so Places doesn't feel like a static admin list on open.
  */
 import {useCallback, useEffect, useState} from 'react';
-import {View, Text, FlatList, Pressable, StyleSheet, Image} from 'react-native';
+import {View, Text, FlatList, Pressable, RefreshControl, StyleSheet, Image} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxPlace, BerxPlaceCategory} from '@berx/api/types';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
@@ -36,6 +36,7 @@ export default function PlacesListScreen({api, onOpenPlace, onCreate, onOpenNear
 	const [categories, setCategories] = useState<BerxPlaceCategory[]>([]);
 	const [items, setItems] = useState<BerxPlace[]>([]);
 	const [loading, setLoading] = useState(true);
+	const [refreshing, setRefreshing] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
 	useEffect(() => {
@@ -52,6 +53,7 @@ export default function PlacesListScreen({api, onOpenPlace, onCreate, onOpenNear
 			setError(e instanceof Error ? e.message : 'Не удалось загрузить места');
 		} finally {
 			setLoading(false);
+			setRefreshing(false);
 		}
 	}, [api, query, category]);
 
@@ -97,6 +99,16 @@ export default function PlacesListScreen({api, onOpenPlace, onCreate, onOpenNear
 						keyExtractor={(p: BerxPlace) => String(p.guid)}
 						numColumns={2}
 						contentContainerStyle={styles.grid}
+						refreshControl={
+							<RefreshControl
+								refreshing={refreshing}
+								onRefresh={() => {
+									setRefreshing(true);
+									load();
+								}}
+								tintColor={colors.accent}
+							/>
+						}
 						renderItem={({item}: {item: BerxPlace}) => (
 							<Pressable style={styles.card} onPress={() => onOpenPlace(item.guid)}>
 								<View style={styles.cardMedia}>

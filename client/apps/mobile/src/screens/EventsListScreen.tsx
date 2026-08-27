@@ -10,7 +10,7 @@
  * entrance.
  */
 import {useCallback, useEffect, useState} from 'react';
-import {View, Text, FlatList, Pressable, StyleSheet, Image} from 'react-native';
+import {View, Text, FlatList, Pressable, RefreshControl, StyleSheet, Image} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxEvent, BerxPlaceCategory} from '@berx/api/types';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
@@ -34,6 +34,7 @@ export default function EventsListScreen({api, onOpenEvent, onCreate, onOpenMine
 	const [categories, setCategories] = useState<BerxPlaceCategory[]>([]);
 	const [items, setItems] = useState<BerxEvent[]>([]);
 	const [loading, setLoading] = useState(true);
+	const [refreshing, setRefreshing] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
 	useEffect(() => {
@@ -50,6 +51,7 @@ export default function EventsListScreen({api, onOpenEvent, onCreate, onOpenMine
 			setError(e instanceof Error ? e.message : 'Не удалось загрузить события');
 		} finally {
 			setLoading(false);
+			setRefreshing(false);
 		}
 	}, [api, category, tab]);
 
@@ -100,6 +102,16 @@ export default function EventsListScreen({api, onOpenEvent, onCreate, onOpenMine
 						data={items}
 						keyExtractor={(e: BerxEvent) => String(e.guid)}
 						contentContainerStyle={styles.list}
+						refreshControl={
+							<RefreshControl
+								refreshing={refreshing}
+								onRefresh={() => {
+									setRefreshing(true);
+									load();
+								}}
+								tintColor={colors.accent}
+							/>
+						}
 						renderItem={({item}: {item: BerxEvent}) => {
 							const date = new Date(item.starts * 1000);
 							return (
