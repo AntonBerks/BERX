@@ -16,6 +16,7 @@ import {BerxHeader} from '../../../../packages/design-system/src/components/Berx
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
+import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
 
 interface Props {
 	api: BerxApiClient;
@@ -83,21 +84,23 @@ export default function CommunitiesListScreen({api, onOpenCommunity, onCreate, o
 					subtitle={tab === 'mine' ? 'Вступите в сообщество на вкладке «Все» или создайте своё.' : 'Попробуйте другой запрос или создайте своё.'}
 				/>
 			) : (
-				<FlatList
-					data={items}
-					keyExtractor={(c: BerxCommunity) => String(c.guid)}
-					renderItem={({item}: {item: BerxCommunity}) => (
-						<Pressable style={styles.row} onPress={() => onOpenCommunity(item.guid)}>
-							<Text style={styles.name}>{item.name}</Text>
-							{item.description ? (
-								<Text style={styles.description} numberOfLines={2}>
-									{item.description}
-								</Text>
-							) : null}
-							{item.is_member ? <Text style={styles.memberBadge}>Вы участник</Text> : null}
-						</Pressable>
-					)}
-				/>
+				<BerxFadeIn style={styles.fadeFlex}>
+					<FlatList
+						data={items}
+						keyExtractor={(c: BerxCommunity) => String(c.guid)}
+						renderItem={({item}: {item: BerxCommunity}) => (
+							<Pressable style={styles.row} onPress={() => onOpenCommunity(item.guid)}>
+								<Text style={styles.name}>{item.name}</Text>
+								{item.description ? (
+									<Text style={styles.description} numberOfLines={2}>
+										{item.description}
+									</Text>
+								) : null}
+								{item.is_member ? <Text style={styles.memberBadge}>Вы участник</Text> : null}
+							</Pressable>
+						)}
+					/>
+				</BerxFadeIn>
 			)}
 		</View>
 	);
@@ -112,6 +115,7 @@ const styles = StyleSheet.create({
 	tabTextActive: {color: colors.accent, fontWeight: typography.weightMedium},
 	searchRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.lg, paddingBottom: spacing.md},
 	searchInput: {flex: 1},
+	fadeFlex: {flex: 1},
 	row: {padding: spacing.lg, borderBottomWidth: 1, borderBottomColor: colors.borderSoft},
 	name: {color: colors.text, fontSize: typography.sizeBase, fontWeight: typography.weightMedium},
 	description: {color: colors.textDim, fontSize: typography.sizeSm, marginTop: spacing.xs},

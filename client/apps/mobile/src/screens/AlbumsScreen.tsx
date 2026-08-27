@@ -11,6 +11,7 @@ import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
+import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
 
 interface Props {
 	api: BerxApiClient;
@@ -57,20 +58,22 @@ export default function AlbumsScreen({api, userGuid, isOwn, onOpenAlbum, onCreat
 			{items.length === 0 ? (
 				<BerxEmptyState title="Альбомов пока нет" subtitle={isOwn ? 'Создайте первый альбом.' : undefined} />
 			) : (
-				<FlatList
-					data={items}
-					keyExtractor={(a: BerxAlbum) => String(a.guid)}
-					numColumns={2}
-					contentContainerStyle={styles.grid}
-					renderItem={({item}: {item: BerxAlbum}) => (
-						<Pressable style={styles.card} onPress={() => onOpenAlbum(item.guid)}>
-							<View style={styles.cardMedia}>
-								<Text style={styles.cardInitial}>{item.title.charAt(0).toUpperCase()}</Text>
-							</View>
-							<Text style={styles.cardTitle} numberOfLines={1}>{item.title}</Text>
-						</Pressable>
-					)}
-				/>
+				<BerxFadeIn style={styles.fadeFlex}>
+					<FlatList
+						data={items}
+						keyExtractor={(a: BerxAlbum) => String(a.guid)}
+						numColumns={2}
+						contentContainerStyle={styles.grid}
+						renderItem={({item}: {item: BerxAlbum}) => (
+							<Pressable style={styles.card} onPress={() => onOpenAlbum(item.guid)}>
+								<View style={styles.cardMedia}>
+									<Text style={styles.cardInitial}>{item.title.charAt(0).toUpperCase()}</Text>
+								</View>
+								<Text style={styles.cardTitle} numberOfLines={1}>{item.title}</Text>
+							</Pressable>
+						)}
+					/>
+				</BerxFadeIn>
 			)}
 		</View>
 	);
@@ -80,6 +83,7 @@ const styles = StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.bg},
 	toolbar: {padding: spacing.md},
 	grid: {padding: spacing.sm},
+	fadeFlex: {flex: 1},
 	card: {flex: 1, margin: spacing.xs, borderRadius: radius.md, overflow: 'hidden', backgroundColor: colors.surface},
 	cardMedia: {width: '100%', aspectRatio: 1, backgroundColor: colors.graphite, alignItems: 'center', justifyContent: 'center'},
 	cardInitial: {fontSize: typography.sizeXl, color: colors.textFaint},

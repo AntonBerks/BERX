@@ -12,6 +12,7 @@ import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
+import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
 
 interface Props {
 	api: BerxApiClient;
@@ -61,22 +62,24 @@ export default function CirclesScreen({api, onOpenCircle, onCreate, onBack}: Pro
 			{items.length === 0 ? (
 				<BerxEmptyState title="Кругов пока нет" subtitle="Круги — приватные списки друзей для управления видимостью." />
 			) : (
-				<FlatList
-					data={items}
-					keyExtractor={(c: BerxCircle) => String(c.id)}
-					contentContainerStyle={styles.list}
-					renderItem={({item}: {item: BerxCircle}) => (
-						<Pressable style={styles.row} onPress={() => onOpenCircle(item.id)}>
-							<View style={styles.rowBody}>
-								<Text style={styles.title}>{item.name}</Text>
-								<Text style={styles.meta}>
-									{item.member_count} {item.member_count === 1 ? 'человек' : 'человек'}
-									{item.kind ? ` · ${KIND_LABEL[item.kind] ?? item.kind}` : ''}
-								</Text>
-							</View>
-						</Pressable>
-					)}
-				/>
+				<BerxFadeIn style={styles.fadeFlex}>
+					<FlatList
+						data={items}
+						keyExtractor={(c: BerxCircle) => String(c.id)}
+						contentContainerStyle={styles.list}
+						renderItem={({item}: {item: BerxCircle}) => (
+							<Pressable style={styles.row} onPress={() => onOpenCircle(item.id)}>
+								<View style={styles.rowBody}>
+									<Text style={styles.title}>{item.name}</Text>
+									<Text style={styles.meta}>
+										{item.member_count} {item.member_count === 1 ? 'человек' : 'человек'}
+										{item.kind ? ` · ${KIND_LABEL[item.kind] ?? item.kind}` : ''}
+									</Text>
+								</View>
+							</Pressable>
+						)}
+					/>
+				</BerxFadeIn>
 			)}
 		</View>
 	);
@@ -86,6 +89,7 @@ const styles = StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.bg},
 	toolbar: {padding: spacing.md},
 	list: {padding: spacing.md, gap: spacing.sm},
+	fadeFlex: {flex: 1},
 	row: {backgroundColor: colors.surface, borderRadius: radius.md, padding: spacing.md, marginBottom: spacing.sm},
 	rowBody: {gap: 2},
 	title: {fontSize: typography.sizeBase, color: colors.white, fontWeight: typography.weightMedium},

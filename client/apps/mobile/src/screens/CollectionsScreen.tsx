@@ -13,6 +13,7 @@ import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
+import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
 
 interface Props {
 	api: BerxApiClient;
@@ -59,22 +60,24 @@ export default function CollectionsScreen({api, userGuid, isOwn, onOpenCollectio
 			{items.length === 0 ? (
 				<BerxEmptyState title="Подборок пока нет" subtitle={isOwn ? 'Соберите места, события и посты в одну подборку.' : undefined} />
 			) : (
-				<FlatList
-					data={items}
-					keyExtractor={(c: BerxCollection) => String(c.id)}
-					contentContainerStyle={styles.list}
-					renderItem={({item}: {item: BerxCollection}) => (
-						<Pressable style={styles.row} onPress={() => onOpenCollection(item.id)}>
-							<View style={styles.rowBody}>
-								<Text style={styles.title} numberOfLines={1}>{item.title}</Text>
-								<Text style={styles.meta}>
-									{item.item_count} {item.item_count === 1 ? 'элемент' : 'элементов'}
-									{item.visibility === 'private' ? ' · Приватная' : ''}
-								</Text>
-							</View>
-						</Pressable>
-					)}
-				/>
+				<BerxFadeIn style={styles.fadeFlex}>
+					<FlatList
+						data={items}
+						keyExtractor={(c: BerxCollection) => String(c.id)}
+						contentContainerStyle={styles.list}
+						renderItem={({item}: {item: BerxCollection}) => (
+							<Pressable style={styles.row} onPress={() => onOpenCollection(item.id)}>
+								<View style={styles.rowBody}>
+									<Text style={styles.title} numberOfLines={1}>{item.title}</Text>
+									<Text style={styles.meta}>
+										{item.item_count} {item.item_count === 1 ? 'элемент' : 'элементов'}
+										{item.visibility === 'private' ? ' · Приватная' : ''}
+									</Text>
+								</View>
+							</Pressable>
+						)}
+					/>
+				</BerxFadeIn>
 			)}
 		</View>
 	);
@@ -84,6 +87,7 @@ const styles = StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.bg},
 	toolbar: {padding: spacing.md},
 	list: {padding: spacing.md, gap: spacing.sm},
+	fadeFlex: {flex: 1},
 	row: {backgroundColor: colors.surface, borderRadius: radius.md, padding: spacing.md, marginBottom: spacing.sm},
 	rowBody: {gap: 2},
 	title: {fontSize: typography.sizeBase, color: colors.white, fontWeight: typography.weightMedium},

@@ -12,6 +12,7 @@ import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
+import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
 
 interface Props {
 	api: BerxApiClient;
@@ -68,21 +69,23 @@ export default function ExperiencesScreen({api, userGuid, isOwn, onOpenExperienc
 			{items.length === 0 ? (
 				<BerxEmptyState title="Впечатлений пока нет" subtitle={isOwn ? 'Соберите место или событие в план с друзьями.' : undefined} />
 			) : (
-				<FlatList
-					data={items}
-					keyExtractor={(e: BerxExperience) => String(e.id)}
-					contentContainerStyle={styles.list}
-					renderItem={({item}: {item: BerxExperience}) => (
-						<Pressable style={styles.row} onPress={() => onOpenExperience(item.id)}>
-							{item.anchor?.image_url ? <Image source={{uri: item.anchor.image_url}} style={styles.thumb} /> : <View style={styles.thumbFallback} />}
-							<View style={styles.rowBody}>
-								<Text style={styles.title} numberOfLines={1}>{item.title}</Text>
-								<Text style={styles.meta}>{fmtWhen(item.scheduled_start)}{item.anchor ? ` · ${item.anchor.title}` : ''}</Text>
-								{item.my_status && !item.is_own ? <Text style={styles.status}>{STATUS_LABEL[item.my_status]}</Text> : null}
-							</View>
-						</Pressable>
-					)}
-				/>
+				<BerxFadeIn style={styles.fadeFlex}>
+					<FlatList
+						data={items}
+						keyExtractor={(e: BerxExperience) => String(e.id)}
+						contentContainerStyle={styles.list}
+						renderItem={({item}: {item: BerxExperience}) => (
+							<Pressable style={styles.row} onPress={() => onOpenExperience(item.id)}>
+								{item.anchor?.image_url ? <Image source={{uri: item.anchor.image_url}} style={styles.thumb} /> : <View style={styles.thumbFallback} />}
+								<View style={styles.rowBody}>
+									<Text style={styles.title} numberOfLines={1}>{item.title}</Text>
+									<Text style={styles.meta}>{fmtWhen(item.scheduled_start)}{item.anchor ? ` · ${item.anchor.title}` : ''}</Text>
+									{item.my_status && !item.is_own ? <Text style={styles.status}>{STATUS_LABEL[item.my_status]}</Text> : null}
+								</View>
+							</Pressable>
+						)}
+					/>
+				</BerxFadeIn>
 			)}
 		</View>
 	);
@@ -92,6 +95,7 @@ const styles = StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.bg},
 	toolbar: {padding: spacing.md},
 	list: {padding: spacing.md, gap: spacing.sm},
+	fadeFlex: {flex: 1},
 	row: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.surface, borderRadius: radius.md, padding: spacing.sm, marginBottom: spacing.sm},
 	thumb: {width: 56, height: 56, borderRadius: radius.sm},
 	thumbFallback: {width: 56, height: 56, borderRadius: radius.sm, backgroundColor: colors.graphite},

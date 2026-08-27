@@ -22,6 +22,7 @@ import {BerxApiError} from '@berx/core';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
+import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
 
 interface Props {
 	api: BerxApiClient;
@@ -112,6 +113,7 @@ export default function DatingMatchesScreen({api, onOpenConversation, onOpenPhot
 			) : matches.length === 0 ? (
 				<BerxEmptyState title="Пока нет совпадений" subtitle="Лайкните кого-то в разделе Знакомства." />
 			) : (
+				<BerxFadeIn style={styles.fadeFlex}>
 				<FlatList
 					data={matches}
 					keyExtractor={(m: BerxDatingMatch) => String(m.guid)}
@@ -162,6 +164,7 @@ export default function DatingMatchesScreen({api, onOpenConversation, onOpenPhot
 						</View>
 					)}
 				/>
+				</BerxFadeIn>
 			)}
 		</View>
 	);
@@ -169,6 +172,7 @@ export default function DatingMatchesScreen({api, onOpenConversation, onOpenPhot
 
 const styles = StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.black},
+	fadeFlex: {flex: 1},
 	row: {flexDirection: 'row', alignItems: 'center', padding: spacing.lg, borderBottomWidth: 1, borderBottomColor: colors.borderSoft},
 	rowBody: {flex: 1},
 	name: {color: colors.text, fontSize: typography.sizeBase, fontWeight: typography.weightMedium},

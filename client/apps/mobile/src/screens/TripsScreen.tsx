@@ -12,6 +12,7 @@ import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
+import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
 
 interface Props {
 	api: BerxApiClient;
@@ -63,25 +64,27 @@ export default function TripsScreen({api, userGuid, isOwn, onOpenTrip, onCreate,
 			{items.length === 0 ? (
 				<BerxEmptyState title="Поездок пока нет" subtitle={isOwn ? 'Соберите места и события в единый маршрут.' : undefined} />
 			) : (
-				<FlatList
-					data={items}
-					keyExtractor={(t: BerxTrip) => String(t.id)}
-					contentContainerStyle={styles.list}
-					renderItem={({item}: {item: BerxTrip}) => {
-						const start = fmtDate(item.start_date);
-						const end = fmtDate(item.end_date);
-						return (
-							<Pressable style={styles.row} onPress={() => onOpenTrip(item.id)}>
-								<Text style={styles.title} numberOfLines={1}>{item.title}</Text>
-								<Text style={styles.meta}>
-									{item.stop_count} {item.stop_count === 1 ? 'точка' : 'точек'}
-									{start ? ` · ${start}${end ? ` — ${end}` : ''}` : ''}
-									{!item.is_own ? ' · Совместная' : item.visibility === 'private' ? ' · Приватная' : ''}
-								</Text>
-							</Pressable>
-						);
-					}}
-				/>
+				<BerxFadeIn style={styles.fadeFlex}>
+					<FlatList
+						data={items}
+						keyExtractor={(t: BerxTrip) => String(t.id)}
+						contentContainerStyle={styles.list}
+						renderItem={({item}: {item: BerxTrip}) => {
+							const start = fmtDate(item.start_date);
+							const end = fmtDate(item.end_date);
+							return (
+								<Pressable style={styles.row} onPress={() => onOpenTrip(item.id)}>
+									<Text style={styles.title} numberOfLines={1}>{item.title}</Text>
+									<Text style={styles.meta}>
+										{item.stop_count} {item.stop_count === 1 ? 'точка' : 'точек'}
+										{start ? ` · ${start}${end ? ` — ${end}` : ''}` : ''}
+										{!item.is_own ? ' · Совместная' : item.visibility === 'private' ? ' · Приватная' : ''}
+									</Text>
+								</Pressable>
+							);
+						}}
+					/>
+				</BerxFadeIn>
 			)}
 		</View>
 	);
@@ -91,6 +94,7 @@ const styles = StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.bg},
 	toolbar: {padding: spacing.md},
 	list: {padding: spacing.md, gap: spacing.sm},
+	fadeFlex: {flex: 1},
 	row: {backgroundColor: colors.surface, borderRadius: radius.md, padding: spacing.md, marginBottom: spacing.sm, gap: 2},
 	title: {fontSize: typography.sizeBase, color: colors.white, fontWeight: typography.weightMedium},
 	meta: {fontSize: typography.sizeXs, color: colors.textFaint},
