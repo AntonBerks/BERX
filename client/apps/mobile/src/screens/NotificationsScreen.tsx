@@ -109,6 +109,15 @@ export default function NotificationsScreen({api, onOpenConversation, onOpenDati
 		}
 	}
 
+	async function deleteOne(guid: number) {
+		try {
+			await api.deleteNotification(guid);
+			setItems((prev: BerxNotification[]) => prev.filter((it: BerxNotification) => it.guid !== guid));
+		} catch {
+			// list stays as-is on failure — never optimistically removed before the server confirms
+		}
+	}
+
 	return (
 		<View style={styles.screen}>
 			<BerxHeader onBack={onBack} title="Уведомления" />
@@ -149,6 +158,9 @@ export default function NotificationsScreen({api, onOpenConversation, onOpenDati
 								<Text style={styles.label}>{NOTIFICATION_LABELS[item.type] ?? item.type}</Text>
 								<Text style={styles.time}>{relativeTimeLabel(item.time_created)}</Text>
 							</View>
+							<Pressable onPress={() => deleteOne(item.guid)} hitSlop={8}>
+								<Text style={styles.remove}>✕</Text>
+							</Pressable>
 						</Pressable>
 					)}
 				/>
@@ -175,4 +187,5 @@ const styles = StyleSheet.create({
 	rowText: {flex: 1},
 	label: {color: colors.text, fontSize: typography.sizeBase},
 	time: {color: colors.textFaint, fontSize: typography.sizeXs, marginTop: spacing.xs},
+	remove: {fontSize: typography.sizeSm, color: colors.textFaint, padding: 4},
 });
