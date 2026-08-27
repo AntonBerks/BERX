@@ -136,7 +136,7 @@ export interface BerxRouteParams {
 	CreateCommunity: undefined;
 	CommunityRequests: { guid: number };
 	CommunityModerators: { guid: number };
-	CommunityMembers: { guid: number };
+	CommunityMembers: { guid: number; isOwner?: boolean };
 	Albums: { userGuid: number; isOwn: boolean };
 	AlbumDetail: { guid: number };
 	CreateAlbum: undefined;

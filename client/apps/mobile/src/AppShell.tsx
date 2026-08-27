@@ -395,8 +395,9 @@ function RouteRenderer({name, params}: {name: BerxRouteName; params: unknown}) {
 					onBack={nav.pop}
 					onOpenRequests={(guid) => nav.push('CommunityRequests', {guid})}
 					onOpenModerators={(guid) => nav.push('CommunityModerators', {guid})}
-					onOpenMembers={(guid) => nav.push('CommunityMembers', {guid})}
+					onOpenMembers={(guid, isOwner) => nav.push('CommunityMembers', {guid, isOwner})}
 					onReport={(guid) => nav.push('Report', {targetType: 'group', targetGuid: guid})}
+					onDeleted={nav.pop}
 				/>
 			);
 		}
@@ -417,8 +418,8 @@ function RouteRenderer({name, params}: {name: BerxRouteName; params: unknown}) {
 			return <CommunityModeratorsScreen api={api} guid={p.guid} onBack={nav.pop} />;
 		}
 		case 'CommunityMembers': {
-			const p = params as {guid: number};
-			return <CommunityMembersScreen api={api} guid={p.guid} onOpenProfile={openProfile} onBack={nav.pop} />;
+			const p = params as {guid: number; isOwner?: boolean};
+			return <CommunityMembersScreen api={api} guid={p.guid} isOwner={p.isOwner} onOpenProfile={openProfile} onBack={nav.pop} />;
 		}
 		case 'Albums': {
 			const p = params as {userGuid: number; isOwn: boolean};
