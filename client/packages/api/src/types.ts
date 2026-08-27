@@ -521,11 +521,25 @@ export interface BerxStorySummary {
 	mime_type: string;
 	/** MAX BUILD — real Story Highlights (see classes/OssnStories.php's own header). Only populated where the source endpoint actually returns it (own stories, highlights list) — undefined elsewhere, never guessed. */
 	is_highlighted?: boolean;
+	/** MAX BUILD — real "who viewed my story" (OssnStories::viewerCount(), markViewed() has always written real rows). Only populated on the own-stories listing — undefined elsewhere, never guessed. */
+	viewer_count?: number;
 }
 
 export interface BerxOwnStorySummary extends BerxStorySummary {
 	time_expires: number;
 	is_highlighted: boolean;
+	viewer_count: number;
+}
+
+export interface BerxStoryViewer {
+	guid: number;
+	username: string | null;
+	time_viewed: number;
+}
+
+export interface BerxStoryViewersResponse {
+	viewers: BerxStoryViewer[];
+	count: number;
 }
 
 export interface BerxStoryFeedGroup {

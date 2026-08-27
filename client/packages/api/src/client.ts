@@ -14,6 +14,7 @@ import type {
 	BerxNotificationsResponse,
 	BerxStoryFeedGroup,
 	BerxOwnStorySummary,
+	BerxStoryViewersResponse,
 	BerxStorySummary,
 	BerxCommunity,
 	BerxCommunitiesResponse,
@@ -1055,6 +1056,11 @@ export class BerxApiClient {
 
 	async storyHighlights(ownerGuid: number): Promise<{stories: BerxStorySummary[]}> {
 		return this.request<{stories: BerxStorySummary[]}>(`/stories/highlights/${ownerGuid}`);
+	}
+
+	/** MAX BUILD — real "who viewed my story" (OssnStories::listViewers()/viewerCount(), zero prior UI caller — markViewed() has always written a real row per (story, viewer)). Owner-only, re-checked server-side. */
+	async storyViewers(id: number): Promise<BerxStoryViewersResponse> {
+		return this.request<BerxStoryViewersResponse>(`/stories/${id}/viewers`);
 	}
 
 	/**

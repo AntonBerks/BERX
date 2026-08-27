@@ -20,11 +20,17 @@
  * playback needs an embedded player that can attach the same
  * {uri, headers} pattern <Image> already uses (react-native-video
  * supports this), which isn't installable in this sandbox.
+ *
+ * MAX BUILD — real "Кто посмотрел" (OssnStories::listViewers()/
+ * viewerCount(), zero prior UI caller — markViewed() has always
+ * written a real row per (story, viewer) on every real story open).
+ * Owner-only, matching every other real platform with this feature.
  */
 import {useEffect, useRef, useState} from 'react';
-import {View, Text, Image, Pressable, Animated, StyleSheet} from 'react-native';
+import {View, Text, Image, Pressable, Animated, ScrollView, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
-import type {BerxStoryFeedGroup} from '@berx/api/types';
+import type {BerxStoryFeedGroup, BerxStoryViewer} from '@berx/api/types';
+import {relativeTimeLabel} from '@berx/domain';
 import {colors, spacing, typography} from '@berx/design-system/tokens';
 
 interface Props {
@@ -43,6 +49,9 @@ export default function StoryViewerScreen({api, group, myGuid, onClose}: Props) 
 	const [deleting, setDeleting] = useState(false);
 	const [highlighting, setHighlighting] = useState(false);
 	const [highlightOverrides, setHighlightOverrides] = useState<Record<number, boolean>>({});
+	const [showViewers, setShowViewers] = useState(false);
+	const [viewersLoading, setViewersLoading] = useState(false);
+	const [viewers, setViewers] = useState<BerxStoryViewer[]>([]);
 	const progress = useRef(new Animated.Value(0)).current;
 	const isOwn = group.owner_guid === myGuid;
 
@@ -103,6 +112,31 @@ export default function StoryViewerScreen({api, group, myGuid, onClose}: Props) 
 			}
 		} catch {
 			setDeleting(false);
+		}
+	}
+
+	// Real story-scoped state — a stale viewers list from the previous
+	// story must never bleed into the next one when the user advances.
+	useEffect(() => {
+		setShowViewers(false);
+		setViewers([]);
+	}, [index]);
+
+	async function toggleViewers() {
+		if (showViewers) {
+			setShowViewers(false);
+			return;
+		}
+		setShowViewers(true);
+		if (!current) return;
+		setViewersLoading(true);
+		try {
+			const res = await api.storyViewers(current.id);
+			setViewers(res.viewers);
+		} catch {
+			setViewers([]);
+		} finally {
+			setViewersLoading(false);
 		}
 	}
 
@@ -180,6 +214,9 @@ export default function StoryViewerScreen({api, group, myGuid, onClose}: Props) 
 					<Text style={styles.owner}>{group.owner_username ?? `#${group.owner_guid}`}</Text>
 					{isOwn ? (
 						<View style={styles.ownActions}>
+							<Pressable onPress={toggleViewers} hitSlop={8}>
+								<Text style={styles.viewersText}>👁 {current.viewer_count ?? 0}</Text>
+							</Pressable>
 							<Pressable onPress={toggleHighlight} disabled={highlighting} hitSlop={8}>
 								<Text style={[styles.highlightText, isHighlighted && styles.highlightTextActive]}>
 									{highlighting ? '...' : isHighlighted ? '★ В актуальном' : '☆ В актуальное'}
@@ -191,6 +228,26 @@ export default function StoryViewerScreen({api, group, myGuid, onClose}: Props) 
 						</View>
 					) : null}
 				</View>
+
+				{isOwn && showViewers ? (
+					<View style={styles.viewersPanel}>
+						<Text style={styles.viewersPanelTitle}>Просмотрели</Text>
+						{viewersLoading ? (
+							<Text style={styles.viewersHint}>Загрузка...</Text>
+						) : viewers.length === 0 ? (
+							<Text style={styles.viewersHint}>Пока никто не посмотрел</Text>
+						) : (
+							<ScrollView>
+								{viewers.map((v: BerxStoryViewer) => (
+									<View key={v.guid} style={styles.viewerRow}>
+										<Text style={styles.viewerName}>{v.username ?? `#${v.guid}`}</Text>
+										<Text style={styles.viewerTime}>{relativeTimeLabel(v.time_viewed)}</Text>
+									</View>
+								))}
+							</ScrollView>
+						)}
+					</View>
+				) : null}
 			</View>
 
 			<Pressable style={styles.closeButton} onPress={onClose} hitSlop={12}>
@@ -220,6 +277,13 @@ const styles = StyleSheet.create({
 	highlightText: {color: colors.textDim, fontSize: typography.sizeSm},
 	highlightTextActive: {color: colors.accent, fontWeight: typography.weightMedium},
 	deleteText: {color: colors.danger, fontSize: typography.sizeSm},
+	viewersText: {color: colors.textDim, fontSize: typography.sizeSm},
+	viewersPanel: {marginTop: spacing.sm, maxHeight: 160, backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: 12, padding: spacing.sm, gap: 4},
+	viewersPanelTitle: {color: colors.textFaint, fontSize: typography.sizeXs, fontWeight: typography.weightBold, textTransform: 'uppercase', marginBottom: 4},
+	viewersHint: {color: colors.textFaint, fontSize: typography.sizeSm},
+	viewerRow: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 4},
+	viewerName: {color: colors.text, fontSize: typography.sizeSm},
+	viewerTime: {color: colors.textFaint, fontSize: typography.sizeXs},
 	closeButton: {position: 'absolute', top: spacing.xl, right: spacing.md, padding: spacing.sm},
 	closeText: {color: colors.text, fontSize: typography.sizeLg},
 });

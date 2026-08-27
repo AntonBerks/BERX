@@ -49,6 +49,7 @@ if ($segment0 === 'own' && $method === 'GET') {
 			'mime_type'      => (string) $row->mime_type,
 			'time_expires'   => intval($row->time_expires),
 			'is_highlighted' => !empty($row->is_highlighted),
+			'viewer_count'   => $model->viewerCount(intval($row->id)),
 		);
 	}
 	ossn_api_json(array('stories' => $out));
@@ -104,6 +105,33 @@ if ($segment0 !== null && $segment1 === 'view' && $method === 'POST') {
 	}
 	$model->markViewed(intval($segment0), $api_user_guid);
 	ossn_api_json(array('status' => 'ok'));
+}
+
+/**
+ * MAX BUILD — real "Кто посмотрел" (who viewed my story).
+ * OssnStories::markViewed() has always written a real row here on
+ * every real story open (see the POST .../view route above) — this
+ * is the first read-back of that data, via the new listViewers()/
+ * viewerCount() (classes/OssnStories.php). Owner-only: the story's
+ * own viewer list is private to whoever posted it, same as every
+ * real platform with this feature.
+ */
+if ($segment0 !== null && $segment1 === 'viewers' && $method === 'GET') {
+	$story = $model->get(intval($segment0));
+	if (!$story || intval($story->owner_guid) !== intval($api_user_guid)) {
+		ossn_api_error('forbidden', 'Not allowed to view this list', 403);
+	}
+	$rows = $model->listViewers(intval($segment0));
+	$out = array();
+	foreach ($rows as $row) {
+		$viewer = ossn_user_by_guid(intval($row->viewer_guid));
+		$out[] = array(
+			'guid'        => intval($row->viewer_guid),
+			'username'    => $viewer ? (string) $viewer->username : null,
+			'time_viewed' => intval($row->time_viewed),
+		);
+	}
+	ossn_api_json(array('viewers' => $out, 'count' => $model->viewerCount(intval($segment0))));
 }
 
 if ($segment0 !== null && $segment1 === 'delete' && $method === 'POST') {

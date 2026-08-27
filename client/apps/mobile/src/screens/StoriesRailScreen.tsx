@@ -58,7 +58,7 @@ export default function StoriesRailScreen({api, myGuid, myUsername, onOpenGroup,
 			// Best-effort, never blocks the main feed load — a failed
 			// own-stories fetch just means no "Вы" ring, not an error.
 			api.ownStories().then((res) => {
-				setOwnGroup(res.stories.length > 0 ? {owner_guid: myGuid, owner_username: myUsername ?? null, stories: res.stories.map((s: BerxOwnStorySummary) => ({id: s.id, caption: s.caption, time_created: s.time_created, mime_type: s.mime_type, is_highlighted: s.is_highlighted}))} : null);
+				setOwnGroup(res.stories.length > 0 ? {owner_guid: myGuid, owner_username: myUsername ?? null, stories: res.stories.map((s: BerxOwnStorySummary) => ({id: s.id, caption: s.caption, time_created: s.time_created, mime_type: s.mime_type, is_highlighted: s.is_highlighted, viewer_count: s.viewer_count}))} : null);
 			}).catch(() => undefined);
 		}
 	}, [api, myGuid, myUsername]);

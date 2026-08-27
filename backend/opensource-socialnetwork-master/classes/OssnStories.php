@@ -279,4 +279,33 @@ class OssnStories extends OssnDatabase {
 			'wheres' => array(self::wheres('id', '=', intval($id))),
 		));
 	}
+
+	/**
+	 * MAX BUILD -- real "who viewed my story". markViewed() has always
+	 * written a real row per (story, viewer) here -- this is the first
+	 * read-back of that data. Owner-only, most-recent-first; the
+	 * caller must verify ownership before calling this (same
+	 * convention as listIncomingRequests()-style methods elsewhere in
+	 * this codebase -- this class has no viewer-guid parameter to
+	 * self-enforce it against, since the row it reads never carries a
+	 * separate "who's allowed to see this" flag of its own).
+	 */
+	public function listViewers($storyId, $limit = 100) {
+		$rows = $this->select(array(
+			'from'     => self::VIEWS_TABLE,
+			'wheres'   => array(self::wheres('story_id', '=', intval($storyId))),
+			'order_by' => 'time_viewed DESC',
+			'limit'    => intval($limit),
+		), true);
+		return $rows ? $rows : array();
+	}
+
+	public function viewerCount($storyId) {
+		$row = $this->select(array(
+			'from'   => self::VIEWS_TABLE,
+			'params' => array('COUNT(*) AS c'),
+			'wheres' => array(self::wheres('story_id', '=', intval($storyId))),
+		));
+		return $row ? intval($row->c) : 0;
+	}
 }
