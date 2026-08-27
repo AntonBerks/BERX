@@ -10,9 +10,16 @@
  *
  * Photos: BERX Match's real backend keeps profile photos server-side
  * private, released only through a separate photo-request/grant flow
- * not exposed via API v1 yet. This screen honestly shows an initial-
- * letter placeholder instead of a photo, rather than pretending a
- * public photo URL exists when the real architecture never had one.
+ * — that flow IS now real and exposed via API v1 (requestDatingPhotoAccess()/
+ * respondDatingPhotoAccess()/DatingUserPhotosScreen), but deliberately
+ * NOT surfaced here: requesting access to a stranger's private photo
+ * before either side has even liked the other isn't a flow this app
+ * builds anywhere (DatingUserPhotosScreen is reachable only from a
+ * real match) — this comment previously said the flow itself didn't
+ * exist yet, which stopped being true once it shipped; corrected here
+ * rather than left stale. This screen still honestly shows an
+ * initial-letter placeholder instead of a photo, since a pre-match
+ * discover card never has one to show.
  *
  * Future UI pass: the card itself now sits on BerxGlassSurface
  * (Spatial Glass, matching the rest of the app) instead of a flat
