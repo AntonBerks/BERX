@@ -15,7 +15,8 @@ import type {BerxApiClient} from '@berx/api/client';
 import type {BerxFeedItem, BerxStoryFeedGroup} from '@berx/api/types';
 import {relativeTimeLabel} from '@berx/domain';
 import {colors, spacing, radius, typography} from '@berx/design-system/tokens';
-import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
+import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
+import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
 import {IconPlus} from '../../../../packages/design-system/src/components/BerxIcons';
 
 interface Props {
@@ -107,9 +108,7 @@ export default function FeedScreen({api, onOpenPost, onOpenProfile, onCreatePost
 		return (
 			<View style={styles.screen}>
 				{header}
-				<View style={styles.centerState}>
-					<Text style={styles.dimText}>Загрузка...</Text>
-				</View>
+				<BerxLoadingState />
 			</View>
 		);
 	}
@@ -118,10 +117,7 @@ export default function FeedScreen({api, onOpenPost, onOpenProfile, onCreatePost
 		return (
 			<View style={styles.screen}>
 				{header}
-				<View style={styles.centerState}>
-					<Text style={styles.errorText}>{error}</Text>
-					<BerxButton label="Повторить" variant="secondary" onPress={load} />
-				</View>
+				<BerxErrorState message={error} onRetry={load} />
 			</View>
 		);
 	}
@@ -129,21 +125,20 @@ export default function FeedScreen({api, onOpenPost, onOpenProfile, onCreatePost
 	return (
 		<View style={styles.screen}>
 			{header}
-			<FlatList
-				style={styles.list}
-				data={items}
-				keyExtractor={(item: BerxFeedItem) => String(item.guid)}
-				refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />}
-				ListHeaderComponent={storyRail}
-				ListEmptyComponent={
-					<View style={styles.centerState}>
-						<Text style={styles.dimText}>Пока нет постов.</Text>
-						<Text style={styles.dimTextSmall}>
-							Честная оговорка: это ваша стена (свои посты + посты друзей на ней), не общая лента всех подписок.
-						</Text>
-					</View>
-				}
-				renderItem={({item}: {item: BerxFeedItem}) => (
+			<BerxFadeIn style={styles.fadeFlex}>
+				<FlatList
+					style={styles.list}
+					data={items}
+					keyExtractor={(item: BerxFeedItem) => String(item.guid)}
+					refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />}
+					ListHeaderComponent={storyRail}
+					ListEmptyComponent={
+						<BerxEmptyState
+							title="Пока нет постов"
+							subtitle="Честная оговорка: это ваша стена (свои посты + посты друзей на ней), не общая лента всех подписок."
+						/>
+					}
+					renderItem={({item}: {item: BerxFeedItem}) => (
 					<Pressable style={styles.card} onPress={() => onOpenPost(item.guid)}>
 						<View style={styles.cardHeader}>
 							<Pressable
@@ -164,7 +159,8 @@ export default function FeedScreen({api, onOpenPost, onOpenProfile, onCreatePost
 						<Text style={styles.text}>{item.text}</Text>
 					</Pressable>
 				)}
-			/>
+				/>
+			</BerxFadeIn>
 		</View>
 	);
 }
@@ -209,17 +205,7 @@ const styles = StyleSheet.create({
 		justifyContent: 'center',
 	},
 	storyLabel: {color: colors.textFaint, fontSize: 10, marginTop: spacing.xs, textAlign: 'center'},
-	centerState: {
-		flex: 1,
-		backgroundColor: colors.black,
-		alignItems: 'center',
-		justifyContent: 'center',
-		padding: spacing.xl,
-		gap: spacing.md,
-	},
-	dimText: {color: colors.textDim, fontSize: typography.sizeBase},
-	dimTextSmall: {color: colors.textFaint, fontSize: typography.sizeXs, textAlign: 'center'},
-	errorText: {color: colors.danger, fontSize: typography.sizeBase},
+	fadeFlex: {flex: 1},
 	card: {
 		backgroundColor: colors.graphite,
 		borderRadius: radius.md,
