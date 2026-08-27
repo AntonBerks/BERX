@@ -14,10 +14,12 @@
  * here navigates to the real detail screen, which fetches the full
  * record.
  *
- * MAX BUILD — Places/Events results are now already server-sorted
- * friends-first (real friends_count social-relevance signal, same
- * mechanism Nearby Now uses); a small "👥 N" badge surfaces that same
- * signal here, same convention as NearbyNowScreen's own badge.
+ * MAX BUILD — Places/Events/Communities results are now already
+ * server-sorted friends-first (real friends_count social-relevance
+ * signal, same mechanism Nearby Now uses — Communities added in the
+ * BERX World pass, closing the one search scope that was still a flat
+ * DB-order list); a small "👥 N" badge surfaces that same signal here,
+ * same convention as NearbyNowScreen's own badge.
  *
  * "Discover + Nearby + Social Map + Events = one contextual discovery
  * engine" continued: the empty Users tab (previously a bare "start
@@ -213,7 +215,7 @@ export default function SearchScreen({api, onOpenProfile, onOpenPlace, onOpenEve
 					renderItem={({item}: {item: BerxCommunitySearchResult}) => (
 						<Pressable style={styles.row} onPress={() => onOpenCommunity(item.guid)}>
 							<Text style={styles.fullname}>{item.title}</Text>
-							<Text style={styles.username}>{item.members} участников{item.owner ? ` · ${item.owner}` : ''}</Text>
+							<Text style={styles.username}>{item.members} участников{item.owner ? ` · ${item.owner}` : ''}{item.friends_count > 0 ? ` · 👥 ${item.friends_count}` : ''}</Text>
 						</Pressable>
 					)}
 				/>

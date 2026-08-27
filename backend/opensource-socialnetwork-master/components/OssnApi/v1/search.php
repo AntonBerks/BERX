@@ -116,13 +116,18 @@ if ($segment0 === 'communities') {
 			$countModel->guid = $row->guid;
 			$memberCount = $countModel->getMembers(true);
 			$out[] = array(
-				'guid'    => intval($row->guid),
-				'title'   => (string) $row->title,
-				'owner'   => $owner ? (string) $owner->username : null,
-				'members' => $memberCount ? intval($memberCount) : 0,
+				'guid'          => intval($row->guid),
+				'title'         => (string) $row->title,
+				'owner'         => $owner ? (string) $owner->username : null,
+				'members'       => $memberCount ? intval($memberCount) : 0,
+				'friends_count' => ossn_api_friend_relevance_group_count(intval($row->guid), $friendIds),
 			);
 		}
 	}
+	// Friends-first, stable — same real relevance signal as places/events above.
+	usort($out, function ($a, $b) {
+		return $b['friends_count'] <=> $a['friends_count'];
+	});
 	ossn_api_json(array('communities' => $out));
 }
 

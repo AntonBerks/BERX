@@ -545,6 +545,31 @@ function ossn_api_friend_relevance_event_count($eventsModel, $eventGuid, array $
 	return count($matched);
 }
 
+/**
+ * BERX WORLD MAX BUILD — same real friend-relevance signal as places/
+ * events above, extended to communities (search.php's own communities
+ * branch previously had zero relevance ranking — a flat DB-order list,
+ * against this directive's explicit "avoid crude flat lists" ask).
+ * Real membership relation (OssnGroup::getMembers()'s own query,
+ * confirmed by reading it directly): 'from' => group guid, 'to' =>
+ * member guid, type 'group:join:approve'.
+ */
+function ossn_api_friend_relevance_group_count($groupGuid, array $friendIds) {
+	if (!$friendIds) {
+		return 0;
+	}
+	$matched = array();
+	$memberRows = ossn_get_relationships(array('from' => intval($groupGuid), 'type' => 'group:join:approve', 'limit' => 200, 'page_limit' => false));
+	if ($memberRows) {
+		foreach ($memberRows as $r) {
+			if (isset($friendIds[intval($r->relation_to)])) {
+				$matched[intval($r->relation_to)] = true;
+			}
+		}
+	}
+	return count($matched);
+}
+
 function ossn_api_post_base_json($post) {
 	$owner = ossn_user_by_guid($post->owner_guid);
 	return array(

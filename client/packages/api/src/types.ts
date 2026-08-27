@@ -746,6 +746,8 @@ export interface BerxCommunitySearchResult {
 	title: string;
 	owner: string | null;
 	members: number;
+	/** Real social-relevance signal (BERX World Max Build) — results are already server-sorted friends-first by this, same as BerxPlaceSearchResult/BerxEventSearchResult. */
+	friends_count: number;
 }
 
 export interface BerxDatingPhotoRequest {
