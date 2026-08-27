@@ -16,7 +16,7 @@ import type {BerxFeedItem, BerxStoryFeedGroup} from '@berx/api/types';
 import {relativeTimeLabel} from '@berx/domain';
 import {colors, spacing, radius, typography} from '@berx/design-system/tokens';
 import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
-import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
+import {BerxErrorState, BerxEmptyState, BerxSkeleton} from '../../../../packages/design-system/src/components/BerxStates';
 import {IconPlus} from '../../../../packages/design-system/src/components/BerxIcons';
 
 interface Props {
@@ -108,7 +108,22 @@ export default function FeedScreen({api, onOpenPost, onOpenProfile, onCreatePost
 		return (
 			<View style={styles.screen}>
 				{header}
-				<BerxLoadingState />
+				{/* Real skeleton shape matching the actual card layout below (avatar + author line + body lines) — BerxSkeleton existed as a real, working, animated component with zero screen actually using it until now. */}
+				<View style={styles.skeletonList}>
+					{[0, 1, 2, 3].map((i) => (
+						<View key={i} style={styles.skeletonCard}>
+							<View style={styles.skeletonHeaderRow}>
+								<BerxSkeleton width={36} height={36} style={styles.skeletonAvatar} />
+								<View style={styles.skeletonAuthorCol}>
+									<BerxSkeleton width="40%" height={12} />
+									<BerxSkeleton width="25%" height={10} style={styles.skeletonGapSm} />
+								</View>
+							</View>
+							<BerxSkeleton width="90%" height={14} style={styles.skeletonGap} />
+							<BerxSkeleton width="60%" height={14} style={styles.skeletonGapSm} />
+						</View>
+					))}
+				</View>
 			</View>
 		);
 	}
@@ -206,6 +221,21 @@ const styles = StyleSheet.create({
 	},
 	storyLabel: {color: colors.textFaint, fontSize: 10, marginTop: spacing.xs, textAlign: 'center'},
 	fadeFlex: {flex: 1},
+	skeletonList: {flex: 1},
+	skeletonCard: {
+		backgroundColor: colors.graphite,
+		borderRadius: radius.md,
+		borderWidth: 1,
+		borderColor: colors.borderSoft,
+		padding: spacing.lg,
+		marginHorizontal: spacing.lg,
+		marginTop: spacing.md,
+	},
+	skeletonHeaderRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm},
+	skeletonAvatar: {borderRadius: radius.pill},
+	skeletonAuthorCol: {flex: 1, gap: 4},
+	skeletonGap: {marginTop: spacing.md},
+	skeletonGapSm: {marginTop: spacing.xs},
 	card: {
 		backgroundColor: colors.graphite,
 		borderRadius: radius.md,
