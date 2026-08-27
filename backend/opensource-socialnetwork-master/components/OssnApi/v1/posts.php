@@ -252,6 +252,12 @@ if ($segment0 === null && $method === 'POST') {
 	if (!$guid) {
 		ossn_api_error('create_failed', 'Could not create post', 500);
 	}
+	// MAX BUILD -- real engagement signal (OssnSignals, BERX Future
+	// Core -- see places.php's own comment for the full story). A
+	// repost is a real 'share' of the ORIGINAL post, not the new one.
+	if ($repostOfGuid && class_exists('OssnSignals')) {
+		(new OssnSignals())->record($api_user_guid, 'share', 'post', $repostOfGuid);
+	}
 	ossn_api_json(array('guid' => intval($guid)));
 }
 
@@ -338,6 +344,11 @@ if ($segment0 !== null && $segment1 === 'save' && $method === 'POST') {
 	}
 	if (!ossn_relation_exists(intval($api_user_guid), intval($segment0), POST_SAVE_RELATION)) {
 		ossn_add_relation(intval($api_user_guid), intval($segment0), POST_SAVE_RELATION);
+		// MAX BUILD -- real engagement signal (OssnSignals, BERX Future
+		// Core -- see places.php's own comment for the full story).
+		if (class_exists('OssnSignals')) {
+			(new OssnSignals())->record($api_user_guid, 'save', 'post', intval($segment0));
+		}
 	}
 	ossn_api_json(array('status' => 'ok', 'is_saved' => true));
 }
@@ -407,6 +418,11 @@ if ($segment0 !== null && $segment1 === 'comments' && $segment2 === null && $met
 	$id = $comments->PostComment($post->guid, $api_user_guid, $text, 'post');
 	if (!$id) {
 		ossn_api_error('create_failed', 'Could not post comment', 500);
+	}
+	// MAX BUILD -- real engagement signal (OssnSignals, BERX Future
+	// Core -- see places.php's own comment for the full story).
+	if (class_exists('OssnSignals')) {
+		(new OssnSignals())->record($api_user_guid, 'comment', 'post', $post->guid);
 	}
 	ossn_api_json(array('status' => 'ok'));
 }
