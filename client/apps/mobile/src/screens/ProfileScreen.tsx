@@ -66,6 +66,8 @@ interface ProfileData {
 	is_creator?: boolean;
 	/** Own profile (/me) only — real signal (Max Build), server re-checks independently on every actual admin route. */
 	is_admin?: boolean;
+	/** Real moderation state (OssnUser::ban()) — present on both own and non-own profiles. */
+	banned?: boolean;
 	reputation?: {places_reviewed: number; events_going: number; trips_created: number; experiences_created: number};
 }
 
@@ -125,6 +127,7 @@ export default function ProfileScreen({api, authState, username, onBack, onMessa
 	const [blocking, setBlocking] = useState(false);
 	const [pokeBusy, setPokeBusy] = useState(false);
 	const [pokeStatus, setPokeStatus] = useState<string | null>(null);
+	const [banBusy, setBanBusy] = useState(false);
 	const [unreadNotifications, setUnreadNotifications] = useState(0);
 	const isOwn = !username;
 
@@ -197,6 +200,50 @@ export default function ProfileScreen({api, authState, username, onBack, onMessa
 		} finally {
 			setPokeBusy(false);
 		}
+	}
+
+	/**
+	 * MAX BUILD — real admin moderation action (OssnUser::ban()/
+	 * unban(), see report.php's own user-report action and
+	 * admin.php's /admin/ban and /admin/unban routes). Gated here by
+	 * the CALLER's own is_admin (authState's real /me-sourced value,
+	 * same pattern AppShell already uses for isAdmin on
+	 * PlaceDetailScreen) — profile.is_admin on a non-own profile would
+	 * be the VIEWED user's admin status, not the caller's, so it's
+	 * deliberately not used for this gate.
+	 */
+	function confirmBanToggle() {
+		if (!profile?.guid) return;
+		const willBan = !profile.banned;
+		Alert.alert(
+			willBan ? 'Забанить пользователя?' : 'Разбанить пользователя?',
+			willBan
+				? `${profile.fullname || profile.username} больше не сможет войти в BERX ни с одного устройства.`
+				: `${profile.fullname || profile.username} снова сможет пользоваться BERX.`,
+			[
+				{text: 'Отмена', style: 'cancel'},
+				{
+					text: willBan ? 'Забанить' : 'Разбанить',
+					style: willBan ? 'destructive' : 'default',
+					onPress: async () => {
+						if (!profile.guid) return;
+						setBanBusy(true);
+						try {
+							if (willBan) {
+								await api.banUser(profile.guid);
+							} else {
+								await api.unbanUser(profile.guid);
+							}
+							setProfile({...profile, banned: willBan});
+						} catch {
+							// real server rejection — state left as-is
+						} finally {
+							setBanBusy(false);
+						}
+					},
+				},
+			]
+		);
 	}
 
 	function handleBlock() {
@@ -334,6 +381,24 @@ export default function ProfileScreen({api, authState, username, onBack, onMessa
 				<View style={styles.actionRow}>
 					<BerxButton label="👋 Толкнуть" variant="secondary" loading={pokeBusy} onPress={handlePoke} fullWidth />
 					{pokeStatus ? <Text style={styles.pokeStatus}>{pokeStatus}</Text> : null}
+				</View>
+			) : null}
+
+			{!isOwn && profile.banned ? (
+				<View style={styles.actionRow}>
+					<Text style={styles.bannedBanner}>⛔ Аккаунт заблокирован администрацией BERX</Text>
+				</View>
+			) : null}
+
+			{!isOwn && profile.guid && authState.getSnapshot().user?.is_admin ? (
+				<View style={styles.actionRow}>
+					<BerxButton
+						label={profile.banned ? 'Разбанить' : 'Забанить'}
+						variant={profile.banned ? 'secondary' : 'danger'}
+						loading={banBusy}
+						onPress={confirmBanToggle}
+						fullWidth
+					/>
 				</View>
 			) : null}
 
@@ -526,6 +591,7 @@ const styles = StyleSheet.create({
 	joined: {color: colors.textFaint, fontSize: typography.sizeXs, marginTop: spacing.sm},
 	mutualFriends: {color: colors.accent, fontSize: typography.sizeSm, marginTop: spacing.xs, fontWeight: typography.weightMedium},
 	pokeStatus: {color: colors.textDim, fontSize: typography.sizeXs, textAlign: 'center', marginTop: spacing.xs},
+	bannedBanner: {color: colors.danger, fontSize: typography.sizeSm, fontWeight: typography.weightMedium, textAlign: 'center'},
 	reputationRow: {flexDirection: 'row', gap: spacing.lg, marginTop: spacing.sm},
 	reputationStat: {alignItems: 'center'},
 	reputationValue: {color: colors.accent, fontSize: typography.sizeBase, fontWeight: typography.weightBold},

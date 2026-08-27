@@ -14,10 +14,13 @@
  * calling; fixed to ossn_api_is_admin($api_user_guid), a real
  * guid-scoped DB lookup).
  *
- * "Удалить контент" is only offered for post/comment/group reports —
- * report.php itself returns a real 501 for user/dating_profile (no
- * removal mechanism exists for those target types), shown honestly
- * rather than offering a button that would always fail.
+ * "Удалить контент" is offered for post/comment/group reports;
+ * "Забанить" for user reports — report.php now performs a real ban
+ * (OssnUser::ban(), reason = the report's own reason) for target_type
+ * 'user', enforced platform-wide at ossn_com.php's bearer-token choke
+ * point. 'dating_profile' still has no real removal mechanism and
+ * still returns a real 501 — shown honestly rather than a button that
+ * would always fail.
  */
 import {useCallback, useEffect, useState} from 'react';
 import {View, Text, FlatList, StyleSheet} from 'react-native';
@@ -52,6 +55,7 @@ const TARGET_LABELS: Record<string, string> = {
 };
 
 const REMOVABLE_TYPES = new Set(['post', 'comment', 'group']);
+const BANNABLE_TYPES = new Set(['user']);
 
 export default function AdminReportsScreen({api, onBack}: Props) {
 	const [items, setItems] = useState<BerxReportQueueItem[]>([]);
@@ -122,6 +126,9 @@ export default function AdminReportsScreen({api, onBack}: Props) {
 							<View style={styles.actions}>
 								{REMOVABLE_TYPES.has(item.target_type) ? (
 									<BerxButton label="Удалить контент" variant="danger" loading={busyId === item.id} onPress={() => handleDeleteContent(item.id)} />
+								) : null}
+								{BANNABLE_TYPES.has(item.target_type) ? (
+									<BerxButton label="Забанить" variant="danger" loading={busyId === item.id} onPress={() => handleDeleteContent(item.id)} />
 								) : null}
 								<BerxButton label="Отклонить" variant="secondary" loading={busyId === item.id} onPress={() => handleResolve(item.id, 'dismissed')} />
 								<BerxButton label="Принято" loading={busyId === item.id} onPress={() => handleResolve(item.id, 'reviewed')} />

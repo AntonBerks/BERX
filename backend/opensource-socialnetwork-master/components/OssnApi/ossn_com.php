@@ -278,6 +278,19 @@ function ossn_api_dispatch($pages) {
 		if (!$api_user_guid) {
 			ossn_api_error('unauthorized', 'Invalid or expired token', 401);
 		}
+		// MAX BUILD -- real ban enforcement (OssnUser::ban(), see
+		// report.php's target_type='user' action and
+		// upgrade/upgrades/1785170600.php). Checked here, the single real
+		// choke point every bearer-token request passes through, so a ban
+		// cuts off an already-logged-in session's very next request --
+		// not just new logins (which auth.php also blocks separately).
+		if (class_exists('OssnUser') && OssnUser::isBanned($api_user_guid)) {
+			// Russian, unlike most messages in this API — the client
+			// renders this one verbatim (LoginScreen.tsx / BerxAuthState),
+			// same "raw server text reaches the user" exception already
+			// established for places.php's checkin too_far/too_soon.
+			ossn_api_error('account_banned', 'Аккаунт заблокирован администрацией BERX.', 403);
+		}
 	}
 
 	include $file;

@@ -184,6 +184,8 @@ export interface BerxProfileSummary {
 	is_own: boolean;
 	is_friend: boolean;
 	is_creator: boolean;
+	/** Real moderation state (OssnUser::ban()) — publicly visible, same as a suspended account on any real platform. */
+	banned: boolean;
 	reputation: BerxReputation;
 	/** Real, bounded friend-list intersection (BERX World Max Build) — 0 on the caller's own profile, never estimated. */
 	mutual_friends_count: number;

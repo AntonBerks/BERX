@@ -119,6 +119,8 @@ ossn_api_json(array(
 	'is_own'      => $isOwn,
 	'is_friend'   => $isFriend,
 	'is_creator'  => (bool) $isCreator,
+	/** Real moderation state (OssnUser::ban()) — publicly visible same as a suspended account on any real platform; ban/unban controls themselves stay admin-gated client-side. */
+	'banned'      => (bool) $user->banned,
 	'mutual_friends_count' => $mutualFriendsCount,
 	'mutual_communities_count' => $mutualCommunitiesCount,
 	'reputation'  => array(

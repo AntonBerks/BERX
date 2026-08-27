@@ -1,13 +1,20 @@
 /**
  * !!! VERIFICATION STATUS: UNVERIFIED — see BerxButton.tsx header.
  *
- * Pure UI layer: every state shown here (authenticating/authError)
- * comes from BerxAuthState's snapshot, not local component state —
- * this screen calls authState.login() and renders whatever the
+ * Pure UI layer: every state shown here (authenticating/authError/
+ * banned) comes from BerxAuthState's snapshot, not local component
+ * state — this screen calls authState.login() and renders whatever the
  * snapshot says, it does not call api.login()/api.me() itself and
  * does not track its own "loading"/"error" booleans. That's the
  * architectural point of Phase-4's "LoginScreen should be a UI layer"
  * requirement.
+ *
+ * MAX BUILD — real ban enforcement (OssnUser::ban(), see report.php's
+ * user-report action and admin.php's /admin/ban route). A banned
+ * account's real server message ("This account has been suspended")
+ * now actually renders instead of a hardcoded "неверный логин или
+ * пароль" that would have misled a suspended user into thinking they
+ * mistyped their password.
  */
 import {useState} from 'react';
 import {View, Text, Pressable, StyleSheet} from 'react-native';
@@ -47,7 +54,7 @@ export default function LoginScreen({authState, onGoToRegister}: Props) {
 	}
 
 	function handleIdentifierChange(text: string) {
-		if (snapshot.status === 'authError') {
+		if (snapshot.status === 'authError' || snapshot.status === 'banned') {
 			authState.clearError();
 		}
 		setIdentifier(text);
@@ -72,7 +79,10 @@ export default function LoginScreen({authState, onGoToRegister}: Props) {
 				style={styles.input}
 			/>
 			{snapshot.status === 'authError' ? (
-				<Text style={styles.error}>Неверный логин или пароль</Text>
+				<Text style={styles.error}>{snapshot.error ?? 'Неверный логин или пароль'}</Text>
+			) : null}
+			{snapshot.status === 'banned' ? (
+				<Text style={styles.error}>{snapshot.error ?? 'Этот аккаунт заблокирован.'}</Text>
 			) : null}
 			<BerxButton label="Войти" onPress={handleSubmit} loading={isSubmitting} fullWidth />
 			{onGoToRegister ? (

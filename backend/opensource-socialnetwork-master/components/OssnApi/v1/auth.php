@@ -96,6 +96,14 @@ if ($segment0 === 'login' && $method === 'POST') {
 	if ($user->activation !== null) {
 		ossn_api_error('not_activated', 'Account is not activated yet', 403);
 	}
+	// MAX BUILD -- real ban enforcement at login too: without this, a
+	// banned user's login would still succeed and issue a real, valid
+	// token -- only their SECOND request would hit ossn_com.php's own
+	// ban check and fail, a confusing "login worked then everything
+	// broke" experience instead of one clear rejection right here.
+	if (!empty($user->banned)) {
+		ossn_api_error('account_banned', 'Аккаунт заблокирован администрацией BERX.', 403);
+	}
 
 	$issued = $tokenModel->issueToken($user->guid, $deviceLabel ? $deviceLabel : null);
 	if (!$issued) {

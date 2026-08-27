@@ -12,6 +12,13 @@
  * through the mobile app was silently rejected as 403, admin or not.
  * Now uses ossn_api_is_admin($api_user_guid) — a real guid-scoped DB
  * lookup, no session needed.
+ *
+ * MAX BUILD — real fix: target_type='user' used to be a real, honest
+ * 501 (no removal mechanism existed for a reported user anywhere in
+ * this codebase). OssnUser::ban()/isBanned() now exist (see that
+ * class's own header) — the action route below now actually bans the
+ * reported user, enforced platform-wide at ossn_com.php's real
+ * bearer-token choke point.
  */
 
 function ossn_api_report_json($row) {
@@ -90,10 +97,18 @@ if ($segment0 !== null && $segment0 !== 'queue' && $segment1 === 'action' && $me
 			$group = new OssnGroup();
 			$deleted = (bool) $group->deleteGroup(intval($report->target_guid));
 			break;
+		case 'user':
+			// MAX BUILD -- real fix: this used to be a real, honest 501
+			// (no real removal mechanism existed for a reported user
+			// anywhere in this codebase -- confirmed before, not
+			// assumed). OssnUser::ban() now exists; the real ban reason
+			// is the report's own reason, so the action stays
+			// accountable to the report that triggered it.
+			$deleted = (bool) (new OssnUser())->ban(intval($report->target_guid), $api_user_guid, (string) $report->reason);
+			break;
 		default:
-			// 'user' and 'dating_profile' have no real removal
-			// mechanism in this codebase — a real 501, not a fake
-			// success.
+			// 'dating_profile' still has no real removal mechanism --
+			// a real 501, not a fake success.
 			ossn_api_error('not_implemented', 'No removal mechanism for this target type', 501);
 	}
 	if ($deleted) {

@@ -72,4 +72,29 @@ if ($segment0 === 'validate' && $method === 'POST') {
 	ossn_api_json(array('results' => $results));
 }
 
+/**
+ * MAX BUILD -- real user ban/suspend (OssnUser::ban()/unban(), see
+ * classes/OssnUser.php's own header comment). This file already gates
+ * on ossn_api_is_admin($api_user_guid) at the very top, so no separate
+ * check is needed here.
+ */
+if ($segment0 === 'ban' && $method === 'POST') {
+	$userGuid = input('user_guid');
+	if (!$userGuid || !is_numeric($userGuid)) {
+		ossn_api_error('validation_error', 'user_guid is required', 422);
+	}
+	$reason = input('reason');
+	$ok = (new OssnUser())->ban(intval($userGuid), $api_user_guid, $reason ? $reason : '');
+	ossn_api_json(array('status' => $ok ? 'ok' : 'failed'));
+}
+
+if ($segment0 === 'unban' && $method === 'POST') {
+	$userGuid = input('user_guid');
+	if (!$userGuid || !is_numeric($userGuid)) {
+		ossn_api_error('validation_error', 'user_guid is required', 422);
+	}
+	$ok = (new OssnUser())->unban(intval($userGuid), $api_user_guid);
+	ossn_api_json(array('status' => $ok ? 'ok' : 'failed'));
+}
+
 ossn_api_error('not_found', 'Unknown admin route', 404);

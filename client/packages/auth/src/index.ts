@@ -24,12 +24,14 @@ export type BerxAuthStatus =
 	| 'authenticated'
 	| 'loggingOut'
 	| 'authError'
-	| 'bootError';
+	| 'bootError'
+	/** Real, server-confirmed ban (account_banned, see OssnUser::ban()) — a durable state, never a transient error, so it gets its own status rather than sharing authError/bootError's "just retry" framing. */
+	| 'banned';
 
 export interface BerxAuthSnapshot {
 	status: BerxAuthStatus;
 	user: User | null;
-	/** Meaningful when status is 'authError' or 'bootError'; cleared on the next attempt. */
+	/** Meaningful when status is 'authError', 'bootError', or 'banned'; cleared on the next attempt. */
 	error: string | null;
 }
 
@@ -93,6 +95,15 @@ export class BerxAuthState {
 				this.setSnapshot({ status: 'unauthenticated', user: null, error: null });
 				return;
 			}
+			// Real ban, confirmed server-side (see ossn_com.php's own
+			// bearer-token choke-point check) — clears the local token same
+			// as a bad 401 (this session is over either way), but keeps the
+			// real reason so the UI can say why instead of "try again."
+			if (e instanceof BerxApiError && e.code === 'account_banned') {
+				await this.api.logout().catch(() => undefined);
+				this.setSnapshot({ status: 'banned', user: null, error: e.message });
+				return;
+			}
 			const message = e instanceof Error ? e.message : 'Не удалось подключиться к BERX';
 			this.setSnapshot({ status: 'bootError', user: null, error: message });
 		}
@@ -111,15 +122,19 @@ export class BerxAuthState {
 			const user = await this.api.me();
 			this.setSnapshot({ status: 'authenticated', user, error: null });
 		} catch (e) {
+			if (e instanceof BerxApiError && e.code === 'account_banned') {
+				this.setSnapshot({ status: 'banned', user: null, error: e.message });
+				throw e;
+			}
 			const message = e instanceof Error ? e.message : 'Не удалось войти';
 			this.setSnapshot({ status: 'authError', user: null, error: message });
 			throw e;
 		}
 	}
 
-	/** Call after showing an authError, once the user starts editing the form again — returns to a clean unauthenticated state so a stale error message doesn't linger. */
+	/** Call after showing an authError/banned message, once the user starts editing the form again — returns to a clean unauthenticated state so a stale error message doesn't linger. */
 	clearError(): void {
-		if (this.snapshot.status === 'authError') {
+		if (this.snapshot.status === 'authError' || this.snapshot.status === 'banned') {
 			this.setSnapshot({ status: 'unauthenticated', user: null, error: null });
 		}
 	}

@@ -1213,6 +1213,15 @@ export class BerxApiClient {
 		return this.request<{results: Record<string, string>}>('/admin/validate', {method: 'POST', body: {guids: guids.join(',')}});
 	}
 
+	/** Real ban (OssnUser::ban()) — admin-only, enforced platform-wide at ossn_com.php's bearer-token choke point on the very next request. */
+	async banUser(userGuid: number, reason?: string): Promise<{status: string}> {
+		return this.request<{status: string}>('/admin/ban', {method: 'POST', body: {user_guid: String(userGuid), ...(reason ? {reason} : {})}});
+	}
+
+	async unbanUser(userGuid: number): Promise<{status: string}> {
+		return this.request<{status: string}>('/admin/unban', {method: 'POST', body: {user_guid: String(userGuid)}});
+	}
+
 	// ---------------------------------------------------------------
 	// Group moderators — activates OssnGroup::isModerator(), which has
 	// existed in core since the beginning as a documented extension

@@ -1095,6 +1095,79 @@ class OssnUser extends OssnEntities {
 				return false;
 		}
 		/**
+		 * MAX BUILD -- real user ban/suspend. Closes report.php's real,
+		 * previously-honest 501 for target_type='user' -- ossn_users had
+		 * no status column at all beyond `activation` (email-validation
+		 * only, a distinct concept -- confirmed by grepping the whole
+		 * codebase for any enabled/banned/suspended column or method
+		 * before adding one, not assumed missing). No self-recursion risk:
+		 * OssnUser -> OssnEntities -> OssnDatabase, neither intermediate
+		 * class overrides update(), confirmed by reading both directly.
+		 * Enforced at the real single choke point every bearer-token
+		 * request passes through (ossn_com.php, right after
+		 * OssnApiToken::validateToken()) -- so a ban takes effect on an
+		 * already-logged-in session's very next request, not just new
+		 * logins.
+		 *
+		 * Refuses to ban an admin or to let anyone ban themselves through
+		 * this path -- real de-escalation of an admin account requires a
+		 * deliberate manual DB action, never a single API call.
+		 */
+		public function ban($guid, $actingGuid, $reason = '') {
+				$guid = intval($guid);
+				if (!$guid || !ossn_api_is_admin($actingGuid)) {
+						return false;
+				}
+				if (intval($actingGuid) === $guid || ossn_api_is_admin($guid)) {
+						return false;
+				}
+				if (!ossn_user_by_guid($guid)) {
+						return false;
+				}
+				return (bool) $this->update(array(
+						'table'  => 'ossn_users',
+						'names'  => array('banned', 'ban_reason', 'banned_at', 'banned_by'),
+						'values' => array(1, mb_substr((string) $reason, 0, 1000, 'UTF-8'), time(), intval($actingGuid)),
+						'wheres' => array(self::wheres('guid', '=', $guid)),
+				));
+		}
+		public function unban($guid, $actingGuid) {
+				$guid = intval($guid);
+				if (!$guid || !ossn_api_is_admin($actingGuid)) {
+						return false;
+				}
+				return (bool) $this->update(array(
+						'table'  => 'ossn_users',
+						'names'  => array('banned', 'ban_reason', 'banned_at', 'banned_by'),
+						'values' => array(0, null, null, null),
+						'wheres' => array(self::wheres('guid', '=', $guid)),
+				));
+		}
+		/** Real, live check -- never cached, so a fresh unban takes effect immediately too. */
+		/**
+		 * Real, always-fresh check -- deliberately NOT via
+		 * ossn_user_by_guid() (confirmed by reading
+		 * libraries/ossn.lib.users.php directly: it serves from
+		 * OssnDynamicCaching when a memcached/redis backend is
+		 * configured, no TTL/invalidation visible for this key). A
+		 * security enforcement path can't risk a stale cached "not
+		 * banned" surviving past a real ban write, so this queries
+		 * ossn_users directly every time instead.
+		 */
+		public static function isBanned($guid) {
+				$guid = intval($guid);
+				if (!$guid) {
+						return false;
+				}
+				$db = new OssnDatabase();
+				$row = $db->select(array(
+						'from'   => 'ossn_users',
+						'params' => array('banned'),
+						'wheres' => array(OssnDatabase::wheres('guid', '=', $guid)),
+				));
+				return (bool) ($row && !empty($row->banned));
+		}
+		/**
 		 * Get a user last profile photo
 		 *
 		 * @return object|false
