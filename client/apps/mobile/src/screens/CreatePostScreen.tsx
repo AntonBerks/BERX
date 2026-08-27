@@ -10,14 +10,23 @@
  * AlbumDetailScreen — no image-picker library is installable in this
  * sandbox, so device picking is a separate piece that plugs into
  * this prop; this screen owns everything after a file is selected.
+ *
+ * MAX BUILD — real GIF attach (OssnGiphy), same GifPickerModal +
+ * download-to-Blob approach as ConversationScreen. The preview shown
+ * before upload is Giphy's own real thumb_url (not the downloaded
+ * Blob — this screen doesn't assume URL.createObjectURL exists,
+ * matching the existing preview-uri comment below), but the actual
+ * uploaded bytes are the real downloaded GIF, going through the exact
+ * same uploadMedia()/attachMedia() path a picked photo already uses.
  */
 import {useEffect, useState} from 'react';
 import {View, Text, Image, Pressable, StyleSheet} from 'react-native';
 import type {BerxApiClient, BerxFilePart} from '@berx/api/client';
-import type {BerxCircle, BerxPostVisibility} from '@berx/api/types';
+import type {BerxCircle, BerxPostVisibility, BerxGifResult} from '@berx/api/types';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
+import {GifPickerModal} from '../../../../packages/design-system/src/components/GifPickerModal';
 
 interface Props {
 	api: BerxApiClient;
@@ -45,6 +54,9 @@ export default function CreatePostScreen({api, pickImage, onCreated, draft, onOp
 	// server-side if the caller actually owns that circle.
 	const [visibility, setVisibility] = useState<BerxPostVisibility>(draft?.visibility ?? 'public');
 	const [myCircles, setMyCircles] = useState<BerxCircle[]>([]);
+	const [gifPickerOpen, setGifPickerOpen] = useState(false);
+	const [gifDownloading, setGifDownloading] = useState(false);
+	const [pickedFilename, setPickedFilename] = useState('post-photo.jpg');
 
 	useEffect(() => {
 		api.circles().then((res) => setMyCircles(res.circles)).catch(() => undefined);
@@ -54,12 +66,30 @@ export default function CreatePostScreen({api, pickImage, onCreated, draft, onOp
 		const picked = await pickImage();
 		if (!picked) return; // user cancelled, or no picker wired yet — not an error state
 		setPickedPart(picked);
+		setPickedFilename('post-photo.jpg');
 		// BerxFilePart is either a Blob (web) or {uri, name, type} (native)
 		// — only the native shape carries a directly displayable uri for
 		// a local preview; a Blob would need URL.createObjectURL, which
 		// this cross-platform screen doesn't assume is available.
 		if (typeof picked === 'object' && 'uri' in picked) {
 			setPreviewUri(picked.uri);
+		}
+	}
+
+	/** Real download — the picker only ever hands back Giphy's own real gif_url; the preview uses that same real hosted thumb, the upload uses the real downloaded bytes. */
+	async function handleSelectGif(gif: BerxGifResult) {
+		setGifPickerOpen(false);
+		setGifDownloading(true);
+		try {
+			const res = await fetch(gif.gif_url);
+			const blob = await res.blob();
+			setPickedPart(blob);
+			setPickedFilename(`post-gif-${gif.id}.gif`);
+			setPreviewUri(gif.thumb_url);
+		} catch {
+			setError('Не удалось загрузить GIF. Попробуйте другой вариант.');
+		} finally {
+			setGifDownloading(false);
 		}
 	}
 
@@ -73,7 +103,7 @@ export default function CreatePostScreen({api, pickImage, onCreated, draft, onOp
 			if (pickedPart) {
 				// Real upload first — a failed upload must never leave a
 				// half-created post with a dangling reference.
-				const asset = await api.uploadMedia(pickedPart, 'post-photo.jpg');
+				const asset = await api.uploadMedia(pickedPart, pickedFilename);
 				mediaGuid = asset.guid;
 			}
 			const res = await api.createPost(trimmed, visibility !== 'public' ? visibility : undefined, repostTarget?.guid);
@@ -147,9 +177,22 @@ export default function CreatePostScreen({api, pickImage, onCreated, draft, onOp
 						<Text style={styles.previewRemoveText}>✕</Text>
 					</Pressable>
 				</View>
+			) : gifDownloading ? (
+				<Text style={styles.draftStatus}>Загрузка GIF…</Text>
 			) : null}
 
-			<BerxButton label={pickedPart ? 'Заменить фото' : 'Добавить фото'} variant="secondary" onPress={handlePickImage} />
+			<View style={styles.mediaRow}>
+				<BerxButton label={pickedPart ? 'Заменить фото' : 'Добавить фото'} variant="secondary" onPress={handlePickImage} />
+				<BerxButton label="Добавить GIF" variant="secondary" onPress={() => setGifPickerOpen(true)} />
+			</View>
+
+			<GifPickerModal
+				visible={gifPickerOpen}
+				onClose={() => setGifPickerOpen(false)}
+				onSelect={handleSelectGif}
+				search={(q) => api.giphySearch(q)}
+				trending={() => api.giphyTrending()}
+			/>
 
 			<Text style={styles.label}>Кто увидит пост</Text>
 			<View style={styles.visRow}>
@@ -192,6 +235,7 @@ const styles = StyleSheet.create({
 	preview: {width: 96, height: 96, borderRadius: radius.md, backgroundColor: colors.graphite},
 	previewRemove: {position: 'absolute', top: -6, right: -6, width: 22, height: 22, borderRadius: 11, backgroundColor: colors.black, alignItems: 'center', justifyContent: 'center'},
 	previewRemoveText: {color: colors.textDim, fontSize: typography.sizeXs},
+	mediaRow: {flexDirection: 'row', gap: spacing.sm},
 	error: {color: colors.danger, fontSize: typography.sizeSm},
 	label: {color: colors.textFaint, fontSize: typography.sizeXs, fontWeight: typography.weightBold, textTransform: 'uppercase'},
 	visRow: {flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs},
