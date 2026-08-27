@@ -25,6 +25,7 @@ import {BerxHeader} from '../../../../packages/design-system/src/components/Berx
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
+import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
 
 interface Props {
 	api: BerxApiClient;
@@ -93,31 +94,33 @@ export default function DatingSearchScreen({api, onMatch, onBack}: Props) {
 			{searched && results.length === 0 ? (
 				<BerxEmptyState title="Анкеты не найдены" subtitle="Проверьте псевдоним и попробуйте снова." />
 			) : (
-				<FlatList
-					data={results}
-					keyExtractor={(c: BerxDatingProfileCard) => String(c.guid)}
-					contentContainerStyle={styles.list}
-					renderItem={({item}: {item: BerxDatingProfileCard}) => (
-						<View style={styles.card}>
-							<View style={styles.avatar}>
-								<Text style={styles.avatarInitial}>{item.pseudonym.charAt(0).toUpperCase()}</Text>
+				<BerxFadeIn style={styles.fadeFlex}>
+					<FlatList
+						data={results}
+						keyExtractor={(c: BerxDatingProfileCard) => String(c.guid)}
+						contentContainerStyle={styles.list}
+						renderItem={({item}: {item: BerxDatingProfileCard}) => (
+							<View style={styles.card}>
+								<View style={styles.avatar}>
+									<Text style={styles.avatarInitial}>{item.pseudonym.charAt(0).toUpperCase()}</Text>
+								</View>
+								<View style={styles.cardBody}>
+									<Text style={styles.name}>{item.pseudonym}{item.age ? `, ${item.age}` : ''}</Text>
+									{item.city ? <Text style={styles.city}>{item.city}</Text> : null}
+									{item.bio ? <Text style={styles.bio} numberOfLines={2}>{item.bio}</Text> : null}
+								</View>
+								<View style={styles.actions}>
+									<Pressable onPress={() => act(item, 'pass')} disabled={busyGuid === item.guid} hitSlop={8}>
+										<Text style={styles.pass}>Пропустить</Text>
+									</Pressable>
+									<Pressable onPress={() => act(item, 'like')} disabled={busyGuid === item.guid} hitSlop={8}>
+										<Text style={styles.like}>{busyGuid === item.guid ? '…' : 'Нравится'}</Text>
+									</Pressable>
+								</View>
 							</View>
-							<View style={styles.cardBody}>
-								<Text style={styles.name}>{item.pseudonym}{item.age ? `, ${item.age}` : ''}</Text>
-								{item.city ? <Text style={styles.city}>{item.city}</Text> : null}
-								{item.bio ? <Text style={styles.bio} numberOfLines={2}>{item.bio}</Text> : null}
-							</View>
-							<View style={styles.actions}>
-								<Pressable onPress={() => act(item, 'pass')} disabled={busyGuid === item.guid} hitSlop={8}>
-									<Text style={styles.pass}>Пропустить</Text>
-								</Pressable>
-								<Pressable onPress={() => act(item, 'like')} disabled={busyGuid === item.guid} hitSlop={8}>
-									<Text style={styles.like}>{busyGuid === item.guid ? '…' : 'Нравится'}</Text>
-								</Pressable>
-							</View>
-						</View>
-					)}
-				/>
+						)}
+					/>
+				</BerxFadeIn>
 			)}
 		</View>
 	);
@@ -129,6 +132,7 @@ const styles = StyleSheet.create({
 	searchInput: {flex: 1},
 	message: {fontSize: typography.sizeSm, color: colors.textFaint, paddingHorizontal: spacing.lg, paddingBottom: spacing.sm},
 	list: {padding: spacing.md, gap: spacing.sm},
+	fadeFlex: {flex: 1},
 	card: {backgroundColor: colors.surface, borderRadius: radius.md, padding: spacing.md, gap: spacing.xs, marginBottom: spacing.sm, flexDirection: 'row'},
 	avatar: {width: 48, height: 48, borderRadius: 24, backgroundColor: colors.graphite, alignItems: 'center', justifyContent: 'center', marginRight: spacing.sm},
 	avatarInitial: {fontSize: typography.sizeLg, color: colors.textFaint},

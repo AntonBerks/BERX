@@ -14,6 +14,7 @@ import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
+import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
 
 interface Props {
 	api: BerxApiClient;
@@ -68,22 +69,24 @@ export default function EventInviteScreen({api, guid, onBack}: Props) {
 			{friends.length === 0 ? (
 				<BerxEmptyState title="Друзей пока нет" subtitle="Как только у вас появятся друзья на BERX, вы сможете приглашать их на события." />
 			) : (
-				<FlatList
-					data={friends}
-					keyExtractor={(f: BerxFriend) => String(f.guid)}
-					contentContainerStyle={styles.list}
-					renderItem={({item}: {item: BerxFriend}) => (
-						<View style={styles.row}>
-							<Image source={{uri: item.icon}} style={styles.avatar} />
-							<Text style={styles.name} numberOfLines={1}>{item.fullname}</Text>
-							{invited.has(item.guid) ? (
-								<Text style={styles.invitedLabel}>Приглашён</Text>
-							) : (
-								<BerxButton label="Пригласить" loading={busyGuid === item.guid} onPress={() => invite(item.guid)} />
-							)}
-						</View>
-					)}
-				/>
+				<BerxFadeIn style={styles.fadeFlex}>
+					<FlatList
+						data={friends}
+						keyExtractor={(f: BerxFriend) => String(f.guid)}
+						contentContainerStyle={styles.list}
+						renderItem={({item}: {item: BerxFriend}) => (
+							<View style={styles.row}>
+								<Image source={{uri: item.icon}} style={styles.avatar} />
+								<Text style={styles.name} numberOfLines={1}>{item.fullname}</Text>
+								{invited.has(item.guid) ? (
+									<Text style={styles.invitedLabel}>Приглашён</Text>
+								) : (
+									<BerxButton label="Пригласить" loading={busyGuid === item.guid} onPress={() => invite(item.guid)} />
+								)}
+							</View>
+						)}
+					/>
+				</BerxFadeIn>
 			)}
 		</View>
 	);
@@ -92,6 +95,7 @@ export default function EventInviteScreen({api, guid, onBack}: Props) {
 const styles = StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.bg},
 	list: {padding: spacing.md, gap: spacing.sm},
+	fadeFlex: {flex: 1},
 	row: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.borderSoft},
 	avatar: {width: 40, height: 40, borderRadius: radius.pill, backgroundColor: colors.graphite},
 	name: {flex: 1, fontSize: typography.sizeBase, color: colors.white, fontWeight: typography.weightMedium},

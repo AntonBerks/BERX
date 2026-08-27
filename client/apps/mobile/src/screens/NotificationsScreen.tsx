@@ -27,6 +27,7 @@ import {relativeTimeLabel} from '@berx/domain';
 import {colors, spacing, typography} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
+import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
 
 interface Props {
 	api: BerxApiClient;
@@ -150,32 +151,34 @@ export default function NotificationsScreen({api, onOpenConversation, onOpenDati
 			) : items.length === 0 ? (
 				<BerxEmptyState title="Пока нет уведомлений" />
 			) : (
-				<FlatList
-					data={items}
-					keyExtractor={(n: BerxNotification) => String(n.guid)}
-					refreshControl={
-						<RefreshControl
-							refreshing={refreshing}
-							onRefresh={() => {
-								setRefreshing(true);
-								load();
-							}}
-							tintColor={colors.accent}
-						/>
-					}
-					renderItem={({item}: {item: BerxNotification}) => (
-						<Pressable style={[styles.row, !item.viewed && styles.rowUnread]} onPress={() => handlePress(item)}>
-							{!item.viewed ? <View style={styles.dot} /> : null}
-							<View style={styles.rowText}>
-								<Text style={styles.label}>{NOTIFICATION_LABELS[item.type] ?? item.type}</Text>
-								<Text style={styles.time}>{relativeTimeLabel(item.time_created)}</Text>
-							</View>
-							<Pressable onPress={() => deleteOne(item.guid)} hitSlop={8}>
-								<Text style={styles.remove}>✕</Text>
+				<BerxFadeIn style={styles.fadeFlex}>
+					<FlatList
+						data={items}
+						keyExtractor={(n: BerxNotification) => String(n.guid)}
+						refreshControl={
+							<RefreshControl
+								refreshing={refreshing}
+								onRefresh={() => {
+									setRefreshing(true);
+									load();
+								}}
+								tintColor={colors.accent}
+							/>
+						}
+						renderItem={({item}: {item: BerxNotification}) => (
+							<Pressable style={[styles.row, !item.viewed && styles.rowUnread]} onPress={() => handlePress(item)}>
+								{!item.viewed ? <View style={styles.dot} /> : null}
+								<View style={styles.rowText}>
+									<Text style={styles.label}>{NOTIFICATION_LABELS[item.type] ?? item.type}</Text>
+									<Text style={styles.time}>{relativeTimeLabel(item.time_created)}</Text>
+								</View>
+								<Pressable onPress={() => deleteOne(item.guid)} hitSlop={8}>
+									<Text style={styles.remove}>✕</Text>
+								</Pressable>
 							</Pressable>
-						</Pressable>
-					)}
-				/>
+						)}
+					/>
+				</BerxFadeIn>
 			)}
 		</View>
 	);
@@ -186,6 +189,7 @@ const styles = StyleSheet.create({
 	actionsRow: {flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: spacing.lg, paddingVertical: spacing.sm},
 	actionLink: {color: colors.accent, fontSize: typography.sizeSm, fontWeight: typography.weightMedium},
 	actionLinkDanger: {color: colors.danger},
+	fadeFlex: {flex: 1},
 	row: {
 		flexDirection: 'row',
 		alignItems: 'center',

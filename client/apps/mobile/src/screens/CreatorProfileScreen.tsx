@@ -17,6 +17,7 @@ import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
+import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
 
 interface Props {
 	api: BerxApiClient;
@@ -111,59 +112,67 @@ export default function CreatorProfileScreen({api, username, onOpenPost, onOpenA
 			{tabCount === 0 ? (
 				<BerxEmptyState title="Пока ничего нет" />
 			) : tab === 'posts' ? (
-				<FlatList
-					data={content.posts}
-					keyExtractor={(p: BerxCreatorPostItem) => String(p.guid)}
-					contentContainerStyle={styles.list}
-					renderItem={({item}: {item: BerxCreatorPostItem}) => (
-						<Pressable style={styles.row} onPress={() => onOpenPost(item.guid)}>
-							<Text style={styles.rowText} numberOfLines={2}>{item.text}</Text>
-							<Text style={styles.rowMeta}>{fmtDate(item.time)}</Text>
-						</Pressable>
-					)}
-				/>
+				<BerxFadeIn style={styles.fadeFlex}>
+					<FlatList
+						data={content.posts}
+						keyExtractor={(p: BerxCreatorPostItem) => String(p.guid)}
+						contentContainerStyle={styles.list}
+						renderItem={({item}: {item: BerxCreatorPostItem}) => (
+							<Pressable style={styles.row} onPress={() => onOpenPost(item.guid)}>
+								<Text style={styles.rowText} numberOfLines={2}>{item.text}</Text>
+								<Text style={styles.rowMeta}>{fmtDate(item.time)}</Text>
+							</Pressable>
+						)}
+					/>
+				</BerxFadeIn>
 			) : tab === 'albums' ? (
-				<FlatList
-					data={content.albums}
-					keyExtractor={(a: BerxCreatorAlbumItem) => String(a.guid)}
-					numColumns={2}
-					contentContainerStyle={styles.grid}
-					renderItem={({item}: {item: BerxCreatorAlbumItem}) => (
-						<Pressable style={styles.gridCard} onPress={() => onOpenAlbum(item.guid)}>
-							<Text style={styles.gridTitle} numberOfLines={1}>{item.title}</Text>
-						</Pressable>
-					)}
-				/>
+				<BerxFadeIn style={styles.fadeFlex}>
+					<FlatList
+						data={content.albums}
+						keyExtractor={(a: BerxCreatorAlbumItem) => String(a.guid)}
+						numColumns={2}
+						contentContainerStyle={styles.grid}
+						renderItem={({item}: {item: BerxCreatorAlbumItem}) => (
+							<Pressable style={styles.gridCard} onPress={() => onOpenAlbum(item.guid)}>
+								<Text style={styles.gridTitle} numberOfLines={1}>{item.title}</Text>
+							</Pressable>
+						)}
+					/>
+				</BerxFadeIn>
 			) : tab === 'events' ? (
-				<FlatList
-					data={content.events}
-					keyExtractor={(e: BerxCreatorEventItem) => String(e.guid)}
-					contentContainerStyle={styles.list}
-					renderItem={({item}: {item: BerxCreatorEventItem}) => (
-						<Pressable style={styles.mediaRow} onPress={() => onOpenEvent(item.guid)}>
-							{item.image_url ? <Image source={{uri: item.image_url}} style={styles.thumb} /> : <View style={styles.thumbFallback} />}
-							<View style={styles.mediaBody}>
-								<Text style={styles.rowText} numberOfLines={1}>{item.title}</Text>
-								<Text style={styles.rowMeta}>{fmtDate(item.starts)}</Text>
-							</View>
-						</Pressable>
-					)}
-				/>
+				<BerxFadeIn style={styles.fadeFlex}>
+					<FlatList
+						data={content.events}
+						keyExtractor={(e: BerxCreatorEventItem) => String(e.guid)}
+						contentContainerStyle={styles.list}
+						renderItem={({item}: {item: BerxCreatorEventItem}) => (
+							<Pressable style={styles.mediaRow} onPress={() => onOpenEvent(item.guid)}>
+								{item.image_url ? <Image source={{uri: item.image_url}} style={styles.thumb} /> : <View style={styles.thumbFallback} />}
+								<View style={styles.mediaBody}>
+									<Text style={styles.rowText} numberOfLines={1}>{item.title}</Text>
+									<Text style={styles.rowMeta}>{fmtDate(item.starts)}</Text>
+								</View>
+							</Pressable>
+						)}
+					/>
+				</BerxFadeIn>
 			) : (
-				<FlatList
-					data={content.experiences}
-					keyExtractor={(e: BerxCreatorExperienceItem) => String(e.id)}
-					contentContainerStyle={styles.list}
-					renderItem={({item}: {item: BerxCreatorExperienceItem}) => (
-						<Pressable style={styles.mediaRow} onPress={() => onOpenExperience(item.id)}>
-							{item.image_url ? <Image source={{uri: item.image_url}} style={styles.thumb} /> : <View style={styles.thumbFallback} />}
-							<View style={styles.mediaBody}>
-								<Text style={styles.rowText} numberOfLines={1}>{item.title}</Text>
-								<Text style={styles.rowMeta}>{item.anchor_title ?? ''} · {fmtDate(item.scheduled_start)}</Text>
-							</View>
-						</Pressable>
-					)}
-				/>
+				<BerxFadeIn style={styles.fadeFlex}>
+					<FlatList
+						data={content.experiences}
+						keyExtractor={(e: BerxCreatorExperienceItem) => String(e.id)}
+						contentContainerStyle={styles.list}
+						renderItem={({item}: {item: BerxCreatorExperienceItem}) => (
+							<Pressable style={styles.mediaRow} onPress={() => onOpenExperience(item.id)}>
+								{item.image_url ? <Image source={{uri: item.image_url}} style={styles.thumb} /> : <View style={styles.thumbFallback} />}
+								<View style={styles.mediaBody}>
+									<Text style={styles.rowText} numberOfLines={1}>{item.title}</Text>
+									<Text style={styles.rowMeta}>{item.anchor_title ?? ''} · {fmtDate(item.scheduled_start)}</Text>
+								</View>
+							</Pressable>
+						)}
+					/>
+				</BerxFadeIn>
 			)}
 		</View>
 	);
@@ -183,6 +192,7 @@ const styles = StyleSheet.create({
 	tabActive: {backgroundColor: colors.accentSoft},
 	tabText: {fontSize: typography.sizeSm, color: colors.textDim},
 	tabTextActive: {color: colors.accent, fontWeight: typography.weightMedium},
+	fadeFlex: {flex: 1},
 	list: {padding: spacing.md, gap: spacing.sm},
 	row: {backgroundColor: colors.surface, borderRadius: radius.md, padding: spacing.md, marginBottom: spacing.sm, gap: 4},
 	rowText: {fontSize: typography.sizeBase, color: colors.white},

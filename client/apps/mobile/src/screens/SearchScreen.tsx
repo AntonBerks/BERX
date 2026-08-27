@@ -34,6 +34,7 @@ import type {BerxPlaceSearchResult, BerxEventSearchResult, BerxCommunitySearchRe
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {BerxEmptyState, BerxErrorState} from '../../../../packages/design-system/src/components/BerxStates';
+import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
 
 interface SearchResultUser {
 	guid: number;
@@ -154,74 +155,84 @@ export default function SearchScreen({api, onOpenProfile, onOpenPlace, onOpenEve
 			) : searched && currentCount === 0 ? (
 				<BerxEmptyState title="Ничего не найдено" />
 			) : !searched && tab === 'users' && suggestions && suggestions.length > 0 ? (
-				<FlatList
-					data={suggestions}
-					keyExtractor={(p: BerxPeopleSuggestion) => String(p.guid)}
-					contentContainerStyle={styles.suggestionsList}
-					ListHeaderComponent={<Text style={styles.suggestionsTitle}>Возможно, вы знакомы</Text>}
-					renderItem={({item}: {item: BerxPeopleSuggestion}) => (
-						<Pressable style={styles.row} onPress={() => onOpenProfile(item.username)}>
-							<Text style={styles.fullname}>{item.fullname || item.username}</Text>
-							<Text style={styles.username}>
-								@{item.username} · {item.mutual_count} общих {item.mutual_count === 1 ? 'друг' : 'друзей'}
-								{item.mutual_communities_count > 0 ? ` · 👥 ${item.mutual_communities_count}` : ''}
-							</Text>
-						</Pressable>
-					)}
-				/>
+				<BerxFadeIn style={styles.fadeFlex}>
+					<FlatList
+						data={suggestions}
+						keyExtractor={(p: BerxPeopleSuggestion) => String(p.guid)}
+						contentContainerStyle={styles.suggestionsList}
+						ListHeaderComponent={<Text style={styles.suggestionsTitle}>Возможно, вы знакомы</Text>}
+						renderItem={({item}: {item: BerxPeopleSuggestion}) => (
+							<Pressable style={styles.row} onPress={() => onOpenProfile(item.username)}>
+								<Text style={styles.fullname}>{item.fullname || item.username}</Text>
+								<Text style={styles.username}>
+									@{item.username} · {item.mutual_count} общих {item.mutual_count === 1 ? 'друг' : 'друзей'}
+									{item.mutual_communities_count > 0 ? ` · 👥 ${item.mutual_communities_count}` : ''}
+								</Text>
+							</Pressable>
+						)}
+					/>
+				</BerxFadeIn>
 			) : !searched ? (
 				<BerxEmptyState title="Начните вводить запрос" />
 			) : tab === 'users' ? (
-				<FlatList
-					data={users}
-					keyExtractor={(u: SearchResultUser) => String(u.guid)}
-					renderItem={({item}: {item: SearchResultUser}) => (
-						<Pressable style={styles.row} onPress={() => onOpenProfile(item.username)}>
-							<Text style={styles.fullname}>{item.fullname || item.username}</Text>
-							<Text style={styles.username}>@{item.username}</Text>
-						</Pressable>
-					)}
-				/>
+				<BerxFadeIn style={styles.fadeFlex}>
+					<FlatList
+						data={users}
+						keyExtractor={(u: SearchResultUser) => String(u.guid)}
+						renderItem={({item}: {item: SearchResultUser}) => (
+							<Pressable style={styles.row} onPress={() => onOpenProfile(item.username)}>
+								<Text style={styles.fullname}>{item.fullname || item.username}</Text>
+								<Text style={styles.username}>@{item.username}</Text>
+							</Pressable>
+						)}
+					/>
+				</BerxFadeIn>
 			) : tab === 'places' ? (
-				<FlatList
-					data={places}
-					keyExtractor={(p: BerxPlaceSearchResult) => String(p.guid)}
-					renderItem={({item}: {item: BerxPlaceSearchResult}) => (
-						<Pressable style={styles.mediaRow} onPress={() => onOpenPlace(item.guid)}>
-							{item.cover_url ? <Image source={{uri: item.cover_url}} style={styles.thumb} /> : <View style={styles.thumbFallback} />}
-							<View style={styles.mediaBody}>
-								<Text style={styles.fullname} numberOfLines={1}>{item.title}</Text>
-								<Text style={styles.username}>{item.category ?? ''}{item.friends_count > 0 ? `${item.category ? ' · ' : ''}👥 ${item.friends_count}` : ''}</Text>
-							</View>
-							{item.rating > 0 ? <Text style={styles.rating}>★ {item.rating}</Text> : null}
-						</Pressable>
-					)}
-				/>
+				<BerxFadeIn style={styles.fadeFlex}>
+					<FlatList
+						data={places}
+						keyExtractor={(p: BerxPlaceSearchResult) => String(p.guid)}
+						renderItem={({item}: {item: BerxPlaceSearchResult}) => (
+							<Pressable style={styles.mediaRow} onPress={() => onOpenPlace(item.guid)}>
+								{item.cover_url ? <Image source={{uri: item.cover_url}} style={styles.thumb} /> : <View style={styles.thumbFallback} />}
+								<View style={styles.mediaBody}>
+									<Text style={styles.fullname} numberOfLines={1}>{item.title}</Text>
+									<Text style={styles.username}>{item.category ?? ''}{item.friends_count > 0 ? `${item.category ? ' · ' : ''}👥 ${item.friends_count}` : ''}</Text>
+								</View>
+								{item.rating > 0 ? <Text style={styles.rating}>★ {item.rating}</Text> : null}
+							</Pressable>
+						)}
+					/>
+				</BerxFadeIn>
 			) : tab === 'events' ? (
-				<FlatList
-					data={events}
-					keyExtractor={(e: BerxEventSearchResult) => String(e.guid)}
-					renderItem={({item}: {item: BerxEventSearchResult}) => (
-						<Pressable style={styles.mediaRow} onPress={() => onOpenEvent(item.guid)}>
-							{item.cover_url ? <Image source={{uri: item.cover_url}} style={styles.thumb} /> : <View style={styles.thumbFallback} />}
-							<View style={styles.mediaBody}>
-								<Text style={styles.fullname} numberOfLines={1}>{item.title}</Text>
-								<Text style={styles.username}>{new Date(item.starts * 1000).toLocaleDateString('ru-RU')}{item.friends_count > 0 ? ` · 👥 ${item.friends_count}` : ''}</Text>
-							</View>
-						</Pressable>
-					)}
-				/>
+				<BerxFadeIn style={styles.fadeFlex}>
+					<FlatList
+						data={events}
+						keyExtractor={(e: BerxEventSearchResult) => String(e.guid)}
+						renderItem={({item}: {item: BerxEventSearchResult}) => (
+							<Pressable style={styles.mediaRow} onPress={() => onOpenEvent(item.guid)}>
+								{item.cover_url ? <Image source={{uri: item.cover_url}} style={styles.thumb} /> : <View style={styles.thumbFallback} />}
+								<View style={styles.mediaBody}>
+									<Text style={styles.fullname} numberOfLines={1}>{item.title}</Text>
+									<Text style={styles.username}>{new Date(item.starts * 1000).toLocaleDateString('ru-RU')}{item.friends_count > 0 ? ` · 👥 ${item.friends_count}` : ''}</Text>
+								</View>
+							</Pressable>
+						)}
+					/>
+				</BerxFadeIn>
 			) : (
-				<FlatList
-					data={communities}
-					keyExtractor={(c: BerxCommunitySearchResult) => String(c.guid)}
-					renderItem={({item}: {item: BerxCommunitySearchResult}) => (
-						<Pressable style={styles.row} onPress={() => onOpenCommunity(item.guid)}>
-							<Text style={styles.fullname}>{item.title}</Text>
-							<Text style={styles.username}>{item.members} участников{item.owner ? ` · ${item.owner}` : ''}{item.friends_count > 0 ? ` · 👥 ${item.friends_count}` : ''}</Text>
-						</Pressable>
-					)}
-				/>
+				<BerxFadeIn style={styles.fadeFlex}>
+					<FlatList
+						data={communities}
+						keyExtractor={(c: BerxCommunitySearchResult) => String(c.guid)}
+						renderItem={({item}: {item: BerxCommunitySearchResult}) => (
+							<Pressable style={styles.row} onPress={() => onOpenCommunity(item.guid)}>
+								<Text style={styles.fullname}>{item.title}</Text>
+								<Text style={styles.username}>{item.members} участников{item.owner ? ` · ${item.owner}` : ''}{item.friends_count > 0 ? ` · 👥 ${item.friends_count}` : ''}</Text>
+							</Pressable>
+						)}
+					/>
+				</BerxFadeIn>
 			)}
 		</View>
 	);
@@ -236,6 +247,7 @@ const styles = StyleSheet.create({
 	tabText: {fontSize: typography.sizeSm, color: colors.textDim},
 	tabTextActive: {color: colors.accent, fontWeight: typography.weightMedium},
 	hint: {color: colors.textDim, textAlign: 'center', marginTop: spacing.xl, fontSize: typography.sizeBase},
+	fadeFlex: {flex: 1},
 	suggestionsList: {paddingBottom: spacing.xl},
 	suggestionsTitle: {color: colors.textFaint, fontSize: typography.sizeXs, textTransform: 'uppercase', padding: spacing.lg, paddingBottom: spacing.xs},
 	row: {padding: spacing.lg, borderBottomWidth: 1, borderBottomColor: colors.borderSoft},

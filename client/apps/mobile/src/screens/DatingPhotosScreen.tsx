@@ -35,6 +35,7 @@ import {BerxHeader} from '../../../../packages/design-system/src/components/Berx
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxGlassSurface} from '../../../../packages/design-system/src/components/BerxGlassSurface';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
+import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
 
 interface Props {
 	api: BerxApiClient;
@@ -186,20 +187,22 @@ export default function DatingPhotosScreen({api, pickImage, onBack}: Props) {
 	return (
 		<View style={styles.screen}>
 			<BerxHeader title="Приватные фото" onBack={onBack} />
-			<FlatList
-				data={photos}
-				keyExtractor={(p: BerxDatingOwnPhoto) => String(p.id)}
-				numColumns={3}
-				contentContainerStyle={styles.grid}
-				ListHeaderComponent={header}
-				ListFooterComponent={photos.length > 0 ? <Text style={styles.hint}>Удерживайте фото, чтобы удалить</Text> : null}
-				ListEmptyComponent={<BerxEmptyState title="Фотографий пока нет" />}
-				renderItem={({item}: {item: BerxDatingOwnPhoto}) => (
-					<Pressable style={styles.tileWrap} onLongPress={() => handleDelete(item.id)} disabled={busyId === item.id}>
-						<Image source={{uri: api.datingPhotoUrl(item.id), headers: authHeaders}} style={styles.tile} />
-					</Pressable>
-				)}
-			/>
+			<BerxFadeIn style={styles.fadeFlex}>
+				<FlatList
+					data={photos}
+					keyExtractor={(p: BerxDatingOwnPhoto) => String(p.id)}
+					numColumns={3}
+					contentContainerStyle={styles.grid}
+					ListHeaderComponent={header}
+					ListFooterComponent={photos.length > 0 ? <Text style={styles.hint}>Удерживайте фото, чтобы удалить</Text> : null}
+					ListEmptyComponent={<BerxEmptyState title="Фотографий пока нет" />}
+					renderItem={({item}: {item: BerxDatingOwnPhoto}) => (
+						<Pressable style={styles.tileWrap} onLongPress={() => handleDelete(item.id)} disabled={busyId === item.id}>
+							<Image source={{uri: api.datingPhotoUrl(item.id), headers: authHeaders}} style={styles.tile} />
+						</Pressable>
+					)}
+				/>
+			</BerxFadeIn>
 		</View>
 	);
 }
@@ -216,6 +219,7 @@ const styles = StyleSheet.create({
 	requestName: {flex: 1, fontSize: typography.sizeSm, color: colors.white, fontWeight: typography.weightMedium},
 	grant: {fontSize: typography.sizeSm, color: colors.accent, fontWeight: typography.weightMedium},
 	deny: {fontSize: typography.sizeSm, color: colors.danger},
+	fadeFlex: {flex: 1},
 	grid: {paddingHorizontal: spacing.md, gap: spacing.sm},
 	tileWrap: {width: TILE, height: TILE, margin: spacing.xs / 2},
 	tile: {width: '100%', height: '100%', borderRadius: 8, backgroundColor: colors.graphite},

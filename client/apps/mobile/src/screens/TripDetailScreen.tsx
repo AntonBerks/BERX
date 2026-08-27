@@ -24,6 +24,7 @@ import {BerxHeader} from '../../../../packages/design-system/src/components/Berx
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
+import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
 
 interface Props {
 	api: BerxApiClient;
@@ -254,33 +255,35 @@ export default function TripDetailScreen({api, id, onOpenPlace, onOpenEvent, onD
 			{editing ? null : days.length === 0 ? (
 				<BerxEmptyState title="Маршрут пока пуст" subtitle="Добавляйте места и события со страниц Places/Events." />
 			) : (
-				<FlatList
-					data={days}
-					keyExtractor={([day]: [number, BerxTripStop[]]) => String(day)}
-					contentContainerStyle={styles.list}
-					renderItem={({item: [day, stops]}: {item: [number, BerxTripStop[]]}) => (
-						<View style={styles.dayBlock}>
-							<Text style={styles.dayLabel}>День {day}</Text>
-							{stops.map((s: BerxTripStop) => (
-								<Pressable
-									key={s.stop_id}
-									style={styles.stopRow}
-									onPress={() => (s.item_type === 'place' ? onOpenPlace(s.item_guid) : onOpenEvent(s.item_guid))}>
-									{s.image_url ? <Image source={{uri: s.image_url}} style={styles.thumb} /> : <View style={styles.thumbFallback} />}
-									<View style={styles.stopBody}>
-										<Text style={styles.stopTitle} numberOfLines={1}>{s.title}</Text>
-										<Text style={styles.stopType}>{s.item_type === 'place' ? 'Место' : 'Событие'}</Text>
-									</View>
-									{trip.is_own ? (
-										<Pressable onPress={() => removeStop(s.stop_id)} hitSlop={8}>
-											<Text style={styles.remove}>✕</Text>
-										</Pressable>
-									) : null}
-								</Pressable>
-							))}
-						</View>
-					)}
-				/>
+				<BerxFadeIn style={styles.fadeFlex}>
+					<FlatList
+						data={days}
+						keyExtractor={([day]: [number, BerxTripStop[]]) => String(day)}
+						contentContainerStyle={styles.list}
+						renderItem={({item: [day, stops]}: {item: [number, BerxTripStop[]]}) => (
+							<View style={styles.dayBlock}>
+								<Text style={styles.dayLabel}>День {day}</Text>
+								{stops.map((s: BerxTripStop) => (
+									<Pressable
+										key={s.stop_id}
+										style={styles.stopRow}
+										onPress={() => (s.item_type === 'place' ? onOpenPlace(s.item_guid) : onOpenEvent(s.item_guid))}>
+										{s.image_url ? <Image source={{uri: s.image_url}} style={styles.thumb} /> : <View style={styles.thumbFallback} />}
+										<View style={styles.stopBody}>
+											<Text style={styles.stopTitle} numberOfLines={1}>{s.title}</Text>
+											<Text style={styles.stopType}>{s.item_type === 'place' ? 'Место' : 'Событие'}</Text>
+										</View>
+										{trip.is_own ? (
+											<Pressable onPress={() => removeStop(s.stop_id)} hitSlop={8}>
+												<Text style={styles.remove}>✕</Text>
+											</Pressable>
+										) : null}
+									</Pressable>
+								))}
+							</View>
+						)}
+					/>
+				</BerxFadeIn>
 			)}
 		</View>
 	);
@@ -307,6 +310,7 @@ const styles = StyleSheet.create({
 	participantsRow: {flexDirection: 'row', paddingHorizontal: spacing.md, paddingVertical: spacing.sm, gap: -8},
 	participantAvatar: {width: 32, height: 32, borderRadius: radius.pill, backgroundColor: colors.graphite, borderWidth: 2, borderColor: colors.bg, marginRight: -8},
 	list: {padding: spacing.md, gap: spacing.md},
+	fadeFlex: {flex: 1},
 	dayBlock: {gap: spacing.sm, marginBottom: spacing.md},
 	dayLabel: {fontSize: typography.sizeXs, color: colors.textFaint, fontWeight: typography.weightBold, textTransform: 'uppercase'},
 	stopRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.surface, borderRadius: radius.md, padding: spacing.sm},

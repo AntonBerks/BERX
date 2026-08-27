@@ -18,6 +18,7 @@ import {BerxHeader} from '../../../../packages/design-system/src/components/Berx
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
+import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
 
 interface Props {
 	api: BerxApiClient;
@@ -83,20 +84,22 @@ export default function PlacesNearbyScreen({api, onOpenPlace, onBack}: Props) {
 			) : items.length === 0 ? (
 				<BerxEmptyState title="Рядом ничего нет" subtitle="Попробуйте увеличить радиус." />
 			) : (
-				<FlatList
-					data={items}
-					keyExtractor={(p: BerxNearbyPlace) => String(p.guid)}
-					contentContainerStyle={styles.list}
-					renderItem={({item}: {item: BerxNearbyPlace}) => (
-						<Pressable style={styles.card} onPress={() => onOpenPlace(item.guid)}>
-							{item.cover_url ? <Image source={{uri: item.cover_url}} style={styles.cardImage} /> : <View style={styles.cardImageFallback} />}
-							<View style={styles.cardBody}>
-								<Text style={styles.cardTitle} numberOfLines={1}>{item.title}</Text>
-								<Text style={styles.cardDistance}>{item.distance_km} км</Text>
-							</View>
-						</Pressable>
-					)}
-				/>
+				<BerxFadeIn style={styles.fadeFlex}>
+					<FlatList
+						data={items}
+						keyExtractor={(p: BerxNearbyPlace) => String(p.guid)}
+						contentContainerStyle={styles.list}
+						renderItem={({item}: {item: BerxNearbyPlace}) => (
+							<Pressable style={styles.card} onPress={() => onOpenPlace(item.guid)}>
+								{item.cover_url ? <Image source={{uri: item.cover_url}} style={styles.cardImage} /> : <View style={styles.cardImageFallback} />}
+								<View style={styles.cardBody}>
+									<Text style={styles.cardTitle} numberOfLines={1}>{item.title}</Text>
+									<Text style={styles.cardDistance}>{item.distance_km} км</Text>
+								</View>
+							</Pressable>
+						)}
+					/>
+				</BerxFadeIn>
 			)}
 		</View>
 	);
@@ -113,6 +116,7 @@ const styles = StyleSheet.create({
 	chipText: {fontSize: typography.sizeSm, color: colors.textDim},
 	chipTextActive: {color: colors.accent, fontWeight: typography.weightMedium},
 	list: {padding: spacing.md, gap: spacing.sm},
+	fadeFlex: {flex: 1},
 	card: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.surface, borderRadius: radius.md, padding: spacing.sm, marginBottom: spacing.sm},
 	cardImage: {width: 56, height: 56, borderRadius: radius.sm},
 	cardImageFallback: {width: 56, height: 56, borderRadius: radius.sm, backgroundColor: colors.graphite},

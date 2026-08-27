@@ -24,6 +24,7 @@ import type {BerxDatingUserPhoto} from '@berx/api/types';
 import {colors, spacing, typography} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
+import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
 
 interface Props {
 	api: BerxApiClient;
@@ -81,29 +82,31 @@ export default function DatingUserPhotosScreen({api, userGuid, username, onBack}
 			{photos.length === 0 ? (
 				<BerxEmptyState title="Фотографий пока нет" />
 			) : (
-				<FlatList
-					data={photos}
-					keyExtractor={(p: BerxDatingUserPhoto) => String(p.id)}
-					numColumns={3}
-					contentContainerStyle={styles.grid}
-					renderItem={({item}: {item: BerxDatingUserPhoto}) =>
-						item.can_view ? (
-							<View style={styles.tileWrap}>
-								<Image source={{uri: api.datingPhotoUrl(item.id), headers: authHeaders}} style={styles.tile} />
-							</View>
-						) : (
-							<Pressable
-								style={[styles.tileWrap, styles.locked]}
-								onPress={() => requestAccess(item.id)}
-								disabled={busyId === item.id || requestedIds.has(item.id)}>
-								<Text style={styles.lockIcon}>🔒</Text>
-								<Text style={styles.lockLabel}>
-									{requestedIds.has(item.id) ? 'Запрошено' : busyId === item.id ? '…' : 'Запросить доступ'}
-								</Text>
-							</Pressable>
-						)
-					}
-				/>
+				<BerxFadeIn style={styles.fadeFlex}>
+					<FlatList
+						data={photos}
+						keyExtractor={(p: BerxDatingUserPhoto) => String(p.id)}
+						numColumns={3}
+						contentContainerStyle={styles.grid}
+						renderItem={({item}: {item: BerxDatingUserPhoto}) =>
+							item.can_view ? (
+								<View style={styles.tileWrap}>
+									<Image source={{uri: api.datingPhotoUrl(item.id), headers: authHeaders}} style={styles.tile} />
+								</View>
+							) : (
+								<Pressable
+									style={[styles.tileWrap, styles.locked]}
+									onPress={() => requestAccess(item.id)}
+									disabled={busyId === item.id || requestedIds.has(item.id)}>
+									<Text style={styles.lockIcon}>🔒</Text>
+									<Text style={styles.lockLabel}>
+										{requestedIds.has(item.id) ? 'Запрошено' : busyId === item.id ? '…' : 'Запросить доступ'}
+									</Text>
+								</Pressable>
+							)
+						}
+					/>
+				</BerxFadeIn>
 			)}
 		</View>
 	);
@@ -111,6 +114,7 @@ export default function DatingUserPhotosScreen({api, userGuid, username, onBack}
 
 const styles = StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.bg},
+	fadeFlex: {flex: 1},
 	grid: {padding: spacing.md, gap: spacing.sm},
 	tileWrap: {width: TILE, height: TILE, margin: spacing.xs / 2},
 	tile: {width: '100%', height: '100%', borderRadius: 8, backgroundColor: colors.graphite},

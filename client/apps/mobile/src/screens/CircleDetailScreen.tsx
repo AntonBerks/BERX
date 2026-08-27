@@ -22,6 +22,7 @@ import {BerxHeader} from '../../../../packages/design-system/src/components/Berx
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
+import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
 
 interface Props {
 	api: BerxApiClient;
@@ -196,20 +197,22 @@ export default function CircleDetailScreen({api, id, onDeleted, onBack}: Props) 
 			{editing ? null : circle.members.length === 0 ? (
 				<BerxEmptyState title="В круге пока никого нет" subtitle="Добавьте друзей выше." />
 			) : (
-				<FlatList
-					data={circle.members}
-					keyExtractor={(m: BerxCircleMember) => String(m.guid)}
-					contentContainerStyle={styles.list}
-					renderItem={({item}: {item: BerxCircleMember}) => (
-						<View style={styles.row}>
-							<Image source={{uri: item.icon}} style={styles.avatar} />
-							<Text style={styles.name} numberOfLines={1}>{item.fullname}</Text>
-							<Pressable onPress={() => removeMember(item.guid)} hitSlop={8} disabled={busyGuid === item.guid}>
-								<Text style={styles.remove}>✕</Text>
-							</Pressable>
-						</View>
-					)}
-				/>
+				<BerxFadeIn style={styles.fadeFlex}>
+					<FlatList
+						data={circle.members}
+						keyExtractor={(m: BerxCircleMember) => String(m.guid)}
+						contentContainerStyle={styles.list}
+						renderItem={({item}: {item: BerxCircleMember}) => (
+							<View style={styles.row}>
+								<Image source={{uri: item.icon}} style={styles.avatar} />
+								<Text style={styles.name} numberOfLines={1}>{item.fullname}</Text>
+								<Pressable onPress={() => removeMember(item.guid)} hitSlop={8} disabled={busyGuid === item.guid}>
+									<Text style={styles.remove}>✕</Text>
+								</Pressable>
+							</View>
+						)}
+					/>
+				</BerxFadeIn>
 			)}
 		</View>
 	);
@@ -229,6 +232,7 @@ const styles = StyleSheet.create({
 	pickerAvatar: {width: 48, height: 48, borderRadius: radius.pill, backgroundColor: colors.graphite},
 	pickerName: {fontSize: typography.sizeXs, color: colors.textDim, marginTop: 4},
 	list: {padding: spacing.md, gap: spacing.sm},
+	fadeFlex: {flex: 1},
 	row: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.borderSoft},
 	avatar: {width: 40, height: 40, borderRadius: radius.pill, backgroundColor: colors.graphite},
 	name: {flex: 1, fontSize: typography.sizeBase, color: colors.white, fontWeight: typography.weightMedium},

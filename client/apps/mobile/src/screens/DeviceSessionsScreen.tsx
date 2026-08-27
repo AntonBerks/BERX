@@ -15,6 +15,7 @@ import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
+import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
 
 interface Props {
 	api: BerxApiClient;
@@ -70,21 +71,23 @@ export default function DeviceSessionsScreen({api, onBack}: Props) {
 			{items.length === 0 ? (
 				<BerxEmptyState title="Активных устройств нет" />
 			) : (
-				<FlatList
-					data={items}
-					keyExtractor={(s: BerxSession) => String(s.id)}
-					contentContainerStyle={styles.list}
-					renderItem={({item}: {item: BerxSession}) => (
-						<View style={styles.row}>
-							<View style={styles.info}>
-								<Text style={styles.label}>{item.device_label ?? 'Неизвестное устройство'}</Text>
-								<Text style={styles.meta}>Вход: {fmtTime(item.created_at)}</Text>
-								<Text style={styles.meta}>Активность: {fmtTime(item.last_used_at)}</Text>
+				<BerxFadeIn style={styles.fadeFlex}>
+					<FlatList
+						data={items}
+						keyExtractor={(s: BerxSession) => String(s.id)}
+						contentContainerStyle={styles.list}
+						renderItem={({item}: {item: BerxSession}) => (
+							<View style={styles.row}>
+								<View style={styles.info}>
+									<Text style={styles.label}>{item.device_label ?? 'Неизвестное устройство'}</Text>
+									<Text style={styles.meta}>Вход: {fmtTime(item.created_at)}</Text>
+									<Text style={styles.meta}>Активность: {fmtTime(item.last_used_at)}</Text>
+								</View>
+								<BerxButton label="Выйти" variant="secondary" loading={busyId === item.id} onPress={() => revoke(item.id)} />
 							</View>
-							<BerxButton label="Выйти" variant="secondary" loading={busyId === item.id} onPress={() => revoke(item.id)} />
-						</View>
-					)}
-				/>
+						)}
+					/>
+				</BerxFadeIn>
 			)}
 		</View>
 	);
@@ -93,6 +96,7 @@ export default function DeviceSessionsScreen({api, onBack}: Props) {
 const styles = StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.bg},
 	list: {padding: spacing.md, gap: spacing.sm},
+	fadeFlex: {flex: 1},
 	row: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.surface, borderRadius: radius.md, padding: spacing.md, marginBottom: spacing.sm},
 	info: {flex: 1, gap: 2},
 	label: {fontSize: typography.sizeBase, color: colors.white, fontWeight: typography.weightMedium},

@@ -16,6 +16,7 @@ import type {BerxMemory} from '@berx/api/types';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
+import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
 
 interface Props {
 	api: BerxApiClient;
@@ -84,40 +85,42 @@ export default function MemoriesScreen({api, onOpenPost, onOpenAlbum, onOpenPlac
 			{sections.length === 0 ? (
 				<BerxEmptyState title="Пока нет воспоминаний" subtitle="Здесь будут появляться посты и фото, опубликованные в этот день в прошлые годы." />
 			) : (
-				<FlatList
-					data={sections}
-					keyExtractor={(s: Section) => String(s.yearsAgo)}
-					contentContainerStyle={styles.list}
-					renderItem={({item: section}: {item: Section}) => (
-						<View style={styles.section}>
-							<Text style={styles.sectionTitle}>{yearsAgoLabel(section.yearsAgo)}</Text>
-							{section.items.map((m: BerxMemory) => (
-								<Pressable
-									key={`${m.type}-${m.guid}`}
-									style={styles.row}
-									onPress={() => (m.type === 'post' ? onOpenPost(m.guid) : m.type === 'checkin' ? onOpenPlace?.(m.guid) : onOpenAlbum(m.album_guid ?? m.guid))}>
-									{m.type === 'photo' && m.url ? (
-										<Image source={{uri: m.url}} style={styles.thumb} />
-									) : (
-										<View style={styles.thumbFallback}>
-											<Text style={styles.thumbFallbackText}>{m.type === 'checkin' ? '📍' : '✎'}</Text>
-										</View>
-									)}
-									<View style={styles.rowBody}>
-										{m.type === 'checkin' ? (
-											<Text style={styles.rowText} numberOfLines={2}>Вы были здесь: {m.place_title}</Text>
-										) : m.text ? (
-											<Text style={styles.rowText} numberOfLines={2}>{m.text}</Text>
+				<BerxFadeIn style={styles.fadeFlex}>
+					<FlatList
+						data={sections}
+						keyExtractor={(s: Section) => String(s.yearsAgo)}
+						contentContainerStyle={styles.list}
+						renderItem={({item: section}: {item: Section}) => (
+							<View style={styles.section}>
+								<Text style={styles.sectionTitle}>{yearsAgoLabel(section.yearsAgo)}</Text>
+								{section.items.map((m: BerxMemory) => (
+									<Pressable
+										key={`${m.type}-${m.guid}`}
+										style={styles.row}
+										onPress={() => (m.type === 'post' ? onOpenPost(m.guid) : m.type === 'checkin' ? onOpenPlace?.(m.guid) : onOpenAlbum(m.album_guid ?? m.guid))}>
+										{m.type === 'photo' && m.url ? (
+											<Image source={{uri: m.url}} style={styles.thumb} />
 										) : (
-											<Text style={styles.rowText}>Фото</Text>
+											<View style={styles.thumbFallback}>
+												<Text style={styles.thumbFallbackText}>{m.type === 'checkin' ? '📍' : '✎'}</Text>
+											</View>
 										)}
-										<Text style={styles.rowMeta}>{fmtDate(m.time)}</Text>
-									</View>
-								</Pressable>
-							))}
-						</View>
-					)}
-				/>
+										<View style={styles.rowBody}>
+											{m.type === 'checkin' ? (
+												<Text style={styles.rowText} numberOfLines={2}>Вы были здесь: {m.place_title}</Text>
+											) : m.text ? (
+												<Text style={styles.rowText} numberOfLines={2}>{m.text}</Text>
+											) : (
+												<Text style={styles.rowText}>Фото</Text>
+											)}
+											<Text style={styles.rowMeta}>{fmtDate(m.time)}</Text>
+										</View>
+									</Pressable>
+								))}
+							</View>
+						)}
+					/>
+				</BerxFadeIn>
 			)}
 		</View>
 	);
@@ -126,6 +129,7 @@ export default function MemoriesScreen({api, onOpenPost, onOpenAlbum, onOpenPlac
 const styles = StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.bg},
 	list: {padding: spacing.md},
+	fadeFlex: {flex: 1},
 	section: {marginBottom: spacing.lg, gap: spacing.sm},
 	sectionTitle: {fontSize: typography.sizeSm, color: colors.accent, fontWeight: typography.weightBold, textTransform: 'uppercase'},
 	row: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.surface, borderRadius: radius.md, padding: spacing.sm},
