@@ -224,13 +224,15 @@ if ($segment0 !== null && is_numeric($segment0) && $segment1 === 'checkin' && $m
 	}
 	$result = $model->checkIn($segment0, $api_user_guid, floatval($lat), floatval($lng));
 	if (!$result['ok']) {
-		$status = $result['reason'] === 'not_found' ? 404 : ($result['reason'] === 'too_far' ? 422 : 400);
+		$status = $result['reason'] === 'not_found' ? 404 : ($result['reason'] === 'too_far' ? 422 : ($result['reason'] === 'too_soon' ? 429 : 400));
 		// ossn_api_error() only ever returns {error, message} — no room
 		// for a separate structured field, so the real distance (when
 		// known) is embedded directly in the message text itself.
 		$message = $result['reason'] === 'too_far'
 			? 'Слишком далеко: ' . round($result['distance_m']) . ' м от места'
-			: 'Check-in not verified: ' . $result['reason'];
+			: ($result['reason'] === 'too_soon'
+				? 'Вы уже отметились здесь недавно — попробуйте позже'
+				: 'Check-in not verified: ' . $result['reason']);
 		ossn_api_error($result['reason'], $message, $status);
 	}
 	$today = date('Y-m-d');

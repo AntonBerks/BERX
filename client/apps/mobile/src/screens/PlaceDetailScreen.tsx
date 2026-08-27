@@ -173,7 +173,7 @@ export default function PlaceDetailScreen({api, guid, myGuid, isAdmin, onAddToCo
 			// Real, honest server verdict — the distance in the message
 			// came back from OssnPlaces::checkIn()'s own re-computation,
 			// not a client guess (see places.php's checkin route).
-			if (e instanceof BerxApiError && (e.code === 'too_far' || e.code === 'no_location')) {
+			if (e instanceof BerxApiError && (e.code === 'too_far' || e.code === 'no_location' || e.code === 'too_soon')) {
 				setCheckinMessage(e.message);
 			} else {
 				setCheckinMessage('Не удалось отметиться');

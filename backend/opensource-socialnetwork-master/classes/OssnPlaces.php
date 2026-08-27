@@ -294,6 +294,21 @@ class OssnPlaces extends OssnObject {
 	 */
 	const CHECKIN_RELATION = 'place:checkin';
 	const CHECKIN_RADIUS_METERS = 300;
+	/**
+	 * MAX BUILD — Trust & Safety: ossn_add_relation() has no dedup of
+	 * its own (confirmed by reading libraries/ossn.lib.relations.php —
+	 * every call inserts a brand-new row, unlike the unique-indexed
+	 * Offers claim table). Without this cooldown, a caller genuinely
+	 * within CHECKIN_RADIUS_METERS could spam this endpoint and flood
+	 * ossn_relationships with thousands of real 'place:checkin' rows —
+	 * real distinct customers on checkinsForPlace()'s time-DESC list
+	 * (the business owner's own dashboard) would get buried under one
+	 * spammer's noise. The real one-point-per-day award was already
+	 * separately deduped via OssnPoints's reason-string mechanism
+	 * (places.php's checkin route) — this closes the DISTINCT relation-
+	 * row-spam gap that guard never covered.
+	 */
+	const CHECKIN_COOLDOWN_SECONDS = 300;
 
 	/** @return array {ok:bool, reason?:string, distance_m?:float} */
 	public function checkIn($guid, $userGuid, $lat, $lng) {
@@ -311,6 +326,17 @@ class OssnPlaces extends OssnObject {
 		$distanceM = $distanceKm * 1000;
 		if ($distanceM > self::CHECKIN_RADIUS_METERS) {
 			return array('ok' => false, 'reason' => 'too_far', 'distance_m' => round($distanceM, 1));
+		}
+		$since = time() - self::CHECKIN_COOLDOWN_SECONDS;
+		$recentCount = intval(ossn_get_relationships(array(
+			'from'   => intval($userGuid),
+			'to'     => intval($guid),
+			'type'   => self::CHECKIN_RELATION,
+			'count'  => true,
+			'wheres' => "r.time >= {$since}",
+		)));
+		if ($recentCount > 0) {
+			return array('ok' => false, 'reason' => 'too_soon');
 		}
 		if (!ossn_add_relation(intval($userGuid), intval($guid), self::CHECKIN_RELATION)) {
 			return array('ok' => false, 'reason' => 'save_failed');
