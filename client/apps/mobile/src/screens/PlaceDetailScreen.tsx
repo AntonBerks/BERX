@@ -293,6 +293,21 @@ export default function PlaceDetailScreen({api, guid, myGuid, isAdmin, onAddToCo
 		}
 	}
 
+	/** MAX BUILD — real "helpful" review votes, same generic OssnLikes engine post/comment likes already use. */
+	async function toggleReviewHelpful(review: BerxPlaceReview) {
+		try {
+			if (review.is_helpful) {
+				await api.unmarkReviewHelpful(guid, review.guid);
+				setReviews((prev: BerxPlaceReview[]) => prev.map((r: BerxPlaceReview) => (r.guid === review.guid ? {...r, is_helpful: false, helpful_count: Math.max(0, r.helpful_count - 1)} : r)));
+			} else {
+				await api.markReviewHelpful(guid, review.guid);
+				setReviews((prev: BerxPlaceReview[]) => prev.map((r: BerxPlaceReview) => (r.guid === review.guid ? {...r, is_helpful: true, helpful_count: r.helpful_count + 1} : r)));
+			}
+		} catch {
+			// best-effort — list stays at its pre-toggle state on failure
+		}
+	}
+
 	if (loading && !place) return <BerxLoadingState />;
 	if (error && !place) return <BerxErrorState message={error} onRetry={load} />;
 	if (!place) return null;
@@ -459,6 +474,11 @@ export default function PlaceDetailScreen({api, guid, myGuid, isAdmin, onAddToCo
 						<Text style={styles.reviewAuthor}>{r.author?.fullname ?? 'Пользователь'}</Text>
 						<Text style={styles.reviewStars}>{'★'.repeat(r.rating)}{'☆'.repeat(5 - r.rating)}</Text>
 						{r.text ? <Text style={styles.reviewText}>{r.text}</Text> : null}
+						<Pressable onPress={() => toggleReviewHelpful(r)} hitSlop={8}>
+							<Text style={[styles.reviewHelpful, r.is_helpful && styles.reviewHelpfulActive]}>
+								{r.is_helpful ? '✓ Полезно' : 'Полезно?'}{r.helpful_count > 0 ? ` (${r.helpful_count})` : ''}
+							</Text>
+						</Pressable>
 
 						{r.owner_reply ? (
 							<View style={styles.replyBlock}>
@@ -539,6 +559,8 @@ const styles = StyleSheet.create({
 	reviewAuthor: {fontSize: typography.sizeSm, color: colors.white, fontWeight: typography.weightMedium},
 	reviewStars: {fontSize: typography.sizeXs, color: colors.accent},
 	reviewText: {fontSize: typography.sizeSm, color: colors.textDim},
+	reviewHelpful: {fontSize: typography.sizeXs, color: colors.textFaint, marginTop: 4},
+	reviewHelpfulActive: {color: colors.accent, fontWeight: typography.weightMedium},
 	replyBlock: {marginTop: 4, paddingLeft: spacing.sm, borderLeftWidth: 2, borderLeftColor: colors.accent},
 	replyLabel: {fontSize: typography.sizeXs, color: colors.accent, fontWeight: typography.weightBold},
 	replyText: {fontSize: typography.sizeSm, color: colors.textDim},

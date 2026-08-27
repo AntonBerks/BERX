@@ -1442,6 +1442,15 @@ export class BerxApiClient {
 		});
 	}
 
+	/** MAX BUILD — real "helpful" review votes, same generic OssnLikes engine as post/comment likes (see REVIEW_HELPFUL_TYPE's own comment in places.php). Any real, non-blocked caller — same reach as leaving the review itself. */
+	async markReviewHelpful(placeGuid: number, reviewGuid: number): Promise<{status: string; is_helpful: boolean}> {
+		return this.request<{status: string; is_helpful: boolean}>(`/places/${placeGuid}/reviews/${reviewGuid}/helpful`, {method: 'POST'});
+	}
+
+	async unmarkReviewHelpful(placeGuid: number, reviewGuid: number): Promise<{status: string; is_helpful: boolean}> {
+		return this.request<{status: string; is_helpful: boolean}>(`/places/${placeGuid}/reviews/${reviewGuid}/unhelpful`, {method: 'POST'});
+	}
+
 	// ---------------------------------------------------------------
 	// Business — thin extension over existing Places (components/
 	// OssnApi/v1/places.php's business/* branches). No new storage;

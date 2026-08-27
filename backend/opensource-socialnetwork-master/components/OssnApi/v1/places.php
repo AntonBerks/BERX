@@ -14,7 +14,10 @@
  * client.ts's own grouping.
  */
 
-function ossn_api_place_review_json($row) {
+/** MAX BUILD — real "helpful" review votes: same generic OssnLikes engine posts/comments already reuse, just a third $type bucket. No new table, no new class. */
+const REVIEW_HELPFUL_TYPE = 'place_review_helpful';
+
+function ossn_api_place_review_json($row, $viewerGuid = null) {
 	$author = ossn_user_by_guid($row->author_guid);
 	$reply = null;
 	if (class_exists('OssnBusiness')) {
@@ -23,11 +26,15 @@ function ossn_api_place_review_json($row) {
 			$reply = array('text' => (string) $replyRow->text, 'time_created' => intval($replyRow->time_created));
 		}
 	}
+	$likes = new OssnLikes();
+	$helpfulCount = $likes->CountLikes($row->id, REVIEW_HELPFUL_TYPE);
 	return array(
-		'guid'        => intval($row->id),
-		'rating'      => intval($row->rating),
-		'text'        => (string) $row->text,
-		'time'        => intval($row->time_created),
+		'guid'           => intval($row->id),
+		'rating'         => intval($row->rating),
+		'text'           => (string) $row->text,
+		'time'           => intval($row->time_created),
+		'helpful_count'  => $helpfulCount ? intval($helpfulCount) : 0,
+		'is_helpful'     => $viewerGuid ? (bool) $likes->isLiked($row->id, intval($viewerGuid), REVIEW_HELPFUL_TYPE) : false,
 		'author'      => $author ? array(
 			'guid'     => intval($author->guid),
 			'username' => (string) $author->username,
@@ -46,7 +53,8 @@ function ossn_api_place_review_json($row) {
 
 $segment0 = isset($segments[0]) ? $segments[0] : null; // guid | 'categories' | 'saved' | 'nearby'
 $segment1 = isset($segments[1]) ? $segments[1] : null; // 'reviews' | 'business' | 'save' | 'unsave' | 'cover'
-$segment2 = isset($segments[2]) ? $segments[2] : null; // 'enable' | 'disable' | 'verify' | 'dashboard'
+$segment2 = isset($segments[2]) ? $segments[2] : null; // 'enable' | 'disable' | 'verify' | 'dashboard' | review id
+$segment3 = isset($segments[3]) ? $segments[3] : null; // 'helpful' | 'unhelpful' (under reviews/{id})
 
 $model = new OssnPlaces();
 
@@ -171,9 +179,20 @@ if ($segment0 !== null && is_numeric($segment0) && $segment1 === 'reviews' && $m
 	$rows = $model->reviews($segment0);
 	$out = array();
 	foreach ($rows as $row) {
-		$out[] = ossn_api_place_review_json($row);
+		$out[] = ossn_api_place_review_json($row, $api_user_guid);
 	}
 	ossn_api_json(array('reviews' => $out));
+}
+
+/** Real, any non-blocked caller — same reach as leaving the review itself. */
+if ($segment0 !== null && is_numeric($segment0) && $segment1 === 'reviews' && $segment2 !== null && $segment3 === 'helpful' && $method === 'POST') {
+	(new OssnLikes())->Like(intval($segment2), intval($api_user_guid), REVIEW_HELPFUL_TYPE);
+	ossn_api_json(array('status' => 'ok', 'is_helpful' => true));
+}
+
+if ($segment0 !== null && is_numeric($segment0) && $segment1 === 'reviews' && $segment2 !== null && $segment3 === 'unhelpful' && $method === 'POST') {
+	(new OssnLikes())->UnLike(intval($segment2), intval($api_user_guid), REVIEW_HELPFUL_TYPE);
+	ossn_api_json(array('status' => 'ok', 'is_helpful' => false));
 }
 
 if ($segment0 !== null && is_numeric($segment0) && $segment1 === 'reviews' && $method === 'POST') {

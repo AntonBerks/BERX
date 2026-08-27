@@ -750,6 +750,9 @@ export interface BerxPlaceReview {
 	time: number;
 	author: { guid: number; username: string; fullname: string; icon: string } | null;
 	owner_reply: BerxOwnerReply | null;
+	/** MAX BUILD — real "helpful" votes, same generic OssnLikes engine as post/comment likes (see REVIEW_HELPFUL_TYPE's own comment in places.php). */
+	helpful_count: number;
+	is_helpful: boolean;
 }
 
 /**
