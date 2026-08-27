@@ -5,28 +5,43 @@
  * from api.friends() (real, existing this session) filtered to
  * exclude people already in the circle — never an arbitrary user
  * search, since the server would reject a non-friend anyway.
+ *
+ * MAX BUILD — closes the same class of gap as Trips/Collections'
+ * inline edit: api.renameCircle()/deleteCircle() were always real,
+ * working client methods (real PATCH/DELETE routes, ownership
+ * re-checked server-side) with zero UI callers — a circle owner
+ * could create a circle and manage members, but never rename it or
+ * delete it again from the app.
  */
 import {useCallback, useEffect, useState} from 'react';
-import {View, Text, FlatList, Image, Pressable, StyleSheet} from 'react-native';
+import {View, Text, FlatList, Image, Pressable, Alert, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxCircleDetail, BerxCircleMember, BerxFriend} from '@berx/api/types';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
+import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
+import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
 
 interface Props {
 	api: BerxApiClient;
 	id: number;
+	onDeleted?: () => void;
 	onBack?: () => void;
 }
 
-export default function CircleDetailScreen({api, id, onBack}: Props) {
+export default function CircleDetailScreen({api, id, onDeleted, onBack}: Props) {
 	const [circle, setCircle] = useState<BerxCircleDetail | null>(null);
 	const [friends, setFriends] = useState<BerxFriend[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 	const [busyGuid, setBusyGuid] = useState<number | null>(null);
 	const [showPicker, setShowPicker] = useState(false);
+	const [editing, setEditing] = useState(false);
+	const [editName, setEditName] = useState('');
+	const [saving, setSaving] = useState(false);
+	const [deleting, setDeleting] = useState(false);
+	const [editError, setEditError] = useState<string | null>(null);
 
 	const load = useCallback(async () => {
 		setLoading(true);
@@ -72,6 +87,59 @@ export default function CircleDetailScreen({api, id, onBack}: Props) {
 		}
 	}
 
+	function openEdit() {
+		if (!circle) return;
+		setEditName(circle.name);
+		setEditError(null);
+		setEditing(true);
+	}
+
+	async function saveEdit() {
+		if (!circle) return;
+		if (!editName.trim()) {
+			setEditError('Введите название круга.');
+			return;
+		}
+		setSaving(true);
+		setEditError(null);
+		try {
+			const updated = await api.renameCircle(circle.id, editName.trim());
+			setCircle({...circle, ...updated});
+			setEditing(false);
+		} catch (e) {
+			setEditError(e instanceof Error ? e.message : 'Не удалось переименовать круг');
+		} finally {
+			setSaving(false);
+		}
+	}
+
+	function confirmDeleteCircle() {
+		if (!circle) return;
+		Alert.alert(
+			'Удалить круг?',
+			'Это действие нельзя отменить.',
+			[
+				{text: 'Отмена', style: 'cancel'},
+				{
+					text: 'Удалить',
+					style: 'destructive',
+					onPress: async () => {
+						setDeleting(true);
+						try {
+							await api.deleteCircle(circle.id);
+							if (onDeleted) onDeleted();
+							else onBack?.();
+						} catch (e) {
+							setEditError(e instanceof Error ? e.message : 'Не удалось удалить круг');
+						} finally {
+							setDeleting(false);
+						}
+					},
+				},
+			]
+		);
+	}
+
 	if (loading) return <BerxLoadingState />;
 	if (error || !circle) return <BerxErrorState message={error ?? 'Круг не найден'} onRetry={load} />;
 
@@ -81,13 +149,31 @@ export default function CircleDetailScreen({api, id, onBack}: Props) {
 	return (
 		<View style={styles.screen}>
 			<BerxHeader title={circle.name} onBack={onBack} />
-			<View style={styles.toolbar}>
-				<Pressable style={styles.toggleBtn} onPress={() => setShowPicker(!showPicker)}>
-					<Text style={styles.toggleBtnText}>{showPicker ? 'Скрыть список друзей' : 'Добавить друга'}</Text>
-				</Pressable>
-			</View>
 
-			{showPicker ? (
+			{editing ? (
+				<View style={styles.editForm}>
+					<BerxInput placeholder="Название круга" value={editName} onChangeText={setEditName} />
+					{editError ? <Text style={styles.error}>{editError}</Text> : null}
+					<BerxButton label="Сохранить" loading={saving} onPress={saveEdit} fullWidth />
+					<Pressable onPress={() => setEditing(false)} disabled={saving}>
+						<Text style={styles.toggleBtnText}>Отмена</Text>
+					</Pressable>
+					<Pressable onPress={confirmDeleteCircle} disabled={deleting} hitSlop={8}>
+						<Text style={styles.deleteLink}>{deleting ? 'Удаление…' : 'Удалить круг'}</Text>
+					</Pressable>
+				</View>
+			) : (
+				<View style={styles.toolbar}>
+					<Pressable style={styles.toggleBtn} onPress={() => setShowPicker(!showPicker)}>
+						<Text style={styles.toggleBtnText}>{showPicker ? 'Скрыть список друзей' : 'Добавить друга'}</Text>
+					</Pressable>
+					<Pressable style={styles.toggleBtn} onPress={openEdit}>
+						<Text style={styles.toggleBtnText}>Переименовать / удалить</Text>
+					</Pressable>
+				</View>
+			)}
+
+			{editing ? null : showPicker ? (
 				availableFriends.length === 0 ? (
 					<Text style={styles.hint}>Все друзья уже в этом круге.</Text>
 				) : (
@@ -107,7 +193,7 @@ export default function CircleDetailScreen({api, id, onBack}: Props) {
 				)
 			) : null}
 
-			{circle.members.length === 0 ? (
+			{editing ? null : circle.members.length === 0 ? (
 				<BerxEmptyState title="В круге пока никого нет" subtitle="Добавьте друзей выше." />
 			) : (
 				<FlatList
@@ -131,8 +217,11 @@ export default function CircleDetailScreen({api, id, onBack}: Props) {
 
 const styles = StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.bg},
-	toolbar: {padding: spacing.md},
+	toolbar: {padding: spacing.md, gap: spacing.sm},
 	toggleBtn: {alignSelf: 'flex-start'},
+	editForm: {padding: spacing.md, gap: spacing.md},
+	error: {fontSize: typography.sizeSm, color: colors.danger},
+	deleteLink: {fontSize: typography.sizeSm, color: colors.danger, textAlign: 'center', textDecorationLine: 'underline', marginTop: spacing.sm},
 	toggleBtnText: {fontSize: typography.sizeSm, color: colors.accent, fontWeight: typography.weightMedium},
 	hint: {fontSize: typography.sizeSm, color: colors.textFaint, paddingHorizontal: spacing.md, paddingBottom: spacing.sm},
 	pickerRow: {paddingHorizontal: spacing.md, paddingBottom: spacing.sm, gap: spacing.sm},

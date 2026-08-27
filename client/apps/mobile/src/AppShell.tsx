@@ -689,7 +689,7 @@ function RouteRenderer({name, params}: {name: BerxRouteName; params: unknown}) {
 			);
 		case 'CircleDetail': {
 			const p = params as {id: number};
-			return <CircleDetailScreen api={api} id={p.id} onBack={nav.pop} />;
+			return <CircleDetailScreen api={api} id={p.id} onDeleted={nav.pop} onBack={nav.pop} />;
 		}
 		case 'CreateCircle':
 			return (
