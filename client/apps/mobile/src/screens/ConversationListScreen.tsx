@@ -9,11 +9,18 @@
  * conversations, not just usernames in this list). An honest
  * "Личные" tab only, no "Групповые" tab: the real API has no group
  * messaging, so a second tab would have nothing behind it.
+ *
+ * BERX WORLD MAX BUILD -- real "В сети" rail: api.onlineFriends() (GET
+ * /presence) always existed -- real ossn_users.last_activity, the same
+ * 100s threshold OssnUser::isOnline() itself uses -- but had zero
+ * client caller anywhere. Messaging is exactly where "who can I talk
+ * to right now" matters most, so it surfaces here rather than a new
+ * standalone screen. Best-effort, never blocks the conversation list.
  */
 import {useCallback, useEffect, useMemo, useState} from 'react';
-import {FlatList, Pressable, Text, View, RefreshControl, StyleSheet} from 'react-native';
+import {FlatList, Pressable, Text, View, Image, RefreshControl, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
-import type {BerxConversationSummary} from '@berx/api/types';
+import type {BerxConversationSummary, BerxOnlineFriend} from '@berx/api/types';
 import {relativeTimeLabel} from '@berx/domain';
 import {colors, spacing, typography} from '@berx/design-system/tokens';
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
@@ -35,6 +42,7 @@ export default function ConversationListScreen({api, onOpenConversation, onOpenM
 	const [refreshing, setRefreshing] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [unread, setUnread] = useState(0);
+	const [online, setOnline] = useState<BerxOnlineFriend[]>([]);
 
 	const load = useCallback(async () => {
 		try {
@@ -47,6 +55,8 @@ export default function ConversationListScreen({api, onOpenConversation, onOpenM
 			setItems(res.conversations);
 			setUnread(unreadRes.unread_count);
 			setError(null);
+			// Real presence — best-effort, never blocks the list itself.
+			api.onlineFriends().then((r) => setOnline(r.online)).catch(() => undefined);
 		} catch {
 			setError('Не удалось загрузить диалоги');
 		} finally {
@@ -78,6 +88,25 @@ export default function ConversationListScreen({api, onOpenConversation, onOpenM
 					</Pressable>
 				) : null}
 			</View>
+			{online.length > 0 ? (
+				<FlatList
+					horizontal
+					showsHorizontalScrollIndicator={false}
+					data={online}
+					keyExtractor={(f: BerxOnlineFriend) => String(f.guid)}
+					contentContainerStyle={styles.onlineRow}
+					renderItem={({item}: {item: BerxOnlineFriend}) => (
+						<Pressable style={styles.onlineItem} onPress={() => onOpenConversation(item.guid, item.username)}>
+							<View style={styles.onlineAvatarWrap}>
+								<Image source={{uri: item.icon}} style={styles.onlineAvatar} />
+								<View style={styles.onlineDot} />
+							</View>
+							<Text style={styles.onlineName} numberOfLines={1}>{item.fullname || item.username}</Text>
+						</Pressable>
+					)}
+				/>
+			) : null}
+
 			<View style={styles.searchBar}>
 				<BerxInput placeholder="Фильтр по списку" value={query} onChangeText={setQuery} autoCapitalize="none" />
 			</View>
@@ -129,6 +158,12 @@ const styles = StyleSheet.create({
 	titleRow: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.lg, paddingTop: spacing.md},
 	title: {color: colors.text, fontSize: typography.sizeXl, fontWeight: typography.weightBold},
 	searchAllLink: {color: colors.accent, fontSize: typography.sizeXs, fontWeight: typography.weightMedium},
+	onlineRow: {paddingHorizontal: spacing.lg, paddingBottom: spacing.sm, gap: spacing.sm},
+	onlineItem: {alignItems: 'center', width: 60, marginRight: spacing.xs},
+	onlineAvatarWrap: {width: 48, height: 48},
+	onlineAvatar: {width: 48, height: 48, borderRadius: 24, backgroundColor: colors.graphite},
+	onlineDot: {position: 'absolute', bottom: 0, right: 0, width: 12, height: 12, borderRadius: 6, backgroundColor: colors.accent, borderWidth: 2, borderColor: colors.black},
+	onlineName: {fontSize: typography.sizeXs, color: colors.textDim, marginTop: 4},
 	searchBar: {padding: spacing.lg, paddingBottom: spacing.sm},
 	listFade: {flex: 1},
 	list: {backgroundColor: colors.black, flex: 1},

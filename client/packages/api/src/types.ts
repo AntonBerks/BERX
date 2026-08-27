@@ -369,6 +369,21 @@ export interface BerxSocialMapFriend {
 	icon: string;
 }
 
+/**
+ * Real "who's online right now" among your friends — no location
+ * needed (unlike BerxSocialMapFriend, which requires submitting a
+ * lat/lng first). Backed by GET /presence (BERX World Max Build) —
+ * the endpoint always existed (`ossn_users.last_activity`, updated on
+ * every real request core already makes) but had zero client caller.
+ */
+export interface BerxOnlineFriend {
+	guid: number;
+	username: string;
+	fullname: string;
+	icon: string;
+	last_active: number;
+}
+
 /** See docs/BERX_FUTURE_LAYER_SPEC.md — friends_online is never geolocated (no real friend-location data exists or is exposed). */
 export interface BerxSocialMapResponse {
 	places: BerxSocialMapPlacePin[];

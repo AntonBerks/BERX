@@ -28,6 +28,7 @@ import type {
 	BerxWrapped,
 	BerxLifeGraphResponse,
 	BerxSocialMapResponse,
+	BerxOnlineFriend,
 	BerxPlaceExperienceGraph,
 	BerxEventExperienceGraph,
 	BerxCityModeResponse,
@@ -1037,6 +1038,11 @@ export class BerxApiClient {
 	/** Real Places/Events pins (OssnGeo) + real friends-online — see docs/BERX_FUTURE_LAYER_SPEC.md. friends_online is never geolocated. */
 	async socialMap(lat: number, lng: number, radiusKm = 5): Promise<BerxSocialMapResponse> {
 		return this.request<BerxSocialMapResponse>(`/socialmap?lat=${lat}&lng=${lng}&radius_km=${radiusKm}`);
+	}
+
+	/** Real "who's online right now" among your friends, no location needed — GET /presence (real, always existed, zero client caller until BERX World Max Build). */
+	async onlineFriends(): Promise<{online: BerxOnlineFriend[]}> {
+		return this.request<{online: BerxOnlineFriend[]}>('/presence');
 	}
 
 	/** The graph AROUND one place — real friends who saved/reviewed it. See docs/BERX_FUTURE_LAYER_SPEC.md. */
