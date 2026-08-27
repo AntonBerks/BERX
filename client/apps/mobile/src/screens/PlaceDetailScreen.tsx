@@ -27,11 +27,18 @@
  * installable in this sandbox) — the server still re-verifies the
  * submitted coordinates itself, so this isn't "trust the client",
  * just "no on-device GPS reading available here".
+ *
+ * MAX BUILD — real Business Offers (components/OssnApi/v1/offers.php):
+ * a real "Предложения" section showing this place's live offers, with
+ * a real claim button reflecting the caller's own already_claimed/
+ * already_fulfilled state (viewer-scoped server response, not a
+ * client guess) — never a button that always shows and just errors
+ * on a second tap.
  */
 import {useCallback, useEffect, useState} from 'react';
 import {View, Text, ScrollView, Image, Pressable, Linking, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
-import type {BerxPlace, BerxPlaceReview, BerxExperienceGraphFriend} from '@berx/api/types';
+import type {BerxPlace, BerxPlaceReview, BerxExperienceGraphFriend, BerxBusinessOffer} from '@berx/api/types';
 import {BerxApiError} from '@berx/core';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
@@ -73,6 +80,8 @@ export default function PlaceDetailScreen({api, guid, myGuid, isAdmin, onAddToCo
 	const [replyDrafts, setReplyDrafts] = useState<Record<number, string>>({});
 	const [replyBusy, setReplyBusy] = useState<number | null>(null);
 	const [friendsHere, setFriendsHere] = useState<BerxExperienceGraphFriend[]>([]);
+	const [offers, setOffers] = useState<BerxBusinessOffer[]>([]);
+	const [claimingOfferId, setClaimingOfferId] = useState<number | null>(null);
 	const [checkinOpen, setCheckinOpen] = useState(false);
 	const [checkinLat, setCheckinLat] = useState('');
 	const [checkinLng, setCheckinLng] = useState('');
@@ -91,6 +100,8 @@ export default function PlaceDetailScreen({api, guid, myGuid, isAdmin, onAddToCo
 			api.placeExperienceGraph(guid)
 				.then((g) => setFriendsHere([...g.friends_checked_in, ...g.friends_saved, ...g.friends_reviewed].filter((f, i, arr) => arr.findIndex((x) => x.guid === f.guid) === i)))
 				.catch(() => undefined);
+			// Best-effort — a place with no offers module reachable still loads normally.
+			api.placeOffers(guid).then((res) => setOffers(res.offers)).catch(() => undefined);
 		} catch (e) {
 			setError(e instanceof Error ? e.message : 'Не удалось загрузить место');
 		} finally {
@@ -218,6 +229,19 @@ export default function PlaceDetailScreen({api, guid, myGuid, isAdmin, onAddToCo
 			setClaimResult(e instanceof Error ? e.message : 'Не удалось отправить заявку');
 		} finally {
 			setClaimBusy(false);
+		}
+	}
+
+	/** Real claim — success flips already_claimed locally so the button updates without a full refetch; a real 409 from a race with another device just falls through to the catch and leaves the offer as-is. */
+	async function handleClaimOffer(offerId: number) {
+		setClaimingOfferId(offerId);
+		try {
+			await api.claimOffer(offerId);
+			setOffers((prev) => prev.map((o) => (o.id === offerId ? {...o, already_claimed: true, redemptions_count: o.redemptions_count + 1} : o)));
+		} catch {
+			// real server rejection (expired, full, already claimed) — list stays as-is
+		} finally {
+			setClaimingOfferId(null);
 		}
 	}
 
@@ -380,6 +404,29 @@ export default function PlaceDetailScreen({api, guid, myGuid, isAdmin, onAddToCo
 					</BerxGlassSurface>
 				) : null}
 
+				{offers.length > 0 ? (
+					<>
+						<Text style={styles.sectionTitle}>Предложения</Text>
+						{offers.map((o) => (
+							<BerxGlassSurface key={o.id} padding="sm" style={styles.offerRow}>
+								<Text style={styles.offerTitle}>{o.title}</Text>
+								{o.description ? <Text style={styles.offerDescription}>{o.description}</Text> : null}
+								<View style={styles.offerMetaRow}>
+									{o.ends_at !== null ? <Text style={styles.offerMeta}>до {new Date(o.ends_at * 1000).toLocaleDateString('ru-RU', {day: 'numeric', month: 'short'})}</Text> : null}
+									{o.max_redemptions !== null ? <Text style={styles.offerMeta}>{o.redemptions_count}/{o.max_redemptions} забрали</Text> : null}
+								</View>
+								{o.already_fulfilled ? (
+									<Text style={styles.offerClaimedLabel}>✓ Использовано</Text>
+								) : o.already_claimed ? (
+									<Text style={styles.offerClaimedLabel}>✓ Забрано — покажите на месте</Text>
+								) : (
+									<BerxButton label="Забрать" variant="secondary" loading={claimingOfferId === o.id} onPress={() => handleClaimOffer(o.id)} />
+								)}
+							</BerxGlassSurface>
+						))}
+					</>
+				) : null}
+
 				<Text style={styles.sectionTitle}>Отзывы ({reviews.length})</Text>
 
 				{!isOwner && !alreadyReviewed ? (
@@ -467,6 +514,12 @@ const styles = StyleSheet.create({
 	infoBlock: {gap: spacing.xs},
 	infoLine: {fontSize: typography.sizeSm, color: colors.textDim},
 	sectionTitle: {fontSize: typography.sizeXs, color: colors.textFaint, fontWeight: typography.weightBold, textTransform: 'uppercase', marginTop: spacing.sm},
+	offerRow: {gap: 4, marginBottom: spacing.xs},
+	offerTitle: {fontSize: typography.sizeSm, color: colors.white, fontWeight: typography.weightMedium},
+	offerDescription: {fontSize: typography.sizeSm, color: colors.textDim},
+	offerMetaRow: {flexDirection: 'row', gap: spacing.sm},
+	offerMeta: {fontSize: typography.sizeXs, color: colors.textFaint},
+	offerClaimedLabel: {fontSize: typography.sizeSm, color: colors.accent, fontWeight: typography.weightMedium},
 	friendsHereRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginTop: spacing.sm},
 	friendHereItem: {marginLeft: -spacing.xs},
 	friendsHereLabel: {fontSize: typography.sizeSm, color: colors.textDim, marginLeft: spacing.sm},

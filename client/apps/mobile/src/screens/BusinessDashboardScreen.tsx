@@ -29,11 +29,18 @@
  * showed up, via the new check-in system). Both were previously
  * invisible from this screen even though the underlying data was
  * real (events already supported place_guid on create).
+ *
+ * MAX BUILD — real Business Offers management (components/OssnApi/
+ * v1/offers.php): owner can create an offer (title + optional
+ * description/redemption cap/duration in days), see every offer
+ * (including inactive) via allPlaceOffers(), deactivate one, and open
+ * its real claimant list to mark a specific customer's claim as
+ * fulfilled — the real in-person verification step, never automatic.
  */
 import {useCallback, useEffect, useState} from 'react';
 import {View, Text, Image, ScrollView, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
-import type {BerxBusinessDashboard, BerxPlaceReview, BerxBusinessSubscription, BerxBusinessTeamMember, BerxBusinessMoment, BerxEvent, BerxBusinessCheckin} from '@berx/api/types';
+import type {BerxBusinessDashboard, BerxPlaceReview, BerxBusinessSubscription, BerxBusinessTeamMember, BerxBusinessMoment, BerxEvent, BerxBusinessCheckin, BerxBusinessOffer, BerxOfferRedemption} from '@berx/api/types';
 import {relativeTimeLabel} from '@berx/domain';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
@@ -70,19 +77,31 @@ export default function BusinessDashboardScreen({api, placeGuid, onBack}: Props)
 	const [moments, setMoments] = useState<BerxBusinessMoment[]>([]);
 	const [momentText, setMomentText] = useState('');
 	const [momentBusy, setMomentBusy] = useState(false);
+	const [offers, setOffers] = useState<BerxBusinessOffer[]>([]);
+	const [offerTitle, setOfferTitle] = useState('');
+	const [offerDescription, setOfferDescription] = useState('');
+	const [offerMaxRedemptions, setOfferMaxRedemptions] = useState('');
+	const [offerDurationDays, setOfferDurationDays] = useState('');
+	const [offerBusy, setOfferBusy] = useState(false);
+	const [expandedOfferId, setExpandedOfferId] = useState<number | null>(null);
+	const [redemptions, setRedemptions] = useState<Record<number, BerxOfferRedemption[]>>({});
+	const [redemptionsLoading, setRedemptionsLoading] = useState(false);
+	const [fulfillBusyGuid, setFulfillBusyGuid] = useState<number | null>(null);
 
 	const load = useCallback(async () => {
 		setLoading(true);
 		setError(null);
 		try {
-			const [dashboard, sub, teamRes] = await Promise.all([
+			const [dashboard, sub, teamRes, offersRes] = await Promise.all([
 				api.businessDashboard(placeGuid),
 				api.getBusinessSubscription(placeGuid),
 				api.businessTeam(placeGuid),
+				api.allPlaceOffers(placeGuid),
 			]);
 			setData(dashboard);
 			setSubscription(sub);
 			setTeam(teamRes.team);
+			setOffers(offersRes.offers);
 		} catch (e) {
 			setError(e instanceof Error ? e.message : 'Панель недоступна');
 		} finally {
@@ -119,6 +138,77 @@ export default function BusinessDashboardScreen({api, placeGuid, onBack}: Props)
 			setMoments((prev: BerxBusinessMoment[]) => prev.filter((x) => x.id !== id));
 		} catch {
 			// list stays as-is on failure
+		}
+	}
+
+	/** Real offer creation — duration is entered as a simple "days from now" number (same honest, simple pattern as the moment form's fixed window above), converted to a real ends_at unix timestamp; left blank means no expiry. */
+	async function handleCreateOffer() {
+		if (!offerTitle.trim()) return;
+		setOfferBusy(true);
+		try {
+			const days = offerDurationDays.trim() ? Number(offerDurationDays) : null;
+			const maxRedemptions = offerMaxRedemptions.trim() ? Number(offerMaxRedemptions) : undefined;
+			await api.createOffer(placeGuid, {
+				title: offerTitle.trim(),
+				description: offerDescription.trim() || undefined,
+				maxRedemptions: maxRedemptions && Number.isFinite(maxRedemptions) ? maxRedemptions : undefined,
+				endsAt: days !== null && Number.isFinite(days) ? Math.floor(Date.now() / 1000) + days * 86400 : undefined,
+			});
+			setOfferTitle('');
+			setOfferDescription('');
+			setOfferMaxRedemptions('');
+			setOfferDurationDays('');
+			const res = await api.allPlaceOffers(placeGuid);
+			setOffers(res.offers);
+		} catch {
+			// real server rejection (e.g. invalid title) — form stays populated for retry
+		} finally {
+			setOfferBusy(false);
+		}
+	}
+
+	async function handleDeactivateOffer(offerId: number) {
+		try {
+			await api.deactivateOffer(offerId);
+			setOffers((prev) => prev.map((o) => (o.id === offerId ? {...o, active: false} : o)));
+		} catch {
+			// real server rejection — list stays as-is
+		}
+	}
+
+	/** Toggling open fetches the real claimant list on demand rather than eagerly for every offer on load. */
+	async function toggleOfferExpanded(offerId: number) {
+		if (expandedOfferId === offerId) {
+			setExpandedOfferId(null);
+			return;
+		}
+		setExpandedOfferId(offerId);
+		if (!redemptions[offerId]) {
+			setRedemptionsLoading(true);
+			try {
+				const res = await api.offerRedemptions(offerId);
+				setRedemptions((prev) => ({...prev, [offerId]: res.redemptions}));
+			} catch {
+				// leaves the section showing no claimants rather than crashing the dashboard
+			} finally {
+				setRedemptionsLoading(false);
+			}
+		}
+	}
+
+	/** Real in-person verification — never triggered by the claim itself. */
+	async function handleFulfill(offerId: number, userGuid: number) {
+		setFulfillBusyGuid(userGuid);
+		try {
+			await api.fulfillOffer(offerId, userGuid);
+			setRedemptions((prev) => ({
+				...prev,
+				[offerId]: (prev[offerId] ?? []).map((r) => (r.guid === userGuid ? {...r, fulfilled: true, time_fulfilled: Math.floor(Date.now() / 1000)} : r)),
+			}));
+		} catch {
+			// real server rejection — row stays as unfulfilled
+		} finally {
+			setFulfillBusyGuid(null);
 		}
 	}
 
@@ -220,6 +310,54 @@ export default function BusinessDashboardScreen({api, placeGuid, onBack}: Props)
 					</View>
 				) : null}
 
+				<Text style={styles.sectionTitle}>Предложения и лояльность</Text>
+				<View style={styles.momentForm}>
+					<BerxInput placeholder="Название (например: Кофе в подарок)" value={offerTitle} onChangeText={setOfferTitle} />
+				</View>
+				<BerxInput placeholder="Описание (необязательно)" value={offerDescription} onChangeText={setOfferDescription} multiline />
+				<View style={styles.offerFormRow}>
+					<View style={styles.offerFormHalf}><BerxInput placeholder="Лимит (необязательно)" value={offerMaxRedemptions} onChangeText={setOfferMaxRedemptions} keyboardType="number-pad" /></View>
+					<View style={styles.offerFormHalf}><BerxInput placeholder="Дней действия (необязательно)" value={offerDurationDays} onChangeText={setOfferDurationDays} keyboardType="number-pad" /></View>
+				</View>
+				<BerxButton label="Создать предложение" variant="secondary" onPress={handleCreateOffer} loading={offerBusy} disabled={!offerTitle.trim()} fullWidth />
+
+				{offers.length === 0 ? (
+					<Text style={styles.empty}>Пока нет предложений.</Text>
+				) : (
+					<View style={styles.momentsList}>
+						{offers.map((o) => (
+							<BerxGlassSurface key={o.id} padding="sm" style={styles.offerCard}>
+								<View style={styles.momentRow}>
+									<Text style={styles.momentRowText} numberOfLines={1}>{o.active ? '🎁' : '⏸'} {o.title} · {o.redemptions_count}{o.max_redemptions !== null ? `/${o.max_redemptions}` : ''}</Text>
+									{o.active ? <Text style={styles.momentRowRemove} onPress={() => handleDeactivateOffer(o.id)}>Остановить</Text> : null}
+								</View>
+								<Text style={styles.offerExpandLink} onPress={() => toggleOfferExpanded(o.id)}>
+									{expandedOfferId === o.id ? 'Скрыть получателей' : 'Показать получателей'}
+								</Text>
+								{expandedOfferId === o.id ? (
+									redemptionsLoading && !redemptions[o.id] ? (
+										<Text style={styles.empty}>Загрузка…</Text>
+									) : (redemptions[o.id] ?? []).length === 0 ? (
+										<Text style={styles.empty}>Пока никто не забрал.</Text>
+									) : (
+										(redemptions[o.id] ?? []).map((r) => (
+											<View key={r.guid} style={styles.redemptionRow}>
+												<Image source={{uri: r.icon}} style={styles.teamAvatar} />
+												<Text style={styles.teamName} numberOfLines={1}>{r.fullname}</Text>
+												{r.fulfilled ? (
+													<Text style={styles.offerFulfilledLabel}>✓ Использовано</Text>
+												) : (
+													<BerxButton label="Отметить" variant="secondary" loading={fulfillBusyGuid === r.guid} onPress={() => handleFulfill(o.id, r.guid)} />
+												)}
+											</View>
+										))
+									)
+								) : null}
+							</BerxGlassSurface>
+						))}
+					</View>
+				)}
+
 				<Text style={styles.sectionTitle}>Подписка</Text>
 				{subscription ? (
 					<BerxGlassSurface elevated padding="md" style={styles.subscriptionCard}>
@@ -294,6 +432,12 @@ const styles = StyleSheet.create({
 	momentRowText: {flex: 1, fontSize: typography.sizeSm, color: colors.accent},
 	momentRowRemove: {fontSize: typography.sizeXs, color: colors.danger, paddingLeft: spacing.sm},
 	empty: {color: colors.textFaint, fontSize: typography.sizeSm},
+	offerFormRow: {flexDirection: 'row', gap: spacing.sm},
+	offerFormHalf: {flex: 1},
+	offerCard: {gap: spacing.xs},
+	offerExpandLink: {fontSize: typography.sizeXs, color: colors.accent, fontWeight: typography.weightMedium},
+	offerFulfilledLabel: {fontSize: typography.sizeXs, color: colors.accent},
+	redemptionRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.xs, borderTopWidth: 1, borderTopColor: colors.borderSoft},
 	eventRow: {gap: 2, paddingVertical: spacing.xs, borderTopWidth: 1, borderTopColor: colors.borderSoft},
 	eventTitle: {color: colors.white, fontSize: typography.sizeSm, fontWeight: typography.weightMedium},
 	eventMeta: {color: colors.textFaint, fontSize: typography.sizeXs},

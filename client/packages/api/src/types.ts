@@ -469,6 +469,40 @@ export interface BerxBusinessMoment {
 	ends_at: number;
 }
 
+/**
+ * Real loyalty/promotion offer (BERX World Max Build) — never a
+ * payment/coupon system, see OssnBusinessOffers's own header. A claim
+ * is real intent ("I'll use this"); `active` reflects the server's
+ * own live isActive() check (not-expired, under max_redemptions),
+ * never a stale flag.
+ */
+export interface BerxBusinessOffer {
+	id: number;
+	place_guid: number;
+	title: string;
+	description: string;
+	max_redemptions: number | null;
+	redemptions_count: number;
+	ends_at: number | null;
+	active: boolean;
+	time_created: number;
+	/** Whether the calling viewer personally already has a claim row on this offer — lets the client render real claimed/unclaimed state instead of a button that always shows and just errors on a second tap. */
+	already_claimed: boolean;
+	/** Whether the calling viewer's own claim has been marked fulfilled by the business (real in-person use). */
+	already_fulfilled: boolean;
+}
+
+/** One real claimant on the business owner's redemptions dashboard — `fulfilled` is only ever set by the owner marking real in-person use, never automatic. */
+export interface BerxOfferRedemption {
+	guid: number;
+	username: string;
+	fullname: string;
+	icon: string;
+	fulfilled: boolean;
+	time_created: number;
+	time_fulfilled: number | null;
+}
+
 export interface BerxOpeningInterval {
 	/** 0 = Sunday, matching PHP date('w') and JS getDay(). */
 	weekday: number;

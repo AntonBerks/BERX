@@ -18,6 +18,8 @@ import type {
 	BerxStreakCheckIn,
 	BerxNearbyNow,
 	BerxBusinessMoment,
+	BerxBusinessOffer,
+	BerxOfferRedemption,
 	BerxDatingOwnProfile,
 	BerxDatingOwnPhoto,
 	BerxDatingUserPhoto,
@@ -1013,6 +1015,52 @@ export class BerxApiClient {
 
 	async placeMoments(placeGuid: number): Promise<{moments: BerxBusinessMoment[]}> {
 		return this.request<{moments: BerxBusinessMoment[]}>(`/moments/places/${placeGuid}`);
+	}
+
+	// ---------------------------------------------------------------
+	// Business Offers — components/OssnApi/v1/offers.php. Real
+	// loyalty/promotion claim+fulfill primitive (BERX World Max
+	// Build), no payment infrastructure — see OssnBusinessOffers's own
+	// header for why.
+	// ---------------------------------------------------------------
+
+	/** Live, already-claimable offers for a place — server re-checks expiry/redemption-cap on every request, never a stale flag. */
+	async placeOffers(placeGuid: number): Promise<{offers: BerxBusinessOffer[]}> {
+		return this.request<{offers: BerxBusinessOffer[]}>(`/offers/places/${placeGuid}`);
+	}
+
+	/** Owner/team/admin only — every offer for the place, including inactive/expired/exhausted, for the real business dashboard. */
+	async allPlaceOffers(placeGuid: number): Promise<{offers: BerxBusinessOffer[]}> {
+		return this.request<{offers: BerxBusinessOffer[]}>(`/offers/places/${placeGuid}/all`);
+	}
+
+	/** Owner/team/admin only — real canManage() check server-side, same gate business team actions already use. */
+	async createOffer(placeGuid: number, fields: {title: string; description?: string; maxRedemptions?: number; endsAt?: number}): Promise<{id: number}> {
+		const body: Record<string, string> = {title: fields.title};
+		if (fields.description) body.description = fields.description;
+		if (fields.maxRedemptions !== undefined) body.max_redemptions = String(fields.maxRedemptions);
+		if (fields.endsAt !== undefined) body.ends_at = String(fields.endsAt);
+		return this.request<{id: number}>(`/offers/places/${placeGuid}`, {method: 'POST', body});
+	}
+
+	/** Real claim — a real unique-index guarantee against double-claiming server-side, not just this call's own 409 response. */
+	async claimOffer(offerId: number): Promise<{status: string}> {
+		return this.request<{status: string}>(`/offers/${offerId}/claim`, {method: 'POST'});
+	}
+
+	/** Owner/team/admin only — real in-person fulfillment, marks one specific user's real claim as used. */
+	async fulfillOffer(offerId: number, userGuid: number): Promise<{status: string}> {
+		return this.request<{status: string}>(`/offers/${offerId}/fulfill/${userGuid}`, {method: 'POST'});
+	}
+
+	/** Owner/team/admin only — real claimant list for the dashboard. */
+	async offerRedemptions(offerId: number): Promise<{redemptions: BerxOfferRedemption[]}> {
+		return this.request<{redemptions: BerxOfferRedemption[]}>(`/offers/${offerId}/redemptions`);
+	}
+
+	/** Owner/team/admin only — deactivates, never a hard delete (claim history stays real and intact). */
+	async deactivateOffer(offerId: number): Promise<{status: string}> {
+		return this.request<{status: string}>(`/offers/${offerId}`, {method: 'DELETE'});
 	}
 
 	/** 'shown' is recorded automatically server-side inside GET /nearby — this covers the real actions the client itself performs: opened/saved/route. */

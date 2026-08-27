@@ -54,6 +54,9 @@ $OssnClasses = array(
 		'Business',
 		// BERX Business Moments — real time-bound business announcements.
 		'BusinessMoments',
+		// BERX WORLD MAX BUILD — Business Offers: real loyalty/promotion
+		// claim+fulfill primitive, no payment infrastructure.
+		'BusinessOffers',
 		// BERX Nearby Impressions — real 'shown/opened/saved/route' event log.
 		'NearbyImpressions',
 		// BERX Future Core — Event Layer (append-only domain signal log).
