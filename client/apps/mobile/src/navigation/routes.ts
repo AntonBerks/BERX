@@ -104,6 +104,8 @@ export type BerxRouteName =
 	| 'SavedPlaces'
 	| 'AdminUnvalidated'
 	| 'AdminReports'
+	| 'AdminPlaceClaims'
+	| 'MyPlaceClaims'
 	| 'BERXWorld'
 	| 'Saved';
 
@@ -197,6 +199,8 @@ export interface BerxRouteParams {
 	SavedPlaces: undefined;
 	AdminUnvalidated: undefined;
 	AdminReports: undefined;
+	AdminPlaceClaims: undefined;
+	MyPlaceClaims: undefined;
 	BERXWorld: undefined;
 	Saved: undefined;
 }
@@ -287,6 +291,12 @@ export const BERX_ROUTES: BerxRouteMeta[] = [
 	// the previously-broken session-dependent ossn_isAdminLoggedin()).
 	{ name: 'AdminUnvalidated', connected: true },
 	{ name: 'AdminReports', connected: true },
+	// MAX BUILD — real business-claim review queue: approve/reject were
+	// always real client methods with zero UI caller, and the
+	// underlying admin gate itself was silently broken (session-
+	// dependent check, fixed separately) until this batch.
+	{ name: 'AdminPlaceClaims', connected: true },
+	{ name: 'MyPlaceClaims', connected: true },
 	{ name: 'Report', connected: true },
 	{ name: 'Collections', connected: true },
 	{ name: 'CollectionDetail', connected: true },

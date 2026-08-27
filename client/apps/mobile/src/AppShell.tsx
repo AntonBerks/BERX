@@ -80,6 +80,8 @@ import MyEventsScreen from './screens/MyEventsScreen';
 import EventInviteScreen from './screens/EventInviteScreen';
 import AdminUnvalidatedScreen from './screens/AdminUnvalidatedScreen';
 import AdminReportsScreen from './screens/AdminReportsScreen';
+import AdminPlaceClaimsScreen from './screens/AdminPlaceClaimsScreen';
+import MyPlaceClaimsScreen from './screens/MyPlaceClaimsScreen';
 import MessageSearchScreen from './screens/MessageSearchScreen';
 import SettingsScreen from './screens/SettingsScreen';
 import BlockedUsersScreen from './screens/BlockedUsersScreen';
@@ -210,6 +212,8 @@ function RouteRenderer({name, params}: {name: BerxRouteName; params: unknown}) {
 					onOpenMemories={!nav.canGoBack ? () => nav.push('Memories', undefined) : undefined}
 					onOpenSavedPosts={!nav.canGoBack ? () => nav.push('Saved', undefined) : undefined}
 					onOpenEditProfile={!nav.canGoBack ? () => nav.push('EditProfile', undefined) : undefined}
+					onOpenMyPlaceClaims={!nav.canGoBack ? () => nav.push('MyPlaceClaims', undefined) : undefined}
+					onOpenAdminPlaceClaims={!nav.canGoBack ? () => nav.push('AdminPlaceClaims', undefined) : undefined}
 					onOpenAdminUnvalidated={!nav.canGoBack ? () => nav.push('AdminUnvalidated', undefined) : undefined}
 					onOpenAdminReports={!nav.canGoBack ? () => nav.push('AdminReports', undefined) : undefined}
 					onOpenWrapped={!nav.canGoBack ? () => nav.push('Wrapped', undefined) : undefined}
@@ -587,6 +591,10 @@ function RouteRenderer({name, params}: {name: BerxRouteName; params: unknown}) {
 			return <AdminUnvalidatedScreen api={api} onBack={nav.pop} />;
 		case 'AdminReports':
 			return <AdminReportsScreen api={api} onBack={nav.pop} />;
+		case 'AdminPlaceClaims':
+			return <AdminPlaceClaimsScreen api={api} onOpenPlace={(guid) => nav.push('PlaceDetail', {guid})} onBack={nav.pop} />;
+		case 'MyPlaceClaims':
+			return <MyPlaceClaimsScreen api={api} onOpenPlace={(guid) => nav.push('PlaceDetail', {guid})} onBack={nav.pop} />;
 		case 'MessageSearch':
 			return <MessageSearchScreen api={api} onOpenConversation={(otherGuid) => nav.replace('Conversation', {otherGuid, otherUsername: undefined})} onBack={nav.pop} />;
 		case 'Settings':

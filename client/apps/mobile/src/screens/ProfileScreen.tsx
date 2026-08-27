@@ -101,6 +101,8 @@ interface Props {
 	/** Own-only quick bookmark list (Max Build) — separate from onOpenCollections, which is viewable for others too. */
 	onOpenSavedPosts?: () => void;
 	onOpenEditProfile?: () => void;
+	onOpenMyPlaceClaims?: () => void;
+	onOpenAdminPlaceClaims?: () => void;
 	/** Real is_admin-gated section (Max Build) — see me.php's own header for why the client can finally know this. */
 	onOpenAdminUnvalidated?: () => void;
 	onOpenAdminReports?: () => void;
@@ -112,7 +114,7 @@ function joinedYear(unixSeconds?: number): string | null {
 	return new Date(unixSeconds * 1000).getFullYear().toString();
 }
 
-export default function ProfileScreen({api, authState, username, onBack, onMessage, onOpenNotifications, onOpenPoints, onOpenMissions, onOpenLifeGraph, onOpenMemories, onOpenWrapped, onOpenDatingPrivacy, onOpenDatingProfile, onOpenDatingPhotos, onOpenCommunities, onOpenDating, onOpenPlaces, onOpenEvents, onOpenSettings, onOpenBERXWorld, onOpenAlbums, onOpenCollections, onOpenTrips, onOpenExperiences, onOpenCreatorProfile, onOpenCreatorSettings, onOpenMyVideos, onOpenMyTracks, onOpenSavedPosts, onOpenEditProfile, onOpenAdminUnvalidated, onOpenAdminReports, onReport}: Props) {
+export default function ProfileScreen({api, authState, username, onBack, onMessage, onOpenNotifications, onOpenPoints, onOpenMissions, onOpenLifeGraph, onOpenMemories, onOpenWrapped, onOpenDatingPrivacy, onOpenDatingProfile, onOpenDatingPhotos, onOpenCommunities, onOpenDating, onOpenPlaces, onOpenEvents, onOpenSettings, onOpenBERXWorld, onOpenAlbums, onOpenCollections, onOpenTrips, onOpenExperiences, onOpenCreatorProfile, onOpenCreatorSettings, onOpenMyVideos, onOpenMyTracks, onOpenSavedPosts, onOpenEditProfile, onOpenMyPlaceClaims, onOpenAdminUnvalidated, onOpenAdminReports, onOpenAdminPlaceClaims, onReport}: Props) {
 	const [profile, setProfile] = useState<ProfileData | null>(null);
 	const [identity, setIdentity] = useState<BerxIdentity | null>(null);
 	const [loading, setLoading] = useState(true);
@@ -389,16 +391,18 @@ export default function ProfileScreen({api, authState, username, onBack, onMessa
 						{onOpenLifeGraph ? <MenuRow label="Ваш путь в BERX" icon={<IconStar size={18} color={colors.text} />} onPress={onOpenLifeGraph} /> : null}
 						{onOpenMemories ? <MenuRow label="Воспоминания" icon={<IconStar size={18} color={colors.text} />} onPress={onOpenMemories} /> : null}
 						{onOpenSavedPosts ? <MenuRow label="Сохранённые посты" icon={<IconStar size={18} color={colors.text} />} onPress={onOpenSavedPosts} /> : null}
+						{onOpenMyPlaceClaims ? <MenuRow label="Мои заявки на бизнес" icon={<IconStar size={18} color={colors.text} />} onPress={onOpenMyPlaceClaims} /> : null}
 						{onOpenWrapped ? <MenuRow label="BERX Wrapped" icon={<IconStar size={18} color={colors.text} />} onPress={onOpenWrapped} /> : null}
 						{onOpenSettings ? <MenuRow label="Настройки" icon={<IconLock size={18} color={colors.text} />} onPress={onOpenSettings} isLast /> : null}
 					</View>
 
-					{profile.is_admin && (onOpenAdminUnvalidated || onOpenAdminReports) ? (
+					{profile.is_admin && (onOpenAdminUnvalidated || onOpenAdminReports || onOpenAdminPlaceClaims) ? (
 						<>
 							<Text style={styles.sectionLabel}>Администрирование</Text>
 							<View style={styles.menuGroup}>
 								{onOpenAdminUnvalidated ? <MenuRow label="Неподтверждённые пользователи" icon={<IconLock size={18} color={colors.text} />} onPress={onOpenAdminUnvalidated} isFirst /> : null}
-								{onOpenAdminReports ? <MenuRow label="Жалобы" icon={<IconLock size={18} color={colors.text} />} onPress={onOpenAdminReports} isLast /> : null}
+								{onOpenAdminReports ? <MenuRow label="Жалобы" icon={<IconLock size={18} color={colors.text} />} onPress={onOpenAdminReports} /> : null}
+								{onOpenAdminPlaceClaims ? <MenuRow label="Заявки на бизнес" icon={<IconLock size={18} color={colors.text} />} onPress={onOpenAdminPlaceClaims} isLast /> : null}
 							</View>
 						</>
 					) : null}

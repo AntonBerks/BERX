@@ -54,6 +54,10 @@ interface Props {
 }
 
 export default function PlaceDetailScreen({api, guid, myGuid, onAddToCollection, onOpenBusinessDashboard, onEdit, onBack}: Props) {
+	const [claimOpen, setClaimOpen] = useState(false);
+	const [claimMessage, setClaimMessage] = useState('');
+	const [claimBusy, setClaimBusy] = useState(false);
+	const [claimResult, setClaimResult] = useState<string | null>(null);
 	const [place, setPlace] = useState<BerxPlace | null>(null);
 	const [reviews, setReviews] = useState<BerxPlaceReview[]>([]);
 	const [loading, setLoading] = useState(true);
@@ -177,6 +181,29 @@ export default function PlaceDetailScreen({api, guid, myGuid, onAddToCollection,
 		}
 	}
 
+	/**
+	 * MAX BUILD — real gap closed: submitPlaceClaim() was always a
+	 * real, working client method with zero UI caller. Approval's real
+	 * effect (OssnBusiness::reviewClaim()) reassigns the place's
+	 * owner_guid to the requester — the server rejects a second
+	 * pending claim from the same person with a real 409, shown here
+	 * verbatim rather than a generic failure message.
+	 */
+	async function submitClaim() {
+		if (!place) return;
+		setClaimBusy(true);
+		setClaimResult(null);
+		try {
+			await api.submitPlaceClaim(place.guid, claimMessage.trim() || undefined);
+			setClaimResult('Заявка отправлена на рассмотрение.');
+			setClaimOpen(false);
+		} catch (e) {
+			setClaimResult(e instanceof Error ? e.message : 'Не удалось отправить заявку');
+		} finally {
+			setClaimBusy(false);
+		}
+	}
+
 	async function submitReview() {
 		if (!place || reviewText.trim().length === 0) return;
 		setSubmitting(true);
@@ -275,7 +302,22 @@ export default function PlaceDetailScreen({api, guid, myGuid, onAddToCollection,
 							<BerxButton label="Панель бизнеса" variant="secondary" onPress={() => onOpenBusinessDashboard(place.guid)} />
 						) : null}
 					</View>
+				) : (
+					<View style={styles.actions}>
+						<Pressable onPress={() => setClaimOpen(!claimOpen)}>
+							<Text style={styles.claimLink}>{claimOpen ? 'Скрыть' : 'Это моё место? Заявить права'}</Text>
+						</Pressable>
+					</View>
+				)}
+
+				{claimOpen ? (
+					<BerxGlassSurface padding="sm" style={styles.checkinForm}>
+						<Text style={styles.checkinHint}>Заявка рассматривается администрацией. При одобрении место перейдёт в ваше управление.</Text>
+						<BerxInput placeholder="Сообщение (необязательно)" value={claimMessage} onChangeText={setClaimMessage} multiline />
+						<BerxButton label="Отправить заявку" onPress={submitClaim} loading={claimBusy} fullWidth />
+					</BerxGlassSurface>
 				) : null}
+				{claimResult ? <Text style={styles.checkinMessage}>{claimResult}</Text> : null}
 
 				{place.description ? <Text style={styles.description}>{place.description}</Text> : null}
 
@@ -373,6 +415,7 @@ const styles = StyleSheet.create({
 	checkinRow: {flexDirection: 'row', gap: spacing.sm},
 	checkinHalf: {flex: 1},
 	checkinMessage: {fontSize: typography.sizeSm, color: colors.accent},
+	claimLink: {fontSize: typography.sizeSm, color: colors.accent, fontWeight: typography.weightMedium},
 	description: {fontSize: typography.sizeBase, color: colors.text, lineHeight: typography.sizeBase * typography.lineHeightBase},
 	infoBlock: {gap: spacing.xs},
 	infoLine: {fontSize: typography.sizeSm, color: colors.textDim},
