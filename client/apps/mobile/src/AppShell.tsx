@@ -448,6 +448,7 @@ function RouteRenderer({name, params}: {name: BerxRouteName; params: unknown}) {
 					api={api}
 					guid={p.guid}
 					myGuid={authState.getSnapshot().user?.guid}
+					pickImage={pickImage}
 					onBack={nav.pop}
 					onOpenRequests={(guid) => nav.push('CommunityRequests', {guid})}
 					onOpenModerators={(guid) => nav.push('CommunityModerators', {guid})}

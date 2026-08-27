@@ -234,7 +234,15 @@ function ossn_groups_page($pages) {
 						$File->guid = $pages[1];
 						$File       = $File->getFile();
 
-						if($File && $File->type == 'object' && $File->subtype == 'file:cover') {
+						// MAX BUILD -- real bug fix: OssnGroup::UploadCover() always
+						// stores subtype 'cover' (classes/OssnGroup.php), but this
+						// check compared against 'file:cover' -- a typo that meant
+						// groups/cover/{guid}/{file}.jpg 404'd via ossn_error_page()
+						// for every group cover ever uploaded, even through the
+						// stock web UI. Fixed to match the real stored subtype so
+						// OssnGroup::coverURL() (now also exposed via the BERX API,
+						// components/OssnApi/v1/communities.php) actually resolves.
+						if($File && $File->type == 'object' && $File->subtype == 'cover') {
 								$File->output();
 						} else {
 								ossn_error_page();

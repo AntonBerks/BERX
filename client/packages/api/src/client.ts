@@ -1354,6 +1354,18 @@ export class BerxApiClient {
 		return this.request<{status: string; owner_guid: number}>(`/communities/${guid}/transfer`, {method: 'POST', body: {user: String(newOwnerGuid)}});
 	}
 
+	/** MAX BUILD — real Community Cover Photo. Wraps OssnGroup's own native UploadCover()/coverURL(), previously reachable only from a session-cookie web action. Owner-or-admin only. */
+	async uploadCommunityCover(guid: number, part: BerxFilePart, filename = 'cover.jpg'): Promise<{status: string; cover_url: string | null}> {
+		return this.request<{status: string; cover_url: string | null}>(`/communities/${guid}/cover`, {
+			method: 'POST',
+			multipart: {files: [{field: 'coverphoto', part, filename}]},
+		});
+	}
+
+	async deleteCommunityCover(guid: number): Promise<{status: string}> {
+		return this.request<{status: string}>(`/communities/${guid}/cover`, {method: 'DELETE'});
+	}
+
 	// ---------------------------------------------------------------
 	// Friends — components/OssnApi/v1/friends.php, wraps the caller's
 	// OWN OssnUser::getFriends(). Powers EventInviteScreen's picker.

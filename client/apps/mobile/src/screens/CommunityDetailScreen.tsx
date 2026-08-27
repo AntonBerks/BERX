@@ -27,10 +27,17 @@
  * OssnEvents::upcomingByGroup() — only events an actual member
  * organized and explicitly tagged to this community, never a guess).
  * Best-effort, never blocks the community itself from loading.
+ *
+ * MAX BUILD — real Community Cover Photo. Wraps OssnGroup's own
+ * native UploadCover()/coverURL() (classes/OssnGroup.php) — a real
+ * bug (subtype 'file:cover' vs the actual stored 'cover') fixed in
+ * OssnGroups' own page handler so the URL this now returns actually
+ * resolves, plus a new /communities/{guid}/cover JSON route wrapping
+ * it. Same pickImage-injected-prop pattern as EditPlaceScreen.
  */
 import {useEffect, useState} from 'react';
-import {View, Text, Pressable, Alert, StyleSheet} from 'react-native';
-import type {BerxApiClient} from '@berx/api/client';
+import {View, Text, Image, Pressable, Alert, StyleSheet} from 'react-native';
+import type {BerxApiClient, BerxFilePart} from '@berx/api/client';
 import type {BerxCommunity, BerxEvent, BerxFeedItem} from '@berx/api/types';
 import {relativeTimeLabel} from '@berx/domain';
 import {colors, spacing, typography} from '@berx/design-system/tokens';
@@ -38,11 +45,13 @@ import {BerxHeader} from '../../../../packages/design-system/src/components/Berx
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState} from '../../../../packages/design-system/src/components/BerxStates';
+import {Berx3DTilt} from '../../../../packages/design-system/src/components/Berx3DTilt';
 
 interface Props {
 	api: BerxApiClient;
 	guid: number;
 	myGuid?: number;
+	pickImage?: () => Promise<BerxFilePart | null>;
 	onBack: () => void;
 	onOpenRequests?: (guid: number) => void;
 	onOpenModerators?: (guid: number) => void;
@@ -54,11 +63,12 @@ interface Props {
 	onDeleted?: () => void;
 }
 
-export default function CommunityDetailScreen({api, guid, myGuid, onBack, onOpenRequests, onOpenModerators, onOpenMembers, onOpenEvent, onOpenPost, onReport, onDeleted}: Props) {
+export default function CommunityDetailScreen({api, guid, myGuid, pickImage, onBack, onOpenRequests, onOpenModerators, onOpenMembers, onOpenEvent, onOpenPost, onReport, onDeleted}: Props) {
 	const [community, setCommunity] = useState<BerxCommunity | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 	const [acting, setActing] = useState(false);
+	const [uploadingCover, setUploadingCover] = useState(false);
 	const [events, setEvents] = useState<BerxEvent[]>([]);
 	const [editing, setEditing] = useState(false);
 	const [editName, setEditName] = useState('');
@@ -122,6 +132,22 @@ export default function CommunityDetailScreen({api, guid, myGuid, onBack, onOpen
 			await load();
 		} finally {
 			setActing(false);
+		}
+	}
+
+	/** MAX BUILD — real cover upload, owner/admin only (re-checked server-side). */
+	async function handleUploadCover() {
+		if (!pickImage || !community) return;
+		const picked = await pickImage();
+		if (!picked) return;
+		setUploadingCover(true);
+		try {
+			const res = await api.uploadCommunityCover(guid, picked);
+			setCommunity({...community, cover_url: res.cover_url});
+		} catch (e) {
+			Alert.alert('Не удалось загрузить обложку', e instanceof Error ? e.message : 'Попробуйте ещё раз');
+		} finally {
+			setUploadingCover(false);
 		}
 	}
 
@@ -200,6 +226,20 @@ export default function CommunityDetailScreen({api, guid, myGuid, onBack, onOpen
 	return (
 		<View style={styles.screen}>
 			<BerxHeader onBack={onBack} title={community.name} />
+			{!editing ? (
+				<Berx3DTilt style={styles.hero} maxAngle={6}>
+					{community.cover_url ? (
+						<Image source={{uri: community.cover_url}} style={styles.heroImage} />
+					) : (
+						<View style={styles.heroPlaceholder} />
+					)}
+					{isOwner && pickImage ? (
+						<Pressable style={styles.coverEditButton} onPress={handleUploadCover} disabled={uploadingCover} hitSlop={8}>
+							<Text style={styles.coverEditLabel}>{uploadingCover ? 'Загрузка…' : 'Сменить обложку'}</Text>
+						</Pressable>
+					) : null}
+				</Berx3DTilt>
+			) : null}
 			<View style={styles.content}>
 				{editing ? (
 					<>
@@ -285,6 +325,11 @@ export default function CommunityDetailScreen({api, guid, myGuid, onBack, onOpen
 
 const styles = StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.black},
+	hero: {height: 160, backgroundColor: colors.surface, overflow: 'hidden'},
+	heroImage: {width: '100%', height: '100%'},
+	heroPlaceholder: {width: '100%', height: '100%', backgroundColor: colors.surface},
+	coverEditButton: {position: 'absolute', right: spacing.sm, bottom: spacing.sm, backgroundColor: colors.black, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs, borderRadius: 6, borderWidth: 1, borderColor: colors.accent},
+	coverEditLabel: {color: colors.accent, fontSize: typography.sizeXs, fontWeight: typography.weightMedium},
 	content: {padding: spacing.lg, gap: spacing.md},
 	ownerActions: {gap: spacing.sm, marginTop: spacing.sm},
 	name: {color: colors.text, fontSize: typography.sizeXl, fontWeight: typography.weightBold},

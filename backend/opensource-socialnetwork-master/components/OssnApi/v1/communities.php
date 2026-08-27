@@ -24,6 +24,11 @@ function ossn_api_group_json($group, $viewerGuid) {
 		$isMember = (bool) $m->isMember($group->guid, $viewerGuid);
 	}
 	$privacy = isset($group->membership) ? intval($group->membership) : OSSN_PUBLIC;
+	// Real OssnGroup::coverURL() -- wraps the group's own native cover
+	// mechanism (OssnGroup::UploadCover()/ResetCoverPostition()), now
+	// reachable via the /communities/{guid}/cover route below. Returns
+	// false when no cover has ever been uploaded.
+	$coverUrl = ($group && method_exists($group, 'coverURL')) ? $group->coverURL() : false;
 	return array(
 		'guid'        => intval($group->guid),
 		'name'        => (string) $group->title,
@@ -31,6 +36,7 @@ function ossn_api_group_json($group, $viewerGuid) {
 		'owner_guid'  => intval($group->owner_guid),
 		'privacy'     => $privacy === OSSN_PRIVATE ? 'private' : 'public',
 		'is_member'   => $isMember,
+		'cover_url'   => $coverUrl ? (string) $coverUrl : null,
 	);
 }
 
@@ -143,6 +149,54 @@ if ($segment0 !== null && $segment1 === null && $method === 'DELETE') {
 	}
 	$ok = $model->deleteGroup(intval($segment0));
 	ossn_api_json(array('status' => $ok ? 'ok' : 'delete_failed'));
+}
+
+/**
+ * MAX BUILD -- real Community Cover Photo. Wraps OssnGroup's own
+ * native, already-shipped cover mechanism (UploadCover()/coverURL()/
+ * ResetCoverPostition(), classes/OssnGroup.php) -- previously wired
+ * only to a session-cookie web action (actions/group/cover/upload.php)
+ * with no JSON API route at all. Field name 'coverphoto' matches
+ * UploadCover()'s own $this->OssnFile->setFile('coverphoto') call.
+ */
+if ($segment0 !== null && $segment1 === 'cover' && $method === 'POST') {
+	$group = $model->getGroup(intval($segment0));
+	if (!$group) {
+		ossn_api_error('not_found', 'Community not found', 404);
+	}
+	if (intval($group->owner_guid) !== intval($api_user_guid) && !ossn_api_is_admin($api_user_guid)) {
+		ossn_api_error('forbidden', 'Owner only', 403);
+	}
+	if (!$group->UploadCover()) {
+		$err = isset($group->OssnFile) ? $group->OssnFile->getFileUploadError($group->OssnFile->error) : 'Upload failed';
+		ossn_api_error('upload_failed', $err ? $err : 'Upload failed', 422);
+	}
+	$fresh = $model->getGroup(intval($segment0));
+	$coverUrl = ($fresh && method_exists($fresh, 'coverURL')) ? $fresh->coverURL() : false;
+	ossn_api_json(array('status' => 'ok', 'cover_url' => $coverUrl ? (string) $coverUrl : null));
+}
+
+if ($segment0 !== null && $segment1 === 'cover' && $method === 'DELETE') {
+	$group = $model->getGroup(intval($segment0));
+	if (!$group) {
+		ossn_api_error('not_found', 'Community not found', 404);
+	}
+	if (intval($group->owner_guid) !== intval($api_user_guid) && !ossn_api_is_admin($api_user_guid)) {
+		ossn_api_error('forbidden', 'Owner only', 403);
+	}
+	$files = $group->groupCovers();
+	if ($files) {
+		foreach ($files as $file) {
+			if ($file->isFile()) {
+				@unlink($file->getPath());
+			}
+			$file->deleteEntity();
+		}
+	}
+	$group->data->cover_guid = 0;
+	$group->save();
+	$group->ResetCoverPostition();
+	ossn_api_json(array('status' => 'ok'));
 }
 
 if ($segment0 !== null && $segment1 === 'join' && $method === 'POST') {

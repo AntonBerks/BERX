@@ -637,6 +637,7 @@ export interface BerxCommunity {
 	owner_guid: number;
 	privacy: string | null;
 	is_member: boolean;
+	cover_url: string | null;
 }
 
 export interface BerxCommunitiesResponse {
