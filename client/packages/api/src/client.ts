@@ -17,6 +17,8 @@ import type {
 	BerxStorySummary,
 	BerxCommunity,
 	BerxCommunitiesResponse,
+	BerxSitePage,
+	BerxSitePagePrefix,
 	BerxPointsBalance,
 	BerxStreakCheckIn,
 	BerxNearbyNow,
@@ -1371,6 +1373,11 @@ export class BerxApiClient {
 	/** MAX BUILD — real Transfer Ownership. OssnGroup::changeOwner() was always a real, callable core method with zero UI caller before this. Current-owner-or-admin only; the new owner must already be a real member, re-checked server-side. */
 	async transferCommunityOwnership(guid: number, newOwnerGuid: number): Promise<{status: string; owner_guid: number}> {
 		return this.request<{status: string; owner_guid: number}>(`/communities/${guid}/transfer`, {method: 'POST', body: {user: String(newOwnerGuid)}});
+	}
+
+	/** MAX BUILD — real About/Terms/Privacy content (OssnSitePages) — the same admin-editable content the site's own Settings → Site Pages and public /site/{prefix} route already serve, zero prior API caller. */
+	async sitePage(prefix: BerxSitePagePrefix | string): Promise<BerxSitePage> {
+		return this.request<BerxSitePage>(`/sitepages/${encodeURIComponent(prefix)}`);
 	}
 
 	/** MAX BUILD — real Community Cover Photo. Wraps OssnGroup's own native UploadCover()/coverURL(), previously reachable only from a session-cookie web action. Owner-or-admin only. */

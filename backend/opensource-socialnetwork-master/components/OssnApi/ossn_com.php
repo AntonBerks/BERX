@@ -148,6 +148,7 @@ function ossn_api_v1_resources() {
 		'points'        => __OSSN_API__ . 'v1/points.php',
 		'report'        => __OSSN_API__ . 'v1/report.php',
 		'communities'   => __OSSN_API__ . 'v1/communities.php',
+		'sitepages'     => __OSSN_API__ . 'v1/sitepages.php',
 		'dating'        => __OSSN_API__ . 'v1/dating.php',
 		'stories'       => __OSSN_API__ . 'v1/stories.php',
 		// Wave 3 — the real-world entity foundation. OssnPlaces now

@@ -658,6 +658,15 @@ export interface BerxCommunitiesResponse {
 	communities: BerxCommunity[];
 }
 
+/** Real About/Terms/Privacy content (OssnSitePages) — the same content the site's own admin-editable Site Pages settings and public /site/{prefix} route already serve. */
+export type BerxSitePagePrefix = 'about' | 'terms' | 'privacy';
+
+export interface BerxSitePage {
+	prefix: string;
+	title: string;
+	content: string;
+}
+
 /**
  * Places — mirrors ossn_api_place_to_json() in
  * components/OssnApi/v1/places.php field-for-field. `category` is one

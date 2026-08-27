@@ -11,6 +11,10 @@
  * and NotificationPreferencesScreen.tsx) — the earlier documented
  * absence of per-user settings storage no longer applies to this one
  * category.
+ *
+ * MAX BUILD — real "О приложении" section: OssnSitePages (real,
+ * admin-editable About/Terms/Privacy content) had zero API caller
+ * anywhere before this — see SitePageScreen.tsx's own header.
  */
 import {View, Text, Pressable, StyleSheet} from 'react-native';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
@@ -24,6 +28,7 @@ interface Props {
 	onOpenDeleteAccount: () => void;
 	onOpenDatingPrivacy: () => void;
 	onOpenCircles?: () => void;
+	onOpenSitePage?: (prefix: 'about' | 'terms' | 'privacy') => void;
 	onBack?: () => void;
 }
 
@@ -36,7 +41,7 @@ function Row({label, onPress, danger}: {label: string; onPress: () => void; dang
 	);
 }
 
-export default function SettingsScreen({onOpenDeviceSessions, onOpenNotificationPreferences, onOpenInviteFriends, onOpenBlockedUsers, onOpenDeleteAccount, onOpenDatingPrivacy, onOpenCircles, onBack}: Props) {
+export default function SettingsScreen({onOpenDeviceSessions, onOpenNotificationPreferences, onOpenInviteFriends, onOpenBlockedUsers, onOpenDeleteAccount, onOpenDatingPrivacy, onOpenCircles, onOpenSitePage, onBack}: Props) {
 	return (
 		<View style={styles.screen}>
 			<BerxHeader title="Настройки" onBack={onBack} />
@@ -62,6 +67,17 @@ export default function SettingsScreen({onOpenDeviceSessions, onOpenNotification
 			<View style={styles.group}>
 				<Row label="Удалить аккаунт" onPress={onOpenDeleteAccount} danger />
 			</View>
+
+			{onOpenSitePage ? (
+				<>
+					<Text style={styles.sectionLabel}>О приложении</Text>
+					<View style={styles.group}>
+						<Row label="О BERX" onPress={() => onOpenSitePage('about')} />
+						<Row label="Условия использования" onPress={() => onOpenSitePage('terms')} />
+						<Row label="Конфиденциальность" onPress={() => onOpenSitePage('privacy')} />
+					</View>
+				</>
+			) : null}
 		</View>
 	);
 }

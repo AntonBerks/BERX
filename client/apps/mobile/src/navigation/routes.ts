@@ -44,6 +44,7 @@ export type BerxRouteName =
 	| 'DeviceSessions'
 	| 'NotificationPreferences'
 	| 'InviteFriends'
+	| 'SitePage'
 	| 'MyDrafts'
 	| 'DeleteAccount'
 	| 'BlockedUsers'
@@ -146,6 +147,7 @@ export interface BerxRouteParams {
 	DeviceSessions: undefined;
 	NotificationPreferences: undefined;
 	InviteFriends: undefined;
+	SitePage: { prefix: 'about' | 'terms' | 'privacy' };
 	MyDrafts: undefined;
 	DeleteAccount: undefined;
 	BlockedUsers: undefined;

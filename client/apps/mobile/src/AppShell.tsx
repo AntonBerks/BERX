@@ -75,6 +75,7 @@ import EditEventScreen from './screens/EditEventScreen';
 import DeviceSessionsScreen from './screens/DeviceSessionsScreen';
 import NotificationPreferencesScreen from './screens/NotificationPreferencesScreen';
 import InviteFriendsScreen from './screens/InviteFriendsScreen';
+import SitePageScreen from './screens/SitePageScreen';
 import MyDraftsScreen from './screens/MyDraftsScreen';
 import DeleteAccountScreen from './screens/DeleteAccountScreen';
 import PlacesNearbyScreen from './screens/PlacesNearbyScreen';
@@ -631,6 +632,10 @@ function RouteRenderer({name, params}: {name: BerxRouteName; params: unknown}) {
 			return <NotificationPreferencesScreen api={api} onBack={nav.pop} />;
 		case 'InviteFriends':
 			return <InviteFriendsScreen api={api} onBack={nav.pop} />;
+		case 'SitePage': {
+			const p = params as {prefix: 'about' | 'terms' | 'privacy'};
+			return <SitePageScreen api={api} prefix={p.prefix} onBack={nav.pop} />;
+		}
 		case 'DeleteAccount':
 			return (
 				<DeleteAccountScreen
@@ -663,6 +668,7 @@ function RouteRenderer({name, params}: {name: BerxRouteName; params: unknown}) {
 					onOpenDeviceSessions={() => nav.push('DeviceSessions', undefined)}
 					onOpenNotificationPreferences={() => nav.push('NotificationPreferences', undefined)}
 					onOpenInviteFriends={() => nav.push('InviteFriends', undefined)}
+				onOpenSitePage={(prefix) => nav.push('SitePage', {prefix})}
 					onOpenBlockedUsers={() => nav.push('BlockedUsers', undefined)}
 					onOpenDeleteAccount={() => nav.push('DeleteAccount', undefined)}
 					onOpenDatingPrivacy={() => nav.push('DatingPrivacy', undefined)}
