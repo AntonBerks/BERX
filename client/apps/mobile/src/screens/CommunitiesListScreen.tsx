@@ -1,11 +1,17 @@
 /**
  * !!! VERIFICATION STATUS: UNVERIFIED — see LoginScreen.tsx header.
+ *
+ * MAX BUILD — closes a real gap: api.myCommunities() was always a
+ * real, working client method (real GET /communities/mine) with zero
+ * UI caller — this screen only ever offered a full/searchable browse
+ * list, with no way to filter down to communities you're actually a
+ * member of.
  */
 import {useCallback, useEffect, useState} from 'react';
 import {View, Text, FlatList, Pressable, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxCommunity} from '@berx/api/types';
-import {colors, spacing, typography} from '@berx/design-system/tokens';
+import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
@@ -18,7 +24,10 @@ interface Props {
 	onBack?: () => void;
 }
 
+type Tab = 'all' | 'mine';
+
 export default function CommunitiesListScreen({api, onOpenCommunity, onCreate, onBack}: Props) {
+	const [tab, setTab] = useState<Tab>('all');
 	const [q, setQ] = useState('');
 	const [items, setItems] = useState<BerxCommunity[]>([]);
 	const [loading, setLoading] = useState(true);
@@ -27,7 +36,7 @@ export default function CommunitiesListScreen({api, onOpenCommunity, onCreate, o
 	const load = useCallback(async () => {
 		setLoading(true);
 		try {
-			const res = await api.communities(q || undefined);
+			const res = tab === 'mine' ? await api.myCommunities() : await api.communities(q || undefined);
 			setItems(res.communities);
 			setError(null);
 		} catch {
@@ -35,20 +44,32 @@ export default function CommunitiesListScreen({api, onOpenCommunity, onCreate, o
 		} finally {
 			setLoading(false);
 		}
-	}, [api, q]);
+	}, [api, q, tab]);
 
 	useEffect(() => {
 		load();
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, []);
+	}, [tab]);
 
 	return (
 		<View style={styles.screen}>
 			<BerxHeader onBack={onBack} title="Сообщества" />
+			<View style={styles.tabRow}>
+				<Pressable style={[styles.tab, tab === 'all' && styles.tabActive]} onPress={() => setTab('all')}>
+					<Text style={[styles.tabText, tab === 'all' && styles.tabTextActive]}>Все</Text>
+				</Pressable>
+				<Pressable style={[styles.tab, tab === 'mine' && styles.tabActive]} onPress={() => setTab('mine')}>
+					<Text style={[styles.tabText, tab === 'mine' && styles.tabTextActive]}>Мои</Text>
+				</Pressable>
+			</View>
 			<View style={styles.searchRow}>
-				<View style={styles.searchInput}>
-					<BerxInput placeholder="Поиск сообществ..." value={q} onChangeText={setQ} onSubmitEditing={load} />
-				</View>
+				{tab === 'all' ? (
+					<View style={styles.searchInput}>
+						<BerxInput placeholder="Поиск сообществ..." value={q} onChangeText={setQ} onSubmitEditing={load} />
+					</View>
+				) : (
+					<View style={styles.searchInput} />
+				)}
 				<BerxButton label="+" onPress={onCreate} />
 			</View>
 
@@ -57,7 +78,10 @@ export default function CommunitiesListScreen({api, onOpenCommunity, onCreate, o
 			) : error ? (
 				<BerxErrorState message={error} onRetry={load} />
 			) : items.length === 0 ? (
-				<BerxEmptyState title="Сообщества не найдены" subtitle="Попробуйте другой запрос или создайте своё." />
+				<BerxEmptyState
+					title={tab === 'mine' ? 'Вы пока не в сообществах' : 'Сообщества не найдены'}
+					subtitle={tab === 'mine' ? 'Вступите в сообщество на вкладке «Все» или создайте своё.' : 'Попробуйте другой запрос или создайте своё.'}
+				/>
 			) : (
 				<FlatList
 					data={items}
@@ -81,6 +105,11 @@ export default function CommunitiesListScreen({api, onOpenCommunity, onCreate, o
 
 const styles = StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.black},
+	tabRow: {flexDirection: 'row', gap: spacing.sm, paddingHorizontal: spacing.lg, paddingBottom: spacing.sm},
+	tab: {paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: radius.pill, backgroundColor: colors.surface},
+	tabActive: {backgroundColor: colors.accentSoft, borderWidth: 1, borderColor: colors.accent},
+	tabText: {fontSize: typography.sizeSm, color: colors.textDim},
+	tabTextActive: {color: colors.accent, fontWeight: typography.weightMedium},
 	searchRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.lg, paddingBottom: spacing.md},
 	searchInput: {flex: 1},
 	row: {padding: spacing.lg, borderBottomWidth: 1, borderBottomColor: colors.borderSoft},
