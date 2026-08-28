@@ -118,6 +118,9 @@ ossn_add_hook('notification:add', 'berx:plan:accepted', 'ossn_api_notify_passthr
 ossn_add_hook('notification:add', 'berx:plan:converted', 'ossn_api_notify_passthrough');
 /** BERX Life Moments — OssnLifeMoments::create() always supplies the real tagged person as OssnNotifications::add()'s 5th param, same passthrough shape as event:invite. */
 ossn_add_hook('notification:add', 'berx:moment:tag', 'ossn_api_notify_passthrough');
+/** BERX Worlds — OssnWorlds itself always supplies the real target guid as OssnNotifications::add()'s 5th param (the invited user on invite, the owner on a real join), same passthrough shape as event:invite. */
+ossn_add_hook('notification:add', 'berx:world:invite', 'ossn_api_notify_passthrough');
+ossn_add_hook('notification:add', 'berx:world:joined', 'ossn_api_notify_passthrough');
 
 /**
  * Real resource whitelist. Never build an include path from the URL
@@ -238,6 +241,13 @@ function ossn_api_v1_resources() {
 		// that name already means Business Moments, a completely
 		// different concept). See that class's own header.
 		'lifemoments'   => __OSSN_API__ . 'v1/lifemoments.php',
+		// BERX Worlds -- a genuinely new first-class container object
+		// (classes/OssnWorlds.php, its own ossn_worlds/
+		// ossn_world_members/ossn_world_items tables): holds EXISTING
+		// real places/events/plans/experiences by reference, plus a
+		// real membership list. Not a community/group reskin -- see
+		// that class's own header for the distinction from OssnGroup.
+		'worlds'        => __OSSN_API__ . 'v1/worlds.php',
 		// (No separate 'activity' resource: lifegraph.php already IS
 		// the real composed-timeline concept -- Plans/Checkpoints/Life
 		// Moments/Memories were folded into its existing edge list

@@ -105,6 +105,9 @@ import type {
 	BerxNotificationPrefs,
 	BerxNotificationPrefType,
 	BerxPostDraft,
+	BerxWorld,
+	BerxWorldVisibility,
+	BerxWorldItemType,
 } from './types';
 import type { BerxTokenStorage, BerxApiErrorBody } from '@berx/core';
 import { BerxApiError } from '@berx/core';
@@ -888,6 +891,64 @@ export class BerxApiClient {
 
 	async deleteLifeMoment(id: number): Promise<{status: string}> {
 		return this.request<{status: string}>(`/lifemoments/${id}`, {method: 'DELETE'});
+	}
+
+	/**
+	 * BERX WORLD — Worlds (classes/OssnWorlds.php). A real first-class
+	 * container that holds existing places/events/plans/experiences by
+	 * reference plus a real membership list. Private worlds invite
+	 * real friends only (server-enforced); public worlds skip invites
+	 * entirely — see joinWorld().
+	 */
+	async createWorld(fields: {
+		title: string;
+		description?: string;
+		visibility?: BerxWorldVisibility;
+		isTemporary?: boolean;
+		expiresAt?: number;
+		inviteGuids?: number[];
+	}): Promise<{id: number}> {
+		const body: Record<string, string> = {title: fields.title};
+		if (fields.description) body.description = fields.description;
+		if (fields.visibility) body.visibility = fields.visibility;
+		if (fields.isTemporary) body.is_temporary = '1';
+		if (fields.expiresAt !== undefined) body.expires_at = String(fields.expiresAt);
+		if (fields.inviteGuids && fields.inviteGuids.length > 0) body.invite_guids = fields.inviteGuids.join(',');
+		return this.request<{id: number}>('/worlds', {method: 'POST', body});
+	}
+
+	async myWorlds(limit = 50): Promise<{worlds: BerxWorld[]}> {
+		return this.request<{worlds: BerxWorld[]}>(`/worlds/mine?limit=${limit}`);
+	}
+
+	async getWorld(id: number): Promise<{world: BerxWorld}> {
+		return this.request<{world: BerxWorld}>(`/worlds/${id}`);
+	}
+
+	async respondToWorldInvite(id: number, accept: boolean): Promise<{status: string}> {
+		return this.request<{status: string}>(`/worlds/${id}/respond`, {method: 'POST', body: {accept: accept ? '1' : '0'}});
+	}
+
+	/** Public worlds only — server rejects a private world with 'forbidden'. */
+	async joinWorld(id: number): Promise<{status: string}> {
+		return this.request<{status: string}>(`/worlds/${id}/join`, {method: 'POST'});
+	}
+
+	async leaveWorld(id: number): Promise<{status: string}> {
+		return this.request<{status: string}>(`/worlds/${id}/leave`, {method: 'POST'});
+	}
+
+	/** Any real accepted member may attach an existing place/event/plan/experience — the server independently re-verifies the item exists and, for a plan/experience, that the caller can actually view it. */
+	async addWorldItem(worldId: number, itemType: BerxWorldItemType, itemId: number): Promise<{status: string}> {
+		return this.request<{status: string}>(`/worlds/${worldId}/items`, {method: 'POST', body: {item_type: itemType, item_id: String(itemId)}});
+	}
+
+	async removeWorldItem(worldId: number, itemType: BerxWorldItemType, itemId: number): Promise<{status: string}> {
+		return this.request<{status: string}>(`/worlds/${worldId}/items/${itemType}/${itemId}`, {method: 'DELETE'});
+	}
+
+	async deleteWorld(id: number): Promise<{status: string}> {
+		return this.request<{status: string}>(`/worlds/${id}`, {method: 'DELETE'});
 	}
 
 	/** `identifier` may be a real username OR a real numeric guid (as a string) — profiles.php resolves either. */

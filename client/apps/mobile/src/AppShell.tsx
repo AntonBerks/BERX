@@ -60,6 +60,9 @@ import CreateCommunityScreen from './screens/CreateCommunityScreen';
 import PlansScreen from './screens/PlansScreen';
 import PlanDetailScreen from './screens/PlanDetailScreen';
 import CreatePlanScreen from './screens/CreatePlanScreen';
+import WorldsScreen from './screens/WorldsScreen';
+import WorldDetailScreen from './screens/WorldDetailScreen';
+import CreateWorldScreen from './screens/CreateWorldScreen';
 import CommunityRequestsScreen from './screens/CommunityRequestsScreen';
 import CommunityModeratorsScreen from './screens/CommunityModeratorsScreen';
 import CommunityMembersScreen from './screens/CommunityMembersScreen';
@@ -234,6 +237,7 @@ function RouteRenderer({name, params}: {name: BerxRouteName; params: unknown}) {
 					onOpenDatingPhotos={!nav.canGoBack ? () => nav.push('DatingPhotos', undefined) : undefined}
 					onOpenCommunities={!nav.canGoBack ? () => nav.push('Communities', undefined) : undefined}
 					onOpenPlans={!nav.canGoBack ? () => nav.push('Plans', undefined) : undefined}
+					onOpenWorlds={!nav.canGoBack ? () => nav.push('Worlds', undefined) : undefined}
 					onOpenDating={!nav.canGoBack ? () => nav.push('Dating', undefined) : undefined}
 					onOpenPlaces={!nav.canGoBack ? () => nav.push('Places', undefined) : undefined}
 					onOpenEvents={!nav.canGoBack ? () => nav.push('Events', undefined) : undefined}
@@ -431,6 +435,7 @@ function RouteRenderer({name, params}: {name: BerxRouteName; params: unknown}) {
 					onOpenPost={(guid) => nav.push('PostDetail', {postGuid: guid})}
 					onOpenCommunity={(guid) => nav.push('CommunityDetail', {guid})}
 					onOpenPlan={(id) => nav.push('PlanDetail', {id})}
+					onOpenWorld={(id) => nav.push('WorldDetail', {id})}
 					onOpenProfile={openProfile}
 					onBack={nav.canGoBack ? nav.pop : undefined}
 				/>
@@ -502,6 +507,27 @@ function RouteRenderer({name, params}: {name: BerxRouteName; params: unknown}) {
 				<CreatePlanScreen
 					api={api}
 					onCreated={(id) => nav.replace('PlanDetail', {id})}
+					onBack={nav.pop}
+				/>
+			);
+		case 'Worlds':
+			return (
+				<WorldsScreen
+					api={api}
+					onOpenWorld={(id) => nav.push('WorldDetail', {id})}
+					onCreate={() => nav.push('CreateWorld', undefined)}
+					onBack={nav.canGoBack ? nav.pop : undefined}
+				/>
+			);
+		case 'WorldDetail': {
+			const p = params as {id: number};
+			return <WorldDetailScreen api={api} id={p.id} onBack={nav.pop} />;
+		}
+		case 'CreateWorld':
+			return (
+				<CreateWorldScreen
+					api={api}
+					onCreated={(id) => nav.replace('WorldDetail', {id})}
 					onBack={nav.pop}
 				/>
 			);

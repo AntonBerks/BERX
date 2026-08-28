@@ -301,7 +301,7 @@ export interface BerxDateIdea {
 }
 
 /** Real subject resolution (OssnWall::GetPost()/OssnPlaces::getPlace()/OssnEvents::getEvent()/OssnGroup::getGroup(), whichever subject_guid actually points to per type) — null when the type has no separate subject (a poke) or the subject was since deleted, never a guess. */
-export type BerxNotificationSubjectKind = 'post' | 'place' | 'event' | 'community' | 'plan' | 'moment' | null;
+export type BerxNotificationSubjectKind = 'post' | 'place' | 'event' | 'community' | 'plan' | 'moment' | 'world' | null;
 
 export interface BerxNotification {
 	guid: number;
@@ -353,7 +353,9 @@ export type BerxNotificationPrefType =
 	| 'berx:plan:invite'
 	| 'berx:plan:accepted'
 	| 'berx:plan:converted'
-	| 'berx:moment:tag';
+	| 'berx:moment:tag'
+	| 'berx:world:invite'
+	| 'berx:world:joined';
 
 export type BerxNotificationPrefs = Record<BerxNotificationPrefType, boolean>;
 
@@ -1409,6 +1411,49 @@ export interface BerxSavedMemory {
 	people: BerxSavedMemoryPerson[];
 	/** BERX WORLD — the real, live Moments captured during this memory's source (Moment -> Memory link), never copied/duplicated data. */
 	moments: BerxSavedMemoryMoment[];
+}
+
+/**
+ * BERX WORLD — Worlds (classes/OssnWorlds.php). A real first-class
+ * container object that holds EXISTING real BERX objects (places,
+ * events, plans, experiences) by reference, plus a real membership
+ * list. Not a community/group reskin — see that class's own header.
+ */
+export type BerxWorldVisibility = 'public' | 'private';
+export type BerxWorldMemberStatus = 'invited' | 'accepted' | 'declined';
+export type BerxWorldItemType = 'place' | 'event' | 'plan' | 'experience';
+
+export interface BerxWorldMember {
+	user_guid: number;
+	username: string | null;
+	icon: string | null;
+	role: 'owner' | 'member';
+	status: BerxWorldMemberStatus;
+}
+
+export interface BerxWorldItem {
+	item_type: BerxWorldItemType;
+	item_id: number;
+	title: string | null;
+	added_by_guid: number;
+	time_created: number;
+}
+
+export interface BerxWorld {
+	id: number;
+	owner_guid: number;
+	owner_username: string | null;
+	title: string;
+	description: string | null;
+	visibility: BerxWorldVisibility;
+	is_temporary: boolean;
+	expires_at: number | null;
+	time_created: number;
+	is_owner: boolean;
+	/** null only for a private world the viewer has no real relationship to — canView() on the server means this never actually happens for a world the client could fetch. */
+	my_status: BerxWorldMemberStatus | 'owner' | 'not_member' | null;
+	members: BerxWorldMember[];
+	items: BerxWorldItem[];
 }
 
 /**
