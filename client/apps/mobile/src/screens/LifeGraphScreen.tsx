@@ -42,6 +42,8 @@ const EDGE_LABELS: Record<string, string> = {
 	plan_converted: 'План стал событием',
 	moment_created: 'Записали момент',
 	memory_saved: 'Сохранили воспоминание',
+	world_created: 'Создали мир',
+	world_joined: 'Вступили в мир',
 };
 
 const SUMMARY_ROWS: {key: keyof BerxLifeGraphResponse['summary']; label: string}[] = [
@@ -55,6 +57,7 @@ const SUMMARY_ROWS: {key: keyof BerxLifeGraphResponse['summary']; label: string}
 	{key: 'event_checkins_count', label: 'Подтверждённых событий'},
 	{key: 'moments_created', label: 'Моментов'},
 	{key: 'memories_saved', label: 'Воспоминаний'},
+	{key: 'worlds_created', label: 'Миров'},
 ];
 
 export default function LifeGraphScreen({api, onBack}: Props) {

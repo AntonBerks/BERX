@@ -162,6 +162,40 @@ if (class_exists('OssnMemories')) {
 	}
 }
 
+/* ---- worlds (classes/OssnWorlds.php) — a real container the caller either owns or is an accepted member of ---- */
+
+if (class_exists('OssnWorlds')) {
+	$worldsModel = new OssnWorlds();
+	foreach ($worldsModel->myWorlds($userGuid, $perCategory) as $world) {
+		if (intval($world->owner_guid) === $userGuid) {
+			$edges[] = array('type' => 'world_created', 'target_type' => 'world', 'target_guid' => intval($world->id), 'target_title' => (string) $world->title, 'time' => intval($world->time_created));
+		}
+	}
+	// Real join moment, not the world's own creation time — direct read
+	// of ossn_world_members (no per-user "my memberships with
+	// timestamps" method exists on OssnWorlds yet, same honest tradeoff
+	// as the reviewed-places block above — not worth a wider API
+	// surface for one read).
+	$worldMembershipRows = (new OssnDatabase())->select(array(
+		'from'     => 'ossn_world_members',
+		'wheres'   => array(
+			OssnDatabase::wheres('user_guid', '=', $userGuid),
+			OssnDatabase::wheres('status', '=', 'accepted'),
+			OssnDatabase::wheres('role', '!=', 'owner'),
+		),
+		'order_by' => 'time_responded DESC',
+		'limit'    => $perCategory,
+	), true);
+	if ($worldMembershipRows) {
+		foreach ($worldMembershipRows as $row) {
+			$world = $worldsModel->getWorld($row->world_id);
+			if ($world) {
+				$edges[] = array('type' => 'world_joined', 'target_type' => 'world', 'target_guid' => intval($world->id), 'target_title' => (string) $world->title, 'time' => intval($row->time_responded));
+			}
+		}
+	}
+}
+
 /* ---- earned rewards ---- */
 
 if (class_exists('OssnPoints')) {
@@ -235,6 +269,7 @@ $plansCountRow = $db->select(array('from' => 'ossn_plans', 'params' => array('CO
 $eventCheckinsCount = class_exists('OssnEvents') ? intval(ossn_get_relationships(array('from' => $userGuid, 'type' => OssnEvents::CHECKIN_RELATION, 'count' => true))) : 0;
 $momentsCountRow = $db->select(array('from' => 'ossn_moments', 'params' => array('COUNT(*) as cnt'), 'wheres' => array(OssnDatabase::wheres('owner_guid', '=', $userGuid))));
 $memoriesCountRow = $db->select(array('from' => 'ossn_memories', 'params' => array('COUNT(*) as cnt'), 'wheres' => array(OssnDatabase::wheres('owner_guid', '=', $userGuid))));
+$worldsCountRow = $db->select(array('from' => 'ossn_worlds', 'params' => array('COUNT(*) as cnt'), 'wheres' => array(OssnDatabase::wheres('owner_guid', '=', $userGuid))));
 
 ossn_api_json(array(
 	'edges'   => $edges,
@@ -250,6 +285,7 @@ ossn_api_json(array(
 		'event_checkins_count' => $eventCheckinsCount,
 		'moments_created'      => $momentsCountRow ? intval($momentsCountRow->cnt) : 0,
 		'memories_saved'       => $memoriesCountRow ? intval($memoriesCountRow->cnt) : 0,
+		'worlds_created'       => $worldsCountRow ? intval($worldsCountRow->cnt) : 0,
 		// No real total exists for 'connections met' — it's derived
 		// (co-attendance x friendship), not a single indexed table to
 		// COUNT(), and computing the true lifetime figure would mean an

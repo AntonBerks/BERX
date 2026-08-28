@@ -382,11 +382,13 @@ export type BerxLifeGraphEdgeType =
 	| 'plan_created'
 	| 'plan_converted'
 	| 'moment_created'
-	| 'memory_saved';
+	| 'memory_saved'
+	| 'world_created'
+	| 'world_joined';
 
 export interface BerxLifeGraphEdge {
 	type: BerxLifeGraphEdgeType;
-	target_type: 'place' | 'event' | 'community' | 'trip' | 'experience' | 'reward' | 'person' | 'plan' | 'moment' | 'memory';
+	target_type: 'place' | 'event' | 'community' | 'trip' | 'experience' | 'reward' | 'person' | 'plan' | 'moment' | 'memory' | 'world';
 	target_guid: number | null;
 	target_title: string;
 	time: number;
@@ -406,6 +408,7 @@ export interface BerxLifeGraphSummary {
 	event_checkins_count: number;
 	moments_created: number;
 	memories_saved: number;
+	worlds_created: number;
 }
 
 export interface BerxLifeGraphResponse {
