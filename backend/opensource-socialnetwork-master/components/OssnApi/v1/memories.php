@@ -25,7 +25,100 @@
  * to the caller's own most recent 500 check-ins (a real, disclosed
  * cap — same honesty rule as everywhere else in this layer, not a
  * true unbounded lifetime scan).
+ *
+ * BERX WORLD — real, PERSISTED Memories (classes/OssnMemories.php),
+ * additive to the "on this day" route above, not a replacement for
+ * it. New segment-routed sub-resource:
+ *   POST /memories/from-experience/{id}   save a real Memory from an
+ *                                         Experience the caller was
+ *                                         actually part of
+ *   GET  /memories/saved                  the caller's own saved
+ *                                         Memories (real, chronological)
+ *   GET  /memories/saved/{id}             one Memory's real detail
+ *                                         (title/place/when/who)
+ *   PATCH /memories/saved/{id}            edit the personal caption only
  */
+
+function ossn_api_memory_json($memory, $memoriesModel) {
+	$place = null;
+	if ($memory->place_guid && class_exists('OssnPlaces')) {
+		$p = (new OssnPlaces())->getPlace($memory->place_guid);
+		$place = $p ? array('guid' => intval($p->guid), 'title' => (string) $p->title) : null;
+	}
+	$people = array();
+	foreach ($memoriesModel->participantsForMemory($memory->id) as $participant) {
+		$user = ossn_user_by_guid($participant->user_guid);
+		$people[] = array(
+			'guid'     => intval($participant->user_guid),
+			'username' => $user ? (string) $user->username : null,
+			'icon'     => $user ? (string) $user->iconURL()->large : null,
+		);
+	}
+	return array(
+		'id'          => intval($memory->id),
+		'title'       => (string) $memory->title,
+		'notes'       => $memory->notes !== null ? (string) $memory->notes : null,
+		'source_type' => (string) $memory->source_type,
+		'source_id'   => intval($memory->source_id),
+		'place'       => $place,
+		'happened_at' => intval($memory->happened_at),
+		'time_created' => intval($memory->time_created),
+		'people'      => $people,
+	);
+}
+
+$segment0 = isset($segments[0]) ? $segments[0] : null; // 'from-experience' | 'saved'
+$segment1 = isset($segments[1]) ? $segments[1] : null; // experience id | 'mine' | memory id
+
+if ($segment0 === 'from-experience' && $segment1 !== null && is_numeric($segment1) && $method === 'POST') {
+	$memoriesModel = new OssnMemories();
+	$result = $memoriesModel->createFromExperience($segment1, $api_user_guid);
+	if ($result['status'] === 'not_found') {
+		ossn_api_error('not_found', 'Experience not found', 404);
+	}
+	if ($result['status'] === 'forbidden') {
+		ossn_api_error('forbidden', 'Only someone who was really part of this experience can save it as a memory', 403);
+	}
+	if ($result['status'] === 'not_happened_yet') {
+		ossn_api_error('validation_error', 'This experience has not happened yet', 422);
+	}
+	if ($result['status'] !== 'ok') {
+		ossn_api_error('failed', 'Could not save memory', 422);
+	}
+	ossn_api_json(array('id' => intval($result['id'])));
+}
+
+if ($segment0 === 'saved' && $segment1 === null && $method === 'GET') {
+	$memoriesModel = new OssnMemories();
+	$limit = input('limit') ? max(1, min(100, intval(input('limit')))) : 50;
+	$rows = $memoriesModel->myMemories($api_user_guid, $limit);
+	$out = array();
+	foreach ($rows as $row) {
+		$out[] = ossn_api_memory_json($row, $memoriesModel);
+	}
+	ossn_api_json(array('memories' => $out));
+}
+
+if ($segment0 === 'saved' && $segment1 !== null && is_numeric($segment1) && $method === 'GET') {
+	$memoriesModel = new OssnMemories();
+	$memory = $memoriesModel->getMemory($segment1);
+	if (!$memory) {
+		ossn_api_error('not_found', 'Memory not found', 404);
+	}
+	if (!$memoriesModel->canView($memory, $api_user_guid)) {
+		ossn_api_error('forbidden', 'Not allowed to view this memory', 403);
+	}
+	ossn_api_json(array('memory' => ossn_api_memory_json($memory, $memoriesModel)));
+}
+
+if ($segment0 === 'saved' && $segment1 !== null && is_numeric($segment1) && $method === 'PATCH') {
+	$memoriesModel = new OssnMemories();
+	$ok = $memoriesModel->updateNotes($segment1, $api_user_guid, input('notes'));
+	if (!$ok) {
+		ossn_api_error('forbidden', 'Not allowed to edit this memory', 403);
+	}
+	ossn_api_json(array('status' => 'ok'));
+}
 
 if ($method !== 'GET') {
 	ossn_api_error('not_found', 'Unknown memories route', 404);

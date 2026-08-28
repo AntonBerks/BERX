@@ -1335,6 +1335,31 @@ export interface BerxMemory {
 }
 
 /**
+ * BERX WORLD — a real, PERSISTED Memory (classes/OssnMemories.php),
+ * additive to BerxMemory's derived "on this day" scan above, not a
+ * replacement for it. Saved deliberately, from a real Experience the
+ * caller actually took part in — `people` is a real snapshot of who
+ * was really there, not a live-recomputed list.
+ */
+export interface BerxSavedMemoryPerson {
+	guid: number;
+	username: string | null;
+	icon: string | null;
+}
+
+export interface BerxSavedMemory {
+	id: number;
+	title: string;
+	notes: string | null;
+	source_type: 'experience';
+	source_id: number;
+	place: {guid: number; title: string} | null;
+	happened_at: number;
+	time_created: number;
+	people: BerxSavedMemoryPerson[];
+}
+
+/**
  * Error response shape lives in @berx/core as BerxApiErrorBody, not
  * duplicated here — this file is response/request DATA types only,
  * transport-level error shape belongs with the transport primitives.

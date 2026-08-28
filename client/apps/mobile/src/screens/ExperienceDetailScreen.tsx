@@ -58,6 +58,8 @@ export default function ExperienceDetailScreen({api, id, onOpenPlace, onOpenEven
 	const [saving, setSaving] = useState(false);
 	const [deleting, setDeleting] = useState(false);
 	const [editError, setEditError] = useState<string | null>(null);
+	const [savingMemory, setSavingMemory] = useState(false);
+	const [memorySaved, setMemorySaved] = useState(false);
 
 	const load = useCallback(async () => {
 		setLoading(true);
@@ -87,6 +89,26 @@ export default function ExperienceDetailScreen({api, id, onOpenPlace, onOpenEven
 			// real error (e.g. not actually invited) — nothing optimistic
 		} finally {
 			setBusy(false);
+		}
+	}
+
+	/**
+	 * BERX WORLD — Experience -> Memory. Real, server-guarded (owner or
+	 * a real accepted participant, only once scheduled_start has
+	 * actually passed — see OssnMemories::createFromExperience()'s own
+	 * header); this button is only ever shown when both are already
+	 * true, never offered as a dead end that would 403/422.
+	 */
+	async function saveMemory() {
+		if (!experience) return;
+		setSavingMemory(true);
+		try {
+			await api.saveMemoryFromExperience(experience.id);
+			setMemorySaved(true);
+		} catch {
+			// real rejection (e.g. already saved) — button stays, no fake success
+		} finally {
+			setSavingMemory(false);
 		}
 	}
 
@@ -221,6 +243,16 @@ export default function ExperienceDetailScreen({api, id, onOpenPlace, onOpenEven
 
 				{experience.description ? <Text style={styles.description}>{experience.description}</Text> : null}
 
+				{experience.scheduled_start * 1000 <= Date.now() && (experience.is_own || experience.my_status === 'accepted') ? (
+					<View style={styles.memoryRow}>
+						{memorySaved ? (
+							<Text style={styles.memorySavedText}>Сохранено как воспоминание ✓</Text>
+						) : (
+							<BerxButton label="Сохранить как воспоминание" variant="secondary" loading={savingMemory} onPress={saveMemory} fullWidth />
+						)}
+					</View>
+				) : null}
+
 				{!experience.is_own && experience.my_status === 'invited' ? (
 					<View style={styles.actions}>
 						<BerxButton label="Пойду" loading={busy} onPress={() => respond(true)} />
@@ -290,6 +322,8 @@ const styles = StyleSheet.create({
 	anchorTitle: {fontSize: typography.sizeBase, color: colors.white, fontWeight: typography.weightMedium},
 	anchorType: {fontSize: typography.sizeXs, color: colors.textFaint},
 	description: {fontSize: typography.sizeBase, color: colors.text, lineHeight: typography.sizeBase * typography.lineHeightBase},
+	memoryRow: {marginTop: spacing.xs},
+	memorySavedText: {color: colors.accent, fontSize: typography.sizeSm, fontWeight: typography.weightMedium, textAlign: 'center'},
 	actions: {flexDirection: 'row', gap: spacing.sm},
 	toggleText: {fontSize: typography.sizeSm, color: colors.accent, fontWeight: typography.weightMedium},
 	hint: {fontSize: typography.sizeSm, color: colors.textFaint},

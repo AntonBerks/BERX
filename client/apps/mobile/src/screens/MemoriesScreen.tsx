@@ -8,13 +8,24 @@
  * same "on this day" prior-year matching as posts/photos, see
  * memories.php's own header) closes the "remember" step of the
  * Experience lifecycle with the "verify" step's real data.
+ *
+ * BERX WORLD — a real, PERSISTED "Saved" rail (api.mySavedMemories(),
+ * classes/OssnMemories.php), additive to the derived "on this day"
+ * scan above — a different real object, not a recolor of the same
+ * list. Saved deliberately from a real Experience (see
+ * ExperienceDetailScreen's own "Сохранить как воспоминание" action),
+ * with a real avatar cluster of who was actually there — same "who"
+ * visual language PlansScreen already established, reused rather than
+ * inventing a third pattern for "a group of real people connected to
+ * one object."
  */
 import {useCallback, useEffect, useState} from 'react';
 import {View, Text, Image, FlatList, Pressable, RefreshControl, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
-import type {BerxMemory} from '@berx/api/types';
+import type {BerxMemory, BerxSavedMemory} from '@berx/api/types';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
+import {BerxAvatar} from '../../../../packages/design-system/src/components/BerxAvatar';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
 
@@ -54,6 +65,7 @@ function groupByYearsAgo(memories: BerxMemory[]): Section[] {
 
 export default function MemoriesScreen({api, onOpenPost, onOpenAlbum, onOpenPlace, onBack}: Props) {
 	const [memories, setMemories] = useState<BerxMemory[]>([]);
+	const [saved, setSaved] = useState<BerxSavedMemory[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [refreshing, setRefreshing] = useState(false);
 	const [error, setError] = useState<string | null>(null);
@@ -62,8 +74,12 @@ export default function MemoriesScreen({api, onOpenPost, onOpenAlbum, onOpenPlac
 		setLoading(true);
 		setError(null);
 		try {
-			const res = await api.memories();
+			const [res, savedRes] = await Promise.all([
+				api.memories(),
+				api.mySavedMemories().catch(() => ({memories: []})), // real, additive — a failure here shouldn't blank out the "on this day" list
+			]);
 			setMemories(res.memories);
+			setSaved(savedRes.memories);
 		} catch (e) {
 			setError(e instanceof Error ? e.message : 'Не удалось загрузить воспоминания');
 		} finally {
@@ -81,14 +97,59 @@ export default function MemoriesScreen({api, onOpenPost, onOpenAlbum, onOpenPlac
 
 	const sections = groupByYearsAgo(memories);
 
+	const savedRail =
+		saved.length > 0 ? (
+			<View style={styles.savedSection}>
+				<Text style={styles.sectionTitle}>Сохранённые</Text>
+				<FlatList
+					horizontal
+					showsHorizontalScrollIndicator={false}
+					data={saved}
+					keyExtractor={(m: BerxSavedMemory) => `saved-${m.id}`}
+					contentContainerStyle={styles.savedRow}
+					renderItem={({item}: {item: BerxSavedMemory}) => (
+						<View style={styles.savedCard}>
+							<Text style={styles.savedTitle} numberOfLines={1}>{item.title}</Text>
+							<Text style={styles.savedMeta} numberOfLines={1}>
+								{new Date(item.happened_at * 1000).toLocaleDateString('ru-RU', {day: 'numeric', month: 'short', year: 'numeric'})}
+								{item.place ? ` · ${item.place.title}` : ''}
+							</Text>
+							{item.people.length > 0 ? (
+								<View style={styles.savedAvatars}>
+									{item.people.slice(0, 4).map((person, i) => (
+										<View key={person.guid} style={[styles.savedAvatarItem, {marginLeft: i === 0 ? 0 : -10, zIndex: 10 - i}]}>
+											<BerxAvatar iconUrl={person.icon} fallbackInitial={(person.username ?? '#').charAt(0)} size={24} />
+										</View>
+									))}
+								</View>
+							) : null}
+						</View>
+					)}
+				/>
+			</View>
+		) : null;
+
+	if (sections.length === 0 && saved.length === 0) {
+		return (
+			<View style={styles.screen}>
+				<BerxHeader title="Воспоминания" onBack={onBack} />
+				<BerxEmptyState title="Пока нет воспоминаний" subtitle="Здесь будут появляться посты и фото, опубликованные в этот день в прошлые годы." />
+			</View>
+		);
+	}
+
 	return (
 		<View style={styles.screen}>
 			<BerxHeader title="Воспоминания" onBack={onBack} />
 			{sections.length === 0 ? (
-				<BerxEmptyState title="Пока нет воспоминаний" subtitle="Здесь будут появляться посты и фото, опубликованные в этот день в прошлые годы." />
+				<>
+					{savedRail}
+					<BerxEmptyState title="Пока нет старых постов и фото" subtitle="Здесь будут появляться посты и фото, опубликованные в этот день в прошлые годы." />
+				</>
 			) : (
 				<BerxFadeIn style={styles.fadeFlex}>
 					<FlatList
+						ListHeaderComponent={savedRail}
 						data={sections}
 						keyExtractor={(s: Section) => String(s.yearsAgo)}
 						contentContainerStyle={styles.list}
@@ -151,4 +212,18 @@ const styles = StyleSheet.create({
 	rowBody: {flex: 1, gap: 2},
 	rowText: {fontSize: typography.sizeSm, color: colors.white},
 	rowMeta: {fontSize: typography.sizeXs, color: colors.textFaint},
+	savedSection: {paddingTop: spacing.md, gap: spacing.sm},
+	savedRow: {paddingHorizontal: spacing.md, gap: spacing.sm},
+	savedCard: {
+		width: 180,
+		backgroundColor: colors.surface,
+		borderRadius: radius.md,
+		padding: spacing.md,
+		marginRight: spacing.sm,
+		gap: 4,
+	},
+	savedTitle: {color: colors.white, fontSize: typography.sizeSm, fontWeight: typography.weightBold},
+	savedMeta: {color: colors.textFaint, fontSize: typography.sizeXs},
+	savedAvatars: {flexDirection: 'row', marginTop: spacing.xs},
+	savedAvatarItem: {borderRadius: radius.pill, borderWidth: 2, borderColor: colors.surface},
 });

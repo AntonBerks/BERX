@@ -98,6 +98,7 @@ import type {
 	BerxBusinessSubscription,
 	BerxBusinessType,
 	BerxMemory,
+	BerxSavedMemory,
 	BerxPostVisibility,
 	BerxNotificationPrefs,
 	BerxNotificationPrefType,
@@ -830,6 +831,29 @@ export class BerxApiClient {
 	/** Pure read over existing real posts/photos — components/OssnApi/v1/memories.php. No push notification is sent from this call; no real push infrastructure exists to send one from. */
 	async memories(): Promise<{memories: BerxMemory[]}> {
 		return this.request<{memories: BerxMemory[]}>('/memories');
+	}
+
+	/**
+	 * BERX WORLD — real, persisted Memories (classes/OssnMemories.php),
+	 * additive to memories() above. Only from an Experience the caller
+	 * actually took part in, and only once it's actually happened —
+	 * see OssnMemories::createFromExperience()'s own header for the
+	 * exact real guards.
+	 */
+	async saveMemoryFromExperience(experienceId: number): Promise<{id: number}> {
+		return this.request<{id: number}>(`/memories/from-experience/${experienceId}`, {method: 'POST'});
+	}
+
+	async mySavedMemories(limit = 50): Promise<{memories: BerxSavedMemory[]}> {
+		return this.request<{memories: BerxSavedMemory[]}>(`/memories/saved?limit=${limit}`);
+	}
+
+	async getSavedMemory(id: number): Promise<{memory: BerxSavedMemory}> {
+		return this.request<{memory: BerxSavedMemory}>(`/memories/saved/${id}`);
+	}
+
+	async updateMemoryNotes(id: number, notes: string): Promise<{status: string}> {
+		return this.request<{status: string}>(`/memories/saved/${id}`, {method: 'PATCH', body: {notes}});
 	}
 
 	/** `identifier` may be a real username OR a real numeric guid (as a string) — profiles.php resolves either. */
