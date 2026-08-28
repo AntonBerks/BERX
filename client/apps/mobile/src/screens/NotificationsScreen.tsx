@@ -67,6 +67,7 @@ const NOTIFICATION_VERB: Record<string, string> = {
 	'dating:photo:granted': 'открыл(а) вам доступ к фото',
 	'berx:place:review': 'оставил(а) отзыв о',
 	'berx:place:checkin': 'отметился(-лась) в',
+	'berx:offer:claimed': 'забронировал(а) предложение в',
 	'berx:place:comment': 'прокомментировал(а) ваш пост о месте',
 	'berx:event:rsvp': 'идёт на',
 	'berx:event:comment': 'прокомментировал(а)',

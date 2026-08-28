@@ -86,6 +86,8 @@ ossn_add_hook('notification:add', 'berx:place:review', 'ossn_api_notify_place_ow
 ossn_add_hook('notification:add', 'berx:place:comment', 'ossn_api_notify_place_owner');
 /** MAX BUILD — real checkpoint chain (places.php's own /checkin route): same real place-owner resolution, reused as-is. */
 ossn_add_hook('notification:add', 'berx:place:checkin', 'ossn_api_notify_place_owner');
+/** MAX BUILD — offers.php's own /claim route: subject_guid is the offer's real place_guid, so the same place-owner resolution applies unchanged. */
+ossn_add_hook('notification:add', 'berx:offer:claimed', 'ossn_api_notify_place_owner');
 
 function ossn_api_notify_event_owner($hook, $type, $return, $params) {
 	if (!class_exists('OssnEvents')) {

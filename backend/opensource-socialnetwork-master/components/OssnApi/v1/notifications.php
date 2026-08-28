@@ -55,7 +55,7 @@ function ossn_api_notification_actor($guid) {
  * assumed from the type string alone):
  *   like:post, comments:post, comments:post:group:wall,
  *   like:post:group:wall, wall:friends:tag, berx:place:comment    -> post guid
- *   berx:place:review, berx:place:checkin                         -> place guid
+ *   berx:place:review, berx:place:checkin, berx:offer:claimed     -> place guid
  *   berx:event:rsvp, berx:event:comment, berx:event:invite,
  *   berx:event:waitlist:promoted                                  -> event guid
  *   group:joinrequest                                             -> community (group) guid
@@ -85,7 +85,7 @@ function ossn_api_notification_subject($type, $subjectGuid) {
 		return array('title' => null, 'kind' => 'post');
 	}
 
-	if ($type === 'berx:place:review' || $type === 'berx:place:checkin') {
+	if ($type === 'berx:place:review' || $type === 'berx:place:checkin' || $type === 'berx:offer:claimed') {
 		$place = class_exists('OssnPlaces') ? (new OssnPlaces())->getPlace($subjectGuid) : null;
 		return array('title' => $place ? (string) $place->title : null, 'kind' => 'place');
 	}

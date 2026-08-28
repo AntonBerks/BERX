@@ -338,6 +338,7 @@ export type BerxNotificationPrefType =
 	| 'berx:place:review'
 	| 'berx:place:comment'
 	| 'berx:place:checkin'
+	| 'berx:offer:claimed'
 	| 'berx:event:rsvp'
 	| 'berx:event:comment'
 	| 'berx:event:invite'

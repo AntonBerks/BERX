@@ -112,6 +112,22 @@ if ($segment0 !== null && is_numeric($segment0) && $segment1 === 'claim' && $met
 	if ($result !== 'ok') {
 		ossn_api_error('claim_failed', 'Could not claim offer', 422);
 	}
+	// MAX BUILD — real checkpoint notification (directive §21/§45: the
+	// "Business -> Offer -> Redemption" flow was silent before this —
+	// the owner had no signal a claim happened short of manually
+	// opening the redemptions list). subject_guid is the offer's real
+	// PLACE guid, not the offer id, so this reuses the exact same
+	// ossn_api_notify_place_owner hook already resolving
+	// berx:place:review/comment/checkin's owner — no new resolution
+	// logic needed. item_guid carries the real offer id for whatever
+	// future UI wants it; subject_kind still resolves to 'place'
+	// (see notifications.php), same as every other place-rooted type.
+	if (class_exists('OssnNotifications')) {
+		$claimedOffer = $offers->getOffer(intval($segment0));
+		if ($claimedOffer && intval($claimedOffer->place_guid)) {
+			(new OssnNotifications())->add('berx:offer:claimed', intval($api_user_guid), intval($claimedOffer->place_guid), intval($segment0));
+		}
+	}
 	ossn_api_json(array('status' => 'ok'));
 }
 
