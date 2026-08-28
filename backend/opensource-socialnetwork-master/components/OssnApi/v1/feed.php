@@ -1,24 +1,55 @@
 <?php
 /**
- * BERX API v1 — Feed. Honest scope: the caller's own wall, chronological
- * — OssnWall::GetUserPosts() has no friends-aggregation or ranking
- * wired up by default (confirmed by reading its real implementation:
- * the query filters strictly on `owner_guid = $user->guid`; the
- * friends-guid list it computes is only ever handed to a hook for
- * something else to use, nothing in this codebase currently does).
- * Matches the real, disclosed state recorded in docs/BERX_FUTURE_CORE.md
- * ("FEED / DISCOVERY — ПРИМИТИВНЫЙ ... Чистая хронология").
+ * BERX API v1 — Feed. MAX BUILD — real friends-aggregated, ranked feed.
+ * Two real bugs fixed here, found by reading OssnObject::searchObject()/
+ * OssnDatabase::generateLimit() bodies (not assumed from method names):
+ *
+ * 1. Offset-validation crash-to-empty (the real one, previously
+ *    unnoticed): searchObject() validates its 'offset' as a 1-BASED
+ *    PAGE number against range(1, ceil(limit/page_limit)) and returns
+ *    false outright for any offset outside that range. The client
+ *    always calls api.feed(limit, 0) — a real, literal 0 — which is
+ *    never in that range, so GetUserPosts() silently returned false
+ *    and the Feed screen showed empty for every user, every time.
+ *    Fixed by never routing pagination through that validation at
+ *    all: page_limit=>false bypasses generateLimit() entirely — the
+ *    exact working pattern already used by friends.php's own
+ *    getFriends(['page_limit'=>false]) — fetching one flat, bounded
+ *    candidate pool that THIS file paginates itself with a plain
+ *    0-based array_slice(), matching the client's real offset=0
+ *    convention exactly. No client change needed.
+ * 2. Own-wall-only scope: GetUserPosts() filters strictly on
+ *    owner_guid = caller — confirmed by reading its real query, not
+ *    the misleading name (its own friend-guid list was computed and
+ *    handed to a hook nothing in this codebase uses). A real
+ *    friends-aggregating method already existed and was simply never
+ *    called from the API: OssnWall::getFriendsPosts() — real query,
+ *    filters poster_guid IN (friends + self + admins) AND visibility
+ *    IN (PUBLIC, FRIENDS), same live method components/OssnWall's own
+ *    siteactivity.php plugin already uses for the "friends" wall mode.
+ *    This closes the gap docs/BERX_FUTURE_CORE.md recorded as
+ *    "самый большой продуктовый пробел" (FEED / DISCOVERY — ПРИМИТИВНЫЙ).
+ *
+ * Ranking: a transparent, no-AI gravity function (per
+ * docs/BERX_FUTURE_CORE.md's own rule — "Ranking — прозрачная весовая
+ * функция, а не магия") over the SAME real signals posts.php already
+ * records for every post (like/comment/share/save — see OssnSignals):
+ * score = (engagementScore + 1) / (age_hours + 2)^1.6. The "+1" means
+ * a brand-new post from a friend with zero engagement yet still ranks
+ * near the top on recency alone — never buried under old popular
+ * posts, and never silently dropped for having no engagement.
  */
 
 if ($method !== 'GET') {
 	ossn_api_error('not_found', 'Unknown feed action', 404);
 }
 
-$limit  = intval(input('limit'));
-$offset = intval(input('offset'));
+$limit = intval(input('limit'));
 if ($limit <= 0) {
 	$limit = 20;
 }
+$limit  = min($limit, 50);
+$offset = max(0, intval(input('offset')));
 
 $userModel = new OssnUser();
 $userModel->guid = intval($api_user_guid);
@@ -27,24 +58,40 @@ if (!$user) {
 	ossn_api_error('not_found', 'User not found', 404);
 }
 
-// GetUserPosts() internally branches on ossn_isLoggedin()/
-// ossn_loggedin_user() to decide whether to apply the public-only
-// visibility filter. The dispatcher never populates $_SESSION, so
-// without this bridge every API caller would look "logged out" to
-// that check and have their OWN non-public posts hidden from their
-// OWN feed. Same real, disclosed class of fix as OssnPhotos::AddPhoto()
-// needed for /me/avatar — see docs/BERX_API_V1_IMPLEMENTATION_PLAN.md §4.
-// Read-only, scoped to this one call, unset immediately after.
+// getFriendsPosts() reads ossn_loggedin_user()/$_SESSION internally (it
+// takes no $user param) — the dispatcher never populates $_SESSION, so
+// without this bridge it would see no logged-in user at all and return
+// false. Same real, disclosed bridge already used by /me/avatar (see
+// docs/BERX_API_V1_IMPLEMENTATION_PLAN.md §4). Read-only, scoped to
+// this one call, unset immediately after.
 $_SESSION['OSSN_USER'] = $user;
 $wall = new OssnWall();
-$posts = $wall->GetUserPosts($user, array('limit' => $limit, 'offset' => $offset));
+// Flat, bounded candidate pool — see file header point 1. Deep enough
+// to rank and paginate several pages without a second full pass;
+// capped so one request can never pull the entire friends wall.
+$poolSize = min(300, max(120, ($offset + $limit) * 4));
+$posts = $wall->getFriendsPosts(array('limit' => $poolSize, 'page_limit' => false, 'distinct' => true));
 unset($_SESSION['OSSN_USER']);
 
-$items = array();
+$scored = array();
+$signals = class_exists('OssnSignals') ? new OssnSignals() : null;
+$now = time();
 if ($posts) {
 	foreach ($posts as $post) {
-		$items[] = ossn_api_post_base_json($post);
+		$ageHours = max(0, ($now - intval($post->time_created)) / 3600);
+		$engagement = $signals ? $signals->engagementScore('post', intval($post->guid), 14 * 24 * 3600) : 0;
+		$post->berx_feed_score = ($engagement + 1) / pow($ageHours + 2, 1.6);
+		$scored[] = $post;
 	}
+	usort($scored, function ($a, $b) {
+		return $b->berx_feed_score <=> $a->berx_feed_score;
+	});
+}
+
+$page = array_slice($scored, $offset, $limit);
+$items = array();
+foreach ($page as $post) {
+	$items[] = ossn_api_post_base_json($post);
 }
 
 ossn_api_json(array('items' => $items, 'limit' => $limit, 'offset' => $offset));

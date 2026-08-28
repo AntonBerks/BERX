@@ -3,11 +3,17 @@
  *
  * Story rail added on top: real data from api.storiesFeed() (built in
  * the Stories phase), not a static mock — tapping a ring opens the
- * real StoryViewer via onOpenStoryGroup. The reference images showed
- * a "Для вас / Подписки / Рядом" tab row above the feed — deliberately
- * NOT copied: feed.php only returns the caller's own wall (see the
- * honest note further down), so tabs implying different underlying
- * feeds would be fake UI with no real data behind two of the three.
+ * real StoryViewer via onOpenStoryGroup.
+ *
+ * MAX BUILD — feed.php now returns a real friends-aggregated, ranked
+ * feed (own + friends + admin posts, transparent recency/engagement
+ * scoring — see feed.php's own header for the two real bugs this
+ * fixed: an offset-validation bug that made the feed always render
+ * empty, and an own-wall-only scope bug). The reference images showed
+ * a "Для вас / Подписки / Рядом" tab row above the feed — still
+ * deliberately NOT copied: there is exactly one real ranked feed, not
+ * three independently-sourced ones, so a tab row implying otherwise
+ * would be fake UI with no distinct data behind two of the three tabs.
  */
 import {useCallback, useEffect, useState} from 'react';
 import {View, Text, FlatList, RefreshControl, StyleSheet, Pressable} from 'react-native';
