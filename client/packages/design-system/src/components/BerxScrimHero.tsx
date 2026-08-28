@@ -19,14 +19,23 @@ export interface BerxScrimHeroProps {
 	subtitle?: string;
 	badge?: React.ReactNode;
 	height?: number;
+	/**
+	 * BERX WORLD TRANSFORMATION — fill the parent's available space
+	 * (flex: 1) instead of a fixed pixel height. Added for
+	 * DatingDiscoverScreen's full-bleed card (its whole screen height
+	 * minus the top bar and bottom panel, not a fixed number) rather
+	 * than hand-rolling a second hero implementation for one caller.
+	 * `height` is ignored when this is set.
+	 */
+	fill?: boolean;
 	children?: React.ReactNode;
 }
 
 const SCRIM_STEPS = [0, 0.15, 0.35, 0.6, 0.92];
 
-export function BerxScrimHero({imageUrl, title, subtitle, badge, height = 280, children}: BerxScrimHeroProps) {
+export function BerxScrimHero({imageUrl, title, subtitle, badge, height = 280, fill, children}: BerxScrimHeroProps) {
 	return (
-		<View style={[styles.wrap, {height}]}>
+		<View style={[styles.wrap, fill ? styles.fill : {height}]}>
 			{imageUrl ? (
 				<Image source={{uri: imageUrl}} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
 			) : (
@@ -61,6 +70,7 @@ export function BerxScrimHero({imageUrl, title, subtitle, badge, height = 280, c
 
 const styles = StyleSheet.create({
 	wrap: {width: '100%', backgroundColor: colors.graphite, justifyContent: 'flex-end'},
+	fill: {flex: 1},
 	fallback: {alignItems: 'center', justifyContent: 'center', backgroundColor: colors.graphite},
 	fallbackGlyph: {fontSize: typography.sizeHero, color: colors.textFaint, fontWeight: typography.weightBold},
 	content: {padding: spacing.lg, gap: spacing.xs},

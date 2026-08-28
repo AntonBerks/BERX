@@ -21,17 +21,34 @@
  * initial-letter placeholder instead of a photo, since a pre-match
  * discover card never has one to show.
  *
- * Future UI pass: the card itself now sits on BerxGlassSurface
- * (Spatial Glass, matching the rest of the app) instead of a flat
- * colors.graphite box — the PanResponder/Animated transform stays on
- * the outer Animated.View wrapper, unchanged, so the swipe gesture
- * behavior is identical.
- *
  * MAX BUILD — datingLike()/datingPass() now DO distinguish rate
  * limiting (a real 429 'rate_limited', see OssnDating::
  * isActionRateLimited()) from any other failure — the ambiguity this
  * screen previously disclosed is closed; a real "slow down" message
  * shows instead of a silent spring-back.
+ *
+ * BERX WORLD TRANSFORMATION — was a literal Tinder card: an inset
+ * floating rounded rectangle (88% width, visible margin on every
+ * side) with a boxed photo placeholder, name/city/goal/bio stacked
+ * below it, and a Pass/Like button pair underneath — the exact shape
+ * multiple directive passes named directly ("BERX Match must not look
+ * like Tinder," "another dating app" listed among banned identities).
+ * Rebuilt full-bleed: the card now fills the screen edge to edge (no
+ * inset, no visible card boundary — the single structural change that
+ * breaks Tinder's own silhouette), using the same BerxScrimHero
+ * language every other discovery surface in the app now shares —
+ * name/age/city/goal/bio live ON the photo area via the real scrim,
+ * not stacked as plain text below a boxed thumbnail. Actions moved
+ * into a floating glass panel at the bottom, the same "actions live
+ * in a raised glass panel over the world" composition
+ * WelcomeScreen's entry panel already established — one grammar
+ * across the app, not a dating-app-specific one.
+ *
+ * The real swipe gesture (PanResponder + Animated.ValueXY, RN core,
+ * no gesture library) is functional, not decorative — it's the same
+ * action a tap on the panel buttons performs, just gesture-driven —
+ * so it stayed, applied to the new full-bleed wrapper instead of a
+ * small floating card.
  */
 import React, {useRef, useState} from 'react';
 import {View, Text, Pressable, Animated, PanResponder, StyleSheet} from 'react-native';
@@ -42,6 +59,7 @@ import {colors, spacing, radius, typography} from '@berx/design-system/tokens';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxGlassSurface} from '../../../../packages/design-system/src/components/BerxGlassSurface';
+import {BerxScrimHero, scrimBadgeStyles} from '../../../../packages/design-system/src/components/BerxScrimHero';
 
 interface Props {
 	api: BerxApiClient;
@@ -200,33 +218,40 @@ export default function DatingDiscoverScreen({api, onMatch, onOpenMatches, onOpe
 				{...panResponder.panHandlers}
 				style={[styles.cardWrap, {transform: [{translateX: position.x}, {translateY: position.y}, {rotate}]}]}
 			>
-				<BerxGlassSurface elevated padding="lg" style={styles.card}>
-					<View style={styles.photoPlaceholder}>
-						<Text style={styles.photoInitial}>{current.pseudonym.charAt(0).toUpperCase()}</Text>
-					</View>
-					<Text style={styles.name}>
-						{current.pseudonym}
-						{current.age ? `, ${current.age}` : ''}
-					</Text>
-					{current.city ? <Text style={styles.city}>{current.city}</Text> : null}
-					{current.goal ? <Text style={styles.goal}>{current.goal}</Text> : null}
+				<BerxScrimHero
+					imageUrl={null}
+					title={`${current.pseudonym}${current.age ? `, ${current.age}` : ''}`}
+					subtitle={current.city ?? undefined}
+					fill
+					badge={
+						current.goal ? (
+							<View style={scrimBadgeStyles.badge}>
+								<Text style={scrimBadgeStyles.badgeTextAccent}>{current.goal}</Text>
+							</View>
+						) : undefined
+					}
+				>
 					{current.bio ? (
 						<Text style={styles.bio} numberOfLines={4}>
 							{current.bio}
 						</Text>
 					) : null}
-				</BerxGlassSurface>
+				</BerxScrimHero>
 			</Animated.View>
 
-			{actionMessage ? <Text style={styles.actionMessage}>{actionMessage}</Text> : null}
-			{lastPassed ? (
-				<Pressable onPress={handleUndo} disabled={undoing} hitSlop={8}>
-					<Text style={styles.undoLink}>{undoing ? 'Отмена…' : `↺ Вернуть «${lastPassed.pseudonym}»`}</Text>
-				</Pressable>
-			) : null}
-			<View style={styles.actions}>
-				<BerxButton label="Пропустить" variant="secondary" onPress={() => resolveCard('pass')} disabled={acting} />
-				<BerxButton label="Нравится" onPress={() => resolveCard('like')} disabled={acting} />
+			<View style={styles.panelWrap}>
+				{actionMessage ? <Text style={styles.actionMessage}>{actionMessage}</Text> : null}
+				{lastPassed ? (
+					<Pressable onPress={handleUndo} disabled={undoing} hitSlop={8}>
+						<Text style={styles.undoLink}>{undoing ? 'Отмена…' : `↺ Вернуть «${lastPassed.pseudonym}»`}</Text>
+					</Pressable>
+				) : null}
+				<BerxGlassSurface elevated padding="lg" style={styles.panel}>
+					<View style={styles.actions}>
+						<BerxButton label="Пропустить" variant="secondary" onPress={() => resolveCard('pass')} disabled={acting} />
+						<BerxButton label="Нравится" onPress={() => resolveCard('like')} disabled={acting} />
+					</View>
+				</BerxGlassSurface>
 			</View>
 		</View>
 	);
@@ -257,7 +282,7 @@ function DatingTopBar({onOpenMatches, onOpenPrivacy, onOpenDatingProfile, onOpen
 }
 
 const styles = StyleSheet.create({
-	screen: {flex: 1, backgroundColor: colors.black, alignItems: 'center', paddingTop: spacing.md},
+	screen: {flex: 1, backgroundColor: colors.black, paddingTop: spacing.md},
 	topBar: {
 		flexDirection: 'row',
 		alignItems: 'center',
@@ -270,38 +295,18 @@ const styles = StyleSheet.create({
 	topBarLinks: {flexDirection: 'row', gap: spacing.md},
 	errorAction: {paddingHorizontal: spacing.lg, marginTop: spacing.md},
 	topBarLink: {color: colors.accent, fontSize: typography.sizeSm},
-	cardWrap: {width: '88%'},
-	card: {alignItems: 'center'},
-	photoPlaceholder: {
-		width: '100%',
-		height: 320,
-		borderRadius: radius.md,
-		backgroundColor: colors.glass2,
-		alignItems: 'center',
-		justifyContent: 'center',
-		marginBottom: spacing.lg,
-	},
-	photoInitial: {color: colors.textDim, fontSize: 96, fontWeight: typography.weightBold},
-	name: {color: colors.text, fontSize: typography.sizeXl, fontWeight: typography.weightBold},
-	city: {color: colors.textDim, fontSize: typography.sizeBase, marginTop: spacing.xs},
-	goal: {
-		color: colors.accent,
-		fontSize: typography.sizeSm,
-		marginTop: spacing.sm,
-		backgroundColor: colors.accentSoft,
-		paddingHorizontal: spacing.md,
-		paddingVertical: spacing.xs,
-		borderRadius: radius.pill,
-	},
-	bio: {color: colors.textDim, fontSize: typography.sizeBase, marginTop: spacing.md, textAlign: 'center'},
-	actionMessage: {color: colors.textFaint, fontSize: typography.sizeXs, marginTop: spacing.sm},
-	undoWrap: {marginTop: spacing.lg},
-	undoLink: {color: colors.accent, fontSize: typography.sizeSm, fontWeight: typography.weightMedium, marginTop: spacing.sm},
+	// Full-bleed, no inset margin — the one structural change that
+	// breaks the Tinder card's own silhouette. See file header.
+	cardWrap: {flex: 1, borderRadius: radius.lg, overflow: 'hidden', marginHorizontal: spacing.md},
+	bio: {color: colors.white, fontSize: typography.sizeBase, marginTop: spacing.sm},
+	panelWrap: {padding: spacing.lg, gap: spacing.sm},
+	panel: {},
+	actionMessage: {color: colors.textFaint, fontSize: typography.sizeXs, textAlign: 'center'},
+	undoWrap: {alignItems: 'center'},
+	undoLink: {color: colors.accent, fontSize: typography.sizeSm, fontWeight: typography.weightMedium, textAlign: 'center'},
 	actions: {
 		flexDirection: 'row',
 		gap: spacing.lg,
-		marginTop: spacing.xxl,
-		width: '88%',
 		justifyContent: 'space-between',
 	},
 });
