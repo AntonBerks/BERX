@@ -12,9 +12,17 @@
  * over real approved-join activity — same real mechanism as
  * PlacesListScreen/EventsListScreen's own trending rails. Best-effort,
  * hidden entirely when nothing has real signals yet.
+ *
+ * BERX WORLD TRANSFORMATION — the main list was plain text rows with
+ * no image at all, even though every community already has a real
+ * cover_url (the trending rail already used it, the main list simply
+ * never did). Rebuilt on the same BerxScrimHero language as Places/
+ * Events — one consistent grammar across all three discovery lists —
+ * so Communities finally shows its own real cover photos instead of
+ * being the one list in the app with no visual identity per row.
  */
 import {useCallback, useEffect, useState} from 'react';
-import {View, Text, Image, FlatList, Pressable, RefreshControl, StyleSheet} from 'react-native';
+import {View, Text, FlatList, Pressable, RefreshControl, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxCommunity} from '@berx/api/types';
 import {ruPeopleLabel} from '@berx/domain';
@@ -23,6 +31,7 @@ import {BerxHeader} from '../../../../packages/design-system/src/components/Berx
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
+import {BerxScrimHero, scrimBadgeStyles} from '../../../../packages/design-system/src/components/BerxScrimHero';
 import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
 
 interface Props {
@@ -87,14 +96,13 @@ export default function CommunitiesListScreen({api, onOpenCommunity, onCreate, o
 						keyExtractor={(c: BerxCommunity & {trending_score: number; distinct_actors: number}) => `trending-${c.guid}`}
 						contentContainerStyle={styles.trendingRow}
 						renderItem={({item}: {item: BerxCommunity & {trending_score: number; distinct_actors: number}}) => (
-							<Pressable style={styles.trendingCard} onPress={() => onOpenCommunity(item.guid)}>
-								{item.cover_url ? (
-									<Image source={{uri: item.cover_url}} style={styles.trendingImage} />
-								) : (
-									<View style={styles.trendingImageFallback} />
-								)}
-								<Text style={styles.trendingTitle} numberOfLines={1}>🔥 {item.name}</Text>
-								<Text style={styles.trendingSubtitle}>{ruPeopleLabel(item.distinct_actors)}</Text>
+							<Pressable style={styles.trendingTile} onPress={() => onOpenCommunity(item.guid)}>
+								<BerxScrimHero
+									imageUrl={item.cover_url}
+									title={item.name}
+									subtitle={`🔥 ${ruPeopleLabel(item.distinct_actors)}`}
+									height={140}
+								/>
 							</Pressable>
 						)}
 					/>
@@ -125,6 +133,8 @@ export default function CommunitiesListScreen({api, onOpenCommunity, onCreate, o
 					<FlatList
 						data={items}
 						keyExtractor={(c: BerxCommunity) => String(c.guid)}
+						contentContainerStyle={styles.list}
+						ItemSeparatorComponent={() => <View style={styles.listSeparator} />}
 						refreshControl={
 							<RefreshControl
 								refreshing={refreshing}
@@ -136,14 +146,20 @@ export default function CommunitiesListScreen({api, onOpenCommunity, onCreate, o
 							/>
 						}
 						renderItem={({item}: {item: BerxCommunity}) => (
-							<Pressable style={styles.row} onPress={() => onOpenCommunity(item.guid)}>
-								<Text style={styles.name}>{item.name}</Text>
-								{item.description ? (
-									<Text style={styles.description} numberOfLines={2}>
-										{item.description}
-									</Text>
-								) : null}
-								{item.is_member ? <Text style={styles.memberBadge}>Вы участник</Text> : null}
+							<Pressable style={styles.tile} onPress={() => onOpenCommunity(item.guid)}>
+								<BerxScrimHero
+									imageUrl={item.cover_url}
+									title={item.name}
+									subtitle={item.description ?? undefined}
+									height={170}
+									badge={
+										item.is_member ? (
+											<View style={scrimBadgeStyles.badge}>
+												<Text style={scrimBadgeStyles.badgeTextAccent}>Вы участник</Text>
+											</View>
+										) : undefined
+									}
+								/>
 							</Pressable>
 						)}
 					/>
@@ -162,16 +178,11 @@ const styles = StyleSheet.create({
 	tabTextActive: {color: colors.accent, fontWeight: typography.weightMedium},
 	trendingLabel: {color: colors.accent, fontSize: typography.sizeXs, fontWeight: typography.weightBold, textTransform: 'uppercase', paddingHorizontal: spacing.lg, paddingTop: spacing.xs},
 	trendingRow: {paddingHorizontal: spacing.lg, paddingVertical: spacing.sm, gap: spacing.sm},
-	trendingCard: {width: 140, marginRight: spacing.sm},
-	trendingImage: {width: 140, height: 90, borderRadius: radius.md, backgroundColor: colors.graphite},
-	trendingImageFallback: {width: 140, height: 90, borderRadius: radius.md, backgroundColor: colors.graphite},
-	trendingTitle: {color: colors.text, fontSize: typography.sizeXs, marginTop: 4},
-	trendingSubtitle: {color: colors.textFaint, fontSize: typography.sizeXs},
+	trendingTile: {width: 220, marginRight: spacing.sm, borderRadius: radius.md, overflow: 'hidden'},
 	searchRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.lg, paddingBottom: spacing.md},
 	searchInput: {flex: 1},
 	fadeFlex: {flex: 1},
-	row: {padding: spacing.lg, borderBottomWidth: 1, borderBottomColor: colors.borderSoft},
-	name: {color: colors.text, fontSize: typography.sizeBase, fontWeight: typography.weightMedium},
-	description: {color: colors.textDim, fontSize: typography.sizeSm, marginTop: spacing.xs},
-	memberBadge: {color: colors.accent, fontSize: typography.sizeXs, marginTop: spacing.xs},
+	list: {paddingHorizontal: spacing.lg, paddingBottom: spacing.xxl},
+	listSeparator: {height: spacing.md},
+	tile: {borderRadius: radius.lg, overflow: 'hidden'},
 });
