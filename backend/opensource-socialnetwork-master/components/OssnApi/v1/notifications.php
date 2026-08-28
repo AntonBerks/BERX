@@ -63,6 +63,7 @@ function ossn_api_notification_actor($guid) {
  *   just became — OssnPlans::convertToEvent() — not the plan itself)
  *   group:joinrequest                                             -> community (group) guid
  *   berx:plan:invite, berx:plan:accepted                          -> plan guid
+ *   berx:moment:tag                                                -> moment guid
  * Anything else (ossnpoke:poke, dating:*, unrecognized) has no
  * separate "subject" beyond the poster themselves — real null, never
  * a guessed title.
@@ -111,6 +112,16 @@ function ossn_api_notification_subject($type, $subjectGuid) {
 	if ($type === 'berx:plan:invite' || $type === 'berx:plan:accepted') {
 		$plan = class_exists('OssnPlans') ? (new OssnPlans())->getPlan($subjectGuid) : null;
 		return array('title' => $plan ? (string) $plan->title : null, 'kind' => 'plan');
+	}
+
+	// BERX Life Moments — a moment has no title of its own; its real text is the closest honest analogue.
+	if ($type === 'berx:moment:tag') {
+		$moment = class_exists('OssnLifeMoments') ? (new OssnLifeMoments())->getMoment($subjectGuid) : null;
+		if ($moment) {
+			$text = trim((string) $moment->text);
+			return array('title' => $text !== '' ? mb_substr($text, 0, 80) : null, 'kind' => 'moment');
+		}
+		return array('title' => null, 'kind' => 'moment');
 	}
 
 	return array('title' => null, 'kind' => null);

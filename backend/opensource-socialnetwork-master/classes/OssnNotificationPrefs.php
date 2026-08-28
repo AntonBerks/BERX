@@ -57,6 +57,7 @@ class OssnNotificationPrefs extends OssnDatabase {
 			'berx:plan:invite',
 			'berx:plan:accepted',
 			'berx:plan:converted',
+			'berx:moment:tag',
 		);
 	}
 

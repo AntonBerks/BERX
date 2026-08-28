@@ -59,6 +59,26 @@ function ossn_api_memory_json($memory, $memoriesModel) {
 			'icon'     => $user ? (string) $user->iconURL()->large : null,
 		);
 	}
+	// BERX WORLD — real Moment -> Memory link: OssnMemories' own
+	// SOURCE_EXPERIENCE/SOURCE_EVENT_CHECKIN constants are the exact
+	// same string values as OssnLifeMoments' — the real moments
+	// captured live during this memory's source are surfaced here
+	// directly (the same rows, never copied into the memory itself),
+	// closing the "a Moment should be able to become part of Memory"
+	// requirement honestly.
+	$moments = array();
+	if (class_exists('OssnLifeMoments')) {
+		$momentsModel = new OssnLifeMoments();
+		foreach ($momentsModel->momentsForSource($memory->source_type, $memory->source_id, 20) as $moment) {
+			$owner = ossn_user_by_guid($moment->owner_guid);
+			$moments[] = array(
+				'id'             => intval($moment->id),
+				'owner_username' => $owner ? (string) $owner->username : null,
+				'text'           => (string) $moment->text,
+				'time_created'   => intval($moment->time_created),
+			);
+		}
+	}
 	return array(
 		'id'          => intval($memory->id),
 		'title'       => (string) $memory->title,
@@ -69,6 +89,7 @@ function ossn_api_memory_json($memory, $memoriesModel) {
 		'happened_at' => intval($memory->happened_at),
 		'time_created' => intval($memory->time_created),
 		'people'      => $people,
+		'moments'     => $moments,
 	);
 }
 

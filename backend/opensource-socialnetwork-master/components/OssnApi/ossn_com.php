@@ -116,6 +116,8 @@ ossn_add_hook('notification:add', 'berx:event:waitlist:promoted', 'ossn_api_noti
 ossn_add_hook('notification:add', 'berx:plan:invite', 'ossn_api_notify_passthrough');
 ossn_add_hook('notification:add', 'berx:plan:accepted', 'ossn_api_notify_passthrough');
 ossn_add_hook('notification:add', 'berx:plan:converted', 'ossn_api_notify_passthrough');
+/** BERX Life Moments — OssnLifeMoments::create() always supplies the real tagged person as OssnNotifications::add()'s 5th param, same passthrough shape as event:invite. */
+ossn_add_hook('notification:add', 'berx:moment:tag', 'ossn_api_notify_passthrough');
 
 /**
  * Real resource whitelist. Never build an include path from the URL
@@ -231,6 +233,11 @@ function ossn_api_v1_resources() {
 		// class's own header: People + Time + Place + Activity, can
 		// transform into a real Event.
 		'plans'         => __OSSN_API__ . 'v1/plans.php',
+		// BERX Life Moments — a genuinely new object (classes/
+		// OssnLifeMoments.php), named 'lifemoments' (not 'moments' —
+		// that name already means Business Moments, a completely
+		// different concept). See that class's own header.
+		'lifemoments'   => __OSSN_API__ . 'v1/lifemoments.php',
 		// 'business' (the SEPARATE top-level resource — /business/
 		// places/{guid}/team|subscription|hours|claim|moments|
 		// impressions) still deliberately NOT listed: those branches

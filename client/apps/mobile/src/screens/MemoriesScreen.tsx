@@ -123,6 +123,12 @@ export default function MemoriesScreen({api, onOpenPost, onOpenAlbum, onOpenPlac
 									))}
 								</View>
 							) : null}
+							{/* BERX WORLD — the real Moments captured live during this memory's source (Moment -> Memory link), same rows, never duplicated. */}
+							{item.moments.length > 0 ? (
+								<Text style={styles.savedMomentPreview} numberOfLines={2}>
+									「{item.moments[0].text}」{item.moments.length > 1 ? ` +${item.moments.length - 1}` : ''}
+								</Text>
+							) : null}
 						</View>
 					)}
 				/>
@@ -226,4 +232,5 @@ const styles = StyleSheet.create({
 	savedMeta: {color: colors.textFaint, fontSize: typography.sizeXs},
 	savedAvatars: {flexDirection: 'row', marginTop: spacing.xs},
 	savedAvatarItem: {borderRadius: radius.pill, borderWidth: 2, borderColor: colors.surface},
+	savedMomentPreview: {color: colors.textDim, fontSize: typography.sizeXs, fontStyle: 'italic', marginTop: spacing.xs},
 });

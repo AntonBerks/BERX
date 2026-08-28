@@ -99,6 +99,8 @@ import type {
 	BerxBusinessType,
 	BerxMemory,
 	BerxSavedMemory,
+	BerxLifeMoment,
+	BerxLifeMomentSourceType,
 	BerxPostVisibility,
 	BerxNotificationPrefs,
 	BerxNotificationPrefType,
@@ -859,6 +861,33 @@ export class BerxApiClient {
 
 	async updateMemoryNotes(id: number, notes: string): Promise<{status: string}> {
 		return this.request<{status: string}>(`/memories/saved/${id}`, {method: 'PATCH', body: {notes}});
+	}
+
+	/**
+	 * BERX WORLD — Life Moments (classes/OssnLifeMoments.php). Only
+	 * for someone who was really, verifiably part of the given source
+	 * — the server re-verifies this itself, this call never assumes
+	 * it. withGuids is sent comma-separated (same proven convention as
+	 * createPlan()'s inviteGuids), and the server silently drops any
+	 * guid that wasn't ALSO really connected to the same source.
+	 */
+	async createLifeMoment(sourceType: BerxLifeMomentSourceType, sourceId: number, text: string, withGuids: number[] = []): Promise<{id: number}> {
+		const body: Record<string, string> = {source_type: sourceType, source_id: String(sourceId), text};
+		if (withGuids.length > 0) body.with_guids = withGuids.join(',');
+		return this.request<{id: number}>('/lifemoments', {method: 'POST', body});
+	}
+
+	/** The real, live feed of moments captured for one source — what an Event/Experience page shows while (or shortly after) it's happening. */
+	async momentsForSource(sourceType: BerxLifeMomentSourceType, sourceId: number): Promise<{moments: BerxLifeMoment[]}> {
+		return this.request<{moments: BerxLifeMoment[]}>(`/lifemoments/for-source/${sourceType}/${sourceId}`);
+	}
+
+	async myLifeMoments(limit = 50): Promise<{moments: BerxLifeMoment[]}> {
+		return this.request<{moments: BerxLifeMoment[]}>(`/lifemoments/mine?limit=${limit}`);
+	}
+
+	async deleteLifeMoment(id: number): Promise<{status: string}> {
+		return this.request<{status: string}>(`/lifemoments/${id}`, {method: 'DELETE'});
 	}
 
 	/** `identifier` may be a real username OR a real numeric guid (as a string) — profiles.php resolves either. */

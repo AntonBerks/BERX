@@ -301,7 +301,7 @@ export interface BerxDateIdea {
 }
 
 /** Real subject resolution (OssnWall::GetPost()/OssnPlaces::getPlace()/OssnEvents::getEvent()/OssnGroup::getGroup(), whichever subject_guid actually points to per type) — null when the type has no separate subject (a poke) or the subject was since deleted, never a guess. */
-export type BerxNotificationSubjectKind = 'post' | 'place' | 'event' | 'community' | 'plan' | null;
+export type BerxNotificationSubjectKind = 'post' | 'place' | 'event' | 'community' | 'plan' | 'moment' | null;
 
 export interface BerxNotification {
 	guid: number;
@@ -352,7 +352,8 @@ export type BerxNotificationPrefType =
 	| 'group:joinrequest'
 	| 'berx:plan:invite'
 	| 'berx:plan:accepted'
-	| 'berx:plan:converted';
+	| 'berx:plan:converted'
+	| 'berx:moment:tag';
 
 export type BerxNotificationPrefs = Record<BerxNotificationPrefType, boolean>;
 
@@ -1350,6 +1351,43 @@ export interface BerxSavedMemoryPerson {
 	icon: string | null;
 }
 
+/**
+ * BERX WORLD — Life Moments (classes/OssnLifeMoments.php). NOT the
+ * same thing as BerxBusinessMoment (that's a business's real
+ * time-bound flash announcement) — a Life Moment is a real,
+ * lightweight, timestamped capture scoped to a live/recent BERX
+ * context (an event check-in, an experience, a place check-in), only
+ * ever creatable by someone who was really, verifiably there.
+ */
+export type BerxLifeMomentSourceType = 'event_checkin' | 'experience' | 'place_checkin';
+
+export interface BerxLifeMomentPerson {
+	guid: number;
+	username: string | null;
+	icon: string | null;
+}
+
+export interface BerxLifeMoment {
+	id: number;
+	owner_guid: number;
+	owner_username: string | null;
+	owner_icon: string | null;
+	text: string;
+	source_type: BerxLifeMomentSourceType;
+	source_id: number;
+	place_guid: number | null;
+	time_created: number;
+	people: BerxLifeMomentPerson[];
+}
+
+/** The same real moment rows, in a memory's own compact shape — see components/OssnApi/v1/memories.php's ossn_api_memory_json(). */
+export interface BerxSavedMemoryMoment {
+	id: number;
+	owner_username: string | null;
+	text: string;
+	time_created: number;
+}
+
 export interface BerxSavedMemory {
 	id: number;
 	title: string;
@@ -1360,6 +1398,8 @@ export interface BerxSavedMemory {
 	happened_at: number;
 	time_created: number;
 	people: BerxSavedMemoryPerson[];
+	/** BERX WORLD — the real, live Moments captured during this memory's source (Moment -> Memory link), never copied/duplicated data. */
+	moments: BerxSavedMemoryMoment[];
 }
 
 /**

@@ -14,11 +14,18 @@
  * unedited here, same reasoning as EditEventScreen: no native date/
  * time picker library is installed, and updateExperience() only
  * sends fields actually provided, so the real schedule stays intact.
+ *
+ * BERX WORLD — real Life Moments (classes/OssnLifeMoments.php,
+ * api.createLifeMoment()/momentsForSource()): a lightweight, real
+ * capture scoped to this experience, only ever creatable by someone
+ * the server has already verified was really part of it. Deliberately
+ * NOT rendered as a post card — no avatar, no like/comment row — a
+ * quiet running log, not the app's main feed grammar.
  */
 import {useCallback, useEffect, useState} from 'react';
 import {View, Text, FlatList, Image, Pressable, Alert, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
-import type {BerxExperienceDetail, BerxExperienceParticipant, BerxFriend, BerxCollectionVisibility} from '@berx/api/types';
+import type {BerxExperienceDetail, BerxExperienceParticipant, BerxFriend, BerxCollectionVisibility, BerxLifeMoment} from '@berx/api/types';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
@@ -60,6 +67,9 @@ export default function ExperienceDetailScreen({api, id, onOpenPlace, onOpenEven
 	const [editError, setEditError] = useState<string | null>(null);
 	const [savingMemory, setSavingMemory] = useState(false);
 	const [memorySaved, setMemorySaved] = useState(false);
+	const [moments, setMoments] = useState<BerxLifeMoment[]>([]);
+	const [momentText, setMomentText] = useState('');
+	const [momentBusy, setMomentBusy] = useState(false);
 
 	const load = useCallback(async () => {
 		setLoading(true);
@@ -68,6 +78,10 @@ export default function ExperienceDetailScreen({api, id, onOpenPlace, onOpenEven
 			const [e, f] = await Promise.all([api.getExperience(id), api.friends()]);
 			setExperience(e);
 			setFriends(f.friends);
+			// Best-effort — canViewSource() 403s for someone with no real
+			// connection to this experience; that's expected for a public
+			// experience's non-participant viewer, not a real failure.
+			api.momentsForSource('experience', id).then((r) => setMoments(r.moments)).catch(() => undefined);
 		} catch (e2) {
 			setError(e2 instanceof Error ? e2.message : 'Впечатление недоступно');
 		} finally {
@@ -109,6 +123,28 @@ export default function ExperienceDetailScreen({api, id, onOpenPlace, onOpenEven
 			// real rejection (e.g. already saved) — button stays, no fake success
 		} finally {
 			setSavingMemory(false);
+		}
+	}
+
+	/**
+	 * BERX WORLD — a real Life Moment, scoped to this experience. Only
+	 * reachable by someone real presence already gates (is_own or a
+	 * real accepted participant — same server check saveMemory() above
+	 * relies on), never offered to a random viewer of a public
+	 * experience.
+	 */
+	async function createMoment() {
+		if (!experience || !momentText.trim()) return;
+		setMomentBusy(true);
+		try {
+			await api.createLifeMoment('experience', experience.id, momentText.trim());
+			setMomentText('');
+			const res = await api.momentsForSource('experience', experience.id);
+			setMoments(res.moments);
+		} catch {
+			// real rejection — text stays in the input, nothing optimistic
+		} finally {
+			setMomentBusy(false);
 		}
 	}
 
@@ -253,6 +289,24 @@ export default function ExperienceDetailScreen({api, id, onOpenPlace, onOpenEven
 					</View>
 				) : null}
 
+				{experience.is_own || experience.my_status === 'accepted' ? (
+					<View style={styles.momentsSection}>
+						<Text style={styles.sectionTitle}>Моменты</Text>
+						<View style={styles.momentInputRow}>
+							<View style={styles.momentInputField}>
+								<BerxInput placeholder="Что происходит?" value={momentText} onChangeText={setMomentText} />
+							</View>
+							<BerxButton label="+" onPress={createMoment} loading={momentBusy} disabled={!momentText.trim()} />
+						</View>
+						{moments.map((m: BerxLifeMoment) => (
+							<View key={m.id} style={styles.momentRow}>
+								<Text style={styles.momentAuthor}>{m.owner_username ?? 'Кто-то'}</Text>
+								<Text style={styles.momentText}>{m.text}</Text>
+							</View>
+						))}
+					</View>
+				) : null}
+
 				{!experience.is_own && experience.my_status === 'invited' ? (
 					<View style={styles.actions}>
 						<BerxButton label="Пойду" loading={busy} onPress={() => respond(true)} />
@@ -332,6 +386,16 @@ const styles = StyleSheet.create({
 	pickerAvatar: {width: 48, height: 48, borderRadius: radius.pill, backgroundColor: colors.graphite},
 	pickerName: {fontSize: typography.sizeXs, color: colors.textDim, marginTop: 4},
 	sectionTitle: {fontSize: typography.sizeXs, color: colors.textFaint, fontWeight: typography.weightBold, textTransform: 'uppercase', marginTop: spacing.sm},
+	// BERX WORLD — Life Moments: a lightweight, timestamped stream
+	// scoped to this experience, deliberately NOT rendered as a post
+	// card (no avatar circle, no like/comment row) — a quiet running
+	// log, not the main feed's visual grammar.
+	momentsSection: {gap: spacing.xs},
+	momentInputRow: {flexDirection: 'row', gap: spacing.xs, alignItems: 'center'},
+	momentInputField: {flex: 1},
+	momentRow: {paddingVertical: spacing.xs, borderBottomWidth: 1, borderBottomColor: colors.borderSoft},
+	momentAuthor: {fontSize: typography.sizeXs, color: colors.textFaint, fontWeight: typography.weightBold},
+	momentText: {fontSize: typography.sizeSm, color: colors.white, marginTop: 2},
 	participantRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.xs},
 	participantAvatar: {width: 32, height: 32, borderRadius: radius.pill, backgroundColor: colors.graphite},
 	participantName: {flex: 1, fontSize: typography.sizeSm, color: colors.white},

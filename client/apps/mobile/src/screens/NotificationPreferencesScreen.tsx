@@ -49,6 +49,7 @@ const LABELS: Record<BerxNotificationPrefType, string> = {
 	'berx:plan:invite': 'Приглашение в план',
 	'berx:plan:accepted': 'Кто-то согласился на ваш план',
 	'berx:plan:converted': 'Ваш план стал событием',
+	'berx:moment:tag': 'Вас отметили в моменте',
 };
 
 const ORDER: BerxNotificationPrefType[] = [
@@ -61,6 +62,7 @@ const ORDER: BerxNotificationPrefType[] = [
 	'berx:plan:invite',
 	'berx:plan:accepted',
 	'berx:plan:converted',
+	'berx:moment:tag',
 	'berx:place:review',
 	'berx:place:comment',
 	'berx:place:checkin',

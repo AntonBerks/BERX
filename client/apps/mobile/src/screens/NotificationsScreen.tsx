@@ -75,6 +75,7 @@ const NOTIFICATION_VERB: Record<string, string> = {
 	'berx:plan:invite': 'приглашает вас на',
 	'berx:plan:accepted': 'согласился(-лась) на',
 	'berx:plan:converted': 'план стал событием —',
+	'berx:moment:tag': 'отметил(а) вас в моменте',
 	'dating:match': 'Новое совпадение',
 	'dating:interest': 'Вы понравились кому-то',
 	'dating:photo:request': 'запрашивает доступ к вашим фото',

@@ -33,7 +33,7 @@
 import {useCallback, useEffect, useState} from 'react';
 import {View, Text, ScrollView, Image, FlatList, Pressable, RefreshControl, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
-import type {BerxEvent, BerxEventAttendee, BerxExperienceGraphFriend, BerxEventStoryItem, BerxStoryFeedGroup} from '@berx/api/types';
+import type {BerxEvent, BerxEventAttendee, BerxExperienceGraphFriend, BerxEventStoryItem, BerxStoryFeedGroup, BerxLifeMoment} from '@berx/api/types';
 import {BerxApiError} from '@berx/core';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
@@ -91,6 +91,9 @@ export default function EventDetailScreen({api, guid, myGuid, onOpenPlace, onOpe
 	const [checkinMessage, setCheckinMessage] = useState<string | null>(null);
 	const [savingMemory, setSavingMemory] = useState(false);
 	const [memorySaved, setMemorySaved] = useState(false);
+	const [moments, setMoments] = useState<BerxLifeMoment[]>([]);
+	const [momentText, setMomentText] = useState('');
+	const [momentBusy, setMomentBusy] = useState(false);
 
 	const load = useCallback(async () => {
 		setLoading(true);
@@ -103,6 +106,9 @@ export default function EventDetailScreen({api, guid, myGuid, onOpenPlace, onOpe
 			api.eventExperienceGraph(guid).then((g) => setFriendsGoing(g.friends_going)).catch(() => undefined);
 			api.eventStories(guid).then((s) => setStoryGroups(groupStoriesByOwner(s.stories))).catch(() => undefined);
 			api.getAuthHeaders().then(setAuthHeaders).catch(() => undefined);
+			// Best-effort — canViewSource() 403s for someone who hasn't
+			// really checked in yet; expected, not a real failure.
+			api.momentsForSource('event_checkin', guid).then((r) => setMoments(r.moments)).catch(() => undefined);
 		} catch (e2) {
 			setError(e2 instanceof Error ? e2.message : 'Не удалось загрузить событие');
 		} finally {
@@ -181,6 +187,22 @@ export default function EventDetailScreen({api, guid, myGuid, onOpenPlace, onOpe
 			// real rejection — button stays, no fake success
 		} finally {
 			setSavingMemory(false);
+		}
+	}
+
+	/** BERX WORLD — a real Life Moment, scoped to this event. Only reachable once the server has already confirmed a real checkpoint (has_checked_in). */
+	async function createMoment() {
+		if (!event || !momentText.trim()) return;
+		setMomentBusy(true);
+		try {
+			await api.createLifeMoment('event_checkin', event.guid, momentText.trim());
+			setMomentText('');
+			const res = await api.momentsForSource('event_checkin', event.guid);
+			setMoments(res.moments);
+		} catch {
+			// real rejection — text stays in the input
+		} finally {
+			setMomentBusy(false);
 		}
 	}
 
@@ -307,13 +329,30 @@ export default function EventDetailScreen({api, guid, myGuid, onOpenPlace, onOpe
 				{checkinMessage ? <Text style={styles.checkinMessage}>{checkinMessage}</Text> : null}
 
 				{event.has_checked_in ? (
-					<View style={styles.memoryRow}>
-						{memorySaved ? (
-							<Text style={styles.memorySavedText}>Сохранено как воспоминание ✓</Text>
-						) : (
-							<BerxButton label="Сохранить как воспоминание" variant="secondary" loading={savingMemory} onPress={saveMemory} fullWidth />
-						)}
-					</View>
+					<>
+						<View style={styles.memoryRow}>
+							{memorySaved ? (
+								<Text style={styles.memorySavedText}>Сохранено как воспоминание ✓</Text>
+							) : (
+								<BerxButton label="Сохранить как воспоминание" variant="secondary" loading={savingMemory} onPress={saveMemory} fullWidth />
+							)}
+						</View>
+						<View style={styles.momentsSection}>
+							<Text style={styles.sectionTitle}>Моменты</Text>
+							<View style={styles.momentInputRow}>
+								<View style={styles.momentInputField}>
+									<BerxInput placeholder="Что происходит?" value={momentText} onChangeText={setMomentText} />
+								</View>
+								<BerxButton label="+" onPress={createMoment} loading={momentBusy} disabled={!momentText.trim()} />
+							</View>
+							{moments.map((m: BerxLifeMoment) => (
+								<View key={m.id} style={styles.momentRow}>
+									<Text style={styles.momentAuthor}>{m.owner_username ?? 'Кто-то'}</Text>
+									<Text style={styles.momentText}>{m.text}</Text>
+								</View>
+							))}
+						</View>
+					</>
 				) : null}
 
 				{event.description ? <Text style={styles.description}>{event.description}</Text> : null}
@@ -397,6 +436,14 @@ const styles = StyleSheet.create({
 	description: {fontSize: typography.sizeBase, color: colors.text, lineHeight: typography.sizeBase * typography.lineHeightBase},
 	seats: {fontSize: typography.sizeSm, color: colors.textFaint},
 	sectionTitle: {fontSize: typography.sizeXs, color: colors.textFaint, fontWeight: typography.weightBold, textTransform: 'uppercase'},
+	// BERX WORLD — Life Moments: a quiet running log scoped to this
+	// event, deliberately not styled like a post card.
+	momentsSection: {gap: spacing.xs, marginTop: spacing.xs},
+	momentInputRow: {flexDirection: 'row', gap: spacing.xs, alignItems: 'center'},
+	momentInputField: {flex: 1},
+	momentRow: {paddingVertical: spacing.xs, borderBottomWidth: 1, borderBottomColor: colors.borderSoft},
+	momentAuthor: {fontSize: typography.sizeXs, color: colors.textFaint, fontWeight: typography.weightBold},
+	momentText: {fontSize: typography.sizeSm, color: colors.white, marginTop: 2},
 	friendsHereRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginTop: spacing.sm},
 	friendHereItem: {marginLeft: -spacing.xs},
 	friendsHereLabel: {fontSize: typography.sizeSm, color: colors.textDim, marginLeft: spacing.sm},
