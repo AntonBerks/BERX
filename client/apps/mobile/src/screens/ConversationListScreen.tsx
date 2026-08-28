@@ -16,17 +16,31 @@
  * client caller anywhere. Messaging is exactly where "who can I talk
  * to right now" matters most, so it surfaces here rather than a new
  * standalone screen. Best-effort, never blocks the conversation list.
+ *
+ * MAX BUILD — real editorial "People" discovery rail, user-directed
+ * with an explicit reference image. api.peopleDiscovery() (GET
+ * /discovery/people) was always a real, working client method — real
+ * mutual-friend/mutual-community overlap (discovery.php's own header),
+ * never a guessed "similar interests" score — with zero UI caller
+ * anywhere. Surfaces here because starting a new conversation with
+ * someone you might know is exactly this screen's job. Each card's
+ * portrait is the person's own real avatar (no separate "cover photo"
+ * concept exists for a suggestion), filled full-bleed rather than
+ * shown as a small circle — same honest scrim-simulation technique as
+ * ProfileScreen's new hero (no gradient library installed).
  */
 import {useCallback, useEffect, useMemo, useState} from 'react';
 import {FlatList, Pressable, Text, View, Image, RefreshControl, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
-import type {BerxConversationSummary, BerxOnlineFriend} from '@berx/api/types';
+import type {BerxConversationSummary, BerxOnlineFriend, BerxPeopleSuggestion} from '@berx/api/types';
 import {relativeTimeLabel} from '@berx/domain';
-import {colors, spacing, typography} from '@berx/design-system/tokens';
+import {colors, spacing, radius, typography} from '@berx/design-system/tokens';
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {BerxErrorState, BerxEmptyState, BerxSkeleton} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxAvatar} from '../../../../packages/design-system/src/components/BerxAvatar';
 import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
+
+const PEOPLE_SCRIM_STEPS = [0, 0.2, 0.45, 0.75, 0.95];
 
 interface Props {
 	api: BerxApiClient;
@@ -43,6 +57,7 @@ export default function ConversationListScreen({api, onOpenConversation, onOpenM
 	const [error, setError] = useState<string | null>(null);
 	const [unread, setUnread] = useState(0);
 	const [online, setOnline] = useState<BerxOnlineFriend[]>([]);
+	const [people, setPeople] = useState<BerxPeopleSuggestion[]>([]);
 
 	const load = useCallback(async () => {
 		try {
@@ -57,6 +72,7 @@ export default function ConversationListScreen({api, onOpenConversation, onOpenM
 			setError(null);
 			// Real presence — best-effort, never blocks the list itself.
 			api.onlineFriends().then((r) => setOnline(r.online)).catch(() => undefined);
+			api.peopleDiscovery().then((r) => setPeople(r.people)).catch(() => undefined);
 		} catch {
 			setError('Не удалось загрузить диалоги');
 		} finally {
@@ -126,6 +142,35 @@ export default function ConversationListScreen({api, onOpenConversation, onOpenM
 				/>
 			) : null}
 
+			{people.length > 0 ? (
+				<View style={styles.peopleSection}>
+					<Text style={styles.peopleLabel}>Люди</Text>
+					<FlatList
+						horizontal
+						showsHorizontalScrollIndicator={false}
+						data={people}
+						keyExtractor={(p: BerxPeopleSuggestion) => `people-${p.guid}`}
+						contentContainerStyle={styles.peopleRow}
+						renderItem={({item}: {item: BerxPeopleSuggestion}) => (
+							<Pressable style={styles.peopleCard} onPress={() => onOpenConversation(item.guid, item.username)}>
+								<Image source={{uri: item.icon}} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
+								<View style={StyleSheet.absoluteFillObject} pointerEvents="none">
+									{PEOPLE_SCRIM_STEPS.map((opacity, i) => (
+										<View key={i} style={[styles.peopleScrimStep, {height: `${100 - i * 16}%`, backgroundColor: `rgba(5,5,5,${opacity})`}]} />
+									))}
+								</View>
+								<View style={styles.peopleCardContent}>
+									<Text style={styles.peopleName} numberOfLines={1}>{item.fullname || item.username}</Text>
+									<Text style={styles.peopleMeta} numberOfLines={1}>
+										{item.mutual_count === 1 ? '1 общий друг' : `${item.mutual_count} общих друзей`}
+									</Text>
+								</View>
+							</Pressable>
+						)}
+					/>
+				</View>
+			) : null}
+
 			<View style={styles.searchBar}>
 				<BerxInput placeholder="Фильтр по списку" value={query} onChangeText={setQuery} autoCapitalize="none" />
 			</View>
@@ -189,6 +234,14 @@ const styles = StyleSheet.create({
 	onlineAvatar: {width: 48, height: 48, borderRadius: 24, backgroundColor: colors.graphite},
 	onlineDot: {position: 'absolute', bottom: 0, right: 0, width: 12, height: 12, borderRadius: 6, backgroundColor: colors.accent, borderWidth: 2, borderColor: colors.black},
 	onlineName: {fontSize: typography.sizeXs, color: colors.textDim, marginTop: 4},
+	peopleSection: {marginTop: spacing.sm},
+	peopleLabel: {color: colors.textFaint, fontSize: typography.sizeXs, fontWeight: typography.weightBold, textTransform: 'uppercase', letterSpacing: 0.4, paddingHorizontal: spacing.lg, marginBottom: spacing.xs},
+	peopleRow: {paddingHorizontal: spacing.lg, gap: spacing.sm},
+	peopleCard: {width: 148, height: 190, borderRadius: radius.md, overflow: 'hidden', backgroundColor: colors.graphite, marginRight: spacing.sm, justifyContent: 'flex-end'},
+	peopleScrimStep: {position: 'absolute', left: 0, right: 0, bottom: 0},
+	peopleCardContent: {padding: spacing.sm, gap: 2},
+	peopleName: {color: colors.white, fontSize: typography.sizeSm, fontWeight: typography.weightBold},
+	peopleMeta: {color: colors.textDim, fontSize: typography.sizeXs},
 	searchBar: {padding: spacing.lg, paddingBottom: spacing.sm},
 	listFade: {flex: 1},
 	list: {backgroundColor: colors.black, flex: 1},

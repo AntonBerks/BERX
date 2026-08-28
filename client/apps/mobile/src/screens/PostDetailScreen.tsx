@@ -11,6 +11,17 @@
  * client-only "liked" state that resets on remount. Root View is now
  * a ScrollView — a post with a full comment thread had no way to
  * reach the bottom.
+ *
+ * MAX BUILD — real editorial typography pass, user-directed with an
+ * explicit reference image. `text` and `author` are the same real
+ * fields as before (post.text/post.poster_username) — only the
+ * typographic treatment changed: a bolder, tighter-leading paragraph
+ * style for the post body, and a small-caps byline for the author,
+ * instead of both sitting at the same plain body-text weight. Kept
+ * Premium Dark (BERX_DECISIONS.md) rather than the light background
+ * the reference showed for its article screen — this app has no
+ * light theme anywhere else, and flipping just this one screen would
+ * be jarring mid-navigation rather than editorial.
  */
 import {useCallback, useEffect, useState} from 'react';
 import {View, Text, Image, Pressable, ScrollView, StyleSheet} from 'react-native';
@@ -407,8 +418,8 @@ export default function PostDetailScreen({api, postGuid, myGuid, onOpenProfile, 
 const styles = StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.black},
 	container: {flex: 1, padding: spacing.lg, gap: spacing.md},
-	author: {color: colors.accent, fontWeight: typography.weightMedium, fontSize: typography.sizeLg},
-	text: {color: colors.text, fontSize: typography.sizeBase, lineHeight: typography.sizeBase * typography.lineHeightBase},
+	author: {color: colors.accent, fontWeight: typography.weightBold, fontSize: typography.sizeXs, textTransform: 'uppercase', letterSpacing: 0.6},
+	text: {color: colors.text, fontSize: typography.sizeLg, fontWeight: typography.weightMedium, letterSpacing: -0.1, lineHeight: typography.sizeLg * 1.32, marginTop: spacing.xs},
 	repostBlock: {backgroundColor: colors.glass1, borderRadius: radius.md, padding: spacing.md, borderWidth: 1, borderColor: colors.borderSoft, gap: 4, marginTop: spacing.sm},
 	repostAuthor: {color: colors.accent, fontSize: typography.sizeSm, fontWeight: typography.weightMedium},
 	repostText: {color: colors.textDim, fontSize: typography.sizeSm},

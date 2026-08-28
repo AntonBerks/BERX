@@ -127,6 +127,10 @@ ossn_api_json(array(
 	'is_creator'  => (bool) $isCreator,
 	/** Real moderation state (OssnUser::ban()) — publicly visible same as a suspended account on any real platform; ban/unban controls themselves stay admin-gated client-side. */
 	'banned'      => (bool) $user->banned,
+	// MAX BUILD — real presence (OssnUser::isOnline(10)), same real
+	// signal/threshold already used for conversations.php's
+	// with_online — never faked as a decorative "always online" dot.
+	'is_online'   => method_exists($user, 'isOnline') ? (bool) $user->isOnline(10) : false,
 	'mutual_friends_count' => $mutualFriendsCount,
 	'mutual_communities_count' => $mutualCommunitiesCount,
 	'reputation'  => array(

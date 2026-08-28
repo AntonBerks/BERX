@@ -225,6 +225,8 @@ export interface BerxProfileSummary {
 	mutual_friends_count: number;
 	/** Real, bounded community-membership intersection (BERX World Max Build) — privacy-safe, only ever intersects with the caller's own real memberships. */
 	mutual_communities_count: number;
+	/** Real presence (OssnUser::isOnline(10)) — same signal already used by conversations.php's with_online. */
+	is_online: boolean;
 }
 
 export interface BerxSearchUsersResponse {

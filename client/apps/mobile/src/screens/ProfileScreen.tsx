@@ -39,6 +39,22 @@
  * dependency) since it's a consequential action, then a real
  * navigation back — no reason to keep viewing someone you just
  * blocked.
+ *
+ * MAX BUILD — real editorial hero pass, user-directed with an explicit
+ * reference image. Full-bleed portrait (cover_url when set, otherwise
+ * the real avatar itself — never a placeholder image) replaces the
+ * small circular-avatar-on-black-background layout; same honest
+ * 5-step scrim simulation BerxScrimHero already uses elsewhere (no
+ * gradient library installed), inlined here rather than reused
+ * because this hero also carries the avatar overlay + stat row +
+ * CTA, which BerxScrimHero's own children slot wasn't shaped for.
+ * The online dot is real (OssnUser::isOnline(10), profiles.php's own
+ * is_online — added this same pass), never decorative. The
+ * "Написать"/friend-request action now uses BerxGradientCTA — a real,
+ * DELIBERATELY SCOPED violet→orange exception to the cyan-only accent
+ * rule, see BERX_DECISIONS.md's own "Editorial CTA gradient" entry —
+ * every other control on this screen keeps the systemic cyan accent
+ * unchanged.
  */
 import React, {useEffect, useState} from 'react';
 import {View, Text, Image, Pressable, ScrollView, Alert, StyleSheet} from 'react-native';
@@ -48,12 +64,15 @@ import type {BerxIdentity, BerxIdentityAchievement, BerxIdentityInterest, BerxSt
 import {BerxApiError} from '@berx/core';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
+import {BerxGradientCTA} from '../../../../packages/design-system/src/components/BerxGradientCTA';
 import {BerxLoadingState, BerxErrorState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {IconHeart, IconLock, IconBell, IconStar, IconUsers, IconChevronRight, IconEdit} from '../../../../packages/design-system/src/components/BerxIcons';
 import {BerxGlassSurface} from '../../../../packages/design-system/src/components/BerxGlassSurface';
 import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
 import {Berx3DTilt} from '../../../../packages/design-system/src/components/Berx3DTilt';
+
+const HERO_SCRIM_STEPS = [0, 0.12, 0.3, 0.58, 0.9];
 
 interface ProfileData {
 	guid?: number;
@@ -71,6 +90,8 @@ interface ProfileData {
 	is_admin?: boolean;
 	/** Real moderation state (OssnUser::ban()) — present on both own and non-own profiles. */
 	banned?: boolean;
+	/** Real presence (OssnUser::isOnline(10)) — absent/undefined on own profile (me.php doesn't return it; showing your own "online" dot to yourself is meaningless). */
+	is_online?: boolean;
 	reputation?: {places_reviewed: number; events_going: number; trips_created: number; experiences_created: number};
 }
 
@@ -311,34 +332,60 @@ export default function ProfileScreen({api, authState, username, onBack, onMessa
 	return (
 		<ScrollView style={styles.screen}>
 			{onBack ? <BerxHeader onBack={onBack} title={profile.username} /> : null}
-			{profile.cover_url ? (
-				<Berx3DTilt style={styles.coverBanner} maxAngle={4}>
-					<Image source={{uri: profile.cover_url}} style={styles.coverBannerImage} />
-				</Berx3DTilt>
-			) : null}
-			<BerxFadeIn style={styles.hero} riseFrom={16}>
-				<Berx3DTilt style={styles.avatarRing} maxAngle={14}>
-					<Image source={{uri: profile.icon_url}} style={styles.avatar} />
-				</Berx3DTilt>
-				<Text style={styles.fullname}>{profile.fullname}</Text>
-				<Text style={styles.username}>@{profile.username}</Text>
-				{!isOwn && (profile.mutual_friends_count > 0 || profile.mutual_communities_count > 0) ? (
-					<Text style={styles.mutualFriends}>
-						{[
-							profile.mutual_friends_count > 0 ? (profile.mutual_friends_count === 1 ? '1 общий друг' : `${profile.mutual_friends_count} общих друзей`) : null,
-							profile.mutual_communities_count > 0 ? (profile.mutual_communities_count === 1 ? '1 общее сообщество' : `${profile.mutual_communities_count} общих сообществ`) : null,
-						].filter(Boolean).join(' · ')}
-					</Text>
-				) : null}
-				{year ? <Text style={styles.joined}>На BERX с {year} года</Text> : null}
-				{profile.reputation ? (
-					<BerxGlassSurface elevated padding="sm" style={styles.reputationRow}>
-						{profile.reputation.places_reviewed > 0 ? <View style={styles.reputationStat}><Text style={styles.reputationValue}>{profile.reputation.places_reviewed}</Text><Text style={styles.reputationLabel}>отзывов</Text></View> : null}
-						{profile.reputation.events_going > 0 ? <View style={styles.reputationStat}><Text style={styles.reputationValue}>{profile.reputation.events_going}</Text><Text style={styles.reputationLabel}>событий</Text></View> : null}
-						{profile.reputation.trips_created > 0 ? <View style={styles.reputationStat}><Text style={styles.reputationValue}>{profile.reputation.trips_created}</Text><Text style={styles.reputationLabel}>поездок</Text></View> : null}
-						{profile.reputation.experiences_created > 0 ? <View style={styles.reputationStat}><Text style={styles.reputationValue}>{profile.reputation.experiences_created}</Text><Text style={styles.reputationLabel}>впечатлений</Text></View> : null}
-					</BerxGlassSurface>
-				) : null}
+
+			<BerxFadeIn riseFrom={0}>
+				<View style={styles.hero}>
+					{profile.cover_url || profile.icon_url ? (
+						<Image source={{uri: profile.cover_url ?? profile.icon_url}} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
+					) : (
+						<View style={[StyleSheet.absoluteFillObject, styles.heroFallback]}>
+							<Text style={styles.heroFallbackGlyph}>{profile.username.charAt(0).toUpperCase()}</Text>
+						</View>
+					)}
+					<View style={StyleSheet.absoluteFillObject} pointerEvents="none">
+						{HERO_SCRIM_STEPS.map((opacity, i) => (
+							<View key={i} style={[styles.heroScrimStep, {height: `${100 - i * 18}%`, backgroundColor: `rgba(5,5,5,${opacity})`}]} />
+						))}
+					</View>
+
+					{!isOwn && typeof profile.is_online === 'boolean' ? (
+						<View style={styles.onlineBadgeWrap}>
+							<View style={[styles.onlineDot, profile.is_online ? styles.onlineDotActive : styles.onlineDotOffline]} />
+						</View>
+					) : null}
+
+					<View style={styles.heroContent}>
+						{profile.cover_url ? (
+							<Berx3DTilt style={styles.heroAvatarRing} maxAngle={12}>
+								<Image source={{uri: profile.icon_url}} style={styles.heroAvatar} />
+							</Berx3DTilt>
+						) : null}
+						<Text style={styles.heroWordmark}>{profile.fullname || profile.username}</Text>
+						<Text style={styles.heroUsername}>@{profile.username}</Text>
+						{!isOwn && (profile.mutual_friends_count > 0 || profile.mutual_communities_count > 0) ? (
+							<Text style={styles.mutualFriends}>
+								{[
+									profile.mutual_friends_count > 0 ? (profile.mutual_friends_count === 1 ? '1 общий друг' : `${profile.mutual_friends_count} общих друзей`) : null,
+									profile.mutual_communities_count > 0 ? (profile.mutual_communities_count === 1 ? '1 общее сообщество' : `${profile.mutual_communities_count} общих сообществ`) : null,
+								].filter(Boolean).join(' · ')}
+							</Text>
+						) : null}
+						{year ? <Text style={styles.joined}>На BERX с {year} года</Text> : null}
+
+						{profile.reputation ? (
+							<View style={styles.reputationRow}>
+								{profile.reputation.places_reviewed > 0 ? <View style={styles.reputationStat}><Text style={styles.reputationValue}>{profile.reputation.places_reviewed}</Text><Text style={styles.reputationLabel}>отзывов</Text></View> : null}
+								{profile.reputation.events_going > 0 ? <View style={styles.reputationStat}><Text style={styles.reputationValue}>{profile.reputation.events_going}</Text><Text style={styles.reputationLabel}>событий</Text></View> : null}
+								{profile.reputation.trips_created > 0 ? <View style={styles.reputationStat}><Text style={styles.reputationValue}>{profile.reputation.trips_created}</Text><Text style={styles.reputationLabel}>поездок</Text></View> : null}
+								{profile.reputation.experiences_created > 0 ? <View style={styles.reputationStat}><Text style={styles.reputationValue}>{profile.reputation.experiences_created}</Text><Text style={styles.reputationLabel}>впечатлений</Text></View> : null}
+							</View>
+						) : null}
+
+						{!isOwn && profile.guid && onMessage ? (
+							<BerxGradientCTA label="Написать" onPress={() => onMessage(profile.guid!, profile.username)} fullWidth />
+						) : null}
+					</View>
+				</View>
 			</BerxFadeIn>
 
 			{highlights.length > 0 && onOpenStoryGroup && profile.guid ? (
@@ -419,12 +466,6 @@ export default function ProfileScreen({api, authState, username, onBack, onMessa
 						</View>
 					) : null}
 				</BerxFadeIn>
-			) : null}
-
-			{!isOwn && profile.guid && onMessage ? (
-				<View style={styles.actionRow}>
-					<BerxButton label="Написать" onPress={() => onMessage(profile.guid!, profile.username)} fullWidth />
-				</View>
 			) : null}
 
 			{!isOwn && profile.guid ? (
@@ -623,20 +664,34 @@ function MenuRow({
 
 const styles = StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.black},
-	coverBanner: {height: 120, backgroundColor: colors.surface, overflow: 'hidden'},
-	coverBannerImage: {width: '100%', height: '100%'},
-	hero: {alignItems: 'center', paddingVertical: spacing.xxl, paddingHorizontal: spacing.xl},
-	avatarRing: {
-		width: 108,
-		height: 108,
-		borderRadius: 54,
+	hero: {height: 460, backgroundColor: colors.graphite, justifyContent: 'flex-end', overflow: 'hidden'},
+	heroFallback: {alignItems: 'center', justifyContent: 'center', backgroundColor: colors.graphite},
+	heroFallbackGlyph: {fontSize: typography.sizeHero, color: colors.textFaint, fontWeight: typography.weightBold},
+	heroScrimStep: {position: 'absolute', left: 0, right: 0, bottom: 0},
+	onlineBadgeWrap: {position: 'absolute', top: spacing.xl, right: spacing.lg},
+	onlineDot: {width: 12, height: 12, borderRadius: 6, borderWidth: 2, borderColor: colors.black},
+	onlineDotActive: {backgroundColor: colors.success},
+	onlineDotOffline: {backgroundColor: colors.textFaint},
+	heroContent: {padding: spacing.xl, gap: spacing.xs},
+	heroAvatarRing: {
+		width: 72,
+		height: 72,
+		borderRadius: 36,
 		borderWidth: 2,
-		borderColor: colors.accent,
+		borderColor: colors.white,
 		alignItems: 'center',
 		justifyContent: 'center',
-		marginBottom: spacing.md,
+		marginBottom: spacing.sm,
+		backgroundColor: colors.black,
 	},
-	avatar: {width: 96, height: 96, borderRadius: 48, backgroundColor: colors.graphite},
+	heroAvatar: {width: 64, height: 64, borderRadius: 32, backgroundColor: colors.graphite},
+	heroWordmark: {
+		color: colors.white,
+		fontSize: typography.sizeHero,
+		fontWeight: typography.weightBold,
+		letterSpacing: -0.5,
+	},
+	heroUsername: {color: colors.textDim, fontSize: typography.sizeBase, marginTop: 2},
 	highlightsRail: {paddingHorizontal: spacing.lg, marginBottom: spacing.md},
 	highlightItem: {alignItems: 'center', width: 68, marginRight: spacing.md},
 	highlightRing: {width: 60, height: 60, borderRadius: 30, borderWidth: 2, borderColor: colors.accent, alignItems: 'center', justifyContent: 'center', overflow: 'hidden'},
@@ -661,16 +716,14 @@ const styles = StyleSheet.create({
 	interestRow: {flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs},
 	interestPill: {paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: radius.pill, backgroundColor: colors.accentSoft, borderWidth: 1, borderColor: colors.accent},
 	interestPillText: {color: colors.accent, fontSize: typography.sizeXs, fontWeight: typography.weightMedium},
-	fullname: {color: colors.text, fontSize: typography.sizeXl, fontWeight: typography.weightBold},
-	username: {color: colors.textDim, fontSize: typography.sizeBase, marginTop: 2},
 	joined: {color: colors.textFaint, fontSize: typography.sizeXs, marginTop: spacing.sm},
 	mutualFriends: {color: colors.accent, fontSize: typography.sizeSm, marginTop: spacing.xs, fontWeight: typography.weightMedium},
 	pokeStatus: {color: colors.textDim, fontSize: typography.sizeXs, textAlign: 'center', marginTop: spacing.xs},
 	bannedBanner: {color: colors.danger, fontSize: typography.sizeSm, fontWeight: typography.weightMedium, textAlign: 'center'},
-	reputationRow: {flexDirection: 'row', gap: spacing.lg, marginTop: spacing.sm},
-	reputationStat: {alignItems: 'center'},
-	reputationValue: {color: colors.accent, fontSize: typography.sizeBase, fontWeight: typography.weightBold},
-	reputationLabel: {color: colors.textFaint, fontSize: typography.sizeXs},
+	reputationRow: {flexDirection: 'row', gap: spacing.lg, marginTop: spacing.sm, marginBottom: spacing.sm},
+	reputationStat: {alignItems: 'flex-start'},
+	reputationValue: {color: colors.white, fontSize: typography.sizeBase, fontWeight: typography.weightBold},
+	reputationLabel: {color: colors.textDim, fontSize: typography.sizeXs},
 	actionRow: {paddingHorizontal: spacing.xl},
 	reportLink: {color: colors.textFaint, fontSize: typography.sizeXs, textDecorationLine: 'underline', textAlign: 'center'},
 	blockLink: {color: colors.danger, fontSize: typography.sizeXs, textDecorationLine: 'underline', textAlign: 'center'},
