@@ -228,6 +228,54 @@ if ($segment0 !== null && is_numeric($segment0) && $segment1 === 'rsvp' && $segm
 	));
 }
 
+/**
+ * BERX WORLD — real Checkpoint: geo-verified attendance, distinct
+ * from RSVP (intent only) — see OssnEvents::checkIn()'s own header
+ * for the full real distance-check discipline (same 300m radius
+ * OssnPlaces::checkIn() uses, reused not duplicated).
+ */
+if ($segment0 !== null && is_numeric($segment0) && $segment1 === 'checkin' && $segment2 === null && $method === 'POST') {
+	$lat = input('lat');
+	$lng = input('lng');
+	if ($lat === false || $lng === false) {
+		ossn_api_error('validation_error', 'lat and lng are required', 422);
+	}
+	$result = $model->checkIn($segment0, $api_user_guid, floatval($lat), floatval($lng));
+	if (!$result['ok']) {
+		$statusMap = array(
+			'not_found'          => 404,
+			'not_going'          => 403,
+			'not_started'        => 422,
+			'already_checked_in' => 409,
+			'no_location'        => 422,
+			'too_far'            => 422,
+			'save_failed'        => 500,
+		);
+		$status = isset($statusMap[$result['reason']]) ? $statusMap[$result['reason']] : 400;
+		$message = $result['reason'] === 'too_far'
+			? 'Слишком далеко: ' . round($result['distance_m']) . ' м от места события'
+			: ($result['reason'] === 'not_going'
+				? 'Сначала подтвердите участие (RSVP)'
+				: ($result['reason'] === 'no_location'
+					? 'У этого события нет геопривязки — check-in недоступен'
+					: 'Check-in not verified: ' . $result['reason']));
+		ossn_api_error($result['reason'], $message, $status);
+	}
+	$awarded = (new OssnPoints())->award($api_user_guid, 10, 'event_checkin:' . intval($segment0), intval($segment0), true);
+	if (class_exists('OssnSignals')) {
+		(new OssnSignals())->record($api_user_guid, 'checkin', 'event', intval($segment0));
+	}
+	// Real checkpoint notification chain (PERSON -> checked in ->
+	// EVENT -> TIME), reusing the exact same ossn_api_notify_event_owner
+	// hook already registered for berx:event:rsvp/comment — resolves
+	// the event's real owner_guid from subject_guid; add() itself
+	// already no-ops a self-notify.
+	if (class_exists('OssnNotifications')) {
+		(new OssnNotifications())->add('berx:event:checkin', intval($api_user_guid), intval($segment0), intval($segment0));
+	}
+	ossn_api_json(array('status' => 'ok', 'distance_m' => $result['distance_m'], 'points_awarded' => $awarded ? 10 : 0));
+}
+
 /* ---- Waitlist — real queue for a real-full event, see classes/OssnEvents.php's own header. ---- */
 
 if ($segment0 !== null && is_numeric($segment0) && $segment1 === 'waitlist' && $segment2 === null && $method === 'POST') {

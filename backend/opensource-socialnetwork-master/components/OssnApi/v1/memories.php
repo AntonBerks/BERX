@@ -32,6 +32,11 @@
  *   POST /memories/from-experience/{id}   save a real Memory from an
  *                                         Experience the caller was
  *                                         actually part of
+ *   POST /memories/from-event-checkin/{id} save a real Memory from an
+ *                                         Event the caller actually,
+ *                                         geo-verifiedly checked in to
+ *                                         (OssnEvents::checkIn()) — the
+ *                                         real Checkpoint -> Memory link
  *   GET  /memories/saved                  the caller's own saved
  *                                         Memories (real, chronological)
  *   GET  /memories/saved/{id}             one Memory's real detail
@@ -67,8 +72,8 @@ function ossn_api_memory_json($memory, $memoriesModel) {
 	);
 }
 
-$segment0 = isset($segments[0]) ? $segments[0] : null; // 'from-experience' | 'saved'
-$segment1 = isset($segments[1]) ? $segments[1] : null; // experience id | 'mine' | memory id
+$segment0 = isset($segments[0]) ? $segments[0] : null; // 'from-experience' | 'from-event-checkin' | 'saved'
+$segment1 = isset($segments[1]) ? $segments[1] : null; // experience/event id | 'mine' | memory id
 
 if ($segment0 === 'from-experience' && $segment1 !== null && is_numeric($segment1) && $method === 'POST') {
 	$memoriesModel = new OssnMemories();
@@ -81,6 +86,22 @@ if ($segment0 === 'from-experience' && $segment1 !== null && is_numeric($segment
 	}
 	if ($result['status'] === 'not_happened_yet') {
 		ossn_api_error('validation_error', 'This experience has not happened yet', 422);
+	}
+	if ($result['status'] !== 'ok') {
+		ossn_api_error('failed', 'Could not save memory', 422);
+	}
+	ossn_api_json(array('id' => intval($result['id'])));
+}
+
+/** BERX WORLD — real Checkpoint -> Memory (OssnMemories::createFromEventCheckin()) — only for someone who actually, geo-verifiedly checked in. */
+if ($segment0 === 'from-event-checkin' && $segment1 !== null && is_numeric($segment1) && $method === 'POST') {
+	$memoriesModel = new OssnMemories();
+	$result = $memoriesModel->createFromEventCheckin($segment1, $api_user_guid);
+	if ($result['status'] === 'not_found') {
+		ossn_api_error('not_found', 'Event not found', 404);
+	}
+	if ($result['status'] === 'forbidden') {
+		ossn_api_error('forbidden', 'Only someone who actually checked in at this event can save it as a memory', 403);
 	}
 	if ($result['status'] !== 'ok') {
 		ossn_api_error('failed', 'Could not save memory', 422);

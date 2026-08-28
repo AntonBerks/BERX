@@ -57,7 +57,8 @@ function ossn_api_notification_actor($guid) {
  *   like:post:group:wall, wall:friends:tag, berx:place:comment    -> post guid
  *   berx:place:review, berx:place:checkin, berx:offer:claimed     -> place guid
  *   berx:event:rsvp, berx:event:comment, berx:event:invite,
- *   berx:event:waitlist:promoted, berx:plan:converted             -> event guid
+ *   berx:event:waitlist:promoted, berx:event:checkin,
+ *   berx:plan:converted                                            -> event guid
  *   (plan:converted's subject_guid is the real NEW event a Plan
  *   just became — OssnPlans::convertToEvent() — not the plan itself)
  *   group:joinrequest                                             -> community (group) guid
@@ -96,7 +97,7 @@ function ossn_api_notification_subject($type, $subjectGuid) {
 	// berx:plan:converted's subject_guid is deliberately the real NEW
 	// EVENT guid it just created (see OssnPlans::convertToEvent()), so
 	// it belongs in this event-resolution case, not a plan-specific one.
-	if ($type === 'berx:event:rsvp' || $type === 'berx:event:comment' || $type === 'berx:event:invite' || $type === 'berx:event:waitlist:promoted' || $type === 'berx:plan:converted') {
+	if ($type === 'berx:event:rsvp' || $type === 'berx:event:comment' || $type === 'berx:event:invite' || $type === 'berx:event:waitlist:promoted' || $type === 'berx:event:checkin' || $type === 'berx:plan:converted') {
 		$event = class_exists('OssnEvents') ? (new OssnEvents())->getEvent($subjectGuid) : null;
 		return array('title' => $event ? (string) $event->title : null, 'kind' => 'event');
 	}

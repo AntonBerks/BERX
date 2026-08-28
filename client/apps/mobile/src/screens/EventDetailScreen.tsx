@@ -20,14 +20,25 @@
  * the feed's own per-owner grouping) and opened through the exact
  * same currentStoryGroup + 'StoryViewer' route AppShell already uses
  * for the main Stories rail — no new viewer, no duplicated logic.
+ *
+ * BERX WORLD — real Checkpoint (OssnEvents::checkIn()): RSVP is
+ * intent, this is real geo-verified attendance, distinct and proven.
+ * Same honest manual lat/lng entry as PlaceDetailScreen's own
+ * check-in (no device Geolocation library installed/verifiable in
+ * this sandbox). Once checked in, a real "Сохранить как воспоминание"
+ * action (api.saveMemoryFromEventCheckin()) closes the Checkpoint ->
+ * Memory link — only ever shown once the server has already confirmed
+ * has_checked_in, never a button that would 403.
  */
 import {useCallback, useEffect, useState} from 'react';
 import {View, Text, ScrollView, Image, FlatList, Pressable, RefreshControl, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxEvent, BerxEventAttendee, BerxExperienceGraphFriend, BerxEventStoryItem, BerxStoryFeedGroup} from '@berx/api/types';
+import {BerxApiError} from '@berx/core';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
+import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {BerxLoadingState, BerxErrorState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxDiscussion} from '../../../../packages/design-system/src/components/BerxDiscussion';
 import {BerxAvatar} from '../../../../packages/design-system/src/components/BerxAvatar';
@@ -73,6 +84,13 @@ export default function EventDetailScreen({api, guid, myGuid, onOpenPlace, onOpe
 	const [friendsGoing, setFriendsGoing] = useState<BerxExperienceGraphFriend[]>([]);
 	const [storyGroups, setStoryGroups] = useState<BerxStoryFeedGroup[]>([]);
 	const [authHeaders, setAuthHeaders] = useState<Record<string, string>>({});
+	const [checkinOpen, setCheckinOpen] = useState(false);
+	const [checkinLat, setCheckinLat] = useState('');
+	const [checkinLng, setCheckinLng] = useState('');
+	const [checkinBusy, setCheckinBusy] = useState(false);
+	const [checkinMessage, setCheckinMessage] = useState<string | null>(null);
+	const [savingMemory, setSavingMemory] = useState(false);
+	const [memorySaved, setMemorySaved] = useState(false);
 
 	const load = useCallback(async () => {
 		setLoading(true);
@@ -114,6 +132,55 @@ export default function EventDetailScreen({api, guid, myGuid, onOpenPlace, onOpe
 			setRsvpError(e instanceof Error ? e.message : 'Не удалось изменить запись');
 		} finally {
 			setRsvping(false);
+		}
+	}
+
+	/**
+	 * BERX WORLD — real Checkpoint: geo-verified attendance, distinct
+	 * from the RSVP above (intent only). Same honest manual lat/lng
+	 * entry as PlaceDetailScreen's own check-in — no real device
+	 * Geolocation library is installed/verifiable in this sandbox; the
+	 * server (OssnEvents::checkIn()) does the real distance
+	 * verification either way, this form never claims to.
+	 */
+	async function submitCheckin() {
+		if (!event) return;
+		const la = Number(checkinLat);
+		const ln = Number(checkinLng);
+		if (!Number.isFinite(la) || !Number.isFinite(ln)) {
+			setCheckinMessage('Введите корректные координаты.');
+			return;
+		}
+		setCheckinBusy(true);
+		setCheckinMessage(null);
+		try {
+			const res = await api.checkInAtEvent(event.guid, la, ln);
+			setCheckinMessage(res.points_awarded > 0 ? `✓ Отмечено — +${res.points_awarded} баллов` : '✓ Отмечено');
+			setCheckinOpen(false);
+			await load();
+		} catch (e) {
+			// Real, honest server verdict — same discipline as PlaceDetailScreen's own check-in.
+			if (e instanceof BerxApiError && (e.code === 'too_far' || e.code === 'no_location' || e.code === 'not_going' || e.code === 'not_started' || e.code === 'already_checked_in')) {
+				setCheckinMessage(e.message);
+			} else {
+				setCheckinMessage('Не удалось отметиться');
+			}
+		} finally {
+			setCheckinBusy(false);
+		}
+	}
+
+	/** The real Checkpoint -> Memory link — only ever shown once event.has_checked_in is already true. */
+	async function saveMemory() {
+		if (!event) return;
+		setSavingMemory(true);
+		try {
+			await api.saveMemoryFromEventCheckin(event.guid);
+			setMemorySaved(true);
+		} catch {
+			// real rejection — button stays, no fake success
+		} finally {
+			setSavingMemory(false);
 		}
 	}
 
@@ -214,8 +281,40 @@ export default function EventDetailScreen({api, guid, myGuid, onOpenPlace, onOpe
 					{onAddToTrip ? <BerxButton label="В поездку" variant="secondary" onPress={onAddToTrip} /> : null}
 					{event.is_going && onAddEventStory ? <BerxButton label="Добавить историю" variant="secondary" onPress={() => onAddEventStory(event.guid)} /> : null}
 					{myGuid === event.owner_guid && onEdit ? <BerxButton label="Редактировать" variant="secondary" onPress={onEdit} /> : null}
+					{event.is_going && !event.has_checked_in && event.starts * 1000 <= Date.now() ? (
+						<BerxButton
+							label="Отметиться"
+							variant="secondary"
+							onPress={() => {
+								setCheckinOpen(!checkinOpen);
+								setCheckinMessage(null);
+							}}
+						/>
+					) : null}
 				</View>
 				{rsvpError ? <Text style={styles.error}>{rsvpError}</Text> : null}
+
+				{checkinOpen ? (
+					<BerxGlassSurface padding="sm" style={styles.checkinForm}>
+						<Text style={styles.checkinHint}>Введите ваши текущие координаты — сервер проверит, что вы действительно на месте события.</Text>
+						<View style={styles.checkinRow}>
+							<View style={styles.checkinHalf}><BerxInput placeholder="Широта" value={checkinLat} onChangeText={setCheckinLat} keyboardType="decimal-pad" /></View>
+							<View style={styles.checkinHalf}><BerxInput placeholder="Долгота" value={checkinLng} onChangeText={setCheckinLng} keyboardType="decimal-pad" /></View>
+						</View>
+						<BerxButton label="Подтвердить" onPress={submitCheckin} loading={checkinBusy} fullWidth />
+					</BerxGlassSurface>
+				) : null}
+				{checkinMessage ? <Text style={styles.checkinMessage}>{checkinMessage}</Text> : null}
+
+				{event.has_checked_in ? (
+					<View style={styles.memoryRow}>
+						{memorySaved ? (
+							<Text style={styles.memorySavedText}>Сохранено как воспоминание ✓</Text>
+						) : (
+							<BerxButton label="Сохранить как воспоминание" variant="secondary" loading={savingMemory} onPress={saveMemory} fullWidth />
+						)}
+					</View>
+				) : null}
 
 				{event.description ? <Text style={styles.description}>{event.description}</Text> : null}
 
@@ -288,6 +387,13 @@ const styles = StyleSheet.create({
 	place: {fontSize: typography.sizeSm, color: colors.accent},
 	actions: {flexDirection: 'row', gap: spacing.sm},
 	error: {fontSize: typography.sizeSm, color: colors.danger},
+	checkinForm: {gap: spacing.sm},
+	checkinHint: {fontSize: typography.sizeXs, color: colors.textFaint},
+	checkinRow: {flexDirection: 'row', gap: spacing.sm},
+	checkinHalf: {flex: 1},
+	checkinMessage: {fontSize: typography.sizeSm, color: colors.accent},
+	memoryRow: {marginTop: spacing.xs},
+	memorySavedText: {color: colors.accent, fontSize: typography.sizeSm, fontWeight: typography.weightMedium, textAlign: 'center'},
 	description: {fontSize: typography.sizeBase, color: colors.text, lineHeight: typography.sizeBase * typography.lineHeightBase},
 	seats: {fontSize: typography.sizeSm, color: colors.textFaint},
 	sectionTitle: {fontSize: typography.sizeXs, color: colors.textFaint, fontWeight: typography.weightBold, textTransform: 'uppercase'},

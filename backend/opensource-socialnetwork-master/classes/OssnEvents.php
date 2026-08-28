@@ -411,6 +411,78 @@ class OssnEvents extends OssnObject {
 		return 'ok';
 	}
 
+	const CHECKIN_RELATION = 'event:checkin';
+
+	/**
+	 * BERX WORLD — real Checkpoint: RSVP only ever proves INTENT
+	 * ("said they'd go"); this proves real, geo-verified ATTENDANCE
+	 * ("was actually there") — the same distance-check discipline as
+	 * OssnPlaces::checkIn(), reused rather than duplicated, applied to
+	 * the event's own real indexed location (OssnGeo::getLocation(),
+	 * set at creation by indexLocation() from either a real place_guid
+	 * or a real free-text location that never got geocoded — the
+	 * latter has no coordinates, so a check-in on it is honestly
+	 * refused as unverifiable, never silently trusted).
+	 *
+	 * One real check-in per (user, event) — unlike a Place (which is
+	 * meaningfully revisited many times), a single Event has exactly
+	 * one moment of arrival, so this is a real existence check, not a
+	 * time-window cooldown.
+	 *
+	 * @return array {ok:bool, reason?:string, distance_m?:float}
+	 */
+	public function checkIn($eventGuid, $userGuid, $lat, $lng) {
+		if (!OssnGeo::isValidLat($lat) || !OssnGeo::isValidLng($lng)) {
+			return array('ok' => false, 'reason' => 'invalid_coordinates');
+		}
+		$event = $this->getEvent($eventGuid);
+		if (!$event) {
+			return array('ok' => false, 'reason' => 'not_found');
+		}
+		if (!$this->isGoing($eventGuid, $userGuid)) {
+			// Real semantics: you can only check in to an event you're
+			// actually RSVPed to — a checkpoint without an RSVP would be
+			// attendance nobody claimed intent for.
+			return array('ok' => false, 'reason' => 'not_going');
+		}
+		if (intval($event->starts) > time()) {
+			return array('ok' => false, 'reason' => 'not_started');
+		}
+		if (ossn_relation_exists(intval($userGuid), intval($eventGuid), self::CHECKIN_RELATION)) {
+			return array('ok' => false, 'reason' => 'already_checked_in');
+		}
+		$geo = class_exists('OssnGeo') ? new OssnGeo() : null;
+		$location = $geo ? $geo->getLocation($eventGuid) : false;
+		if (!$location) {
+			return array('ok' => false, 'reason' => 'no_location');
+		}
+		$distanceKm = OssnGeo::distanceKm(floatval($lat), floatval($lng), floatval($location->lat), floatval($location->lng));
+		$distanceM = $distanceKm * 1000;
+		// Same real 300m radius as OssnPlaces::checkIn() — read from
+		// its own constant when the class is loaded rather than
+		// duplicating the magic number, falling back to the identical
+		// literal only if it somehow isn't (defensive, matches
+		// OssnExperiences' own class_exists('OssnPlaces') guard style).
+		$radiusM = class_exists('OssnPlaces') ? OssnPlaces::CHECKIN_RADIUS_METERS : 300;
+		if ($distanceM > $radiusM) {
+			return array('ok' => false, 'reason' => 'too_far', 'distance_m' => round($distanceM, 1));
+		}
+		if (!ossn_add_relation(intval($userGuid), intval($eventGuid), self::CHECKIN_RELATION)) {
+			return array('ok' => false, 'reason' => 'save_failed');
+		}
+		return array('ok' => true, 'distance_m' => round($distanceM, 1));
+	}
+
+	public function hasCheckedIn($eventGuid, $userGuid) {
+		return ossn_relation_exists(intval($userGuid), intval($eventGuid), self::CHECKIN_RELATION);
+	}
+
+	/** Real attendee-of-record list — who ACTUALLY showed up, not who said they would. Same shape as OssnPlaces::checkinsForPlace(). */
+	public function checkinsForEvent($eventGuid, $limit = 200) {
+		$rows = ossn_get_relationships(array('to' => intval($eventGuid), 'type' => self::CHECKIN_RELATION, 'limit' => intval($limit), 'page_limit' => false, 'order_by' => 'r.time DESC'));
+		return $rows ? $rows : array();
+	}
+
 	public function cancelRsvp($eventGuid, $userGuid) {
 		$ok = (bool) ossn_delete_relationship(array(
 			'from' => intval($userGuid),
@@ -660,6 +732,9 @@ class OssnEvents extends OssnObject {
 		// idiom as is_going: never a client guess, always the real row.
 		$event->is_waitlisted  = $this->isWaitlisted($event->guid, $viewerGuid);
 		$event->waitlist_count = $this->waitlistCount($event->guid);
+		// BERX WORLD — real Checkpoint state, same viewer-scoped idiom:
+		// is_going is intent, has_checked_in is proven attendance.
+		$event->has_checked_in = $viewerGuid ? $this->hasCheckedIn($event->guid, $viewerGuid) : false;
 
 		$event->owner_guid = intval($event->owner_guid);
 		$event->guid       = intval($event->guid);

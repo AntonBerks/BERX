@@ -84,6 +84,7 @@ const NOTIFICATION_VERB: Record<string, string> = {
 	'berx:offer:claimed': 'забронировал(а) предложение в',
 	'berx:place:comment': 'прокомментировал(а) ваш пост о месте',
 	'berx:event:rsvp': 'идёт на',
+	'berx:event:checkin': 'отметился(-лась) на',
 	'berx:event:comment': 'прокомментировал(а)',
 	'berx:event:invite': 'пригласил(а) вас на',
 	'berx:event:waitlist:promoted': 'вы переведены из листа ожидания в участники',

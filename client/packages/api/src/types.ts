@@ -340,6 +340,7 @@ export type BerxNotificationPrefType =
 	| 'berx:place:checkin'
 	| 'berx:offer:claimed'
 	| 'berx:event:rsvp'
+	| 'berx:event:checkin'
 	| 'berx:event:comment'
 	| 'berx:event:invite'
 	| 'ossnpoke:poke'
@@ -869,6 +870,8 @@ export interface BerxEvent {
 	/** MAX BUILD — real waitlist state, viewer-scoped like is_going (see classes/OssnEvents.php's own Waitlist section). */
 	is_waitlisted: boolean;
 	waitlist_count: number;
+	/** BERX WORLD — real, geo-verified Checkpoint state: is_going is intent, this is proven attendance (see OssnEvents::checkIn()). */
+	has_checked_in: boolean;
 }
 
 /**
@@ -1351,7 +1354,7 @@ export interface BerxSavedMemory {
 	id: number;
 	title: string;
 	notes: string | null;
-	source_type: 'experience';
+	source_type: 'experience' | 'event_checkin';
 	source_id: number;
 	place: {guid: number; title: string} | null;
 	happened_at: number;

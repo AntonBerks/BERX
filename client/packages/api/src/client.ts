@@ -844,6 +844,11 @@ export class BerxApiClient {
 		return this.request<{id: number}>(`/memories/from-experience/${experienceId}`, {method: 'POST'});
 	}
 
+	/** The real Checkpoint -> Memory link — only for an event the caller actually, geo-verifiedly checked in to (see checkInAtEvent()). */
+	async saveMemoryFromEventCheckin(eventGuid: number): Promise<{id: number}> {
+		return this.request<{id: number}>(`/memories/from-event-checkin/${eventGuid}`, {method: 'POST'});
+	}
+
 	async mySavedMemories(limit = 50): Promise<{memories: BerxSavedMemory[]}> {
 		return this.request<{memories: BerxSavedMemory[]}>(`/memories/saved?limit=${limit}`);
 	}
@@ -1801,6 +1806,18 @@ export class BerxApiClient {
 	/** userGuid must be a real friend of the caller — inviteFriend() re-checks this server-side regardless of what the UI already knows. */
 	async inviteToEvent(guid: number, userGuid: number): Promise<{status: string}> {
 		return this.request<{status: string}>(`/events/${guid}/invite`, {method: 'POST', body: {user: String(userGuid)}});
+	}
+
+	/**
+	 * BERX WORLD — real Checkpoint: geo-verified ATTENDANCE, distinct
+	 * from rsvpEvent() (intent only). Same real distance-check
+	 * discipline as checkInAtPlace() — reuses BerxCheckInResponse, the
+	 * server computes and returns the real distance, never a client
+	 * guess. Requires a prior real RSVP and the event to have started
+	 * (OssnEvents::checkIn()'s own real guards).
+	 */
+	async checkInAtEvent(guid: number, lat: number, lng: number): Promise<BerxCheckInResponse> {
+		return this.request<BerxCheckInResponse>(`/events/${guid}/checkin`, {method: 'POST', body: {lat: String(lat), lng: String(lng)}});
 	}
 
 	/**

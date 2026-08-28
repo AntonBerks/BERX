@@ -101,6 +101,8 @@ function ossn_api_notify_event_owner($hook, $type, $return, $params) {
 	return $params;
 }
 ossn_add_hook('notification:add', 'berx:event:rsvp', 'ossn_api_notify_event_owner');
+/** BERX WORLD — real geo-verified attendance checkpoint (OssnEvents::checkIn()), same real event-owner resolution. */
+ossn_add_hook('notification:add', 'berx:event:checkin', 'ossn_api_notify_event_owner');
 ossn_add_hook('notification:add', 'berx:event:comment', 'ossn_api_notify_event_owner');
 
 /** owner_guid is already supplied as notification_owner by the caller (a specific invitee) — real passthrough, nothing to resolve. */

@@ -44,6 +44,7 @@ class OssnNotificationPrefs extends OssnDatabase {
 			'berx:place:checkin',
 			'berx:offer:claimed',
 			'berx:event:rsvp',
+			'berx:event:checkin',
 			'berx:event:comment',
 			'berx:event:invite',
 			'ossnpoke:poke',

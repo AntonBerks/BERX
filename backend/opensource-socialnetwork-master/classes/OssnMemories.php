@@ -36,6 +36,7 @@ class OssnMemories extends OssnDatabase {
 	const PARTICIPANTS_TABLE = 'ossn_memory_participants';
 
 	const SOURCE_EXPERIENCE = 'experience';
+	const SOURCE_EVENT_CHECKIN = 'event_checkin';
 
 	/**
 	 * @return array{status:string, id?:int}
@@ -61,29 +62,17 @@ class OssnMemories extends OssnDatabase {
 			return array('status' => 'not_happened_yet');
 		}
 
-		$existing = $this->select(array(
-			'from'   => self::TABLE,
-			'wheres' => array(
-				self::wheres('owner_guid', '=', $actingGuid),
-				self::wheres('source_type', '=', self::SOURCE_EXPERIENCE),
-				self::wheres('source_id', '=', intval($experienceId)),
-			),
-		));
+		$existing = $this->findExisting($actingGuid, self::SOURCE_EXPERIENCE, $experienceId);
 		if ($existing) {
 			return array('status' => 'ok', 'id' => intval($existing->id));
 		}
 
 		$placeGuid = $this->resolvePlaceGuid($experience);
 
-		$id = $this->insert(array(
-			'into'   => self::TABLE,
-			'names'  => array('owner_guid', 'title', 'notes', 'source_type', 'source_id', 'place_guid', 'happened_at', 'time_created'),
-			'values' => array($actingGuid, (string) $experience->title, null, self::SOURCE_EXPERIENCE, intval($experienceId), $placeGuid, intval($experience->scheduled_start), time()),
-		));
-		if (!$id) {
+		$memoryId = $this->insertMemory($actingGuid, (string) $experience->title, self::SOURCE_EXPERIENCE, $experienceId, $placeGuid, intval($experience->scheduled_start));
+		if (!$memoryId) {
 			return array('status' => 'failed');
 		}
-		$memoryId = $this->getLastEntry();
 
 		// Real snapshot of who was actually there — every accepted
 		// participant plus the owner, at the moment this memory is
@@ -97,15 +86,85 @@ class OssnMemories extends OssnDatabase {
 				$peopleGuids[] = $participant->member_guid;
 			}
 		}
-		foreach (array_unique(array_map('intval', $peopleGuids)) as $personGuid) {
+		$this->insertParticipants($memoryId, $peopleGuids);
+
+		return array('status' => 'ok', 'id' => intval($memoryId));
+	}
+
+	/**
+	 * BERX WORLD — real Checkpoint -> Memory. Only for someone who
+	 * really, geo-verifiedly checked in (OssnEvents::hasCheckedIn()) —
+	 * a stronger, more honest guard than the Experience path's
+	 * accepted-participant check, since attendance here is proven, not
+	 * self-reported. WHO is every OTHER real attendee who also checked
+	 * in — people actually confirmed present, not everyone who merely
+	 * RSVPed (a real, meaningfully more honest "with whom" than the
+	 * event's own attendee list would be).
+	 *
+	 * @return array{status:string, id?:int}
+	 */
+	public function createFromEventCheckin($eventGuid, $actingGuid) {
+		if (!class_exists('OssnEvents')) {
+			return array('status' => 'failed');
+		}
+		$events = new OssnEvents();
+		$event = $events->getEvent($eventGuid, $actingGuid);
+		if (!$event) {
+			return array('status' => 'not_found');
+		}
+		$actingGuid = intval($actingGuid);
+		if (!$events->hasCheckedIn($eventGuid, $actingGuid)) {
+			return array('status' => 'forbidden');
+		}
+
+		$existing = $this->findExisting($actingGuid, self::SOURCE_EVENT_CHECKIN, $eventGuid);
+		if ($existing) {
+			return array('status' => 'ok', 'id' => intval($existing->id));
+		}
+
+		$placeGuid = !empty($event->place['guid']) ? intval($event->place['guid']) : null;
+		$memoryId = $this->insertMemory($actingGuid, (string) $event->title, self::SOURCE_EVENT_CHECKIN, $eventGuid, $placeGuid, intval($event->starts));
+		if (!$memoryId) {
+			return array('status' => 'failed');
+		}
+
+		$peopleGuids = array($actingGuid);
+		foreach ($events->checkinsForEvent($eventGuid) as $checkin) {
+			$peopleGuids[] = $checkin->relation_from;
+		}
+		$this->insertParticipants($memoryId, $peopleGuids);
+
+		return array('status' => 'ok', 'id' => intval($memoryId));
+	}
+
+	private function findExisting($ownerGuid, $sourceType, $sourceId) {
+		return $this->select(array(
+			'from'   => self::TABLE,
+			'wheres' => array(
+				self::wheres('owner_guid', '=', intval($ownerGuid)),
+				self::wheres('source_type', '=', (string) $sourceType),
+				self::wheres('source_id', '=', intval($sourceId)),
+			),
+		));
+	}
+
+	private function insertMemory($ownerGuid, $title, $sourceType, $sourceId, $placeGuid, $happenedAt) {
+		$id = $this->insert(array(
+			'into'   => self::TABLE,
+			'names'  => array('owner_guid', 'title', 'notes', 'source_type', 'source_id', 'place_guid', 'happened_at', 'time_created'),
+			'values' => array(intval($ownerGuid), $title, null, (string) $sourceType, intval($sourceId), $placeGuid, intval($happenedAt), time()),
+		));
+		return $id ? $this->getLastEntry() : false;
+	}
+
+	private function insertParticipants($memoryId, array $guids) {
+		foreach (array_unique(array_map('intval', $guids)) as $personGuid) {
 			$this->insert(array(
 				'into'   => self::PARTICIPANTS_TABLE,
 				'names'  => array('memory_id', 'user_guid', 'time_created'),
 				'values' => array($memoryId, $personGuid, time()),
 			));
 		}
-
-		return array('status' => 'ok', 'id' => intval($memoryId));
 	}
 
 	private function resolvePlaceGuid($experience) {
