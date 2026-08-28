@@ -238,6 +238,11 @@ function ossn_api_v1_resources() {
 		// that name already means Business Moments, a completely
 		// different concept). See that class's own header.
 		'lifemoments'   => __OSSN_API__ . 'v1/lifemoments.php',
+		// (No separate 'activity' resource: lifegraph.php already IS
+		// the real composed-timeline concept -- Plans/Checkpoints/Life
+		// Moments/Memories were folded into its existing edge list
+		// instead of shipping a parallel endpoint that solves the
+		// same problem. See lifegraph.php's own header.)
 		// 'business' (the SEPARATE top-level resource — /business/
 		// places/{guid}/team|subscription|hours|claim|moments|
 		// impressions) still deliberately NOT listed: those branches

@@ -375,11 +375,16 @@ export type BerxLifeGraphEdgeType =
 	| 'created_experience'
 	| 'earned_reward'
 	| 'met_person'
-	| 'checked_in';
+	| 'checked_in'
+	| 'event_checkpoint'
+	| 'plan_created'
+	| 'plan_converted'
+	| 'moment_created'
+	| 'memory_saved';
 
 export interface BerxLifeGraphEdge {
 	type: BerxLifeGraphEdgeType;
-	target_type: 'place' | 'event' | 'community' | 'trip' | 'experience' | 'reward' | 'person';
+	target_type: 'place' | 'event' | 'community' | 'trip' | 'experience' | 'reward' | 'person' | 'plan' | 'moment' | 'memory';
 	target_guid: number | null;
 	target_title: string;
 	time: number;
@@ -395,6 +400,10 @@ export interface BerxLifeGraphSummary {
 	communities_joined: number;
 	trips_created: number;
 	experiences_created: number;
+	plans_created: number;
+	event_checkins_count: number;
+	moments_created: number;
+	memories_saved: number;
 }
 
 export interface BerxLifeGraphResponse {

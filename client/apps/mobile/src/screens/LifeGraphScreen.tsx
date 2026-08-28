@@ -36,6 +36,12 @@ const EDGE_LABELS: Record<string, string> = {
 	created_experience: 'Создали впечатление',
 	earned_reward: 'Заработали баллы',
 	met_person: 'Познакомились на событии',
+	checked_in: 'Отметились на месте',
+	event_checkpoint: 'Подтвердили присутствие на событии',
+	plan_created: 'Создали план',
+	plan_converted: 'План стал событием',
+	moment_created: 'Записали момент',
+	memory_saved: 'Сохранили воспоминание',
 };
 
 const SUMMARY_ROWS: {key: keyof BerxLifeGraphResponse['summary']; label: string}[] = [
@@ -45,6 +51,10 @@ const SUMMARY_ROWS: {key: keyof BerxLifeGraphResponse['summary']; label: string}
 	{key: 'communities_joined', label: 'Сообществ'},
 	{key: 'trips_created', label: 'Поездок'},
 	{key: 'experiences_created', label: 'Впечатлений'},
+	{key: 'plans_created', label: 'Планов'},
+	{key: 'event_checkins_count', label: 'Подтверждённых событий'},
+	{key: 'moments_created', label: 'Моментов'},
+	{key: 'memories_saved', label: 'Воспоминаний'},
 ];
 
 export default function LifeGraphScreen({api, onBack}: Props) {

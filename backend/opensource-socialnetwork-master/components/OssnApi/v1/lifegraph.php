@@ -66,6 +66,20 @@ if (class_exists('OssnEvents')) {
 			}
 		}
 	}
+
+	// MAX BUILD — real Checkpoint Engine: geo-verified attendance
+	// (OssnEvents::checkIn()), distinct from the RSVP-as-intent
+	// 'going_event'/'attended_event' edges above. Same real-relationship
+	// pattern as the place check-in block already in this file.
+	$eventCheckinRows = ossn_get_relationships(array('from' => $userGuid, 'type' => OssnEvents::CHECKIN_RELATION, 'limit' => $perCategory, 'page_limit' => false, 'order_by' => 'r.time DESC'));
+	if ($eventCheckinRows) {
+		foreach ($eventCheckinRows as $r) {
+			$e = $eventsModel->getEvent($r->relation_to);
+			if ($e) {
+				$edges[] = array('type' => 'event_checkpoint', 'target_type' => 'event', 'target_guid' => intval($e->guid), 'target_title' => (string) $e->title, 'time' => intval($r->time));
+			}
+		}
+	}
 }
 
 /* ---- reviewed places (ossn_place_reviews, direct — no per-author list method exists on OssnPlaces, and adding one just for this read isn't worth a wider API surface) ---- */
@@ -116,6 +130,35 @@ if (class_exists('OssnExperiences')) {
 		foreach ($experiences as $ex) {
 			$edges[] = array('type' => 'created_experience', 'target_type' => 'experience', 'target_guid' => intval($ex->id), 'target_title' => (string) $ex->title, 'time' => intval($ex->time_created));
 		}
+	}
+}
+
+/* ---- plans (classes/OssnPlans.php) — a plan the caller either owns or was invited to and accepted, real conversion into an event when it happened ---- */
+
+if (class_exists('OssnPlans')) {
+	foreach ((new OssnPlans())->myPlans($userGuid, $perCategory) as $plan) {
+		$isOwner = intval($plan->owner_guid) === $userGuid;
+		if ($plan->status === 'converted' && $plan->created_event_guid) {
+			$edges[] = array('type' => 'plan_converted', 'target_type' => 'event', 'target_guid' => intval($plan->created_event_guid), 'target_title' => (string) $plan->title, 'time' => intval($plan->time_created));
+		} elseif ($isOwner) {
+			$edges[] = array('type' => 'plan_created', 'target_type' => 'plan', 'target_guid' => intval($plan->id), 'target_title' => (string) $plan->title, 'time' => intval($plan->time_created));
+		}
+	}
+}
+
+/* ---- life moments (classes/OssnLifeMoments.php) — real presence-gated capture, see that class's own header ---- */
+
+if (class_exists('OssnLifeMoments')) {
+	foreach ((new OssnLifeMoments())->myMoments($userGuid, $perCategory) as $moment) {
+		$edges[] = array('type' => 'moment_created', 'target_type' => 'moment', 'target_guid' => intval($moment->id), 'target_title' => mb_substr((string) $moment->text, 0, 80), 'time' => intval($moment->time_created));
+	}
+}
+
+/* ---- saved memories (classes/OssnMemories.php) — real persisted who/where/when/what, sourced from a real Experience or a real Event checkpoint ---- */
+
+if (class_exists('OssnMemories')) {
+	foreach ((new OssnMemories())->myMemories($userGuid, $perCategory) as $memory) {
+		$edges[] = array('type' => 'memory_saved', 'target_type' => 'memory', 'target_guid' => intval($memory->id), 'target_title' => (string) $memory->title, 'time' => intval($memory->time_created));
 	}
 }
 
@@ -188,6 +231,10 @@ $communitiesJoinedCount = intval(ossn_get_relationships(array('to' => $userGuid,
 $reviewCountRow = $db->select(array('from' => 'ossn_place_reviews', 'params' => array('COUNT(*) as cnt'), 'wheres' => array(OssnDatabase::wheres('author_guid', '=', $userGuid))));
 $tripsCountRow = $db->select(array('from' => 'ossn_trips', 'params' => array('COUNT(*) as cnt'), 'wheres' => array(OssnDatabase::wheres('owner_guid', '=', $userGuid))));
 $experiencesCountRow = $db->select(array('from' => 'ossn_experiences', 'params' => array('COUNT(*) as cnt'), 'wheres' => array(OssnDatabase::wheres('owner_guid', '=', $userGuid))));
+$plansCountRow = $db->select(array('from' => 'ossn_plans', 'params' => array('COUNT(*) as cnt'), 'wheres' => array(OssnDatabase::wheres('owner_guid', '=', $userGuid))));
+$eventCheckinsCount = class_exists('OssnEvents') ? intval(ossn_get_relationships(array('from' => $userGuid, 'type' => OssnEvents::CHECKIN_RELATION, 'count' => true))) : 0;
+$momentsCountRow = $db->select(array('from' => 'ossn_moments', 'params' => array('COUNT(*) as cnt'), 'wheres' => array(OssnDatabase::wheres('owner_guid', '=', $userGuid))));
+$memoriesCountRow = $db->select(array('from' => 'ossn_memories', 'params' => array('COUNT(*) as cnt'), 'wheres' => array(OssnDatabase::wheres('owner_guid', '=', $userGuid))));
 
 ossn_api_json(array(
 	'edges'   => $edges,
@@ -199,6 +246,10 @@ ossn_api_json(array(
 		'communities_joined'  => $communitiesJoinedCount,
 		'trips_created'       => $tripsCountRow ? intval($tripsCountRow->cnt) : 0,
 		'experiences_created' => $experiencesCountRow ? intval($experiencesCountRow->cnt) : 0,
+		'plans_created'        => $plansCountRow ? intval($plansCountRow->cnt) : 0,
+		'event_checkins_count' => $eventCheckinsCount,
+		'moments_created'      => $momentsCountRow ? intval($momentsCountRow->cnt) : 0,
+		'memories_saved'       => $memoriesCountRow ? intval($memoriesCountRow->cnt) : 0,
 		// No real total exists for 'connections met' — it's derived
 		// (co-attendance x friendship), not a single indexed table to
 		// COUNT(), and computing the true lifetime figure would mean an
