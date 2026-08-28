@@ -126,7 +126,7 @@ img.ustatus.ossn-chat-icon-online {
 }
 
 .ossn-chat-base .ossn-chat-bar .friends-list-item:hover {
-    background: var(--berx-accent-soft, rgba(79, 214, 232,0.16));
+    background: var(--berx-accent-soft, rgba(217, 169, 63,0.16));
 }
 
 .ossn-chat-base .ossn-chat-bar .friends-list-item .friends-item-inner {
@@ -445,7 +445,7 @@ img.ustatus.ossn-chat-icon-online {
 }
 .ossn-chat-icon-attachment:hover,
 .ossn-chat-icon-smile:hover {
-	background: var(--berx-accent-soft, rgba(79, 214, 232,0.16));
+	background: var(--berx-accent-soft, rgba(217, 169, 63,0.16));
     text-align: center;
 }
 .ossn-chat-icon-attachment:before {
@@ -735,8 +735,8 @@ footer {
 }
 /* Was #5D7D91 / #2F4959 — a legacy blue-grey unrelated to BERX. */
 .ossn-chat-tab-active {
-	background: var(--berx-accent-soft, rgba(79, 214, 232,0.16)) !important;
-	border: 1px solid var(--berx-accent, #4fd6e8) !important;
+	background: var(--berx-accent-soft, rgba(217, 169, 63,0.16)) !important;
+	border: 1px solid var(--berx-accent, #D9A93F) !important;
 	color: var(--berx-white, #fff) !important;
 }
 .ossn-chat-windows-long {
@@ -757,7 +757,7 @@ footer {
 .friend-tab-item .tab-container { color: var(--berx-text-dim, #a3a3a3); }
 /* Unread badge: flat BERX accent instead of the old red gradient. */
 .ossn-chat-new-message {
-	background: var(--berx-accent, #4fd6e8) !important;
+	background: var(--berx-accent, #D9A93F) !important;
 	background-image: none !important;
 	color: #050505 !important;
 	text-shadow: none !important;

@@ -264,9 +264,9 @@
 }
 
 .ossn-comments-view-all:hover {
-    background: var(--berx-accent-soft, rgba(79,214,232,0.16));
-    color: var(--berx-accent, #4fd6e8);
-    border-color: var(--berx-accent, #4fd6e8);
+    background: var(--berx-accent-soft, rgba(217, 169, 63,0.16));
+    color: var(--berx-accent, #D9A93F);
+    border-color: var(--berx-accent, #D9A93F);
 }
 
 .ossn-comments-counter-stats {

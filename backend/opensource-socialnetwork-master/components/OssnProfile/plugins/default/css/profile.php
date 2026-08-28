@@ -256,7 +256,7 @@
 }
 
 .upload-photo {
-	background: var(--berx-accent, #4fd6e8);
+	background: var(--berx-accent, #D9A93F);
 	position: absolute;
 	font-size: 15px;
 	font-family: sans-serif;
@@ -492,7 +492,7 @@
 }
 
 .profile-edit-tab-item-active {
-	border-left: 3px solid var(--berx-accent, #4fd6e8) !important;
+	border-left: 3px solid var(--berx-accent, #D9A93F) !important;
 	color: var(--berx-white, #fff) !important;
 	font-weight: bold;
 }

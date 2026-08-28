@@ -66,8 +66,8 @@
 
 #group-header-menu>li>a:not(.group-header-menu .dropdown-toggle):hover,
 #group-header-menu>ul>li:hover>a:not(.group-header-menu .dropdown-toggle) {
-	background: var(--berx-accent-soft, rgba(79, 214, 232,0.16));
-	color: var(--berx-accent, #4fd6e8);
+	background: var(--berx-accent-soft, rgba(217, 169, 63,0.16));
+	color: var(--berx-accent, #D9A93F);
 	text-decoration: none;
 	border-radius: var(--berx-radius-lg, 10px);
 }
@@ -133,7 +133,7 @@
 	overflow: hidden;
 	box-shadow: var(--berx-shadow, 0 20px 60px -20px rgba(0,0,0,0.55));
 	background:
-		radial-gradient(ellipse at 20% 0%, rgba(79, 214, 232,0.14) 0%, rgba(79, 214, 232,0) 55%),
+		radial-gradient(ellipse at 20% 0%, rgba(217, 169, 63,0.14) 0%, rgba(217, 169, 63,0) 55%),
 		var(--berx-glass-1, rgba(255,255,255,0.04));
 }
 
@@ -290,7 +290,7 @@
 }
 
 .ossn-notification-unviewed {
-	background: var(--berx-accent-soft, rgba(79, 214, 232,0.16));
+	background: var(--berx-accent-soft, rgba(217, 169, 63,0.16));
 }
 
 .ossn-group-profile .widget-description .widget-contents {
@@ -503,7 +503,7 @@
 	font-size: var(--berx-text-caption, 13px);
 	font-weight: 600;
 }
-.ossn-group-profile .group-total-members i { color: var(--berx-accent, #4fd6e8); }
+.ossn-group-profile .group-total-members i { color: var(--berx-accent, #D9A93F); }
 
 /* ---------- Cover controls: glass, revealed on hover ---------- */
 .ossn-group-cover-button {
@@ -586,10 +586,10 @@
 }
 .group-widget-members a:hover .user-icon-small {
 	transform: translateY(-2px);
-	border-color: var(--berx-accent, #4fd6e8);
+	border-color: var(--berx-accent, #D9A93F);
 }
 .group-requests-widget .widget-contents a {
-	color: var(--berx-accent, #4fd6e8) !important;
+	color: var(--berx-accent, #D9A93F) !important;
 	font-weight: 600;
 	font-size: var(--berx-text-caption, 13px);
 }
@@ -654,7 +654,7 @@
 /* ---------- BERX: owner-only member management ---------- */
 .berx-group-owner-badge {
 	margin-left: 6px;
-	color: var(--berx-accent, #4fd6e8);
+	color: var(--berx-accent, #D9A93F);
 	font-size: 12px;
 }
 .user-controls-box { display: flex; align-items: center; gap: var(--berx-space-2, 8px); flex-wrap: wrap; }

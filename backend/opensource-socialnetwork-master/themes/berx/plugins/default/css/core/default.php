@@ -105,7 +105,7 @@ body {
 .ossn-form textarea:focus,
 .ossn-form input[type='text']:focus {
 	outline: none;
-	border: 1px solid var(--berx-accent, #4fd6e8);
+	border: 1px solid var(--berx-accent, #D9A93F);
 	background: var(--berx-glass-3, rgba(255,255,255,0.10));
 }
 
@@ -138,7 +138,7 @@ body {
 .btn-link {
 	font-weight: 400;
 	/* legacy Bootstrap 3 blue -> BERX accent */
-	color: var(--berx-accent, #4fd6e8);
+	color: var(--berx-accent, #D9A93F);
 }
 
 .form-control {
@@ -2220,7 +2220,7 @@ label {
 	height: 600px;
 	/* Was a hardcoded indigo/violet gradient predating the accent —
 	   tracks the live accent token now, same as everywhere else. */
-	background: linear-gradient(135deg, var(--berx-accent-soft, rgba(79,214,232,0.4)) 0%, rgba(45, 140, 160, 0.4) 100%);
+	background: linear-gradient(135deg, var(--berx-accent-soft, rgba(217, 169, 63,0.4)) 0%, rgba(122, 90, 22, 0.4) 100%);
 	filter: blur(70px);
 	border-radius: 43% 57% 70% 30% / 30% 45% 55% 70%;
 }
@@ -2228,7 +2228,7 @@ label {
 .ossn-startup-wrapper .blob-1 {
 	top: -10%;
 	left: -10%;
-	background: var(--berx-accent-soft, rgba(79,214,232,0.2));
+	background: var(--berx-accent-soft, rgba(217, 169, 63,0.2));
 }
 
 .ossn-startup-wrapper .blob-2 {
@@ -2330,7 +2330,7 @@ label {
 	width: 400px;
 	height: 400px;
 	/* Was #667eea/#764ba2 — the same discarded indigo/violet pairing. */
-	background: linear-gradient(135deg, var(--berx-accent, #4fd6e8) 0%, #1d7a8c 100%);
+	background: linear-gradient(135deg, var(--berx-accent, #D9A93F) 0%, #7A5A16 100%);
 	filter: blur(80px);
 	opacity: 0.15;
 	z-index: 0;
@@ -2372,7 +2372,7 @@ label {
 }
 
 .ossn-startup-wrapper .feature-item i {
-	color: var(--berx-accent, #4fd6e8);
+	color: var(--berx-accent, #D9A93F);
 	margin-right: 8px;
 }
 
@@ -2424,8 +2424,8 @@ label {
 
 .ossn-startup-wrapper .modern-field:focus {
 	background: #fff !important;
-	border-color: var(--berx-accent, #4fd6e8) !important;
-	box-shadow: 0 4px 12px var(--berx-accent-soft, rgba(79,214,232,0.1)) !important;
+	border-color: var(--berx-accent, #D9A93F) !important;
+	box-shadow: 0 4px 12px var(--berx-accent-soft, rgba(217, 169, 63,0.1)) !important;
 }
 
 .ossn-startup-wrapper .terms-text {
@@ -2487,11 +2487,11 @@ label {
 	/* Intentional: a solid white pill CTA against the dark glass auth
 	   card. Kept — this is a premium button choice, not a leftover
 	   light surface. Only the TEXT colour was stale: #0b769c was a
-	   blue tone from an earlier accent, unrelated to both the orange
-	   and the current cyan accent that replaced it. Now tracks the
-	   live token so the button follows the accent automatically. */
+	   blue tone from an earlier accent, unrelated to any of orange,
+	   cyan, or the current gold accent. Now tracks the live token so
+	   the button follows the accent automatically. */
 	background: #ffffff;
-	color: var(--berx-accent, #4fd6e8);
+	color: var(--berx-accent, #D9A93F);
 
 	font-weight: 700;
 	letter-spacing: 0.5px;
@@ -2510,9 +2510,10 @@ label {
 	color: #000;
 	/* Was rgba(102,126,234,0.3) — an indigo/violet glow left over from
 	   the discarded "Electric Violet" brief, never matching any accent
-	   BERX actually shipped (orange, then cyan). Rebuilt from the live
-	   accent token so the glow always matches the current accent. */
-	box-shadow: 0 6px 15px rgba(79, 214, 232, 0.3);
+	   BERX actually shipped (orange, then cyan, now gold). Rebuilt
+	   from the live accent token so the glow always matches the
+	   current accent. */
+	box-shadow: 0 6px 15px rgba(217, 169, 63, 0.3);
 	transform: translateY(-1px);
 }
 
@@ -2759,17 +2760,17 @@ label {
 	transition: background-color 150ms var(--berx-ease, ease), border-color 150ms var(--berx-ease, ease), color 150ms var(--berx-ease, ease);
 }
 
-/* Primary action (Add friend, etc.) — the one BERX accent (cyan). */
+/* Primary action (Add friend, etc.) — the one BERX accent (gold). */
 .ossn-output-users-list .btn-primary-outline {
-	background: var(--berx-accent-soft, rgba(79, 214, 232,0.16));
-	color: var(--berx-accent, #4fd6e8) !important;
-	border: 1px solid rgba(79, 214, 232,0.35);
+	background: var(--berx-accent-soft, rgba(217, 169, 63,0.16));
+	color: var(--berx-accent, #D9A93F) !important;
+	border: 1px solid rgba(217, 169, 63,0.35);
 }
 
 .ossn-output-users-list .btn-primary-outline:hover {
-	background: var(--berx-accent, #4fd6e8);
+	background: var(--berx-accent, #D9A93F);
 	color: #050505 !important;
-	border-color: var(--berx-accent, #4fd6e8);
+	border-color: var(--berx-accent, #D9A93F);
 }
 
 /* Danger action (Remove/Cancel) — kept semantically red per the
@@ -2816,7 +2817,7 @@ label {
    BERX PREMIUM GLASS DESIGN SYSTEM
    Layered on top of the OSSN structural/layout CSS above.
    Deep black base + three translucent glass elevations + a single
-   cyan accent. Same token model as the (parked) Node/React build —
+   gold accent. Same token model as the (parked) Node/React build —
    surface1/2/3, three blur steps, one shared easing curve — so the
    two front-ends read as one product if either is ever revived.
    ============================================================ */
@@ -2839,16 +2840,21 @@ label {
 	--berx-text-dim: rgba(245,245,247,0.64);
 	--berx-text-faint: rgba(245,245,247,0.38);
 
-	/* Accent: ice cyan. Variable names kept as --berx-accent-* for now —
-	   renaming ~40 usages across 11 files is a bigger, separate change;
-	   the visible color is what matters and it's fully cyan below. */
-	/* BERX accent. Renamed from --berx-orange (which held a cyan value
-	   after the recolor — the name no longer described the value).
-	   The old names are kept as aliases directly below so any component
-	   CSS not yet migrated, and any third-party override, keeps working. */
-	--berx-accent: #4fd6e8;
-	--berx-accent-hover: #7ce4f0;
-	--berx-accent-soft: rgba(79, 214, 232, 0.16);
+	/* BERX accent — RETIRED cyan #4fd6e8, now a warm gold #D9A93F. See
+	   BERX_DECISIONS.md: cyan is explicitly retired (not a third
+	   repaint of the same rejected hue families — this is neither the
+	   earlier-rejected pure orange #ff6a00 nor the earlier-rejected
+	   violet #8b5cf6, a distinct warm-gold/brass hue chosen so it
+	   isn't read as "back to orange"). Variable names kept as
+	   --berx-accent-* — renaming ~40 usages across 11 files is a
+	   bigger, separate change; the visible color is what matters.
+	   The --berx-orange-* aliases below predate even the cyan repaint
+	   (from when this token briefly held an orange value) — kept as
+	   back-compat for any component CSS or third-party override not
+	   yet migrated to --berx-accent-* directly. */
+	--berx-accent: #D9A93F;
+	--berx-accent-hover: #EABD5C;
+	--berx-accent-soft: rgba(217, 169, 63, 0.16);
 	/* Back-compat aliases — do not add new usages. */
 	--berx-orange: var(--berx-accent);
 	--berx-orange-hover: var(--berx-accent-hover);
@@ -3313,7 +3319,7 @@ a:hover { color: var(--berx-accent); }
 /* Unread: accent bar + brighter text, not just bold — legible at a glance. */
 .berx-messages .ossn-recent-message-item.message-new {
 	background: var(--berx-accent-soft);
-	border-color: rgba(79, 214, 232,0.28);
+	border-color: rgba(217, 169, 63,0.28);
 }
 .berx-messages .ossn-recent-message-item.message-new .name { color: #fff; }
 .berx-messages .ossn-recent-message-item.message-new .reply-text-from {
@@ -3441,11 +3447,11 @@ a:hover { color: var(--berx-accent); }
 	to   { opacity: 1; transform: none; }
 }
 .berx-messages .message-box-sent {
-	background: linear-gradient(135deg, var(--berx-accent) 0%, #7ce4f0 100%);
+	background: linear-gradient(135deg, var(--berx-accent) 0%, #EABD5C 100%);
 	color: #1a0c00;
 	float: right;
 	border-bottom-right-radius: var(--berx-radius-sm);
-	box-shadow: 0 6px 20px -8px rgba(79, 214, 232,0.5);
+	box-shadow: 0 6px 20px -8px rgba(217, 169, 63,0.5);
 }
 .berx-messages .message-box-recieved {
 	background: var(--berx-glass-2);

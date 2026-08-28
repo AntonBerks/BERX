@@ -1303,10 +1303,10 @@ a.ossn-reacted-item.ossn-reacted-like span { color: #2078f4 !important; }
 ======================================*/
 .menu-likes-comments-share > li a:hover {
     background-color: var(--berx-glass-2, rgba(255,255,255,0.07));
-    color: var(--berx-accent, #4fd6e8);
+    color: var(--berx-accent, #D9A93F);
 }
 .menu-likes-comments-share > li a:hover::before {
-    color: var(--berx-accent, #4fd6e8);
+    color: var(--berx-accent, #D9A93F);
 }
 .menu-likes-comments-share > li a:active {
     transform: scale(0.97);

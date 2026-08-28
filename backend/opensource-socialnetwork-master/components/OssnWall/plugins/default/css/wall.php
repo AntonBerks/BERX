@@ -156,8 +156,8 @@
 }
 
 .ossn-wall-container .controls li:hover {
-	background: var(--berx-accent-soft, rgba(79,214,232,0.16));
-	color: var(--berx-accent, #4fd6e8);
+	background: var(--berx-accent-soft, rgba(217, 169, 63,0.16));
+	color: var(--berx-accent, #D9A93F);
 }
 
 .ossn-wall-post-button-container {

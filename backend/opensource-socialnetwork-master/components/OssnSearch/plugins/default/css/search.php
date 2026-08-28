@@ -16,14 +16,14 @@
     transition: border-color 150ms var(--berx-ease, ease);
 }
 .ossn-search input[type='text']:focus {
-    border-color: var(--berx-accent, #4fd6e8);
+    border-color: var(--berx-accent, #D9A93F);
 }
 .ossn-search input[type='text']::placeholder {
     color: var(--berx-text-faint, #6f6f6f);
 }
 .ossn-search-active-item {
-    background: var(--berx-accent-soft, rgba(79, 214, 232,0.16));
-    color: var(--berx-accent, #4fd6e8);
+    background: var(--berx-accent-soft, rgba(217, 169, 63,0.16));
+    color: var(--berx-accent, #D9A93F);
 }
 
 /* ============================================================
@@ -43,7 +43,7 @@
 	border: 1px solid var(--berx-border-soft, rgba(255,255,255,0.08));
 	overflow: hidden;
 	background:
-		radial-gradient(ellipse at 15% 0%, rgba(79, 214, 232,0.16) 0%, rgba(79, 214, 232,0) 58%),
+		radial-gradient(ellipse at 15% 0%, rgba(217, 169, 63,0.16) 0%, rgba(217, 169, 63,0) 58%),
 		var(--berx-glass-1, rgba(255,255,255,0.04));
 	-webkit-backdrop-filter: blur(var(--berx-blur-lg, 28px));
 	backdrop-filter: blur(var(--berx-blur-lg, 28px));
@@ -75,8 +75,8 @@
 	transition: border-color 150ms var(--berx-ease, ease);
 }
 .berx-search-form input[type="text"]:focus {
-	border-color: var(--berx-accent, #4fd6e8);
-	box-shadow: 0 0 0 4px rgba(79, 214, 232,0.12);
+	border-color: var(--berx-accent, #D9A93F);
+	box-shadow: 0 0 0 4px rgba(217, 169, 63,0.12);
 }
 .berx-search-form input[type="text"]::placeholder {
 	color: var(--berx-text-faint, #6f6f6f);
@@ -117,8 +117,8 @@
 	color: var(--berx-white, #fff) !important;
 }
 .ossn-menu-search .ossn-search-active-item a {
-	background: var(--berx-accent-soft, rgba(79, 214, 232,0.16));
-	color: var(--berx-accent, #4fd6e8) !important;
+	background: var(--berx-accent-soft, rgba(217, 169, 63,0.16));
+	color: var(--berx-accent, #D9A93F) !important;
 }
 .ossn-menu-search + .title,
 .ossn-search-page .title {
@@ -198,8 +198,8 @@
 	transition: background-color 150ms var(--berx-ease, ease), border-color 150ms var(--berx-ease, ease);
 }
 .ossn-action-btn.btn-primary-outline:hover {
-	border-color: var(--berx-accent, #4fd6e8);
-	color: var(--berx-accent, #4fd6e8) !important;
+	border-color: var(--berx-accent, #D9A93F);
+	color: var(--berx-accent, #D9A93F) !important;
 }
 .ossn-action-btn.btn-danger-outline:hover {
 	border-color: rgba(255,77,79,0.5);

@@ -1,14 +1,17 @@
 /**
  * !!! VERIFICATION STATUS: UNVERIFIED — see BerxButton.tsx header.
  *
- * Real, DELIBERATE, SCOPED exception to "cyan #4fd6e8 only"
- * (BERX_DECISIONS.md, "Design") — user-directed, explicit reference
- * image, confirmed in-session. Cyan stays the app's one systemic
- * accent everywhere else (links, focus rings, primary buttons,
- * badges); this violet→orange gradient exists ONLY for the one social
- * "Follow"-class action this component is used for — never applied
- * system-wide, never silently spreading to other buttons. See
- * BERX_DECISIONS.md's own "Editorial CTA gradient" entry.
+ * Real, DELIBERATE, SCOPED exception to the systemic accent — see
+ * BERX_DECISIONS.md, "Design" (originally scoped against cyan
+ * #4fd6e8, now against its gold #D9A93F successor; the exception's
+ * scope was never about the specific accent hex, only about staying
+ * scoped) — user-directed, explicit reference image, confirmed
+ * in-session. The systemic accent stays the app's one accent
+ * everywhere else (links, focus rings, primary buttons, badges); this
+ * violet→orange gradient exists ONLY for the one social "Follow"-class
+ * action this component is used for — never applied system-wide,
+ * never silently spreading to other buttons. See BERX_DECISIONS.md's
+ * own "Editorial CTA gradient" entry.
  *
  * No gradient library is installed (no expo-linear-gradient/
  * react-native-linear-gradient — same real npm constraint as every

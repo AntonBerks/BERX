@@ -34,7 +34,7 @@
 }
 
 .ossn-messages .messages-recent .messages-from .message-new {
-	background: var(--berx-accent-soft, rgba(79,214,232,0.16));
+	background: var(--berx-accent-soft, rgba(217, 169, 63,0.16));
 }
 
 .ossn-messages .messages-recent .messages-from .user-item .col-lg-10,
@@ -108,7 +108,7 @@
 }
 
 .ossn-notification-messages .message-new {
-	background: var(--berx-accent-soft, rgba(79,214,232,0.16));
+	background: var(--berx-accent-soft, rgba(217, 169, 63,0.16));
 }
 
 .ossn-notification-messages .user-item .image {
@@ -185,14 +185,14 @@
 	word-break: break-word;
 	text-align: justify;
 	float: right;
-	background: var(--berx-accent-soft, rgba(79,214,232,0.16));
+	background: var(--berx-accent-soft, rgba(217, 169, 63,0.16));
 	color: var(--berx-text, #f2f2f2);
 	display: inline-block;
 	padding: 5px 18px;
 	position: relative;
 	vertical-align: top;
 	margin: 10px 0px;
-	border: 1px solid var(--berx-accent, #4fd6e8);
+	border: 1px solid var(--berx-accent, #D9A93F);
 	border-radius: 15px;
 }
 
@@ -356,7 +356,7 @@
 
 .ossn-msgrecent-check-read.fa.fa-check {
 	font-size: 10px;
-	color: var(--berx-accent, #4fd6e8);
+	color: var(--berx-accent, #D9A93F);
 	margin-left: 5px;
 }
 

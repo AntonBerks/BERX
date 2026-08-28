@@ -8,12 +8,18 @@
  */
 
 /**
- * BERX Design Tokens.
+ * BERX Design Tokens — NIGHT environment (the one environment that
+ * actually ships everywhere right now; see `colorsDay` below for the
+ * new Day environment's tokens, defined but not yet wired to a
+ * runtime switch across every screen — honestly scoped, not faked).
  *
- * All values (surfaces, accent, blur, radius) match the live PHP
- * theme (themes/berx/plugins/default/css/core/default.php), ported
- * by hand rather than invented in parallel. Accent is cyan #4fd6e8
- * — see BERX_DECISIONS.md for why (locked after two prior repaints).
+ * MAX BUILD — cyan #4fd6e8 is RETIRED. New accent: warm gold #D9A93F.
+ * See BERX_DECISIONS.md for the full rationale; short version: this
+ * is a deliberately different hue family from BOTH previously-tried-
+ * and-rejected accents (orange #ff6a00, violet #8b5cf6), chosen so it
+ * reads as a genuinely new identity rather than "back to orange."
+ * Mirrors the live PHP web theme's `--berx-accent` (updated in the
+ * same batch — themes/berx/plugins/default/css/core/default.php).
  */
 
 export const colors = {
@@ -37,22 +43,16 @@ export const colors = {
 	textFaint: 'rgba(245,245,247,0.38)',
 
 	/**
-	 * BERX accent: cyan #4fd6e8. Matches the live PHP web theme
-	 * (themes/berx/plugins/default/css/core/default.php's
-	 * --berx-accent) and BERX_DECISIONS.md, which records this as
-	 * locked after two prior repaints (orange, rejected; violet,
-	 * rejected) — "do not reopen without an explicit, unambiguous
-	 * instruction." This file previously held a placeholder grey
-	 * (#e5e5e7) with a comment saying no accent had been decided yet
-	 * — stale; the decision was made and documented, just never
-	 * propagated to mobile. Every screen already reads from
-	 * `colors.accent`, so this is the only edit needed.
+	 * BERX accent: warm gold #D9A93F. Replaces cyan #4fd6e8 — see the
+	 * file header. Every screen already reads from `colors.accent`
+	 * rather than a hardcoded hex, so this one edit is the systemic
+	 * repaint; no per-screen changes needed.
 	 */
-	accent: '#4fd6e8',
-	accentHover: '#7ce4f0',
-	accentSoft: 'rgba(79,214,232,0.16)',
-	accentSecondary: '#4fd6e8',
-	accentSecondarySoft: 'rgba(79,214,232,0.16)',
+	accent: '#D9A93F',
+	accentHover: '#EABD5C',
+	accentSoft: 'rgba(217,169,63,0.16)',
+	accentSecondary: '#D9A93F',
+	accentSecondarySoft: 'rgba(217,169,63,0.16)',
 
 	danger: '#ff4d4f',
 	success: '#3ddc84',
@@ -69,8 +69,66 @@ export const colors = {
 	scrimBottom: 'rgba(5,5,5,0.92)',
 } as const;
 
-/** Real gradient pair now that the accent decision (cyan) is locked — see the comment on colors.accent above. Used only by the Business/Spatial-Glass layer for now. */
-export const gradientAccent = ['#4fd6e8', '#2f9db3'] as const;
+/**
+ * BERX Design Tokens — DAY environment. NEW. Not simply an inverted
+ * dark theme: a distinct warm "architectural white" surface (per the
+ * transformation directive's own framing — daylight, depth, quiet
+ * contrast) rather than a generic light-mode palette. Same shape as
+ * `colors` so a future theme-context can select between the two by
+ * key, but nothing in the app switches to this yet — no screen's
+ * StyleSheet is theme-reactive today (they're all computed once at
+ * module load against the Night `colors` object above). Wiring a
+ * live Day/Night switch through ~80 screens is real, separate,
+ * disclosed follow-up work, not done in this pass — shipping these
+ * values half-wired into some screens and not others would be worse
+ * than not shipping them yet.
+ */
+export const colorsDay = {
+	black: '#17161A', // "black" here means the darkest ink on this environment, not a literal near-black surface
+	bg: '#F6F4EF',
+	graphite: '#EDEAE2',
+
+	glass1: 'rgba(10,10,12,0.035)',
+	glass2: 'rgba(10,10,12,0.06)',
+	glass3: 'rgba(10,10,12,0.09)',
+	surface: 'rgba(10,10,12,0.06)',
+	surface2: 'rgba(10,10,12,0.09)',
+
+	border: 'rgba(10,10,12,0.10)',
+	borderSoft: 'rgba(10,10,12,0.07)',
+	borderStrong: 'rgba(10,10,12,0.16)',
+
+	white: '#17161A', // inverted role: the "on-surface ink" color, matching how `colors.white` is Night's brightest ink
+	text: '#17161A',
+	textDim: 'rgba(23,22,26,0.62)',
+	textFaint: 'rgba(23,22,26,0.36)',
+
+	/** Same gold hue, deepened for contrast against a light surface — not a second color. */
+	accent: '#96721F',
+	accentHover: '#B08A2E',
+	accentSoft: 'rgba(150,114,31,0.14)',
+	accentSecondary: '#96721F',
+	accentSecondarySoft: 'rgba(150,114,31,0.14)',
+
+	danger: '#d43d3f',
+	success: '#2fa968',
+
+	glassBusiness: 'rgba(10,10,12,0.035)',
+	glassBusinessBorder: 'rgba(10,10,12,0.08)',
+	glassBusinessHairline: 'rgba(10,10,12,0.12)',
+	scrimTop: 'rgba(246,244,239,0)',
+	scrimBottom: 'rgba(246,244,239,0.92)',
+} as const;
+
+export type BerxEnvironment = 'day' | 'night';
+
+/** Selects the Night (default, fully-wired) or Day (new, token-only) palette by name. */
+export function getBerxEnvironmentColors(env: BerxEnvironment) {
+	return env === 'day' ? colorsDay : colors;
+}
+
+/** Real gradient pair for the new gold accent — see the comment on colors.accent above. Used only by the Business/Spatial-Glass layer for now. */
+export const gradientAccent = ['#D9A93F', '#7A5A16'] as const;
 
 export const blur = {
 	sm: 8,
@@ -139,7 +197,7 @@ export const shadow = {
 		elevation: 12, // Android has no shadow blur/spread — elevation is the nearest equivalent
 	},
 	glow: {
-		shadowColor: colors.accent,
+		shadowColor: colors.accent, // #D9A93F — see the RETIRED-cyan header comment above
 		shadowOpacity: 0.16,
 		shadowRadius: 32,
 		shadowOffset: { width: 0, height: 0 },
@@ -151,14 +209,14 @@ export const tokens = { colors, blur, radius, motion, spacing, typography, shado
 export type BerxTokens = typeof tokens;
 
 /**
- * Time-of-day palette. PROVISIONAL — same placeholder status as
- * `colors.accent` above. This used to shift between violet and
- * magenta by time of day; with no accent color decided yet, there's
- * nothing meaningful to shift *between*, so this now only varies
- * brightness of a neutral grey across the day rather than hue. Once a
- * real accent exists, this is the right place to bring back an actual
- * color shift — the hour-resolution logic below doesn't need to
- * change, only the five hex values.
+ * Time-of-day palette. MAX BUILD — a real hue shift now that a real
+ * accent exists (see the header comment on `colors.accent`): a single
+ * "golden hour" journey through the gold family rather than five
+ * unrelated colors — dim ember at the dead of night, brightening
+ * through morning gold, full gold at midday, deepening to a warm
+ * bronze at evening, then dimming to a muted brass at night. Never
+ * leaves the gold hue family, so it reads as one accent breathing
+ * across the day rather than five different accents.
  */
 export type BerxDaypart = 'lateNight' | 'morning' | 'day' | 'evening' | 'night';
 
@@ -174,15 +232,15 @@ const DAYPART_PALETTES: Record<BerxDaypart, BerxDaypartPalette> = {
 	lateNight: {
 		daypart: 'lateNight',
 		label: 'Ночь',
-		accent: '#8a8a8e',
-		accentSoft: 'rgba(138,138,142,0.12)',
+		accent: '#5E4A1E', // dim ember — same hue as the primary gold, near its floor
+		accentSoft: 'rgba(94,74,30,0.14)',
 		bg: '#020202', // darker than the base --berx-black — deepest point of the day
 	},
 	morning: {
 		daypart: 'morning',
 		label: 'Утро',
-		accent: '#d0d0d3',
-		accentSoft: 'rgba(208,208,211,0.16)',
+		accent: '#E8C878', // fresh, pale morning gold
+		accentSoft: 'rgba(232,200,120,0.16)',
 		bg: colors.black,
 	},
 	day: {
@@ -195,15 +253,15 @@ const DAYPART_PALETTES: Record<BerxDaypart, BerxDaypartPalette> = {
 	evening: {
 		daypart: 'evening',
 		label: 'Вечер',
-		accent: colors.accentSecondary,
-		accentSoft: colors.accentSecondarySoft,
+		accent: '#C98B4A', // deepening to a warm bronze — golden hour, still the same hue family
+		accentSoft: 'rgba(201,139,74,0.16)',
 		bg: colors.black,
 	},
 	night: {
 		daypart: 'night',
 		label: 'Ночь',
-		accent: '#9a9a9e',
-		accentSoft: 'rgba(154,154,158,0.14)',
+		accent: '#8A8172', // muted brass, dimmed for the dark
+		accentSoft: 'rgba(138,129,114,0.14)',
 		bg: '#030303',
 	},
 };

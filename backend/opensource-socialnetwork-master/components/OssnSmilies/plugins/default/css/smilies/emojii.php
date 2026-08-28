@@ -179,7 +179,7 @@ body {
 }
 .ossn-comment-attach-photo .fa-smile:hover,
 .ossn-message-attach-photo .fa-smile:hover {
-	color: var(--berx-accent, #4fd6e8) !important;
+	color: var(--berx-accent, #D9A93F) !important;
 }
 .smiles-close {
 	background: var(--berx-glass-2, rgba(255,255,255,0.07)) !important;

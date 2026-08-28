@@ -1556,7 +1556,7 @@ body,
 .header a,
 .header-dropdown a,
 .header-dropdown a i { color: var(--berx-text, #f2f2f2) !important; }
-.header-dropdown a:hover { color: var(--berx-accent, #4fd6e8) !important; }
+.header-dropdown a:hover { color: var(--berx-accent, #D9A93F) !important; }
 
 /* Left navigation */
 .topbar-menu li a {
@@ -1568,7 +1568,7 @@ body,
 	background: var(--berx-glass-2, rgba(255,255,255,0.07));
 	color: var(--berx-white, #fff) !important;
 }
-.topbar-menu li a i { color: var(--berx-accent, #4fd6e8); }
+.topbar-menu li a i { color: var(--berx-accent, #D9A93F); }
 
 /* Content surface */
 .ossn-layout-admin .contents {
@@ -1633,7 +1633,7 @@ body,
 .ossn-layout-admin input:focus,
 .ossn-layout-admin select:focus,
 .ossn-layout-admin textarea:focus {
-	border-color: var(--berx-accent, #4fd6e8) !important;
+	border-color: var(--berx-accent, #D9A93F) !important;
 }
 .ossn-layout-admin label { color: var(--berx-text-dim, #a3a3a3); }
 
@@ -1690,8 +1690,8 @@ form.ossn-form {
 .ossn-layout-admin input[type="text"]:focus,
 .ossn-layout-admin textarea:focus,
 .ossn-layout-admin select:focus {
-	border-color: var(--berx-accent, #4fd6e8) !important;
-	box-shadow: 0 0 0 3px rgba(79, 214, 232,0.14) !important;
+	border-color: var(--berx-accent, #D9A93F) !important;
+	box-shadow: 0 0 0 3px rgba(217, 169, 63,0.14) !important;
 }
 
 /* ---------- Dashboard: cards were white on white ---------- */
@@ -1715,14 +1715,14 @@ form.ossn-form {
 	color: var(--berx-white, #fff);
 }
 .ossn-admin-dashboard .btn-flush-dark {
-	background: var(--berx-accent, #4fd6e8);
+	background: var(--berx-accent, #D9A93F);
 	color: #050505;
 	border-radius: var(--berx-radius-pill, 999px);
 	font-weight: 700;
 	border: none;
 }
 .ossn-admin-dashboard .btn-flush-dark:hover {
-	background: var(--berx-accent-hover, #7ce4f0);
+	background: var(--berx-accent-hover, #EABD5C);
 	color: #050505;
 }
 
