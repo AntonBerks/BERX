@@ -252,20 +252,51 @@ export default function BusinessDashboardScreen({api, placeGuid, onBack}: Props)
 				</BerxGlassSurface>
 
 				{data.nearby_impressions ? (
-					<>
-						<Text style={styles.sectionTitle}>Nearby Now</Text>
-						<BerxGlassSurface padding="md" style={styles.statsRow}>
-							<View style={styles.stat}><Text style={styles.statValue}>{data.nearby_impressions.shown}</Text><Text style={styles.statLabel}>показов</Text></View>
-							<View style={styles.stat}><Text style={styles.statValue}>{data.nearby_impressions.opened}</Text><Text style={styles.statLabel}>открытий</Text></View>
-							<View style={styles.stat}><Text style={styles.statValue}>{data.nearby_impressions.saved}</Text><Text style={styles.statLabel}>сохранений</Text></View>
-							<View style={styles.stat}><Text style={styles.statValue}>{data.nearby_impressions.route}</Text><Text style={styles.statLabel}>маршрутов</Text></View>
-						</BerxGlassSurface>
-						{data.nearby_impressions.shown > 0 ? (
-							<Text style={styles.conversionNote}>
-								{Math.round((data.nearby_impressions.opened / data.nearby_impressions.shown) * 100)}% открывают ваш профиль после показа рядом
-							</Text>
-						) : null}
-					</>
+					(() => {
+						// Local const so the narrowed (non-null) type survives
+						// inside the .map() closure below — property-access
+						// narrowing on `data.nearby_impressions` doesn't
+						// reliably persist into a nested function in strict TS.
+						const impressions = data.nearby_impressions;
+						const funnelSteps = [
+							{label: 'Показов', value: impressions.shown},
+							{label: 'Открытий', value: impressions.opened},
+							{label: 'Сохранений', value: impressions.saved},
+							{label: 'Маршрутов', value: impressions.route},
+						];
+						return (
+							<>
+								<Text style={styles.sectionTitle}>Nearby Now</Text>
+								{/* BERX WORLD TRANSFORMATION — was four flat number/
+								    label columns, the exact "spreadsheet layout"
+								    directive §37 forbids. shown/opened/saved/route
+								    is a real funnel (each step a real subset of the
+								    one before) — now drawn as one, bar width = real
+								    count/shown, nothing invented. */}
+								<BerxGlassSurface padding="md" style={styles.funnel}>
+									{funnelSteps.map((step) => {
+										const pct = impressions.shown > 0 ? Math.min(100, (step.value / impressions.shown) * 100) : 0;
+										return (
+											<View key={step.label} style={styles.funnelRow}>
+												<View style={styles.funnelHead}>
+													<Text style={styles.funnelLabel}>{step.label}</Text>
+													<Text style={styles.funnelValue}>{step.value}</Text>
+												</View>
+												<View style={styles.funnelTrack}>
+													<View style={[styles.funnelFill, {width: `${pct}%`}]} />
+												</View>
+											</View>
+										);
+									})}
+								</BerxGlassSurface>
+								{impressions.shown > 0 ? (
+									<Text style={styles.conversionNote}>
+										{Math.round((impressions.opened / impressions.shown) * 100)}% открывают ваш профиль после показа рядом
+									</Text>
+								) : null}
+							</>
+						);
+					})()
 				) : null}
 
 				<Text style={styles.sectionTitle}>Ближайшие события</Text>
@@ -455,6 +486,13 @@ const styles = StyleSheet.create({
 	statValue: {fontSize: typography.sizeLg, color: colors.white, fontWeight: typography.weightBold},
 	statLabel: {fontSize: typography.sizeXs, color: colors.textFaint},
 	conversionNote: {fontSize: typography.sizeXs, color: colors.textFaint, marginTop: spacing.xs},
+	funnel: {gap: spacing.sm},
+	funnelRow: {gap: 4},
+	funnelHead: {flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline'},
+	funnelLabel: {fontSize: typography.sizeSm, color: colors.textDim},
+	funnelValue: {fontSize: typography.sizeBase, color: colors.white, fontWeight: typography.weightBold},
+	funnelTrack: {height: 6, borderRadius: 3, backgroundColor: colors.glass2, overflow: 'hidden'},
+	funnelFill: {height: '100%', borderRadius: 3, backgroundColor: colors.accent},
 	sectionTitle: {fontSize: typography.sizeXs, color: colors.textFaint, fontWeight: typography.weightBold, textTransform: 'uppercase', marginTop: spacing.sm},
 	momentForm: {flexDirection: 'row', gap: spacing.sm, alignItems: 'center'},
 	momentsList: {gap: spacing.xs},
