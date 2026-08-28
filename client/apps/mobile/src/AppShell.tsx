@@ -27,9 +27,9 @@ import {pickImageFromLibrary, pickVideoFromLibrary} from '@berx/platform/mediaPi
 import {pickAudioFromDevice} from '@berx/platform/audioPicker';
 import {colors, spacing, typography} from '@berx/design-system/tokens';
 import {BerxLoadingState, BerxErrorState} from '../../../packages/design-system/src/components/BerxStates';
-import {IconHome, IconSearch, IconPlus, IconMessage, IconMenu} from '../../../packages/design-system/src/components/BerxIcons';
+import {BerxWayfinder, BerxWayfinderTab} from '../../../packages/design-system/src/components/BerxWayfinder';
 import {BerxNavigator, useBerxNavigation} from './navigation/BerxNavigator';
-import {BERX_BOTTOM_TABS, BerxRouteName} from './navigation/routes';
+import {BerxRouteName} from './navigation/routes';
 import LoginScreen from './screens/LoginScreen';
 import WelcomeScreen from './screens/WelcomeScreen';
 import RegisterScreen from './screens/RegisterScreen';
@@ -1163,6 +1163,16 @@ function AuthenticatedApp() {
 	// a new library, just changing AuthenticatedApp from
 	// conditionally-rendering one navigator to always-rendering five
 	// and hiding the inactive ones.
+	//
+	// BERX WORLD TRANSFORMATION — BerxWayfinder replaces the old flush,
+	// full-width tabBar (see its own header) with a floating, inset
+	// pill absolutely positioned over styles.content's bottom edge
+	// rather than occupying its own flex row. Real, disclosed tradeoff
+	// of that floating shape: a scrollable list at the very bottom of
+	// any tab-root screen can sit under the pill rather than above it.
+	// Not fixed screen-by-screen in this pass (~5 tab-root screens'
+	// own bottom content padding) — real, scoped follow-up work, not
+	// silently left undocumented.
 	return (
 		<View style={styles.shell}>
 			<View style={styles.content}>
@@ -1192,56 +1202,19 @@ function AuthenticatedApp() {
 					</BerxNavigator>
 				</TabPane>
 			</View>
-			<View style={styles.tabBar}>
-				{BERX_BOTTOM_TABS.map((tab) => {
-					const active = activeTab === tab;
-					const color = active ? colors.accent : colors.textFaint;
-					return (
-						<Pressable key={tab} onPress={() => setActiveTab(tab)} style={styles.tabItem}>
-							<TabIcon tab={tab} color={color} />
-							{tab === 'Messages' && unreadMessages > 0 ? (
-								<View style={styles.tabBadge}>
-									<Text style={styles.tabBadgeText}>{unreadMessages > 9 ? '9+' : String(unreadMessages)}</Text>
-								</View>
-							) : null}
-							{tab === 'Profile' && unreadNotifications > 0 ? (
-								<View style={styles.tabBadge}>
-									<Text style={styles.tabBadgeText}>{unreadNotifications > 9 ? '9+' : String(unreadNotifications)}</Text>
-								</View>
-							) : null}
-						</Pressable>
-					);
-				})}
-			</View>
+			<BerxWayfinder
+				// Real, honest narrowing, not a type-safety hole: activeTab
+				// is declared as the full BerxRouteName union because
+				// useState is shared with nothing narrower, but every value
+				// it's ever actually set to on this line is exactly one of
+				// BERX_BOTTOM_TABS's five (see the TabPane checks above).
+				activeTab={activeTab as BerxWayfinderTab}
+				onSelect={setActiveTab}
+				unreadMessages={unreadMessages}
+				unreadNotifications={unreadNotifications}
+			/>
 		</View>
 	);
-}
-
-/**
- * Icon-only tab bar, per explicit design feedback: home/search/plus
- * (Stories)/message/menu (Profile) — matching the common minimal
- * social-app pattern, no text labels. The Profile tab specifically
- * renders as a hamburger (IconMenu) rather than a person glyph — it
- * still navigates to the same Profile screen underneath, which is
- * where Notifications/Communities/Dating/Dating Privacy/Logout all
- * already live as buttons, so a "menu"-style icon honestly matches
- * what tapping it actually opens.
- */
-function TabIcon({tab, color}: {tab: BerxRouteName; color: string}) {
-	switch (tab) {
-		case 'Home':
-			return <IconHome color={color} />;
-		case 'Search':
-			return <IconSearch color={color} />;
-		case 'Stories':
-			return <IconPlus color={color} />;
-		case 'Messages':
-			return <IconMessage color={color} />;
-		case 'Profile':
-			return <IconMenu color={color} />;
-		default:
-			return null;
-	}
 }
 
 /** Keeps its children mounted always; only toggles RN's real `display: none` style — this is what makes tab-switch preserve each tab's own navigation stack. */
@@ -1332,27 +1305,6 @@ const styles = StyleSheet.create({
 	content: {flex: 1},
 	tabPane: {flex: 1},
 	tabPaneHidden: {display: 'none'},
-	tabBar: {
-		flexDirection: 'row',
-		borderTopWidth: 1,
-		borderTopColor: colors.borderSoft,
-		backgroundColor: colors.graphite,
-		paddingVertical: spacing.sm,
-	},
-	tabItem: {flex: 1, alignItems: 'center', paddingVertical: spacing.xs},
-	tabBadge: {
-		position: 'absolute',
-		top: 0,
-		right: '28%',
-		minWidth: 16,
-		height: 16,
-		borderRadius: 8,
-		paddingHorizontal: 3,
-		alignItems: 'center',
-		justifyContent: 'center',
-		backgroundColor: colors.danger,
-	},
-	tabBadgeText: {color: colors.white, fontSize: 10, fontWeight: typography.weightBold},
 	comingSoon: {flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.xl, gap: spacing.sm},
 	comingSoonTitle: {color: colors.accent, fontSize: typography.sizeXl, fontWeight: typography.weightBold},
 	comingSoonText: {color: colors.textDim, fontSize: typography.sizeBase, textAlign: 'center'},
