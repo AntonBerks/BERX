@@ -4,19 +4,24 @@
  * v1/events.php). No ticket/payment UI anywhere — that backend does
  * not exist (see BERX_DECISIONS.md).
  *
- * Future UI pass: event rows move onto BerxGlassSurface (the date
- * badge stays its own flat block inside it -- a real ticket-stub
- * shape, not another glass card) and the list gets a real BerxFadeIn
- * entrance.
- *
  * MAX BUILD — real "🔥 В тренде" rail. api.trendingEvents() wires
  * OssnSignals (BERX Future Core) into a live 7-day engagement ranking
  * over real RSVP activity — same real mechanism as PlacesListScreen's
  * own trending rail. Best-effort, hidden entirely when nothing has
  * real signals yet.
+ *
+ * BERX WORLD TRANSFORMATION — was a small-thumbnail ticket-stub row
+ * (64x64 square image + a separate date column). Directive §20: "an
+ * event is an experience, not merely a calendar item" — a 64px thumb
+ * reads as the opposite. Rebuilt on the same full-bleed BerxScrimHero
+ * language PlacesListScreen now uses (one consistent grammar across
+ * both discovery lists), with the date as a real overlay chip on the
+ * photo itself and attendee count as a second scrim badge — the
+ * "ticket stub" idea survives as a chip on a real photo, not a
+ * separate flat column doing the work instead of the photo.
  */
 import {useCallback, useEffect, useState} from 'react';
-import {View, Text, FlatList, Pressable, RefreshControl, StyleSheet, Image} from 'react-native';
+import {View, Text, FlatList, Pressable, RefreshControl, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxEvent, BerxPlaceCategory} from '@berx/api/types';
 import {ruPeopleLabel} from '@berx/domain';
@@ -24,7 +29,7 @@ import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
-import {BerxGlassSurface} from '../../../../packages/design-system/src/components/BerxGlassSurface';
+import {BerxScrimHero, scrimBadgeStyles} from '../../../../packages/design-system/src/components/BerxScrimHero';
 import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
 
 interface Props {
@@ -97,14 +102,13 @@ export default function EventsListScreen({api, onOpenEvent, onCreate, onOpenMine
 						keyExtractor={(e: BerxEvent & {trending_score: number; distinct_actors: number}) => `trending-${e.guid}`}
 						contentContainerStyle={styles.trendingRow}
 						renderItem={({item}: {item: BerxEvent & {trending_score: number; distinct_actors: number}}) => (
-							<Pressable style={styles.trendingCard} onPress={() => onOpenEvent(item.guid)}>
-								{item.cover_url ? (
-									<Image source={{uri: item.cover_url}} style={styles.trendingImage} />
-								) : (
-									<View style={styles.trendingImageFallback} />
-								)}
-								<Text style={styles.trendingTitle} numberOfLines={1}>🔥 {item.title}</Text>
-								<Text style={styles.trendingSubtitle}>{ruPeopleLabel(item.distinct_actors)}</Text>
+							<Pressable style={styles.trendingTile} onPress={() => onOpenEvent(item.guid)}>
+								<BerxScrimHero
+									imageUrl={item.cover_url}
+									title={item.title}
+									subtitle={`🔥 ${ruPeopleLabel(item.distinct_actors)}`}
+									height={140}
+								/>
 							</Pressable>
 						)}
 					/>
@@ -134,6 +138,7 @@ export default function EventsListScreen({api, onOpenEvent, onCreate, onOpenMine
 						data={items}
 						keyExtractor={(e: BerxEvent) => String(e.guid)}
 						contentContainerStyle={styles.list}
+						ItemSeparatorComponent={() => <View style={styles.listSeparator} />}
 						refreshControl={
 							<RefreshControl
 								refreshing={refreshing}
@@ -147,19 +152,27 @@ export default function EventsListScreen({api, onOpenEvent, onCreate, onOpenMine
 						renderItem={({item}: {item: BerxEvent}) => {
 							const date = new Date(item.starts * 1000);
 							return (
-								<Pressable onPress={() => onOpenEvent(item.guid)}>
-									<BerxGlassSurface padding={0} style={styles.card}>
-										<View style={styles.dateBadge}>
-											<Text style={styles.dateDay}>{date.getDate()}</Text>
-											<Text style={styles.dateMonth}>{date.toLocaleDateString('ru-RU', {month: 'short'}).toUpperCase()}</Text>
-										</View>
-										{item.cover_url ? <Image source={{uri: item.cover_url}} style={styles.cardImage} /> : null}
-										<View style={styles.cardBody}>
-											<Text style={styles.cardTitle} numberOfLines={1}>{item.title}</Text>
-											{item.location ? <Text style={styles.cardMeta} numberOfLines={1}>{item.location}</Text> : null}
-											<Text style={styles.cardGoing}>{item.attendee_count} идут{item.is_going ? ' · вы идёте' : ''}</Text>
-										</View>
-									</BerxGlassSurface>
+								<Pressable style={styles.tile} onPress={() => onOpenEvent(item.guid)}>
+									<BerxScrimHero
+										imageUrl={item.cover_url}
+										title={item.title}
+										subtitle={item.location ?? undefined}
+										height={190}
+										badge={
+											<View style={styles.badgeRow}>
+												<View style={styles.dateChip}>
+													<Text style={styles.dateChipText}>
+														{date.getDate()} {date.toLocaleDateString('ru-RU', {month: 'short'}).toUpperCase()}
+													</Text>
+												</View>
+												<View style={scrimBadgeStyles.badge}>
+													<Text style={scrimBadgeStyles.badgeText}>
+														{item.attendee_count} идут{item.is_going ? ' · вы идёте' : ''}
+													</Text>
+												</View>
+											</View>
+										}
+									/>
 								</Pressable>
 							);
 						}}
@@ -180,25 +193,24 @@ const styles = StyleSheet.create({
 	tabTextActive: {color: colors.accent},
 	trendingLabel: {color: colors.accent, fontSize: typography.sizeXs, fontWeight: typography.weightBold, textTransform: 'uppercase', paddingHorizontal: spacing.md, paddingTop: spacing.sm},
 	trendingRow: {paddingHorizontal: spacing.md, paddingVertical: spacing.sm, gap: spacing.sm},
-	trendingCard: {width: 140, marginRight: spacing.sm},
-	trendingImage: {width: 140, height: 90, borderRadius: radius.md, backgroundColor: colors.graphite},
-	trendingImageFallback: {width: 140, height: 90, borderRadius: radius.md, backgroundColor: colors.graphite},
-	trendingTitle: {color: colors.text, fontSize: typography.sizeXs, marginTop: 4},
-	trendingSubtitle: {color: colors.textFaint, fontSize: typography.sizeXs},
+	trendingTile: {width: 220, marginRight: spacing.sm, borderRadius: radius.md, overflow: 'hidden'},
 	chipRow: {paddingHorizontal: spacing.md, paddingVertical: spacing.sm, gap: spacing.xs},
 	chip: {paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: radius.pill, backgroundColor: colors.surface, marginRight: spacing.xs},
 	chipActive: {backgroundColor: colors.accentSoft, borderWidth: 1, borderColor: colors.accent},
 	chipText: {fontSize: typography.sizeSm, color: colors.textDim},
 	chipTextActive: {color: colors.accent, fontWeight: typography.weightMedium},
 	listFade: {flex: 1},
-	list: {padding: spacing.md, gap: spacing.sm},
-	card: {flexDirection: 'row', marginBottom: spacing.sm},
-	dateBadge: {width: 56, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.graphite},
-	dateDay: {fontSize: typography.sizeXl, color: colors.white, fontWeight: typography.weightBold},
-	dateMonth: {fontSize: typography.sizeXs, color: colors.accent, fontWeight: typography.weightBold},
-	cardImage: {width: 64, height: 64},
-	cardBody: {flex: 1, padding: spacing.sm, justifyContent: 'center', gap: 2},
-	cardTitle: {fontSize: typography.sizeBase, color: colors.white, fontWeight: typography.weightMedium},
-	cardMeta: {fontSize: typography.sizeXs, color: colors.textFaint},
-	cardGoing: {fontSize: typography.sizeXs, color: colors.textDim},
+	list: {padding: spacing.md},
+	listSeparator: {height: spacing.md},
+	tile: {borderRadius: radius.lg, overflow: 'hidden'},
+	// The "ticket stub" idea, rebuilt as a real overlay chip pair on
+	// the photo instead of a separate flat column beside a thumbnail.
+	badgeRow: {flexDirection: 'row', gap: spacing.xs, flexWrap: 'wrap'},
+	dateChip: {
+		paddingHorizontal: spacing.sm,
+		paddingVertical: 4,
+		borderRadius: radius.pill,
+		backgroundColor: colors.accent,
+	},
+	dateChipText: {fontSize: typography.sizeXs, color: colors.black, fontWeight: typography.weightBold},
 });

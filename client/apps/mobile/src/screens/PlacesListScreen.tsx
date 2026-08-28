@@ -5,20 +5,24 @@
  * (components/OssnApi/v1/places.php). Category filter uses the real
  * server whitelist via api.placeCategories(), not a hardcoded list.
  *
- * Future UI pass: kept the photo-first grid cards as-is (a media grid
- * reading as glass would be worse, not better — real variety of
- * surfaces on purpose) and instead gave the grid a real BerxFadeIn
- * entrance, so Places doesn't feel like a static admin list on open.
- *
  * MAX BUILD — real "🔥 В тренде" rail. api.trendingPlaces() wires
- * OssnSignals (BERX Future Core — previously built, migrated, and
- * never once instantiated anywhere) into a live 7-day engagement
+ * OssnSignals (BERX Future Core) into a live 7-day engagement
  * ranking. Best-effort, never blocks the list itself; hidden entirely
  * when nothing has real signals yet (never shown as a fake all-zero
  * ranking).
+ *
+ * BERX WORLD TRANSFORMATION — was a 2-column square photo grid with
+ * text below each image in a bordered card: the exact "generic grid"
+ * pattern the directive names directly. Replaced with a single-column
+ * feed of full-bleed cinematic tiles built on BerxScrimHero (reused,
+ * not duplicated — the same real hero component ProfileScreen/
+ * PlaceDetailScreen already use) — title/rating/address live ON the
+ * photo via the real scrim, not in a caption strip beneath a boxed
+ * thumbnail. Directive §19: "the Place should feel alive," not sit in
+ * an album-grid cell.
  */
 import {useCallback, useEffect, useState} from 'react';
-import {View, Text, FlatList, Pressable, RefreshControl, StyleSheet, Image} from 'react-native';
+import {View, Text, FlatList, Pressable, RefreshControl, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxPlace, BerxPlaceCategory} from '@berx/api/types';
 import {ruPeopleLabel} from '@berx/domain';
@@ -28,6 +32,7 @@ import {BerxInput} from '../../../../packages/design-system/src/components/BerxI
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
+import {BerxScrimHero, scrimBadgeStyles} from '../../../../packages/design-system/src/components/BerxScrimHero';
 
 interface Props {
 	api: BerxApiClient;
@@ -94,16 +99,13 @@ export default function PlacesListScreen({api, onOpenPlace, onCreate, onOpenNear
 						keyExtractor={(p: BerxPlace & {trending_score: number; distinct_actors: number}) => `trending-${p.guid}`}
 						contentContainerStyle={styles.trendingRow}
 						renderItem={({item}: {item: BerxPlace & {trending_score: number; distinct_actors: number}}) => (
-							<Pressable style={styles.trendingCard} onPress={() => onOpenPlace(item.guid)}>
-								{item.cover_url ? (
-									<Image source={{uri: item.cover_url}} style={styles.trendingImage} />
-								) : (
-									<View style={styles.trendingImageFallback}>
-										<Text style={styles.cardMediaInitial}>{item.title.charAt(0).toUpperCase()}</Text>
-									</View>
-								)}
-								<Text style={styles.trendingTitle} numberOfLines={1}>🔥 {item.title}</Text>
-								<Text style={styles.trendingSubtitle}>{ruPeopleLabel(item.distinct_actors)}</Text>
+							<Pressable style={styles.trendingTile} onPress={() => onOpenPlace(item.guid)}>
+								<BerxScrimHero
+									imageUrl={item.cover_url}
+									title={item.title}
+									subtitle={`🔥 ${ruPeopleLabel(item.distinct_actors)}`}
+									height={140}
+								/>
 							</Pressable>
 						)}
 					/>
@@ -132,8 +134,8 @@ export default function PlacesListScreen({api, onOpenPlace, onCreate, onOpenNear
 					<FlatList
 						data={items}
 						keyExtractor={(p: BerxPlace) => String(p.guid)}
-						numColumns={2}
-						contentContainerStyle={styles.grid}
+						contentContainerStyle={styles.list}
+						ItemSeparatorComponent={() => <View style={styles.listSeparator} />}
 						refreshControl={
 							<RefreshControl
 								refreshing={refreshing}
@@ -145,23 +147,20 @@ export default function PlacesListScreen({api, onOpenPlace, onCreate, onOpenNear
 							/>
 						}
 						renderItem={({item}: {item: BerxPlace}) => (
-							<Pressable style={styles.card} onPress={() => onOpenPlace(item.guid)}>
-								<View style={styles.cardMedia}>
-									{item.cover_url ? (
-										<Image source={{uri: item.cover_url}} style={styles.cardImage} />
-									) : (
-										<View style={styles.cardMediaFallback}>
-											<Text style={styles.cardMediaInitial}>{item.title.charAt(0).toUpperCase()}</Text>
-										</View>
-									)}
-									{item.rating_count > 0 ? (
-										<View style={styles.ratingBadge}>
-											<Text style={styles.ratingText}>★ {item.rating}</Text>
-										</View>
-									) : null}
-								</View>
-								<Text style={styles.cardTitle} numberOfLines={1}>{item.title}</Text>
-								{item.address ? <Text style={styles.cardAddress} numberOfLines={1}>{item.address}</Text> : null}
+							<Pressable style={styles.tile} onPress={() => onOpenPlace(item.guid)}>
+								<BerxScrimHero
+									imageUrl={item.cover_url}
+									title={item.title}
+									subtitle={item.address ?? undefined}
+									height={190}
+									badge={
+										item.rating_count > 0 ? (
+											<View style={scrimBadgeStyles.badge}>
+												<Text style={scrimBadgeStyles.badgeTextAccent}>★ {item.rating}</Text>
+											</View>
+										) : undefined
+									}
+								/>
 							</Pressable>
 						)}
 					/>
@@ -177,25 +176,14 @@ const styles = StyleSheet.create({
 	toolbarRow: {flexDirection: 'row', gap: spacing.sm},
 	trendingLabel: {color: colors.accent, fontSize: typography.sizeXs, fontWeight: typography.weightBold, textTransform: 'uppercase', paddingHorizontal: spacing.md, paddingTop: spacing.sm},
 	trendingRow: {paddingHorizontal: spacing.md, paddingVertical: spacing.sm, gap: spacing.sm},
-	trendingCard: {width: 140, marginRight: spacing.sm},
-	trendingImage: {width: 140, height: 90, borderRadius: radius.md, backgroundColor: colors.graphite},
-	trendingImageFallback: {width: 140, height: 90, borderRadius: radius.md, backgroundColor: colors.graphite, alignItems: 'center', justifyContent: 'center'},
-	trendingTitle: {color: colors.text, fontSize: typography.sizeXs, marginTop: 4},
-	trendingSubtitle: {color: colors.textFaint, fontSize: typography.sizeXs},
+	trendingTile: {width: 220, marginRight: spacing.sm, borderRadius: radius.md, overflow: 'hidden'},
 	chipRow: {paddingHorizontal: spacing.md, paddingVertical: spacing.sm, gap: spacing.xs},
 	chip: {paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: radius.pill, backgroundColor: colors.surface, marginRight: spacing.xs},
 	chipActive: {backgroundColor: colors.accentSoft, borderWidth: 1, borderColor: colors.accent},
 	chipText: {fontSize: typography.sizeSm, color: colors.textDim},
 	chipTextActive: {color: colors.accent, fontWeight: typography.weightMedium},
 	gridFade: {flex: 1},
-	grid: {paddingHorizontal: spacing.sm, paddingBottom: spacing.xxl},
-	card: {flex: 1, margin: spacing.xs, borderRadius: radius.md, overflow: 'hidden', backgroundColor: colors.surface},
-	cardMedia: {aspectRatio: 1.3, backgroundColor: colors.graphite},
-	cardImage: {width: '100%', height: '100%'},
-	cardMediaFallback: {flex: 1, alignItems: 'center', justifyContent: 'center'},
-	cardMediaInitial: {fontSize: typography.sizeTitle, color: colors.textFaint},
-	ratingBadge: {position: 'absolute', right: 6, top: 6, backgroundColor: 'rgba(5,5,5,0.7)', paddingHorizontal: 8, paddingVertical: 2, borderRadius: radius.pill},
-	ratingText: {fontSize: typography.sizeXs, color: colors.white},
-	cardTitle: {fontSize: typography.sizeBase, color: colors.white, fontWeight: typography.weightMedium, paddingHorizontal: spacing.sm, paddingTop: spacing.xs},
-	cardAddress: {fontSize: typography.sizeXs, color: colors.textFaint, paddingHorizontal: spacing.sm, paddingBottom: spacing.sm},
+	list: {paddingHorizontal: spacing.md, paddingBottom: spacing.xxl, paddingTop: spacing.sm},
+	listSeparator: {height: spacing.md},
+	tile: {borderRadius: radius.lg, overflow: 'hidden'},
 });
