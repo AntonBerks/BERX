@@ -1,19 +1,29 @@
 /**
  * !!! VERIFICATION STATUS: UNVERIFIED — see LoginScreen.tsx header.
  *
- * Story rail added on top: real data from api.storiesFeed() (built in
- * the Stories phase), not a static mock — tapping a ring opens the
- * real StoryViewer via onOpenStoryGroup.
+ * Story rail: real data from api.storiesFeed() (built in the Stories
+ * phase), not a static mock — tapping a tile opens the real
+ * StoryViewer via onOpenStoryGroup.
  *
  * MAX BUILD — feed.php now returns a real friends-aggregated, ranked
  * feed (own + friends + admin posts, transparent recency/engagement
- * scoring — see feed.php's own header for the two real bugs this
- * fixed: an offset-validation bug that made the feed always render
- * empty, and an own-wall-only scope bug). The reference images showed
+ * scoring — see feed.php's own header). The reference images showed
  * a "Для вас / Подписки / Рядом" tab row above the feed — still
  * deliberately NOT copied: there is exactly one real ranked feed, not
  * three independently-sourced ones, so a tab row implying otherwise
  * would be fake UI with no distinct data behind two of the three tabs.
+ *
+ * BERX WORLD TRANSFORMATION — the post unit was a bordered, shadowed,
+ * rounded-rectangle "card" with an avatar-circle + name row: the
+ * exact generic-feed-card grammar the directive names directly. This
+ * is not a recolor of that card — there is no card anymore. Each post
+ * is now an editorial unit (same visual language PostDetailScreen
+ * already established this session: a small-caps byline overline,
+ * larger/bolder body type carrying the real hierarchy) separated by a
+ * hairline rule instead of a boxed, backgrounded rectangle — one
+ * consistent visual grammar across feed and detail, not two competing
+ * ones. The story rail's circular rings (Instagram's own shape) are
+ * now BERX-native squared tiles with a thin single-line frame.
  */
 import {useCallback, useEffect, useState} from 'react';
 import {View, Text, FlatList, RefreshControl, StyleSheet, Pressable} from 'react-native';
@@ -88,7 +98,7 @@ export default function FeedScreen({api, onOpenPost, onOpenProfile, onCreatePost
 				contentContainerStyle={styles.storyRail}
 				ListHeaderComponent={
 					<Pressable style={styles.storyItem} onPress={onCreateStory}>
-						<View style={styles.addStoryRing}>
+						<View style={styles.addStoryTile}>
 							<IconPlus size={18} color={colors.accent} />
 						</View>
 						<Text style={styles.storyLabel} numberOfLines={1}>
@@ -98,8 +108,8 @@ export default function FeedScreen({api, onOpenPost, onOpenProfile, onCreatePost
 				}
 				renderItem={({item}: {item: BerxStoryFeedGroup}) => (
 					<Pressable style={styles.storyItem} onPress={() => onOpenStoryGroup(item)}>
-						<View style={styles.storyRing}>
-							<Text style={styles.storyRingInitial}>{(item.owner_username ?? '?').charAt(0).toUpperCase()}</Text>
+						<View style={styles.storyTile}>
+							<Text style={styles.storyTileInitial}>{(item.owner_username ?? '?').charAt(0).toUpperCase()}</Text>
 						</View>
 						<Text style={styles.storyLabel} numberOfLines={1}>
 							{item.owner_username ?? `#${item.owner_guid}`}
@@ -160,26 +170,24 @@ export default function FeedScreen({api, onOpenPost, onOpenProfile, onCreatePost
 						/>
 					}
 					renderItem={({item}: {item: BerxFeedItem}) => (
-					<Pressable style={styles.card} onPress={() => onOpenPost(item.guid)}>
-						<View style={styles.cardHeader}>
-							<Pressable
-								style={styles.cardAuthorRow}
-								onPress={() => item.owner_username && onOpenProfile(item.owner_username)}
-								disabled={!item.owner_username}
-								hitSlop={8}
-							>
-								<View style={styles.avatarSmall}>
-									<Text style={styles.avatarSmallInitial}>{(item.owner_username ?? 'B').charAt(0).toUpperCase()}</Text>
-								</View>
-								<View>
-									<Text style={styles.author}>{item.owner_username ?? 'BERX'}</Text>
-									<Text style={styles.time}>{relativeTimeLabel(item.time_created)}</Text>
-								</View>
-							</Pressable>
-						</View>
+					<Pressable style={styles.unit} onPress={() => onOpenPost(item.guid)}>
+						<Pressable
+							style={styles.bylineRow}
+							onPress={() => item.owner_username && onOpenProfile(item.owner_username)}
+							disabled={!item.owner_username}
+							hitSlop={8}
+						>
+							<View style={styles.bylineMark}>
+								<Text style={styles.bylineMarkInitial}>{(item.owner_username ?? 'B').charAt(0).toUpperCase()}</Text>
+							</View>
+							<Text style={styles.byline} numberOfLines={1}>
+								{(item.owner_username ?? 'BERX').toUpperCase()} · {relativeTimeLabel(item.time_created)}
+							</Text>
+						</Pressable>
 						<Text style={styles.text}>{item.text}</Text>
 					</Pressable>
 				)}
+				ItemSeparatorComponent={() => <View style={styles.separator} />}
 				/>
 			</BerxFadeIn>
 		</View>
@@ -194,8 +202,6 @@ const styles = StyleSheet.create({
 		justifyContent: 'space-between',
 		paddingHorizontal: spacing.lg,
 		paddingVertical: spacing.md,
-		borderBottomWidth: 1,
-		borderBottomColor: colors.borderSoft,
 	},
 	headerTitle: {color: colors.text, fontSize: typography.sizeXl, fontWeight: typography.weightBold, letterSpacing: 1},
 	headerTitleAccent: {color: colors.accent},
@@ -204,21 +210,25 @@ const styles = StyleSheet.create({
 	storyRailWrap: {borderBottomWidth: 1, borderBottomColor: colors.borderSoft, paddingBottom: spacing.md},
 	storyRail: {paddingHorizontal: spacing.lg, paddingTop: spacing.md, gap: spacing.sm},
 	storyItem: {alignItems: 'center', width: 64, marginRight: spacing.sm},
-	storyRing: {
+	// BERX-native tile, not Instagram's circular ring: a squared frame
+	// (radius.sm, not a pill) with a single thin accent line, not a
+	// thick ring — the same "frame, not halo" language as
+	// BerxWayfinder's own restrained use of the accent.
+	storyTile: {
 		width: 56,
 		height: 56,
-		borderRadius: 28,
-		borderWidth: 2,
+		borderRadius: radius.sm,
+		borderWidth: 1,
 		borderColor: colors.accent,
 		alignItems: 'center',
 		justifyContent: 'center',
 		backgroundColor: colors.graphite,
 	},
-	storyRingInitial: {color: colors.text, fontSize: typography.sizeBase, fontWeight: typography.weightBold},
-	addStoryRing: {
+	storyTileInitial: {color: colors.text, fontSize: typography.sizeBase, fontWeight: typography.weightBold},
+	addStoryTile: {
 		width: 56,
 		height: 56,
-		borderRadius: 28,
+		borderRadius: radius.sm,
 		borderWidth: 1,
 		borderColor: colors.borderStrong,
 		borderStyle: 'dashed',
@@ -229,40 +239,48 @@ const styles = StyleSheet.create({
 	fadeFlex: {flex: 1},
 	skeletonList: {flex: 1},
 	skeletonCard: {
-		backgroundColor: colors.graphite,
-		borderRadius: radius.md,
-		borderWidth: 1,
-		borderColor: colors.borderSoft,
-		padding: spacing.lg,
-		marginHorizontal: spacing.lg,
-		marginTop: spacing.md,
+		paddingHorizontal: spacing.lg,
+		paddingVertical: spacing.lg,
 	},
 	skeletonHeaderRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm},
-	skeletonAvatar: {borderRadius: radius.pill},
+	skeletonAvatar: {borderRadius: radius.sm},
 	skeletonAuthorCol: {flex: 1, gap: 4},
 	skeletonGap: {marginTop: spacing.md},
 	skeletonGapSm: {marginTop: spacing.xs},
-	card: {
-		backgroundColor: colors.graphite,
-		borderRadius: radius.md,
-		borderWidth: 1,
-		borderColor: colors.borderSoft,
-		padding: spacing.lg,
-		marginHorizontal: spacing.lg,
-		marginTop: spacing.md,
+	// The editorial unit — no card, no border, no background fill.
+	// Same visual grammar as PostDetailScreen's own byline/paragraph
+	// treatment, applied here for the first time so feed and detail
+	// read as one consistent language rather than a card-grid feed
+	// leading into an editorial detail screen.
+	unit: {
+		paddingHorizontal: spacing.lg,
+		paddingVertical: spacing.lg,
 	},
-	cardHeader: {marginBottom: spacing.sm},
-	cardAuthorRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm},
-	avatarSmall: {
-		width: 36,
-		height: 36,
-		borderRadius: 18,
-		backgroundColor: colors.glass2,
+	bylineRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.sm},
+	bylineMark: {
+		width: 22,
+		height: 22,
+		borderRadius: radius.sm / 2,
+		borderWidth: 1,
+		borderColor: colors.borderStrong,
 		alignItems: 'center',
 		justifyContent: 'center',
 	},
-	avatarSmallInitial: {color: colors.accent, fontSize: typography.sizeSm, fontWeight: typography.weightBold},
-	author: {color: colors.text, fontWeight: typography.weightMedium, fontSize: typography.sizeSm},
-	text: {color: colors.text, fontSize: typography.sizeBase, lineHeight: typography.sizeBase * typography.lineHeightBase},
-	time: {color: colors.textFaint, fontSize: 11, marginTop: 1},
+	bylineMarkInitial: {color: colors.accent, fontSize: 10, fontWeight: typography.weightBold},
+	byline: {
+		flex: 1,
+		color: colors.textFaint,
+		fontSize: typography.sizeXs,
+		fontWeight: typography.weightBold,
+		textTransform: 'uppercase',
+		letterSpacing: 0.6,
+	},
+	text: {
+		color: colors.text,
+		fontSize: typography.sizeLg,
+		fontWeight: typography.weightMedium,
+		letterSpacing: -0.1,
+		lineHeight: typography.sizeLg * 1.32,
+	},
+	separator: {height: 1, backgroundColor: colors.borderSoft, marginHorizontal: spacing.lg},
 });
