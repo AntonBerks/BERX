@@ -25,13 +25,22 @@
  * "who liked you"/"photo request" screen exists yet — honest-but-
  * imprecise, never a fake specific destination); 'ossnpoke:poke'
  * opens the poker's own profile.
+ *
+ * BERX WORLD TRANSFORMATION — the row's unread signal was a separate
+ * accent dot beside a plain circular avatar. Squared the mark (radius.
+ * sm, matching Feed's byline mark / Places / Events / Communities —
+ * "activity" surfaces share one shape language, distinct from the
+ * circular BerxAvatar reserved for person-identity contexts) and
+ * moved unread state onto the mark itself as a real accent ring, same
+ * principle as ConversationListScreen's row just got — one signal on
+ * the object, not a decoration bolted on beside it.
  */
 import {useCallback, useEffect, useState} from 'react';
 import {View, Text, Image, FlatList, Pressable, RefreshControl, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxNotification} from '@berx/api/types';
 import {relativeTimeLabel} from '@berx/domain';
-import {colors, spacing, typography} from '@berx/design-system/tokens';
+import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxErrorState, BerxEmptyState, BerxSkeleton} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
@@ -223,14 +232,15 @@ export default function NotificationsScreen({api, onOpenConversation, onOpenDati
 						}
 						renderItem={({item}: {item: BerxNotification}) => (
 							<Pressable style={[styles.row, !item.viewed && styles.rowUnread]} onPress={() => handlePress(item)}>
-								{!item.viewed ? <View style={styles.dot} /> : null}
-								{item.poster_icon ? (
-									<Image source={{uri: item.poster_icon}} style={styles.avatar} />
-								) : (
-									<View style={styles.avatarFallback} />
-								)}
+								<View style={[styles.avatarWrap, !item.viewed && styles.avatarWrapUnread]}>
+									{item.poster_icon ? (
+										<Image source={{uri: item.poster_icon}} style={styles.avatar} />
+									) : (
+										<View style={styles.avatarFallback} />
+									)}
+								</View>
 								<View style={styles.rowText}>
-									<Text style={styles.label}>{notificationText(item)}</Text>
+									<Text style={[styles.label, !item.viewed && styles.labelUnread]}>{notificationText(item)}</Text>
 									<Text style={styles.time}>{relativeTimeLabel(item.time_created)}</Text>
 								</View>
 								<Pressable onPress={() => deleteOne(item.guid)} hitSlop={8}>
@@ -252,22 +262,31 @@ const styles = StyleSheet.create({
 	actionLinkDanger: {color: colors.danger},
 	fadeFlex: {flex: 1},
 	list: {flex: 1},
-	skeletonAvatar: {borderRadius: 20},
+	skeletonAvatar: {borderRadius: radius.sm},
 	skeletonGap: {marginTop: 4},
 	row: {
 		flexDirection: 'row',
 		alignItems: 'center',
-		padding: spacing.lg,
+		paddingHorizontal: spacing.lg,
+		paddingVertical: spacing.md,
 		borderBottomWidth: 1,
 		borderBottomColor: colors.borderSoft,
-		gap: spacing.sm,
+		gap: spacing.md,
 	},
 	rowUnread: {backgroundColor: colors.glass1},
-	dot: {width: 8, height: 8, borderRadius: 4, backgroundColor: colors.accent},
-	avatar: {width: 40, height: 40, borderRadius: 20, backgroundColor: colors.graphite},
-	avatarFallback: {width: 40, height: 40, borderRadius: 20, backgroundColor: colors.graphite},
+	// BERX WORLD TRANSFORMATION — unread reads on the object itself (a
+	// real accent ring on the mark, squared to match Feed's byline
+	// mark / Places / Events / Communities — one consistent shape
+	// language for "activity" surfaces, distinct from the circular
+	// BerxAvatar reserved for person-identity contexts like Messaging/
+	// Profile) rather than a separate dot bolted on beside the text.
+	avatarWrap: {borderRadius: radius.sm, overflow: 'hidden'},
+	avatarWrapUnread: {borderWidth: 2, borderColor: colors.accent},
+	avatar: {width: 40, height: 40, backgroundColor: colors.graphite},
+	avatarFallback: {width: 40, height: 40, backgroundColor: colors.graphite},
 	rowText: {flex: 1},
-	label: {color: colors.text, fontSize: typography.sizeBase},
+	label: {color: colors.textDim, fontSize: typography.sizeBase},
+	labelUnread: {color: colors.text, fontWeight: typography.weightMedium},
 	time: {color: colors.textFaint, fontSize: typography.sizeXs, marginTop: spacing.xs},
 	remove: {fontSize: typography.sizeSm, color: colors.textFaint, padding: 4},
 });
