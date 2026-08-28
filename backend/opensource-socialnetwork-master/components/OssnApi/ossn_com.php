@@ -110,6 +110,10 @@ function ossn_api_notify_passthrough($hook, $type, $return, $params) {
 ossn_add_hook('notification:add', 'berx:event:invite', 'ossn_api_notify_passthrough');
 /** BERX WORLD MAX BUILD — Event Waitlist promotion: owner_guid is already supplied as notification_owner by OssnEvents::promoteNextWaitlisted() — same real passthrough. */
 ossn_add_hook('notification:add', 'berx:event:waitlist:promoted', 'ossn_api_notify_passthrough');
+/** BERX Plans — OssnPlans itself always supplies the real target guid as OssnNotifications::add()'s 5th param (notification_owner), same passthrough shape as event:invite. */
+ossn_add_hook('notification:add', 'berx:plan:invite', 'ossn_api_notify_passthrough');
+ossn_add_hook('notification:add', 'berx:plan:accepted', 'ossn_api_notify_passthrough');
+ossn_add_hook('notification:add', 'berx:plan:converted', 'ossn_api_notify_passthrough');
 
 /**
  * Real resource whitelist. Never build an include path from the URL
@@ -220,6 +224,11 @@ function ossn_api_v1_resources() {
 		// suggestions, no new table, no AI. See discovery.php's own
 		// header for the bounded-scan discipline.
 		'discovery'     => __OSSN_API__ . 'v1/discovery.php',
+		// BERX Plans — a genuinely new object (classes/OssnPlans.php,
+		// its own ossn_plans/ossn_plan_invites tables). See that
+		// class's own header: People + Time + Place + Activity, can
+		// transform into a real Event.
+		'plans'         => __OSSN_API__ . 'v1/plans.php',
 		// 'business' (the SEPARATE top-level resource — /business/
 		// places/{guid}/team|subscription|hours|claim|moments|
 		// impressions) still deliberately NOT listed: those branches

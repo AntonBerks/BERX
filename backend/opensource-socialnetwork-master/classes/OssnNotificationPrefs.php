@@ -53,6 +53,9 @@ class OssnNotificationPrefs extends OssnDatabase {
 			'comments:post:group:wall',
 			'wall:friends:tag',
 			'group:joinrequest',
+			'berx:plan:invite',
+			'berx:plan:accepted',
+			'berx:plan:converted',
 		);
 	}
 

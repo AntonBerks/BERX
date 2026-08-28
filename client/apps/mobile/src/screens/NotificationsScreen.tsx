@@ -57,6 +57,8 @@ interface Props {
 	onOpenPost?: (guid: number) => void;
 	/** subject_kind === 'community' — real OssnGroup::getGroup(subject_guid). */
 	onOpenCommunity?: (guid: number) => void;
+	/** subject_kind === 'plan' — real OssnPlans::getPlan(subject_guid). berx:plan:converted deliberately has subject_kind 'event' instead (its subject_guid is the real new event), so it's never routed here. */
+	onOpenPlan?: (guid: number) => void;
 	/** Real numeric-guid-or-username identifier — used with String(poster_guid) for 'ossnpoke:poke'. */
 	onOpenProfile?: (identifier: string) => void;
 	onBack?: () => void;
@@ -70,6 +72,9 @@ const NOTIFICATION_VERB: Record<string, string> = {
 	'comments:post:group:wall': 'прокомментировал(а) ваш пост в сообществе',
 	'wall:friends:tag': 'отметил(а) вас в посте',
 	'group:joinrequest': 'хочет вступить в',
+	'berx:plan:invite': 'приглашает вас на',
+	'berx:plan:accepted': 'согласился(-лась) на',
+	'berx:plan:converted': 'план стал событием —',
 	'dating:match': 'Новое совпадение',
 	'dating:interest': 'Вы понравились кому-то',
 	'dating:photo:request': 'запрашивает доступ к вашим фото',
@@ -94,7 +99,7 @@ function notificationText(n: BerxNotification): string {
 	return `${actor}: ${n.type}`;
 }
 
-export default function NotificationsScreen({api, onOpenConversation, onOpenDating, onOpenPlace, onOpenEvent, onOpenPost, onOpenCommunity, onOpenProfile, onBack}: Props) {
+export default function NotificationsScreen({api, onOpenConversation, onOpenDating, onOpenPlace, onOpenEvent, onOpenPost, onOpenCommunity, onOpenPlan, onOpenProfile, onBack}: Props) {
 	const [items, setItems] = useState<BerxNotification[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [refreshing, setRefreshing] = useState(false);
@@ -140,6 +145,10 @@ export default function NotificationsScreen({api, onOpenConversation, onOpenDati
 		}
 		if (n.subject_kind === 'community' && onOpenCommunity) {
 			onOpenCommunity(n.subject_guid);
+			return;
+		}
+		if (n.subject_kind === 'plan' && onOpenPlan) {
+			onOpenPlan(n.subject_guid);
 			return;
 		}
 		// Real, honest fallbacks for types with no separate subject.

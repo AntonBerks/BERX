@@ -57,8 +57,11 @@ function ossn_api_notification_actor($guid) {
  *   like:post:group:wall, wall:friends:tag, berx:place:comment    -> post guid
  *   berx:place:review, berx:place:checkin, berx:offer:claimed     -> place guid
  *   berx:event:rsvp, berx:event:comment, berx:event:invite,
- *   berx:event:waitlist:promoted                                  -> event guid
+ *   berx:event:waitlist:promoted, berx:plan:converted             -> event guid
+ *   (plan:converted's subject_guid is the real NEW event a Plan
+ *   just became — OssnPlans::convertToEvent() — not the plan itself)
  *   group:joinrequest                                             -> community (group) guid
+ *   berx:plan:invite, berx:plan:accepted                          -> plan guid
  * Anything else (ossnpoke:poke, dating:*, unrecognized) has no
  * separate "subject" beyond the poster themselves — real null, never
  * a guessed title.
@@ -90,7 +93,10 @@ function ossn_api_notification_subject($type, $subjectGuid) {
 		return array('title' => $place ? (string) $place->title : null, 'kind' => 'place');
 	}
 
-	if ($type === 'berx:event:rsvp' || $type === 'berx:event:comment' || $type === 'berx:event:invite' || $type === 'berx:event:waitlist:promoted') {
+	// berx:plan:converted's subject_guid is deliberately the real NEW
+	// EVENT guid it just created (see OssnPlans::convertToEvent()), so
+	// it belongs in this event-resolution case, not a plan-specific one.
+	if ($type === 'berx:event:rsvp' || $type === 'berx:event:comment' || $type === 'berx:event:invite' || $type === 'berx:event:waitlist:promoted' || $type === 'berx:plan:converted') {
 		$event = class_exists('OssnEvents') ? (new OssnEvents())->getEvent($subjectGuid) : null;
 		return array('title' => $event ? (string) $event->title : null, 'kind' => 'event');
 	}
@@ -98,6 +104,12 @@ function ossn_api_notification_subject($type, $subjectGuid) {
 	if ($type === 'group:joinrequest') {
 		$group = class_exists('OssnGroup') ? (new OssnGroup())->getGroup($subjectGuid) : null;
 		return array('title' => $group ? (string) $group->title : null, 'kind' => 'community');
+	}
+
+	// BERX Plans — invite/accepted point at the real plan itself.
+	if ($type === 'berx:plan:invite' || $type === 'berx:plan:accepted') {
+		$plan = class_exists('OssnPlans') ? (new OssnPlans())->getPlan($subjectGuid) : null;
+		return array('title' => $plan ? (string) $plan->title : null, 'kind' => 'plan');
 	}
 
 	return array('title' => null, 'kind' => null);

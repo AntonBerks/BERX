@@ -112,6 +112,7 @@ interface Props {
 	onOpenDatingProfile?: () => void;
 	onOpenDatingPhotos?: () => void;
 	onOpenCommunities?: () => void;
+	onOpenPlans?: () => void;
 	onOpenDating?: () => void;
 	onOpenPlaces?: () => void;
 	onOpenEvents?: () => void;
@@ -146,7 +147,7 @@ function joinedYear(unixSeconds?: number): string | null {
 	return new Date(unixSeconds * 1000).getFullYear().toString();
 }
 
-export default function ProfileScreen({api, authState, username, onBack, onMessage, onOpenNotifications, onOpenPoints, onOpenMissions, onOpenLifeGraph, onOpenMemories, onOpenWrapped, onOpenDatingPrivacy, onOpenDatingProfile, onOpenDatingPhotos, onOpenCommunities, onOpenDating, onOpenPlaces, onOpenEvents, onOpenSettings, onOpenBERXWorld, onOpenAlbums, onOpenCollections, onOpenTrips, onOpenExperiences, onOpenCreatorProfile, onOpenCreatorSettings, onOpenMyVideos, onOpenMyTracks, onOpenSavedPosts, onOpenEditProfile, onOpenMyPlaceClaims, onOpenRecentCheckins, onOpenAdminUnvalidated, onOpenAdminReports, onOpenAdminPlaceClaims, onReport, onOpenStoryGroup, onOpenPost}: Props) {
+export default function ProfileScreen({api, authState, username, onBack, onMessage, onOpenNotifications, onOpenPoints, onOpenMissions, onOpenLifeGraph, onOpenMemories, onOpenWrapped, onOpenDatingPrivacy, onOpenDatingProfile, onOpenDatingPhotos, onOpenCommunities, onOpenPlans, onOpenDating, onOpenPlaces, onOpenEvents, onOpenSettings, onOpenBERXWorld, onOpenAlbums, onOpenCollections, onOpenTrips, onOpenExperiences, onOpenCreatorProfile, onOpenCreatorSettings, onOpenMyVideos, onOpenMyTracks, onOpenSavedPosts, onOpenEditProfile, onOpenMyPlaceClaims, onOpenRecentCheckins, onOpenAdminUnvalidated, onOpenAdminReports, onOpenAdminPlaceClaims, onReport, onOpenStoryGroup, onOpenPost}: Props) {
 	const [profile, setProfile] = useState<ProfileData | null>(null);
 	const [identity, setIdentity] = useState<BerxIdentity | null>(null);
 	const [loading, setLoading] = useState(true);
@@ -589,7 +590,8 @@ export default function ProfileScreen({api, authState, username, onBack, onMessa
 						{onOpenBERXWorld ? <MenuRow label="Обзор" icon={<IconUsers size={18} color={colors.text} />} onPress={onOpenBERXWorld} isFirst /> : null}
 						{onOpenPlaces ? <MenuRow label="Места" icon={<IconUsers size={18} color={colors.text} />} onPress={onOpenPlaces} /> : null}
 						{onOpenEvents ? <MenuRow label="События" icon={<IconStar size={18} color={colors.text} />} onPress={onOpenEvents} /> : null}
-						{onOpenCommunities ? <MenuRow label="Сообщества" icon={<IconUsers size={18} color={colors.text} />} onPress={onOpenCommunities} isLast /> : null}
+						{onOpenCommunities ? <MenuRow label="Сообщества" icon={<IconUsers size={18} color={colors.text} />} onPress={onOpenCommunities} /> : null}
+						{onOpenPlans ? <MenuRow label="Планы" icon={<IconUsers size={18} color={colors.text} />} onPress={onOpenPlans} isLast /> : null}
 					</View>
 
 					<Text style={styles.sectionLabel}>Активность</Text>

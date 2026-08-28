@@ -301,7 +301,7 @@ export interface BerxDateIdea {
 }
 
 /** Real subject resolution (OssnWall::GetPost()/OssnPlaces::getPlace()/OssnEvents::getEvent()/OssnGroup::getGroup(), whichever subject_guid actually points to per type) — null when the type has no separate subject (a poke) or the subject was since deleted, never a guess. */
-export type BerxNotificationSubjectKind = 'post' | 'place' | 'event' | 'community' | null;
+export type BerxNotificationSubjectKind = 'post' | 'place' | 'event' | 'community' | 'plan' | null;
 
 export interface BerxNotification {
 	guid: number;
@@ -348,7 +348,10 @@ export type BerxNotificationPrefType =
 	| 'comments:post'
 	| 'comments:post:group:wall'
 	| 'wall:friends:tag'
-	| 'group:joinrequest';
+	| 'group:joinrequest'
+	| 'berx:plan:invite'
+	| 'berx:plan:accepted'
+	| 'berx:plan:converted';
 
 export type BerxNotificationPrefs = Record<BerxNotificationPrefType, boolean>;
 
@@ -866,6 +869,38 @@ export interface BerxEvent {
 	/** MAX BUILD — real waitlist state, viewer-scoped like is_going (see classes/OssnEvents.php's own Waitlist section). */
 	is_waitlisted: boolean;
 	waitlist_count: number;
+}
+
+/**
+ * BERX WORLD — Plans. A genuinely new BERX object (classes/
+ * OssnPlans.php, components/OssnApi/v1/plans.php): People + Time +
+ * Place + Activity, looser than a real Event on purpose — place_guid
+ * and starts_at are both nullable, so a Plan can exist before either
+ * is decided. Can transform into a real Event (created_event_guid).
+ */
+export interface BerxPlanInvite {
+	user_guid: number;
+	username: string | null;
+	icon: string | null;
+	status: 'invited' | 'accepted' | 'declined';
+}
+
+export interface BerxPlan {
+	id: number;
+	owner_guid: number;
+	owner_username: string | null;
+	title: string;
+	notes: string | null;
+	place_guid: number | null;
+	place_title: string | null;
+	starts_at: number | null;
+	status: 'active' | 'cancelled' | 'converted';
+	created_event_guid: number | null;
+	time_created: number;
+	is_owner: boolean;
+	/** null only if the viewer is somehow neither the owner nor an invitee — canView() on the server means this never actually happens for a plan the client could fetch. */
+	my_invite_status: 'invited' | 'accepted' | 'declined' | 'owner' | null;
+	invites: BerxPlanInvite[];
 }
 
 export interface BerxEventAttendee {

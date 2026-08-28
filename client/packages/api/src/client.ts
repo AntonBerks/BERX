@@ -54,6 +54,7 @@ import type {
 	BerxPlaceReview,
 	BerxEvent,
 	BerxEventAttendee,
+	BerxPlan,
 	BerxObjectComment,
 	BerxCommentableType,
 	BerxSession,
@@ -1776,6 +1777,49 @@ export class BerxApiClient {
 	/** userGuid must be a real friend of the caller — inviteFriend() re-checks this server-side regardless of what the UI already knows. */
 	async inviteToEvent(guid: number, userGuid: number): Promise<{status: string}> {
 		return this.request<{status: string}>(`/events/${guid}/invite`, {method: 'POST', body: {user: String(userGuid)}});
+	}
+
+	/**
+	 * BERX Plans — see classes/OssnPlans.php's own header. inviteGuids
+	 * is sent as a comma-separated string server-side (matching
+	 * admin.php's own already-proven multi-guid convention), not a
+	 * JSON array — this method takes the array form and joins it here
+	 * so every caller still writes idiomatic TypeScript.
+	 */
+	async createPlan(fields: {
+		title: string;
+		notes?: string;
+		placeGuid?: number;
+		startsAt?: number;
+		inviteGuids?: number[];
+	}): Promise<{id: number}> {
+		const body: Record<string, string> = {title: fields.title};
+		if (fields.notes) body.notes = fields.notes;
+		if (fields.placeGuid !== undefined) body.place_guid = String(fields.placeGuid);
+		if (fields.startsAt !== undefined) body.starts_at = String(fields.startsAt);
+		if (fields.inviteGuids && fields.inviteGuids.length > 0) body.invite_guids = fields.inviteGuids.join(',');
+		return this.request<{id: number}>('/plans', {method: 'POST', body});
+	}
+
+	async myPlans(limit = 50): Promise<{plans: BerxPlan[]}> {
+		return this.request<{plans: BerxPlan[]}>(`/plans/mine?limit=${limit}`);
+	}
+
+	async getPlan(id: number): Promise<{plan: BerxPlan}> {
+		return this.request<{plan: BerxPlan}>(`/plans/${id}`);
+	}
+
+	async respondToPlan(id: number, accept: boolean): Promise<{status: string}> {
+		return this.request<{status: string}>(`/plans/${id}/respond`, {method: 'POST', body: {accept: accept ? '1' : '0'}});
+	}
+
+	async cancelPlan(id: number): Promise<{status: string}> {
+		return this.request<{status: string}>(`/plans/${id}/cancel`, {method: 'POST'});
+	}
+
+	/** The real Plan -> Event transform (server requires a real place + time first — see OssnPlans::convertToEvent()'s own header). Every invitee who already accepted is auto-RSVPed onto the new event. */
+	async convertPlanToEvent(id: number): Promise<{status: string; event_guid: number}> {
+		return this.request<{status: string; event_guid: number}>(`/plans/${id}/convert`, {method: 'POST'});
 	}
 
 	async uploadEventCover(guid: number, part: BerxFilePart, filename = 'cover.jpg'): Promise<{status: string}> {

@@ -45,6 +45,9 @@ const LABELS: Record<BerxNotificationPrefType, string> = {
 	'comments:post:group:wall': 'Комментарий к посту в сообществе',
 	'wall:friends:tag': 'Вас отметили в посте',
 	'group:joinrequest': 'Заявка на вступление в сообщество',
+	'berx:plan:invite': 'Приглашение в план',
+	'berx:plan:accepted': 'Кто-то согласился на ваш план',
+	'berx:plan:converted': 'Ваш план стал событием',
 };
 
 const ORDER: BerxNotificationPrefType[] = [
@@ -54,6 +57,9 @@ const ORDER: BerxNotificationPrefType[] = [
 	'like:post:group:wall',
 	'comments:post:group:wall',
 	'group:joinrequest',
+	'berx:plan:invite',
+	'berx:plan:accepted',
+	'berx:plan:converted',
 	'berx:place:review',
 	'berx:place:comment',
 	'berx:place:checkin',
