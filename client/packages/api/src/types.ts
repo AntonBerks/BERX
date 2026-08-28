@@ -300,12 +300,21 @@ export interface BerxDateIdea {
 	distance_km: number;
 }
 
+/** Real subject resolution (OssnWall::GetPost()/OssnPlaces::getPlace()/OssnEvents::getEvent()/OssnGroup::getGroup(), whichever subject_guid actually points to per type) — null when the type has no separate subject (a poke) or the subject was since deleted, never a guess. */
+export type BerxNotificationSubjectKind = 'post' | 'place' | 'event' | 'community' | null;
+
 export interface BerxNotification {
 	guid: number;
 	type: string;
 	poster_guid: number;
+	/** Real actor identity (ossn_user_by_guid(poster_guid)) — null only if the poster account no longer exists. */
+	poster_username: string | null;
+	poster_icon: string | null;
 	subject_guid: number;
 	item_guid: number | null;
+	/** Real title/text snippet of the real object this notification is about — see BerxNotificationSubjectKind. */
+	subject_title: string | null;
+	subject_kind: BerxNotificationSubjectKind;
 	viewed: boolean;
 	time_created: number;
 }
@@ -328,10 +337,17 @@ export type BerxNotificationPrefType =
 	| 'dating:photo:granted'
 	| 'berx:place:review'
 	| 'berx:place:comment'
+	| 'berx:place:checkin'
 	| 'berx:event:rsvp'
 	| 'berx:event:comment'
 	| 'berx:event:invite'
-	| 'ossnpoke:poke';
+	| 'ossnpoke:poke'
+	| 'like:post'
+	| 'like:post:group:wall'
+	| 'comments:post'
+	| 'comments:post:group:wall'
+	| 'wall:friends:tag'
+	| 'group:joinrequest';
 
 export type BerxNotificationPrefs = Record<BerxNotificationPrefType, boolean>;
 

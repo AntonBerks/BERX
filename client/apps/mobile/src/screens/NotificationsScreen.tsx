@@ -1,26 +1,33 @@
 /**
  * !!! VERIFICATION STATUS: UNVERIFIED — see LoginScreen.tsx header.
  *
- * Honest routing scope: only 'dating:match' is confirmed and wired to
- * a real destination (Conversation with the matched user, via
- * poster_guid) — verified against components/OssnDating/ossn_com.php's
- * own notification type strings earlier this session, not guessed.
- * 'dating:interest' / 'dating:photo:request' / 'dating:photo:granted'
- * route to the Dating tab as the closest real screen — there's no
- * dedicated "who liked you" or "photo request" screen built yet, so
- * this is honest-but-imprecise rather than a fake specific
- * destination. Any other/unrecognized type just marks read without
- * navigating — never silently pretends to go somewhere.
+ * MAX BUILD — real "context chain" notifications (ACTOR → ACTION →
+ * OBJECT → CONTEXT → DESTINATION). notifications.php now resolves a
+ * real poster_username/poster_icon and a real subject_title/
+ * subject_kind for every notification type this codebase's real
+ * backend actually produces — see that file's own header for the
+ * full per-type audit (native OSSN's old, stable notification
+ * pipeline already fires 'like:post'/'comments:post'/
+ * 'comments:post:group:wall'/'like:post:group:wall'/
+ * 'wall:friends:tag'/'group:joinrequest' on every real like/comment/
+ * tag/join-request BERX's own routes trigger — this screen just never
+ * recognized any of them before, so they rendered as a raw type
+ * string like "comments:post"). Routing is now driven by the real
+ * subject_kind the server resolved, not a hand-maintained per-type
+ * if/else list — a type this screen doesn't have separate copy for
+ * still gets a real actor-based sentence and still deep-links
+ * correctly as long as the server could resolve a subject.
  *
- * MAX BUILD — 'ossnpoke:poke' now routes to the real poker's profile
- * (poster_guid), closing another real "backend exists, zero UI" gap
- * (see ProfileScreen.tsx's handlePoke()). profiles.php was extended
- * this same pass to resolve a real numeric guid as a fallback
- * identifier (not just username), so poster_guid needs no separate
- * username-lookup round trip — String(guid) resolves directly.
+ * Honest routing scope unchanged for the handful of types with no
+ * separate subject: 'dating:match' opens the real match conversation
+ * (poster_guid); 'dating:interest'/'dating:photo:request'/
+ * 'dating:photo:granted' route to the Dating tab (no dedicated
+ * "who liked you"/"photo request" screen exists yet — honest-but-
+ * imprecise, never a fake specific destination); 'ossnpoke:poke'
+ * opens the poker's own profile.
  */
 import {useCallback, useEffect, useState} from 'react';
-import {View, Text, FlatList, Pressable, RefreshControl, StyleSheet} from 'react-native';
+import {View, Text, Image, FlatList, Pressable, RefreshControl, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxNotification} from '@berx/api/types';
 import {relativeTimeLabel} from '@berx/domain';
@@ -33,29 +40,51 @@ interface Props {
 	api: BerxApiClient;
 	onOpenConversation: (otherGuid: number) => void;
 	onOpenDating: () => void;
-	/** subject_guid on berx:place:* notifications IS the place guid — see ossn_com.php in OssnPlaces (notify()'s subject_guid arg is always $place->guid). */
+	/** subject_kind === 'place' — real OssnPlaces::getPlace(subject_guid). */
 	onOpenPlace: (guid: number) => void;
-	/** Same real pattern for events — see OssnEvents' notify() calls. */
+	/** subject_kind === 'event' — real OssnEvents::getEvent(subject_guid). */
 	onOpenEvent: (guid: number) => void;
-	/** Real numeric-guid-or-username identifier — used here with String(poster_guid) for 'ossnpoke:poke'. */
+	/** subject_kind === 'post' — real OssnWall::GetPost(subject_guid). */
+	onOpenPost?: (guid: number) => void;
+	/** subject_kind === 'community' — real OssnGroup::getGroup(subject_guid). */
+	onOpenCommunity?: (guid: number) => void;
+	/** Real numeric-guid-or-username identifier — used with String(poster_guid) for 'ossnpoke:poke'. */
 	onOpenProfile?: (identifier: string) => void;
 	onBack?: () => void;
 }
 
-const NOTIFICATION_LABELS: Record<string, string> = {
+/** Real verb per type — paired with the server's own real poster_username/subject_title, never invented copy for a type with no real backend behind it. */
+const NOTIFICATION_VERB: Record<string, string> = {
+	'like:post': 'нравится ваш пост',
+	'like:post:group:wall': 'нравится ваш пост в сообществе',
+	'comments:post': 'прокомментировал(а) ваш пост',
+	'comments:post:group:wall': 'прокомментировал(а) ваш пост в сообществе',
+	'wall:friends:tag': 'отметил(а) вас в посте',
+	'group:joinrequest': 'хочет вступить в',
 	'dating:match': 'Новое совпадение',
 	'dating:interest': 'Вы понравились кому-то',
-	'dating:photo:request': 'Запрос доступа к фото',
-	'dating:photo:granted': 'Вам открыли доступ к фото',
-	'berx:place:review': 'Новый отзыв о вашем месте',
-	'berx:place:comment': 'Новый комментарий к вашему месту',
-	'berx:event:rsvp': 'Кто-то идёт на ваше событие',
-	'berx:event:comment': 'Новый комментарий к вашему событию',
-	'berx:event:invite': 'Приглашение на событие',
-	'ossnpoke:poke': 'Вас «толкнули»',
+	'dating:photo:request': 'запрашивает доступ к вашим фото',
+	'dating:photo:granted': 'открыл(а) вам доступ к фото',
+	'berx:place:review': 'оставил(а) отзыв о',
+	'berx:place:checkin': 'отметился(-лась) в',
+	'berx:place:comment': 'прокомментировал(а) ваш пост о месте',
+	'berx:event:rsvp': 'идёт на',
+	'berx:event:comment': 'прокомментировал(а)',
+	'berx:event:invite': 'пригласил(а) вас на',
+	'berx:event:waitlist:promoted': 'вы переведены из листа ожидания в участники',
+	'ossnpoke:poke': 'толкнул(а) вас',
 };
 
-export default function NotificationsScreen({api, onOpenConversation, onOpenDating, onOpenPlace, onOpenEvent, onOpenProfile, onBack}: Props) {
+function notificationText(n: BerxNotification): string {
+	const actor = n.poster_username ?? 'Кто-то';
+	const verb = NOTIFICATION_VERB[n.type];
+	if (n.type === 'dating:match') return verb;
+	if (verb && n.subject_title) return `${actor} ${verb} «${n.subject_title}»`;
+	if (verb) return `${actor} ${verb}`;
+	return `${actor}: ${n.type}`;
+}
+
+export default function NotificationsScreen({api, onOpenConversation, onOpenDating, onOpenPlace, onOpenEvent, onOpenPost, onOpenCommunity, onOpenProfile, onBack}: Props) {
 	const [items, setItems] = useState<BerxNotification[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [refreshing, setRefreshing] = useState(false);
@@ -84,14 +113,30 @@ export default function NotificationsScreen({api, onOpenConversation, onOpenDati
 			api.markNotificationRead(n.guid).catch(() => undefined); // best-effort — a failed mark-as-read shouldn't block navigation
 			setItems((prev: BerxNotification[]) => prev.map((it: BerxNotification) => (it.guid === n.guid ? {...it, viewed: true} : it)));
 		}
+		// Real destination, driven by the server's own subject_kind
+		// resolution — covers every type the server can resolve a real
+		// subject for, not just a hand-maintained list.
+		if (n.subject_kind === 'post' && onOpenPost) {
+			onOpenPost(n.subject_guid);
+			return;
+		}
+		if (n.subject_kind === 'place') {
+			onOpenPlace(n.subject_guid);
+			return;
+		}
+		if (n.subject_kind === 'event') {
+			onOpenEvent(n.subject_guid);
+			return;
+		}
+		if (n.subject_kind === 'community' && onOpenCommunity) {
+			onOpenCommunity(n.subject_guid);
+			return;
+		}
+		// Real, honest fallbacks for types with no separate subject.
 		if (n.type === 'dating:match') {
 			onOpenConversation(n.poster_guid);
 		} else if (n.type === 'dating:interest' || n.type === 'dating:photo:request' || n.type === 'dating:photo:granted') {
 			onOpenDating();
-		} else if (n.type === 'berx:place:review' || n.type === 'berx:place:comment') {
-			onOpenPlace(n.subject_guid);
-		} else if (n.type === 'berx:event:rsvp' || n.type === 'berx:event:comment' || n.type === 'berx:event:invite') {
-			onOpenEvent(n.subject_guid);
 		} else if (n.type === 'ossnpoke:poke' && onOpenProfile) {
 			onOpenProfile(String(n.poster_guid));
 		}
@@ -148,6 +193,7 @@ export default function NotificationsScreen({api, onOpenConversation, onOpenDati
 				<View style={styles.list}>
 					{[0, 1, 2, 3, 4, 5].map((i) => (
 						<View key={i} style={styles.row}>
+							<BerxSkeleton width={40} height={40} style={styles.skeletonAvatar} />
 							<View style={styles.rowText}>
 								<BerxSkeleton width="60%" height={13} />
 								<BerxSkeleton width="30%" height={11} style={styles.skeletonGap} />
@@ -177,8 +223,13 @@ export default function NotificationsScreen({api, onOpenConversation, onOpenDati
 						renderItem={({item}: {item: BerxNotification}) => (
 							<Pressable style={[styles.row, !item.viewed && styles.rowUnread]} onPress={() => handlePress(item)}>
 								{!item.viewed ? <View style={styles.dot} /> : null}
+								{item.poster_icon ? (
+									<Image source={{uri: item.poster_icon}} style={styles.avatar} />
+								) : (
+									<View style={styles.avatarFallback} />
+								)}
 								<View style={styles.rowText}>
-									<Text style={styles.label}>{NOTIFICATION_LABELS[item.type] ?? item.type}</Text>
+									<Text style={styles.label}>{notificationText(item)}</Text>
 									<Text style={styles.time}>{relativeTimeLabel(item.time_created)}</Text>
 								</View>
 								<Pressable onPress={() => deleteOne(item.guid)} hitSlop={8}>
@@ -200,6 +251,7 @@ const styles = StyleSheet.create({
 	actionLinkDanger: {color: colors.danger},
 	fadeFlex: {flex: 1},
 	list: {flex: 1},
+	skeletonAvatar: {borderRadius: 20},
 	skeletonGap: {marginTop: 4},
 	row: {
 		flexDirection: 'row',
@@ -211,6 +263,8 @@ const styles = StyleSheet.create({
 	},
 	rowUnread: {backgroundColor: colors.glass1},
 	dot: {width: 8, height: 8, borderRadius: 4, backgroundColor: colors.accent},
+	avatar: {width: 40, height: 40, borderRadius: 20, backgroundColor: colors.graphite},
+	avatarFallback: {width: 40, height: 40, borderRadius: 20, backgroundColor: colors.graphite},
 	rowText: {flex: 1},
 	label: {color: colors.text, fontSize: typography.sizeBase},
 	time: {color: colors.textFaint, fontSize: typography.sizeXs, marginTop: spacing.xs},

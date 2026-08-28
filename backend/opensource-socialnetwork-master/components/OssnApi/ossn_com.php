@@ -84,6 +84,8 @@ function ossn_api_notify_place_owner($hook, $type, $return, $params) {
 }
 ossn_add_hook('notification:add', 'berx:place:review', 'ossn_api_notify_place_owner');
 ossn_add_hook('notification:add', 'berx:place:comment', 'ossn_api_notify_place_owner');
+/** MAX BUILD — real checkpoint chain (places.php's own /checkin route): same real place-owner resolution, reused as-is. */
+ossn_add_hook('notification:add', 'berx:place:checkin', 'ossn_api_notify_place_owner');
 
 function ossn_api_notify_event_owner($hook, $type, $return, $params) {
 	if (!class_exists('OssnEvents')) {

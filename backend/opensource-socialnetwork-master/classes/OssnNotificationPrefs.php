@@ -23,9 +23,15 @@ class OssnNotificationPrefs extends OssnDatabase {
 	 * can mute. Deliberately NOT every core OSSN notification string
 	 * that exists anywhere in this fork — only the ones the mobile
 	 * client's own NotificationsScreen actually surfaces with a label
-	 * (see NOTIFICATION_LABELS in NotificationsScreen.tsx). Muting a
+	 * (see NOTIFICATION_VERB in NotificationsScreen.tsx). Muting a
 	 * type not in this list is rejected, not silently accepted — an
 	 * honest boundary, not a hidden gap.
+	 *
+	 * MAX BUILD — extended to the native OSSN notification types
+	 * (like:post/comments:post/... — already firing on every real
+	 * like/comment/tag/join-request, see notifications.php's own
+	 * header) once NotificationsScreen gained real labels/routing for
+	 * them, plus the new real berx:place:checkin checkpoint chain.
 	 */
 	public static function knownTypes() {
 		return array(
@@ -35,10 +41,17 @@ class OssnNotificationPrefs extends OssnDatabase {
 			'dating:photo:granted',
 			'berx:place:review',
 			'berx:place:comment',
+			'berx:place:checkin',
 			'berx:event:rsvp',
 			'berx:event:comment',
 			'berx:event:invite',
 			'ossnpoke:poke',
+			'like:post',
+			'like:post:group:wall',
+			'comments:post',
+			'comments:post:group:wall',
+			'wall:friends:tag',
+			'group:joinrequest',
 		);
 	}
 

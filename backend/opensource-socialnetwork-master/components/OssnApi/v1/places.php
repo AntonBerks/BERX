@@ -269,6 +269,17 @@ if ($segment0 !== null && is_numeric($segment0) && $segment1 === 'checkin' && $m
 	if (class_exists('OssnSignals')) {
 		(new OssnSignals())->record($api_user_guid, 'checkin', 'place', intval($segment0));
 	}
+	// MAX BUILD -- real checkpoint notification chain (PERSON -> checked
+	// in -> PLACE -> TIME), reusing the exact same real
+	// ossn_api_notify_place_owner hook already registered for
+	// berx:place:review/berx:place:comment (ossn_com.php) -- resolves
+	// the place's real owner_guid from subject_guid, and add() itself
+	// already no-ops a self-notify (owner checking in at their own
+	// place) via its own real owner==poster guard. Mutable per-type by
+	// the owner via the existing real OssnNotificationPrefs.
+	if (class_exists('OssnNotifications')) {
+		(new OssnNotifications())->add('berx:place:checkin', intval($api_user_guid), intval($segment0), intval($segment0));
+	}
 	ossn_api_json(array('status' => 'ok', 'distance_m' => $result['distance_m'], 'points_awarded' => $awarded ? 8 : 0));
 }
 
