@@ -21,9 +21,17 @@ export interface BerxFadeInProps {
 	delayMs?: number;
 	/** Rise distance in px — 0 for a pure fade (e.g. a full-bleed hero where a rise would clip). */
 	riseFrom?: number;
+	/**
+	 * BERX WORLD TRANSFORMATION — optional starting scale (default 1 =
+	 * no scale, every existing caller unaffected). A real "emergence"
+	 * feel for entry sequences (directive §12/§14: material appearing
+	 * from depth, not just fading in place) — e.g. 0.92 makes content
+	 * grow slightly into view alongside the existing fade+rise.
+	 */
+	scaleFrom?: number;
 }
 
-export function BerxFadeIn({children, style, delayMs = 0, riseFrom = 12}: BerxFadeInProps) {
+export function BerxFadeIn({children, style, delayMs = 0, riseFrom = 12, scaleFrom = 1}: BerxFadeInProps) {
 	const progress = useRef(new Animated.Value(0)).current;
 
 	useEffect(() => {
@@ -45,6 +53,9 @@ export function BerxFadeIn({children, style, delayMs = 0, riseFrom = 12}: BerxFa
 					transform: [
 						{
 							translateY: progress.interpolate({inputRange: [0, 1], outputRange: [riseFrom, 0]}),
+						},
+						{
+							scale: progress.interpolate({inputRange: [0, 1], outputRange: [scaleFrom, 1]}),
 						},
 					],
 				},
