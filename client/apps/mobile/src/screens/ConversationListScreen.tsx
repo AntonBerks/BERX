@@ -28,6 +28,16 @@
  * concept exists for a suggestion), filled full-bleed rather than
  * shown as a small circle — same honest scrim-simulation technique as
  * ProfileScreen's new hero (no gradient library installed).
+ *
+ * BERX WORLD TRANSFORMATION — the conversation row was the universal
+ * chat-app row (bold name, dim message preview, small unread dot) —
+ * directive names this pattern directly ("generic chat bubbles").
+ * Inverted the hierarchy: the message preview is now the dominant
+ * line (what you actually scan a conversation list for), the
+ * username+time moved to a small-caps byline above it — the same
+ * editorial byline language FeedScreen already uses. Unread state
+ * reads on the avatar itself (a real accent ring) instead of a
+ * separate dot bolted on beside the text.
  */
 import {useCallback, useEffect, useMemo, useState} from 'react';
 import {FlatList, Pressable, Text, View, Image, RefreshControl, StyleSheet} from 'react-native';
@@ -200,19 +210,17 @@ export default function ConversationListScreen({api, onOpenConversation, onOpenM
 								style={styles.row}
 								onPress={() => onOpenConversation(item.with_guid, item.with_username ?? undefined)}
 							>
-								<View style={styles.rowAvatarWrap}>
+								<View style={[styles.rowAvatarWrap, item.has_unread && styles.rowAvatarWrapUnread]}>
 									<BerxAvatar fallbackInitial={(item.with_username ?? '#').charAt(0)} size={48} />
 									{item.with_online ? <View style={styles.rowOnlineDot} /> : null}
 								</View>
 								<View style={styles.rowText}>
-									<Text style={[styles.username, item.has_unread && styles.usernameUnread]}>{item.with_username ?? `Пользователь #${item.with_guid}`}</Text>
+									<Text style={styles.byline} numberOfLines={1}>
+										{(item.with_username ?? `#${item.with_guid}`).toUpperCase()} · {relativeTimeLabel(item.time)}
+									</Text>
 									<Text style={[styles.lastMessage, item.has_unread && styles.lastMessageUnread]} numberOfLines={1}>
 										{item.last_message}
 									</Text>
-								</View>
-								<View style={styles.rowEnd}>
-									<Text style={styles.time}>{relativeTimeLabel(item.time)}</Text>
-									{item.has_unread ? <View style={styles.unreadDot} /> : null}
 								</View>
 							</Pressable>
 						)}
@@ -254,18 +262,30 @@ const styles = StyleSheet.create({
 		borderBottomWidth: 1,
 		borderBottomColor: colors.borderSoft,
 	},
-	rowAvatarWrap: {width: 48, height: 48},
+	rowAvatarWrap: {width: 52, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center'},
+	// BERX WORLD TRANSFORMATION — unread state reads on the object
+	// itself (a real accent ring around the avatar) instead of a
+	// separate dot bolted on beside the text — same "the object
+	// changes, not a decoration next to it" principle as
+	// BerxWayfinder's sliding indicator.
+	rowAvatarWrapUnread: {borderWidth: 2, borderColor: colors.accent},
 	/** Real per-row presence — same OssnUser::isOnline(10) signal as the "В сети" rail above, just also on the row itself. */
 	rowOnlineDot: {position: 'absolute', bottom: 0, right: 0, width: 12, height: 12, borderRadius: 6, backgroundColor: colors.accent, borderWidth: 2, borderColor: colors.black},
-	rowText: {flex: 1, gap: 2},
-	skeletonAvatar: {borderRadius: 24},
+	rowText: {flex: 1, gap: 3},
+	skeletonAvatar: {borderRadius: 26},
 	skeletonGap: {marginTop: 4},
-	username: {color: colors.text, fontWeight: typography.weightMedium},
-	usernameUnread: {fontWeight: typography.weightBold},
-	lastMessage: {color: colors.textDim, fontSize: typography.sizeSm, marginTop: 2},
+	// Message-forward hierarchy, inverted from the universal chat-app
+	// convention (bold name, dim message): the byline (who + when) is
+	// the small overline, matching Feed's own byline language; the
+	// message preview is the dominant line — what you're scanning a
+	// conversation list FOR.
+	byline: {
+		color: colors.textFaint,
+		fontSize: typography.sizeXs,
+		fontWeight: typography.weightBold,
+		textTransform: 'uppercase',
+		letterSpacing: 0.5,
+	},
+	lastMessage: {color: colors.textDim, fontSize: typography.sizeBase},
 	lastMessageUnread: {color: colors.text, fontWeight: typography.weightMedium},
-	rowEnd: {alignItems: 'flex-end', gap: 6},
-	time: {color: colors.textFaint, fontSize: typography.sizeXs},
-	/** Real signal — see BerxConversationSummary.has_unread's own doc comment. */
-	unreadDot: {width: 8, height: 8, borderRadius: 4, backgroundColor: colors.accent},
 });
