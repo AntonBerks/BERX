@@ -64,6 +64,7 @@ import WorldsScreen from './screens/WorldsScreen';
 import WorldDetailScreen from './screens/WorldDetailScreen';
 import CreateWorldScreen from './screens/CreateWorldScreen';
 import NextScreen from './screens/NextScreen';
+import AddToWorldScreen from './screens/AddToWorldScreen';
 import CommunityRequestsScreen from './screens/CommunityRequestsScreen';
 import CommunityModeratorsScreen from './screens/CommunityModeratorsScreen';
 import CommunityMembersScreen from './screens/CommunityMembersScreen';
@@ -602,6 +603,7 @@ function RouteRenderer({name, params}: {name: BerxRouteName; params: unknown}) {
 					isAdmin={authState.getSnapshot().user?.is_admin}
 					onAddToCollection={() => nav.push('AddToCollection', {itemType: 'place', itemGuid: p.guid})}
 					onAddToTrip={() => nav.push('AddToTrip', {itemType: 'place', itemGuid: p.guid})}
+					onAddToWorld={() => nav.push('AddToWorld', {itemType: 'place', itemGuid: p.guid})}
 					onOpenBusinessDashboard={(placeGuid) => nav.push('BusinessHome', {placeGuid})}
 					onEdit={() => nav.push('EditPlace', {guid: p.guid})}
 					onBack={nav.pop}
@@ -662,6 +664,7 @@ function RouteRenderer({name, params}: {name: BerxRouteName; params: unknown}) {
 					onOpenInvite={(guid) => nav.push('EventInvite', {guid})}
 					onAddToCollection={() => nav.push('AddToCollection', {itemType: 'event', itemGuid: p.guid})}
 					onAddToTrip={() => nav.push('AddToTrip', {itemType: 'event', itemGuid: p.guid})}
+					onAddToWorld={() => nav.push('AddToWorld', {itemType: 'event', itemGuid: p.guid})}
 					onAddEventStory={(eventGuid) => nav.push('CreateStory', {eventGuid})}
 					onOpenStoryGroup={(group) => {
 						currentStoryGroup = group;
@@ -847,6 +850,19 @@ function RouteRenderer({name, params}: {name: BerxRouteName; params: unknown}) {
 					itemType={p.itemType}
 					itemGuid={p.itemGuid}
 					onCreateTrip={() => nav.push('CreateTrip', undefined)}
+					onDone={nav.pop}
+					onBack={nav.pop}
+				/>
+			);
+		}
+		case 'AddToWorld': {
+			const p = params as {itemType: 'place' | 'event'; itemGuid: number};
+			return (
+				<AddToWorldScreen
+					api={api}
+					itemType={p.itemType}
+					itemGuid={p.itemGuid}
+					onCreateWorld={() => nav.push('CreateWorld', undefined)}
 					onDone={nav.pop}
 					onBack={nav.pop}
 				/>

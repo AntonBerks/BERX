@@ -58,12 +58,13 @@ interface Props {
 	isAdmin?: boolean;
 	onAddToCollection?: () => void;
 	onAddToTrip?: () => void;
+	onAddToWorld?: () => void;
 	onOpenBusinessDashboard?: (placeGuid: number) => void;
 	onEdit?: () => void;
 	onBack?: () => void;
 }
 
-export default function PlaceDetailScreen({api, guid, myGuid, isAdmin, onAddToCollection, onAddToTrip, onOpenBusinessDashboard, onEdit, onBack}: Props) {
+export default function PlaceDetailScreen({api, guid, myGuid, isAdmin, onAddToCollection, onAddToTrip, onAddToWorld, onOpenBusinessDashboard, onEdit, onBack}: Props) {
 	const [claimOpen, setClaimOpen] = useState(false);
 	const [claimMessage, setClaimMessage] = useState('');
 	const [claimBusy, setClaimBusy] = useState(false);
@@ -349,6 +350,7 @@ export default function PlaceDetailScreen({api, guid, myGuid, isAdmin, onAddToCo
 					/>
 					{onAddToCollection ? <BerxButton label="В подборку" variant="secondary" onPress={onAddToCollection} /> : null}
 					{onAddToTrip ? <BerxButton label="В поездку" variant="secondary" onPress={onAddToTrip} /> : null}
+					{onAddToWorld ? <BerxButton label="В мир" variant="secondary" onPress={onAddToWorld} /> : null}
 					{place.lat !== null && place.lng !== null ? <BerxButton label="Маршрут" variant="secondary" onPress={buildRoute} /> : null}
 					{place.lat !== null && place.lng !== null ? <BerxButton label="Отметиться" variant="secondary" onPress={() => { setCheckinOpen(!checkinOpen); setCheckinMessage(null); }} /> : null}
 				</View>
