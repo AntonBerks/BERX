@@ -858,8 +858,7 @@ function RouteRenderer({name, params}: {name: BerxRouteName; params: unknown}) {
 					api={api}
 					onOpenPlace={(guid) => nav.push('PlaceDetail', {guid})}
 					onOpenEvent={(guid) => nav.push('EventDetail', {guid})}
-					onOpenProfile={openProfile}
-					onBack={nav.pop}
+										onBack={nav.pop}
 				/>
 			);
 		case 'Report': {

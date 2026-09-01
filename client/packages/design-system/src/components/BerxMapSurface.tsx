@@ -18,7 +18,7 @@
  * are excluded here and surfaced by the caller as a list instead.
  */
 import React from 'react';
-import {View, Text, Pressable, StyleSheet, ViewStyle} from 'react-native';
+import {View, Text, Image, Pressable, Dimensions, LayoutChangeEvent, StyleSheet, ViewStyle} from 'react-native';
 import {spacing, typography, radius as radiusTokens} from '../tokens';
 import type {BerxColorTokens} from '../tokens';
 import {useBerxColors} from '../theme';
@@ -28,6 +28,8 @@ export interface BerxMapPin {
 	lat: number;
 	lng: number;
 	label: string;
+	/** The pin's own real photo, when the caller has one. The references draw markers as portraits, not dots. */
+	imageUrl?: string | null;
 	/** 'place' | 'event' | 'self' — drives the marker's real meaning, not decoration. */
 	kind: 'place' | 'event' | 'self';
 	onPress?: () => void;
@@ -76,7 +78,15 @@ export function BerxMapSurface({
 }: BerxMapSurfaceProps) {
 	const colors = useBerxColors();
 	const styles = React.useMemo(() => makeStyles(colors), [colors]);
-	const half = height / 2;
+	// Width and height are measured separately: the surface used to assume
+	// a square, so once it filled a tall screen every pin was projected off
+	// the right edge.
+	const [width, setWidth] = React.useState(Dimensions.get('window').width);
+	const halfW = width / 2;
+	const halfH = height / 2;
+	// The queried radius must fit in the SHORTER axis, or the edge of the
+	// radius falls outside the surface on one side.
+	const half = Math.min(halfW, halfH);
 	// One ring per real kilometre band, at most four — the rings are a
 	// distance scale, so they only exist where the radius supports them.
 	const ringCount = Math.max(1, Math.min(4, Math.round(radiusKm)));
@@ -90,30 +100,32 @@ export function BerxMapSurface({
 			return {
 				pin,
 				distanceKm,
-				top: half - northKm * scale,
-				left: half + eastKm * scale,
+				top: halfH - northKm * scale,
+				left: halfW + eastKm * scale,
 			};
 		})
 		// Outside the real queried radius = genuinely not in view.
 		.filter((p: {distanceKm: number}) => p.distanceKm <= radiusKm);
 
 	return (
-		<View style={[styles.surface, {height}, style]}>
+		<View
+			style={[styles.surface, {height}, style]}
+			onLayout={(e: LayoutChangeEvent) => setWidth(e.nativeEvent.layout.width)}>
 			{Array.from({length: ringCount}).map((_unused: unknown, i: number) => {
 				const ringKm = (radiusKm / ringCount) * (i + 1);
-				const size = (ringKm / radiusKm) * height;
+				const size = (ringKm / radiusKm) * half * 2;
 				return (
 					<View
 						key={`ring-${i}`}
 						style={[
 							styles.ring,
-							{width: size, height: size, borderRadius: size / 2, top: half - size / 2, left: half - size / 2},
+							{width: size, height: size, borderRadius: size / 2, top: halfH - size / 2, left: halfW - size / 2},
 						]}
 					/>
 				);
 			})}
 
-			<View style={[styles.self, {top: half - 7, left: half - 7}]} />
+			<View style={[styles.self, {top: halfH - 7, left: halfW - 7}]} />
 
 			{placed.map((p: {pin: BerxMapPin; top: number; left: number}) => {
 				const selected = selectedKey === p.pin.key;
@@ -121,14 +133,20 @@ export function BerxMapSurface({
 					<Pressable
 						key={p.pin.key}
 						onPress={p.pin.onPress}
-						style={[styles.pinWrap, {top: p.top - 6, left: p.left - 6}]}>
-						<View
-							style={[
-								styles.pin,
-								p.pin.kind === 'event' ? styles.pinEvent : styles.pinPlace,
-								selected && styles.pinSelected,
-							]}
-						/>
+						style={[styles.pinWrap, {top: p.top - 22, left: p.left - 22}]}>
+						{p.pin.imageUrl ? (
+							<View style={[styles.marker, selected && styles.markerSelected]}>
+								<Image source={{uri: p.pin.imageUrl}} style={styles.markerImage} />
+							</View>
+						) : (
+							<View
+								style={[
+									styles.pin,
+									p.pin.kind === 'event' ? styles.pinEvent : styles.pinPlace,
+									selected && styles.pinSelected,
+								]}
+							/>
+						)}
 						{selected ? (
 							<Text style={styles.pinLabel} numberOfLines={1}>
 								{p.pin.label}
@@ -167,6 +185,23 @@ const makeStyles = (colors: BerxColorTokens) =>
 			borderColor: colors.bg,
 		},
 		pinWrap: {position: 'absolute', alignItems: 'center'},
+		// The references draw a map marker as a portrait in a ring, not a dot.
+		marker: {
+			width: 44,
+			height: 44,
+			borderRadius: 22,
+			overflow: 'hidden',
+			borderWidth: 2,
+			borderColor: colors.bg,
+			backgroundColor: colors.graphite,
+			shadowColor: '#000',
+			shadowOpacity: 0.45,
+			shadowRadius: 10,
+			shadowOffset: {width: 0, height: 4},
+			elevation: 8,
+		},
+		markerSelected: {borderColor: colors.accent, borderWidth: 3},
+		markerImage: {width: '100%', height: '100%'},
 		pin: {width: 12, height: 12, borderRadius: 6, borderWidth: 2, borderColor: colors.bg},
 		pinPlace: {backgroundColor: colors.white},
 		pinEvent: {backgroundColor: colors.accentSecondary},

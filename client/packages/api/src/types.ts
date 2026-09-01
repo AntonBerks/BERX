@@ -536,6 +536,8 @@ export interface BerxSocialMapPlacePin {
 	guid: number;
 	title: string;
 	category: string | null;
+	/** The place's own real cover photo — null when it genuinely has none. Drives the map's portrait markers. */
+	cover_url: string | null;
 	lat: number | null;
 	lng: number | null;
 }

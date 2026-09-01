@@ -30,7 +30,16 @@ if (class_exists('OssnPlaces')) {
 	foreach ($geo->near(floatval($lat), floatval($lng), $radiusKm, 'place', 60) as $row) {
 		$place = $placesModel->getPlace($row->object_guid);
 		if ($place) {
-			$placePins[] = array('guid' => intval($place->guid), 'title' => (string) $place->title, 'category' => $place->category, 'lat' => $place->lat, 'lng' => $place->lng);
+			// cover_url comes straight off the place the model already loaded —
+			// the map markers render the place's own real photo rather than a dot.
+			$placePins[] = array(
+				'guid'      => intval($place->guid),
+				'title'     => (string) $place->title,
+				'category'  => $place->category,
+				'cover_url' => isset($place->cover_url) ? $place->cover_url : null,
+				'lat'       => $place->lat,
+				'lng'       => $place->lng,
+			);
 		}
 	}
 }
