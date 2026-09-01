@@ -70,6 +70,7 @@ export default function PostDetailScreen({api, postGuid, myGuid, onOpenProfile, 
 	const [editing, setEditing] = useState(false);
 	const [editText, setEditText] = useState('');
 	const [savingEdit, setSavingEdit] = useState(false);
+	const [deleting, setDeleting] = useState(false);
 
 	async function load() {
 		setLoading(true);
@@ -235,6 +236,18 @@ export default function PostDetailScreen({api, postGuid, myGuid, onOpenProfile, 
 		}
 	}
 
+	/** Real owner-only delete — a regular post had no delete action anywhere in the app before this (unlike Video/Track posts, which already reuse this same api.deletePost() — see TrackDetailScreen.tsx/VideoDetailScreen.tsx). Server also allows a real admin, not just owner_guid — this button just isn't offered to a non-owner viewer. */
+	async function handleDelete() {
+		if (!post) return;
+		setDeleting(true);
+		try {
+			await api.deletePost(post.guid);
+			onBack();
+		} catch {
+			setDeleting(false);
+		}
+	}
+
 	async function handleComment() {
 		if (!commentText.trim()) return;
 		setPosting(true);
@@ -324,6 +337,11 @@ export default function PostDetailScreen({api, postGuid, myGuid, onOpenProfile, 
 					{!editing && myGuid === post.poster_guid ? (
 						<Pressable onPress={startEdit} hitSlop={8}>
 							<Text style={styles.time}> · Редактировать</Text>
+						</Pressable>
+					) : null}
+					{myGuid === post.owner_guid ? (
+						<Pressable onPress={handleDelete} disabled={deleting} hitSlop={8}>
+							<Text style={styles.timeDanger}> · {deleting ? 'Удаление…' : 'Удалить'}</Text>
 						</Pressable>
 					) : null}
 				</View>
@@ -489,6 +507,7 @@ const styles = StyleSheet.create({
 	mediaHint: {fontSize: typography.sizeXs, color: colors.textFaint, textAlign: 'center', marginTop: spacing.xs},
 	actions: {flexDirection: 'row', gap: spacing.sm},
 	time: {color: colors.textFaint, fontSize: typography.sizeXs},
+	timeDanger: {color: colors.danger, fontSize: typography.sizeXs},
 	commentBox: {
 		marginTop: spacing.lg,
 		gap: spacing.sm,
