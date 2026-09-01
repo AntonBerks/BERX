@@ -52,6 +52,7 @@ const LABELS: Record<BerxNotificationPrefType, string> = {
 	'berx:moment:tag': 'Вас отметили в моменте',
 	'berx:world:invite': 'Приглашение в мир',
 	'berx:world:joined': 'Кто-то вступил в ваш мир',
+	'berx:world:ownership_transferred': 'Вас сделали владельцем мира',
 };
 
 const ORDER: BerxNotificationPrefType[] = [
@@ -67,6 +68,7 @@ const ORDER: BerxNotificationPrefType[] = [
 	'berx:moment:tag',
 	'berx:world:invite',
 	'berx:world:joined',
+	'berx:world:ownership_transferred',
 	'berx:place:review',
 	'berx:place:comment',
 	'berx:place:checkin',

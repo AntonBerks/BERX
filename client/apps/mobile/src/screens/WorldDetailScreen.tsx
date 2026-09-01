@@ -53,6 +53,7 @@ export default function WorldDetailScreen({api, id, onBack}: Props) {
 	const [busy, setBusy] = useState(false);
 	/** Off by default — see this file's own header on why the 3D scene is opt-in, not the default view. */
 	const [show3D, setShow3D] = useState(false);
+	const [transferPickerOpen, setTransferPickerOpen] = useState(false);
 
 	const [pickingType, setPickingType] = useState<BerxWorldItemType | null>(null);
 	const [pickerPlaces, setPickerPlaces] = useState<BerxPlace[]>([]);
@@ -155,6 +156,20 @@ export default function WorldDetailScreen({api, id, onBack}: Props) {
 			onBack?.();
 		} catch (e) {
 			setError(e instanceof Error ? e.message : 'Не удалось удалить мир');
+			setBusy(false);
+		}
+	}
+
+	/** Owner only — target must already be a real accepted member (server re-checks). Closes the gap OssnWorlds::leaveWorld()'s own comment used to disclose. */
+	async function transferOwnership(newOwnerGuid: number) {
+		setBusy(true);
+		try {
+			await api.transferWorldOwnership(id, newOwnerGuid);
+			setTransferPickerOpen(false);
+			await load();
+		} catch (e) {
+			setError(e instanceof Error ? e.message : 'Не удалось передать владение');
+		} finally {
 			setBusy(false);
 		}
 	}
@@ -271,6 +286,25 @@ export default function WorldDetailScreen({api, id, onBack}: Props) {
 										<Text style={styles.chipText} numberOfLines={1}>{ex.title}</Text>
 									</Pressable>
 								))}
+							</View>
+						) : null}
+					</>
+				) : null}
+
+				{world.is_owner && acceptedMembers.some((m: BerxWorld['members'][number]) => m.role !== 'owner') ? (
+					<>
+						<Pressable style={styles.dimensionToggle} onPress={() => setTransferPickerOpen((v: boolean) => !v)}>
+							<Text style={styles.dimensionToggleText}>Передать владение</Text>
+						</Pressable>
+						{transferPickerOpen ? (
+							<View style={styles.chipWrap}>
+								{acceptedMembers
+									.filter((m: BerxWorld['members'][number]) => m.role !== 'owner')
+									.map((m: BerxWorld['members'][number]) => (
+										<Pressable key={m.user_guid} style={styles.chip} onPress={() => transferOwnership(m.user_guid)} disabled={busy}>
+											<Text style={styles.chipText} numberOfLines={1}>{m.username ?? `#${m.user_guid}`}</Text>
+										</Pressable>
+									))}
 							</View>
 						) : null}
 					</>

@@ -64,7 +64,8 @@ function ossn_api_notification_actor($guid) {
  *   group:joinrequest                                             -> community (group) guid
  *   berx:plan:invite, berx:plan:accepted                          -> plan guid
  *   berx:moment:tag                                                -> moment guid
- *   berx:world:invite, berx:world:joined                          -> world guid
+ *   berx:world:invite, berx:world:joined,
+ *   berx:world:ownership_transferred                              -> world guid
  * Anything else (ossnpoke:poke, dating:*, unrecognized) has no
  * separate "subject" beyond the poster themselves — real null, never
  * a guessed title.
@@ -126,7 +127,7 @@ function ossn_api_notification_subject($type, $subjectGuid) {
 	}
 
 	// BERX Worlds — invite/joined both point at the real world itself.
-	if ($type === 'berx:world:invite' || $type === 'berx:world:joined') {
+	if ($type === 'berx:world:invite' || $type === 'berx:world:joined' || $type === 'berx:world:ownership_transferred') {
 		$world = class_exists('OssnWorlds') ? (new OssnWorlds())->getWorld($subjectGuid) : null;
 		return array('title' => $world ? (string) $world->title : null, 'kind' => 'world');
 	}

@@ -355,7 +355,8 @@ export type BerxNotificationPrefType =
 	| 'berx:plan:converted'
 	| 'berx:moment:tag'
 	| 'berx:world:invite'
-	| 'berx:world:joined';
+	| 'berx:world:joined'
+	| 'berx:world:ownership_transferred';
 
 export type BerxNotificationPrefs = Record<BerxNotificationPrefType, boolean>;
 

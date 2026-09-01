@@ -940,6 +940,11 @@ export class BerxApiClient {
 		return this.request<{status: string}>(`/worlds/${id}/leave`, {method: 'POST'});
 	}
 
+	/** Owner only — target must already be a real accepted member (server re-checks). */
+	async transferWorldOwnership(id: number, newOwnerGuid: number): Promise<{status: string; owner_guid: number}> {
+		return this.request<{status: string; owner_guid: number}>(`/worlds/${id}/transfer`, {method: 'POST', body: {user: String(newOwnerGuid)}});
+	}
+
 	/** Any real accepted member may attach an existing place/event/plan/experience — the server independently re-verifies the item exists and, for a plan/experience, that the caller can actually view it. */
 	async addWorldItem(worldId: number, itemType: BerxWorldItemType, itemId: number): Promise<{status: string}> {
 		return this.request<{status: string}>(`/worlds/${worldId}/items`, {method: 'POST', body: {item_type: itemType, item_id: String(itemId)}});

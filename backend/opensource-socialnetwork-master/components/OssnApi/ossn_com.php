@@ -121,6 +121,7 @@ ossn_add_hook('notification:add', 'berx:moment:tag', 'ossn_api_notify_passthroug
 /** BERX Worlds — OssnWorlds itself always supplies the real target guid as OssnNotifications::add()'s 5th param (the invited user on invite, the owner on a real join), same passthrough shape as event:invite. */
 ossn_add_hook('notification:add', 'berx:world:invite', 'ossn_api_notify_passthrough');
 ossn_add_hook('notification:add', 'berx:world:joined', 'ossn_api_notify_passthrough');
+ossn_add_hook('notification:add', 'berx:world:ownership_transferred', 'ossn_api_notify_passthrough');
 
 /**
  * Real resource whitelist. Never build an include path from the URL

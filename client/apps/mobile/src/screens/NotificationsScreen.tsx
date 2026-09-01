@@ -80,6 +80,7 @@ const NOTIFICATION_VERB: Record<string, string> = {
 	'berx:moment:tag': 'отметил(а) вас в моменте',
 	'berx:world:invite': 'приглашает вас в мир',
 	'berx:world:joined': 'вступил(а) в',
+	'berx:world:ownership_transferred': 'сделал(а) вас владельцем',
 	'dating:match': 'Новое совпадение',
 	'dating:interest': 'Вы понравились кому-то',
 	'dating:photo:request': 'запрашивает доступ к вашим фото',

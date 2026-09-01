@@ -12,6 +12,7 @@
  *   POST   /worlds/{id}/respond          {accept: bool} — invited member only
  *   POST   /worlds/{id}/join             public worlds only — direct self-join
  *   POST   /worlds/{id}/leave            member only (owner cannot leave)
+ *   POST   /worlds/{id}/transfer         {user: guid} — owner only, target must already be a real accepted member
  *   POST   /worlds/{id}/items            {item_type, item_id} — accepted member only
  *   DELETE /worlds/{id}/items/{type}/{id} owner or the item's original adder only
  *   DELETE /worlds/{id}                  owner only
@@ -175,6 +176,30 @@ if ($segment0 !== null && is_numeric($segment0) && $segment1 === 'leave' && $met
 		ossn_api_error('failed', 'Could not leave world', 422);
 	}
 	ossn_api_json(array('status' => 'ok'));
+}
+
+if ($segment0 !== null && is_numeric($segment0) && $segment1 === 'transfer' && $method === 'POST') {
+	$newOwnerGuid = input('user');
+	if (!$newOwnerGuid || !is_numeric($newOwnerGuid)) {
+		ossn_api_error('validation_error', 'user is required', 422);
+	}
+	$result = $worlds->transferOwnership($segment0, $api_user_guid, intval($newOwnerGuid));
+	if ($result === 'not_found') {
+		ossn_api_error('not_found', 'World not found', 404);
+	}
+	if ($result === 'forbidden') {
+		ossn_api_error('forbidden', 'Only the current owner can transfer this world', 403);
+	}
+	if ($result === 'already_owner') {
+		ossn_api_error('validation_error', 'Already the owner', 422);
+	}
+	if ($result === 'not_member') {
+		ossn_api_error('validation_error', 'New owner must already be a real accepted member', 422);
+	}
+	if ($result !== 'ok') {
+		ossn_api_error('failed', 'Could not transfer ownership', 422);
+	}
+	ossn_api_json(array('status' => 'ok', 'owner_guid' => intval($newOwnerGuid)));
 }
 
 if ($segment0 !== null && is_numeric($segment0) && $segment1 === 'items' && $segment2 === null && $method === 'POST') {

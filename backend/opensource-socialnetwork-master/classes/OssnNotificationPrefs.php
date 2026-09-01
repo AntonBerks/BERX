@@ -60,6 +60,7 @@ class OssnNotificationPrefs extends OssnDatabase {
 			'berx:moment:tag',
 			'berx:world:invite',
 			'berx:world:joined',
+			'berx:world:ownership_transferred',
 		);
 	}
 

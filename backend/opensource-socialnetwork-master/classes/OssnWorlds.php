@@ -179,6 +179,65 @@ class OssnWorlds extends OssnDatabase {
 		return $ok ? 'ok' : 'failed';
 	}
 
+	/**
+	 * Real ownership transfer — closes the gap leaveWorld()'s own
+	 * comment discloses ("no ownership-transfer flow exists yet"). Same
+	 * real shape as OssnGroup's own community transfer: current owner
+	 * only, the new owner must already be a real accepted member. Both
+	 * the world's own owner_guid column AND the two membership rows'
+	 * roles are updated together — a World's ownership is genuinely
+	 * duplicated in both places (see createWorld()'s own header), so
+	 * either alone would leave the object in an inconsistent state.
+	 */
+	public function transferOwnership($worldId, $actingGuid, $newOwnerGuid) {
+		$world = $this->getWorld($worldId);
+		if (!$world) {
+			return 'not_found';
+		}
+		if (!$this->isOwner($world, $actingGuid)) {
+			return 'forbidden';
+		}
+		$newOwnerGuid = intval($newOwnerGuid);
+		if ($newOwnerGuid === intval($world->owner_guid)) {
+			return 'already_owner';
+		}
+		if (!$this->isAcceptedMember($worldId, $newOwnerGuid)) {
+			return 'not_member';
+		}
+		parent::update(array(
+			'table'  => self::TABLE,
+			'names'  => array('owner_guid'),
+			'values' => array($newOwnerGuid),
+			'wheres' => array(self::wheres('id', '=', intval($worldId))),
+		));
+		parent::update(array(
+			'table'  => self::MEMBERS_TABLE,
+			'names'  => array('role'),
+			'values' => array('owner'),
+			'wheres' => array(
+				self::wheres('world_id', '=', intval($worldId)),
+				self::wheres('user_guid', '=', $newOwnerGuid),
+			),
+		));
+		parent::update(array(
+			'table'  => self::MEMBERS_TABLE,
+			'names'  => array('role'),
+			'values' => array('member'),
+			'wheres' => array(
+				self::wheres('world_id', '=', intval($worldId)),
+				self::wheres('user_guid', '=', intval($actingGuid)),
+			),
+		));
+		if (class_exists('OssnNotifications')) {
+			// A distinct real type, not a reuse of berx:world:joined — "you
+			// were made owner" is a different real fact than "someone
+			// joined", and reusing the wrong type would render the wrong
+			// verb client-side.
+			(new OssnNotifications())->add('berx:world:ownership_transferred', intval($actingGuid), intval($worldId), intval($worldId), $newOwnerGuid);
+		}
+		return 'ok';
+	}
+
 	public function leaveWorld($worldId, $guid) {
 		$membership = $this->getMembership($worldId, $guid);
 		if (!$membership) {
