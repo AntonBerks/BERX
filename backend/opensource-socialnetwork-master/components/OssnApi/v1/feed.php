@@ -109,7 +109,7 @@ if ($posts) {
 $page = array_slice($scored, $offset, $limit);
 $items = array();
 foreach ($page as $post) {
-	$items[] = ossn_api_post_base_json($post);
+	$items[] = ossn_api_post_base_json($post, $api_user_guid);
 }
 
 ossn_api_json(array('items' => $items, 'limit' => $limit, 'offset' => $offset));

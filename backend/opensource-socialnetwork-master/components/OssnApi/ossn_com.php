@@ -686,7 +686,8 @@ function ossn_api_friend_relevance_group_count($groupGuid, array $friendIds) {
 	return count($matched);
 }
 
-function ossn_api_post_base_json($post) {
+/** $viewerGuid is optional (default null) purely for backward compatibility with existing callers that predate Post Polls — omitting it just means my_vote comes back null, never an error. */
+function ossn_api_post_base_json($post, $viewerGuid = null) {
 	$owner = ossn_user_by_guid($post->owner_guid);
 	// MAX BUILD — real, distinct poster identity. For a personal post
 	// owner_guid IS the poster (same value at creation, unchanged
@@ -720,5 +721,29 @@ function ossn_api_post_base_json($post) {
 		// way berx_visibility already is (OssnCircles::canViewPost()'s
 		// own header confirms this access pattern is real).
 		'repost_of'      => isset($post->berx_repost_of) && $post->berx_repost_of ? intval($post->berx_repost_of) : null,
+		// BERX WORLD — real Post Polls (see OssnPolls.php's own header).
+		// null for the overwhelming majority of posts that never had a
+		// poll attached at creation — never a fabricated empty poll.
+		'poll'           => ossn_api_post_poll_json($post->guid, $viewerGuid),
+	);
+}
+
+function ossn_api_post_poll_json($postGuid, $viewerGuid) {
+	if (!class_exists('OssnPolls')) {
+		return null;
+	}
+	$polls = new OssnPolls();
+	$poll = $polls->get($postGuid);
+	if (!$poll) {
+		return null;
+	}
+	$results = $polls->results($postGuid, count($poll['options']));
+	return array(
+		'options'  => $poll['options'],
+		'counts'   => $results['counts'],
+		'total'    => $results['total'],
+		'ends_at'  => $poll['ends_at'],
+		'is_ended' => $poll['is_ended'],
+		'my_vote'  => $viewerGuid ? $polls->myVote($postGuid, $viewerGuid) : null,
 	);
 }

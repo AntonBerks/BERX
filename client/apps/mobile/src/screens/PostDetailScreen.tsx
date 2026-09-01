@@ -35,6 +35,7 @@ import {BerxMentionInput} from '../../../../packages/design-system/src/component
 import {BerxLoadingState, BerxErrorState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxMediaGrid} from '../../../../packages/design-system/src/components/BerxMediaGrid';
+import {BerxPollView} from '../../../../packages/design-system/src/components/BerxPollView';
 import {BerxMediaViewer} from '../../../../packages/design-system/src/components/BerxMediaViewer';
 import {BerxRichText} from '../../../../packages/design-system/src/components/BerxRichText';
 
@@ -78,6 +79,7 @@ export default function PostDetailScreen({api, postGuid, myGuid, onOpenProfile, 
 	const [replyTo, setReplyTo] = useState<BerxPostComment | null>(null);
 	/** BERX WORLD — real @mention autocomplete in the comment composer too (same BerxMentionInput CreatePostScreen uses — comments support the exact same real mention notification path). */
 	const [friends, setFriends] = useState<BerxFriend[]>([]);
+	const [votingPoll, setVotingPoll] = useState(false);
 
 	async function load() {
 		setLoading(true);
@@ -145,6 +147,20 @@ export default function PostDetailScreen({api, postGuid, myGuid, onOpenProfile, 
 	useEffect(() => {
 		api.friends().then((res) => setFriends(res.friends)).catch(() => undefined);
 	}, [api]);
+
+	/** BERX WORLD — real poll vote. Always trusts the server's fresh poll state back (real counts, real my_vote) rather than guessing the new percentages client-side. */
+	async function handleVotePoll(optionIndex: number) {
+		if (!post) return;
+		setVotingPoll(true);
+		try {
+			const res = await api.votePoll(post.guid, optionIndex);
+			setPost({...post, poll: res.poll});
+		} catch {
+			// real server rejection (poll ended / invalid option) — state left as-is
+		} finally {
+			setVotingPoll(false);
+		}
+	}
 
 	async function handleLike() {
 		if (!post) return;
@@ -353,6 +369,7 @@ export default function PostDetailScreen({api, postGuid, myGuid, onOpenProfile, 
 				) : (
 					post.text ? <BerxRichText text={post.text} onOpenProfile={onOpenProfile} onOpenHashtag={onOpenHashtag} style={styles.text} /> : null
 				)}
+				{post.poll ? <BerxPollView poll={post.poll} onVote={handleVotePoll} voting={votingPoll} /> : null}
 				<View style={styles.timeRow}>
 					<Text style={styles.time}>{relativeTimeLabel(post.time_created)}</Text>
 					{post.is_edited ? <Text style={styles.time}> · изменено</Text> : null}

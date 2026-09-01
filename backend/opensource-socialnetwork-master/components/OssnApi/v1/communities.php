@@ -274,7 +274,7 @@ if ($segment0 !== null && $segment1 === 'posts' && $method === 'GET') {
 			if (ossn_api_is_blocked($api_user_guid, $row->poster_guid)) {
 				continue;
 			}
-			$out[] = ossn_api_post_base_json($row);
+			$out[] = ossn_api_post_base_json($row, $api_user_guid);
 		}
 	}
 	ossn_api_json(array('posts' => $out));

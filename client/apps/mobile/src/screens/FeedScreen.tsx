@@ -26,7 +26,7 @@
  * now BERX-native squared tiles with a thin single-line frame.
  */
 import {useCallback, useEffect, useState} from 'react';
-import {View, Text, FlatList, RefreshControl, StyleSheet, Pressable} from 'react-native';
+import {View, Text, FlatList, RefreshControl, StyleSheet, Pressable, GestureResponderEvent} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxFeedItem, BerxStoryFeedGroup, BerxTrendingHashtag} from '@berx/api/types';
 import {relativeTimeLabel} from '@berx/domain';
@@ -35,6 +35,7 @@ import {BerxFadeIn} from '../../../../packages/design-system/src/components/Berx
 import {BerxErrorState, BerxEmptyState, BerxSkeleton} from '../../../../packages/design-system/src/components/BerxStates';
 import {IconPlus} from '../../../../packages/design-system/src/components/BerxIcons';
 import {BerxRichText} from '../../../../packages/design-system/src/components/BerxRichText';
+import {BerxPollView} from '../../../../packages/design-system/src/components/BerxPollView';
 
 interface Props {
 	api: BerxApiClient;
@@ -48,11 +49,25 @@ interface Props {
 
 export default function FeedScreen({api, onOpenPost, onOpenProfile, onOpenHashtag, onCreatePost, onOpenStoryGroup, onCreateStory}: Props) {
 	const [items, setItems] = useState<BerxFeedItem[]>([]);
+	const [votingPollGuid, setVotingPollGuid] = useState<number | null>(null);
 	const [storyGroups, setStoryGroups] = useState<BerxStoryFeedGroup[]>([]);
 	const [trending, setTrending] = useState<BerxTrendingHashtag[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [refreshing, setRefreshing] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+
+	/** BERX WORLD — real poll vote right from the feed card, same real votePoll() response-trusting shape as PostDetailScreen's own handler. */
+	async function handleVotePoll(item: BerxFeedItem, optionIndex: number) {
+		setVotingPollGuid(item.guid);
+		try {
+			const res = await api.votePoll(item.guid, optionIndex);
+			setItems((prev: BerxFeedItem[]) => prev.map((it: BerxFeedItem) => (it.guid === item.guid ? {...it, poll: res.poll} : it)));
+		} catch {
+			// real server rejection — state left as-is
+		} finally {
+			setVotingPollGuid(null);
+		}
+	}
 
 	const load = useCallback(async () => {
 		try {
@@ -206,6 +221,11 @@ export default function FeedScreen({api, onOpenPost, onOpenProfile, onOpenHashta
 							</Text>
 						</Pressable>
 						<BerxRichText text={item.text} onOpenProfile={onOpenProfile} onOpenHashtag={onOpenHashtag} style={styles.text} />
+						{item.poll ? (
+							<Pressable onPress={(e: GestureResponderEvent) => e.stopPropagation()}>
+								<BerxPollView poll={item.poll} onVote={(optionIndex) => handleVotePoll(item, optionIndex)} voting={votingPollGuid === item.guid} />
+							</Pressable>
+						) : null}
 					</Pressable>
 				)}
 				ItemSeparatorComponent={() => <View style={styles.separator} />}

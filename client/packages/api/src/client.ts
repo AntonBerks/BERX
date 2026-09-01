@@ -4,6 +4,7 @@ import type {
 	BerxFeedItem,
 	BerxUser,
 	BerxPostDetail,
+	BerxPostPoll,
 	BerxConversationSummary,
 	BerxMessage,
 	BerxProfileSummary,
@@ -325,12 +326,37 @@ export class BerxApiClient {
 	 * empty only when repostOf is set ("just share, no comment") — the
 	 * server enforces this exactly, not a client-side guess.
 	 */
-	async createPost(text: string, visibility?: BerxPostVisibility, repostOf?: number): Promise<{guid: number}> {
-		return this.request<{guid: number}>('/posts', {method: 'POST', body: {text, ...(visibility ? {visibility} : {}), ...(repostOf ? {repost_of: String(repostOf)} : {})}});
+	/**
+	 * BERX WORLD — real Post Polls. pollOptions (2-6 real answers) are
+	 * sent as bracket-indexed form keys (poll_options[0], [1], ...) —
+	 * the request body itself stays Record<string,string> (this
+	 * client's own real encoding, see request()'s own comment), but
+	 * PHP's parse_str() reassembles bracket-indexed keys into a real
+	 * array server-side (confirmed by reading how $_REQUEST is
+	 * populated for this API before relying on it) — no JSON body,
+	 * no new wire format, same real mechanism this client already
+	 * uses everywhere else.
+	 */
+	async createPost(text: string, visibility?: BerxPostVisibility, repostOf?: number, pollOptions?: string[], pollEndsAt?: number): Promise<{guid: number}> {
+		const pollFields: Record<string, string> = {};
+		if (pollOptions) {
+			pollOptions.forEach((opt, i) => {
+				pollFields[`poll_options[${i}]`] = opt;
+			});
+			if (pollEndsAt) {
+				pollFields.poll_ends_at = String(pollEndsAt);
+			}
+		}
+		return this.request<{guid: number}>('/posts', {method: 'POST', body: {text, ...(visibility ? {visibility} : {}), ...(repostOf ? {repost_of: String(repostOf)} : {}), ...pollFields}});
 	}
 
 	async getPost(id: number): Promise<BerxPostDetail> {
 		return this.request<BerxPostDetail>(`/posts/${id}`);
+	}
+
+	/** BERX WORLD — real poll vote, re-verified server-side (poll exists, hasn't ended, option index is real) before anything is written — see OssnPolls::vote(). Returns the poll's fresh real state so the UI never has to guess counts client-side. */
+	async votePoll(postGuid: number, optionIndex: number): Promise<{poll: BerxPostPoll}> {
+		return this.request<{poll: BerxPostPoll}>(`/posts/${postGuid}/poll/vote`, {method: 'POST', body: {option_index: String(optionIndex)}});
 	}
 
 	async likePost(id: number): Promise<{status: string}> {

@@ -42,7 +42,7 @@ const COMMENT_PIN_RELATION = 'comment:pin';
 
 /** Real detail shape — feed's lighter base mapper plus real counts. */
 function ossn_api_post_detail_json($post, $viewerGuid) {
-	$base = ossn_api_post_base_json($post);
+	$base = ossn_api_post_base_json($post, $viewerGuid);
 	$likes = new OssnLikes();
 	$likeCount = $likes->CountLikes($post->guid, 'post');
 	$comments = new OssnComments();
@@ -71,7 +71,7 @@ function ossn_api_post_detail_json($post, $viewerGuid) {
 		$originalWall = new OssnWall();
 		$original = $originalWall->GetPost($base['repost_of']);
 		if ($original && !ossn_api_is_blocked($viewerGuid, $original->owner_guid) && (new OssnCircles())->canViewPost($original, $viewerGuid)) {
-			$base['reposted_post'] = ossn_api_post_base_json($original);
+			$base['reposted_post'] = ossn_api_post_base_json($original, $viewerGuid);
 		}
 	}
 	return $base;
@@ -305,6 +305,19 @@ if ($segment0 === null && $method === 'POST') {
 	// BERX WORLD — real hashtag extraction, see OssnHashtags's own header.
 	if (class_exists('OssnHashtags')) {
 		(new OssnHashtags())->extractAndStore($guid, $api_user_guid, $text);
+	}
+	// BERX WORLD — real Post Polls (see OssnPolls.php's own header).
+	// Never a fabricated poll from a lone option or a client-side typo:
+	// sanitizeOptions() only accepts 2-6 real, non-empty options; a
+	// repost never carries a poll (a poll belongs to a real original
+	// question being asked, not something a reshare invents).
+	if (!$repostOfGuid && class_exists('OssnPolls')) {
+		$pollOptions = OssnPolls::sanitizeOptions(input('poll_options'));
+		if ($pollOptions) {
+			$pollEndsAtInput = input('poll_ends_at');
+			$pollEndsAt = ($pollEndsAtInput && is_numeric($pollEndsAtInput)) ? intval($pollEndsAtInput) : null;
+			(new OssnPolls())->create($guid, $pollOptions, $pollEndsAt);
+		}
 	}
 	ossn_api_json(array('guid' => intval($guid)));
 }
@@ -649,6 +662,36 @@ if ($segment0 !== null && $segment1 === 'comments' && $segment2 !== null && $seg
 if ($segment0 !== null && $segment1 === 'comments' && $segment2 !== null && $segment3 === 'unlike' && $method === 'POST') {
 	(new OssnLikes())->UnLike(intval($segment2), intval($api_user_guid), COMMENT_LIKE_TYPE);
 	ossn_api_json(array('status' => 'ok', 'is_liked' => false));
+}
+
+/** BERX WORLD — real poll vote. Any real, non-blocked caller who can already see the post may vote (same reach as liking/commenting on it) — OssnPolls::vote() itself re-verifies the poll exists, isn't ended, and the option index is real before writing anything. */
+if ($segment0 !== null && $segment1 === 'poll' && $segment2 === 'vote' && $method === 'POST') {
+	$wall = new OssnWall();
+	$post = $wall->GetPost(intval($segment0));
+	if (!$post || ossn_api_is_blocked($api_user_guid, $post->owner_guid) || !(new OssnCircles())->canViewPost($post, $api_user_guid)) {
+		ossn_api_error('not_found', 'Post not found', 404);
+	}
+	if (!class_exists('OssnPolls')) {
+		ossn_api_error('not_found', 'Poll not found', 404);
+	}
+	$optionIndex = input('option_index');
+	if ($optionIndex === null || $optionIndex === false || !is_numeric($optionIndex)) {
+		ossn_api_error('validation_error', 'option_index is required', 422);
+	}
+	$result = (new OssnPolls())->vote(intval($post->guid), intval($api_user_guid), intval($optionIndex));
+	if ($result === 'not_found') {
+		ossn_api_error('not_found', 'Poll not found', 404);
+	}
+	if ($result === 'ended') {
+		ossn_api_error('validation_error', 'Poll has ended', 422);
+	}
+	if ($result === 'invalid_option') {
+		ossn_api_error('validation_error', 'Invalid option_index', 422);
+	}
+	if ($result !== 'ok') {
+		ossn_api_error('create_failed', 'Could not record vote', 500);
+	}
+	ossn_api_json(array('poll' => ossn_api_post_poll_json($post->guid, $api_user_guid)));
 }
 
 if ($segment0 !== null && $segment1 === null && $method === 'DELETE') {

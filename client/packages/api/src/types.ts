@@ -45,6 +45,18 @@ export interface BerxFeedItem {
 	is_edited: boolean;
 	/** MAX BUILD — real Repost pointer (see posts.php's own comment on berx_repost_of). No embedded original on feed items — same N+1-avoidance reasoning as like_count/comment_count (feed.php's own comment); the full preview only renders on PostDetailScreen. */
 	repost_of: number | null;
+	/** BERX WORLD — real Post Polls (see OssnPolls.php's own header). null for the overwhelming majority of posts that never had a poll attached at creation. */
+	poll: BerxPostPoll | null;
+}
+
+/** BERX WORLD — real Post Polls. counts is a real, live per-option tally (options[i] pairs with counts[i]) — never a fabricated or estimated number. my_vote is the caller's own real option index, or null if they haven't voted (or aren't authenticated). */
+export interface BerxPostPoll {
+	options: string[];
+	counts: number[];
+	total: number;
+	ends_at: number | null;
+	is_ended: boolean;
+	my_vote: number | null;
 }
 
 /**
@@ -89,6 +101,8 @@ export interface BerxPostDetail {
 	/** MAX BUILD — real Repost (see posts.php's own comment on berx_repost_of). `reposted_post` is re-verified block/visibility on every read — null if the original was deleted or is no longer viewable, even when repost_of itself is still set. */
 	repost_of: number | null;
 	reposted_post: BerxFeedItem | null;
+	/** BERX WORLD — real Post Polls (see OssnPolls.php's own header). null for the overwhelming majority of posts that never had a poll attached at creation. */
+	poll: BerxPostPoll | null;
 }
 
 export interface BerxConversationSummary {

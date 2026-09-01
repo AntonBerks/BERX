@@ -25,6 +25,7 @@ import type {BerxApiClient, BerxFilePart} from '@berx/api/client';
 import type {BerxCircle, BerxPostVisibility, BerxGifResult, BerxFriend} from '@berx/api/types';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
+import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {GifPickerModal} from '../../../../packages/design-system/src/components/GifPickerModal';
 import {BerxMentionInput} from '../../../../packages/design-system/src/components/BerxMentionInput';
 
@@ -63,6 +64,25 @@ export default function CreatePostScreen({api, pickImage, onCreated, draft, onOp
 	// ossn_api_extract_mentions() in components/OssnApi/ossn_com.php) —
 	// this never suggests someone a mention wouldn't actually notify.
 	const [friends, setFriends] = useState<BerxFriend[]>([]);
+	// BERX WORLD — real Post Polls (see OssnPolls.php's own header).
+	// Never available on a repost — a poll belongs to a real original
+	// question being asked, not something a reshare invents.
+	const [pollEnabled, setPollEnabled] = useState(false);
+	const [pollOptions, setPollOptions] = useState<string[]>(['', '']);
+
+	function updatePollOption(index: number, value: string) {
+		setPollOptions((prev: string[]) => prev.map((o: string, i: number) => (i === index ? value : o)));
+	}
+
+	function addPollOption() {
+		setPollOptions((prev: string[]) => (prev.length < 6 ? [...prev, ''] : prev));
+	}
+
+	function removePollOption(index: number) {
+		setPollOptions((prev: string[]) => (prev.length > 2 ? prev.filter((_: string, i: number) => i !== index) : prev));
+	}
+
+	const pollValidOptionCount = pollOptions.filter((o: string) => o.trim()).length;
 
 	useEffect(() => {
 		api.circles().then((res) => setMyCircles(res.circles)).catch(() => undefined);
@@ -113,7 +133,8 @@ export default function CreatePostScreen({api, pickImage, onCreated, draft, onOp
 				const asset = await api.uploadMedia(pickedPart, pickedFilename);
 				mediaGuid = asset.guid;
 			}
-			const res = await api.createPost(trimmed, visibility !== 'public' ? visibility : undefined, repostTarget?.guid);
+			const validPollOptions = pollEnabled && !repostTarget ? pollOptions.map((o: string) => o.trim()).filter((o: string) => o) : undefined;
+			const res = await api.createPost(trimmed, visibility !== 'public' ? visibility : undefined, repostTarget?.guid, validPollOptions && validPollOptions.length >= 2 ? validPollOptions : undefined);
 			if (mediaGuid !== null) {
 				// Best-effort attach — the post itself already succeeded;
 				// a failed attach shouldn't roll back a real, published post.
@@ -122,6 +143,8 @@ export default function CreatePostScreen({api, pickImage, onCreated, draft, onOp
 			setText('');
 			setPickedPart(null);
 			setPreviewUri(null);
+			setPollEnabled(false);
+			setPollOptions(['', '']);
 			if (draft) {
 				api.deleteDraft(draft.id).catch(() => undefined); // best-effort — the real post is already published either way
 			}
@@ -192,7 +215,36 @@ export default function CreatePostScreen({api, pickImage, onCreated, draft, onOp
 			<View style={styles.mediaRow}>
 				<BerxButton label={pickedPart ? 'Заменить фото' : 'Добавить фото'} variant="secondary" onPress={handlePickImage} />
 				<BerxButton label="Добавить GIF" variant="secondary" onPress={() => setGifPickerOpen(true)} />
+				{!repostTarget ? (
+					<BerxButton label={pollEnabled ? 'Убрать опрос' : 'Добавить опрос'} variant="secondary" onPress={() => setPollEnabled(!pollEnabled)} />
+				) : null}
 			</View>
+
+			{pollEnabled && !repostTarget ? (
+				<View style={styles.pollBox}>
+					{pollOptions.map((opt: string, i: number) => (
+						<View key={i} style={styles.pollOptionRow}>
+							<BerxInput
+								placeholder={`Вариант ${i + 1}`}
+								value={opt}
+								onChangeText={(v: string) => updatePollOption(i, v)}
+								style={styles.pollOptionInput}
+							/>
+							{pollOptions.length > 2 ? (
+								<Pressable onPress={() => removePollOption(i)} hitSlop={8}>
+									<Text style={styles.pollOptionRemove}>✕</Text>
+								</Pressable>
+							) : null}
+						</View>
+					))}
+					{pollOptions.length < 6 ? (
+						<Pressable onPress={addPollOption} hitSlop={8}>
+							<Text style={styles.pollAddOption}>+ Добавить вариант</Text>
+						</Pressable>
+					) : null}
+					{pollValidOptionCount < 2 ? <Text style={styles.pollHint}>Нужно минимум 2 варианта</Text> : null}
+				</View>
+			) : null}
 
 			<GifPickerModal
 				visible={gifPickerOpen}
@@ -222,7 +274,7 @@ export default function CreatePostScreen({api, pickImage, onCreated, draft, onOp
 			</View>
 
 			{error ? <Text style={styles.error}>{error}</Text> : null}
-			<BerxButton label="Опубликовать" onPress={handlePost} loading={posting} disabled={!text.trim() && !pickedPart && !repostTarget} fullWidth />
+			<BerxButton label="Опубликовать" onPress={handlePost} loading={posting} disabled={(!text.trim() && !pickedPart && !repostTarget) || (pollEnabled && pollValidOptionCount < 2)} fullWidth />
 			<BerxButton label={draft ? 'Обновить черновик' : 'Сохранить черновик'} variant="secondary" onPress={handleSaveDraft} loading={savingDraft} disabled={!text.trim()} fullWidth />
 			{draftStatus ? <Text style={styles.draftStatus}>{draftStatus}</Text> : null}
 		</View>
@@ -243,7 +295,13 @@ const styles = StyleSheet.create({
 	preview: {width: 96, height: 96, borderRadius: radius.md, backgroundColor: colors.graphite},
 	previewRemove: {position: 'absolute', top: -6, right: -6, width: 22, height: 22, borderRadius: 11, backgroundColor: colors.black, alignItems: 'center', justifyContent: 'center'},
 	previewRemoveText: {color: colors.textDim, fontSize: typography.sizeXs},
-	mediaRow: {flexDirection: 'row', gap: spacing.sm},
+	mediaRow: {flexDirection: 'row', gap: spacing.sm, flexWrap: 'wrap'},
+	pollBox: {gap: spacing.xs},
+	pollOptionRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm},
+	pollOptionInput: {flex: 1},
+	pollOptionRemove: {color: colors.textFaint, fontSize: typography.sizeSm, padding: 4},
+	pollAddOption: {color: colors.accent, fontSize: typography.sizeSm, fontWeight: typography.weightMedium},
+	pollHint: {color: colors.textFaint, fontSize: typography.sizeXs},
 	error: {color: colors.danger, fontSize: typography.sizeSm},
 	label: {color: colors.textFaint, fontSize: typography.sizeXs, fontWeight: typography.weightBold, textTransform: 'uppercase'},
 	visRow: {flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs},
