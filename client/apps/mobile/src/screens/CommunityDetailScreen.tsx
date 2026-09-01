@@ -46,6 +46,7 @@ import {BerxInput} from '../../../../packages/design-system/src/components/BerxI
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState} from '../../../../packages/design-system/src/components/BerxStates';
 import {Berx3DTilt} from '../../../../packages/design-system/src/components/Berx3DTilt';
+import {BerxPollView} from '../../../../packages/design-system/src/components/BerxPollView';
 
 interface Props {
 	api: BerxApiClient;
@@ -80,6 +81,12 @@ export default function CommunityDetailScreen({api, guid, myGuid, pickImage, onB
 	const [postText, setPostText] = useState('');
 	const [posting, setPosting] = useState(false);
 	const [postError, setPostError] = useState<string | null>(null);
+	// BERX WORLD — real Post Polls on a community wall too (see
+	// OssnPolls.php's own header) — same real composer shape as
+	// CreatePostScreen's own poll editor.
+	const [pollEnabled, setPollEnabled] = useState(false);
+	const [pollOptions, setPollOptions] = useState<string[]>(['', '']);
+	const [votingPollGuid, setVotingPollGuid] = useState<number | null>(null);
 
 	async function load() {
 		setLoading(true);
@@ -104,14 +111,43 @@ export default function CommunityDetailScreen({api, guid, myGuid, pickImage, onB
 		setPosting(true);
 		setPostError(null);
 		try {
-			await api.createCommunityPost(guid, postText.trim());
+			const validPollOptions = pollEnabled ? pollOptions.map((o: string) => o.trim()).filter((o: string) => o) : undefined;
+			await api.createCommunityPost(guid, postText.trim(), validPollOptions && validPollOptions.length >= 2 ? validPollOptions : undefined);
 			setPostText('');
+			setPollEnabled(false);
+			setPollOptions(['', '']);
 			const res = await api.communityPosts(guid);
 			setPosts(res.posts);
 		} catch (e) {
 			setPostError(e instanceof Error ? e.message : 'Не удалось опубликовать');
 		} finally {
 			setPosting(false);
+		}
+	}
+
+	function updatePollOption(index: number, value: string) {
+		setPollOptions((prev: string[]) => prev.map((o: string, i: number) => (i === index ? value : o)));
+	}
+
+	function addPollOption() {
+		setPollOptions((prev: string[]) => (prev.length < 6 ? [...prev, ''] : prev));
+	}
+
+	function removePollOption(index: number) {
+		setPollOptions((prev: string[]) => (prev.length > 2 ? prev.filter((_: string, i: number) => i !== index) : prev));
+	}
+
+	const pollValidOptionCount = pollOptions.filter((o: string) => o.trim()).length;
+
+	async function handleVotePoll(post: BerxFeedItem, optionIndex: number) {
+		setVotingPollGuid(post.guid);
+		try {
+			const res = await api.votePoll(post.guid, optionIndex);
+			setPosts((prev: BerxFeedItem[]) => prev.map((p: BerxFeedItem) => (p.guid === post.guid ? {...p, poll: res.poll} : p)));
+		} catch {
+			// real server rejection — state left as-is
+		} finally {
+			setVotingPollGuid(null);
 		}
 	}
 
@@ -304,7 +340,33 @@ export default function CommunityDetailScreen({api, guid, myGuid, pickImage, onB
 						{community.is_member ? (
 							<View style={styles.wallComposer}>
 								<BerxInput placeholder="Написать в сообщество..." value={postText} onChangeText={setPostText} multiline />
-								<BerxButton label="Опубликовать" variant="secondary" onPress={handlePost} loading={posting} disabled={!postText.trim()} />
+								<BerxButton label={pollEnabled ? 'Убрать опрос' : 'Добавить опрос'} variant="secondary" onPress={() => setPollEnabled(!pollEnabled)} />
+								{pollEnabled ? (
+									<View style={styles.pollBox}>
+										{pollOptions.map((opt: string, i: number) => (
+											<View key={i} style={styles.pollOptionRow}>
+												<BerxInput
+													placeholder={`Вариант ${i + 1}`}
+													value={opt}
+													onChangeText={(v: string) => updatePollOption(i, v)}
+													style={styles.pollOptionInput}
+												/>
+												{pollOptions.length > 2 ? (
+													<Pressable onPress={() => removePollOption(i)} hitSlop={8}>
+														<Text style={styles.pollOptionRemove}>✕</Text>
+													</Pressable>
+												) : null}
+											</View>
+										))}
+										{pollOptions.length < 6 ? (
+											<Pressable onPress={addPollOption} hitSlop={8}>
+												<Text style={styles.pollAddOption}>+ Добавить вариант</Text>
+											</Pressable>
+										) : null}
+										{pollValidOptionCount < 2 ? <Text style={styles.pollHint}>Нужно минимум 2 варианта</Text> : null}
+									</View>
+								) : null}
+								<BerxButton label="Опубликовать" variant="secondary" onPress={handlePost} loading={posting} disabled={!postText.trim() || (pollEnabled && pollValidOptionCount < 2)} />
 								{postError ? <Text style={styles.error}>{postError}</Text> : null}
 							</View>
 						) : null}
@@ -313,11 +375,14 @@ export default function CommunityDetailScreen({api, guid, myGuid, pickImage, onB
 							<View style={styles.wallSection}>
 								<Text style={styles.eventsTitle}>Стена сообщества</Text>
 								{posts.map((p: BerxFeedItem) => (
-									<Pressable key={p.guid} style={styles.wallRow} onPress={() => onOpenPost && onOpenPost(p.guid)} disabled={!onOpenPost}>
-										<Text style={styles.wallAuthor}>{p.poster_username ?? 'BERX'}</Text>
-										<Text style={styles.wallText} numberOfLines={4}>{p.text}</Text>
-										<Text style={styles.eventMeta}>{relativeTimeLabel(p.time_created)}</Text>
-									</Pressable>
+									<View key={p.guid} style={styles.wallRow}>
+										<Pressable onPress={() => onOpenPost && onOpenPost(p.guid)} disabled={!onOpenPost}>
+											<Text style={styles.wallAuthor}>{p.poster_username ?? 'BERX'}</Text>
+											<Text style={styles.wallText} numberOfLines={4}>{p.text}</Text>
+											<Text style={styles.eventMeta}>{relativeTimeLabel(p.time_created)}</Text>
+										</Pressable>
+										{p.poll ? <BerxPollView poll={p.poll} onVote={(optionIndex) => handleVotePoll(p, optionIndex)} voting={votingPollGuid === p.guid} /> : null}
+									</View>
 								))}
 							</View>
 						) : null}
@@ -364,6 +429,12 @@ const styles = StyleSheet.create({
 	eventTitle: {color: colors.text, fontSize: typography.sizeSm, fontWeight: typography.weightMedium},
 	eventMeta: {color: colors.textFaint, fontSize: typography.sizeXs},
 	wallComposer: {gap: spacing.xs, marginTop: spacing.sm},
+	pollBox: {gap: spacing.xs},
+	pollOptionRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm},
+	pollOptionInput: {flex: 1},
+	pollOptionRemove: {color: colors.textFaint, fontSize: typography.sizeSm, padding: 4},
+	pollAddOption: {color: colors.accent, fontSize: typography.sizeSm, fontWeight: typography.weightMedium},
+	pollHint: {color: colors.textFaint, fontSize: typography.sizeXs},
 	wallSection: {gap: spacing.xs, marginTop: spacing.sm},
 	wallRow: {gap: 2, paddingVertical: spacing.sm, borderTopWidth: 1, borderTopColor: colors.borderSoft},
 	wallAuthor: {color: colors.accent, fontSize: typography.sizeSm, fontWeight: typography.weightMedium},

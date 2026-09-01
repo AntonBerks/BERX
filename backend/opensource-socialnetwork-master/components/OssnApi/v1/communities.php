@@ -301,6 +301,19 @@ if ($segment0 !== null && $segment1 === 'posts' && $method === 'POST') {
 	if (!$guid) {
 		ossn_api_error('create_failed', 'Could not post to community', 500);
 	}
+	// BERX WORLD — real Post Polls, same real OssnPolls mechanism
+	// posts.php's own personal-wall route uses (see OssnPolls.php's own
+	// header) — a community wall post is exactly as real a post as a
+	// personal one, so it gets the same real capability, not a lesser
+	// version of it.
+	if (class_exists('OssnPolls')) {
+		$pollOptions = OssnPolls::sanitizeOptions(input('poll_options'));
+		if ($pollOptions) {
+			$pollEndsAtInput = input('poll_ends_at');
+			$pollEndsAt = ($pollEndsAtInput && is_numeric($pollEndsAtInput)) ? intval($pollEndsAtInput) : null;
+			(new OssnPolls())->create($guid, $pollOptions, $pollEndsAt);
+		}
+	}
 	ossn_api_json(array('guid' => intval($guid)));
 }
 

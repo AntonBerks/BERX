@@ -1317,8 +1317,18 @@ export class BerxApiClient {
 		return this.request<{posts: BerxFeedItem[]}>(`/communities/${guid}/posts`);
 	}
 
-	async createCommunityPost(guid: number, text: string): Promise<{guid: number}> {
-		return this.request<{guid: number}>(`/communities/${guid}/posts`, {method: 'POST', body: {text}});
+	/** BERX WORLD — real Post Polls on a community wall too, same real mechanism as createPost()'s own pollOptions. */
+	async createCommunityPost(guid: number, text: string, pollOptions?: string[], pollEndsAt?: number): Promise<{guid: number}> {
+		const pollFields: Record<string, string> = {};
+		if (pollOptions) {
+			pollOptions.forEach((opt, i) => {
+				pollFields[`poll_options[${i}]`] = opt;
+			});
+			if (pollEndsAt) {
+				pollFields.poll_ends_at = String(pollEndsAt);
+			}
+		}
+		return this.request<{guid: number}>(`/communities/${guid}/posts`, {method: 'POST', body: {text, ...pollFields}});
 	}
 
 	async createCommunity(name: string, description: string, privacy: 'public' | 'private'): Promise<{guid: number}> {
