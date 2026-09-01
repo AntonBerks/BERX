@@ -21,7 +21,9 @@ client/node_modules/
 client/package-lock.json
 client/harness/
 client/entry.tsx
+client/entry-logo.tsx
 client/build-harness.mjs
+client/build-logo.mjs
 client/mock-api.mjs
 client/harness-core.ts
 client/harness-token-storage.ts

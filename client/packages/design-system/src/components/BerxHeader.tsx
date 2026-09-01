@@ -20,6 +20,7 @@ import {spacing, typography, radius} from '../tokens';
 import {IconChevronLeft} from './BerxIcons';
 
 import {useBerxColors} from '../theme';
+import {useBerxInsets} from '../insets';
 import type {BerxColorTokens} from '../tokens';
 
 export interface BerxHeaderProps {
@@ -27,13 +28,22 @@ export interface BerxHeaderProps {
 	/** Optional small line under the title — e.g. real presence ("в сети"). */
 	subtitle?: string;
 	onBack?: () => void;
+	/**
+	 * Whether this header is the topmost thing on its screen and so owns
+	 * the status-bar/notch inset. False when something above it already
+	 * paid it — otherwise a screen that stacks two headers inset twice.
+	 */
+	topInset?: boolean;
 }
 
-export function BerxHeader({title, subtitle, onBack}: BerxHeaderProps) {
+export function BerxHeader({title, subtitle, onBack, topInset = true}: BerxHeaderProps) {
 	const colors = useBerxColors();
 	const styles = useMemo(() => makeStyles(colors), [colors]);
+	// Real measured inset. BERX drew from y=0 before this, so the back
+	// chip sat under the status bar on every notched device.
+	const insets = useBerxInsets();
 	return (
-		<View style={styles.header}>
+		<View style={[styles.header, topInset && {paddingTop: insets.top}]}>
 			{onBack ? (
 				<Pressable onPress={onBack} hitSlop={12} style={({pressed}: {pressed: boolean}) => [styles.backButton, styles.backChip, pressed && styles.backChipPressed]}>
 					<IconChevronLeft size={16} color={colors.accent} />

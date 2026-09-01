@@ -10,14 +10,15 @@
   },
   "dependencies": {
     "@react-native-documents/picker": "^11.0.0",
+    "@react-three/fiber": "^9.0.0",
+    "expo-gl": "^15.0.0",
+    "expo-modules-core": "^2.0.0",
     "react": "^19.0.0",
     "react-native": "^0.79.0",
     "react-native-image-picker": "^8.2.1",
     "react-native-keychain": "^10.0.0",
-    "three": "^0.169.0",
-    "@react-three/fiber": "^9.0.0",
-    "expo-gl": "^15.0.0",
-    "expo-modules-core": "^2.0.0"
+    "react-native-safe-area-context": "^5.9.1",
+    "three": "^0.169.0"
   },
   "devDependencies": {
     "@babel/core": "^7.26.0",
@@ -26,7 +27,7 @@
     "@react-native/babel-preset": "^0.79.0",
     "@react-native/metro-config": "^0.79.0",
     "@react-native/typescript-config": "^0.79.0",
-    "typescript": "^5.8.3",
-    "@types/react": "^19.0.0"
+    "@types/react": "^19.0.0",
+    "typescript": "^5.8.3"
   }
 }

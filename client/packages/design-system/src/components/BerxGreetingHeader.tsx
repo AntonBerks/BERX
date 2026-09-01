@@ -19,6 +19,7 @@ import {View, Text, Image, Pressable, StyleSheet, ViewStyle} from 'react-native'
 import {spacing, typography, radius} from '../tokens';
 
 import {useBerxColors} from '../theme';
+import {useBerxInsets} from '../insets';
 import {BerxIcon} from '../icons/BerxIcon';
 import type {BerxIconName} from '../icons/geometry';
 import type {BerxColorTokens} from '../tokens';
@@ -40,14 +41,23 @@ export interface BerxGreetingHeaderProps {
 	actions?: BerxHeaderAction[];
 	/** Rendered over a photograph: ink and glass switch to the media set. */
 	onMedia?: boolean;
+	/**
+	 * Whether this header is the topmost thing on its screen and so owns
+	 * the status-bar/notch inset. False when something above it already
+	 * paid it.
+	 */
+	topInset?: boolean;
 	style?: ViewStyle;
 }
 
-export function BerxGreetingHeader({greeting, name, avatarUrl, onPressIdentity, actions = [], onMedia, style}: BerxGreetingHeaderProps) {
+export function BerxGreetingHeader({greeting, name, avatarUrl, onPressIdentity, actions = [], onMedia, topInset = true, style}: BerxGreetingHeaderProps) {
 	const colors = useBerxColors();
 	const styles = useMemo(() => makeStyles(colors), [colors]);
+	// Real measured inset — see design-system/src/insets.ts for why this
+	// exists at all (BERX had no safe-area handling anywhere).
+	const insets = useBerxInsets();
 	return (
-		<View style={[styles.row, style]}>
+		<View style={[styles.row, topInset && {paddingTop: insets.top}, style]}>
 			<Pressable style={styles.identity} onPress={onPressIdentity} disabled={!onPressIdentity}>
 				{avatarUrl ? (
 					<Image source={{uri: avatarUrl}} style={styles.avatar} />
@@ -119,11 +129,28 @@ export function BerxCircleButton({
 }
 
 /** The large two-line editorial headline the reference set puts under the greeting. Caller supplies real, live copy. */
-export function BerxEditorialTitle({lines, accentIndex, style}: {lines: string[]; accentIndex?: number; style?: ViewStyle}) {
+export function BerxEditorialTitle({
+	lines,
+	accentIndex,
+	topInset = true,
+	style,
+}: {
+	lines: string[];
+	accentIndex?: number;
+	/**
+	 * Whether this title is the topmost thing on its screen and so owns
+	 * the status-bar/notch inset. Screens that render a conditional
+	 * BerxHeader above it pass `topInset={!onBack}` so the inset is paid
+	 * exactly once.
+	 */
+	topInset?: boolean;
+	style?: ViewStyle;
+}) {
 	const colors = useBerxColors();
 	const styles = useMemo(() => makeStyles(colors), [colors]);
+	const insets = useBerxInsets();
 	return (
-		<View style={[styles.titleWrap, style]}>
+		<View style={[styles.titleWrap, topInset && {paddingTop: insets.top}, style]}>
 			{lines.map((line: string, i: number) => (
 				<Text
 					key={i}

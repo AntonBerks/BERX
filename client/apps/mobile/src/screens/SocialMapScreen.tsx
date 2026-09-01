@@ -141,7 +141,9 @@ export default function SocialMapScreen({api, onOpenPlace, onOpenEvent, onBack}:
 
 			<View style={styles.topBar} pointerEvents="box-none">
 				<BerxHeader title="" onBack={onBack} />
-				<BerxEditorialTitle
+				{/* The header above is unconditional here, so it always owns the
+				    status-bar inset and this title must never pay it again. */}
+				<BerxEditorialTitle topInset={false}
 					style={styles.mapTitle}
 					accentIndex={1}
 					lines={[

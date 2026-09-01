@@ -1,120 +1,102 @@
 /**
- * !!! VERIFICATION STATUS: UNVERIFIED — see LoginScreen.tsx header.
+ * BERX WELCOME — screen 01, and the visual benchmark for the product.
  *
- * BERX ENTRY — the visual benchmark for the whole product.
+ * WHAT THIS SCREEN IS NOT, and why.
  *
- * The priority order this screen is built to, in order, is:
- * composition, media, lighting, depth, glass, typography, 3D,
- * controls. 3D is a material inside the design, not the design.
+ * The version before this drew a scene: a gradient dusk sky, a
+ * starfield, a city skyline with lit windows, water, and a ringed
+ * sphere floating over it. Every one of those is a picture of
+ * something, and a first screen made of pictures reads as a phone
+ * wallpaper — the eye files it as illustration, and illustration is
+ * never read as luxury. It also fought the brand: with that much
+ * colour and shape in play, BERX itself had nothing left to own.
  *
- * WHAT THE PREVIOUS TWO VERSIONS GOT WRONG, so neither returns:
+ * This is the opposite discipline, and it is what expensive products
+ * actually do. A deep, almost-solid ground. One soft light falling
+ * through it that you feel rather than look at. Enormous, restrained
+ * typography with real air around it. One object so quiet you have to
+ * look twice. One control, and it is white — because the accent is
+ * worth more when it is spent on one word than smeared over a
+ * template.
  *
- * 1. Flat black. Before there were real gradients, the "glow" was a
- *    low-opacity circle, so the screen was black with a cyan wordmark
- *    on it — nothing was lit because nothing could be.
- * 2. Flat teal. The first light field used four stops with 45% of peak
- *    still at 45% of the radius, and four large sources stacked into an
- *    even fog that filled the frame. Light everywhere reads exactly
- *    like light nowhere; the screen got BRIGHTER and no less flat.
- *
- * What is here instead: one dominant key low-left with real (1-t)^k
- *  falloff and a vignette pulling the corners back to near-black, so
- * there is dark for the light to be light against; original horizon
- * geometry (BerxHorizon) giving the frame receding distance a gradient
- * cannot; grain over all of it so the ramps read as air; the BERX
- * object standing IN that light rather than floating on a backdrop;
- * and editorial left-aligned display type instead of a centred
- * wordmark stack.
- *
- * There is no photograph here and no placeholder standing in for one:
- * this screen runs before any account exists, so there is no user
- * media, and every field the API serves is behind a bearer token
- * (components/OssnApi/ossn_com.php gates every resource except
- * `auth`). The ground is therefore original artwork drawn at runtime,
- * not stock imagery and not a grey box.
+ * Everything is drawn: no photograph is bundled, none is claimed, and
+ * nothing here is a placeholder standing in for one.
  */
 import {useMemo} from 'react';
 import {View, Text, StyleSheet} from 'react-native';
-import {spacing, typography, getBerxDaypartPalette} from '@berx/design-system/tokens';
-import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
+import {spacing, typography} from '@berx/design-system/tokens';
 import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
-import {BerxStage} from '../../../../packages/design-system/src/components/BerxStage';
-import {BerxEmblem} from '../../../../packages/design-system/src/components/BerxEmblem';
-
-import {useBerxColors} from '../../../../packages/design-system/src/theme';
-import type {BerxColorTokens} from '@berx/design-system/tokens';
+import {BerxAura} from '../../../../packages/design-system/src/components/BerxAura';
+import {BerxLens} from '../../../../packages/design-system/src/components/BerxLens';
+import {BerxGrain} from '../../../../packages/design-system/src/components/BerxGrain';
+import {BerxPrimaryAction, BerxQuietAction} from '../../../../packages/design-system/src/components/BerxActions';
+import {BERX_SCENE} from '../../../../packages/design-system/src/palette';
 
 interface Props {
 	onLogin: () => void;
 	onRegister: () => void;
 }
 
-const daypart = getBerxDaypartPalette(new Date().getHours());
-
 export default function WelcomeScreen({onLogin, onRegister}: Props) {
-	const colors = useBerxColors();
-	const styles = useMemo(() => makeStyles(colors), [colors]);
+	const styles = useMemo(() => makeStyles(), []);
 	return (
-		<BerxStage depth={0} seed={19}>
-			{/* The object sits high and off-centre, in the light, above the
-			    ridge line — not centred over its own wordmark. */}
-			<BerxFadeIn riseFrom={26} scaleFrom={0.84} style={styles.objectSlot}>
-				<BerxEmblem size={168} light={colors.accent} />
+		<View style={styles.screen}>
+			<BerxAura
+				ground={BERX_SCENE.ground}
+				glow={BERX_SCENE.glow}
+				counter={BERX_SCENE.counter}
+				intensity={0.9}
+				at={0.26}
+			/>
+			<BerxGrain opacity={0.04} />
+
+			{/* The object sits high, off the left margin, half out of frame —
+			    an object that fits neatly inside the composition is a logo. */}
+			<BerxFadeIn riseFrom={24} scaleFrom={0.94} style={styles.lensSlot}>
+				<BerxLens size={330} light={BERX_SCENE.light} body={BERX_SCENE.object} presence={0.95} />
 			</BerxFadeIn>
 
-			{/* Editorial block, bottom-left. A centred wordmark stack is the
-			    generic app splash this screen exists to stop being. */}
 			<View style={styles.copy}>
-				<BerxFadeIn delayMs={220} riseFrom={22}>
-					<Text style={styles.eyebrow}>{daypart.label} · BERX</Text>
+				<BerxFadeIn delayMs={200} riseFrom={16}>
+					<Text style={styles.mark}>BERX</Text>
 				</BerxFadeIn>
-				<BerxFadeIn delayMs={320} riseFrom={30}>
-					<Text style={styles.display}>Мир,</Text>
-					<Text style={styles.display}>который</Text>
-					<Text style={[styles.display, styles.displayAccent]}>вы найдёте</Text>
+				<BerxFadeIn delayMs={340} riseFrom={26}>
+					<Text style={styles.display}>Новый мир</Text>
+					<Text style={styles.displayThin}>вокруг вас</Text>
 				</BerxFadeIn>
-				<BerxFadeIn delayMs={460} riseFrom={18}>
-					<Text style={styles.tagline}>Места, события и люди вокруг вас — в одном месте.</Text>
+				<BerxFadeIn delayMs={480} riseFrom={16}>
+					<Text style={styles.lede}>Места, люди и впечатления — там, где вы есть.</Text>
 				</BerxFadeIn>
 			</View>
 
-			{/* CONTROLS — quiet, last in the hierarchy, on the dark floor
-			    rather than inside a glass card competing with the sky. */}
-			<BerxFadeIn delayMs={600} riseFrom={34} style={styles.actions}>
-				<BerxButton label="Создать аккаунт" onPress={onRegister} fullWidth />
-				<BerxButton label="У меня уже есть BERX" variant="secondary" onPress={onLogin} fullWidth />
+			<BerxFadeIn delayMs={640} riseFrom={30} style={styles.actions}>
+				<BerxPrimaryAction label="Начать" onPress={onRegister} tone="#FFFFFF" ink="#0A0D12" />
+				<BerxQuietAction label="У меня уже есть аккаунт" onPress={onLogin} />
 			</BerxFadeIn>
-		</BerxStage>
+		</View>
 	);
 }
 
-const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
-	// The object stands in the sky above the horizon, off-centre and
-	// large enough to be the focal point — not a small mark parked in a
-	// corner of dead space.
-	objectSlot: {position: 'absolute', top: '18%', right: '8%'},
-	copy: {position: 'absolute', left: spacing.xl, right: spacing.xl, bottom: 236},
-	eyebrow: {
-		fontSize: typography.sizeXs,
-		color: colors.accentOnMedia,
-		textTransform: 'uppercase',
-		letterSpacing: 2.4,
-		marginBottom: spacing.md,
-	},
-	display: {
-		fontSize: 46,
-		lineHeight: 50,
-		fontWeight: typography.weightBold,
-		color: colors.onMedia,
-		letterSpacing: -1.6,
-	},
-	displayAccent: {color: colors.accentOnMedia},
-	tagline: {
-		fontSize: typography.sizeBase,
-		lineHeight: 22,
-		color: colors.onMediaDim,
-		marginTop: spacing.lg,
-		maxWidth: 280,
-	},
-	actions: {position: 'absolute', left: spacing.xl, right: spacing.xl, bottom: spacing.xxl, gap: spacing.sm},
-});
+const makeStyles = () =>
+	StyleSheet.create({
+		screen: {flex: 1, backgroundColor: BERX_SCENE.ground, overflow: 'hidden'},
+		lensSlot: {position: 'absolute', top: '9%', left: -96},
+		copy: {position: 'absolute', left: spacing.xl, right: spacing.xl, bottom: 214},
+		mark: {
+			fontSize: 12,
+			color: BERX_SCENE.light,
+			letterSpacing: 6,
+			fontWeight: typography.weightBold,
+			marginBottom: spacing.xl,
+		},
+		display: {fontSize: 52, lineHeight: 56, fontWeight: '700', color: '#FFFFFF', letterSpacing: -2},
+		displayThin: {fontSize: 52, lineHeight: 56, fontWeight: '200', color: 'rgba(255,255,255,0.82)', letterSpacing: -2},
+		lede: {
+			fontSize: typography.sizeBase,
+			lineHeight: 24,
+			color: 'rgba(255,255,255,0.5)',
+			marginTop: spacing.xl,
+			maxWidth: 270,
+		},
+		actions: {position: 'absolute', left: spacing.xl, right: spacing.xl, bottom: 40},
+	});

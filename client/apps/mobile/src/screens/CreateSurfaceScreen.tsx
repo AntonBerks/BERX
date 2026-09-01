@@ -107,7 +107,7 @@ export default function CreateSurfaceScreen(props: CreateSurfaceProps) {
 			{/* Editorial header, as on NOW/PEOPLE/PLACES. A centred title bar
 			    made CREATE read as a settings page rather than part of the
 			    same product. */}
-			<BerxEditorialTitle style={styles.head} accentIndex={1} lines={['Создать', 'что появится в BERX']} />
+			<BerxEditorialTitle topInset={!props.onBack} style={styles.head} accentIndex={1} lines={['Создать', 'что появится в BERX']} />
 			<ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
 				<BerxFadeIn>
 					<Section title="Прямо сейчас" entries={live} />

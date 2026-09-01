@@ -149,6 +149,7 @@ import BusinessSettingsScreen from './screens/business/BusinessSettingsScreen';
 import type {BerxStoryFeedGroup, BerxPostVisibility} from '@berx/api/types';
 
 import {useBerxColors, BerxThemeProvider} from '../../../packages/design-system/src/theme';
+import {SafeAreaProvider} from '../../../packages/design-system/src/insets';
 import type {BerxColorTokens} from '@berx/design-system/tokens';
 
 const api = new BerxApiClient(BERX_PRODUCTION_ENV.apiBaseUrl, new BerxSecureTokenStorage());
@@ -1417,15 +1418,23 @@ function TabPane({visible, children}: {visible: boolean; children: React.ReactNo
 }
 
 /**
- * BERX THEME ROOT — the whole tree renders inside the real theme
- * provider, so Day and Night are one product driven by one centralized
- * palette rather than a Night app with a dead Day token block.
+ * BERX ROOT — the whole tree renders inside the real theme provider, so
+ * Day and Night are one product driven by one centralized palette
+ * rather than a Night app with a dead Day token block.
+ *
+ * SafeAreaProvider sits outside it because useBerxInsets() is used by
+ * screens on both sides of the auth gate (the onboarding stage and every
+ * app header alike), and because BERX had no safe-area handling at all
+ * until this: every screen laid its first line out from y=0 and put it
+ * under the status bar and the notch. See design-system/src/insets.ts.
  */
 export default function AppShell() {
 	return (
-		<BerxThemeProvider initialMode="night">
-			<AppShellInner />
-		</BerxThemeProvider>
+		<SafeAreaProvider>
+			<BerxThemeProvider initialMode="night">
+				<AppShellInner />
+			</BerxThemeProvider>
+		</SafeAreaProvider>
 	);
 }
 

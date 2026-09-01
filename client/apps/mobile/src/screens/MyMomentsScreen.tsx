@@ -82,7 +82,7 @@ export default function MyMomentsScreen({api, onOpenEvent, onOpenExperience, onO
 			    non-feed surfaces. The count is the real loaded list length; an
 			    empty list says so rather than showing "0". */}
 			<View style={styles.head}>
-				<BerxEditorialTitle
+				<BerxEditorialTitle topInset={!onBack}
 					style={styles.headline}
 					accentIndex={1}
 					lines={[

@@ -87,7 +87,7 @@ export default function CommunitiesListScreen({api, onOpenCommunity, onCreate, o
 			    The second line reports only what this screen has actually
 			    loaded for the tab it is on. */}
 			<View style={styles.head}>
-				<BerxEditorialTitle
+				<BerxEditorialTitle topInset={!onBack}
 					style={styles.headline}
 					accentIndex={1}
 					lines={[

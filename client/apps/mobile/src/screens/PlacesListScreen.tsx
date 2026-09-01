@@ -111,7 +111,7 @@ export default function PlacesListScreen({api, onOpenPlace, onCreate, onOpenNear
 		<View style={styles.screen}>
 			{onBack ? <BerxHeader onBack={onBack} title="" /> : null}
 			<View style={styles.head}>
-				<BerxEditorialTitle lines={headline.lines} accentIndex={headline.accentIndex} style={styles.headline} />
+				<BerxEditorialTitle topInset={!onBack} lines={headline.lines} accentIndex={headline.accentIndex} style={styles.headline} />
 			</View>
 			{/* Utilities ride the search row instead of taking a row of their
 			    own — the reference reaches its first photograph in a fraction
