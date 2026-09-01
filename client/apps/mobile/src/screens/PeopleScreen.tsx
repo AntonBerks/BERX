@@ -94,16 +94,26 @@ export default function PeopleScreen({api, onOpenProfile, onOpenConversation, on
 	return (
 		<View style={styles.screen}>
 			<View style={styles.head}>
-				<Text style={styles.title}>Люди</Text>
+				<View style={styles.headTitles}>
+					<Text style={styles.title}>Люди</Text>
+					<Text style={styles.subtitle}>
+						{online.length > 0 ? `${online.length} в сети · ${friends.length} друзей` : `${friends.length} друзей`}
+					</Text>
+				</View>
 				<View style={styles.headActions}>
 					{onOpenSocialMap ? (
-						<Pressable onPress={onOpenSocialMap} hitSlop={8}>
-							<Text style={styles.headLink}>Граф</Text>
+						<Pressable style={styles.circleButton} onPress={onOpenSocialMap} hitSlop={6}>
+							<Text style={styles.circleGlyph}>◎</Text>
 						</Pressable>
 					) : null}
 					{onOpenNearby ? (
-						<Pressable onPress={onOpenNearby} hitSlop={8}>
-							<Text style={styles.headLink}>Рядом</Text>
+						<Pressable style={styles.circleButton} onPress={onOpenNearby} hitSlop={6}>
+							<Text style={styles.circleGlyph}>⌖</Text>
+						</Pressable>
+					) : null}
+					{onOpenInvite ? (
+						<Pressable style={styles.circleButton} onPress={onOpenInvite} hitSlop={6}>
+							<Text style={styles.circleGlyph}>+</Text>
 						</Pressable>
 					) : null}
 				</View>
@@ -183,34 +193,29 @@ export default function PeopleScreen({api, onOpenProfile, onOpenConversation, on
 							) : null}
 
 							<View style={styles.section}>
-								<View style={styles.sectionHead}>
-									<Text style={styles.sectionTitle}>Друзья</Text>
-									{onOpenInvite ? (
-										<Pressable onPress={onOpenInvite} hitSlop={8}>
-											<Text style={styles.headLink}>Пригласить</Text>
-										</Pressable>
-									) : null}
-								</View>
+								<Text style={styles.sectionTitle}>Друзья</Text>
 								{friends.length === 0 ? (
 									<Text style={styles.quiet}>Друзей пока нет — найдите людей через поиск выше.</Text>
 								) : (
-									friends.map((f: BerxFriend) => (
-										<Pressable key={f.guid} style={styles.row} onPress={() => onOpenProfile(f.username)}>
-											<BerxAvatarStack people={[{guid: f.guid, icon: f.icon, initial: (f.fullname || f.username).charAt(0)}]} size={36} />
-											<View style={styles.rowBody}>
-												<Text style={styles.rowName} numberOfLines={1}>{f.fullname || f.username}</Text>
-												<Text style={styles.rowMeta} numberOfLines={1}>
-													{onlineGuids.has(f.guid) ? 'в сети' : `@${f.username}`}
-												</Text>
+									<View style={styles.grid}>
+										{friends.map((f: BerxFriend) => (
+											<View key={f.guid} style={styles.gridCell}>
+												<BerxPersonCard
+													fullname={f.fullname}
+													username={f.username}
+													imageUrl={f.icon}
+													isOnline={onlineGuids.has(f.guid)}
+													contextLine={onOpenConversation ? 'Написать' : undefined}
+													onPress={() => onOpenProfile(f.username)}
+												/>
+												{onOpenConversation ? (
+													<Pressable style={styles.gridAction} onPress={() => onOpenConversation(f.guid, f.username)} hitSlop={6}>
+														<Text style={styles.gridActionText}>Написать</Text>
+													</Pressable>
+												) : null}
 											</View>
-											{onlineGuids.has(f.guid) ? <View style={styles.onlineDot} /> : null}
-											{onOpenConversation ? (
-												<Pressable onPress={() => onOpenConversation(f.guid, f.username)} hitSlop={8}>
-													<Text style={styles.rowAction}>Написать</Text>
-												</Pressable>
-											) : null}
-										</Pressable>
-									))
+										))}
+									</View>
 								)}
 							</View>
 						</>
@@ -223,10 +228,26 @@ export default function PeopleScreen({api, onOpenProfile, onOpenConversation, on
 
 const styles = StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.black},
-	head: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.lg, paddingTop: spacing.lg},
+	head: {flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', paddingHorizontal: spacing.lg, paddingTop: spacing.lg, gap: spacing.md},
+	headTitles: {flex: 1, gap: 2},
+	subtitle: {color: colors.textFaint, fontSize: typography.sizeXs},
+	circleButton: {
+		width: 38,
+		height: 38,
+		borderRadius: 19,
+		alignItems: 'center',
+		justifyContent: 'center',
+		backgroundColor: colors.glass2,
+		borderWidth: 1,
+		borderColor: colors.borderSoft,
+	},
+	circleGlyph: {color: colors.text, fontSize: 16},
+	grid: {flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: spacing.lg, gap: spacing.md},
+	gridCell: {width: '47%', gap: spacing.xs},
+	gridAction: {alignSelf: 'flex-start', paddingHorizontal: spacing.sm, paddingVertical: 4, borderRadius: 999, backgroundColor: colors.accentSoft},
+	gridActionText: {color: colors.accent, fontSize: 11, fontWeight: typography.weightMedium},
 	title: {color: colors.text, fontSize: typography.sizeTitle, fontWeight: typography.weightBold, letterSpacing: -0.4},
 	headActions: {flexDirection: 'row', gap: spacing.md},
-	headLink: {color: colors.accent, fontSize: typography.sizeSm, fontWeight: typography.weightMedium},
 	searchWrap: {paddingHorizontal: spacing.lg, paddingTop: spacing.md},
 	scroll: {paddingBottom: spacing.xxl},
 	section: {marginTop: spacing.xl},
@@ -254,7 +275,5 @@ const styles = StyleSheet.create({
 	rowBody: {flex: 1},
 	rowName: {color: colors.text, fontSize: typography.sizeBase, fontWeight: typography.weightMedium},
 	rowMeta: {color: colors.textFaint, fontSize: typography.sizeXs, marginTop: 2},
-	rowAction: {color: colors.accent, fontSize: typography.sizeXs, fontWeight: typography.weightMedium},
-	onlineDot: {width: 8, height: 8, borderRadius: 4, backgroundColor: colors.accent},
 	quiet: {color: colors.textDim, fontSize: typography.sizeSm, paddingHorizontal: spacing.lg, lineHeight: 20},
 });

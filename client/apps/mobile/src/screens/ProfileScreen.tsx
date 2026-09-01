@@ -60,7 +60,7 @@ import React, {useEffect, useRef, useState} from 'react';
 import {View, Text, Image, Pressable, ScrollView, Animated, Alert, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxAuthState} from '@berx/auth';
-import type {BerxIdentity, BerxIdentityAchievement, BerxIdentityInterest, BerxStorySummary, BerxStoryFeedGroup, BerxPostDetail} from '@berx/api/types';
+import type {BerxIdentity, BerxIdentityAchievement, BerxIdentityInterest, BerxStorySummary, BerxStoryFeedGroup, BerxPostDetail, BerxReputation} from '@berx/api/types';
 import {BerxApiError} from '@berx/core';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
@@ -93,7 +93,8 @@ interface ProfileData {
 	banned?: boolean;
 	/** Real presence (OssnUser::isOnline(10)) — absent/undefined on own profile (me.php doesn't return it; showing your own "online" dot to yourself is meaningless). */
 	is_online?: boolean;
-	reputation?: {places_reviewed: number; events_going: number; trips_created: number; experiences_created: number};
+	/** The real shape both /me and /profiles/{username} return — kept as the shared BerxReputation type rather than a stale narrower copy (this file's local list had drifted behind the server, which the missing React types here hid from tsc). */
+	reputation?: BerxReputation;
 }
 
 interface Props {
@@ -410,6 +411,37 @@ export default function ProfileScreen({api, authState, username, onBack, onMessa
 							</Text>
 						) : null}
 						{year ? <Text style={styles.joined}>На BERX с {year} года</Text> : null}
+
+						{/* BERX SPATIAL — the reference profiles lead with two large,
+						    tappable stat tiles rather than a text stat line. These carry
+						    REAL reputation counts and route to the REAL screens behind
+						    them; a tile with no route (another person's profile) simply
+						    isn't pressable, and no tile is shown for a count the server
+						    didn't return. */}
+						{profile.reputation ? (
+							<View style={styles.statTiles}>
+								<Pressable
+									style={styles.statTile}
+									onPress={isOwn && onOpenMyMoments ? onOpenMyMoments : undefined}
+									disabled={!(isOwn && onOpenMyMoments)}>
+									<Text style={styles.statTileValue}>{profile.reputation.moments_created ?? 0}</Text>
+									<View style={styles.statTileFoot}>
+										<Text style={styles.statTileLabel}>Моменты</Text>
+										{isOwn && onOpenMyMoments ? <Text style={styles.statTileArrow}>↗</Text> : null}
+									</View>
+								</Pressable>
+								<Pressable
+									style={styles.statTile}
+									onPress={profile.guid && onOpenExperiences ? () => onOpenExperiences(profile.guid!, isOwn) : undefined}
+									disabled={!(profile.guid && onOpenExperiences)}>
+									<Text style={styles.statTileValue}>{profile.reputation.experiences_created}</Text>
+									<View style={styles.statTileFoot}>
+										<Text style={styles.statTileLabel}>Впечатления</Text>
+										{profile.guid && onOpenExperiences ? <Text style={styles.statTileArrow}>↗</Text> : null}
+									</View>
+								</Pressable>
+							</View>
+						) : null}
 
 						{profile.reputation ? (
 							<View style={styles.reputationRow}>
@@ -783,6 +815,20 @@ const styles = StyleSheet.create({
 	mutualFriends: {color: colors.accent, fontSize: typography.sizeSm, marginTop: spacing.xs, fontWeight: typography.weightMedium},
 	pokeStatus: {color: colors.textDim, fontSize: typography.sizeXs, textAlign: 'center', marginTop: spacing.xs},
 	bannedBanner: {color: colors.danger, fontSize: typography.sizeSm, fontWeight: typography.weightMedium, textAlign: 'center'},
+	statTiles: {flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md},
+	statTile: {
+		flex: 1,
+		padding: spacing.md,
+		borderRadius: radius.md,
+		backgroundColor: colors.glass2,
+		borderWidth: 1,
+		borderColor: colors.borderSoft,
+		gap: spacing.xs,
+	},
+	statTileValue: {color: colors.text, fontSize: typography.sizeTitle, fontWeight: typography.weightBold, letterSpacing: -0.6},
+	statTileFoot: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'},
+	statTileLabel: {color: colors.textDim, fontSize: typography.sizeXs},
+	statTileArrow: {color: colors.accent, fontSize: typography.sizeXs},
 	reputationRow: {flexDirection: 'row', gap: spacing.lg, marginTop: spacing.sm, marginBottom: spacing.sm},
 	reputationStat: {alignItems: 'flex-start'},
 	reputationValue: {color: colors.white, fontSize: typography.sizeBase, fontWeight: typography.weightBold},
