@@ -60,7 +60,7 @@ import React, {useEffect, useRef, useState, useMemo} from 'react';
 import {View, Text, Image, Pressable, ScrollView, Animated, Alert, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxAuthState} from '@berx/auth';
-import type {BerxIdentity, BerxIdentityAchievement, BerxIdentityInterest, BerxStorySummary, BerxStoryFeedGroup, BerxPostDetail, BerxReputation} from '@berx/api/types';
+import type {BerxIdentity, BerxIdentityAchievement, BerxIdentityInterest, BerxStorySummary, BerxFriend, BerxStoryFeedGroup, BerxPostDetail, BerxReputation} from '@berx/api/types';
 import {BerxApiError} from '@berx/core';
 import {spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
@@ -73,6 +73,9 @@ import {BerxFadeIn} from '../../../../packages/design-system/src/components/Berx
 import {Berx3DTilt} from '../../../../packages/design-system/src/components/Berx3DTilt';
 import {BerxSpatialLayer} from '../../../../packages/design-system/src/components/BerxSpatialLayer';
 import {BerxScrim} from '../../../../packages/design-system/src/components/BerxScrim';
+import {BerxAvatarStack} from '../../../../packages/design-system/src/components/BerxAvatarStack';
+import {BerxSegmentedTabs} from '../../../../packages/design-system/src/components/BerxSegmentedTabs';
+import {BerxPhotoGrid} from '../../../../packages/design-system/src/components/BerxPhotoGrid';
 
 import {useBerxColors} from '../../../../packages/design-system/src/theme';
 import type {BerxColorTokens} from '@berx/design-system/tokens';
@@ -184,6 +187,11 @@ export default function ProfileScreen({api, authState, username, onBack, onMessa
 	const [unreadNotifications, setUnreadNotifications] = useState(0);
 	const [nextCount, setNextCount] = useState(0);
 	const [highlights, setHighlights] = useState<BerxStorySummary[]>([]);
+	// Real friends, used for the reference profiles' avatar-stack tile.
+	// Own profile only: /friends returns the CALLER's list, so showing it
+	// on someone else's profile would label your friends as theirs.
+	const [friends, setFriends] = useState<BerxFriend[]>([]);
+	const [gallerySeg, setGallerySeg] = useState<'moments' | 'highlights'>('highlights');
 	const [storyAuthHeaders, setStoryAuthHeaders] = useState<Record<string, string>>({});
 	const [pinnedPost, setPinnedPost] = useState<BerxPostDetail | null>(null);
 	const isOwn = !username;
@@ -198,6 +206,7 @@ export default function ProfileScreen({api, authState, username, onBack, onMessa
 			// fetch must never block the profile itself from showing.
 			if (isOwn) {
 				api.identity().then((res) => setIdentity(res.identity)).catch(() => undefined);
+				api.friends().then((res) => setFriends(res.friends)).catch(() => undefined);
 				// MAX BUILD — real unread badge (unreadNotificationCount()
 				// was always a real client method with zero callers).
 				api.unreadNotificationCount().then((res) => setUnreadNotifications(res.unread_count)).catch(() => undefined);
@@ -375,6 +384,29 @@ export default function ProfileScreen({api, authState, username, onBack, onMessa
 	const year = joinedYear(profile.time_created);
 	// profiles.php returns these; /me does not (they are 0 against yourself).
 	const mutualFriends = profile.mutual_friends_count ?? 0;
+
+	// The gallery's two real sources. Highlights carry real, token-gated
+	// story media; the pinned post carries its own real image. Anything
+	// without a real URL is dropped, never rendered as a grey tile.
+	const highlightTiles = highlights.map((h: BerxStorySummary) => ({
+		key: `hl-${h.id}`,
+		imageUrl: api.storyMediaUrl(h.id),
+		imageHeaders: storyAuthHeaders,
+		overlay: typeof h.viewer_count === 'number' && h.viewer_count > 0 ? `${h.viewer_count} просмотров` : null,
+		onPress: onOpenStoryGroup && profile.guid
+			? () => onOpenStoryGroup({owner_guid: profile.guid!, owner_username: profile.username, stories: highlights})
+			: undefined,
+	}));
+	const pinnedTiles = pinnedPost && onOpenPost
+		? [{key: `pin-${pinnedPost.guid}`, imageUrl: '', overlay: null, onPress: () => onOpenPost(pinnedPost.guid)}].filter(
+				(t: {imageUrl: string}) => t.imageUrl.length > 0,
+		  )
+		: [];
+	const gallerySegments = [
+		...(highlightTiles.length > 0 ? [{key: 'highlights', label: 'Хайлайты', count: highlightTiles.length}] : []),
+		...(pinnedTiles.length > 0 ? [{key: 'moments', label: 'Моменты', count: pinnedTiles.length}] : []),
+	];
+	const galleryItems = gallerySeg === 'moments' ? pinnedTiles : highlightTiles;
 	const mutualCommunities = profile.mutual_communities_count ?? 0;
 
 	return (
@@ -431,6 +463,9 @@ export default function ProfileScreen({api, authState, username, onBack, onMessa
 						    them; a tile with no route (another person's profile) simply
 						    isn't pressable, and no tile is shown for a count the server
 						    didn't return. */}
+						{/* Reference profile tiles: a face stack over the number, and an
+						    arrow only where a real route exists. Faces are shown only on
+						    your own profile, where /friends is genuinely your list. */}
 						{profile.reputation ? (
 							<View style={styles.statTiles}>
 								<Pressable
@@ -443,21 +478,38 @@ export default function ProfileScreen({api, authState, username, onBack, onMessa
 										{isOwn && onOpenMyMoments ? <Text style={styles.statTileArrow}>↗</Text> : null}
 									</View>
 								</Pressable>
-								<Pressable
-									style={styles.statTile}
-									onPress={profile.guid && onOpenExperiences ? () => onOpenExperiences(profile.guid!, isOwn) : undefined}
-									disabled={!(profile.guid && onOpenExperiences)}>
-									<Text style={styles.statTileValue}>{profile.reputation.experiences_created}</Text>
-									<View style={styles.statTileFoot}>
-										<Text style={styles.statTileLabel}>Впечатления</Text>
-										{profile.guid && onOpenExperiences ? <Text style={styles.statTileArrow}>↗</Text> : null}
-									</View>
-								</Pressable>
+								{isOwn && friends.length > 0 ? (
+									<Pressable style={styles.statTile} onPress={onOpenCommunities} disabled={!onOpenCommunities}>
+										<BerxAvatarStack
+											people={friends.map((f: BerxFriend) => ({guid: f.guid, icon: f.icon, initial: (f.fullname || f.username).charAt(0)}))}
+											total={friends.length}
+											size={28}
+										/>
+										<View style={styles.statTileFoot}>
+											<Text style={styles.statTileLabel}>Друзья</Text>
+											{onOpenCommunities ? <Text style={styles.statTileArrow}>↗</Text> : null}
+										</View>
+									</Pressable>
+								) : (
+									<Pressable
+										style={styles.statTile}
+										onPress={profile.guid && onOpenExperiences ? () => onOpenExperiences(profile.guid!, isOwn) : undefined}
+										disabled={!(profile.guid && onOpenExperiences)}>
+										<Text style={styles.statTileValue}>{profile.reputation.experiences_created}</Text>
+										<View style={styles.statTileFoot}>
+											<Text style={styles.statTileLabel}>Впечатления</Text>
+											{profile.guid && onOpenExperiences ? <Text style={styles.statTileArrow}>↗</Text> : null}
+										</View>
+									</Pressable>
+								)}
 							</View>
 						) : null}
 
 						{profile.reputation ? (
-							<View style={styles.reputationRow}>
+							<ScrollView
+								horizontal
+								showsHorizontalScrollIndicator={false}
+								contentContainerStyle={styles.reputationRow}>
 								{profile.reputation.places_reviewed > 0 ? <View style={styles.reputationStat}><Text style={styles.reputationValue}>{profile.reputation.places_reviewed}</Text><Text style={styles.reputationLabel}>отзывов</Text></View> : null}
 								{profile.reputation.events_going > 0 ? <View style={styles.reputationStat}><Text style={styles.reputationValue}>{profile.reputation.events_going}</Text><Text style={styles.reputationLabel}>событий</Text></View> : null}
 								{profile.reputation.trips_created > 0 ? <View style={styles.reputationStat}><Text style={styles.reputationValue}>{profile.reputation.trips_created}</Text><Text style={styles.reputationLabel}>поездок</Text></View> : null}
@@ -465,7 +517,7 @@ export default function ProfileScreen({api, authState, username, onBack, onMessa
 								{profile.reputation.checkins_count > 0 ? <View style={styles.reputationStat}><Text style={styles.reputationValue}>{profile.reputation.checkins_count}</Text><Text style={styles.reputationLabel}>отметок</Text></View> : null}
 								{profile.reputation.worlds_created > 0 ? <View style={styles.reputationStat}><Text style={styles.reputationValue}>{profile.reputation.worlds_created}</Text><Text style={styles.reputationLabel}>миров</Text></View> : null}
 								{profile.reputation.polls_created > 0 ? <View style={styles.reputationStat}><Text style={styles.reputationValue}>{profile.reputation.polls_created}</Text><Text style={styles.reputationLabel}>опросов</Text></View> : null}
-							</View>
+							</ScrollView>
 						) : null}
 
 						{!isOwn && profile.guid && onMessage ? (
@@ -475,34 +527,18 @@ export default function ProfileScreen({api, authState, username, onBack, onMessa
 				</View>
 			</BerxFadeIn>
 
-			{highlights.length > 0 && onOpenStoryGroup && profile.guid ? (
-				<BerxFadeIn style={styles.highlightsRail} delayMs={40}>
-					<ScrollView horizontal showsHorizontalScrollIndicator={false}>
-						{highlights.map((s: BerxStorySummary) => (
-							<Pressable
-								key={s.id}
-								style={styles.highlightItem}
-								onPress={() =>
-									onOpenStoryGroup({
-										owner_guid: profile.guid!,
-										owner_username: profile.username,
-										stories: [s],
-									})
-								}
-							>
-								<View style={styles.highlightRing}>
-									{s.mime_type === 'video/mp4' ? (
-										<View style={styles.highlightVideoFallback}><Text style={styles.highlightVideoIcon}>▶</Text></View>
-									) : (
-										<Image source={{uri: api.storyMediaUrl(s.id), headers: storyAuthHeaders}} style={styles.highlightThumb} />
-									)}
-								</View>
-								{s.caption ? <Text style={styles.highlightLabel} numberOfLines={1}>{s.caption}</Text> : null}
-							</Pressable>
-						))}
-					</ScrollView>
-				</BerxFadeIn>
+			{galleryItems.length > 0 ? (
+				<View style={styles.gallery}>
+					<BerxSegmentedTabs
+						segments={gallerySegments}
+						activeKey={gallerySeg}
+						onSelect={(k: string) => setGallerySeg(k as 'moments' | 'highlights')}
+						style={styles.gallerySegments}
+					/>
+					<BerxPhotoGrid items={galleryItems} />
+				</View>
 			) : null}
+
 
 			{pinnedPost && onOpenPost ? (
 				<BerxFadeIn style={styles.pinnedSection} delayMs={50}>
@@ -830,6 +866,8 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	pokeStatus: {color: colors.textDim, fontSize: typography.sizeXs, textAlign: 'center', marginTop: spacing.xs},
 	bannedBanner: {color: colors.danger, fontSize: typography.sizeSm, fontWeight: typography.weightMedium, textAlign: 'center'},
 	statTiles: {flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md},
+	gallery: {paddingHorizontal: spacing.lg, marginTop: spacing.lg, gap: spacing.md},
+	gallerySegments: {marginBottom: spacing.xs},
 	statTile: {
 		flex: 1,
 		padding: spacing.md,
@@ -843,7 +881,7 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	statTileFoot: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'},
 	statTileLabel: {color: colors.textDim, fontSize: typography.sizeXs},
 	statTileArrow: {color: colors.accent, fontSize: typography.sizeXs},
-	reputationRow: {flexDirection: 'row', gap: spacing.lg, marginTop: spacing.sm, marginBottom: spacing.sm},
+	reputationRow: {flexDirection: 'row', gap: spacing.lg, marginTop: spacing.sm, marginBottom: spacing.sm, paddingRight: spacing.lg},
 	reputationStat: {alignItems: 'flex-start'},
 	reputationValue: {color: colors.white, fontSize: typography.sizeBase, fontWeight: typography.weightBold},
 	reputationLabel: {color: colors.textDim, fontSize: typography.sizeXs},

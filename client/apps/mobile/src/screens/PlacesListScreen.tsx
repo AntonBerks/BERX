@@ -21,13 +21,14 @@
  * thumbnail. Directive §19: "the Place should feel alive," not sit in
  * an album-grid cell.
  */
-import {useCallback, useEffect, useState, useMemo} from 'react';
-import {View, Text, FlatList, Pressable, RefreshControl, StyleSheet} from 'react-native';
+import {useCallback, useEffect, useRef, useState, useMemo} from 'react';
+import {View, Text, FlatList, ScrollView, Pressable, RefreshControl, Animated, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxPlace, BerxPlaceCategory} from '@berx/api/types';
 import {ruPeopleLabel, ruPlural} from '@berx/domain';
 import {spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
+import {BerxDepthCard} from '../../../../packages/design-system/src/components/BerxDepthCard';
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
@@ -48,6 +49,8 @@ interface Props {
 
 export default function PlacesListScreen({api, onOpenPlace, onCreate, onOpenNearby, onOpenSaved, onBack}: Props) {
 	const colors = useBerxColors();
+	// Real scroll driver for the list's card depth (BerxDepthCard).
+	const listScroll = useRef(new Animated.Value(0)).current;
 	const styles = useMemo(() => makeStyles(colors), [colors]);
 	const [query, setQuery] = useState('');
 	const [category, setCategory] = useState<string | undefined>(undefined);
@@ -89,7 +92,7 @@ export default function PlacesListScreen({api, onOpenPlace, onCreate, onOpenNear
 	const headline: {lines: string[]; accentIndex: number} = activeCategory
 		? {lines: ['Куда пойти', activeCategory.label.toLowerCase()], accentIndex: 1}
 		: trending.length > 0
-		? {lines: ['Куда пойти', `${trending.length} мест сейчас в тренде`], accentIndex: 1}
+		? {lines: ['Куда пойти', `${trending.length} ${ruPlural(trending.length, 'место', 'места', 'мест')} сейчас в тренде`], accentIndex: 1}
 		: items.length > 0
 		? {lines: ['Куда пойти', `${items.length} ${ruPlural(items.length, 'место', 'места', 'мест')} рядом`], accentIndex: 1}
 		: {lines: ['Куда пойти', 'найди своё место'], accentIndex: 1};
@@ -101,7 +104,7 @@ export default function PlacesListScreen({api, onOpenPlace, onCreate, onOpenNear
 				<BerxEditorialTitle lines={headline.lines} accentIndex={headline.accentIndex} style={styles.headline} />
 				<View style={styles.utilities}>
 					<BerxCircleButton glyph="◎" label="Рядом" onPress={onOpenNearby} />
-					<BerxCircleButton glyph="♡" label="Сохранённые" onPress={onOpenSaved} />
+					<BerxCircleButton glyph="♡" label="Сохран." onPress={onOpenSaved} />
 					<BerxCircleButton glyph="+" label="Добавить" onPress={onCreate} />
 				</View>
 			</View>
@@ -133,27 +136,26 @@ export default function PlacesListScreen({api, onOpenPlace, onCreate, onOpenNear
 					/>
 				</View>
 			) : null}
-			<FlatList
+			<ScrollView
 				horizontal
 				showsHorizontalScrollIndicator={false}
-				data={categories}
-				keyExtractor={(c: BerxPlaceCategory) => c.slug}
-				contentContainerStyle={styles.chipRow}
-				renderItem={({item}: {item: BerxPlaceCategory}) => (
+				contentContainerStyle={styles.chipRow}>
+				{categories.map((item: BerxPlaceCategory) => (
 					<Pressable
+						key={item.slug}
 						style={[styles.chip, category === item.slug && styles.chipActive]}
 						onPress={() => setCategory(category === item.slug ? undefined : item.slug)}>
 						<Text style={[styles.chipText, category === item.slug && styles.chipTextActive]}>{item.label}</Text>
 					</Pressable>
-				)}
-			/>
+				))}
+				</ScrollView>
 			{error ? (
 				<BerxErrorState message={error} onRetry={load} />
 			) : items.length === 0 ? (
 				<BerxEmptyState title="Мест не найдено" subtitle="Попробуйте другой запрос или добавьте первое место." />
 			) : (
 				<BerxFadeIn style={styles.gridFade} delayMs={60}>
-					<FlatList
+					<Animated.FlatList
 						data={items}
 						keyExtractor={(p: BerxPlace) => String(p.guid)}
 						contentContainerStyle={styles.list}
@@ -168,8 +170,10 @@ export default function PlacesListScreen({api, onOpenPlace, onCreate, onOpenNear
 								tintColor={colors.accent}
 							/>
 						}
+						onScroll={Animated.event([{nativeEvent: {contentOffset: {y: listScroll}}}], {useNativeDriver: true})}
+						scrollEventThrottle={16}
 						renderItem={({item}: {item: BerxPlace}) => (
-							<View style={styles.tile}>
+							<BerxDepthCard driver={listScroll} style={styles.tile}>
 								<BerxPlaceCard
 									title={item.title}
 									imageUrl={item.cover_url}
@@ -177,7 +181,7 @@ export default function PlacesListScreen({api, onOpenPlace, onCreate, onOpenNear
 									rating={item.rating_count > 0 ? item.rating : undefined}
 									onPress={() => onOpenPlace(item.guid)}
 								/>
-							</View>
+							</BerxDepthCard>
 						)}
 					/>
 				</BerxFadeIn>
@@ -188,15 +192,15 @@ export default function PlacesListScreen({api, onOpenPlace, onCreate, onOpenNear
 
 const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.bg},
-	head: {flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', paddingHorizontal: spacing.lg, paddingTop: spacing.md, gap: spacing.md},
-	headline: {flex: 1},
-	utilities: {flexDirection: 'row', gap: spacing.xs},
+	head: {paddingHorizontal: spacing.lg, paddingTop: spacing.md, gap: spacing.md},
+	headline: {paddingHorizontal: 0, paddingTop: 0},
+	utilities: {flexDirection: 'row', gap: spacing.sm, alignSelf: 'flex-start'},
 	toolbar: {paddingHorizontal: spacing.md, paddingTop: spacing.sm, gap: spacing.sm},
 	toolbarRow: {flexDirection: 'row', gap: spacing.sm},
-	trendingLabel: {color: colors.accent, fontSize: typography.sizeXs, fontWeight: typography.weightBold, textTransform: 'uppercase', paddingHorizontal: spacing.md, paddingTop: spacing.sm},
-	trendingRow: {paddingHorizontal: spacing.md, paddingVertical: spacing.sm, gap: spacing.sm},
-	trendingTile: {width: 220, marginRight: spacing.sm, borderRadius: radius.md, overflow: 'hidden'},
-	chipRow: {paddingHorizontal: spacing.md, paddingVertical: spacing.sm, gap: spacing.xs},
+	trendingLabel: {color: colors.text, fontSize: typography.sizeLg, fontWeight: typography.weightBold, letterSpacing: -0.4, paddingHorizontal: spacing.lg, paddingTop: spacing.sm},
+	trendingRow: {paddingHorizontal: spacing.lg, paddingVertical: spacing.md, gap: spacing.md},
+	trendingTile: {width: 220, marginRight: spacing.md},
+	chipRow: {paddingHorizontal: spacing.lg, paddingVertical: spacing.sm, gap: spacing.sm, alignItems: 'center'},
 	chip: {paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: radius.pill, backgroundColor: colors.surface, marginRight: spacing.xs},
 	chipActive: {backgroundColor: colors.accentSoft, borderWidth: 1, borderColor: colors.accent},
 	chipText: {fontSize: typography.sizeSm, color: colors.textDim},

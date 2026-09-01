@@ -21,8 +21,10 @@ import {useCallback, useEffect, useRef, useState, useMemo} from 'react';
 import {View, Text, ScrollView, Pressable, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxOnlineFriend, BerxFriend, BerxPeopleSuggestion} from '@berx/api/types';
+import {ruPlural} from '@berx/domain';
 import {spacing, typography} from '@berx/design-system/tokens';
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
+import {BerxEditorialTitle} from '../../../../packages/design-system/src/components/BerxGreetingHeader';
 import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
 import {BerxLoadingState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxPersonCard, BerxLiveDot} from '../../../../packages/design-system/src/components/BerxSpatialCards';
@@ -47,6 +49,11 @@ interface SearchRow {
 }
 
 const DEBOUNCE_MS = 400;
+
+// One person-card width across every band on this screen. The rails used
+// 124 while the friends grid used a percentage, so the least important
+// band rendered the biggest faces.
+const PERSON_W = 148;
 
 export default function PeopleScreen({api, onOpenProfile, onOpenConversation, onOpenNearby, onOpenSocialMap, onOpenInvite}: Props) {
 	const colors = useBerxColors();
@@ -95,16 +102,24 @@ export default function PeopleScreen({api, onOpenProfile, onOpenConversation, on
 	if (loading) return <BerxLoadingState />;
 
 	const onlineGuids = new Set(online.map((o: BerxOnlineFriend) => o.guid));
+	const offlineFriends = friends.filter((f: BerxFriend) => !onlineGuids.has(f.guid));
 
 	return (
 		<View style={styles.screen}>
 			<View style={styles.head}>
-				<View style={styles.headTitles}>
-					<Text style={styles.title}>Люди</Text>
-					<Text style={styles.subtitle}>
-						{online.length > 0 ? `${online.length} в сети · ${friends.length} друзей` : `${friends.length} друзей`}
-					</Text>
-				</View>
+				{/* Same editorial header as NOW. A small plain title here made
+				    PEOPLE read as a different product from the screen one tab
+				    away. The second line is live state, as it is on NOW. */}
+				<BerxEditorialTitle
+					style={styles.headTitles}
+					accentIndex={1}
+					lines={[
+						'Люди',
+						online.length > 0
+							? `${online.length} в сети · ${friends.length} ${ruPlural(friends.length, 'друг', 'друга', 'друзей')}`
+							: `${friends.length} ${ruPlural(friends.length, 'друг', 'друга', 'друзей')}`,
+					]}
+				/>
 				<View style={styles.headActions}>
 					{onOpenSocialMap ? (
 						<Pressable style={styles.circleButton} onPress={onOpenSocialMap} hitSlop={6}>
@@ -163,7 +178,7 @@ export default function PeopleScreen({api, onOpenProfile, onOpenConversation, on
 													username={o.username}
 													imageUrl={o.icon}
 													isOnline
-													width={124}
+													width={PERSON_W}
 													onPress={() => onOpenProfile(o.username)}
 												/>
 											</View>
@@ -184,11 +199,11 @@ export default function PeopleScreen({api, onOpenProfile, onOpenConversation, on
 													imageUrl={s.icon}
 													mutualCount={s.mutual_count}
 													contextLine={
-														s.mutual_communities_count > 0
-															? `${s.mutual_count} общих · ${s.mutual_communities_count} сообществ`
+														s.mutual_count === 0 && s.mutual_communities_count > 0
+															? `${s.mutual_communities_count} ${ruPlural(s.mutual_communities_count, 'общее сообщество', 'общих сообщества', 'общих сообществ')}`
 															: undefined
 													}
-													width={124}
+													width={PERSON_W}
 													onPress={() => onOpenProfile(s.username)}
 												/>
 											</View>
@@ -197,19 +212,27 @@ export default function PeopleScreen({api, onOpenProfile, onOpenConversation, on
 								</View>
 							) : null}
 
+							{/* The online band above already shows these faces; repeating
+							    them here made the same two people fill the screen twice.
+							    Whoever is online is presented THERE, and this band is
+							    honestly labelled as the rest. */}
 							<View style={styles.section}>
-								<Text style={styles.sectionTitle}>Друзья</Text>
+								<Text style={styles.sectionTitle}>
+									{online.length > 0 && offlineFriends.length > 0 ? 'Остальные друзья' : 'Друзья'}
+								</Text>
 								{friends.length === 0 ? (
 									<Text style={styles.quiet}>Друзей пока нет — найдите людей через поиск выше.</Text>
+								) : offlineFriends.length === 0 ? (
+									<Text style={styles.quiet}>Все ваши друзья сейчас в сети — они выше.</Text>
 								) : (
 									<View style={styles.grid}>
-										{friends.map((f: BerxFriend) => (
+										{offlineFriends.map((f: BerxFriend) => (
 											<View key={f.guid} style={styles.gridCell}>
 												<BerxPersonCard
 													fullname={f.fullname}
 													username={f.username}
 													imageUrl={f.icon}
-													isOnline={onlineGuids.has(f.guid)}
+													isOnline={false}
 													contextLine={onOpenConversation ? 'Написать' : undefined}
 													onPress={() => onOpenProfile(f.username)}
 												/>
@@ -234,7 +257,7 @@ export default function PeopleScreen({api, onOpenProfile, onOpenConversation, on
 const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.bg},
 	head: {flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', paddingHorizontal: spacing.lg, paddingTop: spacing.lg, gap: spacing.md},
-	headTitles: {flex: 1, gap: 2},
+	headTitles: {flex: 1, paddingHorizontal: 0, paddingTop: 0},
 	subtitle: {color: colors.textFaint, fontSize: typography.sizeXs},
 	circleButton: {
 		width: 38,
@@ -248,23 +271,22 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	},
 	circleGlyph: {color: colors.text, fontSize: 16},
 	grid: {flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: spacing.lg, gap: spacing.md},
-	gridCell: {width: '47%', gap: spacing.xs},
+	gridCell: {width: PERSON_W, gap: spacing.xs},
 	gridAction: {alignSelf: 'flex-start', paddingHorizontal: spacing.sm, paddingVertical: 4, borderRadius: 999, backgroundColor: colors.accentSoft},
 	gridActionText: {color: colors.accent, fontSize: 11, fontWeight: typography.weightMedium},
 	title: {color: colors.text, fontSize: typography.sizeTitle, fontWeight: typography.weightBold, letterSpacing: -0.4},
 	headActions: {flexDirection: 'row', gap: spacing.md},
-	searchWrap: {paddingHorizontal: spacing.lg, paddingTop: spacing.md},
+	searchWrap: {paddingHorizontal: spacing.lg, paddingTop: spacing.sm, paddingBottom: spacing.xs},
 	scroll: {paddingBottom: spacing.xxl},
 	section: {marginTop: spacing.xl},
 	sectionHead: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.lg, gap: spacing.sm},
 	sectionTitle: {
-		color: colors.textFaint,
-		fontSize: typography.sizeXs,
+		color: colors.text,
+		fontSize: typography.sizeLg,
 		fontWeight: typography.weightBold,
-		letterSpacing: 1.2,
-		textTransform: 'uppercase',
+		letterSpacing: -0.4,
 		paddingHorizontal: spacing.lg,
-		marginBottom: spacing.sm,
+		marginBottom: spacing.md,
 	},
 	rail: {paddingHorizontal: spacing.lg, gap: spacing.sm},
 	railItem: {marginRight: spacing.sm},

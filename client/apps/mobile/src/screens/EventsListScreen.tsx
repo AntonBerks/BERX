@@ -27,13 +27,14 @@
  * real state (the active tab, the active category, what actually came
  * back), never fixed copy.
  */
-import {useCallback, useEffect, useState, useMemo} from 'react';
-import {View, Text, FlatList, Pressable, RefreshControl, StyleSheet} from 'react-native';
+import {useCallback, useEffect, useRef, useState, useMemo} from 'react';
+import {View, Text, FlatList, ScrollView, Pressable, RefreshControl, Animated, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxEvent, BerxPlaceCategory} from '@berx/api/types';
 import {ruPlural} from '@berx/domain';
 import {spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
+import {BerxDepthCard} from '../../../../packages/design-system/src/components/BerxDepthCard';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxEventCard} from '../../../../packages/design-system/src/components/BerxSpatialCards';
 import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
@@ -52,6 +53,8 @@ interface Props {
 
 export default function EventsListScreen({api, onOpenEvent, onCreate, onOpenMine, onBack}: Props) {
 	const colors = useBerxColors();
+	// Real scroll driver for the list's card depth (BerxDepthCard).
+	const listScroll = useRef(new Animated.Value(0)).current;
 	const styles = useMemo(() => makeStyles(colors), [colors]);
 	const [tab, setTab] = useState<'upcoming' | 'past'>('upcoming');
 	const [category, setCategory] = useState<string | undefined>(undefined);
@@ -146,27 +149,26 @@ export default function EventsListScreen({api, onOpenEvent, onCreate, onOpenMine
 					/>
 				</View>
 			) : null}
-			<FlatList
+			<ScrollView
 				horizontal
 				showsHorizontalScrollIndicator={false}
-				data={categories}
-				keyExtractor={(c: BerxPlaceCategory) => c.slug}
-				contentContainerStyle={styles.chipRow}
-				renderItem={({item}: {item: BerxPlaceCategory}) => (
+				contentContainerStyle={styles.chipRow}>
+				{categories.map((item: BerxPlaceCategory) => (
 					<Pressable
+						key={item.slug}
 						style={[styles.chip, category === item.slug && styles.chipActive]}
 						onPress={() => setCategory(category === item.slug ? undefined : item.slug)}>
 						<Text style={[styles.chipText, category === item.slug && styles.chipTextActive]}>{item.label}</Text>
 					</Pressable>
-				)}
-			/>
+				))}
+				</ScrollView>
 			{error ? (
 				<BerxErrorState message={error} onRetry={load} />
 			) : items.length === 0 ? (
 				<BerxEmptyState title={tab === 'upcoming' ? 'Событий пока нет' : 'Прошедших событий нет'} subtitle="Создайте первое — оно появится здесь." />
 			) : (
 				<BerxFadeIn style={styles.listFade} delayMs={60}>
-					<FlatList
+					<Animated.FlatList
 						data={items}
 						keyExtractor={(e: BerxEvent) => String(e.guid)}
 						contentContainerStyle={styles.list}
@@ -181,8 +183,10 @@ export default function EventsListScreen({api, onOpenEvent, onCreate, onOpenMine
 								tintColor={colors.accent}
 							/>
 						}
+						onScroll={Animated.event([{nativeEvent: {contentOffset: {y: listScroll}}}], {useNativeDriver: true})}
+						scrollEventThrottle={16}
 						renderItem={({item}: {item: BerxEvent}) => (
-							<View style={styles.tile}>
+							<BerxDepthCard driver={listScroll} style={styles.tile}>
 								<BerxEventCard
 									title={item.title}
 									imageUrl={item.cover_url}
@@ -194,7 +198,7 @@ export default function EventsListScreen({api, onOpenEvent, onCreate, onOpenMine
 									isGoing={item.is_going}
 									onPress={() => onOpenEvent(item.guid)}
 								/>
-							</View>
+							</BerxDepthCard>
 						)}
 					/>
 				</BerxFadeIn>
@@ -205,19 +209,19 @@ export default function EventsListScreen({api, onOpenEvent, onCreate, onOpenMine
 
 const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.bg},
-	head: {flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', paddingHorizontal: spacing.lg, paddingTop: spacing.md, gap: spacing.md},
-	headline: {flex: 1},
-	utilities: {flexDirection: 'row', gap: spacing.xs},
+	head: {paddingHorizontal: spacing.lg, paddingTop: spacing.md, gap: spacing.md},
+	headline: {paddingHorizontal: 0, paddingTop: 0},
+	utilities: {flexDirection: 'row', gap: spacing.sm, alignSelf: 'flex-start'},
 	toolbar: {paddingHorizontal: spacing.md, paddingTop: spacing.sm, gap: spacing.sm},
 	tabRow: {flexDirection: 'row', gap: spacing.xs},
 	tab: {flex: 1, paddingVertical: spacing.sm, borderRadius: radius.pill, alignItems: 'center', backgroundColor: colors.surface},
 	tabActive: {backgroundColor: colors.accentSoft},
 	tabText: {fontSize: typography.sizeSm, color: colors.textDim, fontWeight: typography.weightMedium},
 	tabTextActive: {color: colors.accent},
-	trendingLabel: {color: colors.accent, fontSize: typography.sizeXs, fontWeight: typography.weightBold, textTransform: 'uppercase', paddingHorizontal: spacing.md, paddingTop: spacing.sm},
-	trendingRow: {paddingHorizontal: spacing.md, paddingVertical: spacing.sm, gap: spacing.sm},
-	trendingTile: {width: 220, marginRight: spacing.sm, borderRadius: radius.md, overflow: 'hidden'},
-	chipRow: {paddingHorizontal: spacing.md, paddingVertical: spacing.sm, gap: spacing.xs},
+	trendingLabel: {color: colors.text, fontSize: typography.sizeLg, fontWeight: typography.weightBold, letterSpacing: -0.4, paddingHorizontal: spacing.lg, paddingTop: spacing.sm},
+	trendingRow: {paddingHorizontal: spacing.lg, paddingVertical: spacing.md, gap: spacing.md},
+	trendingTile: {width: 220, marginRight: spacing.md},
+	chipRow: {paddingHorizontal: spacing.lg, paddingVertical: spacing.sm, gap: spacing.sm, alignItems: 'center'},
 	chip: {paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: radius.pill, backgroundColor: colors.surface, marginRight: spacing.xs},
 	chipActive: {backgroundColor: colors.accentSoft, borderWidth: 1, borderColor: colors.accent},
 	chipText: {fontSize: typography.sizeSm, color: colors.textDim},

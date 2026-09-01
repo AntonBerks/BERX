@@ -16,6 +16,7 @@ import {useMemo} from 'react';
 import {View, Text, ScrollView, Pressable, StyleSheet} from 'react-native';
 import {spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxGlassSurface} from '../../../../packages/design-system/src/components/BerxGlassSurface';
+import {BerxEditorialTitle} from '../../../../packages/design-system/src/components/BerxGreetingHeader';
 import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 
@@ -101,7 +102,11 @@ export default function CreateSurfaceScreen(props: CreateSurfaceProps) {
 
 	return (
 		<View style={styles.screen}>
-			<BerxHeader title="Создать" onBack={props.onBack} />
+			{props.onBack ? <BerxHeader onBack={props.onBack} title="" /> : null}
+			{/* Editorial header, as on NOW/PEOPLE/PLACES. A centred title bar
+			    made CREATE read as a settings page rather than part of the
+			    same product. */}
+			<BerxEditorialTitle style={styles.head} accentIndex={1} lines={['Создать', 'что появится в BERX']} />
 			<ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
 				<BerxFadeIn>
 					<Section title="Прямо сейчас" entries={live} />
@@ -147,17 +152,17 @@ function Section({title, entries}: {title: string; entries: Entry[]}) {
 
 const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.bg},
-	scroll: {padding: spacing.lg, paddingBottom: spacing.xxxl},
-	section: {marginBottom: spacing.xl},
+	head: {paddingHorizontal: 0, paddingBottom: spacing.sm},
+	scroll: {padding: spacing.lg, paddingTop: spacing.sm, paddingBottom: 132},
+	section: {marginBottom: spacing.lg},
 	sectionTitle: {
-		color: colors.textFaint,
-		fontSize: typography.sizeXs,
+		color: colors.text,
+		fontSize: typography.sizeLg,
 		fontWeight: typography.weightBold,
-		letterSpacing: 1.2,
-		textTransform: 'uppercase',
-		marginBottom: spacing.sm,
+		letterSpacing: -0.4,
+		marginBottom: spacing.md,
 	},
-	entryWrap: {marginBottom: spacing.sm},
+	entryWrap: {marginBottom: spacing.xs},
 	entryRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.md},
 	glyphPlate: {
 		width: 44,

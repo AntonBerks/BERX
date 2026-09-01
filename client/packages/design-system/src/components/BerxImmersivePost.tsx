@@ -40,6 +40,23 @@ export interface BerxImmersivePostProps {
 	onPress?: () => void;
 	onPressAuthor?: () => void;
 	ratio?: keyof typeof mediaRatio;
+	/**
+	 * Real follow state and action. The reference sheets put a Follow pill
+	 * right beside the author on the media. It renders ONLY when the
+	 * caller actually supplies the handler and the real state — a post by
+	 * someone you already follow, or a screen that doesn't know, shows no
+	 * pill rather than a decorative one.
+	 */
+	isFollowing?: boolean;
+	onToggleFollow?: () => void;
+	/**
+	 * Opens the real comment surface. The reference sheets end the media
+	 * with a glass comment bar; BERX composes on the post screen, so this
+	 * is a real entry point to it, not an inline input that would pretend
+	 * to post from here.
+	 */
+	onOpenComments?: () => void;
+	commentPlaceholder?: string;
 	/** Rendered under the caption, still inside the card — used for a real poll attached to the post. */
 	children?: React.ReactNode;
 	style?: ViewStyle;
@@ -56,6 +73,10 @@ export function BerxImmersivePost({
 	actions,
 	onPress,
 	onPressAuthor,
+	isFollowing,
+	onToggleFollow,
+	onOpenComments,
+	commentPlaceholder = 'Добавить комментарий',
 	ratio = 'hero',
 	children,
 	style,
@@ -98,6 +119,16 @@ export function BerxImmersivePost({
 							</Text>
 						) : null}
 					</View>
+					{onToggleFollow ? (
+						<Pressable
+							style={[styles.followPill, isFollowing && styles.followPillOn]}
+							onPress={onToggleFollow}
+							hitSlop={8}>
+							<Text style={[styles.followText, isFollowing && styles.followTextOn]}>
+								{isFollowing ? 'В друзьях' : 'Добавить'}
+							</Text>
+						</Pressable>
+					) : null}
 				</Pressable>
 				{text ? (
 					<Text style={styles.caption} numberOfLines={3}>
@@ -105,6 +136,15 @@ export function BerxImmersivePost({
 					</Text>
 				) : null}
 				{children}
+
+				{onOpenComments ? (
+					<Pressable style={styles.commentBar} onPress={onOpenComments}>
+						<Text style={styles.commentGlyph}>◌</Text>
+						<Text style={styles.commentText} numberOfLines={1}>
+							{commentPlaceholder}
+						</Text>
+					</Pressable>
+				) : null}
 			</View>
 		</Pressable>
 	);
@@ -121,6 +161,31 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 		borderColor: colors.borderSoft,
 	},
 	authorRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: 2},
+	followPill: {
+		paddingHorizontal: spacing.md,
+		paddingVertical: 5,
+		borderRadius: radius.pill,
+		backgroundColor: 'rgba(255,255,255,0.16)',
+		borderWidth: 1,
+		borderColor: 'rgba(255,255,255,0.28)',
+	},
+	followPillOn: {backgroundColor: 'rgba(255,255,255,0.06)', borderColor: 'rgba(255,255,255,0.16)'},
+	followText: {color: colors.onMedia, fontSize: typography.sizeXs, fontWeight: typography.weightBold},
+	followTextOn: {color: colors.onMediaDim, fontWeight: typography.weightMedium},
+	commentBar: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		gap: spacing.sm,
+		marginTop: spacing.sm,
+		paddingHorizontal: spacing.md,
+		paddingVertical: 11,
+		borderRadius: radius.pill,
+		backgroundColor: 'rgba(255,255,255,0.10)',
+		borderWidth: 1,
+		borderColor: 'rgba(255,255,255,0.20)',
+	},
+	commentGlyph: {color: colors.onMediaDim, fontSize: 14},
+	commentText: {color: colors.onMediaDim, fontSize: typography.sizeSm, flex: 1},
 	authorAvatar: {
 		width: 36,
 		height: 36,

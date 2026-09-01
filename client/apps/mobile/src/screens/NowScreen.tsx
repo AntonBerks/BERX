@@ -51,6 +51,7 @@ import {IconPlus, IconSearch, IconMessage, IconBell} from '../../../../packages/
 import {BerxRichText} from '../../../../packages/design-system/src/components/BerxRichText';
 import {BerxPollView} from '../../../../packages/design-system/src/components/BerxPollView';
 import {BerxSpatialLayer} from '../../../../packages/design-system/src/components/BerxSpatialLayer';
+import {BerxDepthCard} from '../../../../packages/design-system/src/components/BerxDepthCard';
 import {BerxAvatarStack} from '../../../../packages/design-system/src/components/BerxAvatarStack';
 import {BerxStoryRail} from '../../../../packages/design-system/src/components/BerxStoryRail';
 import {BerxGreetingHeader, BerxEditorialTitle} from '../../../../packages/design-system/src/components/BerxGreetingHeader';
@@ -271,6 +272,11 @@ export default function NowScreen({
 			? {lines: ['Куда пойти', 'места вокруг тебя'], accentIndex: 1}
 			: {lines: ['Пока тихо', 'здесь появится жизнь вокруг'], accentIndex: 1};
 
+	// Real device-local date, recomputed on each render of the screen.
+	const todayLabel = new Date()
+		.toLocaleDateString('ru-RU', {weekday: 'long', day: 'numeric', month: 'long'})
+		.replace(/^./, (c: string) => c.toUpperCase());
+
 	// ENVIRONMENT LEAD — the reference set never opens on a strip of
 	// small circles; it opens on one dominant photographic object. The
 	// lead is the newest REAL post that actually carries media. It is
@@ -316,10 +322,16 @@ export default function NowScreen({
 								: []),
 						]}
 					/>
+					{/* The reference sheets date the moment before naming it. Real
+					    device-local date, formatted in the app's own locale — no
+					    location chip beside it, because BERX has no real
+					    geolocation source here and a placed name would be invented. */}
+					<Text style={styles.dateLine}>{todayLabel}</Text>
 					<BerxEditorialTitle lines={headline.lines} accentIndex={headline.accentIndex} />
 
 					{lead ? (
 						<BerxSpatialLayer plane="hero" driver={scrollY} range={220} style={styles.leadLayer}>
+							<BerxDepthCard driver={scrollY} elevation={3} maxAngle={8}>
 							<BerxImmersivePost
 								imageUrl={lead.media_url as string}
 								mediaCount={lead.media_count}
@@ -340,7 +352,9 @@ export default function NowScreen({
 								]}
 								onPress={() => onOpenPost(lead.guid)}
 								onPressAuthor={() => lead.poster_username && onOpenProfile(lead.poster_username)}
+								onOpenComments={() => onOpenPost(lead.guid)}
 							/>
+							</BerxDepthCard>
 						</BerxSpatialLayer>
 					) : null}
 
@@ -366,7 +380,7 @@ export default function NowScreen({
 
 					{/* PEOPLE — real presence, or real mutual-friend discovery when nobody is online. */}
 					{peopleToShow.length > 0 ? (
-						<View style={styles.section}>
+						<BerxDepthCard driver={scrollY} maxAngle={4} depthScale={0.03} elevation={1} style={styles.section}>
 							<SectionHead
 								title={online.length > 0 ? 'Кто рядом сейчас' : 'Возможно, вы знакомы'}
 								count={online.length > 0 ? online.length : undefined}
@@ -388,12 +402,12 @@ export default function NowScreen({
 									</View>
 								))}
 							</ScrollView>
-						</View>
+						</BerxDepthCard>
 					) : null}
 
 					{/* PLACES — real places; distance ranking lives in Nearby (needs real coordinates). */}
 					{places.length > 0 ? (
-						<View style={styles.section}>
+						<BerxDepthCard driver={scrollY} maxAngle={4} depthScale={0.03} elevation={1} style={styles.section}>
 							<SectionHead title="Места вокруг" onMore={onOpenNearby ?? onOpenPlaces} moreLabel={onOpenNearby ? 'Рядом' : undefined} />
 							<ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.rail}>
 								{places.slice(0, 8).map((pl: BerxPlace) => (
@@ -409,12 +423,12 @@ export default function NowScreen({
 									</View>
 								))}
 							</ScrollView>
-						</View>
+						</BerxDepthCard>
 					) : null}
 
 					{/* EVENTS — real upcoming events as wide cinematic cards. */}
 					{events.length > 0 ? (
-						<View style={styles.section}>
+						<BerxDepthCard driver={scrollY} maxAngle={4} depthScale={0.03} elevation={1} style={styles.section}>
 							<SectionHead title="Что происходит" onMore={onOpenEvents} />
 							<ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.rail}>
 								{events.map((ev: BerxEvent) => (
@@ -434,7 +448,7 @@ export default function NowScreen({
 									</View>
 								))}
 							</ScrollView>
-						</View>
+						</BerxDepthCard>
 					) : null}
 
 					{/* SOCIAL CONTEXT — real trending tags from real posts. */}
@@ -475,7 +489,7 @@ export default function NowScreen({
 								const author = item.poster_username ?? item.owner_username ?? 'BERX';
 								if (item.media_url) {
 									return (
-										<View key={item.guid} style={styles.momentWrap}>
+										<BerxDepthCard key={item.guid} driver={scrollY} elevation={3} style={styles.momentWrap}>
 											<BerxImmersivePost
 												imageUrl={item.media_url}
 												mediaCount={item.media_count}
@@ -485,7 +499,8 @@ export default function NowScreen({
 												text={item.text}
 												actions={actions}
 												onPress={() => onOpenPost(item.guid)}
-												onPressAuthor={() => item.poster_username && onOpenProfile(item.poster_username)}>
+												onPressAuthor={() => item.poster_username && onOpenProfile(item.poster_username)}
+												onOpenComments={() => onOpenPost(item.guid)}>
 												{item.poll ? (
 													<BerxPollView
 														poll={item.poll}
@@ -496,11 +511,12 @@ export default function NowScreen({
 													/>
 												) : null}
 											</BerxImmersivePost>
-										</View>
+										</BerxDepthCard>
 									);
 								}
 								return (
-									<Pressable key={item.guid} style={styles.unit} onPress={() => onOpenPost(item.guid)}>
+									<BerxDepthCard key={item.guid} driver={scrollY} elevation={1} maxAngle={5}>
+									<Pressable style={styles.unit} onPress={() => onOpenPost(item.guid)}>
 										<Pressable
 											style={styles.bylineRow}
 											onPress={() => item.poster_username && onOpenProfile(item.poster_username)}
@@ -538,6 +554,7 @@ export default function NowScreen({
 											</Pressable>
 										</View>
 									</Pressable>
+									</BerxDepthCard>
 								);
 							})
 						)}
@@ -592,6 +609,13 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	skeletonWrap: {padding: spacing.lg, paddingTop: spacing.xl},
 	skelGap: {marginTop: spacing.md},
 
+	dateLine: {
+		color: colors.textFaint,
+		fontSize: typography.sizeSm,
+		fontWeight: typography.weightMedium,
+		paddingHorizontal: spacing.lg,
+		paddingTop: spacing.md,
+	},
 	liveLayer: {marginTop: spacing.xl},
 	leadLayer: {marginTop: spacing.lg, paddingHorizontal: spacing.lg},
 
