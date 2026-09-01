@@ -25,14 +25,14 @@ import {useCallback, useEffect, useState, useMemo} from 'react';
 import {View, Text, FlatList, Pressable, RefreshControl, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxPlace, BerxPlaceCategory} from '@berx/api/types';
-import {ruPeopleLabel} from '@berx/domain';
+import {ruPeopleLabel, ruPlural} from '@berx/domain';
 import {spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
-import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
 import {BerxPlaceCard} from '../../../../packages/design-system/src/components/BerxSpatialCards';
+import {BerxEditorialTitle, BerxCircleButton} from '../../../../packages/design-system/src/components/BerxGreetingHeader';
 
 import {useBerxColors} from '../../../../packages/design-system/src/theme';
 import type {BerxColorTokens} from '@berx/design-system/tokens';
@@ -83,16 +83,30 @@ export default function PlacesListScreen({api, onOpenPlace, onCreate, onOpenNear
 
 	if (loading && items.length === 0) return <BerxLoadingState />;
 
+	// Live headline, from this screen's own real state only. Each branch
+	// states something the screen can actually prove right now.
+	const activeCategory = category ? categories.find((c: BerxPlaceCategory) => c.slug === category) : undefined;
+	const headline: {lines: string[]; accentIndex: number} = activeCategory
+		? {lines: ['Куда пойти', activeCategory.label.toLowerCase()], accentIndex: 1}
+		: trending.length > 0
+		? {lines: ['Куда пойти', `${trending.length} мест сейчас в тренде`], accentIndex: 1}
+		: items.length > 0
+		? {lines: ['Куда пойти', `${items.length} ${ruPlural(items.length, 'место', 'места', 'мест')} рядом`], accentIndex: 1}
+		: {lines: ['Куда пойти', 'найди своё место'], accentIndex: 1};
+
 	return (
 		<View style={styles.screen}>
-			<BerxHeader title="Места" onBack={onBack} />
+			{onBack ? <BerxHeader onBack={onBack} title="" /> : null}
+			<View style={styles.head}>
+				<BerxEditorialTitle lines={headline.lines} accentIndex={headline.accentIndex} style={styles.headline} />
+				<View style={styles.utilities}>
+					<BerxCircleButton glyph="◎" label="Рядом" onPress={onOpenNearby} />
+					<BerxCircleButton glyph="♡" label="Сохранённые" onPress={onOpenSaved} />
+					<BerxCircleButton glyph="+" label="Добавить" onPress={onCreate} />
+				</View>
+			</View>
 			<View style={styles.toolbar}>
 				<BerxInput placeholder="Поиск мест" value={query} onChangeText={setQuery} onSubmitEditing={load} />
-				<View style={styles.toolbarRow}>
-					<BerxButton label="Рядом" variant="secondary" onPress={onOpenNearby} />
-					<BerxButton label="Сохранённые" variant="secondary" onPress={onOpenSaved} />
-					<BerxButton label="Добавить" onPress={onCreate} />
-				</View>
 			</View>
 			{trending.length > 0 ? (
 				<View>
@@ -174,6 +188,9 @@ export default function PlacesListScreen({api, onOpenPlace, onCreate, onOpenNear
 
 const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.bg},
+	head: {flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', paddingHorizontal: spacing.lg, paddingTop: spacing.md, gap: spacing.md},
+	headline: {flex: 1},
+	utilities: {flexDirection: 'row', gap: spacing.xs},
 	toolbar: {paddingHorizontal: spacing.md, paddingTop: spacing.sm, gap: spacing.sm},
 	toolbarRow: {flexDirection: 'row', gap: spacing.sm},
 	trendingLabel: {color: colors.accent, fontSize: typography.sizeXs, fontWeight: typography.weightBold, textTransform: 'uppercase', paddingHorizontal: spacing.md, paddingTop: spacing.sm},

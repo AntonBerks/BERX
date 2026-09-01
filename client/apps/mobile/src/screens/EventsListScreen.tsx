@@ -19,17 +19,25 @@
  * photo itself and attendee count as a second scrim badge — the
  * "ticket stub" idea survives as a chip on a real photo, not a
  * separate flat column doing the work instead of the photo.
+ *
+ * OPUS 5 — reference composition, matching PlacesListScreen exactly so
+ * the two discovery surfaces read as one product: live editorial
+ * headline + circular glass utilities instead of a title bar and a
+ * full-width button. The headline is computed from this screen's own
+ * real state (the active tab, the active category, what actually came
+ * back), never fixed copy.
  */
 import {useCallback, useEffect, useState, useMemo} from 'react';
 import {View, Text, FlatList, Pressable, RefreshControl, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxEvent, BerxPlaceCategory} from '@berx/api/types';
+import {ruPlural} from '@berx/domain';
 import {spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
-import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxEventCard} from '../../../../packages/design-system/src/components/BerxSpatialCards';
 import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
+import {BerxEditorialTitle, BerxCircleButton} from '../../../../packages/design-system/src/components/BerxGreetingHeader';
 
 import {useBerxColors} from '../../../../packages/design-system/src/theme';
 import type {BerxColorTokens} from '@berx/design-system/tokens';
@@ -79,9 +87,28 @@ export default function EventsListScreen({api, onOpenEvent, onCreate, onOpenMine
 
 	if (loading && items.length === 0) return <BerxLoadingState />;
 
+	const activeCategory = category ? categories.find((c: BerxPlaceCategory) => c.slug === category) : undefined;
+	const headline: {lines: string[]; accentIndex: number} =
+		tab === 'past'
+			? {lines: ['Что было', `${items.length} ${ruPlural(items.length, 'событие', 'события', 'событий')} позади`], accentIndex: 1}
+			: activeCategory
+			? {lines: ['Что происходит', activeCategory.label.toLowerCase()], accentIndex: 1}
+			: trending.length > 0
+			? {lines: ['Что происходит', `${trending.length} ${ruPlural(trending.length, 'событие', 'события', 'событий')} в тренде`], accentIndex: 1}
+			: items.length > 0
+			? {lines: ['Что происходит', `${items.length} ${ruPlural(items.length, 'событие', 'события', 'событий')} впереди`], accentIndex: 1}
+			: {lines: ['Что происходит', 'создай первое событие'], accentIndex: 1};
+
 	return (
 		<View style={styles.screen}>
-			<BerxHeader title="События" onBack={onBack} />
+			{onBack ? <BerxHeader onBack={onBack} title="" /> : null}
+			<View style={styles.head}>
+				<BerxEditorialTitle lines={headline.lines} accentIndex={headline.accentIndex} style={styles.headline} />
+				<View style={styles.utilities}>
+					<BerxCircleButton glyph="✓" label="Я иду" onPress={onOpenMine} />
+					<BerxCircleButton glyph="+" label="Создать" onPress={onCreate} />
+				</View>
+			</View>
 			<View style={styles.toolbar}>
 				<View style={styles.tabRow}>
 					<Pressable style={[styles.tab, tab === 'upcoming' && styles.tabActive]} onPress={() => setTab('upcoming')}>
@@ -90,11 +117,7 @@ export default function EventsListScreen({api, onOpenEvent, onCreate, onOpenMine
 					<Pressable style={[styles.tab, tab === 'past' && styles.tabActive]} onPress={() => setTab('past')}>
 						<Text style={[styles.tabText, tab === 'past' && styles.tabTextActive]}>Прошедшие</Text>
 					</Pressable>
-					<Pressable style={styles.tab} onPress={onOpenMine}>
-						<Text style={styles.tabText}>Я иду</Text>
-					</Pressable>
 				</View>
-				<BerxButton label="Создать событие" onPress={onCreate} fullWidth />
 			</View>
 			{trending.length > 0 ? (
 				<View>
@@ -182,6 +205,9 @@ export default function EventsListScreen({api, onOpenEvent, onCreate, onOpenMine
 
 const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.bg},
+	head: {flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', paddingHorizontal: spacing.lg, paddingTop: spacing.md, gap: spacing.md},
+	headline: {flex: 1},
+	utilities: {flexDirection: 'row', gap: spacing.xs},
 	toolbar: {paddingHorizontal: spacing.md, paddingTop: spacing.sm, gap: spacing.sm},
 	tabRow: {flexDirection: 'row', gap: spacing.xs},
 	tab: {flex: 1, paddingVertical: spacing.sm, borderRadius: radius.pill, alignItems: 'center', backgroundColor: colors.surface},

@@ -36,16 +36,16 @@
  * it. Same pickImage-injected-prop pattern as EditPlaceScreen.
  */
 import {useEffect, useState, useMemo} from 'react';
-import {View, Text, Image, Pressable, Alert, StyleSheet} from 'react-native';
+import {View, Text, Pressable, Alert, StyleSheet} from 'react-native';
 import type {BerxApiClient, BerxFilePart} from '@berx/api/client';
 import type {BerxCommunity, BerxEvent, BerxFeedItem, BerxCommunityMember} from '@berx/api/types';
 import {relativeTimeLabel} from '@berx/domain';
 import {spacing, typography} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
+import {BerxProfileHero} from '../../../../packages/design-system/src/components/BerxProfileHero';
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState} from '../../../../packages/design-system/src/components/BerxStates';
-import {Berx3DTilt} from '../../../../packages/design-system/src/components/Berx3DTilt';
 import {BerxPollView} from '../../../../packages/design-system/src/components/BerxPollView';
 import {BerxAvatarStack} from '../../../../packages/design-system/src/components/BerxAvatarStack';
 import {BerxEventCard} from '../../../../packages/design-system/src/components/BerxSpatialCards';
@@ -303,24 +303,44 @@ export default function CommunityDetailScreen({api, guid, myGuid, pickImage, onB
 	return (
 		<View style={styles.screen}>
 			<BerxHeader onBack={onBack} title={community.name} />
+			{/* OPUS 5 — a community is a profile, so it gets the same identity
+			    surface a person does (BerxProfileHero) instead of a flat cover
+			    strip with the name repeated in body text below it. Stats are
+			    real loaded counts only: a tile appears only once its data has
+			    actually arrived, and routes only where a route exists. */}
 			{!editing ? (
-				<Berx3DTilt style={styles.hero} maxAngle={6}>
-					{community.cover_url ? (
-						<Image source={{uri: community.cover_url}} style={styles.heroImage} />
-					) : (
-						<View style={styles.heroPlaceholder} />
-					)}
+				<BerxProfileHero
+					title={community.name}
+					eyebrow={community.privacy === 'private' ? 'Закрытое сообщество' : 'Открытое сообщество'}
+					coverUrl={community.cover_url}
+					meta={community.description || null}
+					height={340}
+					stats={[
+						...(members.length > 0
+							? [{
+								key: 'members',
+								value: members.length,
+								label: 'Участников',
+								onPress: onOpenMembers ? () => onOpenMembers(guid, isOwner) : undefined,
+							}]
+							: []),
+						...(events.length > 0
+							? [{key: 'events', value: events.length, label: 'Событий'}]
+							: []),
+					]}>
 					{isOwner && pickImage ? (
-						<Pressable style={styles.coverEditButton} onPress={handleUploadCover} disabled={uploadingCover} hitSlop={8}>
-							<Text style={styles.coverEditLabel}>{uploadingCover ? 'Загрузка…' : 'Сменить обложку'}</Text>
-						</Pressable>
+						<View style={styles.coverActions}>
+							<Pressable onPress={handleUploadCover} disabled={uploadingCover} hitSlop={8}>
+								<Text style={styles.coverEditLabel}>{uploadingCover ? 'Загрузка…' : 'Сменить обложку'}</Text>
+							</Pressable>
+							{community.cover_url ? (
+								<Pressable onPress={handleRemoveCover} disabled={uploadingCover} hitSlop={8}>
+									<Text style={styles.coverEditLabel}>Убрать обложку</Text>
+								</Pressable>
+							) : null}
+						</View>
 					) : null}
-					{isOwner && community.cover_url ? (
-						<Pressable style={styles.coverRemoveButton} onPress={handleRemoveCover} disabled={uploadingCover} hitSlop={8}>
-							<Text style={styles.coverEditLabel}>Убрать обложку</Text>
-						</Pressable>
-					) : null}
-				</Berx3DTilt>
+				</BerxProfileHero>
 			) : null}
 			<View style={styles.content}>
 				{editing ? (
@@ -338,9 +358,7 @@ export default function CommunityDetailScreen({api, guid, myGuid, pickImage, onB
 					</>
 				) : (
 					<>
-						<Text style={styles.name}>{community.name}</Text>
 						<View style={styles.identityRow}>
-							<Text style={styles.privacy}>{community.privacy === 'private' ? 'Закрытое сообщество' : 'Открытое сообщество'}</Text>
 							{members.length > 0 ? (
 								<Pressable
 									style={styles.membersInline}
@@ -354,8 +372,6 @@ export default function CommunityDetailScreen({api, guid, myGuid, pickImage, onB
 								</Pressable>
 							) : null}
 						</View>
-						{community.description ? <Text style={styles.description}>{community.description}</Text> : null}
-
 						<BerxButton
 							label={community.is_member ? 'Покинуть сообщество' : 'Вступить'}
 							variant={community.is_member ? 'secondary' : 'primary'}
@@ -467,17 +483,10 @@ export default function CommunityDetailScreen({api, guid, myGuid, pickImage, onB
 
 const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.black},
-	hero: {height: 160, backgroundColor: colors.surface, overflow: 'hidden'},
-	heroImage: {width: '100%', height: '100%'},
-	heroPlaceholder: {width: '100%', height: '100%', backgroundColor: colors.surface},
-	coverEditButton: {position: 'absolute', right: spacing.sm, bottom: spacing.sm, backgroundColor: colors.black, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs, borderRadius: 6, borderWidth: 1, borderColor: colors.accent},
-	coverRemoveButton: {position: 'absolute', left: spacing.sm, bottom: spacing.sm, backgroundColor: colors.black, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs, borderRadius: 6, borderWidth: 1, borderColor: colors.borderSoft},
+	coverActions: {flexDirection: 'row', gap: spacing.md, marginTop: spacing.sm},
 	coverEditLabel: {color: colors.accent, fontSize: typography.sizeXs, fontWeight: typography.weightMedium},
 	content: {padding: spacing.lg, gap: spacing.md},
 	ownerActions: {gap: spacing.sm, marginTop: spacing.sm},
-	name: {color: colors.text, fontSize: typography.sizeXl, fontWeight: typography.weightBold},
-	privacy: {color: colors.accent, fontSize: typography.sizeSm},
-	description: {color: colors.textDim, fontSize: typography.sizeBase},
 	reportLink: {color: colors.textFaint, fontSize: typography.sizeXs, textDecorationLine: 'underline', textAlign: 'center', marginTop: spacing.sm},
 	error: {fontSize: typography.sizeSm, color: colors.danger},
 	deleteLink: {fontSize: typography.sizeSm, color: colors.danger, textAlign: 'center', textDecorationLine: 'underline', marginTop: spacing.sm},

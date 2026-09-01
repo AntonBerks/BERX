@@ -44,8 +44,10 @@ import {FlatList, Pressable, Text, View, Image, RefreshControl, StyleSheet} from
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxConversationSummary, BerxOnlineFriend, BerxPeopleSuggestion} from '@berx/api/types';
 import {relativeTimeLabel} from '@berx/domain';
+import {ruPlural} from '@berx/domain';
 import {spacing, radius, typography} from '@berx/design-system/tokens';
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
+import {BerxEditorialTitle, BerxCircleButton} from '../../../../packages/design-system/src/components/BerxGreetingHeader';
 import {BerxErrorState, BerxEmptyState, BerxSkeleton} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxAvatar} from '../../../../packages/design-system/src/components/BerxAvatar';
 import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
@@ -130,12 +132,27 @@ export default function ConversationListScreen({api, onOpenConversation, onOpenM
 
 	return (
 		<View style={styles.screen}>
-			<View style={styles.titleRow}>
-				<Text style={styles.title}>Сообщения{unread > 0 ? ` (${unread})` : ''}</Text>
+			{/* OPUS 5 — reference composition: the same live editorial
+			    headline + circular glass utility the other non-feed surfaces
+			    use, so MESSAGING stops being the one screen with a plain text
+			    title bar. Both the second line and the search badge are real
+			    loaded counts — the unread total the same poll already tracks,
+			    and how many friends the presence endpoint actually returned. */}
+			<View style={styles.head}>
+				<BerxEditorialTitle
+					style={styles.headline}
+					accentIndex={1}
+					lines={[
+						'Сообщения',
+						unread > 0
+							? `${unread} ${ruPlural(unread, 'новое', 'новых', 'новых')}`
+							: online.length > 0
+							? `${online.length} ${ruPlural(online.length, 'друг', 'друга', 'друзей')} в сети`
+							: 'все прочитано',
+					]}
+				/>
 				{onOpenMessageSearch ? (
-					<Pressable onPress={onOpenMessageSearch} hitSlop={12}>
-						<Text style={styles.searchAllLink}>Поиск по всем сообщениям</Text>
-					</Pressable>
+					<BerxCircleButton glyph="⌕" label="Поиск" onPress={onOpenMessageSearch} />
 				) : null}
 			</View>
 			{online.length > 0 ? (
@@ -240,7 +257,6 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.black},
 	titleRow: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.lg, paddingTop: spacing.md},
 	title: {color: colors.text, fontSize: typography.sizeXl, fontWeight: typography.weightBold},
-	searchAllLink: {color: colors.accent, fontSize: typography.sizeXs, fontWeight: typography.weightMedium},
 	onlineRow: {paddingHorizontal: spacing.lg, paddingBottom: spacing.sm, gap: spacing.sm},
 	onlineItem: {alignItems: 'center', width: 60, marginRight: spacing.xs},
 	onlineAvatarWrap: {width: 48, height: 48},

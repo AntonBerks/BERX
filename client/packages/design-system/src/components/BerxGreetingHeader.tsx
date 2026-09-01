@@ -77,6 +77,30 @@ export function BerxGreetingHeader({greeting, name, avatarUrl, onPressIdentity, 
 	);
 }
 
+/**
+ * The reference set's circular glass utility button, used on its own
+ * (outside the greeting row) by screens that have utilities but no
+ * greeting — PLACES, EVENTS, COMMUNITIES. Same material and geometry
+ * as the header's own actions, so the two never drift apart.
+ */
+export function BerxCircleButton({glyph, label, badge, onPress}: {glyph: string; label?: string; badge?: number; onPress: () => void}) {
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(colors), [colors]);
+	return (
+		<Pressable style={styles.circleWrap} onPress={onPress} hitSlop={6}>
+			<View style={styles.actionButton}>
+				<Text style={styles.actionGlyph}>{glyph}</Text>
+				{typeof badge === 'number' && badge > 0 ? (
+					<View style={styles.badge}>
+						<Text style={styles.badgeText}>{badge > 99 ? '99+' : badge}</Text>
+					</View>
+				) : null}
+			</View>
+			{label ? <Text style={styles.circleLabel} numberOfLines={1}>{label}</Text> : null}
+		</Pressable>
+	);
+}
+
 /** The large two-line editorial headline the reference set puts under the greeting. Caller supplies real, live copy. */
 export function BerxEditorialTitle({lines, accentIndex, style}: {lines: string[]; accentIndex?: number; style?: ViewStyle}) {
 	const colors = useBerxColors();
@@ -101,6 +125,8 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 		paddingTop: spacing.md,
 		gap: spacing.md,
 	},
+	circleWrap: {alignItems: 'center', gap: 4, width: 62},
+	circleLabel: {color: colors.textFaint, fontSize: typography.sizeXs},
 	identity: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flex: 1},
 	avatar: {width: 42, height: 42, borderRadius: 21, backgroundColor: colors.graphite},
 	avatarFallback: {alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.borderSoft},
