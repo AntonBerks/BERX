@@ -71,6 +71,8 @@ export default function PostDetailScreen({api, postGuid, myGuid, onOpenProfile, 
 	const [editText, setEditText] = useState('');
 	const [savingEdit, setSavingEdit] = useState(false);
 	const [deleting, setDeleting] = useState(false);
+	/** BERX WORLD — real comment threading. Set by tapping "Ответить" on a comment; cleared on send or cancel. */
+	const [replyTo, setReplyTo] = useState<BerxPostComment | null>(null);
 
 	async function load() {
 		setLoading(true);
@@ -253,8 +255,9 @@ export default function PostDetailScreen({api, postGuid, myGuid, onOpenProfile, 
 		setPosting(true);
 		setCommentStatus(null);
 		try {
-			await api.commentOnPost(postGuid, commentText.trim());
+			await api.commentOnPost(postGuid, commentText.trim(), replyTo ? replyTo.id : undefined);
 			setCommentText('');
+			setReplyTo(null);
 			await loadComments();
 		} catch {
 			setCommentStatus('Не удалось отправить комментарий');
@@ -429,6 +432,16 @@ export default function PostDetailScreen({api, postGuid, myGuid, onOpenProfile, 
 				) : null}
 
 				<View style={styles.commentBox}>
+					{replyTo ? (
+						<View style={styles.replyBanner}>
+							<Text style={styles.replyBannerText} numberOfLines={1}>
+								Ответ для {replyTo.author?.fullname ?? 'пользователя'}
+							</Text>
+							<Pressable onPress={() => setReplyTo(null)} hitSlop={8}>
+								<Text style={styles.replyBannerCancel}>✕</Text>
+							</Pressable>
+						</View>
+					) : null}
 					<BerxInput
 						placeholder="Написать комментарий..."
 						value={commentText}
@@ -445,8 +458,8 @@ export default function PostDetailScreen({api, postGuid, myGuid, onOpenProfile, 
 					) : comments.length === 0 ? (
 						<Text style={styles.commentStatus}>Комментариев пока нет.</Text>
 					) : (
-						comments.map((c) => (
-							<View key={c.id} style={styles.commentRow}>
+						orderCommentsThreaded(comments).map(({comment: c, depth}) => (
+							<View key={c.id} style={[styles.commentRow, depth > 0 && {marginLeft: Math.min(depth, 3) * 24}]}>
 								{c.author ? (
 									<Pressable onPress={() => onOpenProfile(c.author!.username)}>
 										<Image source={{uri: c.author.icon}} style={styles.commentAvatar} />
@@ -463,6 +476,9 @@ export default function PostDetailScreen({api, postGuid, myGuid, onOpenProfile, 
 											<Text style={[styles.commentLike, c.is_liked && styles.commentLikeActive]}>
 												{c.is_liked ? '♥' : '♡'}{c.like_count > 0 ? ` ${c.like_count}` : ''}
 											</Text>
+										</Pressable>
+										<Pressable onPress={() => setReplyTo(c)} hitSlop={8}>
+											<Text style={styles.commentLike}>Ответить</Text>
 										</Pressable>
 									</View>
 								</View>
@@ -484,6 +500,38 @@ export default function PostDetailScreen({api, postGuid, myGuid, onOpenProfile, 
 	);
 }
 
+/**
+ * BERX WORLD — real comment threading order. Top-level comments keep
+ * their server order (oldest first); each one is immediately followed
+ * by its full reply subtree (also oldest first), indented by depth.
+ * A reply whose real parent went missing (deleted) is folded back to
+ * top-level rather than silently dropped.
+ */
+function orderCommentsThreaded(comments: BerxPostComment[]): {comment: BerxPostComment; depth: number}[] {
+	const byParent = new Map<number, BerxPostComment[]>();
+	const ids = new Set(comments.map((c) => c.id));
+	const roots: BerxPostComment[] = [];
+	comments.forEach((c) => {
+		if (c.reply_to !== null && ids.has(c.reply_to)) {
+			const list = byParent.get(c.reply_to) ?? [];
+			list.push(c);
+			byParent.set(c.reply_to, list);
+		} else {
+			roots.push(c);
+		}
+	});
+	const out: {comment: BerxPostComment; depth: number}[] = [];
+	function walk(list: BerxPostComment[], depth: number) {
+		list.forEach((c) => {
+			out.push({comment: c, depth});
+			const children = byParent.get(c.id);
+			if (children) walk(children, depth + 1);
+		});
+	}
+	walk(roots, 0);
+	return out;
+}
+
 const styles = StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.black},
 	container: {flex: 1, padding: spacing.lg, gap: spacing.md},
@@ -498,6 +546,9 @@ const styles = StyleSheet.create({
 	editActions: {flexDirection: 'row', justifyContent: 'flex-end', gap: spacing.md},
 	editCancel: {color: colors.textDim, fontSize: typography.sizeSm},
 	editSave: {color: colors.accent, fontSize: typography.sizeSm, fontWeight: typography.weightMedium},
+	replyBanner: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: colors.glass1, borderRadius: radius.sm, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs, marginBottom: spacing.xs},
+	replyBannerText: {color: colors.textDim, fontSize: typography.sizeXs, flex: 1, marginRight: spacing.sm},
+	replyBannerCancel: {color: colors.textFaint, fontSize: typography.sizeSm},
 	likersBox: {backgroundColor: colors.glass1, borderRadius: radius.md, padding: spacing.sm, marginTop: spacing.xs, gap: spacing.xs},
 	likersHint: {color: colors.textFaint, fontSize: typography.sizeSm},
 	likerRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.xs},

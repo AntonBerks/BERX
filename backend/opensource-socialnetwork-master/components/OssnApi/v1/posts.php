@@ -492,10 +492,24 @@ if ($segment0 !== null && $segment1 === 'comments' && $segment2 === null && $met
 	if (!$post || ossn_api_is_blocked($api_user_guid, $post->owner_guid)) {
 		ossn_api_error('not_found', 'Post not found', 404);
 	}
+	// BERX WORLD — real comment threading. $replyTo is never trusted
+	// from the client alone: re-fetched and re-checked (real comment,
+	// same post) before it is allowed to become a parent — see
+	// OssnCommentThreads.php's own comment for the full rationale.
+	$replyTo = intval(input('reply_to'));
+	if ($replyTo > 0) {
+		$parentComment = (new OssnComments())->GetComment($replyTo);
+		if (!$parentComment || intval($parentComment->subject_guid) !== intval($post->guid)) {
+			ossn_api_error('validation_error', 'Invalid reply_to', 422);
+		}
+	}
 	$comments = new OssnComments();
 	$id = $comments->PostComment($post->guid, $api_user_guid, $text, 'post');
 	if (!$id) {
 		ossn_api_error('create_failed', 'Could not post comment', 500);
+	}
+	if ($replyTo > 0 && class_exists('OssnCommentThreads')) {
+		(new OssnCommentThreads())->setParent(intval($id), $replyTo, intval($post->guid));
 	}
 	// MAX BUILD -- real engagement signal (OssnSignals, BERX Future
 	// Core -- see places.php's own comment for the full story).
@@ -521,6 +535,9 @@ if ($segment0 !== null && $segment1 === 'comments' && $segment2 === null && $met
 	$comments = new OssnComments();
 	$likes = new OssnLikes();
 	$rows = $comments->GetComments($post->guid, 'post');
+	// BERX WORLD — real reply-to map, one bounded query for the whole
+	// thread (see OssnCommentThreads::parentsForPost()), not an N+1.
+	$replyMap = class_exists('OssnCommentThreads') ? (new OssnCommentThreads())->parentsForPost($post->guid) : array();
 	$out = array();
 	if ($rows) {
 		foreach ($rows as $row) {
@@ -537,6 +554,7 @@ if ($segment0 !== null && $segment1 === 'comments' && $segment2 === null && $met
 				// ('comment' vs 'post') — no new table needed.
 				'like_count' => $commentLikeCount ? intval($commentLikeCount) : 0,
 				'is_liked'   => (bool) $likes->isLiked($row->id, intval($api_user_guid), COMMENT_LIKE_TYPE),
+				'reply_to'   => isset($replyMap[intval($row->id)]) ? intval($replyMap[intval($row->id)]) : null,
 				'author'     => $author ? array(
 					'guid'     => intval($author->guid),
 					'username' => (string) $author->username,

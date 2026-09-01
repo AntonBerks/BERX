@@ -414,8 +414,9 @@ export class BerxApiClient {
 		return this.request<{status: string; guid: number}>(`/posts/drafts/${id}/publish`, {method: 'POST'});
 	}
 
-	async commentOnPost(id: number, text: string): Promise<{status: string}> {
-		return this.request<{status: string}>(`/posts/${id}/comments`, {method: 'POST', body: {text}});
+	/** replyTo: id of the comment being replied to, for real threading (re-verified server-side against this same post — never trusted blind). Omit for a top-level comment. */
+	async commentOnPost(id: number, text: string, replyTo?: number): Promise<{status: string}> {
+		return this.request<{status: string}>(`/posts/${id}/comments`, {method: 'POST', body: replyTo ? {text, reply_to: String(replyTo)} : {text}});
 	}
 
 	/** Closes a previously disclosed gap — comments were write-only until this session. */

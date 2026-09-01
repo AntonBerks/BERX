@@ -1102,6 +1102,8 @@ export interface BerxPostComment {
 	/** MAX BUILD — real comment likes (same OssnLikes engine as post likes, just $type='comment'). See components/OssnApi/v1/posts.php's own COMMENT_LIKE_TYPE comment. */
 	like_count: number;
 	is_liked: boolean;
+	/** BERX WORLD — real comment threading. The id of the comment this one replies to, or null for a top-level comment. Backed by a real BERX-native companion table (OssnCommentThreads), never a change to stock OssnAnnotation storage. */
+	reply_to: number | null;
 }
 
 export type BerxCollectionItemType = 'place' | 'event' | 'post';
