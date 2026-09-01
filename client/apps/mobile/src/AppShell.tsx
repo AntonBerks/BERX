@@ -442,6 +442,7 @@ function RouteRenderer({name, params}: {name: BerxRouteName; params: unknown}) {
 					onOpenCommunity={(guid) => nav.push('CommunityDetail', {guid})}
 					onOpenPlan={(id) => nav.push('PlanDetail', {id})}
 					onOpenWorld={(id) => nav.push('WorldDetail', {id})}
+					onOpenExperience={(id) => nav.push('ExperienceDetail', {id})}
 					onOpenProfile={openProfile}
 					onBack={nav.canGoBack ? nav.pop : undefined}
 				/>

@@ -10,6 +10,11 @@
  *   POST /lifemoments                             create
  *   GET  /lifemoments/for-source/{type}/{id}       real live feed for one source
  *   GET  /lifemoments/mine                         caller's own moments
+ *   GET  /lifemoments/{id}                         one moment — closes the real
+ *                                                   "berx:moment:tag notification
+ *                                                   has nowhere to go" gap; same
+ *                                                   real canViewSource() gate as
+ *                                                   for-source above
  *   DELETE /lifemoments/{id}                       owner only
  */
 
@@ -83,6 +88,17 @@ if ($segment0 === 'mine' && $segment1 === null && $method === 'GET') {
 		$out[] = ossn_api_moment_json($row, $model);
 	}
 	ossn_api_json(array('moments' => $out));
+}
+
+if ($segment0 !== null && is_numeric($segment0) && $segment1 === null && $method === 'GET') {
+	$moment = $model->getMoment($segment0);
+	if (!$moment) {
+		ossn_api_error('not_found', 'Moment not found', 404);
+	}
+	if (!$model->canViewSource($moment->source_type, $moment->source_id, $api_user_guid)) {
+		ossn_api_error('forbidden', 'Not allowed to view this moment', 403);
+	}
+	ossn_api_json(array('moment' => ossn_api_moment_json($moment, $model)));
 }
 
 if ($segment0 !== null && is_numeric($segment0) && $segment1 === null && $method === 'DELETE') {

@@ -891,6 +891,11 @@ export class BerxApiClient {
 		return this.request<{moments: BerxLifeMoment[]}>(`/lifemoments/mine?limit=${limit}`);
 	}
 
+	/** Real canViewSource() gate server-side — closes the "berx:moment:tag notification has nowhere to go" gap. */
+	async getLifeMoment(id: number): Promise<{moment: BerxLifeMoment}> {
+		return this.request<{moment: BerxLifeMoment}>(`/lifemoments/${id}`);
+	}
+
 	async deleteLifeMoment(id: number): Promise<{status: string}> {
 		return this.request<{status: string}>(`/lifemoments/${id}`, {method: 'DELETE'});
 	}

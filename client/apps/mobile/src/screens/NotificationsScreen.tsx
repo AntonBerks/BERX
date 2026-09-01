@@ -61,6 +61,8 @@ interface Props {
 	onOpenPlan?: (guid: number) => void;
 	/** subject_kind === 'world' — real OssnWorlds::getWorld(subject_guid). */
 	onOpenWorld?: (id: number) => void;
+	/** Real ExperienceDetailScreen destination — reached via subject_kind === 'moment' once the moment's own real source_type resolves to 'experience' (see api.getLifeMoment()). */
+	onOpenExperience?: (id: number) => void;
 	/** Real numeric-guid-or-username identifier — used with String(poster_guid) for 'ossnpoke:poke'. */
 	onOpenProfile?: (identifier: string) => void;
 	onBack?: () => void;
@@ -106,7 +108,7 @@ function notificationText(n: BerxNotification): string {
 	return `${actor}: ${n.type}`;
 }
 
-export default function NotificationsScreen({api, onOpenConversation, onOpenDating, onOpenPlace, onOpenEvent, onOpenPost, onOpenCommunity, onOpenPlan, onOpenWorld, onOpenProfile, onBack}: Props) {
+export default function NotificationsScreen({api, onOpenConversation, onOpenDating, onOpenPlace, onOpenEvent, onOpenPost, onOpenCommunity, onOpenPlan, onOpenWorld, onOpenExperience, onOpenProfile, onBack}: Props) {
 	const [items, setItems] = useState<BerxNotification[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [refreshing, setRefreshing] = useState(false);
@@ -160,6 +162,24 @@ export default function NotificationsScreen({api, onOpenConversation, onOpenDati
 		}
 		if (n.subject_kind === 'world' && onOpenWorld) {
 			onOpenWorld(n.subject_guid);
+			return;
+		}
+		if (n.subject_kind === 'moment') {
+			// A Moment has no screen of its own — real presence-gated read
+			// (api.getLifeMoment(), server re-checks canViewSource()) to
+			// resolve its real source_type/source_id, then open THAT.
+			try {
+				const res = await api.getLifeMoment(n.subject_guid);
+				if (res.moment.source_type === 'event_checkin') {
+					onOpenEvent(res.moment.source_id);
+				} else if (res.moment.source_type === 'experience' && onOpenExperience) {
+					onOpenExperience(res.moment.source_id);
+				} else if (res.moment.source_type === 'place_checkin') {
+					onOpenPlace(res.moment.source_id);
+				}
+			} catch {
+				// real rejection (deleted moment / no real access) — marked read, no navigation, never a broken destination
+			}
 			return;
 		}
 		// Real, honest fallbacks for types with no separate subject.
