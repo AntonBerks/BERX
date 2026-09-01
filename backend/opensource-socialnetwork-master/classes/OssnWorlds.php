@@ -198,6 +198,39 @@ class OssnWorlds extends OssnDatabase {
 		return $ok ? 'ok' : 'failed';
 	}
 
+	/**
+	 * Real discovery — public worlds the caller has no existing real
+	 * relationship to at all (not owned, no membership row of any
+	 * status — including a declined one, honoring that real decision
+	 * rather than re-surfacing it). Ordered by real time_created, newest
+	 * first — no invented "trending" score, same honesty rule as
+	 * lifegraph.php's own summary counts.
+	 */
+	public function discoverPublicWorlds($viewerGuid, $limit = 30) {
+		$viewerGuid = intval($viewerGuid);
+		$excludeRows = $this->select(array(
+			'from'   => self::MEMBERS_TABLE,
+			'wheres' => array(self::wheres('user_guid', '=', $viewerGuid)),
+		), true);
+		$excludeIds = array();
+		if ($excludeRows) {
+			foreach ($excludeRows as $row) {
+				$excludeIds[] = intval($row->world_id);
+			}
+		}
+		$wheres = array(self::wheres('visibility', '=', self::VISIBILITY_PUBLIC));
+		if ($excludeIds) {
+			$wheres[] = self::wheres('id', 'NOT IN', $excludeIds);
+		}
+		$rows = $this->select(array(
+			'from'     => self::TABLE,
+			'wheres'   => $wheres,
+			'order_by' => 'time_created DESC',
+			'limit'    => intval($limit),
+		), true);
+		return $rows ? $rows : array();
+	}
+
 	/** Real "my worlds" — worlds I own, plus worlds I'm an accepted member of, merged and deduplicated. Same two-query pattern as OssnPlans::myPlans(). */
 	public function myWorlds($guid, $limit = 50) {
 		$guid = intval($guid);

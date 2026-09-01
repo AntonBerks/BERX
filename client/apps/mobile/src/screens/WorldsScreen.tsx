@@ -13,9 +13,9 @@
  * item-count breakdown by type, not a status list or a photo grid.
  */
 import {useCallback, useEffect, useState} from 'react';
-import {View, Text, FlatList, Pressable, RefreshControl, StyleSheet} from 'react-native';
+import {View, Text, FlatList, Pressable, RefreshControl, StyleSheet, GestureResponderEvent} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
-import type {BerxWorld, BerxWorldItemType} from '@berx/api/types';
+import type {BerxWorld, BerxWorldItemType, BerxDiscoveredWorld} from '@berx/api/types';
 import {colors, spacing, radius, typography} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
@@ -48,9 +48,12 @@ function itemsSummary(world: BerxWorld): string {
 
 export default function WorldsScreen({api, onOpenWorld, onCreate, onBack}: Props) {
 	const [items, setItems] = useState<BerxWorld[]>([]);
+	const [discovered, setDiscovered] = useState<BerxDiscoveredWorld[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [refreshing, setRefreshing] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+	const [joiningId, setJoiningId] = useState<number | null>(null);
+	const [joinedIds, setJoinedIds] = useState<Set<number>>(new Set());
 
 	const load = useCallback(async () => {
 		try {
@@ -63,13 +66,60 @@ export default function WorldsScreen({api, onOpenWorld, onCreate, onBack}: Props
 			setLoading(false);
 			setRefreshing(false);
 		}
+		// Best-effort, additive — a failed discovery fetch must never block the caller's own worlds from showing.
+		api.discoverWorlds().then((res) => setDiscovered(res.worlds)).catch(() => undefined);
 	}, [api]);
 
 	useEffect(() => {
 		load();
 	}, [load]);
 
+	async function joinWorld(id: number) {
+		setJoiningId(id);
+		try {
+			await api.joinWorld(id);
+			setJoinedIds((prev: Set<number>) => new Set(prev).add(id));
+		} catch {
+			// real rejection — card stays as "join", not a fake success
+		} finally {
+			setJoiningId(null);
+		}
+	}
+
 	if (loading) return <BerxLoadingState />;
+
+	const discoverRail =
+		discovered.length > 0 ? (
+			<View style={styles.discoverSection}>
+				<Text style={styles.sectionTitle}>Открытые миры рядом</Text>
+				<FlatList
+					horizontal
+					showsHorizontalScrollIndicator={false}
+					data={discovered}
+					keyExtractor={(w: BerxDiscoveredWorld) => `discover-${w.id}`}
+					contentContainerStyle={styles.discoverRow}
+					renderItem={({item}: {item: BerxDiscoveredWorld}) => {
+						const joined = joinedIds.has(item.id);
+						return (
+							<Pressable style={styles.discoverCard} onPress={() => onOpenWorld(item.id)}>
+								<Text style={styles.discoverTitle} numberOfLines={1}>{item.title}</Text>
+								<Text style={styles.discoverMeta}>{item.member_count} {item.member_count === 1 ? 'участник' : 'участников'} · {item.item_count} объектов</Text>
+								<Pressable
+									style={[styles.discoverJoinButton, joined && styles.discoverJoinButtonDone]}
+									onPress={(e: GestureResponderEvent) => {
+										e.stopPropagation();
+										if (!joined) joinWorld(item.id);
+									}}
+									disabled={joiningId === item.id || joined}
+								>
+									<Text style={styles.discoverJoinText}>{joiningId === item.id ? '…' : joined ? 'Вы вступили ✓' : 'Вступить'}</Text>
+								</Pressable>
+							</Pressable>
+						);
+					}}
+				/>
+			</View>
+		) : null;
 
 	return (
 		<View style={styles.screen}>
@@ -80,7 +130,7 @@ export default function WorldsScreen({api, onOpenWorld, onCreate, onBack}: Props
 			</View>
 			{error ? (
 				<BerxErrorState message={error} onRetry={load} />
-			) : items.length === 0 ? (
+			) : items.length === 0 && discovered.length === 0 ? (
 				<BerxEmptyState title="Пока нет миров" subtitle="Соберите поездку, компанию друзей или соседей в один мир." />
 			) : (
 				<BerxFadeIn style={styles.fadeFlex}>
@@ -88,6 +138,8 @@ export default function WorldsScreen({api, onOpenWorld, onCreate, onBack}: Props
 						data={items}
 						keyExtractor={(w: BerxWorld) => String(w.id)}
 						contentContainerStyle={styles.list}
+						ListHeaderComponent={discoverRail}
+						ListEmptyComponent={<Text style={styles.hint}>Пока нет своих миров.</Text>}
 						refreshControl={
 							<RefreshControl
 								refreshing={refreshing}
@@ -151,4 +203,13 @@ const styles = StyleSheet.create({
 	avatarCluster: {flexDirection: 'row', alignItems: 'center'},
 	avatarClusterItem: {borderRadius: radius.pill, borderWidth: 2, borderColor: colors.black},
 	memberCount: {color: colors.textFaint, fontSize: typography.sizeXs},
+	discoverSection: {paddingBottom: spacing.md, gap: spacing.sm},
+	sectionTitle: {color: colors.textFaint, fontSize: typography.sizeXs, fontWeight: typography.weightBold, textTransform: 'uppercase', letterSpacing: 0.5},
+	discoverRow: {gap: spacing.sm},
+	discoverCard: {width: 200, borderWidth: 1, borderColor: colors.borderSoft, borderRadius: radius.lg, padding: spacing.md, gap: spacing.xs},
+	discoverTitle: {color: colors.text, fontSize: typography.sizeSm, fontWeight: typography.weightMedium},
+	discoverMeta: {color: colors.textFaint, fontSize: typography.sizeXs},
+	discoverJoinButton: {marginTop: spacing.xs, borderWidth: 1, borderColor: colors.accent, borderRadius: radius.pill, paddingVertical: spacing.xs, alignItems: 'center'},
+	discoverJoinButtonDone: {borderColor: colors.borderSoft},
+	discoverJoinText: {color: colors.accent, fontSize: typography.sizeXs, fontWeight: typography.weightMedium},
 });

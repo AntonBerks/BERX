@@ -1459,6 +1459,19 @@ export interface BerxWorld {
 	items: BerxWorldItem[];
 }
 
+/** GET /discovery/worlds — real public Worlds with no existing relationship, see components/OssnApi/v1/discovery.php's own header. Compact shape, not the full BerxWorld (no members/items arrays — just live counts). */
+export interface BerxDiscoveredWorld {
+	id: number;
+	owner_guid: number;
+	owner_username: string | null;
+	title: string;
+	description: string | null;
+	is_temporary: boolean;
+	time_created: number;
+	member_count: number;
+	item_count: number;
+}
+
 /**
  * BERX Next (components/OssnApi/v1/next.php) — the forward-looking
  * counterpart to Life Graph: real things needing a response or

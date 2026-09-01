@@ -30,11 +30,43 @@
  * public community), never a fake/AI-guessed relevance score.
  */
 
-if ($method !== 'GET' || (isset($segments[0]) && $segments[0] !== 'people')) {
+if ($method !== 'GET' || !isset($segments[0]) || ($segments[0] !== 'people' && $segments[0] !== 'worlds')) {
 	ossn_api_error('not_found', 'Unknown discovery route', 404);
 }
 
 $userGuid = intval($api_user_guid);
+
+/**
+ * GET /discovery/worlds — real public Worlds the caller has no
+ * existing relationship to (see OssnWorlds::discoverPublicWorlds()'s
+ * own header: not owned, no membership row of any status). Reuses
+ * worlds.php's own ossn_api_world_json() shape rather than a second,
+ * different world response format for the same real object.
+ */
+if ($segments[0] === 'worlds') {
+	if (!class_exists('OssnWorlds')) {
+		ossn_api_json(array('worlds' => array()));
+	}
+	$worldsModel = new OssnWorlds();
+	$limit = input('limit') ? max(1, min(100, intval(input('limit')))) : 30;
+	$rows = $worldsModel->discoverPublicWorlds($userGuid, $limit);
+	$out = array();
+	foreach ($rows as $row) {
+		$owner = ossn_user_by_guid($row->owner_guid);
+		$out[] = array(
+			'id'             => intval($row->id),
+			'owner_guid'     => intval($row->owner_guid),
+			'owner_username' => $owner ? (string) $owner->username : null,
+			'title'          => (string) $row->title,
+			'description'    => $row->description !== null ? (string) $row->description : null,
+			'is_temporary'   => (bool) $row->is_temporary,
+			'time_created'   => intval($row->time_created),
+			'member_count'   => count($worldsModel->membersForWorld($row->id)),
+			'item_count'     => count($worldsModel->itemsForWorld($row->id)),
+		);
+	}
+	ossn_api_json(array('worlds' => $out));
+}
 $userModel = new OssnUser();
 
 $myFriendRows = $userModel->getFriends($userGuid, array('limit' => 2000, 'page_limit' => false));
