@@ -48,11 +48,11 @@ export const colors = {
 	 * rather than a hardcoded hex, so this one edit is the systemic
 	 * repaint; no per-screen changes needed.
 	 */
-	accent: '#D9A93F',
-	accentHover: '#EABD5C',
-	accentSoft: 'rgba(217,169,63,0.16)',
-	accentSecondary: '#D9A93F',
-	accentSecondarySoft: 'rgba(217,169,63,0.16)',
+	accent: '#4FD6E8',
+	accentHover: '#7FE3F0',
+	accentSoft: 'rgba(79,214,232,0.16)',
+	accentSecondary: '#4FD6E8',
+	accentSecondarySoft: 'rgba(79,214,232,0.16)',
 
 	danger: '#ff4d4f',
 	success: '#3ddc84',
@@ -103,12 +103,12 @@ export const colorsDay = {
 	textDim: 'rgba(23,22,26,0.62)',
 	textFaint: 'rgba(23,22,26,0.36)',
 
-	/** Same gold hue, deepened for contrast against a light surface — not a second color. */
-	accent: '#96721F',
-	accentHover: '#B08A2E',
-	accentSoft: 'rgba(150,114,31,0.14)',
-	accentSecondary: '#96721F',
-	accentSecondarySoft: 'rgba(150,114,31,0.14)',
+	/** Same BERX cyan hue, deepened for real contrast against a light surface — not a second color. */
+	accent: '#0B7F91',
+	accentHover: '#0F97AC',
+	accentSoft: 'rgba(11,127,145,0.13)',
+	accentSecondary: '#0B7F91',
+	accentSecondarySoft: 'rgba(11,127,145,0.13)',
 
 	danger: '#d43d3f',
 	success: '#2fa968',
@@ -128,7 +128,7 @@ export function getBerxEnvironmentColors(env: BerxEnvironment) {
 }
 
 /** Real gradient pair for the new gold accent — see the comment on colors.accent above. Used only by the Business/Spatial-Glass layer for now. */
-export const gradientAccent = ['#D9A93F', '#7A5A16'] as const;
+export const gradientAccent = ['#4FD6E8', '#12707F'] as const;
 
 export const blur = {
 	sm: 8,
@@ -197,7 +197,7 @@ export const shadow = {
 		elevation: 12, // Android has no shadow blur/spread — elevation is the nearest equivalent
 	},
 	glow: {
-		shadowColor: colors.accent, // #D9A93F — see the RETIRED-cyan header comment above
+		shadowColor: colors.accent, // #4FD6E8 — BERX CYAN
 		shadowOpacity: 0.16,
 		shadowRadius: 32,
 		shadowOffset: { width: 0, height: 0 },
@@ -211,11 +211,11 @@ export type BerxTokens = typeof tokens;
 /**
  * Time-of-day palette. MAX BUILD — a real hue shift now that a real
  * accent exists (see the header comment on `colors.accent`): a single
- * "golden hour" journey through the gold family rather than five
- * unrelated colors — dim ember at the dead of night, brightening
- * through morning gold, full gold at midday, deepening to a warm
- * bronze at evening, then dimming to a muted brass at night. Never
- * leaves the gold hue family, so it reads as one accent breathing
+ * "tidal" journey through the BERX cyan family rather than five
+ * unrelated colors — deep tidal cyan at the dead of night, brightening
+ * through pale morning cyan, full BERX cyan at midday, deepening to a
+ * dusk teal at evening, then dimming again at night. Never
+ * leaves the cyan hue family, so it reads as one accent breathing
  * across the day rather than five different accents.
  */
 export type BerxDaypart = 'lateNight' | 'morning' | 'day' | 'evening' | 'night';
@@ -232,15 +232,15 @@ const DAYPART_PALETTES: Record<BerxDaypart, BerxDaypartPalette> = {
 	lateNight: {
 		daypart: 'lateNight',
 		label: 'Ночь',
-		accent: '#5E4A1E', // dim ember — same hue as the primary gold, near its floor
-		accentSoft: 'rgba(94,74,30,0.14)',
+		accent: '#1E4A52', // deep tidal cyan — same hue as the primary, near its floor
+		accentSoft: 'rgba(30,74,82,0.14)',
 		bg: '#020202', // darker than the base --berx-black — deepest point of the day
 	},
 	morning: {
 		daypart: 'morning',
 		label: 'Утро',
-		accent: '#E8C878', // fresh, pale morning gold
-		accentSoft: 'rgba(232,200,120,0.16)',
+		accent: '#A8ECF5', // pale morning cyan — the hue at its lightest
+		accentSoft: 'rgba(168,236,245,0.16)',
 		bg: colors.black,
 	},
 	day: {
@@ -253,15 +253,15 @@ const DAYPART_PALETTES: Record<BerxDaypart, BerxDaypartPalette> = {
 	evening: {
 		daypart: 'evening',
 		label: 'Вечер',
-		accent: '#C98B4A', // deepening to a warm bronze — golden hour, still the same hue family
-		accentSoft: 'rgba(201,139,74,0.16)',
+		accent: '#2FA9BE', // deepening toward dusk teal — still the same hue family
+		accentSoft: 'rgba(47,169,190,0.16)',
 		bg: colors.black,
 	},
 	night: {
 		daypart: 'night',
 		label: 'Ночь',
-		accent: '#8A8172', // muted brass, dimmed for the dark
-		accentSoft: 'rgba(138,129,114,0.14)',
+		accent: '#3F8894', // dimmed night cyan — the hue held back for the dark
+		accentSoft: 'rgba(63,136,148,0.14)',
 		bg: '#030303',
 	},
 };
@@ -286,3 +286,98 @@ export function resolveBerxDaypart(hour: number): BerxDaypart {
 export function getBerxDaypartPalette(hour: number): BerxDaypartPalette {
 	return DAYPART_PALETTES[resolveBerxDaypart(hour)];
 }
+
+
+/* ============================================================
+ * BERX GLASS SYSTEM — four real, ordered levels.
+ * ------------------------------------------------------------
+ * The codebase already had a single ad-hoc "glassBusiness" surface
+ * and a handful of raw glass1/glass2/glass3 fills used inconsistently
+ * per screen. That gave no HIERARCHY: a modal and a chip looked like
+ * the same material. These four levels are the whole system —
+ * every new surface picks a level, never a raw rgba literal.
+ *
+ * L1 SUBTLE     — quiet ground: rails, section grounds, inert rows.
+ * L2 INTERACTIVE— things you can press: chips, cards, list items.
+ * L3 ELEVATED   — lifted above the feed: floating panels, sheets.
+ * L4 HERO/MODAL — the top plane: modals, hero overlays, create surface.
+ *
+ * NOTE ON BLUR — honest constraint, unchanged from the earlier
+ * BerxGlassSurface header: no blur library is installable in this
+ * sandbox (no expo-blur / @react-native-community/blur — npm is
+ * blocked here), so `blurRadius` below is a real, declared intent
+ * that BerxGlassSurface applies ONLY where a blur backend exists.
+ * Depth today is carried by layered translucency + hairline + shadow,
+ * which is why each level also raises fill, border AND shadow
+ * together rather than relying on blur alone.
+ * ============================================================ */
+
+export interface BerxGlassLevelTokens {
+	fill: string;
+	border: string;
+	hairline: string;
+	blurRadius: number;
+	radius: number;
+}
+
+export const glassNight: Record<1 | 2 | 3 | 4, BerxGlassLevelTokens> = {
+	1: {fill: 'rgba(255,255,255,0.035)', border: 'rgba(255,255,255,0.07)', hairline: 'rgba(255,255,255,0.10)', blurRadius: 8, radius: 16},
+	2: {fill: 'rgba(255,255,255,0.06)', border: 'rgba(255,255,255,0.10)', hairline: 'rgba(255,255,255,0.16)', blurRadius: 14, radius: 20},
+	3: {fill: 'rgba(255,255,255,0.09)', border: 'rgba(255,255,255,0.14)', hairline: 'rgba(255,255,255,0.22)', blurRadius: 22, radius: 24},
+	4: {fill: 'rgba(18,20,22,0.72)', border: 'rgba(255,255,255,0.18)', hairline: 'rgba(255,255,255,0.28)', blurRadius: 32, radius: 28},
+};
+
+export const glassDay: Record<1 | 2 | 3 | 4, BerxGlassLevelTokens> = {
+	1: {fill: 'rgba(255,255,255,0.55)', border: 'rgba(10,10,12,0.06)', hairline: 'rgba(255,255,255,0.85)', blurRadius: 8, radius: 16},
+	2: {fill: 'rgba(255,255,255,0.72)', border: 'rgba(10,10,12,0.09)', hairline: 'rgba(255,255,255,0.95)', blurRadius: 14, radius: 20},
+	3: {fill: 'rgba(255,255,255,0.86)', border: 'rgba(10,10,12,0.12)', hairline: 'rgba(255,255,255,1)', blurRadius: 22, radius: 24},
+	4: {fill: 'rgba(252,251,248,0.94)', border: 'rgba(10,10,12,0.16)', hairline: 'rgba(255,255,255,1)', blurRadius: 32, radius: 28},
+};
+
+export type BerxGlassLevel = 1 | 2 | 3 | 4;
+
+/** Selects the glass ladder for an environment — same shape either way, so a component never branches on theme itself. */
+export function getBerxGlass(env: BerxEnvironment) {
+	return env === 'day' ? glassDay : glassNight;
+}
+
+/* ============================================================
+ * SPATIAL / ELEVATION — depth as a real, ordered scale.
+ * Each step raises the shadow the way physical distance from the
+ * ground plane would: further = larger, softer, more offset.
+ * Used by BerxSpatialLayer so "depth" is a token, not a per-screen
+ * guess at shadowRadius.
+ * ============================================================ */
+
+export const elevation = {
+	0: {shadowColor: '#000000', shadowOpacity: 0, shadowRadius: 0, shadowOffset: {width: 0, height: 0}, elevation: 0},
+	1: {shadowColor: '#000000', shadowOpacity: 0.30, shadowRadius: 12, shadowOffset: {width: 0, height: 4}, elevation: 3},
+	2: {shadowColor: '#000000', shadowOpacity: 0.42, shadowRadius: 24, shadowOffset: {width: 0, height: 10}, elevation: 8},
+	3: {shadowColor: '#000000', shadowOpacity: 0.55, shadowRadius: 44, shadowOffset: {width: 0, height: 18}, elevation: 14},
+	4: {shadowColor: '#000000', shadowOpacity: 0.68, shadowRadius: 70, shadowOffset: {width: 0, height: 28}, elevation: 22},
+} as const;
+
+export type BerxElevation = 0 | 1 | 2 | 3 | 4;
+
+/**
+ * Parallax depth factors — how much a layer shifts relative to the
+ * scroll/tilt driver. Foreground moves most, background least, which
+ * is what actually reads as physical depth (nearer objects traverse
+ * more of the visual field). Real numbers, one place, so two screens
+ * can't disagree about what "background" means.
+ */
+export const parallax = {
+	background: 0.12,
+	mid: 0.34,
+	foreground: 0.62,
+	hero: 0.85,
+} as const;
+
+/** Cinematic media aspect ratios — large-format editorial imagery, not square Instagram tiles. */
+export const mediaRatio = {
+	hero: 4 / 5,
+	cinema: 16 / 9,
+	portrait: 3 / 4,
+	wide: 21 / 9,
+	square: 1,
+} as const;
