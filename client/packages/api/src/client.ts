@@ -110,6 +110,7 @@ import type {
 	BerxWorldItemType,
 	BerxNextResponse,
 	BerxDiscoveredWorld,
+	BerxTrendingHashtag,
 } from './types';
 import type { BerxTokenStorage, BerxApiErrorBody } from '@berx/core';
 import { BerxApiError } from '@berx/core';
@@ -356,6 +357,15 @@ export class BerxApiClient {
 
 	async savedPosts(): Promise<{posts: BerxPostDetail[]}> {
 		return this.request<{posts: BerxPostDetail[]}>('/posts/saved');
+	}
+
+	/** Real posts carrying this exact hashtag, re-verified for the caller's own visibility on every read — see classes/OssnHashtags.php's own header. */
+	async postsForHashtag(tag: string): Promise<{hashtag: string; posts: BerxPostDetail[]}> {
+		return this.request<{hashtag: string; posts: BerxPostDetail[]}>(`/posts/hashtag/${encodeURIComponent(tag)}`);
+	}
+
+	async trendingHashtags(): Promise<{hashtags: BerxTrendingHashtag[]}> {
+		return this.request<{hashtags: BerxTrendingHashtag[]}>('/posts/trending-hashtags');
 	}
 
 	/**

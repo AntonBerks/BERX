@@ -35,20 +35,21 @@ import {BerxLoadingState, BerxErrorState} from '../../../../packages/design-syst
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxMediaGrid} from '../../../../packages/design-system/src/components/BerxMediaGrid';
 import {BerxMediaViewer} from '../../../../packages/design-system/src/components/BerxMediaViewer';
-import {BerxMentionText} from '../../../../packages/design-system/src/components/BerxMentionText';
+import {BerxRichText} from '../../../../packages/design-system/src/components/BerxRichText';
 
 interface Props {
 	api: BerxApiClient;
 	postGuid: number;
 	myGuid?: number;
 	onOpenProfile: (username: string) => void;
+	onOpenHashtag?: (tag: string) => void;
 	onReport: (targetType: 'post' | 'comment', targetGuid: number) => void;
 	/** MAX BUILD — real Repost (see posts.php's own comment on berx_repost_of). */
 	onRepost?: (target: {guid: number; text: string; owner_username: string | null}) => void;
 	onBack: () => void;
 }
 
-export default function PostDetailScreen({api, postGuid, myGuid, onOpenProfile, onReport, onRepost, onBack}: Props) {
+export default function PostDetailScreen({api, postGuid, myGuid, onOpenProfile, onOpenHashtag, onReport, onRepost, onBack}: Props) {
 	const [post, setPost] = useState<BerxPostDetail | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
@@ -268,7 +269,7 @@ export default function PostDetailScreen({api, postGuid, myGuid, onOpenProfile, 
 				<Pressable onPress={() => post.poster_username && onOpenProfile(post.poster_username)} disabled={!post.poster_username}>
 					<Text style={styles.author}>{post.poster_username ?? 'BERX'}</Text>
 				</Pressable>
-				{post.text ? <BerxMentionText text={post.text} onOpenProfile={onOpenProfile} style={styles.text} /> : null}
+				{post.text ? <BerxRichText text={post.text} onOpenProfile={onOpenProfile} onOpenHashtag={onOpenHashtag} style={styles.text} /> : null}
 				<View style={styles.timeRow}>
 					<Text style={styles.time}>{relativeTimeLabel(post.time_created)}</Text>
 					{post.like_count > 0 ? (
@@ -388,7 +389,7 @@ export default function PostDetailScreen({api, postGuid, myGuid, onOpenProfile, 
 								)}
 								<View style={styles.commentBody}>
 									<Text style={styles.commentAuthor}>{c.author?.fullname ?? 'Пользователь'}</Text>
-									<BerxMentionText text={c.text} onOpenProfile={onOpenProfile} style={styles.commentText} />
+									<BerxRichText text={c.text} onOpenProfile={onOpenProfile} onOpenHashtag={onOpenHashtag} style={styles.commentText} />
 									<View style={styles.commentMetaRow}>
 										<Text style={styles.commentTime}>{relativeTimeLabel(c.time)}</Text>
 										<Pressable onPress={() => toggleCommentLike(c)} hitSlop={8}>

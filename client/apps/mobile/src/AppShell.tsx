@@ -66,6 +66,7 @@ import CreateWorldScreen from './screens/CreateWorldScreen';
 import NextScreen from './screens/NextScreen';
 import AddToWorldScreen from './screens/AddToWorldScreen';
 import MemoryDetailScreen from './screens/MemoryDetailScreen';
+import HashtagScreen from './screens/HashtagScreen';
 import MyMomentsScreen from './screens/MyMomentsScreen';
 import CommunityRequestsScreen from './screens/CommunityRequestsScreen';
 import CommunityModeratorsScreen from './screens/CommunityModeratorsScreen';
@@ -207,6 +208,7 @@ function RouteRenderer({name, params}: {name: BerxRouteName; params: unknown}) {
 					postGuid={(params as {postGuid: number}).postGuid}
 					myGuid={authState.getSnapshot().user?.guid}
 					onOpenProfile={openProfile}
+					onOpenHashtag={(tag) => nav.push('Hashtag', {tag})}
 					onReport={(targetType, targetGuid) => nav.push('Report', {targetType, targetGuid})}
 					onRepost={(target) => nav.push('CreatePost', {repostTarget: target})}
 					onBack={nav.pop}
@@ -552,6 +554,19 @@ function RouteRenderer({name, params}: {name: BerxRouteName; params: unknown}) {
 		case 'MemoryDetail': {
 			const p = params as {id: number};
 			return <MemoryDetailScreen api={api} id={p.id} onBack={nav.pop} />;
+		}
+		case 'Hashtag': {
+			const p = params as {tag: string};
+			return (
+				<HashtagScreen
+					api={api}
+					tag={p.tag}
+					onOpenPost={(guid) => nav.push('PostDetail', {postGuid: guid})}
+					onOpenProfile={openProfile}
+					onOpenHashtag={(tag) => nav.push('Hashtag', {tag})}
+					onBack={nav.pop}
+				/>
+			);
 		}
 		case 'MyMoments':
 			return (
@@ -1182,6 +1197,7 @@ function FeedScreenRoute({onOpenProfile}: {onOpenProfile: (username: string) => 
 			api={api}
 			onOpenPost={(guid) => nav.push('PostDetail', {postGuid: guid})}
 			onOpenProfile={onOpenProfile}
+			onOpenHashtag={(tag) => nav.push('Hashtag', {tag})}
 			// CreatePost moved out of the bottom tab bar per explicit
 			// design feedback — reachable from Home's own header "+"
 			// instead now.

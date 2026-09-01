@@ -1491,6 +1491,12 @@ export interface BerxDiscoveredWorld {
 	item_count: number;
 }
 
+/** BERX WORLD — real hashtags, classes/OssnHashtags.php. Real distinct-post counts, no invented trending score — see that class's own header. */
+export interface BerxTrendingHashtag {
+	hashtag: string;
+	post_count: number;
+}
+
 /**
  * BERX Next (components/OssnApi/v1/next.php) — the forward-looking
  * counterpart to Life Graph: real things needing a response or

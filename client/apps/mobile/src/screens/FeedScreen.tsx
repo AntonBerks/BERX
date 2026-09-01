@@ -28,26 +28,28 @@
 import {useCallback, useEffect, useState} from 'react';
 import {View, Text, FlatList, RefreshControl, StyleSheet, Pressable} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
-import type {BerxFeedItem, BerxStoryFeedGroup} from '@berx/api/types';
+import type {BerxFeedItem, BerxStoryFeedGroup, BerxTrendingHashtag} from '@berx/api/types';
 import {relativeTimeLabel} from '@berx/domain';
 import {colors, spacing, radius, typography} from '@berx/design-system/tokens';
 import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
 import {BerxErrorState, BerxEmptyState, BerxSkeleton} from '../../../../packages/design-system/src/components/BerxStates';
 import {IconPlus} from '../../../../packages/design-system/src/components/BerxIcons';
-import {BerxMentionText} from '../../../../packages/design-system/src/components/BerxMentionText';
+import {BerxRichText} from '../../../../packages/design-system/src/components/BerxRichText';
 
 interface Props {
 	api: BerxApiClient;
 	onOpenPost: (guid: number) => void;
 	onOpenProfile: (username: string) => void;
+	onOpenHashtag?: (tag: string) => void;
 	onCreatePost: () => void;
 	onOpenStoryGroup: (group: BerxStoryFeedGroup) => void;
 	onCreateStory: () => void;
 }
 
-export default function FeedScreen({api, onOpenPost, onOpenProfile, onCreatePost, onOpenStoryGroup, onCreateStory}: Props) {
+export default function FeedScreen({api, onOpenPost, onOpenProfile, onOpenHashtag, onCreatePost, onOpenStoryGroup, onCreateStory}: Props) {
 	const [items, setItems] = useState<BerxFeedItem[]>([]);
 	const [storyGroups, setStoryGroups] = useState<BerxStoryFeedGroup[]>([]);
+	const [trending, setTrending] = useState<BerxTrendingHashtag[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [refreshing, setRefreshing] = useState(false);
 	const [error, setError] = useState<string | null>(null);
@@ -67,6 +69,8 @@ export default function FeedScreen({api, onOpenPost, onOpenProfile, onCreatePost
 			setLoading(false);
 			setRefreshing(false);
 		}
+		// Real trending hashtags — best-effort, additive, never blocks the feed itself.
+		api.trendingHashtags().then((res) => setTrending(res.hashtags)).catch(() => undefined);
 	}, [api]);
 
 	useEffect(() => {
@@ -121,6 +125,17 @@ export default function FeedScreen({api, onOpenPost, onOpenProfile, onCreatePost
 		</View>
 	);
 
+	const trendingRail =
+		trending.length > 0 && onOpenHashtag ? (
+			<View style={styles.trendingRail}>
+				{trending.slice(0, 8).map((h: BerxTrendingHashtag) => (
+					<Pressable key={h.hashtag} style={styles.trendingChip} onPress={() => onOpenHashtag(h.hashtag)}>
+						<Text style={styles.trendingChipText}>#{h.hashtag}</Text>
+					</Pressable>
+				))}
+			</View>
+		) : null;
+
 	if (loading) {
 		return (
 			<View style={styles.screen}>
@@ -163,7 +178,12 @@ export default function FeedScreen({api, onOpenPost, onOpenProfile, onCreatePost
 					data={items}
 					keyExtractor={(item: BerxFeedItem) => String(item.guid)}
 					refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />}
-					ListHeaderComponent={storyRail}
+					ListHeaderComponent={
+						<>
+							{storyRail}
+							{trendingRail}
+						</>
+					}
 					ListEmptyComponent={
 						<BerxEmptyState
 							title="Пока нет постов"
@@ -185,7 +205,7 @@ export default function FeedScreen({api, onOpenPost, onOpenProfile, onCreatePost
 								{(item.owner_username ?? 'BERX').toUpperCase()} · {relativeTimeLabel(item.time_created)}
 							</Text>
 						</Pressable>
-						<BerxMentionText text={item.text} onOpenProfile={onOpenProfile} style={styles.text} />
+						<BerxRichText text={item.text} onOpenProfile={onOpenProfile} onOpenHashtag={onOpenHashtag} style={styles.text} />
 					</Pressable>
 				)}
 				ItemSeparatorComponent={() => <View style={styles.separator} />}
@@ -209,6 +229,9 @@ const styles = StyleSheet.create({
 	headerCreate: {padding: spacing.xs},
 	list: {backgroundColor: colors.black},
 	storyRailWrap: {borderBottomWidth: 1, borderBottomColor: colors.borderSoft, paddingBottom: spacing.md},
+	trendingRail: {flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.borderSoft},
+	trendingChip: {paddingHorizontal: spacing.sm, paddingVertical: 4, borderRadius: radius.pill, backgroundColor: colors.surface},
+	trendingChipText: {color: colors.accent, fontSize: typography.sizeXs, fontWeight: typography.weightMedium},
 	storyRail: {paddingHorizontal: spacing.lg, paddingTop: spacing.md, gap: spacing.sm},
 	storyItem: {alignItems: 'center', width: 64, marginRight: spacing.sm},
 	// BERX-native tile, not Instagram's circular ring: a squared frame

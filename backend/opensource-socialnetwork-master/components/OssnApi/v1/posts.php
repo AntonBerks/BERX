@@ -75,7 +75,7 @@ function ossn_api_post_detail_json($post, $viewerGuid) {
 	return $base;
 }
 
-$segment0 = isset($segments[0]) ? $segments[0] : null; // post guid | 'saved' | 'drafts' | 'pinned'
+$segment0 = isset($segments[0]) ? $segments[0] : null; // post guid | 'saved' | 'drafts' | 'pinned' | 'hashtag' | 'trending-hashtags'
 $segment1 = isset($segments[1]) ? $segments[1] : null; // 'like' | 'comments' | 'save' | 'unsave' | draft id | profile guid
 $segment2 = isset($segments[2]) ? $segments[2] : null; // comment id | 'publish'
 $segment3 = isset($segments[3]) ? $segments[3] : null; // 'delete'
@@ -191,6 +191,32 @@ if ($segment0 === 'saved' && $segment1 === null && $method === 'GET') {
 	ossn_api_json(array('posts' => $out));
 }
 
+// BERX WORLD — real hashtags (classes/OssnHashtags.php). Same
+// re-verify-on-every-read discipline as /posts/saved just above: a
+// tagged post can be deleted/blocked/visibility-narrowed after it was
+// tagged, so a stale hashtag row must never leak it.
+if ($segment0 === 'hashtag' && $segment1 !== null && $method === 'GET') {
+	if (!class_exists('OssnHashtags')) {
+		ossn_api_json(array('hashtag' => (string) $segment1, 'posts' => array()));
+	}
+	$wall = new OssnWall();
+	$circles = new OssnCircles();
+	$out = array();
+	foreach ((new OssnHashtags())->postGuidsForTag($segment1, 50) as $postGuid) {
+		$post = $wall->GetPost($postGuid);
+		if (!$post || ossn_api_is_blocked($api_user_guid, $post->owner_guid) || !$circles->canViewPost($post, $api_user_guid)) {
+			continue;
+		}
+		$out[] = ossn_api_post_detail_json($post, $api_user_guid);
+	}
+	ossn_api_json(array('hashtag' => (string) $segment1, 'posts' => $out));
+}
+
+if ($segment0 === 'trending-hashtags' && $segment1 === null && $method === 'GET') {
+	$out = class_exists('OssnHashtags') ? (new OssnHashtags())->trending(7, 20) : array();
+	ossn_api_json(array('hashtags' => $out));
+}
+
 if ($segment0 === null && $method === 'POST') {
 	$text = input('text');
 	// MAX BUILD — a real repost may carry no added commentary at all
@@ -264,6 +290,10 @@ if ($segment0 === null && $method === 'POST') {
 		foreach (ossn_api_extract_mentions($text, $api_user_guid) as $mentionedUser) {
 			(new OssnNotifications())->add('wall:friends:tag', intval($api_user_guid), intval($guid), intval($guid), intval($mentionedUser->guid));
 		}
+	}
+	// BERX WORLD — real hashtag extraction, see OssnHashtags's own header.
+	if (class_exists('OssnHashtags')) {
+		(new OssnHashtags())->extractAndStore($guid, $api_user_guid, $text);
 	}
 	ossn_api_json(array('guid' => intval($guid)));
 }
