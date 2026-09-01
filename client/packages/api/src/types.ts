@@ -39,6 +39,8 @@ export interface BerxFeedItem {
 	/** MAX BUILD — the real, distinct author. Equal to owner_guid/owner_username for a personal post; for a Community Wall post (see communities.php's own header on the group-wall mechanism) owner_guid is the GROUP's guid (owner_username is honestly null — a group has no username), so poster_username is the one to display. */
 	poster_guid: number;
 	poster_username: string | null;
+	/** The author's own real avatar (OssnUser::iconURL()) — from the same shared builder every feed item comes from. null only if the account no longer exists. */
+	poster_icon: string | null;
 	time_created: number;
 	/** BERX WORLD — real edit state, derived from OssnObject's own time_updated column, never an invented flag. */
 	time_updated: number;
@@ -657,6 +659,21 @@ export interface BerxStoryViewersResponse {
 export interface BerxStoryFeedGroup {
 	owner_guid: number;
 	owner_username: string | null;
+	/**
+	 * The owner's own real avatar (OssnUser::iconURL()) — null only if
+	 * the account no longer exists. Optional for the same reason
+	 * BerxFeedItem.like_count is: other callers assemble a group locally
+	 * from endpoints that do not compute it (own stories, event stories,
+	 * profile highlights). Absent means "not fetched here", never "none".
+	 */
+	owner_icon?: string | null;
+	/**
+	 * Real per-viewer state, from the same ossn_stories_views rows
+	 * markViewed() has always written. Drives the rail's accent ring, which
+	 * before this was fed a hardcoded `true` and therefore meant nothing.
+	 * Optional on the same terms as owner_icon.
+	 */
+	has_unseen?: boolean;
 	stories: BerxStorySummary[];
 }
 

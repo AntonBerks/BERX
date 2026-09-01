@@ -707,6 +707,10 @@ function ossn_api_post_base_json($post, $viewerGuid = null) {
 		'owner_username'  => $owner ? (string) $owner->username : null,
 		'poster_guid'     => intval($post->poster_guid),
 		'poster_username' => $poster ? (string) $poster->username : null,
+		// The author's own real avatar. $poster is already loaded on the
+		// line above, so this is free — it was simply never sent, which is
+		// why every feed byline rendered an initial instead of a face.
+		'poster_icon'     => $poster ? (string) $poster->iconURL()->large : null,
 		'time_created'    => intval($post->time_created),
 		// BERX WORLD — real edit state. time_updated is a genuine core
 		// OssnObject column (set by OssnObject::updateObject(), read back

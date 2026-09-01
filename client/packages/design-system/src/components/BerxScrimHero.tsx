@@ -14,6 +14,7 @@ import {View, Image, Text, StyleSheet} from 'react-native';
 import {colors, spacing, typography, radius} from '../tokens';
 
 import {useBerxColors} from '../theme';
+import {BerxScrim} from './BerxScrim';
 import type {BerxColorTokens} from '../tokens';
 
 export interface BerxScrimHeroProps {
@@ -34,7 +35,6 @@ export interface BerxScrimHeroProps {
 	children?: React.ReactNode;
 }
 
-const SCRIM_STEPS = [0, 0.15, 0.35, 0.6, 0.92];
 
 export function BerxScrimHero({imageUrl, title, subtitle, badge, height = 280, fill, children}: BerxScrimHeroProps) {
 	const colors = useBerxColors();
@@ -48,21 +48,7 @@ export function BerxScrimHero({imageUrl, title, subtitle, badge, height = 280, f
 					<Text style={styles.fallbackGlyph}>{title.charAt(0).toUpperCase()}</Text>
 				</View>
 			)}
-			<View style={StyleSheet.absoluteFillObject}>
-				{SCRIM_STEPS.map((opacity, i) => (
-					<View
-						key={i}
-						style={{
-							position: 'absolute',
-							left: 0,
-							right: 0,
-							bottom: 0,
-							height: `${100 - i * 18}%`,
-							backgroundColor: `rgba(5,5,5,${opacity})`,
-						}}
-					/>
-				))}
-			</View>
+			<BerxScrim coverage={0.68} strength={0.92} />
 			<View style={styles.content}>
 				{badge}
 				<Text style={styles.title} numberOfLines={2}>{title}</Text>

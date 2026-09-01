@@ -17,13 +17,29 @@ $model = new OssnStories();
 
 if ($segment0 === null && $method === 'GET') {
 	$groups = $model->listActiveForViewer($api_user_guid);
+
+	// Page-wide, not per-story: collect every id first, ask once which of
+	// them this viewer has already seen.
+	$allIds = array();
+	foreach ($groups as $rows) {
+		foreach ($rows as $row) {
+			$allIds[] = intval($row->id);
+		}
+	}
+	$seen = $model->viewedIds($allIds, $api_user_guid);
+
 	$out = array();
 	foreach ($groups as $ownerGuid => $rows) {
 		$owner = ossn_user_by_guid($ownerGuid);
 		$stories = array();
+		$hasUnseen = false;
 		foreach ($rows as $row) {
+			$id = intval($row->id);
+			if (!isset($seen[$id])) {
+				$hasUnseen = true;
+			}
 			$stories[] = array(
-				'id'           => intval($row->id),
+				'id'           => $id,
 				'caption'      => $row->caption !== null ? (string) $row->caption : '',
 				'time_created' => intval($row->time_created),
 				'mime_type'    => (string) $row->mime_type,
@@ -32,6 +48,11 @@ if ($segment0 === null && $method === 'GET') {
 		$out[] = array(
 			'owner_guid'     => intval($ownerGuid),
 			'owner_username' => $owner ? (string) $owner->username : null,
+			// The owner's own real avatar — already loaded above, and the
+			// same iconURL() every other endpoint returns. The rail was
+			// drawing initials because this was simply never sent.
+			'owner_icon'     => $owner ? (string) $owner->iconURL()->large : null,
+			'has_unseen'     => $hasUnseen,
 			'stories'        => $stories,
 		);
 	}

@@ -108,7 +108,10 @@ export function BerxEditorialTitle({lines, accentIndex, style}: {lines: string[]
 	return (
 		<View style={[styles.titleWrap, style]}>
 			{lines.map((line: string, i: number) => (
-				<Text key={i} style={[styles.titleLine, i === accentIndex && styles.titleAccent]}>
+				<Text
+					key={i}
+					numberOfLines={2}
+					style={[styles.titleLine, i > 0 && styles.titleSub, i === accentIndex && styles.titleAccent]}>
 					{line}
 				</Text>
 			))}
@@ -161,13 +164,27 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 		borderColor: colors.bg,
 	},
 	badgeText: {color: colors.onAccent, fontSize: 9, fontWeight: typography.weightBold},
-	titleWrap: {paddingHorizontal: spacing.lg, paddingTop: spacing.lg, gap: 2},
+	titleWrap: {paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing.xs, gap: 1},
 	titleLine: {
 		color: colors.text,
-		fontSize: 30,
-		lineHeight: 34,
+		fontSize: 32,
+		lineHeight: 35,
 		fontWeight: typography.weightBold,
-		letterSpacing: -0.8,
+		letterSpacing: -1,
+	},
+	/**
+	 * The lead line carries the display weight; the lines under it are the
+	 * live subtitle. Rendering every line at display size — and painting a
+	 * whole cyan sentence across the screen — pushed the photography below
+	 * the fold and made the accent shout instead of point.
+	 */
+	titleSub: {
+		fontSize: typography.sizeBase,
+		lineHeight: 20,
+		fontWeight: typography.weightMedium,
+		letterSpacing: 0,
+		color: colors.textDim,
+		marginTop: 4,
 	},
 	titleAccent: {color: colors.accent},
 	spacer: {height: radius.sm},

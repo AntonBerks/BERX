@@ -72,11 +72,11 @@ import {BerxGlassSurface} from '../../../../packages/design-system/src/component
 import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
 import {Berx3DTilt} from '../../../../packages/design-system/src/components/Berx3DTilt';
 import {BerxSpatialLayer} from '../../../../packages/design-system/src/components/BerxSpatialLayer';
+import {BerxScrim} from '../../../../packages/design-system/src/components/BerxScrim';
 
 import {useBerxColors} from '../../../../packages/design-system/src/theme';
 import type {BerxColorTokens} from '@berx/design-system/tokens';
 
-const HERO_SCRIM_STEPS = [0, 0.12, 0.3, 0.58, 0.9];
 
 interface ProfileData {
 	guid?: number;
@@ -399,11 +399,7 @@ export default function ProfileScreen({api, authState, username, onBack, onMessa
 							</View>
 						)}
 					</BerxSpatialLayer>
-					<View style={StyleSheet.absoluteFillObject} pointerEvents="none">
-						{HERO_SCRIM_STEPS.map((opacity, i) => (
-							<View key={i} style={[styles.heroScrimStep, {height: `${100 - i * 18}%`, backgroundColor: `rgba(5,5,5,${opacity})`}]} />
-						))}
-					</View>
+					<BerxScrim coverage={0.74} strength={0.9} />
 
 					{!isOwn && typeof profile.is_online === 'boolean' ? (
 						<View style={styles.onlineBadgeWrap}>
@@ -781,7 +777,6 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	hero: {height: 460, backgroundColor: colors.graphite, justifyContent: 'flex-end', overflow: 'hidden'},
 	heroFallback: {alignItems: 'center', justifyContent: 'center', backgroundColor: colors.graphite},
 	heroFallbackGlyph: {fontSize: typography.sizeHero, color: colors.textFaint, fontWeight: typography.weightBold},
-	heroScrimStep: {position: 'absolute', left: 0, right: 0, bottom: 0},
 	onlineBadgeWrap: {position: 'absolute', top: spacing.xl, right: spacing.lg},
 	onlineDot: {width: 12, height: 12, borderRadius: 6, borderWidth: 2, borderColor: colors.bg},
 	onlineDotActive: {backgroundColor: colors.success},

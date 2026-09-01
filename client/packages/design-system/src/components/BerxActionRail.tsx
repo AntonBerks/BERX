@@ -52,7 +52,7 @@ export function formatCount(n: number): string {
 	return `${m < 10 ? m.toFixed(1).replace('.', ',') : Math.floor(m)}M`;
 }
 
-export function BerxActionRail({actions, size = 44, style}: BerxActionRailProps) {
+export function BerxActionRail({actions, size = 48, style}: BerxActionRailProps) {
 	const colors = useBerxColors();
 	const styles = useMemo(() => makeStyles(colors), [colors]);
 	return (
@@ -63,6 +63,7 @@ export function BerxActionRail({actions, size = 44, style}: BerxActionRailProps)
 						onPress={a.onPress}
 						disabled={!a.onPress}
 						style={[styles.button, {width: size, height: size, borderRadius: size / 2}, a.active && styles.buttonActive]}>
+						<View style={styles.buttonHairline} pointerEvents="none" />
 						<Text style={[styles.glyph, a.active && styles.glyphActive]}>{a.glyph}</Text>
 					</Pressable>
 					{typeof a.count === 'number' ? (
@@ -77,17 +78,37 @@ export function BerxActionRail({actions, size = 44, style}: BerxActionRailProps)
 }
 
 const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
-	rail: {alignItems: 'center', gap: spacing.md},
-	slot: {alignItems: 'center', gap: 3},
+	// The reference rails read as ONE floating column of glass, not a
+	// scatter of separate bubbles: the gap is tight, each button carries
+	// a lit top edge, and the count sits directly under its own glyph.
+	rail: {alignItems: 'center', gap: spacing.lg},
+	slot: {
+		alignItems: 'center',
+		gap: 4,
+		shadowColor: '#000',
+		shadowOpacity: 0.35,
+		shadowRadius: 12,
+		shadowOffset: {width: 0, height: 6},
+		elevation: 6,
+	},
 	button: {
 		alignItems: 'center',
 		justifyContent: 'center',
-		backgroundColor: 'rgba(7,8,10,0.42)',
+		overflow: 'hidden',
+		backgroundColor: 'rgba(7,8,10,0.34)',
 		borderWidth: 1,
-		borderColor: 'rgba(255,255,255,0.18)',
+		borderColor: 'rgba(255,255,255,0.22)',
+	},
+	buttonHairline: {
+		position: 'absolute',
+		top: 0,
+		left: '18%',
+		right: '18%',
+		height: 1,
+		backgroundColor: 'rgba(255,255,255,0.30)',
 	},
 	buttonActive: {backgroundColor: colors.accentSoft, borderColor: colors.accent},
-	glyph: {color: colors.onMedia, fontSize: 17},
+	glyph: {color: colors.onMedia, fontSize: 18},
 	glyphActive: {color: colors.accent},
-	count: {color: colors.onMediaDim, fontSize: 11, fontWeight: typography.weightMedium},
+	count: {color: colors.onMediaDim, fontSize: 11, fontWeight: typography.weightBold, letterSpacing: 0.2},
 });

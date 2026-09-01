@@ -177,6 +177,14 @@ export const radius = {
 	sm: 10,
 	md: 16,
 	lg: 24,
+	/**
+	 * Media and sheet radii. The reference set's cinematic cards sit
+	 * around 30-34px on a 390pt screen; capping the scale at 24 was what
+	 * made large media read as a "content box" rather than an object with
+	 * its own physical edge.
+	 */
+	xl: 32,
+	xxl: 40,
 	pill: 999,
 } as const;
 

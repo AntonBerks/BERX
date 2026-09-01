@@ -48,6 +48,7 @@ import {ruPlural} from '@berx/domain';
 import {spacing, radius, typography} from '@berx/design-system/tokens';
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {BerxEditorialTitle, BerxCircleButton} from '../../../../packages/design-system/src/components/BerxGreetingHeader';
+import {BerxScrim} from '../../../../packages/design-system/src/components/BerxScrim';
 import {BerxErrorState, BerxEmptyState, BerxSkeleton} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxAvatar} from '../../../../packages/design-system/src/components/BerxAvatar';
 import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
@@ -55,7 +56,6 @@ import {BerxFadeIn} from '../../../../packages/design-system/src/components/Berx
 import {useBerxColors} from '../../../../packages/design-system/src/theme';
 import type {BerxColorTokens} from '@berx/design-system/tokens';
 
-const PEOPLE_SCRIM_STEPS = [0, 0.2, 0.45, 0.75, 0.95];
 
 interface Props {
 	api: BerxApiClient;
@@ -186,11 +186,7 @@ export default function ConversationListScreen({api, onOpenConversation, onOpenM
 						renderItem={({item}: {item: BerxPeopleSuggestion}) => (
 							<Pressable style={styles.peopleCard} onPress={() => onOpenConversation(item.guid, item.username)}>
 								<Image source={{uri: item.icon}} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
-								<View style={StyleSheet.absoluteFillObject} pointerEvents="none">
-									{PEOPLE_SCRIM_STEPS.map((opacity, i) => (
-										<View key={i} style={[styles.peopleScrimStep, {height: `${100 - i * 16}%`, backgroundColor: `rgba(5,5,5,${opacity})`}]} />
-									))}
-								</View>
+								<BerxScrim coverage={0.7} strength={0.92} />
 								<View style={styles.peopleCardContent}>
 									<Text style={styles.peopleName} numberOfLines={1}>{item.fullname || item.username}</Text>
 									<Text style={styles.peopleMeta} numberOfLines={1}>
@@ -269,7 +265,6 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	peopleLabel: {color: colors.textFaint, fontSize: typography.sizeXs, fontWeight: typography.weightBold, textTransform: 'uppercase', letterSpacing: 0.4, paddingHorizontal: spacing.lg, marginBottom: spacing.xs},
 	peopleRow: {paddingHorizontal: spacing.lg, gap: spacing.sm},
 	peopleCard: {width: 148, height: 190, borderRadius: radius.md, overflow: 'hidden', backgroundColor: colors.graphite, marginRight: spacing.sm, justifyContent: 'flex-end'},
-	peopleScrimStep: {position: 'absolute', left: 0, right: 0, bottom: 0},
 	peopleCardContent: {padding: spacing.sm, gap: 2},
 	peopleName: {color: colors.white, fontSize: typography.sizeSm, fontWeight: typography.weightBold},
 	peopleMeta: {color: colors.textDim, fontSize: typography.sizeXs},

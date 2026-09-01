@@ -25,9 +25,8 @@ import {spacing, typography, radius as radiusTokens} from '../tokens';
 import type {BerxColorTokens} from '../tokens';
 import {useBerxColors} from '../theme';
 import {BerxSpatialLayer} from './BerxSpatialLayer';
+import {BerxScrim} from './BerxScrim';
 
-/** Same 5-step scrim simulation the rest of BERX uses (no gradient library is installable here). */
-const HERO_SCRIM_STEPS = [0, 0.18, 0.38, 0.62, 0.86];
 
 export interface BerxProfileHeroStat {
 	key: string;
@@ -88,14 +87,7 @@ export function BerxProfileHero({
 				)}
 			</BerxSpatialLayer>
 
-			<View style={StyleSheet.absoluteFillObject} pointerEvents="none">
-				{HERO_SCRIM_STEPS.map((opacity: number, i: number) => (
-					<View
-						key={`scrim-${i}`}
-						style={[styles.scrimStep, {height: `${100 - i * 18}%`, backgroundColor: `rgba(5,5,5,${opacity})`}]}
-					/>
-				))}
-			</View>
+			<BerxScrim coverage={0.72} strength={0.9} />
 
 			<View style={styles.content}>
 				{avatarUrl && coverUrl ? <Image source={{uri: avatarUrl}} style={styles.avatar} /> : null}
@@ -135,7 +127,6 @@ const makeStyles = (colors: BerxColorTokens) =>
 		hero: {backgroundColor: colors.mediaScrim, justifyContent: 'flex-end', overflow: 'hidden'},
 		fallback: {alignItems: 'center', justifyContent: 'center', backgroundColor: colors.mediaScrim},
 		fallbackGlyph: {fontSize: typography.sizeHero, color: colors.onMediaFaint, fontWeight: typography.weightBold},
-		scrimStep: {position: 'absolute', left: 0, right: 0, bottom: 0},
 		content: {padding: spacing.xl, gap: spacing.xs},
 		avatar: {
 			width: 60,

@@ -18,12 +18,12 @@
 import React, {useMemo} from 'react';
 import {View, Image, Pressable, StyleSheet, ViewStyle} from 'react-native';
 import {radius, spacing, mediaRatio, elevation as elevationTokens} from '../tokens';
+import {BerxScrim} from './BerxScrim';
 import type {BerxElevation} from '../tokens';
 
 import {useBerxColors} from '../theme';
 import type {BerxColorTokens} from '../tokens';
 
-const SCRIM_STEPS = [0, 0.12, 0.3, 0.58, 0.9];
 
 export interface BerxMediaCardProps {
 	imageUrl?: string | null;
@@ -77,11 +77,7 @@ export function BerxMediaCard({
 
 			{/* Bottom legibility scrim — only rendered when there's overlay content to protect. */}
 			{children ? (
-				<View style={styles.scrim} pointerEvents="none">
-					{SCRIM_STEPS.map((opacity: number, i: number) => (
-						<View key={i} style={[styles.scrimStep, {backgroundColor: colors.mediaScrim, opacity}]} />
-					))}
-				</View>
+			<BerxScrim coverage={0.62} strength={0.9} />
 			) : null}
 
 			{topLeft ? <View style={styles.topLeft}>{topLeft}</View> : null}
@@ -109,8 +105,6 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 		borderColor: colors.borderSoft,
 	},
 	noMedia: {backgroundColor: colors.mediaScrim},
-	scrim: {position: 'absolute', left: 0, right: 0, bottom: 0, height: '62%', flexDirection: 'column', justifyContent: 'flex-end'},
-	scrimStep: {flex: 1},
 	topLeft: {position: 'absolute', top: spacing.md, left: spacing.md},
 	topRight: {position: 'absolute', top: spacing.md, right: spacing.md},
 	bottom: {position: 'absolute', left: 0, right: 0, bottom: 0, padding: spacing.lg, gap: spacing.xs},

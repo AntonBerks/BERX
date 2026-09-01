@@ -35,7 +35,7 @@ export interface BerxStoryRailProps {
 	style?: ViewStyle;
 }
 
-export function BerxStoryRail({items, onCreate, createLabel = 'Ваша история', size = 62, style}: BerxStoryRailProps) {
+export function BerxStoryRail({items, onCreate, createLabel = 'Вы', size = 62, style}: BerxStoryRailProps) {
 	const colors = useBerxColors();
 	const styles = useMemo(() => makeStyles(colors), [colors]);
 	const ring = size + 8;

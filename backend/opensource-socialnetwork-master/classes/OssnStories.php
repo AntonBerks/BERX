@@ -300,6 +300,37 @@ class OssnStories extends OssnDatabase {
 		return $rows ? $rows : array();
 	}
 
+	/**
+	 * Which of these story ids the viewer has ALREADY seen. One batched
+	 * query over the same real ossn_stories_views rows markViewed() has
+	 * always written — no new storage, no per-story lookups.
+	 *
+	 * Added because the stories rail was drawing its "unseen" ring from a
+	 * hardcoded client-side true, i.e. a signal that meant nothing. The
+	 * data to make it real already existed.
+	 */
+	public function viewedIds(array $storyIds, $viewerGuid) {
+		$ids = array_values(array_unique(array_map('intval', $storyIds)));
+		if (empty($ids) || empty($viewerGuid)) {
+			return array();
+		}
+		$rows = $this->select(array(
+			'from'   => self::VIEWS_TABLE,
+			'params' => array('story_id'),
+			'wheres' => array(
+				self::wheres('viewer_guid', '=', intval($viewerGuid)),
+				self::wheres('story_id', 'IN', implode(',', $ids)),
+			),
+		), true);
+		$seen = array();
+		if ($rows) {
+			foreach ($rows as $row) {
+				$seen[intval($row->story_id)] = true;
+			}
+		}
+		return $seen;
+	}
+
 	public function viewerCount($storyId) {
 		$row = $this->select(array(
 			'from'   => self::VIEWS_TABLE,

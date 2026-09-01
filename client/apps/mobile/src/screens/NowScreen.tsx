@@ -83,9 +83,15 @@ interface Props {
 	onCreateStory: () => void;
 }
 
-const PERSON_CARD_W = 132;
-const PLACE_CARD_W = 176;
-const EVENT_CARD_W = 286;
+// Media scale. The previous values (132/176/286) made every band the
+// same small carousel, which is exactly the generic-feed read the
+// reference set does not have: there, one object dominates and the rest
+// support it. Person stays the smallest (a face needs less area than a
+// place), places get real photographic area, and an event is a wide
+// cinematic plate that nearly fills the screen.
+const PERSON_CARD_W = 148;
+const PLACE_CARD_W = 214;
+const EVENT_CARD_W = 320;
 
 function ruPeople(n: number): string {
 	const mod10 = n % 10;
@@ -265,6 +271,16 @@ export default function NowScreen({
 			? {lines: ['Куда пойти', 'места вокруг тебя'], accentIndex: 1}
 			: {lines: ['Пока тихо', 'здесь появится жизнь вокруг'], accentIndex: 1};
 
+	// ENVIRONMENT LEAD — the reference set never opens on a strip of
+	// small circles; it opens on one dominant photographic object. The
+	// lead is the newest REAL post that actually carries media. It is
+	// removed from the Moments band below so nothing renders twice, and
+	// when no post has media there is simply no lead — never a
+	// placeholder plate.
+	const leadIndex = items.findIndex((it: BerxFeedItem) => !!it.media_url);
+	const lead = leadIndex >= 0 ? items[leadIndex] : null;
+	const restItems = lead ? items.filter((_it: BerxFeedItem, i: number) => i !== leadIndex) : items;
+
 	return (
 		<View style={styles.screen}>
 			<Animated.ScrollView
@@ -302,6 +318,32 @@ export default function NowScreen({
 					/>
 					<BerxEditorialTitle lines={headline.lines} accentIndex={headline.accentIndex} />
 
+					{lead ? (
+						<BerxSpatialLayer plane="hero" driver={scrollY} range={220} style={styles.leadLayer}>
+							<BerxImmersivePost
+								imageUrl={lead.media_url as string}
+								mediaCount={lead.media_count}
+								authorName={lead.poster_username ?? lead.owner_username ?? 'BERX'}
+								authorIcon={lead.poster_icon}
+								timeLabel={relativeTimeLabel(lead.time_created)}
+								text={lead.text}
+								ratio="hero"
+								actions={[
+									{
+										key: 'like',
+										glyph: lead.is_liked ? '♥' : '♡',
+										count: lead.like_count,
+										active: lead.is_liked,
+										onPress: () => handleToggleLike(lead),
+									},
+									{key: 'comment', glyph: '◌', count: lead.comment_count, onPress: () => onOpenPost(lead.guid)},
+								]}
+								onPress={() => onOpenPost(lead.guid)}
+								onPressAuthor={() => lead.poster_username && onOpenProfile(lead.poster_username)}
+							/>
+						</BerxSpatialLayer>
+					) : null}
+
 					{/* LIVE — real active stories, on the background parallax plane. */}
 					{storyGroups.length > 0 || onCreateStory ? (
 						<BerxSpatialLayer plane="background" driver={scrollY} range={300} style={styles.liveLayer}>
@@ -311,7 +353,11 @@ export default function NowScreen({
 								items={storyGroups.map((g: BerxStoryFeedGroup) => ({
 									key: String(g.owner_guid),
 									label: g.owner_username ?? `#${g.owner_guid}`,
-									unseen: true,
+									iconUrl: g.owner_icon,
+									// Real per-viewer state now (stories.php computes it from
+									// the view rows). This used to be a hardcoded `true`, which
+									// made the accent ring mean nothing.
+									unseen: g.has_unseen,
 									onPress: () => onOpenStoryGroup(g),
 								}))}
 							/>
@@ -345,6 +391,27 @@ export default function NowScreen({
 						</View>
 					) : null}
 
+					{/* PLACES — real places; distance ranking lives in Nearby (needs real coordinates). */}
+					{places.length > 0 ? (
+						<View style={styles.section}>
+							<SectionHead title="Места вокруг" onMore={onOpenNearby ?? onOpenPlaces} moreLabel={onOpenNearby ? 'Рядом' : undefined} />
+							<ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.rail}>
+								{places.slice(0, 8).map((pl: BerxPlace) => (
+									<View key={pl.guid} style={styles.railItem}>
+										<BerxPlaceCard
+											title={pl.title}
+											imageUrl={pl.cover_url}
+											category={pl.category}
+											rating={pl.rating_count > 0 ? pl.rating : undefined}
+											width={PLACE_CARD_W}
+											onPress={() => onOpenPlace(pl.guid)}
+										/>
+									</View>
+								))}
+							</ScrollView>
+						</View>
+					) : null}
+
 					{/* EVENTS — real upcoming events as wide cinematic cards. */}
 					{events.length > 0 ? (
 						<View style={styles.section}>
@@ -370,47 +437,31 @@ export default function NowScreen({
 						</View>
 					) : null}
 
-					{/* PLACES — real places; distance ranking lives in Nearby (needs real coordinates). */}
-					{places.length > 0 ? (
-						<View style={styles.section}>
-							<SectionHead title="Места вокруг" onMore={onOpenNearby ?? onOpenPlaces} moreLabel={onOpenNearby ? 'Рядом' : undefined} />
-							<ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.rail}>
-								{places.slice(0, 8).map((pl: BerxPlace) => (
-									<View key={pl.guid} style={styles.railItem}>
-										<BerxPlaceCard
-											title={pl.title}
-											imageUrl={pl.cover_url}
-											category={pl.category}
-											rating={pl.rating_count > 0 ? pl.rating : undefined}
-											width={PLACE_CARD_W}
-											onPress={() => onOpenPlace(pl.guid)}
-										/>
-									</View>
-								))}
-							</ScrollView>
-						</View>
-					) : null}
-
 					{/* SOCIAL CONTEXT — real trending tags from real posts. */}
 					{trending.length > 0 && onOpenHashtag ? (
-						<View style={styles.trendingRail}>
+						<ScrollView
+							horizontal
+							showsHorizontalScrollIndicator={false}
+							contentContainerStyle={styles.trendingRail}>
 							{trending.slice(0, 8).map((h: BerxTrendingHashtag) => (
 								<Pressable key={h.hashtag} style={styles.trendingChip} onPress={() => onOpenHashtag(h.hashtag)}>
 									<Text style={styles.trendingChipText}>#{h.hashtag}</Text>
 								</Pressable>
 							))}
-						</View>
+						</ScrollView>
 					) : null}
 
 					{/* MOMENTS — the real posts. Photography-first when the post genuinely has media. */}
 					<View style={styles.section}>
 						<SectionHead title="Моменты" />
-						{items.length === 0 ? (
+						{restItems.length === 0 ? (
 							<Text style={styles.quiet}>
-								Пока тихо. Это ваша стена — свои посты и посты друзей, а не общая лента всех подписок.
+								{lead
+									? 'Это всё за сейчас. Ваша стена — свои посты и посты друзей, а не общая лента всех подписок.'
+									: 'Пока тихо. Это ваша стена — свои посты и посты друзей, а не общая лента всех подписок.'}
 							</Text>
 						) : (
-							items.map((item: BerxFeedItem) => {
+							restItems.map((item: BerxFeedItem) => {
 								const actions: BerxRailAction[] = [
 									{
 										key: 'like',
@@ -429,6 +480,7 @@ export default function NowScreen({
 												imageUrl={item.media_url}
 												mediaCount={item.media_count}
 												authorName={author}
+												authorIcon={item.poster_icon}
 												timeLabel={relativeTimeLabel(item.time_created)}
 												text={item.text}
 												actions={actions}
@@ -454,7 +506,10 @@ export default function NowScreen({
 											onPress={() => item.poster_username && onOpenProfile(item.poster_username)}
 											disabled={!item.poster_username}
 											hitSlop={8}>
-											<BerxAvatarStack people={[{guid: item.poster_guid, initial: author.charAt(0)}]} size={24} />
+											<BerxAvatarStack
+												people={[{guid: item.poster_guid, icon: item.poster_icon, initial: author.charAt(0)}]}
+												size={26}
+											/>
 											<Text style={styles.byline} numberOfLines={1}>
 												{author.toUpperCase()} · {relativeTimeLabel(item.time_created)}
 											</Text>
@@ -521,8 +576,9 @@ function SectionHead({
 				{live && typeof count === 'number' ? <BerxLiveDot label={String(count)} /> : null}
 			</View>
 			{onMore ? (
-				<Pressable onPress={onMore} hitSlop={8}>
+				<Pressable onPress={onMore} hitSlop={8} style={styles.sectionMorePill}>
 					<Text style={styles.sectionMore}>{moreLabel ?? 'Все'}</Text>
+					<Text style={styles.sectionMoreArrow}>›</Text>
 				</Pressable>
 			) : null}
 		</View>
@@ -532,11 +588,12 @@ function SectionHead({
 const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.bg},
 	scroll: {flex: 1},
-	scrollContent: {paddingBottom: spacing.xxxl},
+	scrollContent: {paddingBottom: 132},
 	skeletonWrap: {padding: spacing.lg, paddingTop: spacing.xl},
 	skelGap: {marginTop: spacing.md},
 
 	liveLayer: {marginTop: spacing.xl},
+	leadLayer: {marginTop: spacing.lg, paddingHorizontal: spacing.lg},
 
 	section: {marginTop: spacing.xl},
 	sectionHead: {
@@ -549,24 +606,37 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	sectionHeadLeft: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm},
 	sectionTitle: {
 		color: colors.text,
-		fontSize: typography.sizeBase,
+		fontSize: typography.sizeLg,
 		fontWeight: typography.weightBold,
-		letterSpacing: -0.2,
+		letterSpacing: -0.4,
 	},
-	sectionMore: {color: colors.accent, fontSize: typography.sizeSm, fontWeight: typography.weightMedium},
-	rail: {paddingHorizontal: spacing.lg, gap: spacing.md},
-	railItem: {marginRight: spacing.md},
-
-	trendingRail: {flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, paddingHorizontal: spacing.lg, marginTop: spacing.xl},
-	trendingChip: {
-		paddingHorizontal: spacing.md,
+	sectionMorePill: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		gap: 2,
+		paddingLeft: spacing.md,
+		paddingRight: spacing.sm,
 		paddingVertical: 6,
 		borderRadius: radius.pill,
 		backgroundColor: colors.glass2,
 		borderWidth: 1,
 		borderColor: colors.borderSoft,
 	},
-	trendingChipText: {color: colors.accent, fontSize: typography.sizeXs, fontWeight: typography.weightMedium},
+	sectionMore: {color: colors.accent, fontSize: typography.sizeXs, fontWeight: typography.weightMedium},
+	sectionMoreArrow: {color: colors.accent, fontSize: typography.sizeSm, lineHeight: 15},
+	rail: {paddingHorizontal: spacing.lg, gap: spacing.md},
+	railItem: {marginRight: spacing.md},
+
+	trendingRail: {flexDirection: 'row', gap: spacing.sm, paddingHorizontal: spacing.lg, marginTop: spacing.xl},
+	trendingChip: {
+		paddingHorizontal: spacing.lg,
+		paddingVertical: 9,
+		borderRadius: radius.pill,
+		backgroundColor: colors.glass2,
+		borderWidth: 1,
+		borderColor: colors.borderSoft,
+	},
+	trendingChipText: {color: colors.accent, fontSize: typography.sizeSm, fontWeight: typography.weightMedium},
 
 	quiet: {color: colors.textDim, fontSize: typography.sizeSm, paddingHorizontal: spacing.lg, lineHeight: 20},
 	momentWrap: {paddingHorizontal: spacing.lg, marginBottom: spacing.lg},
