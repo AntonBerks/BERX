@@ -38,7 +38,7 @@
 import {useEffect, useState} from 'react';
 import {View, Text, Image, Pressable, Alert, StyleSheet} from 'react-native';
 import type {BerxApiClient, BerxFilePart} from '@berx/api/client';
-import type {BerxCommunity, BerxEvent, BerxFeedItem} from '@berx/api/types';
+import type {BerxCommunity, BerxEvent, BerxFeedItem, BerxCommunityMember} from '@berx/api/types';
 import {relativeTimeLabel} from '@berx/domain';
 import {colors, spacing, typography} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
@@ -47,6 +47,8 @@ import {BerxButton} from '../../../../packages/design-system/src/components/Berx
 import {BerxLoadingState, BerxErrorState} from '../../../../packages/design-system/src/components/BerxStates';
 import {Berx3DTilt} from '../../../../packages/design-system/src/components/Berx3DTilt';
 import {BerxPollView} from '../../../../packages/design-system/src/components/BerxPollView';
+import {BerxAvatarStack} from '../../../../packages/design-system/src/components/BerxAvatarStack';
+import {BerxEventCard} from '../../../../packages/design-system/src/components/BerxSpatialCards';
 
 interface Props {
 	api: BerxApiClient;
@@ -87,6 +89,11 @@ export default function CommunityDetailScreen({api, guid, myGuid, pickImage, onB
 	const [pollEnabled, setPollEnabled] = useState(false);
 	const [pollOptions, setPollOptions] = useState<string[]>(['', '']);
 	const [votingPollGuid, setVotingPollGuid] = useState<number | null>(null);
+	// BERX SPATIAL — a community should read as an inhabited space, not
+	// a settings page. These are the community's REAL members
+	// (api.communityMembers) — the avatar stack below shows actual
+	// people and an actual count, never a decorative cluster.
+	const [members, setMembers] = useState<BerxCommunityMember[]>([]);
 
 	async function load() {
 		setLoading(true);
@@ -98,6 +105,8 @@ export default function CommunityDetailScreen({api, guid, myGuid, pickImage, onB
 			api.communityEvents(guid).then((res) => setEvents(res.events)).catch(() => undefined);
 			// Best-effort — a private community the caller isn't in yet 403s server-side, handled as "no posts to show" rather than surfacing a fetch error on the whole screen.
 			api.communityPosts(guid).then((res) => setPosts(res.posts)).catch(() => undefined);
+			// Best-effort — a private community the caller isn't in yet 403s server-side; no members shown rather than a fabricated count.
+			api.communityMembers(guid).then((res) => setMembers(res.members)).catch(() => undefined);
 		} catch {
 			setError('Сообщество недоступно');
 		} finally {
@@ -325,7 +334,21 @@ export default function CommunityDetailScreen({api, guid, myGuid, pickImage, onB
 				) : (
 					<>
 						<Text style={styles.name}>{community.name}</Text>
-						<Text style={styles.privacy}>{community.privacy === 'private' ? 'Закрытое сообщество' : 'Открытое сообщество'}</Text>
+						<View style={styles.identityRow}>
+							<Text style={styles.privacy}>{community.privacy === 'private' ? 'Закрытое сообщество' : 'Открытое сообщество'}</Text>
+							{members.length > 0 ? (
+								<Pressable
+									style={styles.membersInline}
+									onPress={() => onOpenMembers && onOpenMembers(guid, isOwner)}
+									disabled={!onOpenMembers}>
+									<BerxAvatarStack
+										people={members.map((m: BerxCommunityMember) => ({guid: m.guid, icon: m.icon, initial: (m.fullname || m.username).charAt(0)}))}
+										size={22}
+									/>
+									<Text style={styles.membersCount}>{members.length} участников</Text>
+								</Pressable>
+							) : null}
+						</View>
 						{community.description ? <Text style={styles.description}>{community.description}</Text> : null}
 
 						<BerxButton
@@ -341,11 +364,20 @@ export default function CommunityDetailScreen({api, guid, myGuid, pickImage, onB
 						{events.length > 0 ? (
 							<View style={styles.eventsSection}>
 								<Text style={styles.eventsTitle}>Ближайшие события</Text>
-								{events.map((e) => (
-									<Pressable key={e.guid} style={styles.eventRow} onPress={() => onOpenEvent && onOpenEvent(e.guid)} disabled={!onOpenEvent}>
-										<Text style={styles.eventTitle} numberOfLines={1}>{e.title}</Text>
-										<Text style={styles.eventMeta}>{new Date(e.starts * 1000).toLocaleDateString('ru-RU', {day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'})} · {e.attendee_count} идут</Text>
-									</Pressable>
+								{events.map((e: BerxEvent) => (
+									<View key={e.guid} style={styles.eventCardWrap}>
+										<BerxEventCard
+											title={e.title}
+											imageUrl={e.cover_url}
+											starts={e.starts}
+											placeTitle={e.place ? e.place.title : e.location}
+											attendeeCount={e.attendee_count}
+											friendsGoingCount={e.friends_going_count}
+											seatsLeft={e.seats_left}
+											isGoing={e.is_going}
+											onPress={() => onOpenEvent && onOpenEvent(e.guid)}
+										/>
+									</View>
 								))}
 							</View>
 						) : null}
@@ -446,10 +478,12 @@ const styles = StyleSheet.create({
 	deleteLink: {fontSize: typography.sizeSm, color: colors.danger, textAlign: 'center', textDecorationLine: 'underline', marginTop: spacing.sm},
 	eventsSection: {gap: spacing.xs, marginTop: spacing.sm},
 	eventsTitle: {fontSize: typography.sizeXs, color: colors.textFaint, fontWeight: typography.weightBold, textTransform: 'uppercase'},
-	eventRow: {gap: 2, paddingVertical: spacing.xs, borderTopWidth: 1, borderTopColor: colors.borderSoft},
-	eventTitle: {color: colors.text, fontSize: typography.sizeSm, fontWeight: typography.weightMedium},
 	eventMeta: {color: colors.textFaint, fontSize: typography.sizeXs},
 	wallComposer: {gap: spacing.xs, marginTop: spacing.sm},
+	identityRow: {gap: spacing.sm},
+	membersInline: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm},
+	membersCount: {color: colors.textDim, fontSize: typography.sizeXs},
+	eventCardWrap: {marginBottom: spacing.sm},
 	pollBox: {gap: spacing.xs},
 	pollOptionRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm},
 	pollOptionInput: {flex: 1},
