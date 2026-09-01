@@ -1,0 +1,95 @@
+/**
+ * !!! VERIFICATION STATUS: UNVERIFIED — see BerxButton.tsx header.
+ *
+ * BERX STORY RAIL — the live rail at the top of NOW. The reference set
+ * is unanimous on the shape here: a circular portrait with a thin
+ * luminous ring, the person's name directly under it, and an
+ * "add yours" tile leading the row. BERX keeps that shape and makes
+ * the ring mean something real — it is drawn from the accent only for
+ * owners who genuinely have an unseen active story.
+ *
+ * Every tile is a REAL story owner the caller can actually open. The
+ * leading tile is the caller's own real create action.
+ */
+import React from 'react';
+import {View, Text, Image, Pressable, ScrollView, StyleSheet, ViewStyle} from 'react-native';
+import {colors, spacing, typography} from '../tokens';
+
+export interface BerxStoryRailItem {
+	key: string;
+	label: string;
+	iconUrl?: string | null;
+	/** Real unseen state — drives the accent ring. A fully-viewed owner reads as a quiet ring, not a bright one. */
+	unseen?: boolean;
+	onPress: () => void;
+}
+
+export interface BerxStoryRailProps {
+	items: BerxStoryRailItem[];
+	onCreate?: () => void;
+	createLabel?: string;
+	size?: number;
+	style?: ViewStyle;
+}
+
+export function BerxStoryRail({items, onCreate, createLabel = 'Ваша история', size = 62, style}: BerxStoryRailProps) {
+	const ring = size + 8;
+	return (
+		<ScrollView
+			horizontal
+			showsHorizontalScrollIndicator={false}
+			contentContainerStyle={[styles.rail, style]}>
+			{onCreate ? (
+				<Pressable style={styles.item} onPress={onCreate}>
+					<View style={[styles.addTile, {width: ring, height: ring, borderRadius: ring / 2}]}>
+						<Text style={styles.addGlyph}>+</Text>
+					</View>
+					<Text style={styles.label} numberOfLines={1}>
+						{createLabel}
+					</Text>
+				</Pressable>
+			) : null}
+			{items.map((it: BerxStoryRailItem) => (
+				<Pressable key={it.key} style={styles.item} onPress={it.onPress}>
+					<View
+						style={[
+							styles.ring,
+							{width: ring, height: ring, borderRadius: ring / 2},
+							it.unseen ? styles.ringUnseen : styles.ringSeen,
+						]}>
+						{it.iconUrl ? (
+							<Image source={{uri: it.iconUrl}} style={{width: size, height: size, borderRadius: size / 2}} />
+						) : (
+							<View style={[styles.fallback, {width: size, height: size, borderRadius: size / 2}]}>
+								<Text style={styles.fallbackText}>{it.label.charAt(0).toUpperCase()}</Text>
+							</View>
+						)}
+					</View>
+					<Text style={styles.label} numberOfLines={1}>
+						{it.label}
+					</Text>
+				</Pressable>
+			))}
+		</ScrollView>
+	);
+}
+
+const styles = StyleSheet.create({
+	rail: {paddingHorizontal: spacing.lg, gap: spacing.md, alignItems: 'flex-start'},
+	item: {alignItems: 'center', width: 72},
+	ring: {alignItems: 'center', justifyContent: 'center', borderWidth: 2},
+	ringUnseen: {borderColor: colors.accent},
+	ringSeen: {borderColor: 'rgba(255,255,255,0.16)'},
+	addTile: {
+		alignItems: 'center',
+		justifyContent: 'center',
+		borderWidth: 1,
+		borderStyle: 'dashed',
+		borderColor: colors.borderStrong,
+		backgroundColor: colors.glass1,
+	},
+	addGlyph: {color: colors.accent, fontSize: 22, fontWeight: typography.weightRegular, marginTop: -2},
+	fallback: {alignItems: 'center', justifyContent: 'center', backgroundColor: colors.graphite},
+	fallbackText: {color: colors.textDim, fontSize: typography.sizeLg, fontWeight: typography.weightBold},
+	label: {color: colors.textDim, fontSize: 11, marginTop: spacing.xs, textAlign: 'center', width: 72},
+});

@@ -47,6 +47,19 @@ export interface BerxFeedItem {
 	repost_of: number | null;
 	/** BERX WORLD — real Post Polls (see OssnPolls.php's own header). null for the overwhelming majority of posts that never had a poll attached at creation. */
 	poll: BerxPostPoll | null;
+	/**
+	 * BERX SPATIAL — real engagement counts, batched server-side for the
+	 * whole feed page (three grouped queries, not two per item — see
+	 * feed.php's own header). Optional because other endpoints that
+	 * build a BerxFeedItem (a community wall, a repost preview) do not
+	 * compute them; absent means "not fetched here", never "zero".
+	 */
+	like_count?: number;
+	comment_count?: number;
+	is_liked?: boolean;
+	/** Real attached cover image (ossn_media_assets), batched the same way. null when the post genuinely has no image. */
+	media_url?: string | null;
+	media_count?: number;
 }
 
 /** BERX WORLD — real Post Polls. counts is a real, live per-option tally (options[i] pairs with counts[i]) — never a fabricated or estimated number. my_vote is the caller's own real option index, or null if they haven't voted (or aren't authenticated). */

@@ -1256,6 +1256,7 @@ function NowScreenRoute({onOpenProfile}: {onOpenProfile: (username: string) => v
 			onOpenNotifications={() => nav.push('Notifications', undefined)}
 			onOpenSearch={() => nav.push('Search', undefined)}
 			onOpenStories={() => nav.push('Stories', undefined)}
+			onOpenMyProfile={() => nav.push('Profile', {username: undefined})}
 			onOpenPlaces={() => nav.push('Places', undefined)}
 			onOpenEvents={() => nav.push('Events', undefined)}
 			onCreatePost={() => nav.push('CreatePost', undefined)}

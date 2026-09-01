@@ -231,7 +231,7 @@ export function BerxPersonCard({
 			topLeft={isOnline ? <BerxLiveDot label="сейчас" /> : undefined}
 			topRight={typeof distanceKm === 'number' ? <BerxMetaPill text={formatDistance(distanceKm)} /> : undefined}>
 			<Text style={styles.personName} numberOfLines={1}>
-				{fullname || username}
+				{(fullname || username).toUpperCase()}
 			</Text>
 			{contextLine ? (
 				<Text style={styles.metaText} numberOfLines={1}>{contextLine}</Text>
@@ -327,7 +327,7 @@ const styles = StyleSheet.create({
 	metaPillText: {color: colors.text, fontSize: 11, fontWeight: typography.weightMedium},
 	metaPillTextAccent: {color: colors.accent},
 	cardTitle: {color: colors.white, fontSize: typography.sizeLg, fontWeight: typography.weightBold, letterSpacing: -0.2},
-	personName: {color: colors.white, fontSize: typography.sizeBase, fontWeight: typography.weightBold},
+	personName: {color: colors.white, fontSize: typography.sizeSm, fontWeight: typography.weightBold, letterSpacing: 0.4},
 	metaRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm},
 	metaText: {color: 'rgba(245,245,247,0.72)', fontSize: typography.sizeXs, flexShrink: 1},
 	metaAccent: {color: colors.accent, fontSize: typography.sizeXs, fontWeight: typography.weightMedium},

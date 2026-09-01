@@ -107,9 +107,112 @@ if ($posts) {
 }
 
 $page = array_slice($scored, $offset, $limit);
+
+/**
+ * BERX SPATIAL — real engagement counts on the NOW screen's own media
+ * units (the floating action rail needs REAL numbers, never invented
+ * ones). The long-standing reason feed items carried no counts was
+ * N+1: two extra queries per post. That reason is addressed rather
+ * than ignored — these are THREE bounded, batched queries for the
+ * WHOLE page (likes grouped, the caller's own likes, comments
+ * grouped), not two per item. Any post with no rows simply resolves
+ * to 0, which is a real count, not a placeholder.
+ */
+$pageGuids = array();
+foreach ($page as $post) {
+	$pageGuids[] = intval($post->guid);
+}
+
+$likeCounts = array();
+$commentCounts = array();
+$myLikes = array();
+$mediaCovers = array();
+$mediaCounts = array();
+if ($pageGuids) {
+	$db = new OssnDatabase();
+	$guidList = implode(',', $pageGuids);
+
+	$likeRows = $db->select(array(
+		'from'     => 'ossn_likes',
+		'params'   => array('subject_id', 'COUNT(*) as c'),
+		'wheres'   => array(
+			OssnDatabase::wheres('type', '=', 'post'),
+			OssnDatabase::wheres('subject_id', 'IN', $guidList),
+		),
+		'group_by' => 'subject_id',
+	), true);
+	if ($likeRows) {
+		foreach ($likeRows as $row) {
+			$likeCounts[intval($row->subject_id)] = intval($row->c);
+		}
+	}
+
+	$mineRows = $db->select(array(
+		'from'   => 'ossn_likes',
+		'params' => array('subject_id'),
+		'wheres' => array(
+			OssnDatabase::wheres('type', '=', 'post'),
+			OssnDatabase::wheres('guid', '=', intval($api_user_guid)),
+			OssnDatabase::wheres('subject_id', 'IN', $guidList),
+		),
+	), true);
+	if ($mineRows) {
+		foreach ($mineRows as $row) {
+			$myLikes[intval($row->subject_id)] = true;
+		}
+	}
+
+	// BERX SPATIAL — photography is a first-class layer on NOW, so the
+	// feed carries the post's real attached cover image. Same batching
+	// rule: ONE query for the whole page over the real, already-existing
+	// ossn_media_assets table (no new storage), keeping the first image
+	// per post. Media URLs on this route are already public-by-URL (see
+	// media.php's own header) — nothing new is exposed here.
+	$mediaRows = $db->select(array(
+		'from'     => 'ossn_media_assets',
+		'params'   => array('id', 'context_guid', 'media_type'),
+		'wheres'   => array(
+			OssnDatabase::wheres('context_type', '=', 'post'),
+			OssnDatabase::wheres('context_guid', 'IN', $guidList),
+		),
+		'order_by' => 'time_created ASC',
+	), true);
+	if ($mediaRows) {
+		foreach ($mediaRows as $row) {
+			$ctx = intval($row->context_guid);
+			$mediaCounts[$ctx] = isset($mediaCounts[$ctx]) ? $mediaCounts[$ctx] + 1 : 1;
+			if (!isset($mediaCovers[$ctx]) && (string) $row->media_type === 'image') {
+				$mediaCovers[$ctx] = ossn_site_url('media/get/' . intval($row->id));
+			}
+		}
+	}
+
+	$commentRows = $db->select(array(
+		'from'     => 'ossn_annotations',
+		'params'   => array('subject_guid', 'COUNT(*) as c'),
+		'wheres'   => array(
+			OssnDatabase::wheres('type', '=', 'comments:post'),
+			OssnDatabase::wheres('subject_guid', 'IN', $guidList),
+		),
+		'group_by' => 'subject_guid',
+	), true);
+	if ($commentRows) {
+		foreach ($commentRows as $row) {
+			$commentCounts[intval($row->subject_guid)] = intval($row->c);
+		}
+	}
+}
+
 $items = array();
 foreach ($page as $post) {
-	$items[] = ossn_api_post_base_json($post, $api_user_guid);
+	$item = ossn_api_post_base_json($post, $api_user_guid);
+	$guid = intval($post->guid);
+	$item['like_count'] = isset($likeCounts[$guid]) ? $likeCounts[$guid] : 0;
+	$item['comment_count'] = isset($commentCounts[$guid]) ? $commentCounts[$guid] : 0;
+	$item['is_liked'] = isset($myLikes[$guid]);
+	$item['media_url'] = isset($mediaCovers[$guid]) ? $mediaCovers[$guid] : null;
+	$item['media_count'] = isset($mediaCounts[$guid]) ? $mediaCounts[$guid] : 0;
+	$items[] = $item;
 }
 
 ossn_api_json(array('items' => $items, 'limit' => $limit, 'offset' => $offset));

@@ -23,9 +23,9 @@
  */
 
 export const colors = {
-	black: '#050505',
-	bg: '#050505',
-	graphite: '#111113',
+	black: '#07080A',
+	bg: '#07080A',
+	graphite: '#101317',
 
 	glass1: 'rgba(255,255,255,0.04)',
 	glass2: 'rgba(255,255,255,0.07)',
@@ -65,8 +65,8 @@ export const colors = {
 	glassBusiness: 'rgba(255,255,255,0.045)',
 	glassBusinessBorder: 'rgba(255,255,255,0.09)',
 	glassBusinessHairline: 'rgba(255,255,255,0.14)',
-	scrimTop: 'rgba(5,5,5,0)',
-	scrimBottom: 'rgba(5,5,5,0.92)',
+	scrimTop: 'rgba(7,8,10,0)',
+	scrimBottom: 'rgba(7,8,10,0.92)',
 } as const;
 
 /**
@@ -119,6 +119,9 @@ export const colorsDay = {
 	scrimTop: 'rgba(246,244,239,0)',
 	scrimBottom: 'rgba(246,244,239,0.92)',
 } as const;
+
+/** The exact palette contract both environments satisfy — the type every theme-aware StyleSheet factory takes. */
+export type BerxColorTokens = typeof colors;
 
 export type BerxEnvironment = 'day' | 'night';
 
@@ -234,7 +237,7 @@ const DAYPART_PALETTES: Record<BerxDaypart, BerxDaypartPalette> = {
 		label: 'Ночь',
 		accent: '#1E4A52', // deep tidal cyan — same hue as the primary, near its floor
 		accentSoft: 'rgba(30,74,82,0.14)',
-		bg: '#020202', // darker than the base --berx-black — deepest point of the day
+		bg: '#030406', // darker than the base --berx-black — deepest point of the day
 	},
 	morning: {
 		daypart: 'morning',
@@ -262,7 +265,7 @@ const DAYPART_PALETTES: Record<BerxDaypart, BerxDaypartPalette> = {
 		label: 'Ночь',
 		accent: '#3F8894', // dimmed night cyan — the hue held back for the dark
 		accentSoft: 'rgba(63,136,148,0.14)',
-		bg: '#030303',
+		bg: '#050609',
 	},
 };
 
@@ -324,7 +327,7 @@ export const glassNight: Record<1 | 2 | 3 | 4, BerxGlassLevelTokens> = {
 	1: {fill: 'rgba(255,255,255,0.035)', border: 'rgba(255,255,255,0.07)', hairline: 'rgba(255,255,255,0.10)', blurRadius: 8, radius: 16},
 	2: {fill: 'rgba(255,255,255,0.06)', border: 'rgba(255,255,255,0.10)', hairline: 'rgba(255,255,255,0.16)', blurRadius: 14, radius: 20},
 	3: {fill: 'rgba(255,255,255,0.09)', border: 'rgba(255,255,255,0.14)', hairline: 'rgba(255,255,255,0.22)', blurRadius: 22, radius: 24},
-	4: {fill: 'rgba(18,20,22,0.72)', border: 'rgba(255,255,255,0.18)', hairline: 'rgba(255,255,255,0.28)', blurRadius: 32, radius: 28},
+	4: {fill: 'rgba(14,17,21,0.74)', border: 'rgba(255,255,255,0.18)', hairline: 'rgba(255,255,255,0.28)', blurRadius: 32, radius: 28},
 };
 
 export const glassDay: Record<1 | 2 | 3 | 4, BerxGlassLevelTokens> = {
