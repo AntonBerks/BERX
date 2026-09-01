@@ -1460,6 +1460,44 @@ export interface BerxWorld {
 }
 
 /**
+ * BERX Next (components/OssnApi/v1/next.php) — the forward-looking
+ * counterpart to Life Graph: real things needing a response or
+ * genuinely coming up. Three separate real lists, not one merged
+ * feed — a pending invite has no "when" until decided, an Event does.
+ */
+export interface BerxNextPlanInvite {
+	id: number;
+	title: string;
+	owner_guid: number;
+	owner_username: string | null;
+	starts_at: number | null;
+	time_created: number;
+}
+
+export interface BerxNextWorldInvite {
+	id: number;
+	title: string;
+	owner_guid: number;
+	owner_username: string | null;
+	time_created: number;
+}
+
+export interface BerxNextEvent {
+	guid: number;
+	title: string;
+	starts: number;
+	place_guid: number | null;
+	place_title: string | null;
+	has_checked_in: boolean;
+}
+
+export interface BerxNextResponse {
+	pending_plan_invites: BerxNextPlanInvite[];
+	pending_world_invites: BerxNextWorldInvite[];
+	upcoming_events: BerxNextEvent[];
+}
+
+/**
  * Error response shape lives in @berx/core as BerxApiErrorBody, not
  * duplicated here — this file is response/request DATA types only,
  * transport-level error shape belongs with the transport primitives.

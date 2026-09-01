@@ -108,6 +108,7 @@ import type {
 	BerxWorld,
 	BerxWorldVisibility,
 	BerxWorldItemType,
+	BerxNextResponse,
 } from './types';
 import type { BerxTokenStorage, BerxApiErrorBody } from '@berx/core';
 import { BerxApiError } from '@berx/core';
@@ -949,6 +950,11 @@ export class BerxApiClient {
 
 	async deleteWorld(id: number): Promise<{status: string}> {
 		return this.request<{status: string}>(`/worlds/${id}`, {method: 'DELETE'});
+	}
+
+	/** BERX Next — real pending invites + real upcoming events, see components/OssnApi/v1/next.php's own header. */
+	async next(): Promise<BerxNextResponse> {
+		return this.request<BerxNextResponse>('/next/mine');
 	}
 
 	/** `identifier` may be a real username OR a real numeric guid (as a string) — profiles.php resolves either. */

@@ -248,6 +248,10 @@ function ossn_api_v1_resources() {
 		// real membership list. Not a community/group reskin -- see
 		// that class's own header for the distinction from OssnGroup.
 		'worlds'        => __OSSN_API__ . 'v1/worlds.php',
+		// BERX Next — the forward-looking counterpart to lifegraph.php:
+		// pending Plan/World invites + upcoming Events, pure composition,
+		// no new table. See that file's own header.
+		'next'          => __OSSN_API__ . 'v1/next.php',
 		// (No separate 'activity' resource: lifegraph.php already IS
 		// the real composed-timeline concept -- Plans/Checkpoints/Life
 		// Moments/Memories were folded into its existing edge list

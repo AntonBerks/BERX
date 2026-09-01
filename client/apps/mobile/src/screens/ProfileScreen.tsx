@@ -114,6 +114,7 @@ interface Props {
 	onOpenCommunities?: () => void;
 	onOpenPlans?: () => void;
 	onOpenWorlds?: () => void;
+	onOpenNext?: () => void;
 	onOpenDating?: () => void;
 	onOpenPlaces?: () => void;
 	onOpenEvents?: () => void;
@@ -148,7 +149,7 @@ function joinedYear(unixSeconds?: number): string | null {
 	return new Date(unixSeconds * 1000).getFullYear().toString();
 }
 
-export default function ProfileScreen({api, authState, username, onBack, onMessage, onOpenNotifications, onOpenPoints, onOpenMissions, onOpenLifeGraph, onOpenMemories, onOpenWrapped, onOpenDatingPrivacy, onOpenDatingProfile, onOpenDatingPhotos, onOpenCommunities, onOpenPlans, onOpenWorlds, onOpenDating, onOpenPlaces, onOpenEvents, onOpenSettings, onOpenBERXWorld, onOpenAlbums, onOpenCollections, onOpenTrips, onOpenExperiences, onOpenCreatorProfile, onOpenCreatorSettings, onOpenMyVideos, onOpenMyTracks, onOpenSavedPosts, onOpenEditProfile, onOpenMyPlaceClaims, onOpenRecentCheckins, onOpenAdminUnvalidated, onOpenAdminReports, onOpenAdminPlaceClaims, onReport, onOpenStoryGroup, onOpenPost}: Props) {
+export default function ProfileScreen({api, authState, username, onBack, onMessage, onOpenNotifications, onOpenPoints, onOpenMissions, onOpenLifeGraph, onOpenMemories, onOpenWrapped, onOpenDatingPrivacy, onOpenDatingProfile, onOpenDatingPhotos, onOpenCommunities, onOpenPlans, onOpenWorlds, onOpenNext, onOpenDating, onOpenPlaces, onOpenEvents, onOpenSettings, onOpenBERXWorld, onOpenAlbums, onOpenCollections, onOpenTrips, onOpenExperiences, onOpenCreatorProfile, onOpenCreatorSettings, onOpenMyVideos, onOpenMyTracks, onOpenSavedPosts, onOpenEditProfile, onOpenMyPlaceClaims, onOpenRecentCheckins, onOpenAdminUnvalidated, onOpenAdminReports, onOpenAdminPlaceClaims, onReport, onOpenStoryGroup, onOpenPost}: Props) {
 	const [profile, setProfile] = useState<ProfileData | null>(null);
 	const [identity, setIdentity] = useState<BerxIdentity | null>(null);
 	const [loading, setLoading] = useState(true);
@@ -593,7 +594,8 @@ export default function ProfileScreen({api, authState, username, onBack, onMessa
 						{onOpenEvents ? <MenuRow label="События" icon={<IconStar size={18} color={colors.text} />} onPress={onOpenEvents} /> : null}
 						{onOpenCommunities ? <MenuRow label="Сообщества" icon={<IconUsers size={18} color={colors.text} />} onPress={onOpenCommunities} /> : null}
 						{onOpenPlans ? <MenuRow label="Планы" icon={<IconUsers size={18} color={colors.text} />} onPress={onOpenPlans} /> : null}
-						{onOpenWorlds ? <MenuRow label="Миры" icon={<IconUsers size={18} color={colors.text} />} onPress={onOpenWorlds} isLast /> : null}
+						{onOpenWorlds ? <MenuRow label="Миры" icon={<IconUsers size={18} color={colors.text} />} onPress={onOpenWorlds} /> : null}
+						{onOpenNext ? <MenuRow label="Дальше" icon={<IconStar size={18} color={colors.text} />} onPress={onOpenNext} isLast /> : null}
 					</View>
 
 					<Text style={styles.sectionLabel}>Активность</Text>

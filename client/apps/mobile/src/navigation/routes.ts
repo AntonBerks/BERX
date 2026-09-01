@@ -57,6 +57,7 @@ export type BerxRouteName =
 	| 'Worlds'
 	| 'WorldDetail'
 	| 'CreateWorld'
+	| 'Next'
 	| 'CommunityRequests'
 	| 'CommunityModerators'
 	| 'CommunityMembers'
@@ -166,6 +167,7 @@ export interface BerxRouteParams {
 	Worlds: undefined;
 	WorldDetail: { id: number };
 	CreateWorld: undefined;
+	Next: undefined;
 	CommunityRequests: { guid: number };
 	CommunityModerators: { guid: number };
 	CommunityMembers: { guid: number; isOwner?: boolean };
@@ -291,6 +293,7 @@ export const BERX_ROUTES: BerxRouteMeta[] = [
 	{ name: 'Worlds', connected: true },
 	{ name: 'WorldDetail', connected: true },
 	{ name: 'CreateWorld', connected: true },
+	{ name: 'Next', connected: true },
 	{ name: 'CommunityRequests', connected: true },
 	{ name: 'CommunityModerators', connected: true },
 	{ name: 'CommunityMembers', connected: true },
