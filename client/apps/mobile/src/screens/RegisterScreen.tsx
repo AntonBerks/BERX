@@ -29,6 +29,7 @@ import {spacing, radius, typography, shadow} from '@berx/design-system/tokens';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {BerxGlassSurface} from '../../../../packages/design-system/src/components/BerxGlassSurface';
+import {BerxStage} from '../../../../packages/design-system/src/components/BerxStage';
 import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
 import {Berx3DTilt} from '../../../../packages/design-system/src/components/Berx3DTilt';
 
@@ -107,6 +108,12 @@ export default function RegisterScreen({api, onRegistered, onBack}: Props) {
 
 	return (
 		<KeyboardAvoidingView style={styles.screen} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+			{/* THE SAME STAGE, not a similar one. Welcome, Discover, Splash
+			    and onboarding all stand on BerxStage; hand-copying its light
+			    placement here is how the entry flow drifts apart one edit at
+			    a time. Rendered as an absolute background layer because this
+			    screen's root has to be the KeyboardAvoidingView. */}
+			<BerxStage depth={0.2} seed={19} scrim={0.5} style={StyleSheet.absoluteFillObject as never} />
 			<ScrollView contentContainerStyle={styles.scrollBody} keyboardShouldPersistTaps="handled">
 				<BerxFadeIn riseFrom={8}>
 					<View style={styles.hero}>

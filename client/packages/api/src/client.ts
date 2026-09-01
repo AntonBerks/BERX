@@ -51,6 +51,7 @@ import type {
 	BerxPlace,
 	BerxBusinessDashboard,
 	BerxNearbyPlace,
+	BerxInterestsResponse,
 	BerxPlaceCategory,
 	BerxPlaceReview,
 	BerxEvent,
@@ -1718,16 +1719,43 @@ export class BerxApiClient {
 	// verbatim from the PHP input() calls, not inferred.
 	// ---------------------------------------------------------------
 
-	async places(q?: string, category?: string): Promise<{places: BerxPlace[]}> {
+	/**
+	 * `forYou` asks the server to put places in the caller's own saved
+	 * interest categories first. It re-orders, never filters — with no
+	 * saved interests the response is identical to a plain call.
+	 */
+	async places(q?: string, category?: string, forYou = false): Promise<{places: BerxPlace[]}> {
 		const params = new URLSearchParams();
 		if (q) params.set('q', q);
 		if (category) params.set('category', category);
+		if (forYou) params.set('for_you', '1');
 		const qs = params.toString();
 		return this.request<{places: BerxPlace[]}>(`/places${qs ? `?${qs}` : ''}`);
 	}
 
 	async placeCategories(): Promise<{categories: BerxPlaceCategory[]}> {
 		return this.request<{categories: BerxPlaceCategory[]}>('/places/categories');
+	}
+
+	/**
+	 * The caller's own saved interests, plus the SAME vocabulary
+	 * /places/categories serves — the picker never holds its own copy of
+	 * the taxonomy, so the two can never drift.
+	 */
+	async myInterests(): Promise<BerxInterestsResponse> {
+		return this.request<BerxInterestsResponse>('/me/interests');
+	}
+
+	/**
+	 * Replaces the whole set. An empty array is a real answer ("none of
+	 * these") and clears the saved interests; an unknown slug is rejected
+	 * server-side with 422 rather than partially saved.
+	 */
+	async saveInterests(categories: string[]): Promise<{interests: string[]}> {
+		return this.request<{interests: string[]}>('/me/interests', {
+			method: 'POST',
+			body: {categories: categories.join(',')},
+		});
 	}
 
 	/** MAX BUILD — real Trending Places. Wires OssnSignals (BERX Future Core — previously built, migrated, and never instantiated anywhere) into a live-computed 7-day engagement ranking, never a fake/pre-baked score. */

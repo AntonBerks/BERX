@@ -236,7 +236,15 @@ export interface BerxRecentCheckinsResponse {
 }
 
 export interface BerxIdentityInterest {
+	/** The place-category SLUG this was derived from — an internal id. */
 	category: string;
+	/**
+	 * The human label for that slug, resolved server-side from the same
+	 * whitelist /places/categories serves (identity.php). Optional so a
+	 * client running against a server that predates it still typechecks;
+	 * absent means fall back to the slug, never render nothing.
+	 */
+	label?: string;
 	count: number;
 }
 
@@ -947,6 +955,19 @@ export interface BerxBusinessSubscription {
 /** Only present on /places/nearby results — see places.php's own nearby branch. */
 export interface BerxNearbyPlace extends BerxPlace {
 	distance_km: number;
+}
+
+/**
+ * BERX Interests — the caller's own saved topics, plus the vocabulary
+ * they were chosen from. `options` is the same whitelist
+ * /places/categories serves; it travels with the answer so a picker
+ * never has to hardcode a second copy of the taxonomy.
+ */
+export interface BerxInterestsResponse {
+	interests: string[];
+	options: BerxPlaceCategory[];
+	/** Server-enforced ceiling on how many a single account may keep. */
+	max: number;
 }
 
 export interface BerxPlaceCategory {

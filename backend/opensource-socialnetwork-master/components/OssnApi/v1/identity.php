@@ -121,13 +121,29 @@ function ossn_api_identity_compose($guid) {
 		}
 	}
 	arsort($categoryCounts);
+	// The counted key is a place-category SLUG ('cafe'), which is an
+	// internal identifier — the client was rendering it raw on the
+	// profile. The human label lives in the same shared whitelist
+	// /places/categories serves, so it is resolved here, once, rather
+	// than by a second client-side copy of the taxonomy that would drift
+	// the moment that list changes. `label` falls back to the slug for a
+	// category that is no longer in the whitelist, so an old saved place
+	// still renders something rather than nothing.
+	$categoryLabels = array();
+	foreach (ossn_api_place_categories() as $row) {
+		$categoryLabels[(string) $row['slug']] = (string) $row['label'];
+	}
 	$interests = array();
 	$i = 0;
 	foreach ($categoryCounts as $cat => $cnt) {
 		if ($i >= 5) {
 			break;
 		}
-		$interests[] = array('category' => $cat, 'count' => $cnt);
+		$interests[] = array(
+			'category' => $cat,
+			'label'    => isset($categoryLabels[$cat]) ? $categoryLabels[$cat] : (string) $cat,
+			'count'    => $cnt,
+		);
 		$i++;
 	}
 

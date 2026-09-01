@@ -32,6 +32,8 @@ import {BerxNavigator, useBerxNavigation} from './navigation/BerxNavigator';
 import {BerxRouteName} from './navigation/routes';
 import LoginScreen from './screens/LoginScreen';
 import WelcomeScreen from './screens/WelcomeScreen';
+import SplashScreen from './screens/SplashScreen';
+import DiscoverScreen from './screens/DiscoverScreen';
 import RegisterScreen from './screens/RegisterScreen';
 import OnboardingScreen from './screens/OnboardingScreen';
 import FeedScreen from './screens/FeedScreen';
@@ -1481,14 +1483,25 @@ function AppShellInner() {
 }
 
 /**
- * Welcome → Login / Register. Plain local state, not BerxNavigator —
- * this tiny 3-screen flow has no need for push/pop history (Welcome
- * is always the root; Login and Register are lateral choices from it,
- * not a stack a user would "go back" through in a meaningful way).
+ * Splash → Welcome → (Discover →) Register / Login. Plain local state,
+ * not BerxNavigator — this flow has no need for push/pop history:
+ * Welcome is the root, and Discover/Login/Register are lateral choices
+ * from it, not a stack a user would "go back" through in a meaningful
+ * way. The one back edge that matters (Register → Discover) is passed
+ * explicitly.
  */
 function UnauthenticatedFlow() {
-	const [screen, setScreen] = useState<'welcome' | 'login' | 'register'>('welcome');
+	const [screen, setScreen] = useState<'splash' | 'welcome' | 'discover' | 'login' | 'register'>('splash');
 
+	if (screen === 'splash') {
+		// The reveal runs on its own clock and then hands over. It is not a
+		// progress bar for the real boot — that is AppShell's own 'booting'
+		// state, which has already finished by the time this renders.
+		return <SplashScreen onDone={() => setScreen('welcome')} />;
+	}
+	if (screen === 'discover') {
+		return <DiscoverScreen onFinish={() => setScreen('register')} onSkip={() => setScreen('register')} />;
+	}
 	if (screen === 'login') {
 		return <LoginScreen authState={authState} onGoToRegister={() => setScreen('register')} />;
 	}
@@ -1500,11 +1513,14 @@ function UnauthenticatedFlow() {
 					pendingOnboarding = true;
 					setScreen('login');
 				}}
-				onBack={() => setScreen('welcome')}
+				onBack={() => setScreen('discover')}
 			/>
 		);
 	}
-	return <WelcomeScreen onLogin={() => setScreen('login')} onRegister={() => setScreen('register')} />;
+	// "Создать аккаунт" goes through Discover first: a new account should
+	// see what BERX is before it sees a form. "У меня уже есть BERX" goes
+	// straight to Login — an existing user does not need the pitch.
+	return <WelcomeScreen onLogin={() => setScreen('login')} onRegister={() => setScreen('discover')} />;
 }
 
 const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({

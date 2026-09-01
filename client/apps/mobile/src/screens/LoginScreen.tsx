@@ -32,8 +32,9 @@ import {spacing, typography} from '@berx/design-system/tokens';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {BerxGlassSurface} from '../../../../packages/design-system/src/components/BerxGlassSurface';
+import {BerxStage} from '../../../../packages/design-system/src/components/BerxStage';
+import {BerxEmblem} from '../../../../packages/design-system/src/components/BerxEmblem';
 import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
-import {Berx3DTilt} from '../../../../packages/design-system/src/components/Berx3DTilt';
 
 import {useBerxColors} from '../../../../packages/design-system/src/theme';
 import type {BerxColorTokens} from '@berx/design-system/tokens';
@@ -79,12 +80,17 @@ export default function LoginScreen({authState, onGoToRegister}: Props) {
 
 	return (
 		<KeyboardAvoidingView style={styles.screen} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+			{/* THE SAME STAGE, not a similar one. Welcome, Discover, Splash
+			    and onboarding all stand on BerxStage; hand-copying its light
+			    placement here is how the entry flow drifts apart one edit at
+			    a time. Rendered as an absolute background layer because this
+			    screen's root has to be the KeyboardAvoidingView. */}
+			<BerxStage depth={0.2} seed={19} scrim={0.5} style={StyleSheet.absoluteFillObject as never} />
 			<ScrollView contentContainerStyle={styles.scrollBody} keyboardShouldPersistTaps="handled">
 				<BerxFadeIn riseFrom={8}>
 					<View style={styles.hero}>
-						<Berx3DTilt style={styles.wordmarkTilt} maxAngle={8}>
-							<Text style={styles.wordmark}>BERX</Text>
-						</Berx3DTilt>
+						<BerxEmblem size={104} light={colors.accent} style={styles.heroEmblem} />
+						<Text style={styles.heroTitle}>С возвращением</Text>
 						<Text style={styles.tagline}>Мир, который вы создаёте сами</Text>
 					</View>
 				</BerxFadeIn>
@@ -127,6 +133,8 @@ export default function LoginScreen({authState, onGoToRegister}: Props) {
 const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.bg},
 	scrollBody: {flexGrow: 1, justifyContent: 'center', padding: spacing.xl, gap: spacing.xl},
+	heroEmblem: {alignSelf: 'center', marginBottom: spacing.md},
+	heroTitle: {color: colors.text, fontSize: 34, lineHeight: 38, fontWeight: typography.weightBold, letterSpacing: -1, textAlign: 'center'},
 	hero: {alignItems: 'center', gap: spacing.sm},
 	wordmarkTilt: {alignSelf: 'center'},
 	wordmark: {

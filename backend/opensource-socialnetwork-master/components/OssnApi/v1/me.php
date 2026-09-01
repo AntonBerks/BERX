@@ -389,6 +389,57 @@ if ($segment0 === 'referral' && $method === 'GET') {
 	));
 }
 
+/**
+ * BERX Interests — the real store behind onboarding's interest step
+ * (classes/OssnUserInterests.php, ossn_user_interests).
+ *
+ * GET returns the caller's own chosen slugs alongside the SAME
+ * vocabulary GET /places/categories serves, so the picker never has to
+ * hold its own copy of the taxonomy and can never drift from it.
+ *
+ * POST replaces the whole set: the picker sends the user's full
+ * current selection, so an absent slug was deliberately removed. An
+ * unknown slug fails the entire call (422) rather than saving part of
+ * it — a partial save would leave the picker showing state the server
+ * does not hold. POST rather than PUT because POST is the only
+ * body-carrying write this API's dispatcher and client both speak
+ * (see ossn_com.php's PATCH/DELETE body shim and client.ts's own
+ * method union).
+ */
+if ($segment0 === 'interests' && $segment1 === null && $method === 'GET') {
+	if (!class_exists('OssnUserInterests')) {
+		ossn_api_error('not_found', 'Interests not available', 404);
+	}
+	$model = new OssnUserInterests();
+	$vocab = OssnUserInterests::vocabulary();
+	$options = array();
+	foreach ($vocab as $slug => $label) {
+		$options[] = array('slug' => $slug, 'label' => $label);
+	}
+	ossn_api_json(array(
+		'interests' => $model->get($api_user_guid),
+		'options'   => $options,
+		'max'       => OssnUserInterests::MAX_PER_USER,
+	));
+}
+
+if ($segment0 === 'interests' && $segment1 === null && $method === 'POST') {
+	if (!class_exists('OssnUserInterests')) {
+		ossn_api_error('not_found', 'Interests not available', 404);
+	}
+	// A cleared selection is a real, meaningful answer ("none of
+	// these"), so an empty/absent value saves an empty set rather than
+	// being rejected as a missing field.
+	$raw = input('categories');
+	$list = ($raw === false || $raw === '') ? array() : explode(',', (string) $raw);
+	$model = new OssnUserInterests();
+	$saved = $model->set($api_user_guid, $list);
+	if ($saved === false) {
+		ossn_api_error('validation_error', 'Unknown or too many categories', 422);
+	}
+	ossn_api_json(array('interests' => $saved));
+}
+
 if ($segment0 === 'sessions' && $segment1 === null && $method === 'GET') {
 	$tokenModel = new OssnApiToken();
 	ossn_api_json(array('sessions' => $tokenModel->listSessions($api_user_guid)));

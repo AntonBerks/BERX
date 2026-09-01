@@ -93,6 +93,11 @@ $OssnClasses = array(
 		// attendance reuses the existing ossn_relationships table
 		// (type 'event:going') — no new table at all.
 		'Events',
+		// BERX User Interests — the real store behind onboarding's
+		// interest step (ossn_user_interests,
+		// upgrade/upgrades/1785172200.php). Vocabulary is the shared
+		// place-category whitelist, not a second taxonomy.
+		'UserInterests',
 );
 foreach ($OssnClasses as $class) {
 		$loadClass['Ossn' . $class] = ossn_route()->classes . "Ossn{$class}.php";

@@ -481,7 +481,9 @@ export default function ProfileScreen({api, authState, username, onBack, onMessa
 							<View style={styles.interestRow}>
 								{identity.interests.slice(0, 3).map((it: BerxIdentityInterest) => (
 									<View key={it.category} style={styles.interestPill}>
-										<Text style={styles.interestPillText}>{it.category}</Text>
+										{/* The label is the human name; `category` is a slug and was
+										    being rendered raw here. */}
+										<Text style={styles.interestPillText}>{it.label ?? it.category}</Text>
 									</View>
 								))}
 							</View>

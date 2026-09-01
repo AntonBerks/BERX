@@ -89,6 +89,13 @@ export default function PlacesListScreen({api, onOpenPlace, onCreate, onOpenNear
 
 	if (loading && items.length === 0) return <BerxLoadingState />;
 
+	// BerxPlace.category is a SLUG ('cafe'), not a label. It was being
+	// rendered raw on every card, putting an internal identifier in front
+	// of the user; the real labels are already on this screen, from the
+	// same api.placeCategories() call the filter chips use.
+	const labelFor = (slug: string | null): string | undefined =>
+		slug ? categories.find((c: BerxPlaceCategory) => c.slug === slug)?.label ?? undefined : undefined;
+
 	// Live headline, from this screen's own real state only. Each branch
 	// states something the screen can actually prove right now.
 	const activeCategory = category ? categories.find((c: BerxPlaceCategory) => c.slug === category) : undefined;
@@ -133,7 +140,7 @@ export default function PlacesListScreen({api, onOpenPlace, onCreate, onOpenNear
 								<BerxPlaceCard
 									title={item.title}
 									imageUrl={item.cover_url}
-									category={item.category}
+									category={labelFor(item.category)}
 									rating={item.rating_count > 0 ? item.rating : undefined}
 									liveLabel={ruPeopleLabel(item.distinct_actors)}
 									width={LEAD_W}
@@ -186,7 +193,7 @@ export default function PlacesListScreen({api, onOpenPlace, onCreate, onOpenNear
 								<BerxPlaceCard
 									title={item.title}
 									imageUrl={item.cover_url}
-									category={item.category ?? item.address}
+									category={labelFor(item.category) ?? item.address ?? undefined}
 									rating={item.rating_count > 0 ? item.rating : undefined}
 									onPress={() => onOpenPlace(item.guid)}
 								/>

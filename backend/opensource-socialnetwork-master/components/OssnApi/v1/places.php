@@ -94,6 +94,29 @@ if ($segment0 === null && $method === 'GET') {
 		'category' => input('category') ?: null,
 		'limit'    => 30,
 	), $api_user_guid);
+	// BERX Interests — `for_you=1` re-orders the SAME result set so
+	// places in the caller's own chosen categories come first. It is a
+	// stable partition, not a filter and not a score: nothing is hidden,
+	// nothing is invented, and with no saved interests the order is
+	// byte-for-byte what it was before. This is the read that makes the
+	// onboarding interest step mean something (see me.php's
+	// /me/interests and classes/OssnUserInterests.php).
+	if (input('for_you') && class_exists('OssnUserInterests')) {
+		$mine = (new OssnUserInterests())->get($api_user_guid);
+		if ($mine) {
+			$wanted = array();
+			$rest   = array();
+			foreach ($rows as $row) {
+				$category = isset($row->category) ? (string) $row->category : '';
+				if ($category !== '' && in_array($category, $mine, true)) {
+					$wanted[] = $row;
+				} else {
+					$rest[] = $row;
+				}
+			}
+			$rows = array_merge($wanted, $rest);
+		}
+	}
 	ossn_api_json(array('places' => $rows));
 }
 
