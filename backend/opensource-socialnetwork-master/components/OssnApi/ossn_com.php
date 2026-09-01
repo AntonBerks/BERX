@@ -105,6 +105,53 @@ ossn_add_hook('notification:add', 'berx:event:rsvp', 'ossn_api_notify_event_owne
 ossn_add_hook('notification:add', 'berx:event:checkin', 'ossn_api_notify_event_owner');
 ossn_add_hook('notification:add', 'berx:event:comment', 'ossn_api_notify_event_owner');
 
+/**
+ * BERX WORLD — real @mention parsing, closing a genuinely dead piece
+ * of stock OSSN infrastructure: 'wall:friends:tag' already has a real
+ * notification:add hook (components/OssnNotifications/ossn_com.php's
+ * own ossn_notificaiton_walltag_hook — confirmed by reading it, not
+ * assumed), is already in OssnNotificationPrefs::knownTypes(), and the
+ * mobile client already has a real label/route for it
+ * (NotificationsScreen.tsx) — but nothing anywhere in this codebase
+ * ever actually called OssnNotifications::add('wall:friends:tag', ...)
+ * before this. The whole notification pipeline was real and wired;
+ * only the real trigger was missing.
+ *
+ * Usernames are alphanumeric-only (OssnUser::save()'s own real
+ * validation, confirmed by reading it), so `/@([a-zA-Z0-9]+)/` is a
+ * real, accurate match, not a guessed pattern. Every candidate is
+ * resolved through ossn_user_by_username() — a typed handle matching
+ * no real account is silently dropped, never notified as if it were
+ * someone. Friends-only, same anti-spam restriction every other BERX
+ * invite/tag flow already enforces (Plans/Events/Worlds) — mentioning
+ * a stranger's real username doesn't notify them.
+ */
+function ossn_api_extract_mentions($text, $posterGuid) {
+	$mentioned = array();
+	$text = (string) $text;
+	if ($text === '' || !preg_match_all('/@([a-zA-Z0-9]+)/', $text, $matches)) {
+		return $mentioned;
+	}
+	$posterGuid = intval($posterGuid);
+	$poster = ossn_user_by_guid($posterGuid);
+	if (!$poster) {
+		return $mentioned;
+	}
+	$seen = array();
+	foreach (array_unique($matches[1]) as $username) {
+		$user = ossn_user_by_username($username);
+		if (!$user || intval($user->guid) === $posterGuid || isset($seen[intval($user->guid)])) {
+			continue;
+		}
+		if (!$poster->isFriend($posterGuid, intval($user->guid))) {
+			continue;
+		}
+		$seen[intval($user->guid)] = true;
+		$mentioned[] = $user;
+	}
+	return $mentioned;
+}
+
 /** owner_guid is already supplied as notification_owner by the caller (a specific invitee) — real passthrough, nothing to resolve. */
 function ossn_api_notify_passthrough($hook, $type, $return, $params) {
 	return $params;

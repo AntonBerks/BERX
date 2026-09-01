@@ -258,6 +258,13 @@ if ($segment0 === null && $method === 'POST') {
 	if ($repostOfGuid && class_exists('OssnSignals')) {
 		(new OssnSignals())->record($api_user_guid, 'share', 'post', $repostOfGuid);
 	}
+	// BERX WORLD — real @mention notifications, see
+	// ossn_api_extract_mentions()'s own header in ossn_com.php.
+	if (class_exists('OssnNotifications') && function_exists('ossn_api_extract_mentions')) {
+		foreach (ossn_api_extract_mentions($text, $api_user_guid) as $mentionedUser) {
+			(new OssnNotifications())->add('wall:friends:tag', intval($api_user_guid), intval($guid), intval($guid), intval($mentionedUser->guid));
+		}
+	}
 	ossn_api_json(array('guid' => intval($guid)));
 }
 
@@ -423,6 +430,13 @@ if ($segment0 !== null && $segment1 === 'comments' && $segment2 === null && $met
 	// Core -- see places.php's own comment for the full story).
 	if (class_exists('OssnSignals')) {
 		(new OssnSignals())->record($api_user_guid, 'comment', 'post', $post->guid);
+	}
+	// BERX WORLD — real @mention notifications inside a comment too,
+	// same real subject (the post itself) 'comments:post' already uses.
+	if (class_exists('OssnNotifications') && function_exists('ossn_api_extract_mentions')) {
+		foreach (ossn_api_extract_mentions($text, $api_user_guid) as $mentionedUser) {
+			(new OssnNotifications())->add('wall:friends:tag', intval($api_user_guid), intval($post->guid), intval($post->guid), intval($mentionedUser->guid));
+		}
 	}
 	ossn_api_json(array('status' => 'ok'));
 }

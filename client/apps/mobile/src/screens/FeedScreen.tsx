@@ -34,6 +34,7 @@ import {colors, spacing, radius, typography} from '@berx/design-system/tokens';
 import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
 import {BerxErrorState, BerxEmptyState, BerxSkeleton} from '../../../../packages/design-system/src/components/BerxStates';
 import {IconPlus} from '../../../../packages/design-system/src/components/BerxIcons';
+import {BerxMentionText} from '../../../../packages/design-system/src/components/BerxMentionText';
 
 interface Props {
 	api: BerxApiClient;
@@ -184,7 +185,7 @@ export default function FeedScreen({api, onOpenPost, onOpenProfile, onCreatePost
 								{(item.owner_username ?? 'BERX').toUpperCase()} · {relativeTimeLabel(item.time_created)}
 							</Text>
 						</Pressable>
-						<Text style={styles.text}>{item.text}</Text>
+						<BerxMentionText text={item.text} onOpenProfile={onOpenProfile} style={styles.text} />
 					</Pressable>
 				)}
 				ItemSeparatorComponent={() => <View style={styles.separator} />}

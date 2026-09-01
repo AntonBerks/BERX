@@ -35,6 +35,7 @@ import {BerxLoadingState, BerxErrorState} from '../../../../packages/design-syst
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxMediaGrid} from '../../../../packages/design-system/src/components/BerxMediaGrid';
 import {BerxMediaViewer} from '../../../../packages/design-system/src/components/BerxMediaViewer';
+import {BerxMentionText} from '../../../../packages/design-system/src/components/BerxMentionText';
 
 interface Props {
 	api: BerxApiClient;
@@ -267,7 +268,7 @@ export default function PostDetailScreen({api, postGuid, myGuid, onOpenProfile, 
 				<Pressable onPress={() => post.poster_username && onOpenProfile(post.poster_username)} disabled={!post.poster_username}>
 					<Text style={styles.author}>{post.poster_username ?? 'BERX'}</Text>
 				</Pressable>
-				{post.text ? <Text style={styles.text}>{post.text}</Text> : null}
+				{post.text ? <BerxMentionText text={post.text} onOpenProfile={onOpenProfile} style={styles.text} /> : null}
 				<View style={styles.timeRow}>
 					<Text style={styles.time}>{relativeTimeLabel(post.time_created)}</Text>
 					{post.like_count > 0 ? (
@@ -387,7 +388,7 @@ export default function PostDetailScreen({api, postGuid, myGuid, onOpenProfile, 
 								)}
 								<View style={styles.commentBody}>
 									<Text style={styles.commentAuthor}>{c.author?.fullname ?? 'Пользователь'}</Text>
-									<Text style={styles.commentText}>{c.text}</Text>
+									<BerxMentionText text={c.text} onOpenProfile={onOpenProfile} style={styles.commentText} />
 									<View style={styles.commentMetaRow}>
 										<Text style={styles.commentTime}>{relativeTimeLabel(c.time)}</Text>
 										<Pressable onPress={() => toggleCommentLike(c)} hitSlop={8}>
