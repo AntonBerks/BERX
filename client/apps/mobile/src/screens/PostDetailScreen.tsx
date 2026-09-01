@@ -299,6 +299,21 @@ export default function PostDetailScreen({api, postGuid, myGuid, onOpenProfile, 
 		}
 	}
 
+	/** BERX WORLD — real Pinned Comment, post-author-only (server re-checks this too — see posts.php's own /pin route). Pinning replaces any existing pin, so unset the old one client-side too. */
+	async function togglePinComment(comment: BerxPostComment) {
+		try {
+			if (comment.is_pinned) {
+				await api.unpinComment(postGuid, comment.id);
+				setComments((prev: BerxPostComment[]) => prev.map((c: BerxPostComment) => (c.id === comment.id ? {...c, is_pinned: false} : c)));
+			} else {
+				await api.pinComment(postGuid, comment.id);
+				setComments((prev: BerxPostComment[]) => prev.map((c: BerxPostComment) => ({...c, is_pinned: c.id === comment.id})));
+			}
+		} catch {
+			// best-effort — list stays at its pre-toggle state on failure
+		}
+	}
+
 	if (loading) {
 		return (
 			<ScrollView style={styles.screen}>
@@ -485,7 +500,9 @@ export default function PostDetailScreen({api, postGuid, myGuid, onOpenProfile, 
 									<View style={styles.commentAvatar} />
 								)}
 								<View style={styles.commentBody}>
-									<Text style={styles.commentAuthor}>{c.author?.fullname ?? 'Пользователь'}</Text>
+									<Text style={styles.commentAuthor}>
+										{c.is_pinned ? '📌 ' : ''}{c.author?.fullname ?? 'Пользователь'}
+									</Text>
 									<BerxRichText text={c.text} onOpenProfile={onOpenProfile} onOpenHashtag={onOpenHashtag} style={styles.commentText} />
 									<View style={styles.commentMetaRow}>
 										<Text style={styles.commentTime}>{relativeTimeLabel(c.time)}</Text>
@@ -497,6 +514,12 @@ export default function PostDetailScreen({api, postGuid, myGuid, onOpenProfile, 
 										<Pressable onPress={() => setReplyTo(c)} hitSlop={8}>
 											<Text style={styles.commentLike}>Ответить</Text>
 										</Pressable>
+										{/* BERX WORLD — post-author-only, and only for a top-level comment: pinning only ever floats a real root comment, so the action is only offered where it visibly does something. */}
+										{myGuid && post && myGuid === post.owner_guid && depth === 0 ? (
+											<Pressable onPress={() => togglePinComment(c)} hitSlop={8}>
+												<Text style={styles.commentLike}>{c.is_pinned ? 'Открепить' : 'Закрепить'}</Text>
+											</Pressable>
+										) : null}
 									</View>
 								</View>
 								{myGuid && c.author?.guid === myGuid ? (
@@ -522,7 +545,11 @@ export default function PostDetailScreen({api, postGuid, myGuid, onOpenProfile, 
  * their server order (oldest first); each one is immediately followed
  * by its full reply subtree (also oldest first), indented by depth.
  * A reply whose real parent went missing (deleted) is folded back to
- * top-level rather than silently dropped.
+ * top-level rather than silently dropped. A real pinned top-level
+ * comment (post-author-only, server-enforced) floats to the very
+ * front, replies included — pinning is never faked client-side by
+ * reordering alone, it only decides placement among the real server
+ * order once is_pinned itself is real.
  */
 function orderCommentsThreaded(comments: BerxPostComment[]): {comment: BerxPostComment; depth: number}[] {
 	const byParent = new Map<number, BerxPostComment[]>();
@@ -537,6 +564,7 @@ function orderCommentsThreaded(comments: BerxPostComment[]): {comment: BerxPostC
 			roots.push(c);
 		}
 	});
+	roots.sort((a, b) => (b.is_pinned ? 1 : 0) - (a.is_pinned ? 1 : 0));
 	const out: {comment: BerxPostComment; depth: number}[] = [];
 	function walk(list: BerxPostComment[], depth: number) {
 		list.forEach((c) => {

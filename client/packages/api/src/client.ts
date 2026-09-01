@@ -443,6 +443,15 @@ export class BerxApiClient {
 		return this.request<{status: string; is_liked: boolean}>(`/posts/${postId}/comments/${commentId}/unlike`, {method: 'POST'});
 	}
 
+	/** BERX WORLD — real Pinned Comment. Post-author-only, enforced server-side against the post's own real owner_guid (see COMMENT_PIN_RELATION's own comment in posts.php). */
+	async pinComment(postId: number, commentId: number): Promise<{status: string; is_pinned: boolean}> {
+		return this.request<{status: string; is_pinned: boolean}>(`/posts/${postId}/comments/${commentId}/pin`, {method: 'POST'});
+	}
+
+	async unpinComment(postId: number, commentId: number): Promise<{status: string; is_pinned: boolean}> {
+		return this.request<{status: string; is_pinned: boolean}>(`/posts/${postId}/comments/${commentId}/unpin`, {method: 'POST'});
+	}
+
 	// ---------------------------------------------------------------
 	// Collections — components/OssnApi/v1/collections.php. New domain
 	// this session, backed by real ossn_collections/ossn_collection_items

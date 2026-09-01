@@ -1114,6 +1114,8 @@ export interface BerxPostComment {
 	is_liked: boolean;
 	/** BERX WORLD — real comment threading. The id of the comment this one replies to, or null for a top-level comment. Backed by a real BERX-native companion table (OssnCommentThreads), never a change to stock OssnAnnotation storage. */
 	reply_to: number | null;
+	/** BERX WORLD — real Pinned Comment. Post-author-only, same real ossn_relationships toggle pattern as a post's own is_pinned. At most one true per post. */
+	is_pinned: boolean;
 }
 
 export type BerxCollectionItemType = 'place' | 'event' | 'post';

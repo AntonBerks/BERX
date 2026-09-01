@@ -37,6 +37,8 @@ const POST_SAVE_RELATION = 'post:save';
 const POST_PIN_RELATION = 'post:pin';
 /** MAX BUILD — real comment likes: OssnLikes' own $type param (default 'post') was always generic — passing 'comment' here reuses the exact same engine post likes use, no new table, no new class. */
 const COMMENT_LIKE_TYPE = 'comment';
+/** BERX WORLD — real Pinned Comment. Same real ossn_relationships toggle pattern as POST_PIN_RELATION, no new table — `from` is the real POST guid (not the pinner), so it's a genuinely per-post state, not per-viewer; exactly one pinned comment per post, enforced at write time the same way POST_PIN_RELATION already is. */
+const COMMENT_PIN_RELATION = 'comment:pin';
 
 /** Real detail shape — feed's lighter base mapper plus real counts. */
 function ossn_api_post_detail_json($post, $viewerGuid) {
@@ -557,6 +559,11 @@ if ($segment0 !== null && $segment1 === 'comments' && $segment2 === null && $met
 	// BERX WORLD — real reply-to map, one bounded query for the whole
 	// thread (see OssnCommentThreads::parentsForPost()), not an N+1.
 	$replyMap = class_exists('OssnCommentThreads') ? (new OssnCommentThreads())->parentsForPost($post->guid) : array();
+	// BERX WORLD — real pinned comment for this post, one bounded query
+	// (see COMMENT_PIN_RELATION's own comment above) — at most one row.
+	$pinnedRows = ossn_get_relationships(array('from' => intval($post->guid), 'type' => COMMENT_PIN_RELATION, 'limit' => 1));
+	$pinnedRow = $pinnedRows ? (is_array($pinnedRows) ? $pinnedRows[0] : $pinnedRows) : null;
+	$pinnedCommentId = $pinnedRow ? intval($pinnedRow->relation_to) : 0;
 	$out = array();
 	if ($rows) {
 		foreach ($rows as $row) {
@@ -574,6 +581,7 @@ if ($segment0 !== null && $segment1 === 'comments' && $segment2 === null && $met
 				'like_count' => $commentLikeCount ? intval($commentLikeCount) : 0,
 				'is_liked'   => (bool) $likes->isLiked($row->id, intval($api_user_guid), COMMENT_LIKE_TYPE),
 				'reply_to'   => isset($replyMap[intval($row->id)]) ? intval($replyMap[intval($row->id)]) : null,
+				'is_pinned'  => $pinnedCommentId === intval($row->id),
 				'author'     => $author ? array(
 					'guid'     => intval($author->guid),
 					'username' => (string) $author->username,
@@ -584,6 +592,35 @@ if ($segment0 !== null && $segment1 === 'comments' && $segment2 === null && $met
 		}
 	}
 	ossn_api_json(array('comments' => $out));
+}
+
+/** BERX WORLD — only the POST's own author can pin a comment on it (same real author-only gate POST_PIN_RELATION already uses for pinning a post itself) — never the comment's own author, which would let anyone self-promote their reply to the top. */
+if ($segment0 !== null && $segment1 === 'comments' && $segment2 !== null && $segment3 === 'pin' && $method === 'POST') {
+	$wall = new OssnWall();
+	$post = $wall->GetPost(intval($segment0));
+	if (!$post) {
+		ossn_api_error('not_found', 'Post not found', 404);
+	}
+	if (intval($post->owner_guid) !== intval($api_user_guid)) {
+		ossn_api_error('forbidden', 'Only the post author can pin a comment', 403);
+	}
+	$comment = (new OssnComments())->GetComment(intval($segment2));
+	if (!$comment || intval($comment->subject_guid) !== intval($post->guid)) {
+		ossn_api_error('not_found', 'Comment not found', 404);
+	}
+	ossn_delete_relationship(array('from' => intval($post->guid), 'type' => COMMENT_PIN_RELATION));
+	ossn_add_relation(intval($post->guid), intval($segment2), COMMENT_PIN_RELATION);
+	ossn_api_json(array('status' => 'ok', 'is_pinned' => true));
+}
+
+if ($segment0 !== null && $segment1 === 'comments' && $segment2 !== null && $segment3 === 'unpin' && $method === 'POST') {
+	$wall = new OssnWall();
+	$post = $wall->GetPost(intval($segment0));
+	if ($post && intval($post->owner_guid) !== intval($api_user_guid)) {
+		ossn_api_error('forbidden', 'Only the post author can unpin a comment', 403);
+	}
+	ossn_delete_relationship(array('from' => intval($segment0), 'to' => intval($segment2), 'type' => COMMENT_PIN_RELATION));
+	ossn_api_json(array('status' => 'ok', 'is_pinned' => false));
 }
 
 if ($segment0 !== null && $segment1 === 'comments' && $segment2 !== null && $segment3 === 'delete' && $method === 'POST') {
