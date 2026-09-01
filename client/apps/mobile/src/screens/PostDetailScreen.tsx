@@ -26,11 +26,12 @@
 import {useCallback, useEffect, useState} from 'react';
 import {View, Text, Image, Pressable, ScrollView, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
-import type {BerxPostDetail, BerxPostComment, BerxMediaAsset} from '@berx/api/types';
+import type {BerxPostDetail, BerxPostComment, BerxMediaAsset, BerxFriend} from '@berx/api/types';
 import {relativeTimeLabel} from '@berx/domain';
 import {colors, spacing, radius, typography} from '@berx/design-system/tokens';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
+import {BerxMentionInput} from '../../../../packages/design-system/src/components/BerxMentionInput';
 import {BerxLoadingState, BerxErrorState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxMediaGrid} from '../../../../packages/design-system/src/components/BerxMediaGrid';
@@ -73,6 +74,8 @@ export default function PostDetailScreen({api, postGuid, myGuid, onOpenProfile, 
 	const [deleting, setDeleting] = useState(false);
 	/** BERX WORLD — real comment threading. Set by tapping "Ответить" on a comment; cleared on send or cancel. */
 	const [replyTo, setReplyTo] = useState<BerxPostComment | null>(null);
+	/** BERX WORLD — real @mention autocomplete in the comment composer too (same BerxMentionInput CreatePostScreen uses — comments support the exact same real mention notification path). */
+	const [friends, setFriends] = useState<BerxFriend[]>([]);
 
 	async function load() {
 		setLoading(true);
@@ -136,6 +139,10 @@ export default function PostDetailScreen({api, postGuid, myGuid, onOpenProfile, 
 		loadMedia();
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [postGuid]);
+
+	useEffect(() => {
+		api.friends().then((res) => setFriends(res.friends)).catch(() => undefined);
+	}, [api]);
 
 	async function handleLike() {
 		if (!post) return;
@@ -442,10 +449,11 @@ export default function PostDetailScreen({api, postGuid, myGuid, onOpenProfile, 
 							</Pressable>
 						</View>
 					) : null}
-					<BerxInput
+					<BerxMentionInput
 						placeholder="Написать комментарий..."
 						value={commentText}
 						onChangeText={setCommentText}
+						friends={friends}
 						multiline
 					/>
 					<BerxButton label="Отправить" variant="secondary" onPress={handleComment} loading={posting} />
