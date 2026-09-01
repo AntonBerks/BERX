@@ -72,7 +72,45 @@ function ossn_api_message_attachment($messages, $messageId) {
 	);
 }
 
-function ossn_api_message_json($row, $messages) {
+/**
+ * Real light preview of a shared post — re-verified for THIS reader on
+ * every read, never the stored copy blindly trusted back out: a
+ * shared post can be deleted, blocked, or have its visibility
+ * narrowed after the share, and a stale reference must never leak it.
+ */
+function ossn_api_message_shared_post($messages, $messageId, $viewerGuid) {
+	$rows = $messages->searchEntities(array(
+		'type'       => 'message',
+		'owner_guid' => intval($messageId),
+		'limit'      => false,
+	));
+	if (!$rows) {
+		return null;
+	}
+	$postGuid = null;
+	foreach ($rows as $r) {
+		if ($r->subtype === 'shared_post_guid') {
+			$postGuid = intval($r->value);
+		}
+	}
+	if (!$postGuid) {
+		return null;
+	}
+	$post = (new OssnWall())->GetPost($postGuid);
+	if (!$post || ossn_api_is_blocked($viewerGuid, $post->owner_guid) || !(new OssnCircles())->canViewPost($post, $viewerGuid)) {
+		return null;
+	}
+	$author = ossn_user_by_guid($post->owner_guid);
+	$text = trim((string) $post->description);
+	return array(
+		'guid'            => intval($post->guid),
+		'text'            => $text !== '' ? mb_substr($text, 0, 200) : null,
+		'poster_username' => $author ? (string) $author->username : null,
+		'poster_icon'     => $author ? (string) $author->iconURL()->large : null,
+	);
+}
+
+function ossn_api_message_json($row, $messages, $viewerGuid) {
 	return array(
 		'id'          => intval($row->id),
 		'from_guid'   => intval($row->message_from),
@@ -83,6 +121,7 @@ function ossn_api_message_json($row, $messages) {
 		'time_edited' => $row->time_edited !== null ? intval($row->time_edited) : null,
 		'viewed'      => !empty($row->viewed),
 		'attachment'  => ossn_api_message_attachment($messages, $row->id),
+		'shared_post' => ossn_api_message_shared_post($messages, $row->id, $viewerGuid),
 	);
 }
 
@@ -148,7 +187,7 @@ if ($segment0 !== null && $segment0 !== 'unread-count' && $segment1 === null && 
 	$out = array();
 	if ($rows) {
 		foreach ($rows as $row) {
-			$out[] = ossn_api_message_json($row, $messages);
+			$out[] = ossn_api_message_json($row, $messages, $api_user_guid);
 		}
 	}
 	$withUser = ossn_user_by_guid(intval($segment0));
@@ -163,6 +202,22 @@ if ($segment0 !== null && $segment1 === 'messages' && $segment2 === null && $met
 	}
 	if (ossn_api_is_blocked($api_user_guid, $segment0)) {
 		ossn_api_error('not_found', 'Conversation not found', 404);
+	}
+	// BERX WORLD — real "share post to conversation". Never trusted
+	// from the client alone: re-fetched and re-checked (real post,
+	// caller can actually still see it) before it's allowed to ride
+	// along. Stored the exact same real way an attachment already is —
+	// OssnMessages::send() walks every property on $this->data and
+	// writes each as a real ossn_entities_metadata row keyed to the
+	// new message (see OssnMessages::send()'s own attachment_guid/
+	// attachment_name handling this mirrors) — no new table needed.
+	$sharedPostGuid = intval(input('shared_post_guid'));
+	if ($sharedPostGuid > 0) {
+		$sharedPost = (new OssnWall())->GetPost($sharedPostGuid);
+		if (!$sharedPost || ossn_api_is_blocked($api_user_guid, $sharedPost->owner_guid) || !(new OssnCircles())->canViewPost($sharedPost, $api_user_guid)) {
+			ossn_api_error('validation_error', 'Invalid shared_post_guid', 422);
+		}
+		$messages->data->shared_post_guid = intval($sharedPost->guid);
 	}
 	$id = $messages->send($api_user_guid, intval($segment0), $text);
 	if (!$id) {

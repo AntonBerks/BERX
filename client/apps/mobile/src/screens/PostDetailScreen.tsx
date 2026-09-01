@@ -47,10 +47,12 @@ interface Props {
 	onReport: (targetType: 'post' | 'comment', targetGuid: number) => void;
 	/** MAX BUILD — real Repost (see posts.php's own comment on berx_repost_of). */
 	onRepost?: (target: {guid: number; text: string; owner_username: string | null}) => void;
+	/** BERX WORLD — real "share post to conversation" (see SharePostScreen.tsx). */
+	onShareToMessage?: (postGuid: number) => void;
 	onBack: () => void;
 }
 
-export default function PostDetailScreen({api, postGuid, myGuid, onOpenProfile, onOpenHashtag, onReport, onRepost, onBack}: Props) {
+export default function PostDetailScreen({api, postGuid, myGuid, onOpenProfile, onOpenHashtag, onReport, onRepost, onShareToMessage, onBack}: Props) {
 	const [post, setPost] = useState<BerxPostDetail | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
@@ -427,6 +429,13 @@ export default function PostDetailScreen({api, postGuid, myGuid, onOpenProfile, 
 							label="Репост"
 							variant="secondary"
 							onPress={() => onRepost({guid: post.guid, text: post.text, owner_username: post.poster_username})}
+						/>
+					) : null}
+					{onShareToMessage ? (
+						<BerxButton
+							label="Отправить в сообщении"
+							variant="secondary"
+							onPress={() => onShareToMessage(post.guid)}
 						/>
 					) : null}
 				</View>

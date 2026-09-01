@@ -1011,15 +1011,18 @@ export class BerxApiClient {
 		return this.request<{messages: BerxMessage[]; with_online: boolean}>(`/conversations/${otherGuid}`);
 	}
 
-	/** MAX BUILD — real optional attachment. OssnMessages::send() already reads $_FILES['attachment'] internally (server-side, zero new mechanism) — passing `attachment` here sends a real image/file alongside the message text. */
-	async sendMessage(otherGuid: number, text: string, attachment?: BerxFilePart, attachmentFilename = 'attachment'): Promise<{status: string}> {
+	/**
+	 * MAX BUILD — real optional attachment. OssnMessages::send() already reads $_FILES['attachment'] internally (server-side, zero new mechanism) — passing `attachment` here sends a real image/file alongside the message text.
+	 * BERX WORLD — real optional sharedPostGuid ("share post to conversation") — re-verified server-side against the caller's own real visibility before it's allowed to ride along (see conversations.php's own comment).
+	 */
+	async sendMessage(otherGuid: number, text: string, attachment?: BerxFilePart, attachmentFilename = 'attachment', sharedPostGuid?: number): Promise<{status: string}> {
 		if (attachment) {
 			return this.request<{status: string}>(`/conversations/${otherGuid}/messages`, {
 				method: 'POST',
-				multipart: {fields: {text}, files: [{field: 'attachment', part: attachment, filename: attachmentFilename}]},
+				multipart: {fields: sharedPostGuid ? {text, shared_post_guid: String(sharedPostGuid)} : {text}, files: [{field: 'attachment', part: attachment, filename: attachmentFilename}]},
 			});
 		}
-		return this.request<{status: string}>(`/conversations/${otherGuid}/messages`, {method: 'POST', body: {text}});
+		return this.request<{status: string}>(`/conversations/${otherGuid}/messages`, {method: 'POST', body: sharedPostGuid ? {text, shared_post_guid: String(sharedPostGuid)} : {text}});
 	}
 
 	async unreadMessageCount(): Promise<{unread_count: number}> {

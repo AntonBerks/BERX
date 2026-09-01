@@ -121,6 +121,15 @@ export interface BerxMessage {
 	viewed: boolean;
 	/** Real — OssnMessages::send()'s own $_FILES['attachment'] upload, now wired end-to-end. */
 	attachment: BerxMessageAttachment | null;
+	/** BERX WORLD — real "share post to conversation". Re-verified for the CURRENT reader on every fetch (deleted/blocked/visibility-narrowed since the share is real null, never a stale leak), stored the same real entity-metadata way an attachment is — see conversations.php's own ossn_api_message_shared_post(). */
+	shared_post: BerxSharedPostPreview | null;
+}
+
+export interface BerxSharedPostPreview {
+	guid: number;
+	text: string | null;
+	poster_username: string | null;
+	poster_icon: string | null;
 }
 
 /** Future Identity — see docs/BERX_FUTURE_LAYER_SPEC.md. Real, live counts, no invented score. */

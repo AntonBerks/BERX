@@ -59,10 +59,12 @@ interface Props {
 	otherGuid: number;
 	otherUsername?: string;
 	pickImage?: () => Promise<BerxFilePart | null>;
+	/** BERX WORLD — real "share post to conversation" tap-through (see SharePostScreen.tsx / message.shared_post). */
+	onOpenPost?: (guid: number) => void;
 	onBack: () => void;
 }
 
-export default function ConversationScreen({api, myGuid, otherGuid, otherUsername, pickImage, onBack}: Props) {
+export default function ConversationScreen({api, myGuid, otherGuid, otherUsername, pickImage, onOpenPost, onBack}: Props) {
 	const [messages, setMessages] = useState<BerxMessage[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
@@ -285,6 +287,12 @@ export default function ConversationScreen({api, myGuid, otherGuid, otherUsernam
 									</Pressable>
 								)
 							) : null}
+							{item.shared_post ? (
+								<Pressable style={styles.sharedPost} onPress={() => onOpenPost && onOpenPost(item.shared_post!.guid)}>
+									<Text style={styles.sharedPostAuthor}>{item.shared_post.poster_username ?? 'BERX'}</Text>
+									<Text style={styles.sharedPostText} numberOfLines={3}>{item.shared_post.text ?? '(без текста)'}</Text>
+								</Pressable>
+							) : null}
 							<Text style={styles.bubbleText}>{item.text}</Text>
 							<View style={styles.bubbleMetaRow}>
 								<Text style={styles.bubbleTime}>
@@ -401,6 +409,9 @@ const styles = StyleSheet.create({
 	attachmentImage: {width: 180, height: 180, borderRadius: radius.sm, marginBottom: spacing.xs},
 	attachmentFile: {backgroundColor: colors.glass2, borderRadius: radius.sm, padding: spacing.sm, marginBottom: spacing.xs},
 	attachmentFileLabel: {color: colors.text, fontSize: typography.sizeSm},
+	sharedPost: {backgroundColor: colors.glass2, borderRadius: radius.sm, padding: spacing.sm, marginBottom: spacing.xs, gap: 2},
+	sharedPostAuthor: {color: colors.accent, fontSize: typography.sizeXs, fontWeight: typography.weightMedium},
+	sharedPostText: {color: colors.textDim, fontSize: typography.sizeSm},
 	attachButton: {width: 36, height: 36, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.glass2, borderWidth: 1, borderColor: colors.borderSoft},
 	attachButtonLabel: {fontSize: typography.sizeBase},
 	gifButtonLabel: {fontSize: typography.sizeXs, fontWeight: typography.weightBold, color: colors.accent},

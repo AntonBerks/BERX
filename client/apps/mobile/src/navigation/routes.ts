@@ -111,6 +111,7 @@ export type BerxRouteName =
 	| 'CreateEvent'
 	| 'EditEvent'
 	| 'EventInvite'
+	| 'SharePost'
 	| 'MyEvents'
 	| 'Places'
 	| 'PlaceDetail'
@@ -225,6 +226,7 @@ export interface BerxRouteParams {
 	CreateEvent: undefined;
 	EditEvent: { guid: number };
 	EventInvite: { guid: number };
+	SharePost: { postGuid: number };
 	MyEvents: undefined;
 	Places: undefined;
 	PlaceDetail: { guid: number };
@@ -323,6 +325,7 @@ export const BERX_ROUTES: BerxRouteMeta[] = [
 	// organizer could create but never edit or cancel an event.
 	{ name: 'EditEvent', connected: true },
 	{ name: 'EventInvite', connected: true },
+	{ name: 'SharePost', connected: true },
 	{ name: 'MyEvents', connected: true },
 	{ name: 'Places', connected: true },
 	{ name: 'PlaceDetail', connected: true },

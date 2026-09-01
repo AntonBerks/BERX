@@ -95,6 +95,7 @@ import RecentCheckinsScreen from './screens/RecentCheckinsScreen';
 import SavedPostsScreen from './screens/SavedPostsScreen';
 import MyEventsScreen from './screens/MyEventsScreen';
 import EventInviteScreen from './screens/EventInviteScreen';
+import SharePostScreen from './screens/SharePostScreen';
 import AdminUnvalidatedScreen from './screens/AdminUnvalidatedScreen';
 import AdminReportsScreen from './screens/AdminReportsScreen';
 import AdminPlaceClaimsScreen from './screens/AdminPlaceClaimsScreen';
@@ -211,6 +212,7 @@ function RouteRenderer({name, params}: {name: BerxRouteName; params: unknown}) {
 					onOpenHashtag={(tag) => nav.push('Hashtag', {tag})}
 					onReport={(targetType, targetGuid) => nav.push('Report', {targetType, targetGuid})}
 					onRepost={(target) => nav.push('CreatePost', {repostTarget: target})}
+					onShareToMessage={(postGuid) => nav.push('SharePost', {postGuid})}
 					onBack={nav.pop}
 				/>
 			);
@@ -294,6 +296,7 @@ function RouteRenderer({name, params}: {name: BerxRouteName; params: unknown}) {
 					otherGuid={p.otherGuid}
 					otherUsername={p.otherUsername}
 					pickImage={pickImage}
+					onOpenPost={(guid) => nav.push('PostDetail', {postGuid: guid})}
 					onBack={nav.pop}
 				/>
 			);
@@ -736,6 +739,10 @@ function RouteRenderer({name, params}: {name: BerxRouteName; params: unknown}) {
 		case 'EventInvite': {
 			const p = params as {guid: number};
 			return <EventInviteScreen api={api} guid={p.guid} onBack={nav.pop} />;
+		}
+		case 'SharePost': {
+			const p = params as {postGuid: number};
+			return <SharePostScreen api={api} postGuid={p.postGuid} onBack={nav.pop} />;
 		}
 		case 'DeviceSessions':
 			return <DeviceSessionsScreen api={api} onBack={nav.pop} />;
