@@ -87,7 +87,7 @@ export function BerxCircleButton({glyph, label, badge, onPress}: {glyph: string;
 	const colors = useBerxColors();
 	const styles = useMemo(() => makeStyles(colors), [colors]);
 	return (
-		<Pressable style={styles.circleWrap} onPress={onPress} hitSlop={6}>
+		<Pressable style={[styles.circleWrap, label ? styles.circleWrapLabelled : null]} onPress={onPress} hitSlop={6}>
 			<View style={styles.actionButton}>
 				<Text style={styles.actionGlyph}>{glyph}</Text>
 				{typeof badge === 'number' && badge > 0 ? (
@@ -128,7 +128,8 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 		paddingTop: spacing.md,
 		gap: spacing.md,
 	},
-	circleWrap: {alignItems: 'center', gap: 4, width: 62},
+	circleWrap: {alignItems: 'center', gap: 4},
+	circleWrapLabelled: {width: 62},
 	circleLabel: {color: colors.textFaint, fontSize: typography.sizeXs},
 	identity: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flex: 1},
 	avatar: {

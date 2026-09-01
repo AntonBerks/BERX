@@ -105,14 +105,19 @@ export default function PlacesListScreen({api, onOpenPlace, onCreate, onOpenNear
 			{onBack ? <BerxHeader onBack={onBack} title="" /> : null}
 			<View style={styles.head}>
 				<BerxEditorialTitle lines={headline.lines} accentIndex={headline.accentIndex} style={styles.headline} />
-				<View style={styles.utilities}>
-					<BerxCircleButton glyph="◎" label="Рядом" onPress={onOpenNearby} />
-					<BerxCircleButton glyph="♡" label="Сохран." onPress={onOpenSaved} />
-					<BerxCircleButton glyph="+" label="Добавить" onPress={onCreate} />
-				</View>
 			</View>
+			{/* Utilities ride the search row instead of taking a row of their
+			    own — the reference reaches its first photograph in a fraction
+			    of the screen BERX was spending on chrome. */}
 			<View style={styles.toolbar}>
-				<BerxInput placeholder="Поиск мест" value={query} onChangeText={setQuery} onSubmitEditing={load} />
+				<View style={styles.searchFlex}>
+					<BerxInput placeholder="Поиск мест" value={query} onChangeText={setQuery} onSubmitEditing={load} />
+				</View>
+				<View style={styles.utilities}>
+					<BerxCircleButton glyph="◎" onPress={onOpenNearby} />
+					<BerxCircleButton glyph="♡" onPress={onOpenSaved} />
+					<BerxCircleButton glyph="+" onPress={onCreate} />
+				</View>
 			</View>
 			{trending.length > 0 ? (
 				<View>
@@ -199,8 +204,9 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.bg},
 	head: {paddingHorizontal: spacing.lg, paddingTop: spacing.md, gap: spacing.md},
 	headline: {paddingHorizontal: 0, paddingTop: 0},
-	utilities: {flexDirection: 'row', gap: spacing.sm, alignSelf: 'flex-start'},
-	toolbar: {paddingHorizontal: spacing.md, paddingTop: spacing.sm, gap: spacing.sm},
+	utilities: {flexDirection: 'row', gap: 2},
+	searchFlex: {flex: 1},
+	toolbar: {flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing.lg, paddingTop: spacing.sm, gap: spacing.sm},
 	toolbarRow: {flexDirection: 'row', gap: spacing.sm},
 	trendingLabel: {color: colors.text, fontSize: typography.sizeLg, fontWeight: typography.weightBold, letterSpacing: -0.4, paddingHorizontal: spacing.lg, paddingTop: spacing.sm},
 	trendingRow: {paddingHorizontal: spacing.lg, paddingVertical: spacing.md, gap: spacing.md},

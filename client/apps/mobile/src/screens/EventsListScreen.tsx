@@ -110,11 +110,9 @@ export default function EventsListScreen({api, onOpenEvent, onCreate, onOpenMine
 			{onBack ? <BerxHeader onBack={onBack} title="" /> : null}
 			<View style={styles.head}>
 				<BerxEditorialTitle lines={headline.lines} accentIndex={headline.accentIndex} style={styles.headline} />
-				<View style={styles.utilities}>
-					<BerxCircleButton glyph="✓" label="Я иду" onPress={onOpenMine} />
-					<BerxCircleButton glyph="+" label="Создать" onPress={onCreate} />
-				</View>
 			</View>
+			{/* Utilities ride the tab row rather than taking a row of their own,
+			    so the first photograph arrives where the reference has it. */}
 			<View style={styles.toolbar}>
 				<View style={styles.tabRow}>
 					<Pressable style={[styles.tab, tab === 'upcoming' && styles.tabActive]} onPress={() => setTab('upcoming')}>
@@ -123,6 +121,10 @@ export default function EventsListScreen({api, onOpenEvent, onCreate, onOpenMine
 					<Pressable style={[styles.tab, tab === 'past' && styles.tabActive]} onPress={() => setTab('past')}>
 						<Text style={[styles.tabText, tab === 'past' && styles.tabTextActive]}>Прошедшие</Text>
 					</Pressable>
+					<View style={styles.utilities}>
+						<BerxCircleButton glyph="✓" onPress={onOpenMine} />
+						<BerxCircleButton glyph="+" onPress={onCreate} />
+					</View>
 				</View>
 			</View>
 			{trending.length > 0 ? (
@@ -216,9 +218,9 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.bg},
 	head: {paddingHorizontal: spacing.lg, paddingTop: spacing.md, gap: spacing.md},
 	headline: {paddingHorizontal: 0, paddingTop: 0},
-	utilities: {flexDirection: 'row', gap: spacing.sm, alignSelf: 'flex-start'},
-	toolbar: {paddingHorizontal: spacing.md, paddingTop: spacing.sm, gap: spacing.sm},
-	tabRow: {flexDirection: 'row', gap: spacing.xs},
+	utilities: {flexDirection: 'row', gap: 2, marginLeft: 'auto'},
+	toolbar: {paddingHorizontal: spacing.lg, paddingTop: spacing.sm},
+	tabRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.xs},
 	tab: {flex: 1, paddingVertical: spacing.sm, borderRadius: radius.pill, alignItems: 'center', backgroundColor: colors.surface},
 	tabActive: {backgroundColor: colors.accentSoft},
 	tabText: {fontSize: typography.sizeSm, color: colors.textDim, fontWeight: typography.weightMedium},

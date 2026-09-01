@@ -380,7 +380,11 @@ export default function NowScreen({
 					    location chip beside it, because BERX has no real
 					    geolocation source here and a placed name would be invented. */}
 					<Text style={styles.dateLine}>{todayLabel}</Text>
-					<BerxEditorialTitle lines={headline.lines} accentIndex={headline.accentIndex} />
+					<BerxEditorialTitle
+						lines={headline.lines}
+						accentIndex={headline.accentIndex}
+						style={styles.headline}
+					/>
 
 					{/* LIVE — real active stories, on the background parallax plane. */}
 					{storyGroups.length > 0 || onCreateStory ? (
@@ -654,13 +658,14 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 
 	dateLine: {
 		color: colors.textFaint,
-		fontSize: typography.sizeSm,
+		fontSize: typography.sizeXs,
 		fontWeight: typography.weightMedium,
 		paddingHorizontal: spacing.lg,
-		paddingTop: spacing.md,
+		paddingTop: spacing.sm,
 	},
-	liveLayer: {marginTop: spacing.xl},
-	leadLayer: {marginTop: spacing.lg, paddingHorizontal: spacing.sm},
+	headline: {paddingTop: 2, paddingBottom: 0},
+	liveLayer: {marginTop: spacing.md},
+	leadLayer: {marginTop: spacing.md, paddingHorizontal: spacing.sm},
 
 	section: {marginTop: spacing.xl},
 	sectionHead: {

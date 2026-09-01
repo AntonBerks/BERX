@@ -425,7 +425,8 @@ export const parallax = {
 
 /** Cinematic media aspect ratios — large-format editorial imagery, not square Instagram tiles. */
 export const mediaRatio = {
-	hero: 4 / 5,
+	/** The reference feed plate: a tall portrait that owns the screen, not a 4:5 slot. */
+	hero: 3 / 4.4,
 	cinema: 16 / 9,
 	portrait: 3 / 4,
 	wide: 21 / 9,

@@ -101,7 +101,7 @@ export default function CommunitiesListScreen({api, onOpenCommunity, onCreate, o
 							: 'найди своих',
 					]}
 				/>
-				<BerxCircleButton glyph="+" label="Создать" onPress={onCreate} />
+				<BerxCircleButton glyph="+" onPress={onCreate} />
 			</View>
 			<View style={styles.tabRow}>
 				<Pressable style={[styles.tab, tab === 'all' && styles.tabActive]} onPress={() => setTab('all')}>
@@ -195,8 +195,8 @@ export default function CommunitiesListScreen({api, onOpenCommunity, onCreate, o
 
 const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.bg},
-	head: {paddingHorizontal: spacing.lg, paddingTop: spacing.md, gap: spacing.md},
-	headline: {paddingHorizontal: 0, paddingTop: 0},
+	head: {flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', paddingHorizontal: spacing.lg, paddingTop: spacing.md, gap: spacing.md},
+	headline: {paddingHorizontal: 0, paddingTop: 0, flex: 1},
 	tabRow: {flexDirection: 'row', gap: spacing.sm, paddingHorizontal: spacing.lg, paddingBottom: spacing.sm},
 	tab: {paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: radius.pill, backgroundColor: colors.surface},
 	tabActive: {backgroundColor: colors.accentSoft, borderWidth: 1, borderColor: colors.accent},
