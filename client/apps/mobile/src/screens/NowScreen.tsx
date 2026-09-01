@@ -382,6 +382,26 @@ export default function NowScreen({
 					<Text style={styles.dateLine}>{todayLabel}</Text>
 					<BerxEditorialTitle lines={headline.lines} accentIndex={headline.accentIndex} />
 
+					{/* LIVE — real active stories, on the background parallax plane. */}
+					{storyGroups.length > 0 || onCreateStory ? (
+						<BerxSpatialLayer plane="background" driver={scrollY} range={300} style={styles.liveLayer}>
+							<BerxStoryRail
+								onCreate={onCreateStory}
+								onMore={onOpenStories}
+								items={storyGroups.map((g: BerxStoryFeedGroup) => ({
+									key: String(g.owner_guid),
+									label: g.owner_username ?? `#${g.owner_guid}`,
+									iconUrl: g.owner_icon,
+									// Real per-viewer state now (stories.php computes it from
+									// the view rows). This used to be a hardcoded `true`, which
+									// made the accent ring mean nothing.
+									unseen: g.has_unseen,
+									onPress: () => onOpenStoryGroup(g),
+								}))}
+							/>
+						</BerxSpatialLayer>
+					) : null}
+
 					{lead ? (
 						<BerxSpatialLayer plane="hero" driver={scrollY} range={220} style={styles.leadLayer}>
 							<BerxDepthCard driver={scrollY} elevation={3} maxAngle={8}>
@@ -400,26 +420,6 @@ export default function NowScreen({
 								onOpenComments={() => onOpenPost(lead.guid)}
 							/>
 							</BerxDepthCard>
-						</BerxSpatialLayer>
-					) : null}
-
-					{/* LIVE — real active stories, on the background parallax plane. */}
-					{storyGroups.length > 0 || onCreateStory ? (
-						<BerxSpatialLayer plane="background" driver={scrollY} range={300} style={styles.liveLayer}>
-							<SectionHead title="Прямо сейчас" onMore={onOpenStories} moreLabel="Все истории" />
-							<BerxStoryRail
-								onCreate={onCreateStory}
-								items={storyGroups.map((g: BerxStoryFeedGroup) => ({
-									key: String(g.owner_guid),
-									label: g.owner_username ?? `#${g.owner_guid}`,
-									iconUrl: g.owner_icon,
-									// Real per-viewer state now (stories.php computes it from
-									// the view rows). This used to be a hardcoded `true`, which
-									// made the accent ring mean nothing.
-									unseen: g.has_unseen,
-									onPress: () => onOpenStoryGroup(g),
-								}))}
-							/>
 						</BerxSpatialLayer>
 					) : null}
 
@@ -656,7 +656,7 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 		paddingTop: spacing.md,
 	},
 	liveLayer: {marginTop: spacing.xl},
-	leadLayer: {marginTop: spacing.lg, paddingHorizontal: spacing.lg},
+	leadLayer: {marginTop: spacing.lg, paddingHorizontal: spacing.sm},
 
 	section: {marginTop: spacing.xl},
 	sectionHead: {
@@ -702,7 +702,7 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	trendingChipText: {color: colors.accent, fontSize: typography.sizeSm, fontWeight: typography.weightMedium},
 
 	quiet: {color: colors.textDim, fontSize: typography.sizeSm, paddingHorizontal: spacing.lg, lineHeight: 20},
-	momentWrap: {paddingHorizontal: spacing.lg, marginBottom: spacing.lg},
+	momentWrap: {paddingHorizontal: spacing.sm, marginBottom: spacing.lg},
 	unit: {
 		marginHorizontal: spacing.lg,
 		marginBottom: spacing.lg,

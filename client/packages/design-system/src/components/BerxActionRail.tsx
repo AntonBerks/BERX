@@ -18,7 +18,7 @@
  */
 import {useMemo} from 'react';
 import {View, Text, Pressable, StyleSheet, ViewStyle} from 'react-native';
-import {spacing, typography} from '../tokens';
+import {spacing, typography, radius} from '../tokens';
 
 import {useBerxColors} from '../theme';
 import type {BerxColorTokens} from '../tokens';
@@ -56,7 +56,7 @@ export function BerxActionRail({actions, size = 48, style}: BerxActionRailProps)
 	const colors = useBerxColors();
 	const styles = useMemo(() => makeStyles(colors), [colors]);
 	return (
-		<View style={[styles.rail, style]}>
+		<View style={[styles.railShell, style]}>
 			{actions.map((a: BerxRailAction) => (
 				<View key={a.key} style={styles.slot}>
 					<Pressable
@@ -81,7 +81,16 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	// The reference rails read as ONE floating column of glass, not a
 	// scatter of separate bubbles: the gap is tight, each button carries
 	// a lit top edge, and the count sits directly under its own glyph.
-	rail: {alignItems: 'center', gap: spacing.lg},
+	railShell: {
+		alignItems: 'center',
+		gap: spacing.md,
+		paddingVertical: spacing.md,
+		paddingHorizontal: 6,
+		borderRadius: radius.pill,
+		backgroundColor: 'rgba(7,8,10,0.28)',
+		borderWidth: 1,
+		borderColor: 'rgba(255,255,255,0.14)',
+	},
 	slot: {
 		alignItems: 'center',
 		gap: 4,
@@ -96,9 +105,9 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 		alignItems: 'center',
 		justifyContent: 'center',
 		overflow: 'hidden',
-		backgroundColor: 'rgba(7,8,10,0.34)',
+		backgroundColor: 'rgba(255,255,255,0.10)',
 		borderWidth: 1,
-		borderColor: 'rgba(255,255,255,0.22)',
+		borderColor: 'rgba(255,255,255,0.20)',
 	},
 	buttonHairline: {
 		position: 'absolute',
