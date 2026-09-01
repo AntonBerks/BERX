@@ -261,3 +261,39 @@ export function IconEdit({size = 20, color}: IconProps) {
 		</View>
 	);
 }
+
+/**
+ * BERX SPATIAL — Places. A real map-pin silhouette from primitives:
+ * a circle whose lower half is squared into a point via rotation,
+ * plus a punched-out centre. Same View-only approach as every glyph
+ * above (no icon font/SVG library installable in this sandbox).
+ */
+export function IconPin({size = 20, color}: IconProps) {
+	const head = size * 0.72;
+	return (
+		<View style={{width: size, height: size, alignItems: 'center', justifyContent: 'center'}}>
+			<View
+				style={{
+					width: head,
+					height: head,
+					borderRadius: head / 2,
+					borderBottomRightRadius: 1,
+					borderWidth: 2,
+					borderColor: color,
+					transform: [{rotate: '-45deg'}],
+					alignItems: 'center',
+					justifyContent: 'center',
+				}}
+			>
+				<View
+					style={{
+						width: head * 0.3,
+						height: head * 0.3,
+						borderRadius: head * 0.15,
+						backgroundColor: color,
+					}}
+				/>
+			</View>
+		</View>
+	);
+}

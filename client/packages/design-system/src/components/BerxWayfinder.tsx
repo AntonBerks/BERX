@@ -15,7 +15,7 @@
  * instead of five icons independently swapping color — real shared-
  * continuity motion (the same object moves, rather than one icon
  * turning off and an unrelated one turning on), and a raised orb for
- * the create/Stories destination that breaks the bar's own silhouette
+ * the create destination that breaks the bar's own silhouette
  * instead of sitting flush in the row like every other icon.
  *
  * Built on React Native's own bundled `Animated` API only — no
@@ -34,14 +34,20 @@
  * `Pressable`, the same pattern `BerxScrimHero`/`ProfileScreen` already
  * use for their own `.map()`s — not against a custom child component,
  * so this stays inline rather than extracting one); (3) the orb's own
- * resting scale growing when Stories becomes active. Motion here is
+ * resting scale growing when Create becomes active. Motion here is
  * never decorative: the indicator's position IS the "which section am
  * I in" signal, replacing flat icon-color toggling with an object that
  * visibly travels from one meaning to the next (directive: "motion
  * must have meaning").
  *
- * Functionally IDENTICAL to the tab bar it replaces — same 5
- * destinations, same order, same badge counts, same tap targets and
+ * BERX SPATIAL NAVIGATION — the five destinations are now
+ * NOW / PEOPLE / CREATE / PLACES / PROFILE, per the spatial
+ * directive. Search, Stories and Messages did NOT lose their
+ * screens: Stories live in NOW's own live rail, Search is People's
+ * own search field (and the full Search route), and Messages keeps
+ * its route plus its unread badge inside NOW's environment strip.
+ *
+ * Otherwise identical to the bar it replaces — same tap targets and
  * navigation behavior (`onSelect(tab)`; the caller still owns
  * `activeTab` state and TabPane mounting) — only the presentation
  * changed, per the transformation directive's own "preserve
@@ -50,18 +56,19 @@
 import React, {useCallback, useEffect, useRef, useState} from 'react';
 import {Animated, LayoutChangeEvent, Pressable, StyleSheet, Text, View} from 'react-native';
 import {colors, radius, spacing, typography} from '../tokens';
-import {IconHome, IconSearch, IconPlus, IconMessage, IconMenu} from './BerxIcons';
+import {IconHome, IconUsers, IconPlus, IconPin, IconMenu} from './BerxIcons';
 
-export type BerxWayfinderTab = 'Home' | 'Search' | 'Stories' | 'Messages' | 'Profile';
+export type BerxWayfinderTab = 'Home' | 'People' | 'CreatePost' | 'Places' | 'Profile';
 
-const TABS: BerxWayfinderTab[] = ['Home', 'Search', 'Stories', 'Messages', 'Profile'];
-const ORB_INDEX = 2; // 'Stories' — the raised create/discover position, not part of the sliding flat track
+const TABS: BerxWayfinderTab[] = ['Home', 'People', 'CreatePost', 'Places', 'Profile'];
+const ORB_INDEX = 2; // 'CreatePost' — the raised create position, not part of the sliding flat track
 const FLAT_TABS: BerxWayfinderTab[] = TABS.filter((_tab, i) => i !== ORB_INDEX);
 
 interface Props {
 	activeTab: BerxWayfinderTab;
 	onSelect: (tab: BerxWayfinderTab) => void;
-	unreadMessages: number;
+	/** Kept in the contract (NOW's environment strip renders it) — the flat track itself no longer badges Messages. */
+	unreadMessages?: number;
 	unreadNotifications: number;
 }
 
@@ -69,12 +76,12 @@ function tabIcon(tab: BerxWayfinderTab, size: number, color: string) {
 	switch (tab) {
 		case 'Home':
 			return <IconHome size={size} color={color} />;
-		case 'Search':
-			return <IconSearch size={size} color={color} />;
-		case 'Stories':
+		case 'People':
+			return <IconUsers size={size} color={color} />;
+		case 'CreatePost':
 			return <IconPlus size={size} color={color} />;
-		case 'Messages':
-			return <IconMessage size={size} color={color} />;
+		case 'Places':
+			return <IconPin size={size} color={color} />;
 		case 'Profile':
 			return <IconMenu size={size} color={color} />;
 	}
@@ -84,7 +91,7 @@ function tabIcon(tab: BerxWayfinderTab, size: number, color: string) {
  * BERX Wayfinder — the floating pill + raised orb navigation surface.
  * Replaces AppShell's old inline `styles.tabBar` block.
  */
-export function BerxWayfinder({activeTab, onSelect, unreadMessages, unreadNotifications}: Props) {
+export function BerxWayfinder({activeTab, onSelect, unreadNotifications}: Props) {
 	const [positions, setPositions] = useState<Partial<Record<BerxWayfinderTab, {x: number; width: number}>>>({});
 	const indicatorX = useRef(new Animated.Value(0)).current;
 	const indicatorWidth = useRef(new Animated.Value(0)).current;
@@ -97,9 +104,9 @@ export function BerxWayfinder({activeTab, onSelect, unreadMessages, unreadNotifi
 	// sandbox's tsc/JSX setup on the `key` prop).
 	const pressScales = useRef<Record<BerxWayfinderTab, Animated.Value>>({
 		Home: new Animated.Value(1),
-		Search: new Animated.Value(1),
-		Stories: new Animated.Value(1), // unused here — the orb owns orbPressScale instead
-		Messages: new Animated.Value(1),
+		People: new Animated.Value(1),
+		CreatePost: new Animated.Value(1), // unused here — the orb owns orbPressScale instead
+		Places: new Animated.Value(1),
 		Profile: new Animated.Value(1),
 	}).current;
 
@@ -108,11 +115,11 @@ export function BerxWayfinder({activeTab, onSelect, unreadMessages, unreadNotifi
 	}, []);
 
 	// Slide the indicator to whichever flat destination is active; hide
-	// it entirely when Stories (the orb) is active — the orb communicates
+	// it entirely when Create (the orb) is active — the orb communicates
 	// its own active state via scale/glow instead, sliding a flat pill
 	// "into" a raised circle would be a fake, meaningless motion.
 	useEffect(() => {
-		const isOrb = activeTab === 'Stories';
+		const isOrb = activeTab === 'CreatePost';
 		Animated.timing(indicatorOpacity, {toValue: isOrb ? 0 : 1, duration: 160, useNativeDriver: true}).start();
 		if (!isOrb) {
 			const pos = positions[activeTab];
@@ -148,7 +155,10 @@ export function BerxWayfinder({activeTab, onSelect, unreadMessages, unreadNotifi
 				{FLAT_TABS.map((tab) => {
 					const active = activeTab === tab;
 					const scale = pressScales[tab];
-					const badge = tab === 'Messages' ? unreadMessages : tab === 'Profile' ? unreadNotifications : 0;
+					// BERX SPATIAL NAV — Messages is no longer a bottom destination
+					// (NOW carries it, badge and all, in its environment strip), so
+					// the flat track only badges Profile's real unread notifications.
+					const badge = tab === 'Profile' ? unreadNotifications : 0;
 					const iconColor = active ? colors.black : colors.textFaint;
 					return (
 						<Pressable
@@ -189,13 +199,13 @@ export function BerxWayfinder({activeTab, onSelect, unreadMessages, unreadNotifi
 				]}
 			>
 				<Pressable
-					onPress={() => onSelect('Stories')}
+					onPress={() => onSelect('CreatePost')}
 					onPressIn={orbPressIn}
 					onPressOut={orbPressOut}
-					style={[styles.orb, activeTab === 'Stories' && styles.orbActive]}
+					style={[styles.orb, activeTab === 'CreatePost' && styles.orbActive]}
 					hitSlop={8}
 				>
-					{tabIcon('Stories', 24, activeTab === 'Stories' ? colors.black : colors.accent)}
+					{tabIcon('CreatePost', 24, activeTab === 'CreatePost' ? colors.black : colors.accent)}
 				</Pressable>
 			</Animated.View>
 		</View>

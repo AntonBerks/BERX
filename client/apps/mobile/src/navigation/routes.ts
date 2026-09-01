@@ -20,6 +20,8 @@ export type BerxRouteName =
 	| 'Login'
 	| 'Register'
 	| 'Home'
+	| 'Feed'
+	| 'People'
 	| 'PostDetail'
 	| 'CreatePost'
 	| 'Profile'
@@ -135,6 +137,8 @@ export interface BerxRouteParams {
 	Login: undefined;
 	Register: undefined;
 	Home: undefined;
+	Feed: undefined;
+	People: undefined;
 	PostDetail: { postGuid: number };
 	/** MAX BUILD — optional real draft to prefill (see MyDraftsScreen.tsx) or a real Repost target (see posts.php's own comment on berx_repost_of). */
 	CreatePost: {draft?: {id: number; text: string; visibility: string}; repostTarget?: {guid: number; text: string; owner_username: string | null}} | undefined;
@@ -259,6 +263,8 @@ export const BERX_ROUTES: BerxRouteMeta[] = [
 	{ name: 'Login', connected: true },
 	{ name: 'Register', connected: true },
 	{ name: 'Home', connected: true },
+	{ name: 'Feed', connected: true },
+	{ name: 'People', connected: true },
 	{ name: 'PostDetail', connected: true },
 	{ name: 'CreatePost', connected: true },
 	{ name: 'Profile', connected: true },
@@ -409,4 +415,11 @@ export const BERX_ROUTES: BerxRouteMeta[] = [
 ];
 
 /** Bottom tab bar — mobile only; web/desktop use a sidebar (not yet built). Five items, matching common social-app conventions (home/search/create/messages/menu). Dating and CreatePost dropped from the tab bar per explicit design feedback — still reachable (Dating via a button on Profile, CreatePost via a header action on Home), just not permanent tab-bar real estate. */
-export const BERX_BOTTOM_TABS: BerxRouteName[] = ['Home', 'Search', 'Stories', 'Messages', 'Profile'];
+/**
+ * BERX SPATIAL NAVIGATION — NOW / PEOPLE / CREATE / PLACES / PROFILE.
+ * Search, Stories and Messages are NOT removed: Stories live inside
+ * NOW's own live rail, Search is People's own search field plus the
+ * full Search route, and Messages keeps its route and its unread
+ * badge — they moved out of the tab bar, not out of the app.
+ */
+export const BERX_BOTTOM_TABS: BerxRouteName[] = ['Home', 'People', 'CreatePost', 'Places', 'Profile'];

@@ -35,6 +35,8 @@ import WelcomeScreen from './screens/WelcomeScreen';
 import RegisterScreen from './screens/RegisterScreen';
 import OnboardingScreen from './screens/OnboardingScreen';
 import FeedScreen from './screens/FeedScreen';
+import NowScreen from './screens/NowScreen';
+import PeopleScreen from './screens/PeopleScreen';
 import PostDetailScreen from './screens/PostDetailScreen';
 import ProfileScreen from './screens/ProfileScreen';
 import ConversationListScreen from './screens/ConversationListScreen';
@@ -202,7 +204,20 @@ function RouteRenderer({name, params}: {name: BerxRouteName; params: unknown}) {
 
 	switch (name) {
 		case 'Home':
+			return <NowScreenRoute onOpenProfile={openProfile} />;
+		case 'Feed':
 			return <FeedScreenRoute onOpenProfile={openProfile} />;
+		case 'People':
+			return (
+				<PeopleScreen
+					api={api}
+					onOpenProfile={openProfile}
+					onOpenConversation={(guid, username) => nav.push('Conversation', {otherGuid: guid, otherUsername: username})}
+					onOpenNearby={() => nav.push('NearbyNow', undefined)}
+					onOpenSocialMap={() => nav.push('SocialMap', undefined)}
+					onOpenInvite={() => nav.push('InviteFriends', undefined)}
+				/>
+			);
 		case 'PostDetail':
 			return (
 				<PostDetailScreen
@@ -1203,6 +1218,38 @@ function RouteRenderer({name, params}: {name: BerxRouteName; params: unknown}) {
 	}
 }
 
+/**
+ * BERX NOW — the real main screen (see NowScreen.tsx's own header for
+ * why it is deliberately not a feed). Every navigation target it
+ * offers is an already-real route; nothing here is a new stub.
+ */
+function NowScreenRoute({onOpenProfile}: {onOpenProfile: (username: string) => void}) {
+	const nav = useBerxNavigation();
+	return (
+		<NowScreen
+			api={api}
+			myGuid={authState.getSnapshot().user?.guid}
+			onOpenPost={(guid) => nav.push('PostDetail', {postGuid: guid})}
+			onOpenProfile={onOpenProfile}
+			onOpenHashtag={(tag) => nav.push('Hashtag', {tag})}
+			onOpenPlace={(guid) => nav.push('PlaceDetail', {guid})}
+			onOpenEvent={(guid) => nav.push('EventDetail', {guid})}
+			onOpenNearby={() => nav.push('NearbyNow', undefined)}
+			onOpenMessages={() => nav.push('Messages', undefined)}
+			onOpenNotifications={() => nav.push('Notifications', undefined)}
+			onOpenSearch={() => nav.push('Search', undefined)}
+			onOpenPlaces={() => nav.push('Places', undefined)}
+			onOpenEvents={() => nav.push('Events', undefined)}
+			onCreatePost={() => nav.push('CreatePost', undefined)}
+			onOpenStoryGroup={(group) => {
+				currentStoryGroup = group;
+				nav.push('StoryViewer', undefined);
+			}}
+			onCreateStory={() => nav.push('CreateStory', undefined)}
+		/>
+	);
+}
+
 function FeedScreenRoute({onOpenProfile}: {onOpenProfile: (username: string) => void}) {
 	const nav = useBerxNavigation();
 	return (
@@ -1232,7 +1279,6 @@ function FeedScreenRoute({onOpenProfile}: {onOpenProfile: (username: string) => 
 
 function AuthenticatedApp() {
 	const [activeTab, setActiveTab] = useState<BerxRouteName>('Home');
-	const [unreadMessages, setUnreadMessages] = useState(0);
 	const [unreadNotifications, setUnreadNotifications] = useState(0);
 
 	// Real, server-authoritative streak check-in — fires exactly once
@@ -1245,31 +1291,10 @@ function AuthenticatedApp() {
 		api.streakCheckIn().catch(() => undefined); // best-effort — a failed check-in must never block the app from loading
 	}, []);
 
-	// MAX BUILD — real unread-messages badge on the Messages tab.
-	// api.unreadMessageCount() was already real and already used inside
-	// ConversationListScreen.tsx, but nothing showed it at the tab-bar
-	// level — a user had no way to know they had a new message without
-	// actually opening the Messages tab. Same POLLING disclosure as
-	// typing status/read receipts elsewhere in this app (no WebSocket
-	// infra exists) — 20s interval, real value, never a guessed count.
-	useEffect(() => {
-		let active = true;
-		async function poll() {
-			try {
-				const res = await api.unreadMessageCount();
-				if (active) setUnreadMessages(res.unread_count);
-			} catch {
-				// polling failure is silent — never surfaces as an app-level error
-			}
-		}
-		poll();
-		const timer = setInterval(poll, 20000);
-		return () => {
-			active = false;
-			clearInterval(timer);
-		};
-	}, []);
-
+	// BERX SPATIAL NAV — the real unread-messages poll moved to
+	// NowScreen, which is where the badge now lives (Messages left the
+	// bottom bar for NOW's environment strip). One real poller, no
+	// duplicated 20s interval and no unused state kept here.
 	// Same real pattern for notifications — api.unreadNotificationCount()
 	// was already real (already shown as real "(N)" text inside
 	// ProfileScreen.tsx's own Notifications menu row) but, like
@@ -1320,18 +1345,18 @@ function AuthenticatedApp() {
 						{(current) => <RouteRenderer name={current.name} params={current.params} />}
 					</BerxNavigator>
 				</TabPane>
-				<TabPane visible={activeTab === 'Search'}>
-					<BerxNavigator initialRoute="Search" initialParams={undefined}>
+				<TabPane visible={activeTab === 'People'}>
+					<BerxNavigator initialRoute="People" initialParams={undefined}>
 						{(current) => <RouteRenderer name={current.name} params={current.params} />}
 					</BerxNavigator>
 				</TabPane>
-				<TabPane visible={activeTab === 'Stories'}>
-					<BerxNavigator initialRoute="Stories" initialParams={undefined}>
+				<TabPane visible={activeTab === 'CreatePost'}>
+					<BerxNavigator initialRoute="CreatePost" initialParams={undefined}>
 						{(current) => <RouteRenderer name={current.name} params={current.params} />}
 					</BerxNavigator>
 				</TabPane>
-				<TabPane visible={activeTab === 'Messages'}>
-					<BerxNavigator initialRoute="Messages" initialParams={undefined}>
+				<TabPane visible={activeTab === 'Places'}>
+					<BerxNavigator initialRoute="Places" initialParams={undefined}>
 						{(current) => <RouteRenderer name={current.name} params={current.params} />}
 					</BerxNavigator>
 				</TabPane>
@@ -1349,7 +1374,6 @@ function AuthenticatedApp() {
 				// BERX_BOTTOM_TABS's five (see the TabPane checks above).
 				activeTab={activeTab as BerxWayfinderTab}
 				onSelect={setActiveTab}
-				unreadMessages={unreadMessages}
 				unreadNotifications={unreadNotifications}
 			/>
 		</View>
