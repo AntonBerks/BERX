@@ -20,9 +20,9 @@
  * same uploadMedia()/attachMedia() path a picked photo already uses.
  */
 import {useEffect, useState} from 'react';
-import {View, Text, Image, Pressable, StyleSheet} from 'react-native';
+import {View, Text, Image, Pressable, StyleSheet, NativeSyntheticEvent, TextInputSelectionChangeEventData} from 'react-native';
 import type {BerxApiClient, BerxFilePart} from '@berx/api/client';
-import type {BerxCircle, BerxPostVisibility, BerxGifResult} from '@berx/api/types';
+import type {BerxCircle, BerxPostVisibility, BerxGifResult, BerxFriend} from '@berx/api/types';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
@@ -57,10 +57,44 @@ export default function CreatePostScreen({api, pickImage, onCreated, draft, onOp
 	const [gifPickerOpen, setGifPickerOpen] = useState(false);
 	const [gifDownloading, setGifDownloading] = useState(false);
 	const [pickedFilename, setPickedFilename] = useState('post-photo.jpg');
+	// BERX WORLD — real @mention autocomplete. Sourced from the caller's
+	// own real friend list (api.friends()) because server-side mentions
+	// are friends-only too (see ossn_api_extract_mentions() in
+	// components/OssnApi/ossn_com.php) — this never suggests someone a
+	// mention wouldn't actually notify.
+	const [friends, setFriends] = useState<BerxFriend[]>([]);
+	const [selection, setSelection] = useState<{start: number; end: number}>({start: 0, end: 0});
 
 	useEffect(() => {
 		api.circles().then((res) => setMyCircles(res.circles)).catch(() => undefined);
+		api.friends().then((res) => setFriends(res.friends)).catch(() => undefined);
 	}, [api]);
+
+	/** The @query currently being typed at the cursor, or null if the cursor isn't inside one — real word-boundary detection, not a naive substring search. */
+	function activeMentionQuery(value: string, cursor: number): string | null {
+		const before = value.slice(0, cursor);
+		const match = before.match(/(?:^|[\s\n])@([a-zA-Z0-9]{0,30})$/);
+		return match ? match[1] : null;
+	}
+
+	const mentionQuery = activeMentionQuery(text, selection.start);
+	const mentionMatches: BerxFriend[] =
+		mentionQuery === null
+			? []
+			: friends
+					.filter((f: BerxFriend) => mentionQuery === '' || f.username.toLowerCase().startsWith(mentionQuery.toLowerCase()) || f.fullname.toLowerCase().startsWith(mentionQuery.toLowerCase()))
+					.slice(0, 6);
+
+	function insertMention(username: string) {
+		const cursor = selection.start;
+		const before = text.slice(0, cursor);
+		const atIndex = before.lastIndexOf('@');
+		if (atIndex < 0) return;
+		const newBefore = before.slice(0, atIndex) + '@' + username + ' ';
+		const newText = newBefore + text.slice(cursor);
+		setText(newText);
+		setSelection({start: newBefore.length, end: newBefore.length});
+	}
 
 	async function handlePickImage() {
 		const picked = await pickImage();
@@ -166,9 +200,22 @@ export default function CreatePostScreen({api, pickImage, onCreated, draft, onOp
 				placeholder="О чём думаете?"
 				value={text}
 				onChangeText={setText}
+				onSelectionChange={(e: NativeSyntheticEvent<TextInputSelectionChangeEventData>) => setSelection(e.nativeEvent.selection)}
+				selection={selection}
 				multiline
 				style={styles.input}
 			/>
+
+			{mentionMatches.length > 0 ? (
+				<View style={styles.mentionBox}>
+					{mentionMatches.map((f: BerxFriend) => (
+						<Pressable key={f.guid} style={styles.mentionRow} onPress={() => insertMention(f.username)}>
+							<Text style={styles.mentionName}>{f.fullname || f.username}</Text>
+							<Text style={styles.mentionUsername}>@{f.username}</Text>
+						</Pressable>
+					))}
+				</View>
+			) : null}
 
 			{previewUri ? (
 				<View style={styles.previewWrap}>
@@ -231,6 +278,10 @@ const styles = StyleSheet.create({
 	repostPreviewLabel: {fontSize: typography.sizeXs, color: colors.accent, fontWeight: typography.weightBold, textTransform: 'uppercase'},
 	repostPreviewText: {fontSize: typography.sizeSm, color: colors.textDim},
 	input: {minHeight: 120, textAlignVertical: 'top'},
+	mentionBox: {backgroundColor: colors.glass1, borderRadius: radius.md, borderWidth: 1, borderColor: colors.borderSoft, overflow: 'hidden'},
+	mentionRow: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.borderSoft},
+	mentionName: {color: colors.text, fontSize: typography.sizeSm, fontWeight: typography.weightMedium},
+	mentionUsername: {color: colors.textFaint, fontSize: typography.sizeXs},
 	previewWrap: {alignSelf: 'flex-start'},
 	preview: {width: 96, height: 96, borderRadius: radius.md, backgroundColor: colors.graphite},
 	previewRemove: {position: 'absolute', top: -6, right: -6, width: 22, height: 22, borderRadius: 11, backgroundColor: colors.black, alignItems: 'center', justifyContent: 'center'},
