@@ -35,6 +35,7 @@ import {BerxLoadingState, BerxErrorState} from '../../../../packages/design-syst
 interface Props {
 	api: BerxApiClient;
 	id: number;
+	myGuid?: number;
 	onOpenPlace: (guid: number) => void;
 	onOpenEvent: (guid: number) => void;
 	onDeleted?: () => void;
@@ -52,7 +53,7 @@ function fmtWhen(unix: number): string {
 	return new Date(unix * 1000).toLocaleString('ru-RU', {day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit'});
 }
 
-export default function ExperienceDetailScreen({api, id, onOpenPlace, onOpenEvent, onDeleted, onAddToWorld, onBack}: Props) {
+export default function ExperienceDetailScreen({api, id, myGuid, onOpenPlace, onOpenEvent, onDeleted, onAddToWorld, onBack}: Props) {
 	const [experience, setExperience] = useState<BerxExperienceDetail | null>(null);
 	const [friends, setFriends] = useState<BerxFriend[]>([]);
 	const [loading, setLoading] = useState(true);
@@ -146,6 +147,19 @@ export default function ExperienceDetailScreen({api, id, onOpenPlace, onOpenEven
 			// real rejection — text stays in the input, nothing optimistic
 		} finally {
 			setMomentBusy(false);
+		}
+	}
+
+	/** Owner-only (server re-checks — OssnLifeMoments::deleteMoment()). Optimistic removal, real server call. */
+	async function deleteMoment(momentId: number) {
+		setMoments((prev: BerxLifeMoment[]) => prev.filter((m: BerxLifeMoment) => m.id !== momentId));
+		try {
+			await api.deleteLifeMoment(momentId);
+		} catch {
+			// real rejection — reload the true state rather than leaving a stale optimistic remove
+			if (experience) {
+				api.momentsForSource('experience', experience.id).then((res) => setMoments(res.moments)).catch(() => undefined);
+			}
 		}
 	}
 
@@ -303,7 +317,14 @@ export default function ExperienceDetailScreen({api, id, onOpenPlace, onOpenEven
 						</View>
 						{moments.map((m: BerxLifeMoment) => (
 							<View key={m.id} style={styles.momentRow}>
-								<Text style={styles.momentAuthor}>{m.owner_username ?? 'Кто-то'}</Text>
+								<View style={styles.momentRowHeader}>
+									<Text style={styles.momentAuthor}>{m.owner_username ?? 'Кто-то'}</Text>
+									{myGuid === m.owner_guid ? (
+										<Pressable onPress={() => deleteMoment(m.id)}>
+											<Text style={styles.momentDelete}>удалить</Text>
+										</Pressable>
+									) : null}
+								</View>
 								<Text style={styles.momentText}>{m.text}</Text>
 							</View>
 						))}
@@ -397,7 +418,9 @@ const styles = StyleSheet.create({
 	momentInputRow: {flexDirection: 'row', gap: spacing.xs, alignItems: 'center'},
 	momentInputField: {flex: 1},
 	momentRow: {paddingVertical: spacing.xs, borderBottomWidth: 1, borderBottomColor: colors.borderSoft},
+	momentRowHeader: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'},
 	momentAuthor: {fontSize: typography.sizeXs, color: colors.textFaint, fontWeight: typography.weightBold},
+	momentDelete: {fontSize: typography.sizeXs, color: colors.danger},
 	momentText: {fontSize: typography.sizeSm, color: colors.white, marginTop: 2},
 	participantRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.xs},
 	participantAvatar: {width: 32, height: 32, borderRadius: radius.pill, backgroundColor: colors.graphite},

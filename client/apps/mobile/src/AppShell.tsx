@@ -948,6 +948,7 @@ function RouteRenderer({name, params}: {name: BerxRouteName; params: unknown}) {
 				<ExperienceDetailScreen
 					api={api}
 					id={p.id}
+					myGuid={authState.getSnapshot().user?.guid ?? 0}
 					onOpenPlace={(guid) => nav.push('PlaceDetail', {guid})}
 					onOpenEvent={(guid) => nav.push('EventDetail', {guid})}
 					onDeleted={nav.pop}
