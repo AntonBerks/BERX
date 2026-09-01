@@ -37,6 +37,7 @@ import OnboardingScreen from './screens/OnboardingScreen';
 import FeedScreen from './screens/FeedScreen';
 import NowScreen from './screens/NowScreen';
 import PeopleScreen from './screens/PeopleScreen';
+import CreateSurfaceScreen from './screens/CreateSurfaceScreen';
 import PostDetailScreen from './screens/PostDetailScreen';
 import ProfileScreen from './screens/ProfileScreen';
 import ConversationListScreen from './screens/ConversationListScreen';
@@ -207,6 +208,22 @@ function RouteRenderer({name, params}: {name: BerxRouteName; params: unknown}) {
 			return <NowScreenRoute onOpenProfile={openProfile} />;
 		case 'Feed':
 			return <FeedScreenRoute onOpenProfile={openProfile} />;
+		case 'Create':
+			return (
+				<CreateSurfaceScreen
+					onCreateStory={() => nav.push('CreateStory', undefined)}
+					onCreatePost={() => nav.push('CreatePost', undefined)}
+					onCreateVideo={() => nav.push('CreateVideo', undefined)}
+					onCreateTrack={() => nav.push('CreateTrack', undefined)}
+					onCreateEvent={() => nav.push('CreateEvent', undefined)}
+					onCreateExperience={() => nav.push('CreateExperience', undefined)}
+					onCreatePlace={() => nav.push('CreatePlace', undefined)}
+					onCreatePlan={() => nav.push('CreatePlan', undefined)}
+					onCreateWorld={() => nav.push('CreateWorld', undefined)}
+					onCreateCommunity={() => nav.push('CreateCommunity', undefined)}
+					onBack={nav.canGoBack ? nav.pop : undefined}
+				/>
+			);
 		case 'People':
 			return (
 				<PeopleScreen
@@ -1350,8 +1367,8 @@ function AuthenticatedApp() {
 						{(current) => <RouteRenderer name={current.name} params={current.params} />}
 					</BerxNavigator>
 				</TabPane>
-				<TabPane visible={activeTab === 'CreatePost'}>
-					<BerxNavigator initialRoute="CreatePost" initialParams={undefined}>
+				<TabPane visible={activeTab === 'Create'}>
+					<BerxNavigator initialRoute="Create" initialParams={undefined}>
 						{(current) => <RouteRenderer name={current.name} params={current.params} />}
 					</BerxNavigator>
 				</TabPane>

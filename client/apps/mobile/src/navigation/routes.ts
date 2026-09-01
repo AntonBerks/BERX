@@ -22,6 +22,7 @@ export type BerxRouteName =
 	| 'Home'
 	| 'Feed'
 	| 'People'
+	| 'Create'
 	| 'PostDetail'
 	| 'CreatePost'
 	| 'Profile'
@@ -139,6 +140,7 @@ export interface BerxRouteParams {
 	Home: undefined;
 	Feed: undefined;
 	People: undefined;
+	Create: undefined;
 	PostDetail: { postGuid: number };
 	/** MAX BUILD — optional real draft to prefill (see MyDraftsScreen.tsx) or a real Repost target (see posts.php's own comment on berx_repost_of). */
 	CreatePost: {draft?: {id: number; text: string; visibility: string}; repostTarget?: {guid: number; text: string; owner_username: string | null}} | undefined;
@@ -265,6 +267,7 @@ export const BERX_ROUTES: BerxRouteMeta[] = [
 	{ name: 'Home', connected: true },
 	{ name: 'Feed', connected: true },
 	{ name: 'People', connected: true },
+	{ name: 'Create', connected: true },
 	{ name: 'PostDetail', connected: true },
 	{ name: 'CreatePost', connected: true },
 	{ name: 'Profile', connected: true },
@@ -422,4 +425,4 @@ export const BERX_ROUTES: BerxRouteMeta[] = [
  * full Search route, and Messages keeps its route and its unread
  * badge — they moved out of the tab bar, not out of the app.
  */
-export const BERX_BOTTOM_TABS: BerxRouteName[] = ['Home', 'People', 'CreatePost', 'Places', 'Profile'];
+export const BERX_BOTTOM_TABS: BerxRouteName[] = ['Home', 'People', 'Create', 'Places', 'Profile'];

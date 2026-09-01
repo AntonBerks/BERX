@@ -58,10 +58,10 @@ import {Animated, LayoutChangeEvent, Pressable, StyleSheet, Text, View} from 're
 import {colors, radius, spacing, typography} from '../tokens';
 import {IconHome, IconUsers, IconPlus, IconPin, IconMenu} from './BerxIcons';
 
-export type BerxWayfinderTab = 'Home' | 'People' | 'CreatePost' | 'Places' | 'Profile';
+export type BerxWayfinderTab = 'Home' | 'People' | 'Create' | 'Places' | 'Profile';
 
-const TABS: BerxWayfinderTab[] = ['Home', 'People', 'CreatePost', 'Places', 'Profile'];
-const ORB_INDEX = 2; // 'CreatePost' — the raised create position, not part of the sliding flat track
+const TABS: BerxWayfinderTab[] = ['Home', 'People', 'Create', 'Places', 'Profile'];
+const ORB_INDEX = 2; // 'Create' — the raised create position, not part of the sliding flat track
 const FLAT_TABS: BerxWayfinderTab[] = TABS.filter((_tab, i) => i !== ORB_INDEX);
 
 interface Props {
@@ -78,7 +78,7 @@ function tabIcon(tab: BerxWayfinderTab, size: number, color: string) {
 			return <IconHome size={size} color={color} />;
 		case 'People':
 			return <IconUsers size={size} color={color} />;
-		case 'CreatePost':
+		case 'Create':
 			return <IconPlus size={size} color={color} />;
 		case 'Places':
 			return <IconPin size={size} color={color} />;
@@ -119,7 +119,7 @@ export function BerxWayfinder({activeTab, onSelect, unreadNotifications}: Props)
 	// its own active state via scale/glow instead, sliding a flat pill
 	// "into" a raised circle would be a fake, meaningless motion.
 	useEffect(() => {
-		const isOrb = activeTab === 'CreatePost';
+		const isOrb = activeTab === 'Create';
 		Animated.timing(indicatorOpacity, {toValue: isOrb ? 0 : 1, duration: 160, useNativeDriver: true}).start();
 		if (!isOrb) {
 			const pos = positions[activeTab];
@@ -199,13 +199,13 @@ export function BerxWayfinder({activeTab, onSelect, unreadNotifications}: Props)
 				]}
 			>
 				<Pressable
-					onPress={() => onSelect('CreatePost')}
+					onPress={() => onSelect('Create')}
 					onPressIn={orbPressIn}
 					onPressOut={orbPressOut}
-					style={[styles.orb, activeTab === 'CreatePost' && styles.orbActive]}
+					style={[styles.orb, activeTab === 'Create' && styles.orbActive]}
 					hitSlop={8}
 				>
-					{tabIcon('CreatePost', 24, activeTab === 'CreatePost' ? colors.black : colors.accent)}
+					{tabIcon('Create', 24, activeTab === 'Create' ? colors.black : colors.accent)}
 				</Pressable>
 			</Animated.View>
 		</View>
