@@ -39,6 +39,7 @@ import {BerxPollView} from '../../../../packages/design-system/src/components/Be
 
 interface Props {
 	api: BerxApiClient;
+	myGuid?: number;
 	onOpenPost: (guid: number) => void;
 	onOpenProfile: (username: string) => void;
 	onOpenHashtag?: (tag: string) => void;
@@ -47,7 +48,7 @@ interface Props {
 	onCreateStory: () => void;
 }
 
-export default function FeedScreen({api, onOpenPost, onOpenProfile, onOpenHashtag, onCreatePost, onOpenStoryGroup, onCreateStory}: Props) {
+export default function FeedScreen({api, myGuid, onOpenPost, onOpenProfile, onOpenHashtag, onCreatePost, onOpenStoryGroup, onCreateStory}: Props) {
 	const [items, setItems] = useState<BerxFeedItem[]>([]);
 	const [votingPollGuid, setVotingPollGuid] = useState<number | null>(null);
 	const [storyGroups, setStoryGroups] = useState<BerxStoryFeedGroup[]>([]);
@@ -61,6 +62,19 @@ export default function FeedScreen({api, onOpenPost, onOpenProfile, onOpenHashta
 		setVotingPollGuid(item.guid);
 		try {
 			const res = await api.votePoll(item.guid, optionIndex);
+			setItems((prev: BerxFeedItem[]) => prev.map((it: BerxFeedItem) => (it.guid === item.guid ? {...it, poll: res.poll} : it)));
+		} catch {
+			// real server rejection — state left as-is
+		} finally {
+			setVotingPollGuid(null);
+		}
+	}
+
+	/** BERX WORLD — real early close, poster_guid-gated server-side regardless of what this button already knows. */
+	async function handleClosePoll(item: BerxFeedItem) {
+		setVotingPollGuid(item.guid);
+		try {
+			const res = await api.closePoll(item.guid);
 			setItems((prev: BerxFeedItem[]) => prev.map((it: BerxFeedItem) => (it.guid === item.guid ? {...it, poll: res.poll} : it)));
 		} catch {
 			// real server rejection — state left as-is
@@ -223,7 +237,13 @@ export default function FeedScreen({api, onOpenPost, onOpenProfile, onOpenHashta
 						<BerxRichText text={item.text} onOpenProfile={onOpenProfile} onOpenHashtag={onOpenHashtag} style={styles.text} />
 						{item.poll ? (
 							<Pressable onPress={(e: GestureResponderEvent) => e.stopPropagation()}>
-								<BerxPollView poll={item.poll} onVote={(optionIndex) => handleVotePoll(item, optionIndex)} voting={votingPollGuid === item.guid} />
+								<BerxPollView
+								poll={item.poll}
+								onVote={(optionIndex) => handleVotePoll(item, optionIndex)}
+								voting={votingPollGuid === item.guid}
+								onClose={myGuid === item.poster_guid ? () => handleClosePoll(item) : undefined}
+								closing={votingPollGuid === item.guid}
+							/>
 							</Pressable>
 						) : null}
 					</Pressable>

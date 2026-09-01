@@ -359,6 +359,11 @@ export class BerxApiClient {
 		return this.request<{poll: BerxPostPoll}>(`/posts/${postGuid}/poll/vote`, {method: 'POST', body: {option_index: String(optionIndex)}});
 	}
 
+	/** BERX WORLD — real early close, poster_guid-gated server-side (see posts.php's own /poll/close comment). A poll with no ends_at would otherwise never end on its own. */
+	async closePoll(postGuid: number): Promise<{poll: BerxPostPoll}> {
+		return this.request<{poll: BerxPostPoll}>(`/posts/${postGuid}/poll/close`, {method: 'POST'});
+	}
+
 	async likePost(id: number): Promise<{status: string}> {
 		return this.request<{status: string}>(`/posts/${id}/like`, {method: 'POST'});
 	}

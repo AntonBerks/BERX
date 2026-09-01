@@ -90,6 +90,24 @@ class OssnPolls extends OssnDatabase {
 		return $ok ? 'ok' : 'failed';
 	}
 
+	/** Real early close — a poll with no ends_at set at creation would otherwise never end on its own. Idempotent: closing an already-ended poll is a real no-op, never a second write or an error. Ownership is the caller's own responsibility to check (see posts.php's own /poll/close route) — this method only ever writes what it's told. */
+	public function close($postGuid) {
+		$poll = $this->get($postGuid);
+		if (!$poll) {
+			return 'not_found';
+		}
+		if ($poll['is_ended']) {
+			return 'ok';
+		}
+		$ok = $this->update(array(
+			'table'  => self::POLLS_TABLE,
+			'names'  => array('ends_at'),
+			'values' => array(time()),
+			'wheres' => array(self::wheres('post_guid', '=', intval($postGuid))),
+		));
+		return $ok ? 'ok' : 'failed';
+	}
+
 	/** Real per-option counts (indexed 0..count(options)-1, zero-filled) plus the real total — one bounded query, no N+1 per option. */
 	public function results($postGuid, $optionCount) {
 		$counts = array_fill(0, max(0, intval($optionCount)), 0);

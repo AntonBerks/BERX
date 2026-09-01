@@ -1208,6 +1208,7 @@ function FeedScreenRoute({onOpenProfile}: {onOpenProfile: (username: string) => 
 	return (
 		<FeedScreen
 			api={api}
+			myGuid={authState.getSnapshot().user?.guid}
 			onOpenPost={(guid) => nav.push('PostDetail', {postGuid: guid})}
 			onOpenProfile={onOpenProfile}
 			onOpenHashtag={(tag) => nav.push('Hashtag', {tag})}

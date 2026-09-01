@@ -694,6 +694,37 @@ if ($segment0 !== null && $segment1 === 'poll' && $segment2 === 'vote' && $metho
 	ossn_api_json(array('poll' => ossn_api_post_poll_json($post->guid, $api_user_guid)));
 }
 
+/**
+ * BERX WORLD — real early close. A poll created with no ends_at would
+ * otherwise never end on its own — real, needed control for the real
+ * creator, not something imposed later by convention. poster_guid-
+ * gated (the poll's real creator, same person the post itself
+ * belongs to), same never-admin-override-authorship rule post editing
+ * already established — a poll being closed is an authorial decision,
+ * not moderation.
+ */
+if ($segment0 !== null && $segment1 === 'poll' && $segment2 === 'close' && $method === 'POST') {
+	$wall = new OssnWall();
+	$post = $wall->GetPost(intval($segment0));
+	if (!$post) {
+		ossn_api_error('not_found', 'Post not found', 404);
+	}
+	if (intval($post->poster_guid) !== intval($api_user_guid)) {
+		ossn_api_error('forbidden', 'Only the poll author can close it', 403);
+	}
+	if (!class_exists('OssnPolls')) {
+		ossn_api_error('not_found', 'Poll not found', 404);
+	}
+	$result = (new OssnPolls())->close(intval($post->guid));
+	if ($result === 'not_found') {
+		ossn_api_error('not_found', 'Poll not found', 404);
+	}
+	if ($result !== 'ok') {
+		ossn_api_error('create_failed', 'Could not close poll', 500);
+	}
+	ossn_api_json(array('poll' => ossn_api_post_poll_json($post->guid, $api_user_guid)));
+}
+
 if ($segment0 !== null && $segment1 === null && $method === 'DELETE') {
 	$wall = new OssnWall();
 	$post = $wall->GetPost(intval($segment0));

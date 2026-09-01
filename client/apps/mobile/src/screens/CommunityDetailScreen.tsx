@@ -151,6 +151,19 @@ export default function CommunityDetailScreen({api, guid, myGuid, pickImage, onB
 		}
 	}
 
+	/** BERX WORLD — real early close, poster_guid-gated server-side regardless of what this button already knows. */
+	async function handleClosePoll(post: BerxFeedItem) {
+		setVotingPollGuid(post.guid);
+		try {
+			const res = await api.closePoll(post.guid);
+			setPosts((prev: BerxFeedItem[]) => prev.map((p: BerxFeedItem) => (p.guid === post.guid ? {...p, poll: res.poll} : p)));
+		} catch {
+			// real server rejection — state left as-is
+		} finally {
+			setVotingPollGuid(null);
+		}
+	}
+
 	useEffect(() => {
 		load();
 		// eslint-disable-next-line react-hooks/exhaustive-deps
@@ -381,7 +394,15 @@ export default function CommunityDetailScreen({api, guid, myGuid, pickImage, onB
 											<Text style={styles.wallText} numberOfLines={4}>{p.text}</Text>
 											<Text style={styles.eventMeta}>{relativeTimeLabel(p.time_created)}</Text>
 										</Pressable>
-										{p.poll ? <BerxPollView poll={p.poll} onVote={(optionIndex) => handleVotePoll(p, optionIndex)} voting={votingPollGuid === p.guid} /> : null}
+										{p.poll ? (
+										<BerxPollView
+											poll={p.poll}
+											onVote={(optionIndex) => handleVotePoll(p, optionIndex)}
+											voting={votingPollGuid === p.guid}
+											onClose={myGuid === p.poster_guid ? () => handleClosePoll(p) : undefined}
+											closing={votingPollGuid === p.guid}
+										/>
+									) : null}
 									</View>
 								))}
 							</View>

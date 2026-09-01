@@ -17,9 +17,12 @@ interface Props {
 	poll: BerxPostPoll;
 	onVote: (optionIndex: number) => void;
 	voting?: boolean;
+	/** BERX WORLD — real early close. Only ever pass this when the CURRENT viewer is the real poll's own author (the caller's own responsibility, same as every other author-only action in this codebase — the server re-checks it independently regardless via poster_guid). */
+	onClose?: () => void;
+	closing?: boolean;
 }
 
-export function BerxPollView({poll, onVote, voting}: Props) {
+export function BerxPollView({poll, onVote, voting, onClose, closing}: Props) {
 	const showResults = poll.my_vote !== null || poll.is_ended;
 
 	return (
@@ -49,10 +52,17 @@ export function BerxPollView({poll, onVote, voting}: Props) {
 					</View>
 				);
 			})}
-			<Text style={styles.totalLabel}>
-				{poll.total} {poll.total === 1 ? 'голос' : 'голосов'}
-				{poll.is_ended ? ' · опрос завершён' : ''}
-			</Text>
+			<View style={styles.footerRow}>
+				<Text style={styles.totalLabel}>
+					{poll.total} {poll.total === 1 ? 'голос' : 'голосов'}
+					{poll.is_ended ? ' · опрос завершён' : ''}
+				</Text>
+				{onClose && !poll.is_ended ? (
+					<Pressable onPress={onClose} disabled={!!closing} hitSlop={8}>
+						<Text style={styles.closeLink}>{closing ? '...' : 'Завершить опрос'}</Text>
+					</Pressable>
+				) : null}
+			</View>
 		</View>
 	);
 }
@@ -70,4 +80,6 @@ const styles = StyleSheet.create({
 	resultLabelMine: {color: colors.accent, fontWeight: typography.weightMedium},
 	resultPct: {color: colors.textFaint, fontSize: typography.sizeXs},
 	totalLabel: {color: colors.textFaint, fontSize: typography.sizeXs, marginTop: 2},
+	footerRow: {flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'},
+	closeLink: {color: colors.accent, fontSize: typography.sizeXs, fontWeight: typography.weightMedium},
 });

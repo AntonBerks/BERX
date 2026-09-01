@@ -80,6 +80,7 @@ export default function PostDetailScreen({api, postGuid, myGuid, onOpenProfile, 
 	/** BERX WORLD — real @mention autocomplete in the comment composer too (same BerxMentionInput CreatePostScreen uses — comments support the exact same real mention notification path). */
 	const [friends, setFriends] = useState<BerxFriend[]>([]);
 	const [votingPoll, setVotingPoll] = useState(false);
+	const [closingPoll, setClosingPoll] = useState(false);
 
 	async function load() {
 		setLoading(true);
@@ -159,6 +160,20 @@ export default function PostDetailScreen({api, postGuid, myGuid, onOpenProfile, 
 			// real server rejection (poll ended / invalid option) — state left as-is
 		} finally {
 			setVotingPoll(false);
+		}
+	}
+
+	/** BERX WORLD — real early close, poster_guid-gated server-side regardless of what this button already knows. */
+	async function handleClosePoll() {
+		if (!post) return;
+		setClosingPoll(true);
+		try {
+			const res = await api.closePoll(post.guid);
+			setPost({...post, poll: res.poll});
+		} catch {
+			// real server rejection — state left as-is
+		} finally {
+			setClosingPoll(false);
 		}
 	}
 
@@ -369,7 +384,15 @@ export default function PostDetailScreen({api, postGuid, myGuid, onOpenProfile, 
 				) : (
 					post.text ? <BerxRichText text={post.text} onOpenProfile={onOpenProfile} onOpenHashtag={onOpenHashtag} style={styles.text} /> : null
 				)}
-				{post.poll ? <BerxPollView poll={post.poll} onVote={handleVotePoll} voting={votingPoll} /> : null}
+				{post.poll ? (
+					<BerxPollView
+						poll={post.poll}
+						onVote={handleVotePoll}
+						voting={votingPoll}
+						onClose={myGuid === post.poster_guid ? handleClosePoll : undefined}
+						closing={closingPoll}
+					/>
+				) : null}
 				<View style={styles.timeRow}>
 					<Text style={styles.time}>{relativeTimeLabel(post.time_created)}</Text>
 					{post.is_edited ? <Text style={styles.time}> · изменено</Text> : null}
