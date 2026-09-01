@@ -21,11 +21,15 @@ import {View, Text, Pressable, StyleSheet, ViewStyle} from 'react-native';
 import {spacing, typography, radius} from '../tokens';
 
 import {useBerxColors} from '../theme';
+import {BerxIcon} from '../icons/BerxIcon';
+import type {BerxIconName} from '../icons/geometry';
 import type {BerxColorTokens} from '../tokens';
 
 export interface BerxRailAction {
+	/** Preferred: a name from the BERX icon family. */
+	icon?: BerxIconName;
 	key: string;
-	glyph: string;
+	glyph?: string;
 	/** Real count from the server. Omit entirely rather than passing 0 when the number simply isn't known here. */
 	count?: number;
 	active?: boolean;
@@ -64,7 +68,15 @@ export function BerxActionRail({actions, size = 48, style}: BerxActionRailProps)
 						disabled={!a.onPress}
 						style={[styles.button, {width: size, height: size, borderRadius: size / 2}, a.active && styles.buttonActive]}>
 						<View style={styles.buttonHairline} pointerEvents="none" />
-						<Text style={[styles.glyph, a.active && styles.glyphActive]}>{a.glyph}</Text>
+						{a.icon ? (
+							<BerxIcon
+								name={a.icon}
+								size={19}
+								color={a.active ? colors.accent : colors.onMedia}
+							/>
+						) : (
+							<Text style={[styles.glyph, a.active && styles.glyphActive]}>{a.glyph}</Text>
+						)}
 					</Pressable>
 					{typeof a.count === 'number' ? (
 						<Text style={styles.count}>{formatCount(a.count)}</Text>

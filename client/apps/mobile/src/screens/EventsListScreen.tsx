@@ -122,8 +122,8 @@ export default function EventsListScreen({api, onOpenEvent, onCreate, onOpenMine
 						<Text style={[styles.tabText, tab === 'past' && styles.tabTextActive]}>Прошедшие</Text>
 					</Pressable>
 					<View style={styles.utilities}>
-						<BerxCircleButton glyph="✓" onPress={onOpenMine} />
-						<BerxCircleButton glyph="+" onPress={onCreate} />
+						<BerxCircleButton icon="check" onPress={onOpenMine} />
+						<BerxCircleButton icon="plus" onPress={onCreate} />
 					</View>
 				</View>
 			</View>

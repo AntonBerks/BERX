@@ -16,6 +16,7 @@ import {View, Text, Image, Pressable, ScrollView, StyleSheet, ViewStyle} from 'r
 import {spacing, typography} from '../tokens';
 
 import {useBerxColors} from '../theme';
+import {BerxIcon} from '../icons/BerxIcon';
 import type {BerxColorTokens} from '../tokens';
 
 export interface BerxStoryRailItem {
@@ -52,7 +53,7 @@ export function BerxStoryRail({items, onCreate, createLabel = 'Вы', onMore, mo
 			{onCreate ? (
 				<Pressable style={styles.item} onPress={onCreate}>
 					<View style={[styles.addTile, {width: ring, height: ring, borderRadius: ring / 2}]}>
-						<Text style={styles.addGlyph}>+</Text>
+						<BerxIcon name="plus" size={22} color={colors.accent} />
 					</View>
 					<Text style={[styles.label, onMedia && styles.labelOnMedia]} numberOfLines={1}>
 						{createLabel}
@@ -87,7 +88,7 @@ export function BerxStoryRail({items, onCreate, createLabel = 'Вы', onMore, mo
 							styles.addTile,
 							{width: size, height: size, borderRadius: size / 2, borderStyle: 'solid'},
 						]}>
-						<Text style={styles.moreGlyph}>›</Text>
+						<BerxIcon name="chevron-right" size={20} color={colors.accent} />
 					</View>
 					<Text style={[styles.label, onMedia && styles.labelOnMedia]} numberOfLines={1}>
 						{moreLabel}

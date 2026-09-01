@@ -114,9 +114,9 @@ export default function PlacesListScreen({api, onOpenPlace, onCreate, onOpenNear
 					<BerxInput placeholder="Поиск мест" value={query} onChangeText={setQuery} onSubmitEditing={load} />
 				</View>
 				<View style={styles.utilities}>
-					<BerxCircleButton glyph="◎" onPress={onOpenNearby} />
-					<BerxCircleButton glyph="♡" onPress={onOpenSaved} />
-					<BerxCircleButton glyph="+" onPress={onCreate} />
+					<BerxCircleButton icon="compass" onPress={onOpenNearby} />
+					<BerxCircleButton icon="heart" onPress={onOpenSaved} />
+					<BerxCircleButton icon="plus" onPress={onCreate} />
 				</View>
 			</View>
 			{trending.length > 0 ? (

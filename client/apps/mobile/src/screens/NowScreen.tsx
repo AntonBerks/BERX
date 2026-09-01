@@ -59,6 +59,7 @@ import {BerxImmersivePost} from '../../../../packages/design-system/src/componen
 import {BerxPlaceCard, BerxEventCard, BerxPersonCard, BerxLiveDot} from '../../../../packages/design-system/src/components/BerxSpatialCards';
 import type {BerxRailAction} from '../../../../packages/design-system/src/components/BerxActionRail';
 import {BerxActionRail} from '../../../../packages/design-system/src/components/BerxActionRail';
+import {BerxIcon} from '../../../../packages/design-system/src/icons/BerxIcon';
 import {BerxScrim} from '../../../../packages/design-system/src/components/BerxScrim';
 
 import {useBerxColors} from '../../../../packages/design-system/src/theme';
@@ -304,21 +305,21 @@ export default function NowScreen({
 		return [
 			{
 				key: 'like',
-				glyph: item.is_liked ? '♥' : '♡',
+				icon: 'heart' as const,
 				count: item.like_count,
 				active: item.is_liked,
 				onPress: () => handleToggleLike(item),
 			},
-			{key: 'comment', glyph: '◌', count: item.comment_count, onPress: () => onOpenPost(item.guid)},
+			{key: 'comment', icon: 'message-circle' as const, count: item.comment_count, onPress: () => onOpenPost(item.guid)},
 			{
 				key: 'save',
-				glyph: savedGuids.has(item.guid) ? '◼' : '◻',
+				icon: 'bookmark' as const,
 				label: savedGuids.has(item.guid) ? 'Сохр.' : 'Сохр.',
 				active: savedGuids.has(item.guid),
 				onPress: () => handleToggleSave(item),
 			},
 			...(onShareToMessage
-				? [{key: 'send', glyph: '➤', label: 'Отпр.', onPress: () => onShareToMessage(item.guid)}]
+				? [{key: 'send', icon: 'send' as const, label: 'Отпр.', onPress: () => onShareToMessage(item.guid)}]
 				: []),
 		];
 	}
@@ -458,7 +459,7 @@ export default function NowScreen({
 							<Pressable style={styles.stageComment} onPress={() => onOpenPost(lead.guid)}>
 								<Text style={styles.stageCommentText}>Добавить комментарий</Text>
 								<View style={styles.stageSend}>
-									<Text style={styles.stageSendGlyph}>➤</Text>
+									<BerxIcon name="send" size={16} color={colors.onAccent} />
 								</View>
 							</Pressable>
 						</View>

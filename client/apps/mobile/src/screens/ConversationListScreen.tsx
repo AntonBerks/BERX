@@ -152,7 +152,7 @@ export default function ConversationListScreen({api, onOpenConversation, onOpenM
 					]}
 				/>
 				{onOpenMessageSearch ? (
-					<BerxCircleButton glyph="⌕" label="Поиск" onPress={onOpenMessageSearch} />
+					<BerxCircleButton icon="search" label="Поиск" onPress={onOpenMessageSearch} />
 				) : null}
 			</View>
 			{online.length > 0 ? (

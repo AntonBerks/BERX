@@ -19,6 +19,8 @@ import {View, Text, Image, Pressable, StyleSheet, ViewStyle} from 'react-native'
 import {spacing, typography, radius} from '../tokens';
 
 import {useBerxColors} from '../theme';
+import {BerxIcon} from '../icons/BerxIcon';
+import type {BerxIconName} from '../icons/geometry';
 import type {BerxColorTokens} from '../tokens';
 
 export interface BerxHeaderAction {
@@ -85,13 +87,26 @@ export function BerxGreetingHeader({greeting, name, avatarUrl, onPressIdentity, 
  * greeting — PLACES, EVENTS, COMMUNITIES. Same material and geometry
  * as the header's own actions, so the two never drift apart.
  */
-export function BerxCircleButton({glyph, label, badge, onPress}: {glyph: string; label?: string; badge?: number; onPress: () => void}) {
+export function BerxCircleButton({
+	glyph,
+	icon,
+	label,
+	badge,
+	onPress,
+}: {
+	glyph?: string;
+	/** Preferred: a name from the BERX icon family. `glyph` stays for callers not yet migrated. */
+	icon?: BerxIconName;
+	label?: string;
+	badge?: number;
+	onPress: () => void;
+}) {
 	const colors = useBerxColors();
 	const styles = useMemo(() => makeStyles(colors), [colors]);
 	return (
 		<Pressable style={[styles.circleWrap, label ? styles.circleWrapLabelled : null]} onPress={onPress} hitSlop={6}>
 			<View style={styles.actionButton}>
-				<Text style={styles.actionGlyph}>{glyph}</Text>
+				{icon ? <BerxIcon name={icon} size={18} color={colors.text} /> : <Text style={styles.actionGlyph}>{glyph}</Text>}
 				{typeof badge === 'number' && badge > 0 ? (
 					<View style={styles.badge}>
 						<Text style={styles.badgeText}>{badge > 99 ? '99+' : badge}</Text>

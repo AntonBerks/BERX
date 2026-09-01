@@ -101,7 +101,7 @@ export default function CommunitiesListScreen({api, onOpenCommunity, onCreate, o
 							: 'найди своих',
 					]}
 				/>
-				<BerxCircleButton glyph="+" onPress={onCreate} />
+				<BerxCircleButton icon="plus" onPress={onCreate} />
 			</View>
 			<View style={styles.tabRow}>
 				<Pressable style={[styles.tab, tab === 'all' && styles.tabActive]} onPress={() => setTab('all')}>

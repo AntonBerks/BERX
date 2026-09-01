@@ -27,3 +27,5 @@ client/harness-core.ts
 client/harness-token-storage.ts
 client/stub-native.js
 client/stub-three.js
+client/harness-rn.js
+client/stub-codegen.js
