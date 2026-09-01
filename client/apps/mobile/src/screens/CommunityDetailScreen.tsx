@@ -151,6 +151,20 @@ export default function CommunityDetailScreen({api, guid, myGuid, pickImage, onB
 		}
 	}
 
+	/** api.deleteCommunityCover() was always real (owner/admin re-checked server-side) with no caller anywhere — a cover, once set, could never be removed. */
+	async function handleRemoveCover() {
+		if (!community) return;
+		setUploadingCover(true);
+		try {
+			await api.deleteCommunityCover(guid);
+			setCommunity({...community, cover_url: null});
+		} catch (e) {
+			Alert.alert('Не удалось удалить обложку', e instanceof Error ? e.message : 'Попробуйте ещё раз');
+		} finally {
+			setUploadingCover(false);
+		}
+	}
+
 	function openEdit() {
 		if (!community) return;
 		setEditName(community.name);
@@ -236,6 +250,11 @@ export default function CommunityDetailScreen({api, guid, myGuid, pickImage, onB
 					{isOwner && pickImage ? (
 						<Pressable style={styles.coverEditButton} onPress={handleUploadCover} disabled={uploadingCover} hitSlop={8}>
 							<Text style={styles.coverEditLabel}>{uploadingCover ? 'Загрузка…' : 'Сменить обложку'}</Text>
+						</Pressable>
+					) : null}
+					{isOwner && community.cover_url ? (
+						<Pressable style={styles.coverRemoveButton} onPress={handleRemoveCover} disabled={uploadingCover} hitSlop={8}>
+							<Text style={styles.coverEditLabel}>Убрать обложку</Text>
 						</Pressable>
 					) : null}
 				</Berx3DTilt>
@@ -329,6 +348,7 @@ const styles = StyleSheet.create({
 	heroImage: {width: '100%', height: '100%'},
 	heroPlaceholder: {width: '100%', height: '100%', backgroundColor: colors.surface},
 	coverEditButton: {position: 'absolute', right: spacing.sm, bottom: spacing.sm, backgroundColor: colors.black, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs, borderRadius: 6, borderWidth: 1, borderColor: colors.accent},
+	coverRemoveButton: {position: 'absolute', left: spacing.sm, bottom: spacing.sm, backgroundColor: colors.black, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs, borderRadius: 6, borderWidth: 1, borderColor: colors.borderSoft},
 	coverEditLabel: {color: colors.accent, fontSize: typography.sizeXs, fontWeight: typography.weightMedium},
 	content: {padding: spacing.lg, gap: spacing.md},
 	ownerActions: {gap: spacing.sm, marginTop: spacing.sm},
