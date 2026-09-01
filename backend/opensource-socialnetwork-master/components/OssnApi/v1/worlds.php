@@ -54,6 +54,11 @@ function ossn_api_world_json($world, $viewerGuid, $worldsModel) {
 		'is_temporary'    => (bool) $world->is_temporary,
 		'expires_at'      => $world->expires_at !== null ? intval($world->expires_at) : null,
 		'time_created'    => intval($world->time_created),
+		// Real, lazy read-time check (OssnWorlds::isExpired()'s own
+		// header explains why there's no background job) — an expired
+		// world's real content/members stay exactly as real as before;
+		// only new membership stops.
+		'is_expired'      => $worldsModel->isExpired($world),
 		'is_owner'        => $isOwner,
 		'my_status'       => $membership ? (string) $membership->status : ($world->visibility === 'public' ? 'not_member' : null),
 		'members'         => $members,
@@ -144,6 +149,9 @@ if ($segment0 !== null && is_numeric($segment0) && $segment1 === 'respond' && $m
 	if ($result === 'not_invited') {
 		ossn_api_error('forbidden', 'You are not invited to this world', 403);
 	}
+	if ($result === 'expired') {
+		ossn_api_error('validation_error', 'This world has expired — you can still decline, but not accept', 422);
+	}
 	if ($result !== 'ok') {
 		ossn_api_error('failed', 'Could not respond to world invite', 422);
 	}
@@ -157,6 +165,9 @@ if ($segment0 !== null && is_numeric($segment0) && $segment1 === 'join' && $meth
 	}
 	if ($result === 'forbidden') {
 		ossn_api_error('forbidden', 'This world is private — you need an invite', 403);
+	}
+	if ($result === 'expired') {
+		ossn_api_error('validation_error', 'This world has expired', 422);
 	}
 	if ($result !== 'ok') {
 		ossn_api_error('failed', 'Could not join world', 422);

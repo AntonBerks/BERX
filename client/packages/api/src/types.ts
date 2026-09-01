@@ -1468,6 +1468,8 @@ export interface BerxWorld {
 	visibility: BerxWorldVisibility;
 	is_temporary: boolean;
 	expires_at: number | null;
+	/** Real, lazy read-time check — see OssnWorlds::isExpired()'s own header for why there's no background job. Existing members/content stay real either way; only new membership stops. */
+	is_expired: boolean;
 	time_created: number;
 	is_owner: boolean;
 	/** null only for a private world the viewer has no real relationship to — canView() on the server means this never actually happens for a world the client could fetch. */

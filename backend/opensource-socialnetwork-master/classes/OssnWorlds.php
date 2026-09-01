@@ -120,6 +120,21 @@ class OssnWorlds extends OssnDatabase {
 		return $this->isAcceptedMember($world->id, $guid);
 	}
 
+	/**
+	 * Real, honest expiry check — deliberately lazy/read-time rather
+	 * than a background job: this codebase has no existing cron
+	 * infrastructure to hook into, and inventing one here, unable to
+	 * actually run or verify it in this environment, would be a far
+	 * bigger and shakier claim than a real expired world simply
+	 * stopping accepting new members once its own real expires_at has
+	 * passed. A world already past its date never silently vanishes —
+	 * existing members, its content, and its history all stay exactly
+	 * as real as they were; only NEW membership stops.
+	 */
+	public function isExpired($world) {
+		return (bool) ($world && $world->is_temporary && $world->expires_at && intval($world->expires_at) < time());
+	}
+
 	public function membersForWorld($worldId, $limit = 100) {
 		$rows = $this->select(array(
 			'from'     => self::MEMBERS_TABLE,
@@ -135,6 +150,11 @@ class OssnWorlds extends OssnDatabase {
 		$membership = $this->getMembership($worldId, $guid);
 		if (!$membership || $membership->role === 'owner') {
 			return 'not_invited';
+		}
+		// A decline always goes through — honest either way; only a new
+		// real ACCEPT is refused once the world's own real date has passed.
+		if ($accept && $this->isExpired($this->getWorld($worldId))) {
+			return 'expired';
 		}
 		$newStatus = $accept ? 'accepted' : 'declined';
 		$ok = parent::update(array(
@@ -164,6 +184,9 @@ class OssnWorlds extends OssnDatabase {
 		if ($world->visibility !== self::VISIBILITY_PUBLIC) {
 			return 'forbidden';
 		}
+		if ($this->isExpired($world)) {
+			return 'expired';
+		}
 		$existing = $this->getMembership($worldId, $guid);
 		if ($existing) {
 			return $existing->status === 'accepted' ? 'ok' : 'failed';
@@ -180,8 +203,8 @@ class OssnWorlds extends OssnDatabase {
 	}
 
 	/**
-	 * Real ownership transfer — closes the gap leaveWorld()'s own
-	 * comment discloses ("no ownership-transfer flow exists yet"). Same
+	 * Real ownership transfer — the flow leaveWorld() above relies on
+	 * (an owner can't leave, only delete or transfer first). Same
 	 * real shape as OssnGroup's own community transfer: current owner
 	 * only, the new owner must already be a real accepted member. Both
 	 * the world's own owner_guid column AND the two membership rows'
@@ -244,7 +267,7 @@ class OssnWorlds extends OssnDatabase {
 			return 'not_member';
 		}
 		if ($membership->role === 'owner') {
-			// Real, honest constraint — a World always needs an owner; no ownership-transfer flow exists yet (disclosed follow-up), so the owner deletes the world instead of leaving it ownerless.
+			// Real, honest constraint — a World always needs an owner. A real ownership-transfer flow exists (see transferOwnership() below); an owner who hasn't transferred first still can't leave, only delete.
 			return 'owner_cannot_leave';
 		}
 		$ok = parent::delete(array(
@@ -284,10 +307,26 @@ class OssnWorlds extends OssnDatabase {
 		$rows = $this->select(array(
 			'from'     => self::TABLE,
 			'wheres'   => $wheres,
+			// Over-fetch a little before the PHP-side expiry filter below,
+			// same honest tradeoff as filtering in PHP rather than a more
+			// complex OR-group WHERE for what's still a small, bounded set.
 			'order_by' => 'time_created DESC',
-			'limit'    => intval($limit),
+			'limit'    => intval($limit) + 10,
 		), true);
-		return $rows ? $rows : array();
+		if (!$rows) {
+			return array();
+		}
+		$out = array();
+		foreach ($rows as $row) {
+			if ($this->isExpired($row)) {
+				continue;
+			}
+			$out[] = $row;
+			if (count($out) >= intval($limit)) {
+				break;
+			}
+		}
+		return $out;
 	}
 
 	/** Real "my worlds" — worlds I own, plus worlds I'm an accepted member of, merged and deduplicated. Same two-query pattern as OssnPlans::myPlans(). */

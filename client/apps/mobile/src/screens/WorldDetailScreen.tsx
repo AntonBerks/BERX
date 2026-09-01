@@ -190,7 +190,9 @@ export default function WorldDetailScreen({api, id, onBack}: Props) {
 						</Text>
 					</View>
 					{world.is_temporary && world.expires_at ? (
-						<Text style={styles.expiry}>до {new Date(world.expires_at * 1000).toLocaleDateString('ru-RU')}</Text>
+						<Text style={[styles.expiry, world.is_expired && styles.expiryPast]}>
+							{world.is_expired ? 'истёк ' : 'до '}{new Date(world.expires_at * 1000).toLocaleDateString('ru-RU')}
+						</Text>
 					) : null}
 					<Text style={styles.owner}>Создатель: {world.owner_username ?? `#${world.owner_guid}`}</Text>
 				</View>
@@ -205,11 +207,19 @@ export default function WorldDetailScreen({api, id, onBack}: Props) {
 				{world.my_status === 'invited' ? (
 					<View style={styles.actions}>
 						<BerxButton label="Отклонить" variant="secondary" onPress={() => respond(false)} disabled={busy} />
-						<BerxButton label="Присоединиться" onPress={() => respond(true)} disabled={busy} />
+						{world.is_expired ? (
+							<Text style={styles.expiredHint}>Мир истёк — можно только отклонить</Text>
+						) : (
+							<BerxButton label="Присоединиться" onPress={() => respond(true)} disabled={busy} />
+						)}
 					</View>
 				) : null}
 				{world.my_status === 'not_member' && world.visibility === 'public' ? (
-					<BerxButton label="Вступить в мир" onPress={join} loading={busy} fullWidth />
+					world.is_expired ? (
+						<Text style={styles.expiredHint}>Этот мир истёк</Text>
+					) : (
+						<BerxButton label="Вступить в мир" onPress={join} loading={busy} fullWidth />
+					)
 				) : null}
 
 				<Text style={styles.sectionTitle}>Участники ({acceptedMembers.length})</Text>
@@ -329,6 +339,8 @@ const styles = StyleSheet.create({
 	visBadgeText: {fontSize: typography.sizeXs, color: colors.textFaint},
 	visBadgeTextPublic: {color: colors.accent, fontWeight: typography.weightMedium},
 	expiry: {color: colors.textFaint, fontSize: typography.sizeXs},
+	expiryPast: {color: colors.danger},
+	expiredHint: {color: colors.textFaint, fontSize: typography.sizeSm, fontStyle: 'italic'},
 	owner: {color: colors.textFaint, fontSize: typography.sizeXs, width: '100%', marginTop: 2},
 	dimensionToggle: {alignSelf: 'flex-start', borderWidth: 1, borderColor: colors.borderSoft, borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: spacing.xs},
 	dimensionToggleText: {color: colors.accent, fontSize: typography.sizeSm, fontWeight: typography.weightMedium},

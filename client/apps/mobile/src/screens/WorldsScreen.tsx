@@ -161,7 +161,7 @@ export default function WorldsScreen({api, onOpenWorld, onCreate, onBack}: Props
 												{item.visibility === 'public' ? 'Открытый' : 'Закрытый'}
 											</Text>
 										</View>
-										{item.is_temporary ? <Text style={styles.tempTag}>временный</Text> : null}
+										{item.is_expired ? <Text style={styles.expiredTag}>истёк</Text> : item.is_temporary ? <Text style={styles.tempTag}>временный</Text> : null}
 									</View>
 									<Text style={styles.itemsSummary}>{itemsSummary(item)}</Text>
 									<View style={styles.footerRow}>
@@ -198,6 +198,7 @@ const styles = StyleSheet.create({
 	visBadgeText: {fontSize: typography.sizeXs, color: colors.textFaint},
 	visBadgeTextPublic: {color: colors.accent, fontWeight: typography.weightMedium},
 	tempTag: {fontSize: typography.sizeXs, color: colors.textFaint, fontStyle: 'italic'},
+	expiredTag: {fontSize: typography.sizeXs, color: colors.danger, fontStyle: 'italic'},
 	itemsSummary: {color: colors.textDim, fontSize: typography.sizeSm},
 	footerRow: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: spacing.xs},
 	avatarCluster: {flexDirection: 'row', alignItems: 'center'},
