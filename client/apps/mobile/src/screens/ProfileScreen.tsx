@@ -160,6 +160,7 @@ export default function ProfileScreen({api, authState, username, onBack, onMessa
 	const [pokeStatus, setPokeStatus] = useState<string | null>(null);
 	const [banBusy, setBanBusy] = useState(false);
 	const [unreadNotifications, setUnreadNotifications] = useState(0);
+	const [nextCount, setNextCount] = useState(0);
 	const [highlights, setHighlights] = useState<BerxStorySummary[]>([]);
 	const [storyAuthHeaders, setStoryAuthHeaders] = useState<Record<string, string>>({});
 	const [pinnedPost, setPinnedPost] = useState<BerxPostDetail | null>(null);
@@ -178,6 +179,10 @@ export default function ProfileScreen({api, authState, username, onBack, onMessa
 				// MAX BUILD — real unread badge (unreadNotificationCount()
 				// was always a real client method with zero callers).
 				api.unreadNotificationCount().then((res) => setUnreadNotifications(res.unread_count)).catch(() => undefined);
+				// BERX Next — real count of things actually waiting on a
+				// response (pending Plan/World invites), NOT upcoming events —
+				// an event doesn't need a decision, an invite does.
+				api.next().then((res) => setNextCount(res.pending_plan_invites.length + res.pending_world_invites.length)).catch(() => undefined);
 			}
 			// MAX BUILD — real Story Highlights rail, best-effort: a failed
 			// fetch must never block the profile itself from showing.
@@ -595,7 +600,7 @@ export default function ProfileScreen({api, authState, username, onBack, onMessa
 						{onOpenCommunities ? <MenuRow label="Сообщества" icon={<IconUsers size={18} color={colors.text} />} onPress={onOpenCommunities} /> : null}
 						{onOpenPlans ? <MenuRow label="Планы" icon={<IconUsers size={18} color={colors.text} />} onPress={onOpenPlans} /> : null}
 						{onOpenWorlds ? <MenuRow label="Миры" icon={<IconUsers size={18} color={colors.text} />} onPress={onOpenWorlds} /> : null}
-						{onOpenNext ? <MenuRow label="Дальше" icon={<IconStar size={18} color={colors.text} />} onPress={onOpenNext} isLast /> : null}
+						{onOpenNext ? <MenuRow label="Дальше" icon={<IconStar size={18} color={colors.text} />} onPress={onOpenNext} badge={nextCount} isLast /> : null}
 					</View>
 
 					<Text style={styles.sectionLabel}>Активность</Text>
@@ -644,12 +649,15 @@ function MenuRow({
 	onPress,
 	isFirst,
 	isLast,
+	badge,
 }: {
 	label: string;
 	icon: React.ReactNode;
 	onPress: () => void;
 	isFirst?: boolean;
 	isLast?: boolean;
+	/** Real, honest count — omit or 0 renders nothing, never a fake "1". */
+	badge?: number;
 }) {
 	return (
 		<Pressable
@@ -663,6 +671,11 @@ function MenuRow({
 		>
 			<View style={styles.menuRowIcon}>{icon}</View>
 			<Text style={styles.menuRowLabel}>{label}</Text>
+			{badge ? (
+				<View style={styles.menuRowBadge}>
+					<Text style={styles.menuRowBadgeText}>{badge > 9 ? '9+' : String(badge)}</Text>
+				</View>
+			) : null}
 			<IconChevronRight size={16} color={colors.textFaint} />
 		</Pressable>
 	);
@@ -754,5 +767,7 @@ const styles = StyleSheet.create({
 	menuRowDivider: {borderTopWidth: 1, borderTopColor: colors.borderSoft},
 	menuRowIcon: {width: 24, alignItems: 'center'},
 	menuRowLabel: {flex: 1, color: colors.text, fontSize: typography.sizeSm},
+	menuRowBadge: {minWidth: 20, height: 20, borderRadius: 10, backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 5, marginRight: spacing.xs},
+	menuRowBadgeText: {color: colors.black, fontSize: 11, fontWeight: typography.weightBold},
 	logoutWrap: {marginTop: spacing.md},
 });
