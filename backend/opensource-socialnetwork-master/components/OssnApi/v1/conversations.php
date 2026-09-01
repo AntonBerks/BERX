@@ -205,6 +205,10 @@ if ($segment0 === null && $method === 'GET') {
 			$out[] = array(
 				'with_guid'     => $withGuid,
 				'with_username' => $withUser ? (string) $withUser->username : null,
+				// The other participant's own real avatar. $withUser is already
+				// loaded here, so this costs nothing — it was simply never sent,
+				// which is why every conversation row drew an initial.
+				'with_icon'     => $withUser ? (string) $withUser->iconURL()->large : null,
 				'last_message'  => (string) $chat->message,
 				'time'          => intval($chat->time),
 				'has_unread'    => $hasUnread,

@@ -15,8 +15,8 @@
  * composed graphite plane carrying the same overlay content — never a
  * grey "photo placeholder" pretending an image exists.
  */
-import React, {useMemo} from 'react';
-import {View, Image, Pressable, StyleSheet, ViewStyle} from 'react-native';
+import React, {useCallback, useMemo, useRef} from 'react';
+import {View, Image, Pressable, Animated, StyleSheet, ViewStyle} from 'react-native';
 import {radius, spacing, mediaRatio, elevation as elevationTokens} from '../tokens';
 import {BerxScrim} from './BerxScrim';
 import type {BerxElevation} from '../tokens';
@@ -59,6 +59,16 @@ export function BerxMediaCard({
 }: BerxMediaCardProps) {
 	const colors = useBerxColors();
 	const styles = useMemo(() => makeStyles(colors), [colors]);
+	// Real press depth: a touched card recedes and springs back. Same
+	// physics as BerxDepthCard's press, applied once here so every rail
+	// and list card in the app inherits it.
+	const pressScale = useRef(new Animated.Value(1)).current;
+	const onPressIn = useCallback(() => {
+		Animated.spring(pressScale, {toValue: 0.96, useNativeDriver: true, speed: 30, bounciness: 4}).start();
+	}, [pressScale]);
+	const onPressOut = useCallback(() => {
+		Animated.spring(pressScale, {toValue: 1, useNativeDriver: true, speed: 18, bounciness: 8}).start();
+	}, [pressScale]);
 	const body = (
 		<View
 			style={[
@@ -90,9 +100,11 @@ export function BerxMediaCard({
 		return body;
 	}
 	return (
-		<Pressable onPress={onPress} style={styles.press}>
-			{body}
-		</Pressable>
+		<Animated.View style={{transform: [{perspective: 900}, {scale: pressScale}]}}>
+			<Pressable onPress={onPress} onPressIn={onPressIn} onPressOut={onPressOut} style={styles.press}>
+				{body}
+			</Pressable>
+		</Animated.View>
 	);
 }
 

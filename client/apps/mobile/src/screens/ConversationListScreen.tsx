@@ -40,7 +40,7 @@
  * separate dot bolted on beside the text.
  */
 import {useCallback, useEffect, useMemo, useState} from 'react';
-import {FlatList, Pressable, Text, View, Image, RefreshControl, StyleSheet} from 'react-native';
+import {FlatList, ScrollView, Pressable, Text, View, Image, RefreshControl, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxConversationSummary, BerxOnlineFriend, BerxPeopleSuggestion} from '@berx/api/types';
 import {relativeTimeLabel} from '@berx/domain';
@@ -156,35 +156,31 @@ export default function ConversationListScreen({api, onOpenConversation, onOpenM
 				) : null}
 			</View>
 			{online.length > 0 ? (
-				<FlatList
-					horizontal
-					showsHorizontalScrollIndicator={false}
-					data={online}
-					keyExtractor={(f: BerxOnlineFriend) => String(f.guid)}
-					contentContainerStyle={styles.onlineRow}
-					renderItem={({item}: {item: BerxOnlineFriend}) => (
-						<Pressable style={styles.onlineItem} onPress={() => onOpenConversation(item.guid, item.username)}>
+				<ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.railScroll} contentContainerStyle={styles.onlineRow}>
+					{online.map((item: BerxOnlineFriend) => (
+						<Pressable
+							key={item.guid}
+							style={styles.onlineItem}
+							onPress={() => onOpenConversation(item.guid, item.username)}>
 							<View style={styles.onlineAvatarWrap}>
 								<Image source={{uri: item.icon}} style={styles.onlineAvatar} />
 								<View style={styles.onlineDot} />
 							</View>
 							<Text style={styles.onlineName} numberOfLines={1}>{item.fullname || item.username}</Text>
 						</Pressable>
-					)}
-				/>
+					))}
+				</ScrollView>
 			) : null}
 
 			{people.length > 0 ? (
 				<View style={styles.peopleSection}>
 					<Text style={styles.peopleLabel}>Люди</Text>
-					<FlatList
-						horizontal
-						showsHorizontalScrollIndicator={false}
-						data={people}
-						keyExtractor={(p: BerxPeopleSuggestion) => `people-${p.guid}`}
-						contentContainerStyle={styles.peopleRow}
-						renderItem={({item}: {item: BerxPeopleSuggestion}) => (
-							<Pressable style={styles.peopleCard} onPress={() => onOpenConversation(item.guid, item.username)}>
+					<ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.railScroll} contentContainerStyle={styles.peopleRow}>
+						{people.map((item: BerxPeopleSuggestion) => (
+							<Pressable
+								key={`people-${item.guid}`}
+								style={styles.peopleCard}
+								onPress={() => onOpenConversation(item.guid, item.username)}>
 								<Image source={{uri: item.icon}} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
 								<BerxScrim coverage={0.7} strength={0.92} />
 								<View style={styles.peopleCardContent}>
@@ -194,8 +190,8 @@ export default function ConversationListScreen({api, onOpenConversation, onOpenM
 									</Text>
 								</View>
 							</Pressable>
-						)}
-					/>
+						))}
+					</ScrollView>
 				</View>
 			) : null}
 
@@ -229,7 +225,11 @@ export default function ConversationListScreen({api, onOpenConversation, onOpenM
 								onPress={() => onOpenConversation(item.with_guid, item.with_username ?? undefined)}
 							>
 								<View style={[styles.rowAvatarWrap, item.has_unread && styles.rowAvatarWrapUnread]}>
-									<BerxAvatar fallbackInitial={(item.with_username ?? '#').charAt(0)} size={48} />
+									<BerxAvatar
+										iconUrl={item.with_icon}
+										fallbackInitial={(item.with_username ?? '#').charAt(0)}
+										size={48}
+									/>
 									{item.with_online ? <View style={styles.rowOnlineDot} /> : null}
 								</View>
 								<View style={styles.rowText}>
@@ -250,6 +250,7 @@ export default function ConversationListScreen({api, onOpenConversation, onOpenM
 }
 
 const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
+	railScroll: {flexGrow: 0, flexShrink: 0},
 	screen: {flex: 1, backgroundColor: colors.bg},
 	head: {flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', paddingHorizontal: spacing.lg, paddingTop: spacing.md, gap: spacing.md},
 	headline: {flex: 1},
@@ -262,7 +263,7 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	onlineDot: {position: 'absolute', bottom: 0, right: 0, width: 12, height: 12, borderRadius: 6, backgroundColor: colors.accent, borderWidth: 2, borderColor: colors.bg},
 	onlineName: {fontSize: typography.sizeXs, color: colors.textDim, marginTop: 4},
 	peopleSection: {marginTop: spacing.sm},
-	peopleLabel: {color: colors.textFaint, fontSize: typography.sizeXs, fontWeight: typography.weightBold, textTransform: 'uppercase', letterSpacing: 0.4, paddingHorizontal: spacing.lg, marginBottom: spacing.xs},
+	peopleLabel: {color: colors.text, fontSize: typography.sizeLg, fontWeight: typography.weightBold, letterSpacing: -0.4, paddingHorizontal: spacing.lg, marginBottom: spacing.md},
 	peopleRow: {paddingHorizontal: spacing.lg, gap: spacing.sm},
 	peopleCard: {width: 148, height: 190, borderRadius: radius.md, overflow: 'hidden', backgroundColor: colors.graphite, marginRight: spacing.sm, justifyContent: 'flex-end'},
 	peopleCardContent: {padding: spacing.sm, gap: 2},

@@ -203,6 +203,21 @@ if ($pageGuids) {
 	}
 }
 
+/**
+ * Real creator status for the whole page in ONE query
+ * (OssnCreator::creatorGuids()). isCreator() is a per-user lookup, so
+ * badging each byline with it would have re-introduced exactly the N+1
+ * the counts above were batched to avoid.
+ */
+$creatorGuids = array();
+if ($page && class_exists('OssnCreator')) {
+	$posterGuids = array();
+	foreach ($page as $post) {
+		$posterGuids[] = intval($post->poster_guid);
+	}
+	$creatorGuids = (new OssnCreator())->creatorGuids($posterGuids);
+}
+
 $items = array();
 foreach ($page as $post) {
 	$item = ossn_api_post_base_json($post, $api_user_guid);
@@ -212,6 +227,7 @@ foreach ($page as $post) {
 	$item['is_liked'] = isset($myLikes[$guid]);
 	$item['media_url'] = isset($mediaCovers[$guid]) ? $mediaCovers[$guid] : null;
 	$item['media_count'] = isset($mediaCounts[$guid]) ? $mediaCounts[$guid] : 0;
+	$item['poster_is_creator'] = isset($creatorGuids[intval($post->poster_guid)]);
 	$items[] = $item;
 }
 

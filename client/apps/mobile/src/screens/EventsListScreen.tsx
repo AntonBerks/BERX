@@ -152,6 +152,7 @@ export default function EventsListScreen({api, onOpenEvent, onCreate, onOpenMine
 			<ScrollView
 				horizontal
 				showsHorizontalScrollIndicator={false}
+				style={styles.railScroll}
 				contentContainerStyle={styles.chipRow}>
 				{categories.map((item: BerxPlaceCategory) => (
 					<Pressable
@@ -208,6 +209,7 @@ export default function EventsListScreen({api, onOpenEvent, onCreate, onOpenMine
 }
 
 const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
+	railScroll: {flexGrow: 0, flexShrink: 0},
 	screen: {flex: 1, backgroundColor: colors.bg},
 	head: {paddingHorizontal: spacing.lg, paddingTop: spacing.md, gap: spacing.md},
 	headline: {paddingHorizontal: 0, paddingTop: 0},

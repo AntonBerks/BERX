@@ -33,6 +33,32 @@ class OssnCreator extends OssnDatabase {
 		}
 
 		/**
+		 * Which of these users are creators — ONE query for a whole page.
+		 * isCreator() is a per-user lookup, so badging a 20-post feed with
+		 * it would have been 20 extra queries; the feed builder uses this
+		 * instead, the same way feed.php already batches like/comment
+		 * counts.
+		 */
+		public function creatorGuids(array $userGuids) {
+				$ids = array_values(array_unique(array_filter(array_map('intval', $userGuids))));
+				if (empty($ids)) {
+						return array();
+				}
+				$rows = $this->select(array(
+						'from'   => self::TABLE,
+						'params' => array('user_guid'),
+						'wheres' => array(self::wheres('user_guid', 'IN', implode(',', $ids))),
+				), true);
+				$out = array();
+				if ($rows) {
+						foreach ($rows as $row) {
+								$out[intval($row->user_guid)] = true;
+						}
+				}
+				return $out;
+		}
+
+		/**
 		 * Enable Creator Mode for $userGuid — $actingGuid must be that
 		 * same user (or admin); a caller can never enable creator mode
 		 * on someone else's behalf.

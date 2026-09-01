@@ -85,6 +85,7 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	slot: {
 		alignItems: 'center',
 		gap: 4,
+		maxWidth: 56,
 		shadowColor: '#000',
 		shadowOpacity: 0.35,
 		shadowRadius: 12,
@@ -110,5 +111,5 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	buttonActive: {backgroundColor: colors.accentSoft, borderColor: colors.accent},
 	glyph: {color: colors.onMedia, fontSize: 18},
 	glyphActive: {color: colors.accent},
-	count: {color: colors.onMediaDim, fontSize: 11, fontWeight: typography.weightBold, letterSpacing: 0.2},
+	count: {color: colors.onMediaDim, fontSize: 11, fontWeight: typography.weightBold, letterSpacing: 0.2, textAlign: 'center'},
 });

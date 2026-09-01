@@ -62,6 +62,8 @@ export interface BerxFeedItem {
 	/** Real attached cover image (ossn_media_assets), batched the same way. null when the post genuinely has no image. */
 	media_url?: string | null;
 	media_count?: number;
+	/** Real creator status of the author (OssnCreator), batched page-wide. Optional on the same terms as like_count: other builders of this shape do not compute it. */
+	poster_is_creator?: boolean;
 }
 
 /** BERX WORLD — real Post Polls. counts is a real, live per-option tally (options[i] pairs with counts[i]) — never a fabricated or estimated number. my_vote is the caller's own real option index, or null if they haven't voted (or aren't authenticated). */
@@ -123,6 +125,8 @@ export interface BerxPostDetail {
 export interface BerxConversationSummary {
 	with_guid: number;
 	with_username: string | null;
+	/** The other participant's own real avatar (OssnUser::iconURL()) — null only if the account no longer exists. */
+	with_icon: string | null;
 	last_message: string;
 	time: number;
 	/** Real signal: the most recent message was sent to the caller and they haven't viewed it yet — not an exact unread count, but never fake. */

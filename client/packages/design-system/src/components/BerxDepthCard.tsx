@@ -19,8 +19,8 @@
  * becomes hard to read. Set `reducedMotion` and it collapses to a flat
  * card with no transform at all, keeping order and elevation.
  */
-import React, {useRef, useState} from 'react';
-import {Animated, LayoutChangeEvent, ViewStyle, Dimensions} from 'react-native';
+import React, {useCallback, useRef, useState} from 'react';
+import {Animated, LayoutChangeEvent, Pressable, ViewStyle, Dimensions} from 'react-native';
 import {elevation as elevationTokens} from '../tokens';
 import type {BerxElevation} from '../tokens';
 
@@ -35,6 +35,12 @@ export interface BerxDepthCardProps {
 	perspective?: number;
 	elevation?: BerxElevation;
 	reducedMotion?: boolean;
+	/**
+	 * Real press depth. A touched surface should physically recede — the
+	 * reference cards do — so pressing scales the card down and eases it
+	 * back on release. Supplying onPress makes the whole card the target.
+	 */
+	onPress?: () => void;
 	style?: ViewStyle;
 }
 
@@ -46,8 +52,18 @@ export function BerxDepthCard({
 	perspective = 1100,
 	elevation = 2,
 	reducedMotion,
+	onPress,
 	style,
 }: BerxDepthCardProps) {
+	// Press depth is its own spring, multiplied into the scroll-driven
+	// scale below so the two never fight each other.
+	const pressScale = useRef(new Animated.Value(1)).current;
+	const onPressIn = useCallback(() => {
+		Animated.spring(pressScale, {toValue: 0.97, useNativeDriver: true, speed: 30, bounciness: 4}).start();
+	}, [pressScale]);
+	const onPressOut = useCallback(() => {
+		Animated.spring(pressScale, {toValue: 1, useNativeDriver: true, speed: 18, bounciness: 8}).start();
+	}, [pressScale]);
 	// The card's own offset inside the scroll content, measured for real
 	// rather than assumed — a card's depth must follow where it actually
 	// sits, not its index in a list.
@@ -92,15 +108,23 @@ export function BerxDepthCard({
 		  })
 		: 1;
 
+	const composedScale = reducedMotion ? scale : Animated.multiply(scale as never, pressScale);
+
 	return (
 		<Animated.View
 			onLayout={onLayout}
 			style={[
 				elevationTokens[elevation],
-				{opacity, transform: [{perspective}, {rotateX}, {scale}]},
+				{opacity, transform: [{perspective}, {rotateX}, {scale: composedScale}]},
 				style,
 			]}>
-			{children}
+			{onPress ? (
+				<Pressable onPress={onPress} onPressIn={onPressIn} onPressOut={onPressOut}>
+					{children}
+				</Pressable>
+			) : (
+				children
+			)}
 		</Animated.View>
 	);
 }

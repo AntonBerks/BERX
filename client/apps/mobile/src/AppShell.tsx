@@ -1270,6 +1270,7 @@ function NowScreenRoute({onOpenProfile}: {onOpenProfile: (username: string) => v
 				nav.push('StoryViewer', undefined);
 			}}
 			onCreateStory={() => nav.push('CreateStory', undefined)}
+			onShareToMessage={(postGuid: number) => nav.push('SharePost', {postGuid})}
 		/>
 	);
 }

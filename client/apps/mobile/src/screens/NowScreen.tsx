@@ -82,6 +82,8 @@ interface Props {
 	onCreatePost: () => void;
 	onOpenStoryGroup: (group: BerxStoryFeedGroup) => void;
 	onCreateStory: () => void;
+	/** Real "share this post into a conversation" (SharePostScreen). */
+	onShareToMessage?: (postGuid: number) => void;
 }
 
 // Media scale. The previous values (132/176/286) made every band the
@@ -122,6 +124,7 @@ export default function NowScreen({
 	onCreatePost,
 	onOpenStoryGroup,
 	onCreateStory,
+	onShareToMessage,
 }: Props) {
 	const colors = useBerxColors();
 	const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -139,6 +142,11 @@ export default function NowScreen({
 	// Messages left the bottom bar in the spatial navigation pass, so
 	// NOW carries its real unread count (api.unreadMessageCount()).
 	const [unread, setUnread] = useState(0);
+	// Real save state for posts saved during THIS session. The feed
+	// response does not carry is_saved, so nothing is assumed about posts
+	// the user has not touched here — the rail simply reads "сохранить"
+	// until the server confirms a save.
+	const [savedGuids, setSavedGuids] = useState<Set<number>>(new Set());
 
 	// The single real driver every parallax plane on this screen reads.
 	const scrollY = useRef(new Animated.Value(0)).current;
@@ -277,6 +285,51 @@ export default function NowScreen({
 		.toLocaleDateString('ru-RU', {weekday: 'long', day: 'numeric', month: 'long'})
 		.replace(/^./, (c: string) => c.toUpperCase());
 
+	/**
+	 * The reference rails carry four actions, in this order: like, comment,
+	 * save, send. All four are real here — like and comment already were,
+	 * save is POST /posts/{id}/save, and send opens the real share-to-
+	 * conversation screen. Save shows a label rather than a count because
+	 * the feed genuinely does not carry is_saved (it is a detail-only
+	 * field, see BerxPostDetail) — a count there would be invented.
+	 */
+	function railFor(item: BerxFeedItem): BerxRailAction[] {
+		return [
+			{
+				key: 'like',
+				glyph: item.is_liked ? '♥' : '♡',
+				count: item.like_count,
+				active: item.is_liked,
+				onPress: () => handleToggleLike(item),
+			},
+			{key: 'comment', glyph: '◌', count: item.comment_count, onPress: () => onOpenPost(item.guid)},
+			{
+				key: 'save',
+				glyph: savedGuids.has(item.guid) ? '◼' : '◻',
+				label: savedGuids.has(item.guid) ? 'Сохр.' : 'Сохр.',
+				active: savedGuids.has(item.guid),
+				onPress: () => handleToggleSave(item),
+			},
+			...(onShareToMessage
+				? [{key: 'send', glyph: '➤', label: 'Отпр.', onPress: () => onShareToMessage(item.guid)}]
+				: []),
+		];
+	}
+
+	async function handleToggleSave(item: BerxFeedItem) {
+		try {
+			const res = savedGuids.has(item.guid) ? await api.unsavePost(item.guid) : await api.savePost(item.guid);
+			setSavedGuids((prev: Set<number>) => {
+				const next = new Set(prev);
+				if (res.is_saved) next.add(item.guid);
+				else next.delete(item.guid);
+				return next;
+			});
+		} catch {
+			// Real server rejection — nothing optimistic.
+		}
+	}
+
 	// ENVIRONMENT LEAD — the reference set never opens on a strip of
 	// small circles; it opens on one dominant photographic object. The
 	// lead is the newest REAL post that actually carries media. It is
@@ -337,19 +390,11 @@ export default function NowScreen({
 								mediaCount={lead.media_count}
 								authorName={lead.poster_username ?? lead.owner_username ?? 'BERX'}
 								authorIcon={lead.poster_icon}
+								authorVerified={lead.poster_is_creator}
 								timeLabel={relativeTimeLabel(lead.time_created)}
 								text={lead.text}
 								ratio="hero"
-								actions={[
-									{
-										key: 'like',
-										glyph: lead.is_liked ? '♥' : '♡',
-										count: lead.like_count,
-										active: lead.is_liked,
-										onPress: () => handleToggleLike(lead),
-									},
-									{key: 'comment', glyph: '◌', count: lead.comment_count, onPress: () => onOpenPost(lead.guid)},
-								]}
+								actions={railFor(lead)}
 								onPress={() => onOpenPost(lead.guid)}
 								onPressAuthor={() => lead.poster_username && onOpenProfile(lead.poster_username)}
 								onOpenComments={() => onOpenPost(lead.guid)}
@@ -387,7 +432,7 @@ export default function NowScreen({
 								live={online.length > 0}
 								onMore={onOpenPeople}
 							/>
-							<ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.rail}>
+							<ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.railScroll} contentContainerStyle={styles.rail}>
 								{peopleToShow.slice(0, 10).map((p) => (
 									<View key={p.key} style={styles.railItem}>
 										<BerxPersonCard
@@ -409,7 +454,7 @@ export default function NowScreen({
 					{places.length > 0 ? (
 						<BerxDepthCard driver={scrollY} maxAngle={4} depthScale={0.03} elevation={1} style={styles.section}>
 							<SectionHead title="Места вокруг" onMore={onOpenNearby ?? onOpenPlaces} moreLabel={onOpenNearby ? 'Рядом' : undefined} />
-							<ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.rail}>
+							<ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.railScroll} contentContainerStyle={styles.rail}>
 								{places.slice(0, 8).map((pl: BerxPlace) => (
 									<View key={pl.guid} style={styles.railItem}>
 										<BerxPlaceCard
@@ -430,7 +475,7 @@ export default function NowScreen({
 					{events.length > 0 ? (
 						<BerxDepthCard driver={scrollY} maxAngle={4} depthScale={0.03} elevation={1} style={styles.section}>
 							<SectionHead title="Что происходит" onMore={onOpenEvents} />
-							<ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.rail}>
+							<ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.railScroll} contentContainerStyle={styles.rail}>
 								{events.map((ev: BerxEvent) => (
 									<View key={ev.guid} style={styles.railItem}>
 										<BerxEventCard
@@ -456,6 +501,7 @@ export default function NowScreen({
 						<ScrollView
 							horizontal
 							showsHorizontalScrollIndicator={false}
+							style={styles.railScroll}
 							contentContainerStyle={styles.trendingRail}>
 							{trending.slice(0, 8).map((h: BerxTrendingHashtag) => (
 								<Pressable key={h.hashtag} style={styles.trendingChip} onPress={() => onOpenHashtag(h.hashtag)}>
@@ -476,16 +522,7 @@ export default function NowScreen({
 							</Text>
 						) : (
 							restItems.map((item: BerxFeedItem) => {
-								const actions: BerxRailAction[] = [
-									{
-										key: 'like',
-										glyph: item.is_liked ? '♥' : '♡',
-										count: item.like_count,
-										active: item.is_liked,
-										onPress: () => handleToggleLike(item),
-									},
-									{key: 'comment', glyph: '◌', count: item.comment_count, onPress: () => onOpenPost(item.guid)},
-								];
+								const actions = railFor(item);
 								const author = item.poster_username ?? item.owner_username ?? 'BERX';
 								if (item.media_url) {
 									return (
@@ -495,6 +532,7 @@ export default function NowScreen({
 												mediaCount={item.media_count}
 												authorName={author}
 												authorIcon={item.poster_icon}
+												authorVerified={item.poster_is_creator}
 												timeLabel={relativeTimeLabel(item.time_created)}
 												text={item.text}
 												actions={actions}
@@ -603,6 +641,7 @@ function SectionHead({
 }
 
 const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
+	railScroll: {flexGrow: 0, flexShrink: 0},
 	screen: {flex: 1, backgroundColor: colors.bg},
 	scroll: {flex: 1},
 	scrollContent: {paddingBottom: 132},

@@ -170,7 +170,7 @@ export default function PeopleScreen({api, onOpenProfile, onOpenConversation, on
 										<Text style={styles.sectionTitle}>Сейчас в сети</Text>
 										<BerxLiveDot label={String(online.length)} />
 									</View>
-									<ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.rail}>
+									<ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.railScroll} contentContainerStyle={styles.rail}>
 										{online.map((o: BerxOnlineFriend) => (
 											<View key={o.guid} style={styles.railItem}>
 												<BerxPersonCard
@@ -190,7 +190,7 @@ export default function PeopleScreen({api, onOpenProfile, onOpenConversation, on
 							{suggestions.length > 0 ? (
 								<View style={styles.section}>
 									<Text style={styles.sectionTitle}>Возможно, вы знакомы</Text>
-									<ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.rail}>
+									<ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.railScroll} contentContainerStyle={styles.rail}>
 										{suggestions.map((s: BerxPeopleSuggestion) => (
 											<View key={s.guid} style={styles.railItem}>
 												<BerxPersonCard
@@ -255,6 +255,7 @@ export default function PeopleScreen({api, onOpenProfile, onOpenConversation, on
 }
 
 const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
+	railScroll: {flexGrow: 0, flexShrink: 0},
 	screen: {flex: 1, backgroundColor: colors.bg},
 	head: {flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', paddingHorizontal: spacing.lg, paddingTop: spacing.lg, gap: spacing.md},
 	headTitles: {flex: 1, paddingHorizontal: 0, paddingTop: 0},

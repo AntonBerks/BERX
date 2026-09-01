@@ -32,6 +32,8 @@ export interface BerxImmersivePostProps {
 	mediaCount?: number;
 	authorName: string;
 	authorIcon?: string | null;
+	/** Real creator status (OssnUser is_creator). The reference sheets badge it beside the name; absent means not verified, never "unknown". */
+	authorVerified?: boolean;
 	timeLabel?: string;
 	/** Real place/context this was posted from, when the caller actually knows it. */
 	contextLabel?: string | null;
@@ -67,6 +69,7 @@ export function BerxImmersivePost({
 	mediaCount,
 	authorName,
 	authorIcon,
+	authorVerified,
 	timeLabel,
 	contextLabel,
 	text,
@@ -110,9 +113,12 @@ export function BerxImmersivePost({
 						</View>
 					)}
 					<View style={styles.authorText}>
-						<Text style={styles.authorName} numberOfLines={1}>
-							{authorName}
-						</Text>
+						<View style={styles.authorNameRow}>
+							<Text style={styles.authorName} numberOfLines={1}>
+								{authorName}
+							</Text>
+							{authorVerified ? <Text style={styles.verified}>✓</Text> : null}
+						</View>
 						{timeLabel || contextLabel ? (
 							<Text style={styles.authorMeta} numberOfLines={1}>
 								{[timeLabel, contextLabel].filter(Boolean).join(' · ')}
@@ -197,6 +203,19 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	authorAvatarFallback: {alignItems: 'center', justifyContent: 'center'},
 	authorInitial: {color: colors.accent, fontSize: typography.sizeXs, fontWeight: typography.weightBold},
 	authorText: {flexShrink: 1},
+	authorNameRow: {flexDirection: 'row', alignItems: 'center', gap: 4},
+	verified: {
+		color: colors.onMedia,
+		fontSize: 10,
+		fontWeight: typography.weightBold,
+		backgroundColor: colors.accent,
+		width: 15,
+		height: 15,
+		borderRadius: 8,
+		textAlign: 'center',
+		lineHeight: 15,
+		overflow: 'hidden',
+	},
 	authorName: {color: colors.onMedia, fontSize: typography.sizeBase, fontWeight: typography.weightBold, letterSpacing: -0.2},
 	authorMeta: {color: colors.onMediaDim, fontSize: 11},
 	mediaCount: {
@@ -211,7 +230,7 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 		borderColor: 'rgba(255,255,255,0.16)',
 	},
 	mediaCountText: {color: colors.onMedia, fontSize: 11, fontWeight: typography.weightMedium},
-	rail: {position: 'absolute', right: spacing.md, bottom: '26%'},
+	rail: {position: 'absolute', right: spacing.md, top: spacing.md},
 	bottom: {position: 'absolute', left: 0, right: 0, bottom: 0, padding: spacing.xl, paddingRight: 84, gap: spacing.sm},
 	caption: {
 		color: colors.onMedia,
