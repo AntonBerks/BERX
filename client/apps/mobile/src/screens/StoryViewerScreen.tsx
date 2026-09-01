@@ -32,6 +32,7 @@ import type {BerxApiClient} from '@berx/api/client';
 import type {BerxStoryFeedGroup, BerxStoryViewer} from '@berx/api/types';
 import {relativeTimeLabel} from '@berx/domain';
 import {colors, spacing, typography} from '@berx/design-system/tokens';
+import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 
 interface Props {
 	api: BerxApiClient;
@@ -52,6 +53,10 @@ export default function StoryViewerScreen({api, group, myGuid, onClose}: Props) 
 	const [showViewers, setShowViewers] = useState(false);
 	const [viewersLoading, setViewersLoading] = useState(false);
 	const [viewers, setViewers] = useState<BerxStoryViewer[]>([]);
+	/** BERX WORLD — real "reply to a story". Always lands in a real DM to the story's owner, same product convention every real platform with stories uses — see conversations.php's own ossn_api_message_shared_story(). */
+	const [replyText, setReplyText] = useState('');
+	const [sendingReply, setSendingReply] = useState(false);
+	const [replyStatus, setReplyStatus] = useState<string | null>(null);
 	const progress = useRef(new Animated.Value(0)).current;
 	const isOwn = group.owner_guid === myGuid;
 
@@ -120,6 +125,8 @@ export default function StoryViewerScreen({api, group, myGuid, onClose}: Props) 
 	useEffect(() => {
 		setShowViewers(false);
 		setViewers([]);
+		setReplyText('');
+		setReplyStatus(null);
 	}, [index]);
 
 	async function toggleViewers() {
@@ -151,6 +158,21 @@ export default function StoryViewerScreen({api, group, myGuid, onClose}: Props) 
 			// real server rejection — highlight state stays as-is, nothing optimistic
 		} finally {
 			setHighlighting(false);
+		}
+	}
+
+	async function handleSendReply() {
+		if (!current || !replyText.trim()) return;
+		setSendingReply(true);
+		setReplyStatus(null);
+		try {
+			await api.sendMessage(group.owner_guid, replyText.trim(), undefined, undefined, undefined, current.id);
+			setReplyText('');
+			setReplyStatus('Отправлено');
+		} catch {
+			setReplyStatus('Не удалось отправить');
+		} finally {
+			setSendingReply(false);
 		}
 	}
 
@@ -248,6 +270,22 @@ export default function StoryViewerScreen({api, group, myGuid, onClose}: Props) 
 						)}
 					</View>
 				) : null}
+
+				{!isOwn ? (
+					<View style={styles.replyRow}>
+						<BerxInput
+							placeholder="Ответить на историю..."
+							value={replyText}
+							onChangeText={setReplyText}
+							style={styles.replyInput}
+							placeholderTextColor={colors.textFaint}
+						/>
+						<Pressable onPress={handleSendReply} disabled={sendingReply || !replyText.trim()} hitSlop={8}>
+							<Text style={styles.replySend}>{sendingReply ? '...' : 'Отправить'}</Text>
+						</Pressable>
+					</View>
+				) : null}
+				{replyStatus ? <Text style={styles.replyStatus}>{replyStatus}</Text> : null}
 			</View>
 
 			<Pressable style={styles.closeButton} onPress={onClose} hitSlop={12}>
@@ -284,6 +322,10 @@ const styles = StyleSheet.create({
 	viewerRow: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 4},
 	viewerName: {color: colors.text, fontSize: typography.sizeSm},
 	viewerTime: {color: colors.textFaint, fontSize: typography.sizeXs},
+	replyRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.sm},
+	replyInput: {flex: 1, backgroundColor: 'rgba(255,255,255,0.12)', color: colors.white, borderColor: 'rgba(255,255,255,0.3)'},
+	replySend: {color: colors.white, fontSize: typography.sizeSm, fontWeight: typography.weightMedium},
+	replyStatus: {color: colors.textFaint, fontSize: typography.sizeXs, marginTop: 4},
 	closeButton: {position: 'absolute', top: spacing.xl, right: spacing.md, padding: spacing.sm},
 	closeText: {color: colors.text, fontSize: typography.sizeLg},
 });

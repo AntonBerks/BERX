@@ -110,6 +110,50 @@ function ossn_api_message_shared_post($messages, $messageId, $viewerGuid) {
 	);
 }
 
+/**
+ * BERX WORLD — real "reply to a story" (Story reply always lands in
+ * the story owner's DMs, same product convention every real platform
+ * with stories uses). Same re-verify-on-every-read discipline as
+ * ossn_api_message_shared_post() above — a story is deliberately
+ * ephemeral (24h, OssnStories::isActive()) and can also be blocked or
+ * deleted, so a stale reference must never leak it back out once it's
+ * no longer real for THIS reader. checkStoryAccess() is the exact
+ * same real gate the story media route and view-mark route already
+ * use — never a separate, looser check invented for this one path.
+ */
+function ossn_api_message_shared_story($messages, $messageId, $viewerGuid) {
+	$rows = $messages->searchEntities(array(
+		'type'       => 'message',
+		'owner_guid' => intval($messageId),
+		'limit'      => false,
+	));
+	if (!$rows) {
+		return null;
+	}
+	$storyId = null;
+	foreach ($rows as $r) {
+		if ($r->subtype === 'shared_story_guid') {
+			$storyId = intval($r->value);
+		}
+	}
+	if (!$storyId || !class_exists('OssnStories')) {
+		return null;
+	}
+	$stories = new OssnStories();
+	$story = $stories->get($storyId);
+	if (!$story || !$stories->checkStoryAccess($story, $viewerGuid)) {
+		return null;
+	}
+	$owner = ossn_user_by_guid($story->owner_guid);
+	return array(
+		'id'              => intval($story->id),
+		'mime_type'       => (string) $story->mime_type,
+		'caption'         => $story->caption !== null ? (string) $story->caption : null,
+		'owner_guid'      => intval($story->owner_guid),
+		'owner_username'  => $owner ? (string) $owner->username : null,
+	);
+}
+
 function ossn_api_message_json($row, $messages, $viewerGuid) {
 	return array(
 		'id'          => intval($row->id),
@@ -122,6 +166,7 @@ function ossn_api_message_json($row, $messages, $viewerGuid) {
 		'viewed'      => !empty($row->viewed),
 		'attachment'  => ossn_api_message_attachment($messages, $row->id),
 		'shared_post' => ossn_api_message_shared_post($messages, $row->id, $viewerGuid),
+		'shared_story' => ossn_api_message_shared_story($messages, $row->id, $viewerGuid),
 	);
 }
 
@@ -218,6 +263,18 @@ if ($segment0 !== null && $segment1 === 'messages' && $segment2 === null && $met
 			ossn_api_error('validation_error', 'Invalid shared_post_guid', 422);
 		}
 		$messages->data->shared_post_guid = intval($sharedPost->guid);
+	}
+	// BERX WORLD — real "reply to a story" (see ossn_api_message_shared_
+	// story()'s own header). Same never-trust-the-client discipline:
+	// re-fetched and re-checked via the story's own real access gate.
+	$sharedStoryGuid = intval(input('shared_story_guid'));
+	if ($sharedStoryGuid > 0 && class_exists('OssnStories')) {
+		$stories = new OssnStories();
+		$sharedStory = $stories->get($sharedStoryGuid);
+		if (!$sharedStory || !$stories->checkStoryAccess($sharedStory, $api_user_guid)) {
+			ossn_api_error('validation_error', 'Invalid shared_story_guid', 422);
+		}
+		$messages->data->shared_story_guid = intval($sharedStory->id);
 	}
 	$id = $messages->send($api_user_guid, intval($segment0), $text);
 	if (!$id) {

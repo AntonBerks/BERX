@@ -298,6 +298,7 @@ function RouteRenderer({name, params}: {name: BerxRouteName; params: unknown}) {
 					otherUsername={p.otherUsername}
 					pickImage={pickImage}
 					onOpenPost={(guid) => nav.push('PostDetail', {postGuid: guid})}
+					onOpenProfile={openProfile}
 					onBack={nav.pop}
 				/>
 			);

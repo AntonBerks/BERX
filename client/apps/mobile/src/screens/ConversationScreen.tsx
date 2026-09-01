@@ -61,10 +61,12 @@ interface Props {
 	pickImage?: () => Promise<BerxFilePart | null>;
 	/** BERX WORLD — real "share post to conversation" tap-through (see SharePostScreen.tsx / message.shared_post). */
 	onOpenPost?: (guid: number) => void;
+	/** BERX WORLD — tap-through on a shared story's byline (see message.shared_story). */
+	onOpenProfile?: (username: string) => void;
 	onBack: () => void;
 }
 
-export default function ConversationScreen({api, myGuid, otherGuid, otherUsername, pickImage, onOpenPost, onBack}: Props) {
+export default function ConversationScreen({api, myGuid, otherGuid, otherUsername, pickImage, onOpenPost, onOpenProfile, onBack}: Props) {
 	const [messages, setMessages] = useState<BerxMessage[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
@@ -291,6 +293,12 @@ export default function ConversationScreen({api, myGuid, otherGuid, otherUsernam
 								<Pressable style={styles.sharedPost} onPress={() => onOpenPost && onOpenPost(item.shared_post!.guid)}>
 									<Text style={styles.sharedPostAuthor}>{item.shared_post.poster_username ?? 'BERX'}</Text>
 									<Text style={styles.sharedPostText} numberOfLines={3}>{item.shared_post.text ?? '(без текста)'}</Text>
+								</Pressable>
+							) : null}
+							{item.shared_story ? (
+								<Pressable style={styles.sharedPost} onPress={() => item.shared_story!.owner_username && onOpenProfile && onOpenProfile(item.shared_story!.owner_username)}>
+									<Text style={styles.sharedPostAuthor}>📖 История · {item.shared_story.owner_username ?? 'BERX'}</Text>
+									{item.shared_story.caption ? <Text style={styles.sharedPostText} numberOfLines={3}>{item.shared_story.caption}</Text> : null}
 								</Pressable>
 							) : null}
 							<Text style={styles.bubbleText}>{item.text}</Text>

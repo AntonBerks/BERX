@@ -1051,14 +1051,19 @@ export class BerxApiClient {
 	 * MAX BUILD — real optional attachment. OssnMessages::send() already reads $_FILES['attachment'] internally (server-side, zero new mechanism) — passing `attachment` here sends a real image/file alongside the message text.
 	 * BERX WORLD — real optional sharedPostGuid ("share post to conversation") — re-verified server-side against the caller's own real visibility before it's allowed to ride along (see conversations.php's own comment).
 	 */
-	async sendMessage(otherGuid: number, text: string, attachment?: BerxFilePart, attachmentFilename = 'attachment', sharedPostGuid?: number): Promise<{status: string}> {
+	/** BERX WORLD — sharedStoryGuid: real "reply to a story" (re-verified server-side via the story's own real access gate — see conversations.php's own comment). */
+	async sendMessage(otherGuid: number, text: string, attachment?: BerxFilePart, attachmentFilename = 'attachment', sharedPostGuid?: number, sharedStoryGuid?: number): Promise<{status: string}> {
+		const shareFields: Record<string, string> = {
+			...(sharedPostGuid ? {shared_post_guid: String(sharedPostGuid)} : {}),
+			...(sharedStoryGuid ? {shared_story_guid: String(sharedStoryGuid)} : {}),
+		};
 		if (attachment) {
 			return this.request<{status: string}>(`/conversations/${otherGuid}/messages`, {
 				method: 'POST',
-				multipart: {fields: sharedPostGuid ? {text, shared_post_guid: String(sharedPostGuid)} : {text}, files: [{field: 'attachment', part: attachment, filename: attachmentFilename}]},
+				multipart: {fields: {text, ...shareFields}, files: [{field: 'attachment', part: attachment, filename: attachmentFilename}]},
 			});
 		}
-		return this.request<{status: string}>(`/conversations/${otherGuid}/messages`, {method: 'POST', body: sharedPostGuid ? {text, shared_post_guid: String(sharedPostGuid)} : {text}});
+		return this.request<{status: string}>(`/conversations/${otherGuid}/messages`, {method: 'POST', body: {text, ...shareFields}});
 	}
 
 	async unreadMessageCount(): Promise<{unread_count: number}> {

@@ -137,6 +137,8 @@ export interface BerxMessage {
 	attachment: BerxMessageAttachment | null;
 	/** BERX WORLD — real "share post to conversation". Re-verified for the CURRENT reader on every fetch (deleted/blocked/visibility-narrowed since the share is real null, never a stale leak), stored the same real entity-metadata way an attachment is — see conversations.php's own ossn_api_message_shared_post(). */
 	shared_post: BerxSharedPostPreview | null;
+	/** BERX WORLD — real "reply to a story". Re-verified for the CURRENT reader on every fetch via the story's own real access gate (OssnStories::checkStoryAccess() — a story is deliberately ephemeral, 24h, so a stale reference must never leak it back out once it's expired/blocked/deleted). */
+	shared_story: BerxSharedStoryPreview | null;
 }
 
 export interface BerxSharedPostPreview {
@@ -144,6 +146,14 @@ export interface BerxSharedPostPreview {
 	text: string | null;
 	poster_username: string | null;
 	poster_icon: string | null;
+}
+
+export interface BerxSharedStoryPreview {
+	id: number;
+	mime_type: string;
+	caption: string | null;
+	owner_guid: number;
+	owner_username: string | null;
 }
 
 /** Future Identity — see docs/BERX_FUTURE_LAYER_SPEC.md. Real, live counts, no invented score. */
