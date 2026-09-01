@@ -65,6 +65,8 @@ interface Props {
 	onOpenMessages?: () => void;
 	onOpenNotifications?: () => void;
 	onOpenSearch?: () => void;
+	/** The full Stories rail screen — it left the bottom bar in the spatial nav pass, so LIVE NOW is its real entry point. */
+	onOpenStories?: () => void;
 	onOpenPeople?: () => void;
 	onOpenPlaces?: () => void;
 	onOpenEvents?: () => void;
@@ -87,6 +89,7 @@ export default function NowScreen({
 	onOpenMessages,
 	onOpenNotifications,
 	onOpenSearch,
+	onOpenStories,
 	onOpenPeople,
 	onOpenPlaces,
 	onOpenEvents,
@@ -278,6 +281,7 @@ export default function NowScreen({
 				<BerxFadeIn>
 					{/* LIVE NOW — real active stories, as spatial tiles on the background plane. */}
 					<BerxSpatialLayer plane="background" driver={scrollY} range={280}>
+						{onOpenStories ? <SectionHead title="Прямо сейчас" onMore={onOpenStories} moreLabel="Все истории" /> : null}
 						<View style={styles.storyRail}>
 							<Pressable style={styles.storyItem} onPress={onCreateStory}>
 								<View style={styles.addStoryTile}>

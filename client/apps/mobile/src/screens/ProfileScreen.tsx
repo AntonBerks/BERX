@@ -56,8 +56,8 @@
  * every other control on this screen keeps the systemic cyan accent
  * unchanged.
  */
-import React, {useEffect, useState} from 'react';
-import {View, Text, Image, Pressable, ScrollView, Alert, StyleSheet} from 'react-native';
+import React, {useEffect, useRef, useState} from 'react';
+import {View, Text, Image, Pressable, ScrollView, Animated, Alert, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxAuthState} from '@berx/auth';
 import type {BerxIdentity, BerxIdentityAchievement, BerxIdentityInterest, BerxStorySummary, BerxStoryFeedGroup, BerxPostDetail} from '@berx/api/types';
@@ -71,6 +71,7 @@ import {IconHeart, IconLock, IconBell, IconStar, IconUsers, IconChevronRight, Ic
 import {BerxGlassSurface} from '../../../../packages/design-system/src/components/BerxGlassSurface';
 import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
 import {Berx3DTilt} from '../../../../packages/design-system/src/components/Berx3DTilt';
+import {BerxSpatialLayer} from '../../../../packages/design-system/src/components/BerxSpatialLayer';
 
 const HERO_SCRIM_STEPS = [0, 0.12, 0.3, 0.58, 0.9];
 
@@ -153,6 +154,9 @@ function joinedYear(unixSeconds?: number): string | null {
 export default function ProfileScreen({api, authState, username, onBack, onMessage, onOpenNotifications, onOpenPoints, onOpenMissions, onOpenLifeGraph, onOpenMemories, onOpenWrapped, onOpenDatingPrivacy, onOpenDatingProfile, onOpenDatingPhotos, onOpenCommunities, onOpenPlans, onOpenWorlds, onOpenNext, onOpenMyMoments, onOpenDating, onOpenPlaces, onOpenEvents, onOpenSettings, onOpenBERXWorld, onOpenAlbums, onOpenCollections, onOpenTrips, onOpenExperiences, onOpenCreatorProfile, onOpenCreatorSettings, onOpenMyVideos, onOpenMyTracks, onOpenSavedPosts, onOpenEditProfile, onOpenMyPlaceClaims, onOpenRecentCheckins, onOpenAdminUnvalidated, onOpenAdminReports, onOpenAdminPlaceClaims, onReport, onOpenStoryGroup, onOpenPost}: Props) {
 	const [profile, setProfile] = useState<ProfileData | null>(null);
 	const [identity, setIdentity] = useState<BerxIdentity | null>(null);
+	// Real scroll driver for the hero's parallax plane — this screen's
+	// own offset, nothing self-animating.
+	const scrollY = useRef(new Animated.Value(0)).current;
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 	const [friendBusy, setFriendBusy] = useState(false);
@@ -356,18 +360,27 @@ export default function ProfileScreen({api, authState, username, onBack, onMessa
 	const year = joinedYear(profile.time_created);
 
 	return (
-		<ScrollView style={styles.screen}>
+		<Animated.ScrollView
+			style={styles.screen}
+			scrollEventThrottle={16}
+			onScroll={Animated.event([{nativeEvent: {contentOffset: {y: scrollY}}}], {useNativeDriver: true})}>
 			{onBack ? <BerxHeader onBack={onBack} title={profile.username} /> : null}
 
 			<BerxFadeIn riseFrom={0}>
 				<View style={styles.hero}>
-					{profile.cover_url || profile.icon_url ? (
-						<Image source={{uri: profile.cover_url ?? profile.icon_url}} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
-					) : (
-						<View style={[StyleSheet.absoluteFillObject, styles.heroFallback]}>
-							<Text style={styles.heroFallbackGlyph}>{profile.username.charAt(0).toUpperCase()}</Text>
-						</View>
-					)}
+					{/* BERX SPATIAL — the cover sits on the background plane and
+					    drifts slower than the content above it, driven by this
+					    screen's own real scroll offset. Real parallax depth, not
+					    an ambient animation the user didn't cause. */}
+					<BerxSpatialLayer plane="background" driver={scrollY} range={320} style={StyleSheet.absoluteFillObject}>
+						{profile.cover_url || profile.icon_url ? (
+							<Image source={{uri: profile.cover_url ?? profile.icon_url}} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
+						) : (
+							<View style={[StyleSheet.absoluteFillObject, styles.heroFallback]}>
+								<Text style={styles.heroFallbackGlyph}>{profile.username.charAt(0).toUpperCase()}</Text>
+							</View>
+						)}
+					</BerxSpatialLayer>
 					<View style={StyleSheet.absoluteFillObject} pointerEvents="none">
 						{HERO_SCRIM_STEPS.map((opacity, i) => (
 							<View key={i} style={[styles.heroScrimStep, {height: `${100 - i * 18}%`, backgroundColor: `rgba(5,5,5,${opacity})`}]} />
@@ -670,7 +683,7 @@ export default function ProfileScreen({api, authState, username, onBack, onMessa
 					</View>
 				</BerxFadeIn>
 			) : null}
-		</ScrollView>
+		</Animated.ScrollView>
 	);
 }
 
