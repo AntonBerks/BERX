@@ -550,6 +550,10 @@ export interface BerxWrapped {
 	checkins_count?: number;
 	/** The single most-visited real place this period, or null with no check-ins. */
 	top_place?: BerxWrappedTopPlace | null;
+	moments_created?: number;
+	memories_saved?: number;
+	plans_created?: number;
+	worlds_created?: number;
 }
 
 export interface BerxEventStoryItem {

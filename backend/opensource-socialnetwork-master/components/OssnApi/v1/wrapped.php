@@ -111,7 +111,52 @@ if (class_exists('OssnPlaces')) {
 	}
 }
 
-$total = $postsCreated + $tripsCreated + $experiencesCount + $eventsGoing + $placesSaved + $checkinsCount;
+// BERX WORLD — same real period-scoped COUNT() pattern as every stat
+// above, over this session's own new real objects (ossn_moments/
+// ossn_memories/ossn_plans/ossn_worlds all confirmed to carry real
+// owner_guid + time_created columns — see each object's own migration).
+$momentsRow = $db->select(array(
+	'from'   => 'ossn_moments',
+	'params' => array('COUNT(*) as cnt'),
+	'wheres' => array(
+		OssnDatabase::wheres('owner_guid', '=', $userGuid),
+		OssnDatabase::wheres('time_created', '>=', $cutoff),
+	),
+));
+$momentsCreated = $momentsRow ? intval($momentsRow->cnt) : 0;
+
+$memoriesRow = $db->select(array(
+	'from'   => 'ossn_memories',
+	'params' => array('COUNT(*) as cnt'),
+	'wheres' => array(
+		OssnDatabase::wheres('owner_guid', '=', $userGuid),
+		OssnDatabase::wheres('time_created', '>=', $cutoff),
+	),
+));
+$memoriesSaved = $memoriesRow ? intval($memoriesRow->cnt) : 0;
+
+$plansRow = $db->select(array(
+	'from'   => 'ossn_plans',
+	'params' => array('COUNT(*) as cnt'),
+	'wheres' => array(
+		OssnDatabase::wheres('owner_guid', '=', $userGuid),
+		OssnDatabase::wheres('time_created', '>=', $cutoff),
+	),
+));
+$plansCreated = $plansRow ? intval($plansRow->cnt) : 0;
+
+$worldsRow = $db->select(array(
+	'from'   => 'ossn_worlds',
+	'params' => array('COUNT(*) as cnt'),
+	'wheres' => array(
+		OssnDatabase::wheres('owner_guid', '=', $userGuid),
+		OssnDatabase::wheres('time_created', '>=', $cutoff),
+	),
+));
+$worldsCreated = $worldsRow ? intval($worldsRow->cnt) : 0;
+
+$total = $postsCreated + $tripsCreated + $experiencesCount + $eventsGoing + $placesSaved + $checkinsCount
+	+ $momentsCreated + $memoriesSaved + $plansCreated + $worldsCreated;
 
 ossn_api_json(array(
 	'period'            => $period,
@@ -123,4 +168,8 @@ ossn_api_json(array(
 	'places_saved'      => $placesSaved,
 	'checkins_count'    => $checkinsCount,
 	'top_place'         => $topPlace,
+	'moments_created'   => $momentsCreated,
+	'memories_saved'    => $memoriesSaved,
+	'plans_created'     => $plansCreated,
+	'worlds_created'    => $worldsCreated,
 ));
