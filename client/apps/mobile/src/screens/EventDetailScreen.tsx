@@ -33,7 +33,7 @@
 import {useCallback, useEffect, useState} from 'react';
 import {View, Text, ScrollView, Image, FlatList, Pressable, RefreshControl, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
-import type {BerxEvent, BerxEventAttendee, BerxExperienceGraphFriend, BerxEventStoryItem, BerxStoryFeedGroup, BerxLifeMoment} from '@berx/api/types';
+import type {BerxEvent, BerxEventAttendee, BerxExperienceGraphFriend, BerxExperienceGraphWorldFriend, BerxEventStoryItem, BerxStoryFeedGroup, BerxLifeMoment} from '@berx/api/types';
 import {BerxApiError} from '@berx/core';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
@@ -83,6 +83,7 @@ export default function EventDetailScreen({api, guid, myGuid, onOpenPlace, onOpe
 	const [rsvpError, setRsvpError] = useState<string | null>(null);
 	const [waitlistPosition, setWaitlistPosition] = useState<number | null>(null);
 	const [friendsGoing, setFriendsGoing] = useState<BerxExperienceGraphFriend[]>([]);
+	const [friendsWorlds, setFriendsWorlds] = useState<BerxExperienceGraphWorldFriend[]>([]);
 	const [storyGroups, setStoryGroups] = useState<BerxStoryFeedGroup[]>([]);
 	const [authHeaders, setAuthHeaders] = useState<Record<string, string>>({});
 	const [checkinOpen, setCheckinOpen] = useState(false);
@@ -104,7 +105,7 @@ export default function EventDetailScreen({api, guid, myGuid, onOpenPlace, onOpe
 			setEvent(e);
 			setAttendees(a.attendees);
 			// Experience Graph — best-effort, never blocks the event itself.
-			api.eventExperienceGraph(guid).then((g) => setFriendsGoing(g.friends_going)).catch(() => undefined);
+			api.eventExperienceGraph(guid).then((g) => { setFriendsGoing(g.friends_going); setFriendsWorlds(g.friends_worlds); }).catch(() => undefined);
 			api.eventStories(guid).then((s) => setStoryGroups(groupStoriesByOwner(s.stories))).catch(() => undefined);
 			api.getAuthHeaders().then(setAuthHeaders).catch(() => undefined);
 			// Best-effort — canViewSource() 403s for someone who hasn't
@@ -392,6 +393,12 @@ export default function EventDetailScreen({api, guid, myGuid, onOpenPlace, onOpe
 					</BerxGlassSurface>
 				) : null}
 
+				{friendsWorlds.length > 0 ? (
+					<Text style={styles.friendsWorldsLine}>
+						{friendsWorlds.map((f: BerxExperienceGraphWorldFriend) => f.fullname || f.username).join(', ')} добавил{friendsWorlds.length === 1 ? '' : 'и'} это событие в свой мир
+					</Text>
+				) : null}
+
 				{storyGroups.length > 0 && onOpenStoryGroup ? (
 					<View>
 						<Text style={styles.sectionTitle}>Истории с события</Text>
@@ -471,6 +478,7 @@ const styles = StyleSheet.create({
 	friendsHereRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginTop: spacing.sm},
 	friendHereItem: {marginLeft: -spacing.xs},
 	friendsHereLabel: {fontSize: typography.sizeSm, color: colors.textDim, marginLeft: spacing.sm},
+	friendsWorldsLine: {fontSize: typography.sizeXs, color: colors.textFaint, fontStyle: 'italic'},
 	storyRow: {gap: spacing.sm, paddingVertical: spacing.xs},
 	storyItem: {alignItems: 'center', width: 64, marginRight: spacing.sm},
 	storyRing: {width: 56, height: 56, borderRadius: 28, borderWidth: 2, borderColor: colors.accent, alignItems: 'center', justifyContent: 'center', overflow: 'hidden'},

@@ -424,6 +424,12 @@ export interface BerxExperienceGraphFriend {
 	icon: string;
 }
 
+/** BERX WORLD — a friend who included this place/event in a real World they own (see components/OssnApi/v1/experiencegraph.php's own header for why only the owner, never the wider member list). */
+export interface BerxExperienceGraphWorldFriend extends BerxExperienceGraphFriend {
+	world_id: number;
+	world_title: string;
+}
+
 /** Graph AROUND one place/event (real friends only) — see docs/BERX_FUTURE_LAYER_SPEC.md. */
 export interface BerxPlaceExperienceGraph {
 	target_type: 'place';
@@ -432,12 +438,14 @@ export interface BerxPlaceExperienceGraph {
 	friends_reviewed: BerxExperienceGraphFriend[];
 	/** Real friends with a real geo-verified check-in here — a stronger-than-saved signal ("a friend was actually here"). */
 	friends_checked_in: BerxExperienceGraphFriend[];
+	friends_worlds: BerxExperienceGraphWorldFriend[];
 }
 
 export interface BerxEventExperienceGraph {
 	target_type: 'event';
 	target_guid: number;
 	friends_going: BerxExperienceGraphFriend[];
+	friends_worlds: BerxExperienceGraphWorldFriend[];
 }
 
 /** Radius-scoped summary header — see docs/BERX_FUTURE_LAYER_SPEC.md. Counts are bounded by the same real cap OssnGeo::near() uses, not a true city-wide total. */

@@ -38,7 +38,7 @@
 import {useCallback, useEffect, useState} from 'react';
 import {View, Text, ScrollView, Image, Pressable, Linking, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
-import type {BerxPlace, BerxPlaceReview, BerxExperienceGraphFriend, BerxBusinessOffer} from '@berx/api/types';
+import type {BerxPlace, BerxPlaceReview, BerxExperienceGraphFriend, BerxExperienceGraphWorldFriend, BerxBusinessOffer} from '@berx/api/types';
 import {BerxApiError} from '@berx/core';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
@@ -82,6 +82,7 @@ export default function PlaceDetailScreen({api, guid, myGuid, isAdmin, onAddToCo
 	const [replyDrafts, setReplyDrafts] = useState<Record<number, string>>({});
 	const [replyBusy, setReplyBusy] = useState<number | null>(null);
 	const [friendsHere, setFriendsHere] = useState<BerxExperienceGraphFriend[]>([]);
+	const [friendsWorlds, setFriendsWorlds] = useState<BerxExperienceGraphWorldFriend[]>([]);
 	const [offers, setOffers] = useState<BerxBusinessOffer[]>([]);
 	const [claimingOfferId, setClaimingOfferId] = useState<number | null>(null);
 	const [offerMessage, setOfferMessage] = useState<string | null>(null);
@@ -101,7 +102,10 @@ export default function PlaceDetailScreen({api, guid, myGuid, isAdmin, onAddToCo
 			// Experience Graph — best-effort, never blocks the place itself
 			// from loading (a real secondary signal, not core data).
 			api.placeExperienceGraph(guid)
-				.then((g) => setFriendsHere([...g.friends_checked_in, ...g.friends_saved, ...g.friends_reviewed].filter((f, i, arr) => arr.findIndex((x) => x.guid === f.guid) === i)))
+				.then((g) => {
+					setFriendsHere([...g.friends_checked_in, ...g.friends_saved, ...g.friends_reviewed].filter((f, i, arr) => arr.findIndex((x) => x.guid === f.guid) === i));
+					setFriendsWorlds(g.friends_worlds);
+				})
 				.catch(() => undefined);
 			// Best-effort — a place with no offers module reachable still loads normally.
 			api.placeOffers(guid).then((res) => setOffers(res.offers)).catch(() => undefined);
@@ -427,6 +431,12 @@ export default function PlaceDetailScreen({api, guid, myGuid, isAdmin, onAddToCo
 					</BerxGlassSurface>
 				) : null}
 
+				{friendsWorlds.length > 0 ? (
+					<Text style={styles.friendsWorldsLine}>
+						{friendsWorlds.map((f: BerxExperienceGraphWorldFriend) => f.fullname || f.username).join(', ')} добавил{friendsWorlds.length === 1 ? '' : 'и'} это место в свой мир
+					</Text>
+				) : null}
+
 				{offers.length > 0 ? (
 					<>
 						<Text style={styles.sectionTitle}>Предложения</Text>
@@ -552,6 +562,7 @@ const styles = StyleSheet.create({
 	friendsHereRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginTop: spacing.sm},
 	friendHereItem: {marginLeft: -spacing.xs},
 	friendsHereLabel: {fontSize: typography.sizeSm, color: colors.textDim, marginLeft: spacing.sm},
+	friendsWorldsLine: {fontSize: typography.sizeXs, color: colors.textFaint, fontStyle: 'italic'},
 	reviewForm: {gap: spacing.sm},
 	starRow: {flexDirection: 'row', gap: spacing.xs},
 	star: {fontSize: 24, color: colors.border},

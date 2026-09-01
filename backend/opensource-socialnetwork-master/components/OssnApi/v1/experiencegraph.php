@@ -44,6 +44,52 @@ function ossn_api_experiencegraph_friend_json($f) {
 	);
 }
 
+/**
+ * BERX WORLD — real friends who included this exact place/event in a
+ * World they own (ossn_world_items.item_type/item_id, real rows, not
+ * inferred). Deliberately checked against the world's owner_guid only
+ * (already visible on the row regardless of the world's own
+ * visibility) rather than every accepted member — surfacing "friend X
+ * curated this into one of their worlds" never exposes anything about
+ * that world's other contents or its other members, same bounded,
+ * friends-only shape as every other signal in this file.
+ */
+function ossn_api_experiencegraph_friends_worlds($itemType, $itemId, $friendIds) {
+	if (!class_exists('OssnWorlds')) {
+		return array();
+	}
+	$rows = (new OssnDatabase())->select(array(
+		'from'   => 'ossn_world_items',
+		'wheres' => array(
+			OssnDatabase::wheres('item_type', '=', (string) $itemType),
+			OssnDatabase::wheres('item_id', '=', intval($itemId)),
+		),
+		'limit'  => 200,
+	), true);
+	if (!$rows) {
+		return array();
+	}
+	$worldsModel = new OssnWorlds();
+	$out = array();
+	$seen = array();
+	foreach ($rows as $row) {
+		$world = $worldsModel->getWorld($row->world_id);
+		if (!$world) {
+			continue;
+		}
+		$ownerGuid = intval($world->owner_guid);
+		if (!isset($friendIds[$ownerGuid]) || isset($seen[$ownerGuid])) {
+			continue;
+		}
+		$seen[$ownerGuid] = true;
+		$entry = ossn_api_experiencegraph_friend_json($friendIds[$ownerGuid]);
+		$entry['world_id'] = intval($world->id);
+		$entry['world_title'] = (string) $world->title;
+		$out[] = $entry;
+	}
+	return $out;
+}
+
 if ($segment0 === 'place') {
 	if (!class_exists('OssnPlaces') || !(new OssnPlaces())->getPlace($targetGuid)) {
 		ossn_api_error('not_found', 'Place not found', 404);
@@ -95,7 +141,14 @@ if ($segment0 === 'place') {
 		}
 	}
 
-	ossn_api_json(array('target_type' => 'place', 'target_guid' => $targetGuid, 'friends_saved' => $friendsSaved, 'friends_reviewed' => $friendsReviewed, 'friends_checked_in' => $friendsCheckedIn));
+	ossn_api_json(array(
+		'target_type'        => 'place',
+		'target_guid'        => $targetGuid,
+		'friends_saved'      => $friendsSaved,
+		'friends_reviewed'   => $friendsReviewed,
+		'friends_checked_in' => $friendsCheckedIn,
+		'friends_worlds'     => ossn_api_experiencegraph_friends_worlds('place', $targetGuid, $friendIds),
+	));
 }
 
 // event
@@ -110,4 +163,9 @@ foreach ($attendeeRows as $r) {
 		$friendsGoing[] = ossn_api_experiencegraph_friend_json($friendIds[$guid]);
 	}
 }
-ossn_api_json(array('target_type' => 'event', 'target_guid' => $targetGuid, 'friends_going' => $friendsGoing));
+ossn_api_json(array(
+	'target_type'    => 'event',
+	'target_guid'    => $targetGuid,
+	'friends_going'  => $friendsGoing,
+	'friends_worlds' => ossn_api_experiencegraph_friends_worlds('event', $targetGuid, $friendIds),
+));
