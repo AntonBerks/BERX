@@ -15,9 +15,10 @@ import {useCallback, useEffect, useState, useMemo} from 'react';
 import {View, Text, FlatList, Pressable, RefreshControl, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxLifeMoment, BerxLifeMomentSourceType, BerxLifeMomentPerson} from '@berx/api/types';
-import {relativeTimeLabel} from '@berx/domain';
+import {relativeTimeLabel, ruPlural} from '@berx/domain';
 import {spacing, typography} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
+import {BerxEditorialTitle} from '../../../../packages/design-system/src/components/BerxGreetingHeader';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
 import {BerxAvatarStack} from '../../../../packages/design-system/src/components/BerxAvatarStack';
@@ -74,7 +75,22 @@ export default function MyMomentsScreen({api, onOpenEvent, onOpenExperience, onO
 
 	return (
 		<View style={styles.screen}>
-			<BerxHeader title="Мои моменты" onBack={onBack} />
+			{onBack ? <BerxHeader onBack={onBack} title="" /> : null}
+			{/* OPUS 5 — MOMENTS gets the same editorial headline as the other
+			    non-feed surfaces. The count is the real loaded list length; an
+			    empty list says so rather than showing "0". */}
+			<View style={styles.head}>
+				<BerxEditorialTitle
+					style={styles.headline}
+					accentIndex={1}
+					lines={[
+						'Твои моменты',
+						items.length > 0
+							? `${items.length} ${ruPlural(items.length, 'запись', 'записи', 'записей')}`
+							: 'здесь появится прожитое',
+					]}
+				/>
+			</View>
 			{error ? (
 				<BerxErrorState message={error} onRetry={load} />
 			) : items.length === 0 ? (

@@ -25,11 +25,11 @@ import {useCallback, useEffect, useState, useMemo} from 'react';
 import {View, Text, FlatList, Pressable, RefreshControl, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxCommunity} from '@berx/api/types';
-import {ruPeopleLabel} from '@berx/domain';
+import {ruPeopleLabel, ruPlural} from '@berx/domain';
 import {spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
+import {BerxEditorialTitle, BerxCircleButton} from '../../../../packages/design-system/src/components/BerxGreetingHeader';
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
-import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxScrimHero, scrimBadgeStyles} from '../../../../packages/design-system/src/components/BerxScrimHero';
 import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
@@ -82,7 +82,27 @@ export default function CommunitiesListScreen({api, onOpenCommunity, onCreate, o
 
 	return (
 		<View style={styles.screen}>
-			<BerxHeader onBack={onBack} title="Сообщества" />
+			{onBack ? <BerxHeader onBack={onBack} title="" /> : null}
+			{/* OPUS 5 — same reference composition as PLACES/EVENTS/MESSAGING.
+			    The second line reports only what this screen has actually
+			    loaded for the tab it is on. */}
+			<View style={styles.head}>
+				<BerxEditorialTitle
+					style={styles.headline}
+					accentIndex={1}
+					lines={[
+						'Сообщества',
+						tab === 'mine'
+							? `${items.length} ${ruPlural(items.length, 'твоё', 'твоих', 'твоих')}`
+							: trending.length > 0
+							? `${trending.length} ${ruPlural(trending.length, 'сообщество', 'сообщества', 'сообществ')} в тренде`
+							: items.length > 0
+							? `${items.length} ${ruPlural(items.length, 'сообщество', 'сообщества', 'сообществ')}`
+							: 'найди своих',
+					]}
+				/>
+				<BerxCircleButton glyph="+" label="Создать" onPress={onCreate} />
+			</View>
 			<View style={styles.tabRow}>
 				<Pressable style={[styles.tab, tab === 'all' && styles.tabActive]} onPress={() => setTab('all')}>
 					<Text style={[styles.tabText, tab === 'all' && styles.tabTextActive]}>Все</Text>
@@ -121,7 +141,6 @@ export default function CommunitiesListScreen({api, onOpenCommunity, onCreate, o
 				) : (
 					<View style={styles.searchInput} />
 				)}
-				<BerxButton label="+" onPress={onCreate} />
 			</View>
 
 			{loading ? (
