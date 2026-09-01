@@ -314,6 +314,47 @@ if ($segment0 !== null && $segment1 === null && $method === 'GET') {
 	ossn_api_json(ossn_api_post_detail_json($post, $api_user_guid));
 }
 
+/**
+ * BERX WORLD — real post editing, closing a genuinely missing core
+ * social-network primitive (confirmed by grep before writing this
+ * that no post-update route existed anywhere). poster_guid, not
+ * owner_guid — only the real author of the text can edit it; on a
+ * Community Wall post owner_guid is the GROUP, and a group admin
+ * being able to silently rewrite someone else's words would be a real
+ * abuse vector, not a moderation feature (deletion, which already IS
+ * owner_guid-gated, is the real moderation tool for that case).
+ * OssnObject::updateObject() sets time_updated for free — the same
+ * real column ossn_api_post_base_json()'s is_edited already reads,
+ * so an edited post is honestly marked without a new column.
+ */
+if ($segment0 !== null && $segment1 === null && $method === 'PATCH') {
+	$text = trim((string) input('text'));
+	if ($text === '') {
+		ossn_api_error('validation_error', 'text is required', 422);
+	}
+	$wall = new OssnWall();
+	$post = $wall->GetPost(intval($segment0));
+	if (!$post) {
+		ossn_api_error('not_found', 'Post not found', 404);
+	}
+	if (intval($post->poster_guid) !== intval($api_user_guid)) {
+		ossn_api_error('forbidden', 'Not your post', 403);
+	}
+	$ok = $wall->updateObject(array('description'), array($text), intval($post->guid));
+	if (!$ok) {
+		ossn_api_error('failed', 'Could not update post', 500);
+	}
+	// Real re-index: hashtags in the edited text may differ from the
+	// original — mentions are deliberately NOT re-fired here (an edit
+	// re-notifying everyone already mentioned would be real spam, not
+	// a real feature).
+	if (class_exists('OssnHashtags')) {
+		(new OssnHashtags())->replaceForPost(intval($post->guid), intval($api_user_guid), $text);
+	}
+	$updated = $wall->GetPost(intval($segment0));
+	ossn_api_json(ossn_api_post_detail_json($updated, $api_user_guid));
+}
+
 if ($segment0 !== null && $segment1 === 'like' && $method === 'POST') {
 	$wall = new OssnWall();
 	$post = $wall->GetPost(intval($segment0));

@@ -699,6 +699,14 @@ function ossn_api_post_base_json($post) {
 		'poster_guid'     => intval($post->poster_guid),
 		'poster_username' => $poster ? (string) $poster->username : null,
 		'time_created'    => intval($post->time_created),
+		// BERX WORLD — real edit state. time_updated is a genuine core
+		// OssnObject column (set by OssnObject::updateObject(), read back
+		// here the same as any other object field) — never a separate
+		// invented "edited" flag; a post that's never been touched has
+		// time_updated === time_created (or unset), so is_edited is a
+		// real derived fact, not a guess.
+		'time_updated'    => isset($post->time_updated) ? intval($post->time_updated) : intval($post->time_created),
+		'is_edited'       => isset($post->time_updated) && intval($post->time_updated) > intval($post->time_created),
 		// MAX BUILD — real Repost pointer (see posts.php's own comment
 		// on berx_repost_of). Read back the same flattened-onto-$post
 		// way berx_visibility already is (OssnCircles::canViewPost()'s

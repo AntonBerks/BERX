@@ -53,6 +53,16 @@ class OssnHashtags extends OssnDatabase {
 		return $tags;
 	}
 
+	/** Real re-index for an edited post — deletes every existing row for this post first, then re-extracts the current text, so a removed tag actually stops matching rather than lingering as a stale row. */
+	public function replaceForPost($postGuid, $ownerGuid, $text) {
+		$postGuid = intval($postGuid);
+		parent::delete(array(
+			'from'   => self::TABLE,
+			'wheres' => array(self::wheres('post_guid', '=', $postGuid)),
+		));
+		return $this->extractAndStore($postGuid, $ownerGuid, $text);
+	}
+
 	/** Real post guids carrying this tag, newest first — the caller still owns real visibility filtering (block + circles), same as any other post read in this codebase. */
 	public function postGuidsForTag($tag, $limit = 50) {
 		$tag = mb_strtolower(trim((string) $tag), 'UTF-8');

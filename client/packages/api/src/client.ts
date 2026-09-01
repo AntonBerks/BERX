@@ -751,6 +751,11 @@ export class BerxApiClient {
 		return this.request<{status: string}>(`/posts/${postGuid}`, {method: 'DELETE'});
 	}
 
+	/** Real author-only edit (poster_guid re-checked server-side, not owner_guid — see posts.php's own header on why). Returns the real updated post, is_edited now true. */
+	async updatePost(postGuid: number, text: string): Promise<BerxPostDetail> {
+		return this.request<BerxPostDetail>(`/posts/${postGuid}`, {method: 'PATCH', body: {text}});
+	}
+
 	// ---------------------------------------------------------------
 	// Tracks — components/OssnApi/v1/tracks.php. Same architecture as
 	// Video: a track is a real post with a real audio-type asset

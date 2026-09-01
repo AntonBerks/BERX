@@ -67,6 +67,9 @@ export default function PostDetailScreen({api, postGuid, myGuid, onOpenProfile, 
 	const [media, setMedia] = useState<BerxMediaAsset[]>([]);
 	const [viewerOpen, setViewerOpen] = useState(false);
 	const [viewerIndex, setViewerIndex] = useState(0);
+	const [editing, setEditing] = useState(false);
+	const [editText, setEditText] = useState('');
+	const [savingEdit, setSavingEdit] = useState(false);
 
 	async function load() {
 		setLoading(true);
@@ -206,6 +209,32 @@ export default function PostDetailScreen({api, postGuid, myGuid, onOpenProfile, 
 		}
 	}
 
+	function startEdit() {
+		if (!post) return;
+		setEditText(post.text);
+		setEditing(true);
+	}
+
+	function cancelEdit() {
+		setEditing(false);
+		setEditText('');
+	}
+
+	/** Real author-only edit — server re-checks poster_guid (see posts.php's own header on why owner_guid isn't used). Returns the real updated post, so is_edited/time_updated reflect the actual server state, not a guess. */
+	async function saveEdit() {
+		if (!post || !editText.trim()) return;
+		setSavingEdit(true);
+		try {
+			const updated = await api.updatePost(post.guid, editText.trim());
+			setPost(updated);
+			setEditing(false);
+		} catch {
+			// real server rejection (not the author, empty text) — edit box stays open
+		} finally {
+			setSavingEdit(false);
+		}
+	}
+
 	async function handleComment() {
 		if (!commentText.trim()) return;
 		setPosting(true);
@@ -269,12 +298,32 @@ export default function PostDetailScreen({api, postGuid, myGuid, onOpenProfile, 
 				<Pressable onPress={() => post.poster_username && onOpenProfile(post.poster_username)} disabled={!post.poster_username}>
 					<Text style={styles.author}>{post.poster_username ?? 'BERX'}</Text>
 				</Pressable>
-				{post.text ? <BerxRichText text={post.text} onOpenProfile={onOpenProfile} onOpenHashtag={onOpenHashtag} style={styles.text} /> : null}
+				{editing ? (
+					<View style={styles.editBox}>
+						<BerxInput placeholder="Текст поста" value={editText} onChangeText={setEditText} multiline />
+						<View style={styles.editActions}>
+							<Pressable onPress={cancelEdit} disabled={savingEdit}>
+								<Text style={styles.editCancel}>Отмена</Text>
+							</Pressable>
+							<Pressable onPress={saveEdit} disabled={savingEdit || !editText.trim()}>
+								<Text style={styles.editSave}>{savingEdit ? 'Сохранение…' : 'Сохранить'}</Text>
+							</Pressable>
+						</View>
+					</View>
+				) : (
+					post.text ? <BerxRichText text={post.text} onOpenProfile={onOpenProfile} onOpenHashtag={onOpenHashtag} style={styles.text} /> : null
+				)}
 				<View style={styles.timeRow}>
 					<Text style={styles.time}>{relativeTimeLabel(post.time_created)}</Text>
+					{post.is_edited ? <Text style={styles.time}> · изменено</Text> : null}
 					{post.like_count > 0 ? (
 						<Pressable onPress={toggleLikers} hitSlop={8}>
 							<Text style={styles.time}> · {post.like_count} нравится</Text>
+						</Pressable>
+					) : null}
+					{!editing && myGuid === post.poster_guid ? (
+						<Pressable onPress={startEdit} hitSlop={8}>
+							<Text style={styles.time}> · Редактировать</Text>
 						</Pressable>
 					) : null}
 				</View>
@@ -427,6 +476,10 @@ const styles = StyleSheet.create({
 	repostText: {color: colors.textDim, fontSize: typography.sizeSm},
 	repostGone: {color: colors.textFaint, fontSize: typography.sizeSm, fontStyle: 'italic'},
 	timeRow: {flexDirection: 'row', alignItems: 'center'},
+	editBox: {gap: spacing.sm},
+	editActions: {flexDirection: 'row', justifyContent: 'flex-end', gap: spacing.md},
+	editCancel: {color: colors.textDim, fontSize: typography.sizeSm},
+	editSave: {color: colors.accent, fontSize: typography.sizeSm, fontWeight: typography.weightMedium},
 	likersBox: {backgroundColor: colors.glass1, borderRadius: radius.md, padding: spacing.sm, marginTop: spacing.xs, gap: spacing.xs},
 	likersHint: {color: colors.textFaint, fontSize: typography.sizeSm},
 	likerRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.xs},

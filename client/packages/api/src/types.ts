@@ -40,6 +40,9 @@ export interface BerxFeedItem {
 	poster_guid: number;
 	poster_username: string | null;
 	time_created: number;
+	/** BERX WORLD — real edit state, derived from OssnObject's own time_updated column, never an invented flag. */
+	time_updated: number;
+	is_edited: boolean;
 	/** MAX BUILD — real Repost pointer (see posts.php's own comment on berx_repost_of). No embedded original on feed items — same N+1-avoidance reasoning as like_count/comment_count (feed.php's own comment); the full preview only renders on PostDetailScreen. */
 	repost_of: number | null;
 }
@@ -71,6 +74,9 @@ export interface BerxPostDetail {
 	poster_guid: number;
 	poster_username: string | null;
 	time_created: number;
+	/** BERX WORLD — real edit state, derived from OssnObject's own time_updated column, never an invented flag. */
+	time_updated: number;
+	is_edited: boolean;
 	/** Only on the single-post detail response — feed items deliberately don't carry these to avoid an N+1 count query per feed load (see feed.php's own comment). */
 	like_count: number;
 	comment_count: number;
