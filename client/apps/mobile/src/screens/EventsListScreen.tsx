@@ -24,12 +24,11 @@ import {useCallback, useEffect, useState} from 'react';
 import {View, Text, FlatList, Pressable, RefreshControl, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxEvent, BerxPlaceCategory} from '@berx/api/types';
-import {ruPeopleLabel} from '@berx/domain';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
-import {BerxScrimHero, scrimBadgeStyles} from '../../../../packages/design-system/src/components/BerxScrimHero';
+import {BerxEventCard} from '../../../../packages/design-system/src/components/BerxSpatialCards';
 import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
 
 interface Props {
@@ -102,14 +101,19 @@ export default function EventsListScreen({api, onOpenEvent, onCreate, onOpenMine
 						keyExtractor={(e: BerxEvent & {trending_score: number; distinct_actors: number}) => `trending-${e.guid}`}
 						contentContainerStyle={styles.trendingRow}
 						renderItem={({item}: {item: BerxEvent & {trending_score: number; distinct_actors: number}}) => (
-							<Pressable style={styles.trendingTile} onPress={() => onOpenEvent(item.guid)}>
-								<BerxScrimHero
-									imageUrl={item.cover_url}
+							<View style={styles.trendingTile}>
+								<BerxEventCard
 									title={item.title}
-									subtitle={`🔥 ${ruPeopleLabel(item.distinct_actors)}`}
-									height={140}
+									imageUrl={item.cover_url}
+									starts={item.starts}
+									placeTitle={item.place ? item.place.title : item.location}
+									attendeeCount={item.attendee_count}
+									friendsGoingCount={item.friends_going_count}
+									isGoing={item.is_going}
+									width={220}
+									onPress={() => onOpenEvent(item.guid)}
 								/>
-							</Pressable>
+							</View>
 						)}
 					/>
 				</View>
@@ -149,33 +153,21 @@ export default function EventsListScreen({api, onOpenEvent, onCreate, onOpenMine
 								tintColor={colors.accent}
 							/>
 						}
-						renderItem={({item}: {item: BerxEvent}) => {
-							const date = new Date(item.starts * 1000);
-							return (
-								<Pressable style={styles.tile} onPress={() => onOpenEvent(item.guid)}>
-									<BerxScrimHero
-										imageUrl={item.cover_url}
-										title={item.title}
-										subtitle={item.location ?? undefined}
-										height={190}
-										badge={
-											<View style={styles.badgeRow}>
-												<View style={styles.dateChip}>
-													<Text style={styles.dateChipText}>
-														{date.getDate()} {date.toLocaleDateString('ru-RU', {month: 'short'}).toUpperCase()}
-													</Text>
-												</View>
-												<View style={scrimBadgeStyles.badge}>
-													<Text style={scrimBadgeStyles.badgeText}>
-														{item.attendee_count} идут{item.is_going ? ' · вы идёте' : ''}
-													</Text>
-												</View>
-											</View>
-										}
-									/>
-								</Pressable>
-							);
-						}}
+						renderItem={({item}: {item: BerxEvent}) => (
+							<View style={styles.tile}>
+								<BerxEventCard
+									title={item.title}
+									imageUrl={item.cover_url}
+									starts={item.starts}
+									placeTitle={item.place ? item.place.title : item.location}
+									attendeeCount={item.attendee_count}
+									friendsGoingCount={item.friends_going_count}
+									seatsLeft={item.seats_left}
+									isGoing={item.is_going}
+									onPress={() => onOpenEvent(item.guid)}
+								/>
+							</View>
+						)}
 					/>
 				</BerxFadeIn>
 			)}

@@ -20,6 +20,7 @@ import {colors, spacing, typography} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
+import {BerxAvatarStack} from '../../../../packages/design-system/src/components/BerxAvatarStack';
 
 interface Props {
 	api: BerxApiClient;
@@ -93,10 +94,25 @@ export default function MyMomentsScreen({api, onOpenEvent, onOpenExperience, onO
 						renderItem={({item}: {item: BerxLifeMoment}) => (
 							<Pressable style={styles.row} onPress={() => openSource(item)}>
 								<Text style={styles.text}>{item.text}</Text>
-								<Text style={styles.meta}>
-									{SOURCE_LABEL[item.source_type]} · {relativeTimeLabel(item.time_created)}
-									{item.people.length > 0 ? ` · с ${item.people.map((p: BerxLifeMomentPerson) => p.username ?? `#${p.guid}`).join(', ')}` : ''}
-								</Text>
+								<View style={styles.metaRow}>
+									{/* BERX SPATIAL — the people in a moment are real, already-fetched
+									    entities (BerxLifeMoment.people), so they read as faces here
+									    rather than a comma-joined string. The names stay too: a face
+									    without a name is recognisable to nobody. */}
+									{item.people.length > 0 ? (
+										<BerxAvatarStack
+											people={item.people.map((p: BerxLifeMomentPerson) => ({
+												guid: p.guid,
+												initial: (p.username ?? '?').charAt(0),
+											}))}
+											size={18}
+										/>
+									) : null}
+									<Text style={styles.meta}>
+										{SOURCE_LABEL[item.source_type]} · {relativeTimeLabel(item.time_created)}
+										{item.people.length > 0 ? ` · с ${item.people.map((p: BerxLifeMomentPerson) => p.username ?? `#${p.guid}`).join(', ')}` : ''}
+									</Text>
+								</View>
 							</Pressable>
 						)}
 					/>
@@ -113,5 +129,6 @@ const styles = StyleSheet.create({
 	separator: {height: 1, backgroundColor: colors.borderSoft},
 	row: {paddingVertical: spacing.md, gap: 4},
 	text: {color: colors.text, fontSize: typography.sizeBase, lineHeight: typography.sizeBase * typography.lineHeightBase},
-	meta: {color: colors.textFaint, fontSize: typography.sizeXs},
+	metaRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm},
+	meta: {color: colors.textFaint, fontSize: typography.sizeXs, flex: 1},
 });

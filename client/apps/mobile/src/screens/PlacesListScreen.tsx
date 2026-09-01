@@ -32,7 +32,7 @@ import {BerxInput} from '../../../../packages/design-system/src/components/BerxI
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
-import {BerxScrimHero, scrimBadgeStyles} from '../../../../packages/design-system/src/components/BerxScrimHero';
+import {BerxPlaceCard} from '../../../../packages/design-system/src/components/BerxSpatialCards';
 
 interface Props {
 	api: BerxApiClient;
@@ -99,14 +99,17 @@ export default function PlacesListScreen({api, onOpenPlace, onCreate, onOpenNear
 						keyExtractor={(p: BerxPlace & {trending_score: number; distinct_actors: number}) => `trending-${p.guid}`}
 						contentContainerStyle={styles.trendingRow}
 						renderItem={({item}: {item: BerxPlace & {trending_score: number; distinct_actors: number}}) => (
-							<Pressable style={styles.trendingTile} onPress={() => onOpenPlace(item.guid)}>
-								<BerxScrimHero
-									imageUrl={item.cover_url}
+							<View style={styles.trendingTile}>
+								<BerxPlaceCard
 									title={item.title}
-									subtitle={`🔥 ${ruPeopleLabel(item.distinct_actors)}`}
-									height={140}
+									imageUrl={item.cover_url}
+									category={item.category}
+									rating={item.rating_count > 0 ? item.rating : undefined}
+									liveLabel={ruPeopleLabel(item.distinct_actors)}
+									width={220}
+									onPress={() => onOpenPlace(item.guid)}
 								/>
-							</Pressable>
+							</View>
 						)}
 					/>
 				</View>
@@ -147,21 +150,15 @@ export default function PlacesListScreen({api, onOpenPlace, onCreate, onOpenNear
 							/>
 						}
 						renderItem={({item}: {item: BerxPlace}) => (
-							<Pressable style={styles.tile} onPress={() => onOpenPlace(item.guid)}>
-								<BerxScrimHero
-									imageUrl={item.cover_url}
+							<View style={styles.tile}>
+								<BerxPlaceCard
 									title={item.title}
-									subtitle={item.address ?? undefined}
-									height={190}
-									badge={
-										item.rating_count > 0 ? (
-											<View style={scrimBadgeStyles.badge}>
-												<Text style={scrimBadgeStyles.badgeTextAccent}>★ {item.rating}</Text>
-											</View>
-										) : undefined
-									}
+									imageUrl={item.cover_url}
+									category={item.category ?? item.address}
+									rating={item.rating_count > 0 ? item.rating : undefined}
+									onPress={() => onOpenPlace(item.guid)}
 								/>
-							</Pressable>
+							</View>
 						)}
 					/>
 				</BerxFadeIn>
