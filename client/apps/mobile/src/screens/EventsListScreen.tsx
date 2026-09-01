@@ -28,7 +28,7 @@
  * back), never fixed copy.
  */
 import {useCallback, useEffect, useRef, useState, useMemo} from 'react';
-import {View, Text, FlatList, ScrollView, Pressable, RefreshControl, Animated, StyleSheet} from 'react-native';
+import {View, Text, FlatList, ScrollView, Pressable, RefreshControl, Animated, Dimensions, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxEvent, BerxPlaceCategory} from '@berx/api/types';
 import {ruPlural} from '@berx/domain';
@@ -42,6 +42,9 @@ import {BerxEditorialTitle, BerxCircleButton} from '../../../../packages/design-
 
 import {useBerxColors} from '../../../../packages/design-system/src/theme';
 import type {BerxColorTokens} from '@berx/design-system/tokens';
+
+// Reference lead plate: one dominant card, nearly the full width.
+const LEAD_W = Math.round(Dimensions.get('window').width - 32);
 
 interface Props {
 	api: BerxApiClient;
@@ -141,7 +144,7 @@ export default function EventsListScreen({api, onOpenEvent, onCreate, onOpenMine
 									attendeeCount={item.attendee_count}
 									friendsGoingCount={item.friends_going_count}
 									isGoing={item.is_going}
-									width={220}
+									width={LEAD_W}
 									onPress={() => onOpenEvent(item.guid)}
 								/>
 							</View>
@@ -222,7 +225,7 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	tabTextActive: {color: colors.accent},
 	trendingLabel: {color: colors.text, fontSize: typography.sizeLg, fontWeight: typography.weightBold, letterSpacing: -0.4, paddingHorizontal: spacing.lg, paddingTop: spacing.sm},
 	trendingRow: {paddingHorizontal: spacing.lg, paddingVertical: spacing.md, gap: spacing.md},
-	trendingTile: {width: 220, marginRight: spacing.md},
+	trendingTile: {width: LEAD_W, marginRight: spacing.md},
 	chipRow: {paddingHorizontal: spacing.lg, paddingVertical: spacing.sm, gap: spacing.sm, alignItems: 'center'},
 	chip: {paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: radius.pill, backgroundColor: colors.surface, marginRight: spacing.xs},
 	chipActive: {backgroundColor: colors.accentSoft, borderWidth: 1, borderColor: colors.accent},
@@ -231,7 +234,7 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	listFade: {flex: 1},
 	list: {padding: spacing.md},
 	listSeparator: {height: spacing.md},
-	tile: {borderRadius: radius.lg, overflow: 'hidden'},
+	tile: {marginBottom: spacing.md},
 	// The "ticket stub" idea, rebuilt as a real overlay chip pair on
 	// the photo instead of a separate flat column beside a thumbnail.
 	badgeRow: {flexDirection: 'row', gap: spacing.xs, flexWrap: 'wrap'},

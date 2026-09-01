@@ -12,12 +12,14 @@
  * reskin.
  */
 import {useCallback, useEffect, useState, useMemo} from 'react';
-import {View, Text, FlatList, Pressable, RefreshControl, StyleSheet} from 'react-native';
+import {View, Text, FlatList, RefreshControl, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxLifeMoment, BerxLifeMomentSourceType, BerxLifeMomentPerson} from '@berx/api/types';
 import {relativeTimeLabel, ruPlural} from '@berx/domain';
-import {spacing, typography} from '@berx/design-system/tokens';
+import {spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
+import {BerxDepthCard} from '../../../../packages/design-system/src/components/BerxDepthCard';
+import {BerxGlassSurface} from '../../../../packages/design-system/src/components/BerxGlassSurface';
 import {BerxEditorialTitle} from '../../../../packages/design-system/src/components/BerxGreetingHeader';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
@@ -101,7 +103,7 @@ export default function MyMomentsScreen({api, onOpenEvent, onOpenExperience, onO
 						data={items}
 						keyExtractor={(m: BerxLifeMoment) => String(m.id)}
 						contentContainerStyle={styles.list}
-						ItemSeparatorComponent={() => <View style={styles.separator} />}
+
 						refreshControl={
 							<RefreshControl
 								refreshing={refreshing}
@@ -113,7 +115,8 @@ export default function MyMomentsScreen({api, onOpenEvent, onOpenExperience, onO
 							/>
 						}
 						renderItem={({item}: {item: BerxLifeMoment}) => (
-							<Pressable style={styles.row} onPress={() => openSource(item)}>
+							<BerxDepthCard maxAngle={5} elevation={2} style={styles.cardWrap} onPress={() => openSource(item)}>
+							<BerxGlassSurface level={2} padding="lg" radius={radius.xl} style={styles.row}>
 								<Text style={styles.text}>{item.text}</Text>
 								<View style={styles.metaRow}>
 									{/* BERX SPATIAL — the people in a moment are real, already-fetched
@@ -124,9 +127,10 @@ export default function MyMomentsScreen({api, onOpenEvent, onOpenExperience, onO
 										<BerxAvatarStack
 											people={item.people.map((p: BerxLifeMomentPerson) => ({
 												guid: p.guid,
+												icon: p.icon,
 												initial: (p.username ?? '?').charAt(0),
 											}))}
-											size={18}
+											size={24}
 										/>
 									) : null}
 									<Text style={styles.meta}>
@@ -134,7 +138,8 @@ export default function MyMomentsScreen({api, onOpenEvent, onOpenExperience, onO
 										{item.people.length > 0 ? ` · с ${item.people.map((p: BerxLifeMomentPerson) => p.username ?? `#${p.guid}`).join(', ')}` : ''}
 									</Text>
 								</View>
-							</Pressable>
+							</BerxGlassSurface>
+							</BerxDepthCard>
 						)}
 					/>
 				</BerxFadeIn>
@@ -151,6 +156,7 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	list: {padding: spacing.lg},
 	separator: {height: 1, backgroundColor: colors.borderSoft},
 	row: {paddingVertical: spacing.md, gap: 4},
+	cardWrap: {marginBottom: spacing.md},
 	text: {color: colors.text, fontSize: typography.sizeBase, lineHeight: typography.sizeBase * typography.lineHeightBase},
 	metaRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm},
 	meta: {color: colors.textFaint, fontSize: typography.sizeXs, flex: 1},

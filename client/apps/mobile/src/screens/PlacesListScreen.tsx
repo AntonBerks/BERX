@@ -22,7 +22,7 @@
  * an album-grid cell.
  */
 import {useCallback, useEffect, useRef, useState, useMemo} from 'react';
-import {View, Text, FlatList, ScrollView, Pressable, RefreshControl, Animated, StyleSheet} from 'react-native';
+import {View, Text, FlatList, ScrollView, Pressable, RefreshControl, Animated, Dimensions, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxPlace, BerxPlaceCategory} from '@berx/api/types';
 import {ruPeopleLabel, ruPlural} from '@berx/domain';
@@ -37,6 +37,9 @@ import {BerxEditorialTitle, BerxCircleButton} from '../../../../packages/design-
 
 import {useBerxColors} from '../../../../packages/design-system/src/theme';
 import type {BerxColorTokens} from '@berx/design-system/tokens';
+
+// Reference lead plate: one dominant card, nearly the full width.
+const LEAD_W = Math.round(Dimensions.get('window').width - 32);
 
 interface Props {
 	api: BerxApiClient;
@@ -128,7 +131,7 @@ export default function PlacesListScreen({api, onOpenPlace, onCreate, onOpenNear
 									category={item.category}
 									rating={item.rating_count > 0 ? item.rating : undefined}
 									liveLabel={ruPeopleLabel(item.distinct_actors)}
-									width={220}
+									width={LEAD_W}
 									onPress={() => onOpenPlace(item.guid)}
 								/>
 							</View>
@@ -201,14 +204,14 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	toolbarRow: {flexDirection: 'row', gap: spacing.sm},
 	trendingLabel: {color: colors.text, fontSize: typography.sizeLg, fontWeight: typography.weightBold, letterSpacing: -0.4, paddingHorizontal: spacing.lg, paddingTop: spacing.sm},
 	trendingRow: {paddingHorizontal: spacing.lg, paddingVertical: spacing.md, gap: spacing.md},
-	trendingTile: {width: 220, marginRight: spacing.md},
+	trendingTile: {width: LEAD_W, marginRight: spacing.md},
 	chipRow: {paddingHorizontal: spacing.lg, paddingVertical: spacing.sm, gap: spacing.sm, alignItems: 'center'},
 	chip: {paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: radius.pill, backgroundColor: colors.surface, marginRight: spacing.xs},
 	chipActive: {backgroundColor: colors.accentSoft, borderWidth: 1, borderColor: colors.accent},
 	chipText: {fontSize: typography.sizeSm, color: colors.textDim},
 	chipTextActive: {color: colors.accent, fontWeight: typography.weightMedium},
 	gridFade: {flex: 1},
-	list: {paddingHorizontal: spacing.md, paddingBottom: spacing.xxl, paddingTop: spacing.sm},
+	list: {paddingHorizontal: spacing.lg, paddingBottom: 132, paddingTop: spacing.sm},
 	listSeparator: {height: spacing.md},
-	tile: {borderRadius: radius.lg, overflow: 'hidden'},
+	tile: {marginBottom: spacing.md},
 });

@@ -13,9 +13,10 @@
  * objects. If BERX cannot really create it, it is not on this surface.
  */
 import {useMemo} from 'react';
-import {View, Text, ScrollView, Pressable, StyleSheet} from 'react-native';
+import {View, Text, ScrollView, StyleSheet} from 'react-native';
 import {spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxGlassSurface} from '../../../../packages/design-system/src/components/BerxGlassSurface';
+import {BerxDepthCard} from '../../../../packages/design-system/src/components/BerxDepthCard';
 import {BerxEditorialTitle} from '../../../../packages/design-system/src/components/BerxGreetingHeader';
 import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
@@ -129,30 +130,36 @@ function Section({title, entries}: {title: string; entries: Entry[]}) {
 	return (
 		<View style={styles.section}>
 			<Text style={styles.sectionTitle}>{title}</Text>
-			{visible.map((e: Entry) => (
-				<View key={e.key} style={styles.entryWrap}>
-					<Pressable onPress={e.onPress}>
-						<BerxGlassSurface level={e.primary ? 3 : 2} padding="lg" radius={radius.lg}>
-							<View style={styles.entryRow}>
-								<View style={[styles.glyphPlate, e.primary && styles.glyphPlatePrimary]}>
-									<Text style={[styles.glyph, e.primary && styles.glyphPrimary]}>{e.glyph}</Text>
-								</View>
-								<View style={styles.entryBody}>
-									<Text style={styles.entryTitle}>{e.title}</Text>
-									<Text style={styles.entrySubtitle}>{e.subtitle}</Text>
-								</View>
+			{/* Reference composition: a grid of glass tiles led by their glyph,
+			    not a stack of full-width rows. Each tile leans with its own
+			    real position and recedes under a finger. */}
+			<View style={styles.grid}>
+				{visible.map((e: Entry) => (
+					<BerxDepthCard
+						key={e.key}
+						maxAngle={5}
+						elevation={e.primary ? 3 : 1}
+						style={styles.cell}
+						onPress={e.onPress}>
+						<BerxGlassSurface level={e.primary ? 3 : 2} padding="lg" radius={radius.xl} style={styles.tile}>
+							<View style={[styles.glyphPlate, e.primary && styles.glyphPlatePrimary]}>
+								<Text style={[styles.glyph, e.primary && styles.glyphPrimary]}>{e.glyph}</Text>
 							</View>
+							<Text style={styles.entryTitle}>{e.title}</Text>
+							<Text style={styles.entrySubtitle} numberOfLines={2}>
+								{e.subtitle}
+							</Text>
 						</BerxGlassSurface>
-					</Pressable>
-				</View>
-			))}
+					</BerxDepthCard>
+				))}
+			</View>
 		</View>
 	);
 }
 
 const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.bg},
-	head: {paddingHorizontal: 0, paddingBottom: spacing.sm},
+	head: {paddingHorizontal: spacing.lg, paddingBottom: spacing.sm},
 	scroll: {padding: spacing.lg, paddingTop: spacing.sm, paddingBottom: 132},
 	section: {marginBottom: spacing.lg},
 	sectionTitle: {
@@ -162,7 +169,9 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 		letterSpacing: -0.4,
 		marginBottom: spacing.md,
 	},
-	entryWrap: {marginBottom: spacing.xs},
+	grid: {flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm},
+	cell: {width: '48.5%'},
+	tile: {height: 158, justifyContent: 'flex-start'},
 	entryRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.md},
 	glyphPlate: {
 		width: 44,
@@ -178,6 +187,6 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	glyph: {color: colors.textDim, fontSize: 18},
 	glyphPrimary: {color: colors.accent},
 	entryBody: {flex: 1, gap: 2},
-	entryTitle: {color: colors.text, fontSize: typography.sizeBase, fontWeight: typography.weightMedium},
+	entryTitle: {color: colors.text, fontSize: typography.sizeBase, fontWeight: typography.weightBold, marginTop: spacing.sm},
 	entrySubtitle: {color: colors.textFaint, fontSize: typography.sizeXs, lineHeight: 16},
 });
