@@ -48,6 +48,7 @@ export type BerxRouteName =
 	| 'MyDrafts'
 	| 'DeleteAccount'
 	| 'BlockedUsers'
+	| 'MutedUsers'
 	| 'Communities'
 	| 'CommunityDetail'
 	| 'CreateCommunity'
@@ -163,6 +164,7 @@ export interface BerxRouteParams {
 	MyDrafts: undefined;
 	DeleteAccount: undefined;
 	BlockedUsers: undefined;
+	MutedUsers: undefined;
 	Communities: undefined;
 	CommunityDetail: { guid: number };
 	CreateCommunity: undefined;
@@ -294,6 +296,7 @@ export const BERX_ROUTES: BerxRouteMeta[] = [
 	{ name: 'MyDrafts', connected: true },
 	{ name: 'DeleteAccount', connected: true },
 	{ name: 'BlockedUsers', connected: true },
+	{ name: 'MutedUsers', connected: true },
 	{ name: 'Communities', connected: true },
 	{ name: 'CommunityDetail', connected: true },
 	{ name: 'CreateCommunity', connected: true },

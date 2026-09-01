@@ -61,6 +61,7 @@ import type {
 	BerxCommunityRequest,
 	BerxMessageSearchResult,
 	BerxBlockedUser,
+	BerxMutedUser,
 	BerxReportTargetType,
 	BerxReportQueueItem,
 	BerxReportReason,
@@ -2149,6 +2150,24 @@ export class BerxApiClient {
 
 	async unblockUser(userGuid: number): Promise<{status: string}> {
 		return this.request<{status: string}>(`/block/${userGuid}`, {method: 'DELETE'});
+	}
+
+	// ---------------------------------------------------------------
+	// Mute — components/OssnApi/v1/mute.php. Deliberately lighter than
+	// Block: only ever changes what shows in YOUR OWN feed — never
+	// touches the friendship, messaging, or profile visibility.
+	// ---------------------------------------------------------------
+
+	async mutedUsers(): Promise<{muted: BerxMutedUser[]}> {
+		return this.request<{muted: BerxMutedUser[]}>('/mute');
+	}
+
+	async muteUser(userGuid: number): Promise<{status: string; is_muted: boolean}> {
+		return this.request<{status: string; is_muted: boolean}>(`/mute/${userGuid}`, {method: 'POST'});
+	}
+
+	async unmuteUser(userGuid: number): Promise<{status: string; is_muted: boolean}> {
+		return this.request<{status: string; is_muted: boolean}>(`/mute/${userGuid}`, {method: 'DELETE'});
 	}
 
 	// ---------------------------------------------------------------

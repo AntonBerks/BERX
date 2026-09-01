@@ -25,6 +25,7 @@ interface Props {
 	onOpenNotificationPreferences: () => void;
 	onOpenInviteFriends: () => void;
 	onOpenBlockedUsers: () => void;
+	onOpenMutedUsers?: () => void;
 	onOpenDeleteAccount: () => void;
 	onOpenDatingPrivacy: () => void;
 	onOpenCircles?: () => void;
@@ -41,7 +42,7 @@ function Row({label, onPress, danger}: {label: string; onPress: () => void; dang
 	);
 }
 
-export default function SettingsScreen({onOpenDeviceSessions, onOpenNotificationPreferences, onOpenInviteFriends, onOpenBlockedUsers, onOpenDeleteAccount, onOpenDatingPrivacy, onOpenCircles, onOpenSitePage, onBack}: Props) {
+export default function SettingsScreen({onOpenDeviceSessions, onOpenNotificationPreferences, onOpenInviteFriends, onOpenBlockedUsers, onOpenMutedUsers, onOpenDeleteAccount, onOpenDatingPrivacy, onOpenCircles, onOpenSitePage, onBack}: Props) {
 	return (
 		<View style={styles.screen}>
 			<BerxHeader title="Настройки" onBack={onBack} />
@@ -59,6 +60,7 @@ export default function SettingsScreen({onOpenDeviceSessions, onOpenNotification
 			<View style={styles.group}>
 				<Row label="Устройства и сессии" onPress={onOpenDeviceSessions} />
 				<Row label="Заблокированные" onPress={onOpenBlockedUsers} />
+				{onOpenMutedUsers ? <Row label="Заглушённые" onPress={onOpenMutedUsers} /> : null}
 				<Row label="Приватность знакомств" onPress={onOpenDatingPrivacy} />
 				{onOpenCircles ? <Row label="Круги" onPress={onOpenCircles} /> : null}
 			</View>

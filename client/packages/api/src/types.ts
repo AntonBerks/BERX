@@ -1018,6 +1018,14 @@ export interface BerxBlockedUser {
 	icon: string;
 }
 
+/** BERX WORLD — real feed Mute (components/OssnApi/v1/mute.php). Deliberately lighter than a block: the friendship, messaging, and profile visibility are all untouched — only the muter's own feed changes. */
+export interface BerxMutedUser {
+	guid: number;
+	username: string;
+	fullname: string;
+	icon: string;
+}
+
 export type BerxReportTargetType = 'dating_profile' | 'post' | 'comment' | 'user' | 'group';
 export type BerxReportReason = 'spam' | 'fake_profile' | 'harassment' | 'inappropriate_content' | 'underage' | 'other';
 

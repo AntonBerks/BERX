@@ -302,6 +302,12 @@ function ossn_api_v1_resources() {
 		// pending Plan/World invites + upcoming Events, pure composition,
 		// no new table. See that file's own header.
 		'next'          => __OSSN_API__ . 'v1/next.php',
+		// BERX WORLD — real feed Mute. Deliberately separate from
+		// OssnBlock: a mute never touches the friendship itself, never
+		// blocks messaging, never hides your own profile from them —
+		// it only ever affects whose posts YOU see in your own feed.
+		// See mute.php's own header.
+		'mute'          => __OSSN_API__ . 'v1/mute.php',
 		// (No separate 'activity' resource: lifegraph.php already IS
 		// the real composed-timeline concept -- Plans/Checkpoints/Life
 		// Moments/Memories were folded into its existing edge list

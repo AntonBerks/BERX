@@ -73,6 +73,24 @@ $poolSize = min(300, max(120, ($offset + $limit) * 4));
 $posts = $wall->getFriendsPosts(array('limit' => $poolSize, 'page_limit' => false, 'distinct' => true));
 unset($_SESSION['OSSN_USER']);
 
+// BERX WORLD — real feed Mute (components/OssnApi/v1/mute.php). One
+// bounded query for the caller's own real mute list, then a plain
+// PHP-side filter — same shape as every other real per-viewer
+// visibility rule in this file, never touching the friendship or
+// visibility itself, only what THIS caller's own feed shows.
+$mutedGuids = array();
+$muteRows = ossn_get_relationships(array('from' => intval($api_user_guid), 'type' => 'user:mute', 'limit' => false));
+if ($muteRows) {
+	foreach ($muteRows as $muteRow) {
+		$mutedGuids[intval($muteRow->relation_to)] = true;
+	}
+}
+if ($mutedGuids && $posts) {
+	$posts = array_values(array_filter($posts, function ($post) use ($mutedGuids) {
+		return !isset($mutedGuids[intval($post->poster_guid)]);
+	}));
+}
+
 $scored = array();
 $signals = class_exists('OssnSignals') ? new OssnSignals() : null;
 $now = time();

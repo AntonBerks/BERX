@@ -157,6 +157,8 @@ export default function ProfileScreen({api, authState, username, onBack, onMessa
 	const [error, setError] = useState<string | null>(null);
 	const [friendBusy, setFriendBusy] = useState(false);
 	const [blocking, setBlocking] = useState(false);
+	const [muting, setMuting] = useState(false);
+	const [muteStatus, setMuteStatus] = useState<string | null>(null);
 	const [pokeBusy, setPokeBusy] = useState(false);
 	const [pokeStatus, setPokeStatus] = useState<string | null>(null);
 	const [banBusy, setBanBusy] = useState(false);
@@ -291,6 +293,21 @@ export default function ProfileScreen({api, authState, username, onBack, onMessa
 				},
 			]
 		);
+	}
+
+	/** BERX WORLD — real feed Mute (components/OssnApi/v1/mute.php). Deliberately no confirmation dialog like handleBlock — muting never touches the friendship or messaging, it's low-stakes and instantly reversible from Settings → Заглушённые. */
+	async function handleMute() {
+		if (!profile?.guid) return;
+		setMuting(true);
+		setMuteStatus(null);
+		try {
+			await api.muteUser(profile.guid);
+			setMuteStatus('Посты больше не будут появляться в вашей ленте');
+		} catch {
+			setMuteStatus('Не удалось заглушить');
+		} finally {
+			setMuting(false);
+		}
 	}
 
 	function handleBlock() {
@@ -566,6 +583,15 @@ export default function ProfileScreen({api, authState, username, onBack, onMessa
 
 			{!isOwn && profile.guid ? (
 				<View style={styles.actionRow}>
+					<Pressable onPress={handleMute} hitSlop={8} disabled={muting}>
+						<Text style={styles.blockLink}>{muting ? 'Заглушение…' : 'Заглушить в ленте'}</Text>
+					</Pressable>
+					{muteStatus ? <Text style={styles.muteStatus}>{muteStatus}</Text> : null}
+				</View>
+			) : null}
+
+			{!isOwn && profile.guid ? (
+				<View style={styles.actionRow}>
 					<Pressable onPress={handleBlock} hitSlop={8} disabled={blocking}>
 						<Text style={styles.blockLink}>{blocking ? 'Блокировка…' : 'Заблокировать пользователя'}</Text>
 					</Pressable>
@@ -750,6 +776,7 @@ const styles = StyleSheet.create({
 	actionRow: {paddingHorizontal: spacing.xl},
 	reportLink: {color: colors.textFaint, fontSize: typography.sizeXs, textDecorationLine: 'underline', textAlign: 'center'},
 	blockLink: {color: colors.danger, fontSize: typography.sizeXs, textDecorationLine: 'underline', textAlign: 'center'},
+	muteStatus: {color: colors.textFaint, fontSize: typography.sizeXs, textAlign: 'center', marginTop: 2},
 	menuList: {paddingHorizontal: spacing.xl, paddingTop: spacing.lg, gap: spacing.md},
 	sectionLabel: {color: colors.textFaint, fontSize: typography.sizeXs, marginBottom: spacing.xs, marginLeft: spacing.xs, textTransform: 'uppercase' as const, letterSpacing: 0.5},
 	menuGroup: {

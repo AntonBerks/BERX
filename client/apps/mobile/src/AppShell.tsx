@@ -103,6 +103,7 @@ import MyPlaceClaimsScreen from './screens/MyPlaceClaimsScreen';
 import MessageSearchScreen from './screens/MessageSearchScreen';
 import SettingsScreen from './screens/SettingsScreen';
 import BlockedUsersScreen from './screens/BlockedUsersScreen';
+import MutedUsersScreen from './screens/MutedUsersScreen';
 import BERXWorldScreen from './screens/BERXWorldScreen';
 import ReportScreen from './screens/ReportScreen';
 import CollectionsScreen from './screens/CollectionsScreen';
@@ -788,6 +789,7 @@ function RouteRenderer({name, params}: {name: BerxRouteName; params: unknown}) {
 					onOpenInviteFriends={() => nav.push('InviteFriends', undefined)}
 				onOpenSitePage={(prefix) => nav.push('SitePage', {prefix})}
 					onOpenBlockedUsers={() => nav.push('BlockedUsers', undefined)}
+					onOpenMutedUsers={() => nav.push('MutedUsers', undefined)}
 					onOpenDeleteAccount={() => nav.push('DeleteAccount', undefined)}
 					onOpenDatingPrivacy={() => nav.push('DatingPrivacy', undefined)}
 					onOpenCircles={() => nav.push('Circles', undefined)}
@@ -796,6 +798,8 @@ function RouteRenderer({name, params}: {name: BerxRouteName; params: unknown}) {
 			);
 		case 'BlockedUsers':
 			return <BlockedUsersScreen api={api} onBack={nav.pop} />;
+		case 'MutedUsers':
+			return <MutedUsersScreen api={api} onBack={nav.pop} />;
 		case 'BERXWorld':
 			return (
 				<BERXWorldScreen
