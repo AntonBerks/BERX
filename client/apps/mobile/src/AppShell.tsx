@@ -66,6 +66,7 @@ import CreateWorldScreen from './screens/CreateWorldScreen';
 import NextScreen from './screens/NextScreen';
 import AddToWorldScreen from './screens/AddToWorldScreen';
 import MemoryDetailScreen from './screens/MemoryDetailScreen';
+import MyMomentsScreen from './screens/MyMomentsScreen';
 import CommunityRequestsScreen from './screens/CommunityRequestsScreen';
 import CommunityModeratorsScreen from './screens/CommunityModeratorsScreen';
 import CommunityMembersScreen from './screens/CommunityMembersScreen';
@@ -242,6 +243,7 @@ function RouteRenderer({name, params}: {name: BerxRouteName; params: unknown}) {
 					onOpenPlans={!nav.canGoBack ? () => nav.push('Plans', undefined) : undefined}
 					onOpenWorlds={!nav.canGoBack ? () => nav.push('Worlds', undefined) : undefined}
 					onOpenNext={!nav.canGoBack ? () => nav.push('Next', undefined) : undefined}
+					onOpenMyMoments={!nav.canGoBack ? () => nav.push('MyMoments', undefined) : undefined}
 					onOpenDating={!nav.canGoBack ? () => nav.push('Dating', undefined) : undefined}
 					onOpenPlaces={!nav.canGoBack ? () => nav.push('Places', undefined) : undefined}
 					onOpenEvents={!nav.canGoBack ? () => nav.push('Events', undefined) : undefined}
@@ -550,6 +552,16 @@ function RouteRenderer({name, params}: {name: BerxRouteName; params: unknown}) {
 			const p = params as {id: number};
 			return <MemoryDetailScreen api={api} id={p.id} onBack={nav.pop} />;
 		}
+		case 'MyMoments':
+			return (
+				<MyMomentsScreen
+					api={api}
+					onOpenEvent={(guid) => nav.push('EventDetail', {guid})}
+					onOpenExperience={(id) => nav.push('ExperienceDetail', {id})}
+					onOpenPlace={(guid) => nav.push('PlaceDetail', {guid})}
+					onBack={nav.canGoBack ? nav.pop : undefined}
+				/>
+			);
 		case 'CommunityRequests': {
 			const p = params as {guid: number};
 			return <CommunityRequestsScreen api={api} guid={p.guid} onBack={nav.pop} />;
