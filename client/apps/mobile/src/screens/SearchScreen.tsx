@@ -30,7 +30,7 @@
 import {useCallback, useEffect, useRef, useState} from 'react';
 import {View, Text, FlatList, Pressable, Image, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
-import type {BerxPlaceSearchResult, BerxEventSearchResult, BerxCommunitySearchResult, BerxPeopleSuggestion} from '@berx/api/types';
+import type {BerxPlaceSearchResult, BerxEventSearchResult, BerxCommunitySearchResult, BerxPeopleSuggestion, BerxTrendingHashtag} from '@berx/api/types';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {BerxEmptyState, BerxErrorState} from '../../../../packages/design-system/src/components/BerxStates';
@@ -42,7 +42,7 @@ interface SearchResultUser {
 	fullname: string;
 }
 
-type Tab = 'users' | 'places' | 'events' | 'communities';
+type Tab = 'users' | 'places' | 'events' | 'communities' | 'hashtags';
 
 interface Props {
 	api: BerxApiClient;
@@ -50,6 +50,7 @@ interface Props {
 	onOpenPlace: (guid: number) => void;
 	onOpenEvent: (guid: number) => void;
 	onOpenCommunity: (guid: number) => void;
+	onOpenHashtag?: (tag: string) => void;
 }
 
 const DEBOUNCE_MS = 400;
@@ -58,15 +59,17 @@ const TABS: {key: Tab; label: string}[] = [
 	{key: 'places', label: 'Места'},
 	{key: 'events', label: 'События'},
 	{key: 'communities', label: 'Сообщества'},
+	{key: 'hashtags', label: 'Теги'},
 ];
 
-export default function SearchScreen({api, onOpenProfile, onOpenPlace, onOpenEvent, onOpenCommunity}: Props) {
+export default function SearchScreen({api, onOpenProfile, onOpenPlace, onOpenEvent, onOpenCommunity, onOpenHashtag}: Props) {
 	const [tab, setTab] = useState<Tab>('users');
 	const [query, setQuery] = useState('');
 	const [users, setUsers] = useState<SearchResultUser[]>([]);
 	const [places, setPlaces] = useState<BerxPlaceSearchResult[]>([]);
 	const [events, setEvents] = useState<BerxEventSearchResult[]>([]);
 	const [communities, setCommunities] = useState<BerxCommunitySearchResult[]>([]);
+	const [hashtags, setHashtags] = useState<BerxTrendingHashtag[]>([]);
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [searched, setSearched] = useState(false);
@@ -86,6 +89,7 @@ export default function SearchScreen({api, onOpenProfile, onOpenPlace, onOpenEve
 				setPlaces([]);
 				setEvents([]);
 				setCommunities([]);
+				setHashtags([]);
 				setSearched(false);
 				return;
 			}
@@ -100,9 +104,12 @@ export default function SearchScreen({api, onOpenProfile, onOpenPlace, onOpenEve
 				} else if (activeTab === 'events') {
 					const res = await api.searchEvents(q.trim());
 					setEvents(res.events);
-				} else {
+				} else if (activeTab === 'communities') {
 					const res = await api.searchCommunities(q.trim());
 					setCommunities(res.communities);
+				} else {
+					const res = await api.searchHashtags(q.trim());
+					setHashtags(res.hashtags);
 				}
 				setError(null);
 			} catch {
@@ -126,7 +133,7 @@ export default function SearchScreen({api, onOpenProfile, onOpenPlace, onOpenEve
 		if (query.trim()) runSearch(query, next);
 	}
 
-	const currentCount = tab === 'users' ? users.length : tab === 'places' ? places.length : tab === 'events' ? events.length : communities.length;
+	const currentCount = tab === 'users' ? users.length : tab === 'places' ? places.length : tab === 'events' ? events.length : tab === 'communities' ? communities.length : hashtags.length;
 
 	return (
 		<View style={styles.screen}>
@@ -220,7 +227,7 @@ export default function SearchScreen({api, onOpenProfile, onOpenPlace, onOpenEve
 						)}
 					/>
 				</BerxFadeIn>
-			) : (
+			) : tab === 'communities' ? (
 				<BerxFadeIn style={styles.fadeFlex}>
 					<FlatList
 						data={communities}
@@ -229,6 +236,19 @@ export default function SearchScreen({api, onOpenProfile, onOpenPlace, onOpenEve
 							<Pressable style={styles.row} onPress={() => onOpenCommunity(item.guid)}>
 								<Text style={styles.fullname}>{item.title}</Text>
 								<Text style={styles.username}>{item.members} участников{item.owner ? ` · ${item.owner}` : ''}{item.friends_count > 0 ? ` · 👥 ${item.friends_count}` : ''}</Text>
+							</Pressable>
+						)}
+					/>
+				</BerxFadeIn>
+			) : (
+				<BerxFadeIn style={styles.fadeFlex}>
+					<FlatList
+						data={hashtags}
+						keyExtractor={(h: BerxTrendingHashtag) => h.hashtag}
+						renderItem={({item}: {item: BerxTrendingHashtag}) => (
+							<Pressable style={styles.row} onPress={() => onOpenHashtag && onOpenHashtag(item.hashtag)}>
+								<Text style={styles.fullname}>#{item.hashtag}</Text>
+								<Text style={styles.username}>{item.post_count} {item.post_count === 1 ? 'пост' : 'постов'}</Text>
 							</Pressable>
 						)}
 					/>

@@ -75,7 +75,7 @@ function ossn_api_post_detail_json($post, $viewerGuid) {
 	return $base;
 }
 
-$segment0 = isset($segments[0]) ? $segments[0] : null; // post guid | 'saved' | 'drafts' | 'pinned' | 'hashtag' | 'trending-hashtags'
+$segment0 = isset($segments[0]) ? $segments[0] : null; // post guid | 'saved' | 'drafts' | 'pinned' | 'hashtag' | 'trending-hashtags' | 'search-hashtags'
 $segment1 = isset($segments[1]) ? $segments[1] : null; // 'like' | 'comments' | 'save' | 'unsave' | draft id | profile guid
 $segment2 = isset($segments[2]) ? $segments[2] : null; // comment id | 'publish'
 $segment3 = isset($segments[3]) ? $segments[3] : null; // 'delete'
@@ -214,6 +214,15 @@ if ($segment0 === 'hashtag' && $segment1 !== null && $method === 'GET') {
 
 if ($segment0 === 'trending-hashtags' && $segment1 === null && $method === 'GET') {
 	$out = class_exists('OssnHashtags') ? (new OssnHashtags())->trending(7, 20) : array();
+	ossn_api_json(array('hashtags' => $out));
+}
+
+// BERX WORLD — real hashtag search (SearchScreen's own "hashtags"
+// tab). Substring match over tags actually used on real posts, not a
+// fabricated suggestion list.
+if ($segment0 === 'search-hashtags' && $segment1 === null && $method === 'GET') {
+	$q = (string) input('q');
+	$out = ($q !== '' && class_exists('OssnHashtags')) ? (new OssnHashtags())->searchTags($q, 20) : array();
 	ossn_api_json(array('hashtags' => $out));
 }
 

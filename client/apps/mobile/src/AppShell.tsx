@@ -404,6 +404,7 @@ function RouteRenderer({name, params}: {name: BerxRouteName; params: unknown}) {
 					onOpenPlace={(guid) => nav.push('PlaceDetail', {guid})}
 					onOpenEvent={(guid) => nav.push('EventDetail', {guid})}
 					onOpenCommunity={(guid) => nav.push('CommunityDetail', {guid})}
+					onOpenHashtag={(tag) => nav.push('Hashtag', {tag})}
 				/>
 			);
 		case 'CreatePost': {

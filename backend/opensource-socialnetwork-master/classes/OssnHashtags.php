@@ -86,6 +86,35 @@ class OssnHashtags extends OssnDatabase {
 	}
 
 	/**
+	 * Real prefix/substring search over actually-used tags, grouped so
+	 * a tag used on 50 posts appears once with a real post_count, not
+	 * 50 times — same LIKE convention OssnDating::search() already
+	 * uses for its own free-text search.
+	 */
+	public function searchTags($q, $limit = 20) {
+		$q = mb_strtolower(trim((string) $q), 'UTF-8');
+		if ($q === '') {
+			return array();
+		}
+		$rows = $this->select(array(
+			'from'     => self::TABLE,
+			'params'   => array('hashtag', 'COUNT(DISTINCT post_guid) as post_count'),
+			'wheres'   => array(self::wheres('hashtag', 'LIKE', '%' . $q . '%')),
+			'group_by' => 'hashtag',
+			'order_by' => 'post_count DESC',
+			'limit'    => intval($limit),
+		), true);
+		if (!$rows) {
+			return array();
+		}
+		$out = array();
+		foreach ($rows as $row) {
+			$out[] = array('hashtag' => (string) $row->hashtag, 'post_count' => intval($row->post_count));
+		}
+		return $out;
+	}
+
+	/**
 	 * Real trending — distinct real posts per tag over a bounded recent
 	 * window, no invented score, same honesty rule as every other
 	 * Trending rail in this codebase (Places/Events/Communities).

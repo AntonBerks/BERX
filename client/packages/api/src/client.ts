@@ -368,6 +368,11 @@ export class BerxApiClient {
 		return this.request<{hashtags: BerxTrendingHashtag[]}>('/posts/trending-hashtags');
 	}
 
+	/** Real substring search over tags actually used on real posts — see classes/OssnHashtags.php's own searchTags() header. */
+	async searchHashtags(q: string): Promise<{hashtags: BerxTrendingHashtag[]}> {
+		return this.request<{hashtags: BerxTrendingHashtag[]}>(`/posts/search-hashtags?q=${encodeURIComponent(q)}`);
+	}
+
 	/**
 	 * MAX BUILD — real Pinned Post: owner-only (server re-checks
 	 * owner_guid, never trusts the caller). Pinning a second post
