@@ -1,5 +1,13 @@
 /**
  * !!! VERIFICATION STATUS: UNVERIFIED — see LoginScreen.tsx header.
+ * The "Показать в 3D" toggle below additionally pulls in
+ * ../three/BerxDepthScene — see THAT file's own header before
+ * touching this one: it needs three/@react-three/fiber/expo-gl on
+ * disk to bundle at all, which this sandbox cannot install (npm is
+ * blocked here — same standing constraint Berx3DTilt.tsx documents).
+ * Added anyway at explicit user request, opt-in and collapsed by
+ * default so the rest of this screen (the real list view) still
+ * bundles and works even before those packages are installed.
  *
  * BERX WORLD — World detail. Real actions only, all server-verdict-
  * driven (is_owner/my_status come from the server — see
@@ -23,6 +31,7 @@ import {BerxButton} from '../../../../packages/design-system/src/components/Berx
 import {BerxAvatar} from '../../../../packages/design-system/src/components/BerxAvatar';
 import {BerxLoadingState, BerxErrorState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
+import BerxDepthScene from '../three/BerxDepthScene';
 
 interface Props {
 	api: BerxApiClient;
@@ -42,6 +51,8 @@ export default function WorldDetailScreen({api, id, onBack}: Props) {
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 	const [busy, setBusy] = useState(false);
+	/** Off by default — see this file's own header on why the 3D scene is opt-in, not the default view. */
+	const [show3D, setShow3D] = useState(false);
 
 	const [pickingType, setPickingType] = useState<BerxWorldItemType | null>(null);
 	const [pickerPlaces, setPickerPlaces] = useState<BerxPlace[]>([]);
@@ -171,6 +182,11 @@ export default function WorldDetailScreen({api, id, onBack}: Props) {
 
 				{world.description ? <Text style={styles.description}>{world.description}</Text> : null}
 
+				<Pressable style={styles.dimensionToggle} onPress={() => setShow3D((v: boolean) => !v)}>
+					<Text style={styles.dimensionToggleText}>{show3D ? 'Показать списком' : 'Показать в 3D'}</Text>
+				</Pressable>
+				{show3D ? <BerxDepthScene world={world} /> : null}
+
 				{world.my_status === 'invited' ? (
 					<View style={styles.actions}>
 						<BerxButton label="Отклонить" variant="secondary" onPress={() => respond(false)} disabled={busy} />
@@ -280,6 +296,8 @@ const styles = StyleSheet.create({
 	visBadgeTextPublic: {color: colors.accent, fontWeight: typography.weightMedium},
 	expiry: {color: colors.textFaint, fontSize: typography.sizeXs},
 	owner: {color: colors.textFaint, fontSize: typography.sizeXs, width: '100%', marginTop: 2},
+	dimensionToggle: {alignSelf: 'flex-start', borderWidth: 1, borderColor: colors.borderSoft, borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: spacing.xs},
+	dimensionToggleText: {color: colors.accent, fontSize: typography.sizeSm, fontWeight: typography.weightMedium},
 	description: {color: colors.text, fontSize: typography.sizeBase, lineHeight: typography.sizeBase * typography.lineHeightBase},
 	actions: {flexDirection: 'row', gap: spacing.md},
 	sectionTitle: {color: colors.textFaint, fontSize: typography.sizeXs, fontWeight: typography.weightBold, textTransform: 'uppercase', letterSpacing: 0.5, marginTop: spacing.sm},
