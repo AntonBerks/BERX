@@ -2,11 +2,19 @@
  * !!! VERIFICATION STATUS: UNVERIFIED — see LoginScreen.tsx header.
  * Real data: api.socialMap() (components/OssnApi/v1/socialmap.php).
  * Same honest manual-lat/lng pattern as NearbyNowScreen/PlacesNearbyScreen
- * (no real device Geolocation library in this sandbox). No fake map
- * canvas either — no map-rendering library is confirmed installed
- * here, so this is a real list of real pins, not a pretend map view;
- * see docs/BERX_FUTURE_LAYER_SPEC.md. Friends are listed separately,
- * never plotted — no real friend-location data exists or is exposed.
+ * (no real device Geolocation library in this sandbox).
+ *
+ * OPUS 5 — the pins are now PLOTTED, on BerxMapSurface. That is not a
+ * reversal of the old "no fake map canvas" note: there is still no map
+ * library and therefore still no basemap (no streets, no coastlines,
+ * no labels). What BerxMapSurface draws is a real equirectangular
+ * projection of the real lat/lng the API returned, around the real
+ * center, scaled by the real queried radius — a radar, labelled as
+ * one. Pins the server returned WITHOUT coordinates are excluded from
+ * the surface (never dropped at an invented position) and stay in the
+ * list below, which is kept for exactly that reason. Friends are still
+ * listed and never plotted — no real friend-location data exists or is
+ * exposed. See docs/BERX_FUTURE_LAYER_SPEC.md.
  *
  * MAX BUILD — "City + People + Places + Events + Moments = one living
  * environment": City Mode's response now carries the real active
@@ -27,6 +35,9 @@ import {BerxAvatar} from '../../../../packages/design-system/src/components/Berx
 import {BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxGlassSurface} from '../../../../packages/design-system/src/components/BerxGlassSurface';
 import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
+import {BerxMapSurface} from '../../../../packages/design-system/src/components/BerxMapSurface';
+import type {BerxMapPin} from '../../../../packages/design-system/src/components/BerxMapSurface';
+import {BerxContextPanel} from '../../../../packages/design-system/src/components/BerxContextPanel';
 
 import {useBerxColors} from '../../../../packages/design-system/src/theme';
 import type {BerxColorTokens} from '@berx/design-system/tokens';
@@ -52,6 +63,11 @@ export default function SocialMapScreen({api, onOpenPlace, onOpenEvent, onOpenPr
 	const [city, setCity] = useState<BerxCityModeResponse | null>(null);
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+	// The real center the last successful query actually used — kept
+	// separately from the input text so the surface never projects
+	// against a coordinate the server was not asked about.
+	const [center, setCenter] = useState<{lat: number; lng: number; radiusKm: number} | null>(null);
+	const [selected, setSelected] = useState<Row | null>(null);
 
 	async function search() {
 		const la = Number(lat);
@@ -64,6 +80,8 @@ export default function SocialMapScreen({api, onOpenPlace, onOpenEvent, onOpenPr
 		setError(null);
 		try {
 			const res = await api.socialMap(la, ln, 5);
+			setCenter({lat: la, lng: ln, radiusKm: res.radius_km});
+			setSelected(null);
 			setPlaces(res.places);
 			setEvents(res.events);
 			setFriends(res.friends_online);
@@ -81,6 +99,23 @@ export default function SocialMapScreen({api, onOpenPlace, onOpenEvent, onOpenPr
 		...events.map((e: BerxSocialMapEventPin): Row => ({kind: 'event', item: e})),
 	];
 
+	// Only rows that carry REAL coordinates can be plotted. Places may
+	// legitimately have a null lat/lng (the server types it that way);
+	// those keep their place in the list below instead of being given a
+	// position they don't have.
+	const mapPins: BerxMapPin[] = rows
+		.filter((r: Row) => typeof r.item.lat === 'number' && typeof r.item.lng === 'number')
+		.map((r: Row) => ({
+			key: `${r.kind}-${r.item.guid}`,
+			lat: r.item.lat as number,
+			lng: r.item.lng as number,
+			label: r.item.title,
+			kind: r.kind,
+			onPress: () => setSelected(r),
+		}));
+	const unplottable = rows.length - mapPins.length;
+	const selectedKey = selected ? `${selected.kind}-${selected.item.guid}` : null;
+
 	return (
 		<View style={styles.screen}>
 			<BerxHeader title="Карта BERX" onBack={onBack} />
@@ -90,6 +125,42 @@ export default function SocialMapScreen({api, onOpenPlace, onOpenEvent, onOpenPr
 				{error ? <Text style={styles.error}>{error}</Text> : null}
 				<BerxButton label="Показать" onPress={search} loading={loading} fullWidth />
 			</View>
+
+			{center && rows.length > 0 ? (
+				<BerxFadeIn style={styles.mapFade}>
+					<BerxMapSurface
+						centerLat={center.lat}
+						centerLng={center.lng}
+						radiusKm={center.radiusKm}
+						pins={mapPins}
+						selectedKey={selectedKey}
+						height={280}
+					/>
+					<Text style={styles.mapNote}>
+						Реальная проекция координат вокруг вашей точки. Базовой карты нет.
+						{unplottable > 0 ? ` ${unplottable} без координат — ниже списком.` : ''}
+					</Text>
+				</BerxFadeIn>
+			) : null}
+
+			{selected ? (
+				<BerxContextPanel
+					style={styles.contextPanel}
+					eyebrow={selected.kind === 'place' ? 'Место' : 'Событие'}
+					title={selected.item.title}
+					subtitle={selected.kind === 'place' ? (selected.item as BerxSocialMapPlacePin).category : null}
+					onClose={() => setSelected(null)}
+					actions={[
+						{
+							key: 'open',
+							label: 'Открыть',
+							primary: true,
+							onPress: () =>
+								selected.kind === 'place' ? onOpenPlace(selected.item.guid) : onOpenEvent(selected.item.guid),
+						},
+					]}
+				/>
+			) : null}
 
 			{city ? (
 				<BerxFadeIn style={styles.cityFade}>
@@ -181,6 +252,9 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	friendsRow: {paddingVertical: spacing.sm},
 	friendItem: {alignItems: 'center', width: 64, marginHorizontal: spacing.xs, gap: spacing.xs},
 	friendName: {fontSize: typography.sizeSm, color: colors.textDim},
+	mapFade: {paddingHorizontal: spacing.md, gap: spacing.xs},
+	mapNote: {fontSize: typography.sizeXs, color: colors.textFaint, paddingBottom: spacing.sm},
+	contextPanel: {marginHorizontal: spacing.md, marginBottom: spacing.sm},
 	pinsFade: {flex: 1},
 	pin: {marginHorizontal: spacing.md, marginBottom: spacing.sm, gap: 4},
 	pinKind: {fontSize: typography.sizeSm, color: colors.accent},

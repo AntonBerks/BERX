@@ -21,7 +21,8 @@
  */
 import React from 'react';
 import {View, StyleSheet, ViewStyle} from 'react-native';
-import {glassNight, elevation as elevationTokens, spacing, colors} from '../tokens';
+import {elevation as elevationTokens, spacing} from '../tokens';
+import {useBerxColors, useBerxGlass} from '../theme';
 import type {BerxGlassLevel, BerxElevation} from '../tokens';
 
 export interface BerxGlassSurfaceProps {
@@ -51,8 +52,13 @@ export function BerxGlassSurface({
 	radius,
 	style,
 }: BerxGlassSurfaceProps) {
+	// BERX THEME — the glass MATERIAL itself is theme-resolved, not just
+	// the text on top of it. Night glass over a Day ground would read as
+	// a smudge, so Day gets its own fill/border/hairline set.
+	const colors = useBerxColors();
+	const glass = useBerxGlass();
 	const resolvedLevel: BerxGlassLevel = level ?? (elevated ? 3 : 2);
-	const g = glassNight[resolvedLevel];
+	const g = glass[resolvedLevel];
 	const resolvedDepth: BerxElevation = depth ?? NATURAL_DEPTH[resolvedLevel];
 	return (
 		<View
