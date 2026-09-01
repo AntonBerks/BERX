@@ -38,6 +38,7 @@ interface Props {
 	onOpenPlace: (guid: number) => void;
 	onOpenEvent: (guid: number) => void;
 	onDeleted?: () => void;
+	onAddToWorld?: () => void;
 	onBack?: () => void;
 }
 
@@ -51,7 +52,7 @@ function fmtWhen(unix: number): string {
 	return new Date(unix * 1000).toLocaleString('ru-RU', {day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit'});
 }
 
-export default function ExperienceDetailScreen({api, id, onOpenPlace, onOpenEvent, onDeleted, onBack}: Props) {
+export default function ExperienceDetailScreen({api, id, onOpenPlace, onOpenEvent, onDeleted, onAddToWorld, onBack}: Props) {
 	const [experience, setExperience] = useState<BerxExperienceDetail | null>(null);
 	const [friends, setFriends] = useState<BerxFriend[]>([]);
 	const [loading, setLoading] = useState(true);
@@ -278,6 +279,8 @@ export default function ExperienceDetailScreen({api, id, onOpenPlace, onOpenEven
 				) : null}
 
 				{experience.description ? <Text style={styles.description}>{experience.description}</Text> : null}
+
+				{onAddToWorld ? <BerxButton label="В мир" variant="secondary" onPress={onAddToWorld} /> : null}
 
 				{experience.scheduled_start * 1000 <= Date.now() && (experience.is_own || experience.my_status === 'accepted') ? (
 					<View style={styles.memoryRow}>

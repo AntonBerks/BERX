@@ -13,14 +13,14 @@
 import {useCallback, useEffect, useState} from 'react';
 import {View, Text, FlatList, Pressable, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
-import type {BerxWorld} from '@berx/api/types';
+import type {BerxWorld, BerxWorldItemType} from '@berx/api/types';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
 
 interface Props {
 	api: BerxApiClient;
-	itemType: 'place' | 'event';
+	itemType: BerxWorldItemType;
 	itemGuid: number;
 	onCreateWorld: () => void;
 	onDone: () => void;

@@ -181,7 +181,7 @@ export interface BerxRouteParams {
 	CreateCollection: undefined;
 	AddToCollection: { itemType: 'place' | 'event' | 'post'; itemGuid: number };
 	AddToTrip: { itemType: 'place' | 'event'; itemGuid: number };
-	AddToWorld: { itemType: 'place' | 'event'; itemGuid: number };
+	AddToWorld: { itemType: 'place' | 'event' | 'plan' | 'experience'; itemGuid: number };
 	Circles: undefined;
 	CircleDetail: { id: number };
 	CreateCircle: undefined;

@@ -501,6 +501,7 @@ function RouteRenderer({name, params}: {name: BerxRouteName; params: unknown}) {
 					api={api}
 					id={p.id}
 					onOpenEvent={(guid) => nav.replace('EventDetail', {guid})}
+					onAddToWorld={() => nav.push('AddToWorld', {itemType: 'plan', itemGuid: p.id})}
 					onBack={nav.pop}
 				/>
 			);
@@ -856,7 +857,7 @@ function RouteRenderer({name, params}: {name: BerxRouteName; params: unknown}) {
 			);
 		}
 		case 'AddToWorld': {
-			const p = params as {itemType: 'place' | 'event'; itemGuid: number};
+			const p = params as {itemType: 'place' | 'event' | 'plan' | 'experience'; itemGuid: number};
 			return (
 				<AddToWorldScreen
 					api={api}
@@ -945,6 +946,7 @@ function RouteRenderer({name, params}: {name: BerxRouteName; params: unknown}) {
 					onOpenPlace={(guid) => nav.push('PlaceDetail', {guid})}
 					onOpenEvent={(guid) => nav.push('EventDetail', {guid})}
 					onDeleted={nav.pop}
+					onAddToWorld={() => nav.push('AddToWorld', {itemType: 'experience', itemGuid: p.id})}
 					onBack={nav.pop}
 				/>
 			);

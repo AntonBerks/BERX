@@ -28,6 +28,7 @@ interface Props {
 	api: BerxApiClient;
 	id: number;
 	onOpenEvent: (guid: number) => void;
+	onAddToWorld?: () => void;
 	onBack?: () => void;
 }
 
@@ -37,7 +38,7 @@ const INVITE_STATUS_LABEL: Record<string, string> = {
 	declined: 'Не идёт',
 };
 
-export default function PlanDetailScreen({api, id, onOpenEvent, onBack}: Props) {
+export default function PlanDetailScreen({api, id, onOpenEvent, onAddToWorld, onBack}: Props) {
 	const [plan, setPlan] = useState<BerxPlan | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
@@ -125,6 +126,8 @@ export default function PlanDetailScreen({api, id, onOpenEvent, onBack}: Props) 
 					</View>
 				) : null}
 				{plan.status === 'cancelled' ? <Text style={styles.cancelledText}>План отменён</Text> : null}
+
+				{onAddToWorld ? <BerxButton label="В мир" variant="secondary" onPress={onAddToWorld} /> : null}
 
 				<Text style={styles.sectionTitle}>Участники</Text>
 				<View style={styles.inviteList}>
