@@ -79,7 +79,7 @@ export function BerxMediaCard({
 			{children ? (
 				<View style={styles.scrim} pointerEvents="none">
 					{SCRIM_STEPS.map((opacity: number, i: number) => (
-						<View key={i} style={[styles.scrimStep, {backgroundColor: colors.black, opacity}]} />
+						<View key={i} style={[styles.scrimStep, {backgroundColor: colors.mediaScrim, opacity}]} />
 					))}
 				</View>
 			) : null}
@@ -104,11 +104,11 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	press: {},
 	wrap: {
 		overflow: 'hidden',
-		backgroundColor: colors.graphite,
+		backgroundColor: colors.mediaScrim,
 		borderWidth: 1,
 		borderColor: colors.borderSoft,
 	},
-	noMedia: {backgroundColor: colors.graphite},
+	noMedia: {backgroundColor: colors.mediaScrim},
 	scrim: {position: 'absolute', left: 0, right: 0, bottom: 0, height: '62%', flexDirection: 'column', justifyContent: 'flex-end'},
 	scrimStep: {flex: 1},
 	topLeft: {position: 'absolute', top: spacing.md, left: spacing.md},

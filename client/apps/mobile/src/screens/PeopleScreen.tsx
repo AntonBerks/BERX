@@ -232,7 +232,7 @@ export default function PeopleScreen({api, onOpenProfile, onOpenConversation, on
 }
 
 const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
-	screen: {flex: 1, backgroundColor: colors.black},
+	screen: {flex: 1, backgroundColor: colors.bg},
 	head: {flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', paddingHorizontal: spacing.lg, paddingTop: spacing.lg, gap: spacing.md},
 	headTitles: {flex: 1, gap: 2},
 	subtitle: {color: colors.textFaint, fontSize: typography.sizeXs},

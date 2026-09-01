@@ -145,7 +145,7 @@ export default function CreatePlanScreen({api, onCreated, onBack}: Props) {
 }
 
 const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
-	screen: {flex: 1, backgroundColor: colors.black},
+	screen: {flex: 1, backgroundColor: colors.bg},
 	body: {padding: spacing.lg, gap: spacing.md},
 	hint: {color: colors.textFaint, fontSize: typography.sizeXs},
 	label: {color: colors.textDim, fontSize: typography.sizeSm, fontWeight: typography.weightMedium, marginTop: spacing.sm},

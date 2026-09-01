@@ -197,7 +197,7 @@ export default function PointsScreen({api, onBack}: Props) {
 }
 
 const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
-	screen: {flex: 1, backgroundColor: colors.black},
+	screen: {flex: 1, backgroundColor: colors.bg},
 	hero: {
 		alignItems: 'center',
 		paddingVertical: spacing.xxl,

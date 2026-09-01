@@ -101,7 +101,7 @@ export default function WelcomeScreen({onLogin, onRegister}: Props) {
 }
 
 const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
-	screen: {flex: 1, backgroundColor: colors.black, overflow: 'hidden'},
+	screen: {flex: 1, backgroundColor: colors.bg, overflow: 'hidden'},
 	glowCore: {
 		position: 'absolute',
 		top: '32%',

@@ -254,14 +254,16 @@ export default function ConversationListScreen({api, onOpenConversation, onOpenM
 }
 
 const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
-	screen: {flex: 1, backgroundColor: colors.black},
+	screen: {flex: 1, backgroundColor: colors.bg},
+	head: {flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', paddingHorizontal: spacing.lg, paddingTop: spacing.md, gap: spacing.md},
+	headline: {flex: 1},
 	titleRow: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.lg, paddingTop: spacing.md},
 	title: {color: colors.text, fontSize: typography.sizeXl, fontWeight: typography.weightBold},
 	onlineRow: {paddingHorizontal: spacing.lg, paddingBottom: spacing.sm, gap: spacing.sm},
 	onlineItem: {alignItems: 'center', width: 60, marginRight: spacing.xs},
 	onlineAvatarWrap: {width: 48, height: 48},
 	onlineAvatar: {width: 48, height: 48, borderRadius: 24, backgroundColor: colors.graphite},
-	onlineDot: {position: 'absolute', bottom: 0, right: 0, width: 12, height: 12, borderRadius: 6, backgroundColor: colors.accent, borderWidth: 2, borderColor: colors.black},
+	onlineDot: {position: 'absolute', bottom: 0, right: 0, width: 12, height: 12, borderRadius: 6, backgroundColor: colors.accent, borderWidth: 2, borderColor: colors.bg},
 	onlineName: {fontSize: typography.sizeXs, color: colors.textDim, marginTop: 4},
 	peopleSection: {marginTop: spacing.sm},
 	peopleLabel: {color: colors.textFaint, fontSize: typography.sizeXs, fontWeight: typography.weightBold, textTransform: 'uppercase', letterSpacing: 0.4, paddingHorizontal: spacing.lg, marginBottom: spacing.xs},
@@ -273,7 +275,7 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	peopleMeta: {color: colors.textDim, fontSize: typography.sizeXs},
 	searchBar: {padding: spacing.lg, paddingBottom: spacing.sm},
 	listFade: {flex: 1},
-	list: {backgroundColor: colors.black, flex: 1},
+	list: {backgroundColor: colors.bg, flex: 1},
 	row: {
 		flexDirection: 'row',
 		alignItems: 'center',
@@ -291,7 +293,7 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	// BerxWayfinder's sliding indicator.
 	rowAvatarWrapUnread: {borderWidth: 2, borderColor: colors.accent},
 	/** Real per-row presence — same OssnUser::isOnline(10) signal as the "В сети" rail above, just also on the row itself. */
-	rowOnlineDot: {position: 'absolute', bottom: 0, right: 0, width: 12, height: 12, borderRadius: 6, backgroundColor: colors.accent, borderWidth: 2, borderColor: colors.black},
+	rowOnlineDot: {position: 'absolute', bottom: 0, right: 0, width: 12, height: 12, borderRadius: 6, backgroundColor: colors.accent, borderWidth: 2, borderColor: colors.bg},
 	rowText: {flex: 1, gap: 3},
 	skeletonAvatar: {borderRadius: 26},
 	skeletonGap: {marginTop: 4},

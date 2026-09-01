@@ -79,7 +79,7 @@ function assetToFilePart(asset: PickerAsset | undefined, fallbackName: string, f
 
 /** Gallery photo picker — used by AlbumDetailScreen, CreatePostScreen, Creator, and any future photo-attachment flow. */
 export async function pickImageFromLibrary(): Promise<BerxFilePart | null> {
-	const result: PickerResponse = await launchImageLibrary({ mediaType: 'photo', quality: 0.85 });
+	const result: PickerResponse = await launchImageLibrary({ mediaType: 'photo', quality: 0.8 });
 	if (result.didCancel || result.errorCode) {
 		return null;
 	}
@@ -97,7 +97,7 @@ export async function pickVideoFromLibrary(): Promise<BerxFilePart | null> {
 
 /** Camera capture — photo or video, same real library, same real permission flow. */
 export async function pickFromCamera(mediaType: 'photo' | 'video' = 'photo'): Promise<BerxFilePart | null> {
-	const result: PickerResponse = await launchCamera({ mediaType, quality: 0.85, saveToPhotos: false });
+	const result: PickerResponse = await launchCamera({ mediaType, quality: 0.8, saveToPhotos: false });
 	if (result.didCancel || result.errorCode) {
 		return null;
 	}

@@ -69,7 +69,7 @@ export default function CreateCommunityScreen({api, onCreated, onBack}: Props) {
 }
 
 const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
-	screen: {flex: 1, backgroundColor: colors.black},
+	screen: {flex: 1, backgroundColor: colors.bg},
 	content: {padding: spacing.lg, gap: spacing.md},
 	descInput: {minHeight: 100, textAlignVertical: 'top'},
 	privacyRow: {flexDirection: 'row', gap: spacing.sm},

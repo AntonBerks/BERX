@@ -250,7 +250,7 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	heroImage: {width: '100%', height: '100%'},
 	heroPlaceholder: {width: '100%', height: '100%', backgroundColor: colors.surface},
 	coverActions: {position: 'absolute', right: spacing.sm, bottom: spacing.sm, flexDirection: 'row', gap: spacing.xs},
-	coverActionButton: {backgroundColor: colors.black, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs, borderRadius: 6, borderWidth: 1, borderColor: colors.accent},
+	coverActionButton: {backgroundColor: colors.bg, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs, borderRadius: 6, borderWidth: 1, borderColor: colors.accent},
 	coverActionLabel: {color: colors.accent, fontSize: typography.sizeXs, fontWeight: typography.weightMedium},
 	avatarWrap: {position: 'absolute', left: spacing.lg, bottom: -32, alignItems: 'center'},
 	avatar: {width: 72, height: 72, borderRadius: 36, backgroundColor: colors.graphite, borderWidth: 3, borderColor: colors.bg},

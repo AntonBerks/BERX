@@ -57,7 +57,7 @@ export function BerxContextPanel({
 	);
 
 	return (
-		<BerxGlassSurface level={4} padding={0} radius={radiusTokens.lg} style={[styles.panel, style] as ViewStyle}>
+		<BerxGlassSurface level={4} padding={0} radius={radiusTokens.lg} style={{...styles.panel, ...(style ?? {})}}>
 			<View style={styles.grabber} />
 			<View style={styles.body}>
 				<View style={styles.headRow}>

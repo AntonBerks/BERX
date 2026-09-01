@@ -16,7 +16,7 @@
  * being dark enough — legibility is not left to chance over an
  * arbitrary photo.
  */
-import React, {useMemo} from 'react';
+import {useMemo} from 'react';
 import {View, Text, Pressable, StyleSheet, ViewStyle} from 'react-native';
 import {spacing, typography} from '../tokens';
 
@@ -87,7 +87,7 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 		borderColor: 'rgba(255,255,255,0.18)',
 	},
 	buttonActive: {backgroundColor: colors.accentSoft, borderColor: colors.accent},
-	glyph: {color: colors.white, fontSize: 17},
+	glyph: {color: colors.onMedia, fontSize: 17},
 	glyphActive: {color: colors.accent},
-	count: {color: 'rgba(255,255,255,0.82)', fontSize: 11, fontWeight: typography.weightMedium},
+	count: {color: colors.onMediaDim, fontSize: 11, fontWeight: typography.weightMedium},
 });

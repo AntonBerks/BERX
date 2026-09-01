@@ -144,7 +144,9 @@ export default function MyMomentsScreen({api, onOpenEvent, onOpenExperience, onO
 }
 
 const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
-	screen: {flex: 1, backgroundColor: colors.black},
+	screen: {flex: 1, backgroundColor: colors.bg},
+	head: {paddingHorizontal: spacing.lg, paddingTop: spacing.md},
+	headline: {},
 	fadeFlex: {flex: 1},
 	list: {padding: spacing.lg},
 	separator: {height: 1, backgroundColor: colors.borderSoft},

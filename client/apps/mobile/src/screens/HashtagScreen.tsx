@@ -99,7 +99,7 @@ export default function HashtagScreen({api, tag, onOpenPost, onOpenProfile, onOp
 }
 
 const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
-	screen: {flex: 1, backgroundColor: colors.black},
+	screen: {flex: 1, backgroundColor: colors.bg},
 	fadeFlex: {flex: 1},
 	list: {paddingHorizontal: spacing.lg, paddingBottom: spacing.xxl},
 	separator: {height: 1, backgroundColor: colors.borderSoft},

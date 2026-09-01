@@ -112,7 +112,7 @@ export function GifPickerModal({visible, onClose, onSelect, search, trending}: P
 
 const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	backdrop: {flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end'},
-	sheet: {backgroundColor: colors.black, borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg, padding: spacing.md, height: '75%', gap: spacing.sm},
+	sheet: {backgroundColor: colors.bg, borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg, padding: spacing.md, height: '75%', gap: spacing.sm},
 	header: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'},
 	title: {color: colors.text, fontSize: typography.sizeLg, fontWeight: typography.weightBold},
 	closeLabel: {color: colors.accent, fontSize: typography.sizeSm},

@@ -140,7 +140,7 @@ export default function CreateWorldScreen({api, onCreated, onBack}: Props) {
 }
 
 const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
-	screen: {flex: 1, backgroundColor: colors.black},
+	screen: {flex: 1, backgroundColor: colors.bg},
 	body: {padding: spacing.lg, gap: spacing.md},
 	label: {color: colors.textDim, fontSize: typography.sizeSm, fontWeight: typography.weightMedium, marginTop: spacing.sm},
 	chipWrap: {flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs},

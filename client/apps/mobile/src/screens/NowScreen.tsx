@@ -530,7 +530,7 @@ function SectionHead({
 }
 
 const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
-	screen: {flex: 1, backgroundColor: colors.black},
+	screen: {flex: 1, backgroundColor: colors.bg},
 	scroll: {flex: 1},
 	scrollContent: {paddingBottom: spacing.xxxl},
 	skeletonWrap: {padding: spacing.lg, paddingTop: spacing.xl},

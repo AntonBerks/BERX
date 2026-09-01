@@ -287,7 +287,7 @@ export default function CreatePostScreen({api, pickImage, onCreated, draft, onOp
 }
 
 const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
-	screen: {flex: 1, backgroundColor: colors.black, padding: spacing.lg, gap: spacing.md},
+	screen: {flex: 1, backgroundColor: colors.bg, padding: spacing.lg, gap: spacing.md},
 	titleRow: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.sm},
 	title: {color: colors.text, fontSize: typography.sizeXl, fontWeight: typography.weightBold},
 	draftsLink: {color: colors.accent, fontSize: typography.sizeSm, fontWeight: typography.weightMedium},
@@ -298,7 +298,7 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	input: {minHeight: 120, textAlignVertical: 'top'},
 	previewWrap: {alignSelf: 'flex-start'},
 	preview: {width: 96, height: 96, borderRadius: radius.md, backgroundColor: colors.graphite},
-	previewRemove: {position: 'absolute', top: -6, right: -6, width: 22, height: 22, borderRadius: 11, backgroundColor: colors.black, alignItems: 'center', justifyContent: 'center'},
+	previewRemove: {position: 'absolute', top: -6, right: -6, width: 22, height: 22, borderRadius: 11, backgroundColor: colors.bg, alignItems: 'center', justifyContent: 'center'},
 	previewRemoveText: {color: colors.textDim, fontSize: typography.sizeXs},
 	mediaRow: {flexDirection: 'row', gap: spacing.sm, flexWrap: 'wrap'},
 	pollBox: {gap: spacing.xs},

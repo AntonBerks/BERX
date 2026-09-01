@@ -132,9 +132,9 @@ export function BerxProfileHero({
 
 const makeStyles = (colors: BerxColorTokens) =>
 	StyleSheet.create({
-		hero: {backgroundColor: colors.graphite, justifyContent: 'flex-end', overflow: 'hidden'},
-		fallback: {alignItems: 'center', justifyContent: 'center', backgroundColor: colors.graphite},
-		fallbackGlyph: {fontSize: typography.sizeHero, color: colors.textFaint, fontWeight: typography.weightBold},
+		hero: {backgroundColor: colors.mediaScrim, justifyContent: 'flex-end', overflow: 'hidden'},
+		fallback: {alignItems: 'center', justifyContent: 'center', backgroundColor: colors.mediaScrim},
+		fallbackGlyph: {fontSize: typography.sizeHero, color: colors.onMediaFaint, fontWeight: typography.weightBold},
 		scrimStep: {position: 'absolute', left: 0, right: 0, bottom: 0},
 		content: {padding: spacing.xl, gap: spacing.xs},
 		avatar: {
@@ -148,13 +148,13 @@ const makeStyles = (colors: BerxColorTokens) =>
 		},
 		eyebrow: {fontSize: typography.sizeXs, color: colors.accent, letterSpacing: 1.4, fontWeight: typography.weightBold},
 		title: {
-			color: colors.white,
+			color: colors.onMedia,
 			fontSize: typography.sizeHero,
 			fontWeight: typography.weightBold,
 			letterSpacing: -1,
 		},
-		handle: {color: colors.textDim, fontSize: typography.sizeBase, marginTop: 2},
-		meta: {color: colors.textFaint, fontSize: typography.sizeSm, marginTop: 2},
+		handle: {color: colors.onMediaDim, fontSize: typography.sizeBase, marginTop: 2},
+		meta: {color: colors.onMediaFaint, fontSize: typography.sizeSm, marginTop: 2},
 		statTiles: {flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md},
 		statTile: {
 			flex: 1,
@@ -166,12 +166,12 @@ const makeStyles = (colors: BerxColorTokens) =>
 			gap: spacing.xs,
 		},
 		statValue: {
-			color: colors.white,
+			color: colors.onMedia,
 			fontSize: typography.sizeTitle,
 			fontWeight: typography.weightBold,
 			letterSpacing: -0.6,
 		},
 		statFoot: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'},
-		statLabel: {color: colors.textDim, fontSize: typography.sizeXs, textTransform: 'uppercase'},
+		statLabel: {color: colors.onMediaDim, fontSize: typography.sizeXs, textTransform: 'uppercase'},
 		statArrow: {color: colors.accent, fontSize: typography.sizeSm},
 	});

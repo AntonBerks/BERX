@@ -10,7 +10,7 @@
  * fetched — this component never invents filler faces to make a stack
  * look fuller. With one real person it renders one avatar.
  */
-import React, {useMemo} from 'react';
+import {useMemo} from 'react';
 import {View, Image, Text, StyleSheet, ViewStyle} from 'react-native';
 import {typography} from '../tokens';
 
@@ -83,7 +83,7 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	row: {flexDirection: 'row', alignItems: 'center'},
 	slot: {
 		borderWidth: 1.5,
-		borderColor: colors.black,
+		borderColor: colors.bg,
 		overflow: 'hidden',
 		backgroundColor: colors.graphite,
 	},

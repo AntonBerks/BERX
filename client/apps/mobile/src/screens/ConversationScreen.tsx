@@ -379,7 +379,7 @@ export default function ConversationScreen({api, myGuid, otherGuid, otherUsernam
 }
 
 const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
-	screen: {flex: 1, backgroundColor: colors.black},
+	screen: {flex: 1, backgroundColor: colors.bg},
 	list: {flex: 1, paddingHorizontal: spacing.md},
 	bubble: {
 		maxWidth: '80%',

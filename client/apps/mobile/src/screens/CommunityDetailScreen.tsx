@@ -482,7 +482,7 @@ export default function CommunityDetailScreen({api, guid, myGuid, pickImage, onB
 }
 
 const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
-	screen: {flex: 1, backgroundColor: colors.black},
+	screen: {flex: 1, backgroundColor: colors.bg},
 	coverActions: {flexDirection: 'row', gap: spacing.md, marginTop: spacing.sm},
 	coverEditLabel: {color: colors.accent, fontSize: typography.sizeXs, fontWeight: typography.weightMedium},
 	content: {padding: spacing.lg, gap: spacing.md},

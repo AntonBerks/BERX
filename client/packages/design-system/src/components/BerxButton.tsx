@@ -45,7 +45,7 @@ export function BerxButton({ label, variant = 'primary', loading, fullWidth, dis
 			{...rest}
 		>
 			{loading ? (
-				<ActivityIndicator color={variant === 'primary' ? colors.black : colors.text} />
+				<ActivityIndicator color={variant === 'primary' ? colors.onAccent : colors.text} />
 			) : (
 				<Text
 					style={[
@@ -103,6 +103,6 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 		fontWeight: typography.weightMedium,
 	},
 	labelOnPrimary: {
-		color: colors.black,
+		color: colors.onAccent,
 	},
 });

@@ -1507,7 +1507,7 @@ function UnauthenticatedFlow() {
 }
 
 const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
-	shell: {flex: 1, backgroundColor: colors.black},
+	shell: {flex: 1, backgroundColor: colors.bg},
 	content: {flex: 1},
 	tabPane: {flex: 1},
 	tabPaneHidden: {display: 'none'},
@@ -1516,7 +1516,7 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	comingSoonText: {color: colors.textDim, fontSize: typography.sizeBase, textAlign: 'center'},
 	bootErrorContainer: {
 		flex: 1,
-		backgroundColor: colors.black,
+		backgroundColor: colors.bg,
 		alignItems: 'center',
 		justifyContent: 'center',
 		padding: spacing.xl,
@@ -1528,5 +1528,5 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 		paddingVertical: spacing.md,
 		paddingHorizontal: spacing.xl,
 	},
-	retryButtonText: {color: colors.black, fontWeight: typography.weightMedium},
+	retryButtonText: {color: colors.onAccent, fontWeight: typography.weightMedium},
 });

@@ -235,5 +235,5 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 		borderRadius: radius.pill,
 		backgroundColor: colors.accent,
 	},
-	dateChipText: {fontSize: typography.sizeXs, color: colors.black, fontWeight: typography.weightBold},
+	dateChipText: {fontSize: typography.sizeXs, color: colors.onAccent, fontWeight: typography.weightBold},
 });

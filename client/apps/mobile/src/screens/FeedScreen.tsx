@@ -261,7 +261,7 @@ export default function FeedScreen({api, myGuid, onOpenPost, onOpenProfile, onOp
 }
 
 const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
-	screen: {flex: 1, backgroundColor: colors.black},
+	screen: {flex: 1, backgroundColor: colors.bg},
 	header: {
 		flexDirection: 'row',
 		alignItems: 'center',
@@ -272,7 +272,7 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	headerTitle: {color: colors.text, fontSize: typography.sizeXl, fontWeight: typography.weightBold, letterSpacing: 1},
 	headerTitleAccent: {color: colors.accent},
 	headerCreate: {padding: spacing.xs},
-	list: {backgroundColor: colors.black},
+	list: {backgroundColor: colors.bg},
 	storyRailWrap: {borderBottomWidth: 1, borderBottomColor: colors.borderSoft, paddingBottom: spacing.md},
 	trendingRail: {flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.borderSoft},
 	trendingChip: {paddingHorizontal: spacing.sm, paddingVertical: 4, borderRadius: radius.pill, backgroundColor: colors.surface},

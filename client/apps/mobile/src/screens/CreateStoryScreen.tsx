@@ -111,7 +111,7 @@ export default function CreateStoryScreen({api, pickImage, pickVideo, eventGuid,
 }
 
 const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
-	screen: {flex: 1, backgroundColor: colors.black},
+	screen: {flex: 1, backgroundColor: colors.bg},
 	content: {padding: spacing.lg, gap: spacing.md},
 	preview: {width: '100%', height: 320, borderRadius: radius.md, backgroundColor: colors.graphite},
 	placeholder: {

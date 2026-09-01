@@ -11,7 +11,7 @@
  * Every tile is a REAL story owner the caller can actually open. The
  * leading tile is the caller's own real create action.
  */
-import React, {useMemo} from 'react';
+import {useMemo} from 'react';
 import {View, Text, Image, Pressable, ScrollView, StyleSheet, ViewStyle} from 'react-native';
 import {spacing, typography} from '../tokens';
 

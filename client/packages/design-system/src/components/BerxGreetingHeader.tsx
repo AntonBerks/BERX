@@ -158,9 +158,9 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 		alignItems: 'center',
 		justifyContent: 'center',
 		borderWidth: 2,
-		borderColor: colors.black,
+		borderColor: colors.bg,
 	},
-	badgeText: {color: colors.black, fontSize: 9, fontWeight: typography.weightBold},
+	badgeText: {color: colors.onAccent, fontSize: 9, fontWeight: typography.weightBold},
 	titleWrap: {paddingHorizontal: spacing.lg, paddingTop: spacing.lg, gap: 2},
 	titleLine: {
 		color: colors.text,

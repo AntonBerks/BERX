@@ -142,7 +142,7 @@ export default function PlansScreen({api, onOpenPlan, onCreate, onBack}: Props) 
 }
 
 const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
-	screen: {flex: 1, backgroundColor: colors.black},
+	screen: {flex: 1, backgroundColor: colors.bg},
 	toolbar: {paddingHorizontal: spacing.lg, paddingVertical: spacing.md, gap: spacing.sm},
 	hint: {color: colors.textFaint, fontSize: typography.sizeXs},
 	fadeFlex: {flex: 1},
@@ -158,5 +158,5 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	statusDotConverted: {backgroundColor: colors.success},
 	statusText: {color: colors.textFaint, fontSize: typography.sizeXs},
 	avatarCluster: {flexDirection: 'row', alignItems: 'center'},
-	avatarClusterItem: {borderRadius: radius.pill, borderWidth: 2, borderColor: colors.black},
+	avatarClusterItem: {borderRadius: radius.pill, borderWidth: 2, borderColor: colors.bg},
 });

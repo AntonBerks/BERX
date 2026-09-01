@@ -87,7 +87,7 @@ export default function CreateVideoScreen({api, pickVideo, onCreated, onBack}: P
 }
 
 const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
-	screen: {flex: 1, backgroundColor: colors.black},
+	screen: {flex: 1, backgroundColor: colors.bg},
 	body: {padding: spacing.lg, gap: spacing.md},
 	input: {minHeight: 80, textAlignVertical: 'top'},
 	error: {color: colors.danger, fontSize: typography.sizeSm},

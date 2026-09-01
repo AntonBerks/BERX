@@ -89,7 +89,7 @@ export default function OnboardingScreen({api, user, pickImage, onComplete}: Pro
 }
 
 const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
-	screen: {flex: 1, backgroundColor: colors.black, padding: spacing.xl, justifyContent: 'center', alignItems: 'center', gap: spacing.md},
+	screen: {flex: 1, backgroundColor: colors.bg, padding: spacing.xl, justifyContent: 'center', alignItems: 'center', gap: spacing.md},
 	eyebrow: {fontSize: typography.sizeSm, color: colors.textFaint, textTransform: 'uppercase', letterSpacing: 1},
 	name: {fontSize: typography.sizeXl, fontWeight: typography.weightBold, color: colors.text, marginTop: spacing.sm},
 	handle: {fontSize: typography.sizeBase, color: colors.accent},

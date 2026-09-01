@@ -53,7 +53,7 @@
  * changed, per the transformation directive's own "preserve
  * functionality, reinvent presentation" rule.
  */
-import React, {useCallback, useEffect, useRef, useState, useMemo} from 'react';
+import {Fragment, useCallback, useEffect, useRef, useState, useMemo} from 'react';
 import {Animated, LayoutChangeEvent, Pressable, StyleSheet, Text, View} from 'react-native';
 import {radius, spacing, typography} from '../tokens';
 import {IconHome, IconUsers, IconPlus, IconPin, IconMenu} from './BerxIcons';
@@ -110,7 +110,7 @@ export function BerxWayfinder({activeTab, onSelect, unreadNotifications}: Props)
 	const pressScales = useRef<Record<BerxWayfinderTab, Animated.Value>>({
 		Home: new Animated.Value(1),
 		People: new Animated.Value(1),
-		CreatePost: new Animated.Value(1), // unused here — the orb owns orbPressScale instead
+		Create: new Animated.Value(1), // unused here — the orb owns orbPressScale instead
 		Places: new Animated.Value(1),
 		Profile: new Animated.Value(1),
 	}).current;
@@ -157,15 +157,20 @@ export function BerxWayfinder({activeTab, onSelect, unreadNotifications}: Props)
 						},
 					]}
 				/>
-				{FLAT_TABS.map((tab) => {
+				{FLAT_TABS.map((tab, flatIndex) => {
 					const active = activeTab === tab;
 					const scale = pressScales[tab];
 					// BERX SPATIAL NAV — Messages is no longer a bottom destination
 					// (NOW carries it, badge and all, in its environment strip), so
 					// the flat track only badges Profile's real unread notifications.
 					const badge = tab === 'Profile' ? unreadNotifications : 0;
-					const iconColor = active ? colors.black : colors.textFaint;
-					return (
+					const iconColor = active ? colors.onAccent : colors.textFaint;
+					// The orb's slot must sit BETWEEN the two pairs, not after
+					// them: rendering the spacer at the end left the row as
+					// Home/People/Places/Profile/spacer, which put the centred
+					// orb directly on top of the Places hit target. Verified in
+					// a browser run: Places and the orb shared the same centre.
+					const item = (
 						<Pressable
 							key={tab}
 							onLayout={(e: LayoutChangeEvent) => {
@@ -188,12 +193,20 @@ export function BerxWayfinder({activeTab, onSelect, unreadNotifications}: Props)
 							</Animated.View>
 						</Pressable>
 					);
+					// Spacer holding the orb's slot in the flex row so the two
+					// flat items either side stay evenly spaced — the orb
+					// itself renders on top, absolutely positioned, so it can
+					// protrude above the pill's own top edge.
+					if (flatIndex === ORB_INDEX) {
+						return (
+							<Fragment key={tab}>
+								<View style={styles.orbSpacer} />
+								{item}
+							</Fragment>
+						);
+					}
+					return item;
 				})}
-				{/* Spacer holding the orb's slot in the flex row so the two
-				    flat items either side stay evenly spaced — the orb
-				    itself renders on top, absolutely positioned, so it can
-				    protrude above the pill's own top edge. */}
-				<View style={styles.orbSpacer} />
 			</View>
 			<Animated.View
 				style={[
@@ -210,7 +223,7 @@ export function BerxWayfinder({activeTab, onSelect, unreadNotifications}: Props)
 					style={[styles.orb, activeTab === 'Create' && styles.orbActive]}
 					hitSlop={8}
 				>
-					{tabIcon('Create', 24, activeTab === 'Create' ? colors.black : colors.accent)}
+					{tabIcon('Create', 24, activeTab === 'Create' ? colors.onAccent : colors.accent)}
 				</Pressable>
 			</Animated.View>
 		</View>
@@ -275,7 +288,7 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 		width: ORB_SIZE,
 		height: ORB_SIZE,
 		borderRadius: ORB_SIZE / 2,
-		backgroundColor: colors.black,
+		backgroundColor: colors.bg,
 		borderWidth: 2,
 		borderColor: colors.accent,
 		alignItems: 'center',

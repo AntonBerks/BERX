@@ -109,7 +109,7 @@ export default function StoriesRailScreen({api, myGuid, myUsername, onOpenGroup,
 }
 
 const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
-	screen: {flex: 1, backgroundColor: colors.black},
+	screen: {flex: 1, backgroundColor: colors.bg},
 	createButton: {
 		margin: spacing.lg,
 		padding: spacing.md,

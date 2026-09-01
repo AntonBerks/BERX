@@ -47,7 +47,7 @@ export default function DatingMatchScreen({otherUsername, onMessage, onContinueB
 const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	screen: {
 		flex: 1,
-		backgroundColor: colors.black,
+		backgroundColor: colors.bg,
 		alignItems: 'center',
 		justifyContent: 'center',
 		padding: spacing.xl,
@@ -79,6 +79,6 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 		alignItems: 'center',
 		justifyContent: 'center',
 	},
-	heartText: {color: colors.black, fontSize: 20},
+	heartText: {color: colors.onAccent, fontSize: 20},
 	actions: {width: '100%', gap: spacing.md},
 });

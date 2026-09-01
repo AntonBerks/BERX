@@ -623,7 +623,7 @@ function orderCommentsThreaded(comments: BerxPostComment[]): {comment: BerxPostC
 }
 
 const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
-	screen: {flex: 1, backgroundColor: colors.black},
+	screen: {flex: 1, backgroundColor: colors.bg},
 	container: {flex: 1, padding: spacing.lg, gap: spacing.md},
 	author: {color: colors.accent, fontWeight: typography.weightBold, fontSize: typography.sizeXs, textTransform: 'uppercase', letterSpacing: 0.6},
 	text: {color: colors.text, fontSize: typography.sizeLg, fontWeight: typography.weightMedium, letterSpacing: -0.1, lineHeight: typography.sizeLg * 1.32, marginTop: spacing.xs},

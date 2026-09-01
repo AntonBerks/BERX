@@ -68,7 +68,7 @@ export function BerxImmersivePost({
 
 			<View style={styles.scrim} pointerEvents="none">
 				{SCRIM_STEPS.map((opacity: number, i: number) => (
-					<View key={i} style={[styles.scrimStep, {backgroundColor: colors.black, opacity}]} />
+					<View key={i} style={[styles.scrimStep, {backgroundColor: colors.mediaScrim, opacity}]} />
 				))}
 			</View>
 
@@ -116,7 +116,9 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	wrap: {
 		borderRadius: radius.lg + 8,
 		overflow: 'hidden',
-		backgroundColor: colors.graphite,
+		// Media ground, not surface ground: the overlays on top are white
+		// in both environments, so this must stay dark even in Day.
+		backgroundColor: colors.mediaScrim,
 		borderWidth: 1,
 		borderColor: colors.borderSoft,
 	},
@@ -138,12 +140,12 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 		borderColor: 'rgba(255,255,255,0.16)',
 		maxWidth: '72%',
 	},
-	authorAvatar: {width: 30, height: 30, borderRadius: 15, backgroundColor: colors.graphite},
+	authorAvatar: {width: 30, height: 30, borderRadius: 15, backgroundColor: colors.mediaScrim},
 	authorAvatarFallback: {alignItems: 'center', justifyContent: 'center'},
 	authorInitial: {color: colors.accent, fontSize: typography.sizeXs, fontWeight: typography.weightBold},
 	authorText: {flexShrink: 1},
-	authorName: {color: colors.white, fontSize: typography.sizeSm, fontWeight: typography.weightBold},
-	authorMeta: {color: 'rgba(255,255,255,0.7)', fontSize: 11},
+	authorName: {color: colors.onMedia, fontSize: typography.sizeSm, fontWeight: typography.weightBold},
+	authorMeta: {color: colors.onMediaDim, fontSize: 11},
 	mediaCount: {
 		position: 'absolute',
 		top: spacing.md,
@@ -155,11 +157,11 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 		borderWidth: 1,
 		borderColor: 'rgba(255,255,255,0.16)',
 	},
-	mediaCountText: {color: colors.white, fontSize: 11, fontWeight: typography.weightMedium},
+	mediaCountText: {color: colors.onMedia, fontSize: 11, fontWeight: typography.weightMedium},
 	rail: {position: 'absolute', right: spacing.md, bottom: '26%'},
 	bottom: {position: 'absolute', left: 0, right: 0, bottom: 0, padding: spacing.lg, paddingRight: 76, gap: spacing.sm},
 	caption: {
-		color: colors.white,
+		color: colors.onMedia,
 		fontSize: typography.sizeLg,
 		fontWeight: typography.weightMedium,
 		lineHeight: 23,

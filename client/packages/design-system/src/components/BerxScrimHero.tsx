@@ -74,13 +74,13 @@ export function BerxScrimHero({imageUrl, title, subtitle, badge, height = 280, f
 }
 
 const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
-	wrap: {width: '100%', backgroundColor: colors.graphite, justifyContent: 'flex-end'},
+	wrap: {width: '100%', backgroundColor: colors.mediaScrim, justifyContent: 'flex-end'},
 	fill: {flex: 1},
-	fallback: {alignItems: 'center', justifyContent: 'center', backgroundColor: colors.graphite},
-	fallbackGlyph: {fontSize: typography.sizeHero, color: colors.textFaint, fontWeight: typography.weightBold},
+	fallback: {alignItems: 'center', justifyContent: 'center', backgroundColor: colors.mediaScrim},
+	fallbackGlyph: {fontSize: typography.sizeHero, color: colors.onMediaFaint, fontWeight: typography.weightBold},
 	content: {padding: spacing.lg, gap: spacing.xs},
-	title: {fontSize: typography.sizeTitle, color: colors.white, fontWeight: typography.weightBold, letterSpacing: -0.3},
-	subtitle: {fontSize: typography.sizeSm, color: colors.textDim},
+	title: {fontSize: typography.sizeTitle, color: colors.onMedia, fontWeight: typography.weightBold, letterSpacing: -0.3},
+	subtitle: {fontSize: typography.sizeSm, color: colors.onMediaDim},
 });
 
 export const scrimBadgeStyles = StyleSheet.create({
@@ -96,6 +96,6 @@ export const scrimBadgeStyles = StyleSheet.create({
 		borderWidth: 1,
 		borderColor: colors.glassBusinessBorder,
 	},
-	badgeText: {fontSize: typography.sizeXs, color: colors.white, fontWeight: typography.weightMedium},
+	badgeText: {fontSize: typography.sizeXs, color: colors.onMedia, fontWeight: typography.weightMedium},
 	badgeTextAccent: {fontSize: typography.sizeXs, color: colors.accent, fontWeight: typography.weightBold},
 });

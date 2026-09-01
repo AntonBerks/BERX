@@ -188,7 +188,7 @@ export default function DatingMatchesScreen({api, onOpenConversation, onOpenPhot
 }
 
 const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
-	screen: {flex: 1, backgroundColor: colors.black},
+	screen: {flex: 1, backgroundColor: colors.bg},
 	fadeFlex: {flex: 1},
 	row: {flexDirection: 'row', alignItems: 'center', padding: spacing.lg, borderBottomWidth: 1, borderBottomColor: colors.borderSoft},
 	rowBody: {flex: 1},

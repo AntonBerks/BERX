@@ -13,7 +13,7 @@
  * actually return: each is optional and simply doesn't render when
  * the caller has no real value for it.
  */
-import React, {useMemo} from 'react';
+import {useMemo} from 'react';
 import {View, Text, StyleSheet, ViewStyle} from 'react-native';
 import {spacing, typography, radius} from '../tokens';
 import {BerxMediaCard} from './BerxMediaCard';
@@ -328,7 +328,7 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 		borderColor: colors.accentSoft,
 	},
 	liveDot: {width: 6, height: 6, borderRadius: 3, backgroundColor: colors.accent},
-	liveText: {color: colors.accent, fontSize: 11, fontWeight: typography.weightBold, letterSpacing: 0.4, textTransform: 'uppercase'},
+	liveText: {color: colors.accentOnMedia, fontSize: 11, fontWeight: typography.weightBold, letterSpacing: 0.4, textTransform: 'uppercase'},
 	metaPill: {
 		paddingHorizontal: spacing.sm,
 		paddingVertical: 4,
@@ -339,17 +339,17 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 		maxWidth: 150,
 	},
 	metaPillAccent: {borderColor: colors.accentSoft, backgroundColor: colors.accentSoft},
-	metaPillText: {color: colors.text, fontSize: 11, fontWeight: typography.weightMedium},
-	metaPillTextAccent: {color: colors.accent},
-	cardTitle: {color: colors.white, fontSize: typography.sizeLg, fontWeight: typography.weightBold, letterSpacing: -0.2},
-	personName: {color: colors.white, fontSize: typography.sizeSm, fontWeight: typography.weightBold, letterSpacing: 0.4},
+	metaPillText: {color: colors.onMedia, fontSize: 11, fontWeight: typography.weightMedium},
+	metaPillTextAccent: {color: colors.accentOnMedia},
+	cardTitle: {color: colors.onMedia, fontSize: typography.sizeLg, fontWeight: typography.weightBold, letterSpacing: -0.2},
+	personName: {color: colors.onMedia, fontSize: typography.sizeSm, fontWeight: typography.weightBold, letterSpacing: 0.4},
 	metaRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm},
 	metaText: {color: 'rgba(245,245,247,0.72)', fontSize: typography.sizeXs, flexShrink: 1},
-	metaAccent: {color: colors.accent, fontSize: typography.sizeXs, fontWeight: typography.weightMedium},
+	metaAccent: {color: colors.accentOnMedia, fontSize: typography.sizeXs, fontWeight: typography.weightMedium},
 	peopleRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: 2},
 	peopleText: {color: 'rgba(245,245,247,0.72)', fontSize: typography.sizeXs},
 	momentByline: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm},
 	momentAuthor: {color: 'rgba(245,245,247,0.72)', fontSize: 11, fontWeight: typography.weightBold, letterSpacing: 0.5},
-	momentText: {color: colors.white, fontSize: typography.sizeBase, fontWeight: typography.weightMedium, lineHeight: 20},
+	momentText: {color: colors.onMedia, fontSize: typography.sizeBase, fontWeight: typography.weightMedium, lineHeight: 20},
 	momentPeople: {marginTop: 2},
 });

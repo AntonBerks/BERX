@@ -96,6 +96,15 @@ interface ProfileData {
 	banned?: boolean;
 	/** Real presence (OssnUser::isOnline(10)) — absent/undefined on own profile (me.php doesn't return it; showing your own "online" dot to yourself is meaningless). */
 	is_online?: boolean;
+	/**
+	 * Real, bounded intersections profiles.php actually returns (see its
+	 * own header). They were missing from this local interface, so the
+	 * "N общих друзей" line silently never rendered — the missing React
+	 * types hid it from tsc. Optional because /me does not return them
+	 * (they are 0 against yourself by definition).
+	 */
+	mutual_friends_count?: number;
+	mutual_communities_count?: number;
 	/** The real shape both /me and /profiles/{username} return — kept as the shared BerxReputation type rather than a stale narrower copy (this file's local list had drifted behind the server, which the missing React types here hid from tsc). */
 	reputation?: BerxReputation;
 }
@@ -364,6 +373,9 @@ export default function ProfileScreen({api, authState, username, onBack, onMessa
 	}
 
 	const year = joinedYear(profile.time_created);
+	// profiles.php returns these; /me does not (they are 0 against yourself).
+	const mutualFriends = profile.mutual_friends_count ?? 0;
+	const mutualCommunities = profile.mutual_communities_count ?? 0;
 
 	return (
 		<Animated.ScrollView
@@ -407,11 +419,11 @@ export default function ProfileScreen({api, authState, username, onBack, onMessa
 						) : null}
 						<Text style={styles.heroWordmark}>{profile.fullname || profile.username}</Text>
 						<Text style={styles.heroUsername}>@{profile.username}</Text>
-						{!isOwn && (profile.mutual_friends_count > 0 || profile.mutual_communities_count > 0) ? (
+						{!isOwn && (mutualFriends > 0 || mutualCommunities > 0) ? (
 							<Text style={styles.mutualFriends}>
 								{[
-									profile.mutual_friends_count > 0 ? (profile.mutual_friends_count === 1 ? '1 общий друг' : `${profile.mutual_friends_count} общих друзей`) : null,
-									profile.mutual_communities_count > 0 ? (profile.mutual_communities_count === 1 ? '1 общее сообщество' : `${profile.mutual_communities_count} общих сообществ`) : null,
+									mutualFriends > 0 ? (mutualFriends === 1 ? '1 общий друг' : `${mutualFriends} общих друзей`) : null,
+									mutualCommunities > 0 ? (mutualCommunities === 1 ? '1 общее сообщество' : `${mutualCommunities} общих сообществ`) : null,
 								].filter(Boolean).join(' · ')}
 							</Text>
 						) : null}
@@ -765,13 +777,13 @@ function MenuRow({
 }
 
 const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
-	screen: {flex: 1, backgroundColor: colors.black},
+	screen: {flex: 1, backgroundColor: colors.bg},
 	hero: {height: 460, backgroundColor: colors.graphite, justifyContent: 'flex-end', overflow: 'hidden'},
 	heroFallback: {alignItems: 'center', justifyContent: 'center', backgroundColor: colors.graphite},
 	heroFallbackGlyph: {fontSize: typography.sizeHero, color: colors.textFaint, fontWeight: typography.weightBold},
 	heroScrimStep: {position: 'absolute', left: 0, right: 0, bottom: 0},
 	onlineBadgeWrap: {position: 'absolute', top: spacing.xl, right: spacing.lg},
-	onlineDot: {width: 12, height: 12, borderRadius: 6, borderWidth: 2, borderColor: colors.black},
+	onlineDot: {width: 12, height: 12, borderRadius: 6, borderWidth: 2, borderColor: colors.bg},
 	onlineDotActive: {backgroundColor: colors.success},
 	onlineDotOffline: {backgroundColor: colors.textFaint},
 	heroContent: {padding: spacing.xl, gap: spacing.xs},
@@ -784,7 +796,7 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 		alignItems: 'center',
 		justifyContent: 'center',
 		marginBottom: spacing.sm,
-		backgroundColor: colors.black,
+		backgroundColor: colors.bg,
 	},
 	heroAvatar: {width: 64, height: 64, borderRadius: 32, backgroundColor: colors.graphite},
 	heroWordmark: {
@@ -866,6 +878,6 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	menuRowIcon: {width: 24, alignItems: 'center'},
 	menuRowLabel: {flex: 1, color: colors.text, fontSize: typography.sizeSm},
 	menuRowBadge: {minWidth: 20, height: 20, borderRadius: 10, backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 5, marginRight: spacing.xs},
-	menuRowBadgeText: {color: colors.black, fontSize: 11, fontWeight: typography.weightBold},
+	menuRowBadgeText: {color: colors.onAccent, fontSize: 11, fontWeight: typography.weightBold},
 	logoutWrap: {marginTop: spacing.md},
 });

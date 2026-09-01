@@ -121,7 +121,7 @@ export default function DatingProfileScreen({api, onBack}: Props) {
 }
 
 const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
-	screen: {flex: 1, backgroundColor: colors.black},
+	screen: {flex: 1, backgroundColor: colors.bg},
 	content: {padding: spacing.lg, gap: spacing.md},
 	status: {color: colors.textDim, fontSize: typography.sizeSm, textAlign: 'center'},
 });

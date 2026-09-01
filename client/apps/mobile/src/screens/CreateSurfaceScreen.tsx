@@ -146,7 +146,7 @@ function Section({title, entries}: {title: string; entries: Entry[]}) {
 }
 
 const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
-	screen: {flex: 1, backgroundColor: colors.black},
+	screen: {flex: 1, backgroundColor: colors.bg},
 	scroll: {padding: spacing.lg, paddingBottom: spacing.xxxl},
 	section: {marginBottom: spacing.xl},
 	sectionTitle: {

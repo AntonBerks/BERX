@@ -289,7 +289,7 @@ function DatingTopBar({onOpenMatches, onOpenPrivacy, onOpenDatingProfile, onOpen
 }
 
 const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
-	screen: {flex: 1, backgroundColor: colors.black, paddingTop: spacing.md},
+	screen: {flex: 1, backgroundColor: colors.bg, paddingTop: spacing.md},
 	topBar: {
 		flexDirection: 'row',
 		alignItems: 'center',

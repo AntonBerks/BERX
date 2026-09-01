@@ -336,7 +336,7 @@ export default function WorldDetailScreen({api, id, onBack}: Props) {
 }
 
 const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
-	screen: {flex: 1, backgroundColor: colors.black},
+	screen: {flex: 1, backgroundColor: colors.bg},
 	body: {padding: spacing.lg, gap: spacing.md},
 	metaRow: {gap: 4, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center'},
 	visBadge: {paddingHorizontal: spacing.sm, paddingVertical: 2, borderRadius: radius.pill, backgroundColor: colors.surface},

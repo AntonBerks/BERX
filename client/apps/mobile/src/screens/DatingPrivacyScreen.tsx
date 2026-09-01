@@ -178,7 +178,7 @@ export default function DatingPrivacyScreen({api, onBack}: Props) {
 }
 
 const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
-	screen: {flex: 1, backgroundColor: colors.black},
+	screen: {flex: 1, backgroundColor: colors.bg},
 	content: {padding: spacing.lg, gap: spacing.lg},
 	row: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.md},
 	rowText: {flex: 1},

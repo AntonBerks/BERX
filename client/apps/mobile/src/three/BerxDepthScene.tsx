@@ -210,7 +210,7 @@ export default function BerxDepthScene({world}: Props) {
 
 const styles = StyleSheet.create({
 	wrap: {gap: spacing.sm},
-	canvasBox: {height: 300, borderRadius: radius.lg, overflow: 'hidden', backgroundColor: colors.black, borderWidth: 1, borderColor: colors.borderSoft},
+	canvasBox: {height: 300, borderRadius: radius.lg, overflow: 'hidden', backgroundColor: colors.bg, borderWidth: 1, borderColor: colors.borderSoft},
 	hint: {color: colors.textFaint, fontSize: typography.sizeXs, textAlign: 'center'},
 	legend: {gap: spacing.xs},
 	legendRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm},

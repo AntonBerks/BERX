@@ -53,6 +53,30 @@ export const colors = {
 	accentSoft: 'rgba(79,214,232,0.16)',
 	accentSecondary: '#4FD6E8',
 	accentSecondarySoft: 'rgba(79,214,232,0.16)',
+	/**
+	 * Ink that sits ON an accent fill (an active nav orb, a primary
+	 * button, a badge). It is NOT `black`: Night's accent is a bright
+	 * cyan so dark ink reads, but Day's accent is a deep teal where the
+	 * same dark ink fails contrast. A browser run of the Day palette
+	 * showed exactly that, which is why this is its own role.
+	 */
+	onAccent: '#07080A',
+	/**
+	 * The darkening layer laid over real photography, and the ground a
+	 * photo that fails to load falls back to. Deliberately IDENTICAL in
+	 * both environments: the text and controls that sit on media are
+	 * white in Night and Day alike, so a Day-tinted scrim would turn
+	 * into a white veil and make them invisible. A browser run of the
+	 * Day palette showed exactly that (contrast ratio 1.2).
+	 */
+	mediaScrim: '#07080A',
+
+	/** Ink that sits ON media (over mediaScrim). Constant in both environments, for the same reason mediaScrim is: a Day-flipped ink would turn dark on a dark photo. */
+	onMedia: '#F5F5F7',
+	onMediaDim: 'rgba(245,245,247,0.72)',
+	onMediaFaint: 'rgba(245,245,247,0.45)',
+	/** The accent as it appears ON media. Always the bright Night cyan: Day's deepened teal is tuned for a light ground and only reaches ~4.25:1 over mediaScrim. */
+	accentOnMedia: '#4FD6E8',
 
 	danger: '#ff4d4f',
 	success: '#3ddc84',
@@ -77,11 +101,11 @@ export const colors = {
  * `colors` so a future theme-context can select between the two by
  * key, but nothing in the app switches to this yet — no screen's
  * StyleSheet is theme-reactive today (they're all computed once at
- * module load against the Night `colors` object above). Wiring a
- * live Day/Night switch through ~80 screens is real, separate,
- * disclosed follow-up work, not done in this pass — shipping these
- * values half-wired into some screens and not others would be worse
- * than not shipping them yet.
+ * module load against the Night `colors` object above).
+ *
+ * That wiring is now DONE — see packages/design-system/src/theme.
+ * Every screen resolves its palette through useBerxColors(), so this
+ * object is live, not aspirational.
  */
 export const colorsDay = {
 	black: '#17161A', // "black" here means the darkest ink on this environment, not a literal near-black surface
@@ -109,6 +133,16 @@ export const colorsDay = {
 	accentSoft: 'rgba(11,127,145,0.13)',
 	accentSecondary: '#0B7F91',
 	accentSecondarySoft: 'rgba(11,127,145,0.13)',
+	onAccent: '#F6F4EF',
+	/** Identical to Night on purpose — see the Night token's comment. */
+	mediaScrim: '#07080A',
+
+	/** Ink that sits ON media (over mediaScrim). Constant in both environments, for the same reason mediaScrim is: a Day-flipped ink would turn dark on a dark photo. */
+	onMedia: '#F5F5F7',
+	onMediaDim: 'rgba(245,245,247,0.72)',
+	onMediaFaint: 'rgba(245,245,247,0.45)',
+	/** The accent as it appears ON media. Always the bright Night cyan: Day's deepened teal is tuned for a light ground and only reaches ~4.25:1 over mediaScrim. */
+	accentOnMedia: '#4FD6E8',
 
 	danger: '#d43d3f',
 	success: '#2fa968',
@@ -125,7 +159,7 @@ export type BerxColorTokens = typeof colors;
 
 export type BerxEnvironment = 'day' | 'night';
 
-/** Selects the Night (default, fully-wired) or Day (new, token-only) palette by name. */
+/** Selects the Night or Day palette by name. Both are fully wired. */
 export function getBerxEnvironmentColors(env: BerxEnvironment) {
 	return env === 'day' ? colorsDay : colors;
 }

@@ -190,7 +190,7 @@ export default function WorldsScreen({api, onOpenWorld, onCreate, onBack}: Props
 }
 
 const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
-	screen: {flex: 1, backgroundColor: colors.black},
+	screen: {flex: 1, backgroundColor: colors.bg},
 	toolbar: {paddingHorizontal: spacing.lg, paddingVertical: spacing.md, gap: spacing.sm},
 	hint: {color: colors.textFaint, fontSize: typography.sizeXs},
 	fadeFlex: {flex: 1},
@@ -207,7 +207,7 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	itemsSummary: {color: colors.textDim, fontSize: typography.sizeSm},
 	footerRow: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: spacing.xs},
 	avatarCluster: {flexDirection: 'row', alignItems: 'center'},
-	avatarClusterItem: {borderRadius: radius.pill, borderWidth: 2, borderColor: colors.black},
+	avatarClusterItem: {borderRadius: radius.pill, borderWidth: 2, borderColor: colors.bg},
 	memberCount: {color: colors.textFaint, fontSize: typography.sizeXs},
 	discoverSection: {paddingBottom: spacing.md, gap: spacing.sm},
 	sectionTitle: {color: colors.textFaint, fontSize: typography.sizeXs, fontWeight: typography.weightBold, textTransform: 'uppercase', letterSpacing: 0.5},

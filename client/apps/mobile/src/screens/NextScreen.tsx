@@ -132,7 +132,7 @@ export default function NextScreen({api, onOpenPlan, onOpenWorld, onOpenEvent, o
 }
 
 const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
-	screen: {flex: 1, backgroundColor: colors.black},
+	screen: {flex: 1, backgroundColor: colors.bg},
 	body: {padding: spacing.lg, gap: spacing.lg},
 	section: {gap: spacing.xs},
 	sectionTitle: {color: colors.textFaint, fontSize: typography.sizeXs, fontWeight: typography.weightBold, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: spacing.xs},

@@ -24,7 +24,7 @@
  * viewing distance; documented here as the honest reason it isn't a
  * shader, not left unexplained.
  */
-import React, {useMemo} from 'react';
+import {useMemo} from 'react';
 import {Pressable, Text, View, ActivityIndicator, StyleSheet, PressableProps} from 'react-native';
 import {radius, spacing, typography} from '../tokens';
 

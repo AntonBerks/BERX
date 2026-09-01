@@ -66,7 +66,7 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 		paddingVertical: spacing.sm,
 		borderBottomWidth: 1,
 		borderBottomColor: colors.glassBusinessHairline,
-		backgroundColor: colors.black,
+		backgroundColor: colors.bg,
 	},
 	backButton: {minWidth: 40, justifyContent: 'center'},
 	backChip: {

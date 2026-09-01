@@ -125,7 +125,7 @@ export default function LoginScreen({authState, onGoToRegister}: Props) {
 }
 
 const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
-	screen: {flex: 1, backgroundColor: colors.black},
+	screen: {flex: 1, backgroundColor: colors.bg},
 	scrollBody: {flexGrow: 1, justifyContent: 'center', padding: spacing.xl, gap: spacing.xl},
 	hero: {alignItems: 'center', gap: spacing.sm},
 	wordmarkTilt: {alignSelf: 'center'},

@@ -174,7 +174,7 @@ export default function PlanDetailScreen({api, id, onOpenEvent, onAddToWorld, on
 }
 
 const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
-	screen: {flex: 1, backgroundColor: colors.black},
+	screen: {flex: 1, backgroundColor: colors.bg},
 	body: {padding: spacing.lg, gap: spacing.md},
 	metaRow: {gap: 2},
 	meta: {color: colors.textDim, fontSize: typography.sizeSm},
