@@ -34,6 +34,7 @@ interface Props {
 	onOpenPost: (guid: number) => void;
 	onOpenAlbum: (guid: number) => void;
 	onOpenPlace?: (guid: number) => void;
+	onOpenSavedMemory?: (id: number) => void;
 	onBack?: () => void;
 }
 
@@ -63,7 +64,7 @@ function groupByYearsAgo(memories: BerxMemory[]): Section[] {
 		.map(([yearsAgo, items]) => ({yearsAgo, items}));
 }
 
-export default function MemoriesScreen({api, onOpenPost, onOpenAlbum, onOpenPlace, onBack}: Props) {
+export default function MemoriesScreen({api, onOpenPost, onOpenAlbum, onOpenPlace, onOpenSavedMemory, onBack}: Props) {
 	const [memories, setMemories] = useState<BerxMemory[]>([]);
 	const [saved, setSaved] = useState<BerxSavedMemory[]>([]);
 	const [loading, setLoading] = useState(true);
@@ -108,7 +109,7 @@ export default function MemoriesScreen({api, onOpenPost, onOpenAlbum, onOpenPlac
 					keyExtractor={(m: BerxSavedMemory) => `saved-${m.id}`}
 					contentContainerStyle={styles.savedRow}
 					renderItem={({item}: {item: BerxSavedMemory}) => (
-						<View style={styles.savedCard}>
+						<Pressable style={styles.savedCard} onPress={onOpenSavedMemory ? () => onOpenSavedMemory(item.id) : undefined}>
 							<Text style={styles.savedTitle} numberOfLines={1}>{item.title}</Text>
 							<Text style={styles.savedMeta} numberOfLines={1}>
 								{new Date(item.happened_at * 1000).toLocaleDateString('ru-RU', {day: 'numeric', month: 'short', year: 'numeric'})}
@@ -129,7 +130,7 @@ export default function MemoriesScreen({api, onOpenPost, onOpenAlbum, onOpenPlac
 									「{item.moments[0].text}」{item.moments.length > 1 ? ` +${item.moments.length - 1}` : ''}
 								</Text>
 							) : null}
-						</View>
+						</Pressable>
 					)}
 				/>
 			</View>

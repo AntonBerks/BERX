@@ -65,6 +65,7 @@ import WorldDetailScreen from './screens/WorldDetailScreen';
 import CreateWorldScreen from './screens/CreateWorldScreen';
 import NextScreen from './screens/NextScreen';
 import AddToWorldScreen from './screens/AddToWorldScreen';
+import MemoryDetailScreen from './screens/MemoryDetailScreen';
 import CommunityRequestsScreen from './screens/CommunityRequestsScreen';
 import CommunityModeratorsScreen from './screens/CommunityModeratorsScreen';
 import CommunityMembersScreen from './screens/CommunityMembersScreen';
@@ -545,6 +546,10 @@ function RouteRenderer({name, params}: {name: BerxRouteName; params: unknown}) {
 					onBack={nav.canGoBack ? nav.pop : undefined}
 				/>
 			);
+		case 'MemoryDetail': {
+			const p = params as {id: number};
+			return <MemoryDetailScreen api={api} id={p.id} onBack={nav.pop} />;
+		}
 		case 'CommunityRequests': {
 			const p = params as {guid: number};
 			return <CommunityRequestsScreen api={api} guid={p.guid} onBack={nav.pop} />;
@@ -1089,6 +1094,7 @@ function RouteRenderer({name, params}: {name: BerxRouteName; params: unknown}) {
 					onOpenPost={(guid) => nav.push('PostDetail', {postGuid: guid})}
 					onOpenAlbum={(guid) => nav.push('AlbumDetail', {guid})}
 					onOpenPlace={(guid) => nav.push('PlaceDetail', {guid})}
+					onOpenSavedMemory={(id) => nav.push('MemoryDetail', {id})}
 					onBack={nav.pop}
 				/>
 			);
