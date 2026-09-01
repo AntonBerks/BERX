@@ -31,7 +31,7 @@
  * stays in Nearby rather than being invented.
  */
 import {useCallback, useEffect, useRef, useState, useMemo} from 'react';
-import {View, Text, ScrollView, Pressable, Animated, RefreshControl, StyleSheet} from 'react-native';
+import {View, Text, Image, ScrollView, Pressable, Animated, RefreshControl, Dimensions, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {
 	BerxFeedItem,
@@ -58,6 +58,8 @@ import {BerxGreetingHeader, BerxEditorialTitle} from '../../../../packages/desig
 import {BerxImmersivePost} from '../../../../packages/design-system/src/components/BerxImmersivePost';
 import {BerxPlaceCard, BerxEventCard, BerxPersonCard, BerxLiveDot} from '../../../../packages/design-system/src/components/BerxSpatialCards';
 import type {BerxRailAction} from '../../../../packages/design-system/src/components/BerxActionRail';
+import {BerxActionRail} from '../../../../packages/design-system/src/components/BerxActionRail';
+import {BerxScrim} from '../../../../packages/design-system/src/components/BerxScrim';
 
 import {useBerxColors} from '../../../../packages/design-system/src/theme';
 import type {BerxColorTokens} from '@berx/design-system/tokens';
@@ -92,6 +94,11 @@ interface Props {
 // support it. Person stays the smallest (a face needs less area than a
 // place), places get real photographic area, and an event is a wide
 // cinematic plate that nearly fills the screen.
+// The reference home screen IS the photograph: it fills the device, and
+// the chrome floats on it. 0.92 leaves the floating nav visible over the
+// image's own bottom edge rather than cropping into it.
+const STAGE_H = Dimensions.get('window').height;
+
 const PERSON_CARD_W = 148;
 const PLACE_CARD_W = 214;
 const EVENT_CARD_W = 320;
@@ -358,77 +365,141 @@ export default function NowScreen({
 						tintColor={daypart.accent}
 					/>
 				}>
-				<BerxFadeIn>
-					{/* ENVIRONMENT — real identity, real daypart, real unread. */}
-					<BerxGreetingHeader
-						greeting={daypart.label}
-						name={me ? me.fullname || me.username : 'BERX'}
-						avatarUrl={me ? me.icon_url : null}
-						onPressIdentity={onOpenMyProfile}
-						actions={[
-							...(onOpenSearch ? [{key: 'search', icon: <IconSearch size={17} color={colors.text} />, onPress: onOpenSearch}] : []),
-							...(onOpenMessages
-								? [{key: 'msg', icon: <IconMessage size={17} color={colors.text} />, badge: unread, onPress: onOpenMessages}]
-								: []),
-							...(onOpenNotifications
-								? [{key: 'bell', icon: <IconBell size={17} color={colors.text} />, onPress: onOpenNotifications}]
-								: []),
-						]}
-					/>
-					{/* The reference sheets date the moment before naming it. Real
-					    device-local date, formatted in the app's own locale — no
-					    location chip beside it, because BERX has no real
-					    geolocation source here and a placed name would be invented. */}
-					<Text style={styles.dateLine}>{todayLabel}</Text>
-					<BerxEditorialTitle
-						lines={headline.lines}
-						accentIndex={headline.accentIndex}
-						style={styles.headline}
-					/>
+				{/* ================= REFERENCE COMPOSITION =================
+				    The reference home screen is a PHOTOGRAPH that fills the
+				    device, with every control floating on top of it: identity
+				    and utilities at the top, the story rail under them, the
+				    action rail down the right edge, and the author, caption and
+				    comment composer along the bottom. BERX previously stacked
+				    those as separate blocks above a card; they are now layers
+				    over one full-screen image.
 
-					{/* LIVE — real active stories, on the background parallax plane. */}
-					{storyGroups.length > 0 || onCreateStory ? (
-						<BerxSpatialLayer plane="background" driver={scrollY} range={300} style={styles.liveLayer}>
+				    With no post carrying media there is nothing to fill the
+				    screen with, so the same elements fall back to the flat
+				    header they had before rather than opening on a black
+				    rectangle. ============================================= */}
+				{lead ? (
+					<View style={styles.stage}>
+						<BerxSpatialLayer plane="background" driver={scrollY} range={220} style={styles.stageMediaLayer}>
+							<Image
+								source={{uri: lead.media_url as string}}
+								style={styles.stageMedia}
+								resizeMode="cover"
+							/>
+						</BerxSpatialLayer>
+						<BerxScrim coverage={0.42} strength={0.86} from="top" />
+						<BerxScrim coverage={0.58} strength={0.94} />
+
+						<View style={styles.stageTop} pointerEvents="box-none">
+							<BerxGreetingHeader
+								greeting={daypart.label}
+								name={me ? me.fullname || me.username : 'BERX'}
+								avatarUrl={me ? me.icon_url : null}
+								onPressIdentity={onOpenMyProfile}
+								actions={[
+									...(onOpenSearch ? [{key: 'search', icon: <IconSearch size={17} color={colors.onMedia} />, onPress: onOpenSearch}] : []),
+									...(onOpenMessages
+										? [{key: 'msg', icon: <IconMessage size={17} color={colors.onMedia} />, badge: unread, onPress: onOpenMessages}]
+										: []),
+									...(onOpenNotifications
+										? [{key: 'bell', icon: <IconBell size={17} color={colors.onMedia} />, onPress: onOpenNotifications}]
+										: []),
+								]}
+								onMedia
+							/>
+							{storyGroups.length > 0 || onCreateStory ? (
+								<BerxStoryRail
+									style={styles.stageStories}
+									onCreate={onCreateStory}
+									onMore={onOpenStories}
+									onMedia
+									items={storyGroups.map((g: BerxStoryFeedGroup) => ({
+										key: String(g.owner_guid),
+										label: g.owner_username ?? `#${g.owner_guid}`,
+										iconUrl: g.owner_icon,
+										unseen: g.has_unseen,
+										onPress: () => onOpenStoryGroup(g),
+									}))}
+								/>
+							) : null}
+						</View>
+
+						<BerxActionRail actions={railFor(lead)} style={styles.stageRail} />
+
+						<View style={styles.stageBottom} pointerEvents="box-none">
+							<Pressable
+								style={styles.stageAuthor}
+								onPress={() => lead.poster_username && onOpenProfile(lead.poster_username)}
+								disabled={!lead.poster_username}>
+								{lead.poster_icon ? (
+									<Image source={{uri: lead.poster_icon}} style={styles.stageAvatar} />
+								) : null}
+								<Text style={styles.stageName} numberOfLines={1}>
+									{lead.poster_username ?? lead.owner_username ?? 'BERX'}
+								</Text>
+								{lead.poster_is_creator ? <Text style={styles.stageVerified}>✓</Text> : null}
+								<Text style={styles.stageTime}>{relativeTimeLabel(lead.time_created)}</Text>
+							</Pressable>
+							{lead.text ? (
+								<Text style={styles.stageCaption} numberOfLines={2}>
+									{lead.text}
+								</Text>
+							) : null}
+							{lead.track_title ? (
+								<Pressable
+									style={styles.stageTrack}
+									onPress={lead.track_guid ? () => onOpenPost(lead.track_guid as number) : undefined}
+									disabled={!lead.track_guid}>
+									<Text style={styles.stageTrackText} numberOfLines={1}>
+										♪  {lead.track_title}
+									</Text>
+								</Pressable>
+							) : null}
+							<Pressable style={styles.stageComment} onPress={() => onOpenPost(lead.guid)}>
+								<Text style={styles.stageCommentText}>Добавить комментарий</Text>
+								<View style={styles.stageSend}>
+									<Text style={styles.stageSendGlyph}>➤</Text>
+								</View>
+							</Pressable>
+						</View>
+					</View>
+				) : (
+					<BerxFadeIn>
+						<BerxGreetingHeader
+							greeting={daypart.label}
+							name={me ? me.fullname || me.username : 'BERX'}
+							avatarUrl={me ? me.icon_url : null}
+							onPressIdentity={onOpenMyProfile}
+							actions={[
+								...(onOpenSearch ? [{key: 'search', icon: <IconSearch size={17} color={colors.text} />, onPress: onOpenSearch}] : []),
+								...(onOpenMessages
+									? [{key: 'msg', icon: <IconMessage size={17} color={colors.text} />, badge: unread, onPress: onOpenMessages}]
+									: []),
+								...(onOpenNotifications
+									? [{key: 'bell', icon: <IconBell size={17} color={colors.text} />, onPress: onOpenNotifications}]
+									: []),
+							]}
+						/>
+						<Text style={styles.dateLine}>{todayLabel}</Text>
+						<BerxEditorialTitle lines={headline.lines} accentIndex={headline.accentIndex} style={styles.headline} />
+						{storyGroups.length > 0 || onCreateStory ? (
 							<BerxStoryRail
+								style={styles.liveLayer}
 								onCreate={onCreateStory}
 								onMore={onOpenStories}
 								items={storyGroups.map((g: BerxStoryFeedGroup) => ({
 									key: String(g.owner_guid),
 									label: g.owner_username ?? `#${g.owner_guid}`,
 									iconUrl: g.owner_icon,
-									// Real per-viewer state now (stories.php computes it from
-									// the view rows). This used to be a hardcoded `true`, which
-									// made the accent ring mean nothing.
 									unseen: g.has_unseen,
 									onPress: () => onOpenStoryGroup(g),
 								}))}
 							/>
-						</BerxSpatialLayer>
-					) : null}
+						) : null}
+					</BerxFadeIn>
+				)}
 
-					{lead ? (
-						<BerxSpatialLayer plane="hero" driver={scrollY} range={220} style={styles.leadLayer}>
-							<BerxDepthCard driver={scrollY} elevation={3} maxAngle={8}>
-							<BerxImmersivePost
-								imageUrl={lead.media_url as string}
-								mediaCount={lead.media_count}
-								authorName={lead.poster_username ?? lead.owner_username ?? 'BERX'}
-								authorIcon={lead.poster_icon}
-								authorVerified={lead.poster_is_creator}
-								timeLabel={relativeTimeLabel(lead.time_created)}
-								text={lead.text}
-								ratio="hero"
-								actions={railFor(lead)}
-								onPress={() => onOpenPost(lead.guid)}
-								onPressAuthor={() => lead.poster_username && onOpenProfile(lead.poster_username)}
-								trackTitle={lead.track_title}
-								onOpenTrack={lead.track_guid ? () => onOpenPost(lead.track_guid as number) : undefined}
-								onOpenComments={() => onOpenPost(lead.guid)}
-							/>
-							</BerxDepthCard>
-						</BerxSpatialLayer>
-					) : null}
-
+				<BerxFadeIn>
 					{/* PEOPLE — real presence, or real mutual-friend discovery when nobody is online. */}
 					{peopleToShow.length > 0 ? (
 						<BerxDepthCard driver={scrollY} maxAngle={4} depthScale={0.03} elevation={1} style={styles.section}>
@@ -656,6 +727,64 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	skeletonWrap: {padding: spacing.lg, paddingTop: spacing.xl},
 	skelGap: {marginTop: spacing.md},
 
+	stage: {height: STAGE_H, overflow: 'hidden', backgroundColor: colors.mediaScrim},
+	stageMediaLayer: {position: 'absolute', left: 0, right: 0, top: 0, height: STAGE_H + 220},
+	stageMedia: {width: '100%', height: '100%'},
+	stageTop: {position: 'absolute', left: 0, right: 0, top: 0},
+	stageStories: {marginTop: spacing.md},
+	stageRail: {position: 'absolute', right: spacing.md, top: '34%'},
+	stageBottom: {position: 'absolute', left: 0, right: 0, bottom: 108, paddingHorizontal: spacing.lg, gap: spacing.sm},
+	stageAuthor: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm},
+	stageAvatar: {width: 34, height: 34, borderRadius: 17, borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.4)'},
+	stageName: {color: colors.onMedia, fontSize: typography.sizeBase, fontWeight: typography.weightBold},
+	stageVerified: {
+		color: colors.onAccent,
+		fontSize: 10,
+		fontWeight: typography.weightBold,
+		backgroundColor: colors.accent,
+		width: 15,
+		height: 15,
+		borderRadius: 8,
+		textAlign: 'center',
+		lineHeight: 15,
+		overflow: 'hidden',
+	},
+	stageTime: {color: colors.onMediaDim, fontSize: typography.sizeXs},
+	stageCaption: {color: colors.onMedia, fontSize: typography.sizeLg, fontWeight: typography.weightMedium, lineHeight: 23},
+	stageTrack: {
+		alignSelf: 'flex-start',
+		paddingHorizontal: spacing.md,
+		paddingVertical: 6,
+		borderRadius: radius.pill,
+		backgroundColor: 'rgba(255,255,255,0.14)',
+		borderWidth: 1,
+		borderColor: 'rgba(255,255,255,0.22)',
+		maxWidth: '82%',
+	},
+	stageTrackText: {color: colors.onMedia, fontSize: typography.sizeXs, fontWeight: typography.weightMedium},
+	stageComment: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		gap: spacing.sm,
+		marginTop: spacing.xs,
+		paddingLeft: spacing.lg,
+		paddingRight: 5,
+		paddingVertical: 5,
+		borderRadius: radius.pill,
+		backgroundColor: 'rgba(255,255,255,0.12)',
+		borderWidth: 1,
+		borderColor: 'rgba(255,255,255,0.22)',
+	},
+	stageCommentText: {flex: 1, color: colors.onMediaDim, fontSize: typography.sizeSm},
+	stageSend: {
+		width: 38,
+		height: 38,
+		borderRadius: 19,
+		alignItems: 'center',
+		justifyContent: 'center',
+		backgroundColor: colors.accent,
+	},
+	stageSendGlyph: {color: colors.onAccent, fontSize: 15},
 	dateLine: {
 		color: colors.textFaint,
 		fontSize: typography.sizeXs,

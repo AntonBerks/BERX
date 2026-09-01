@@ -34,11 +34,13 @@ export interface BerxStoryRailProps {
 	/** Trailing "see all" tile. The references have no header above the rail, so this keeps that route reachable from inside it. */
 	onMore?: () => void;
 	moreLabel?: string;
+	/** Rendered over a photograph: labels switch to the media ink set. */
+	onMedia?: boolean;
 	size?: number;
 	style?: ViewStyle;
 }
 
-export function BerxStoryRail({items, onCreate, createLabel = 'Вы', onMore, moreLabel = 'Все', size = 52, style}: BerxStoryRailProps) {
+export function BerxStoryRail({items, onCreate, createLabel = 'Вы', onMore, moreLabel = 'Все', onMedia, size = 52, style}: BerxStoryRailProps) {
 	const colors = useBerxColors();
 	const styles = useMemo(() => makeStyles(colors), [colors]);
 	const ring = size + 8;
@@ -52,7 +54,7 @@ export function BerxStoryRail({items, onCreate, createLabel = 'Вы', onMore, mo
 					<View style={[styles.addTile, {width: ring, height: ring, borderRadius: ring / 2}]}>
 						<Text style={styles.addGlyph}>+</Text>
 					</View>
-					<Text style={styles.label} numberOfLines={1}>
+					<Text style={[styles.label, onMedia && styles.labelOnMedia]} numberOfLines={1}>
 						{createLabel}
 					</Text>
 				</Pressable>
@@ -73,7 +75,7 @@ export function BerxStoryRail({items, onCreate, createLabel = 'Вы', onMore, mo
 							</View>
 						)}
 					</View>
-					<Text style={styles.label} numberOfLines={1}>
+					<Text style={[styles.label, onMedia && styles.labelOnMedia]} numberOfLines={1}>
 						{it.label}
 					</Text>
 				</Pressable>
@@ -87,7 +89,7 @@ export function BerxStoryRail({items, onCreate, createLabel = 'Вы', onMore, mo
 						]}>
 						<Text style={styles.moreGlyph}>›</Text>
 					</View>
-					<Text style={styles.label} numberOfLines={1}>
+					<Text style={[styles.label, onMedia && styles.labelOnMedia]} numberOfLines={1}>
 						{moreLabel}
 					</Text>
 				</Pressable>
@@ -115,4 +117,5 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	fallback: {alignItems: 'center', justifyContent: 'center', backgroundColor: colors.graphite},
 	fallbackText: {color: colors.textDim, fontSize: typography.sizeLg, fontWeight: typography.weightBold},
 	label: {color: colors.textDim, fontSize: 11, marginTop: spacing.xs, textAlign: 'center', width: 72},
+	labelOnMedia: {color: colors.onMediaDim},
 });

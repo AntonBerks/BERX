@@ -36,10 +36,12 @@ export interface BerxGreetingHeaderProps {
 	avatarUrl?: string | null;
 	onPressIdentity?: () => void;
 	actions?: BerxHeaderAction[];
+	/** Rendered over a photograph: ink and glass switch to the media set. */
+	onMedia?: boolean;
 	style?: ViewStyle;
 }
 
-export function BerxGreetingHeader({greeting, name, avatarUrl, onPressIdentity, actions = [], style}: BerxGreetingHeaderProps) {
+export function BerxGreetingHeader({greeting, name, avatarUrl, onPressIdentity, actions = [], onMedia, style}: BerxGreetingHeaderProps) {
 	const colors = useBerxColors();
 	const styles = useMemo(() => makeStyles(colors), [colors]);
 	return (
@@ -53,17 +55,17 @@ export function BerxGreetingHeader({greeting, name, avatarUrl, onPressIdentity, 
 					</View>
 				)}
 				<View style={styles.identityText}>
-					<Text style={styles.greeting} numberOfLines={1}>
+					<Text style={[styles.greeting, onMedia && styles.greetingOnMedia]} numberOfLines={1}>
 						{greeting}
 					</Text>
-					<Text style={styles.name} numberOfLines={1}>
+					<Text style={[styles.name, onMedia && styles.nameOnMedia]} numberOfLines={1}>
 						{name}
 					</Text>
 				</View>
 			</Pressable>
 			<View style={styles.actions}>
 				{actions.map((a: BerxHeaderAction) => (
-					<Pressable key={a.key} style={styles.actionButton} onPress={a.onPress} hitSlop={6}>
+					<Pressable key={a.key} style={[styles.actionButton, onMedia && styles.actionButtonOnMedia]} onPress={a.onPress} hitSlop={6}>
 						{a.icon ? a.icon : <Text style={styles.actionGlyph}>{a.glyph}</Text>}
 						{typeof a.badge === 'number' && a.badge > 0 ? (
 							<View style={styles.badge}>
@@ -144,6 +146,9 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	avatarInitial: {color: colors.accent, fontSize: typography.sizeBase, fontWeight: typography.weightBold},
 	identityText: {flex: 1},
 	greeting: {color: colors.textFaint, fontSize: typography.sizeXs},
+	greetingOnMedia: {color: colors.onMediaDim},
+	nameOnMedia: {color: colors.onMedia},
+	actionButtonOnMedia: {backgroundColor: 'rgba(255,255,255,0.14)', borderColor: 'rgba(255,255,255,0.22)'},
 	name: {color: colors.text, fontSize: typography.sizeBase, fontWeight: typography.weightBold, letterSpacing: -0.2},
 	actions: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm},
 	actionButton: {
