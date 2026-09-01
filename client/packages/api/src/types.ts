@@ -123,6 +123,11 @@ export interface BerxReputation {
 	events_going: number;
 	trips_created: number;
 	experiences_created: number;
+	checkins_count: number;
+	plans_created: number;
+	moments_created: number;
+	memories_saved: number;
+	worlds_created: number;
 }
 
 /**
@@ -135,7 +140,6 @@ export interface BerxIdentityReputation extends BerxReputation {
 	places_saved: number;
 	communities_joined: number;
 	friends_count: number;
-	checkins_count: number;
 }
 
 /**

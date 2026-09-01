@@ -74,6 +74,19 @@ function ossn_api_identity_compose($guid) {
 	$eventsGoing = class_exists('OssnEvents') ? intval(ossn_get_relationships(array('from' => $guid, 'type' => 'event:going', 'count' => true))) : 0;
 	$communitiesJoined = intval(ossn_get_relationships(array('to' => $guid, 'type' => 'group:join:approve', 'count' => true)));
 
+	// BERX WORLD — same real COUNT() pattern, folded in alongside the
+	// original set (kept identical to profiles.php/me.php's own
+	// reputation blocks so none of the three go stale relative to the
+	// others).
+	$plansRow = $db->select(array('from' => 'ossn_plans', 'params' => array('COUNT(*) as cnt'), 'wheres' => array(OssnDatabase::wheres('owner_guid', '=', $guid))));
+	$momentsRow = $db->select(array('from' => 'ossn_moments', 'params' => array('COUNT(*) as cnt'), 'wheres' => array(OssnDatabase::wheres('owner_guid', '=', $guid))));
+	$memoriesRow = $db->select(array('from' => 'ossn_memories', 'params' => array('COUNT(*) as cnt'), 'wheres' => array(OssnDatabase::wheres('owner_guid', '=', $guid))));
+	$worldsRow = $db->select(array('from' => 'ossn_worlds', 'params' => array('COUNT(*) as cnt'), 'wheres' => array(OssnDatabase::wheres('owner_guid', '=', $guid))));
+	$plansCreated = $plansRow ? intval($plansRow->cnt) : 0;
+	$momentsCreated = $momentsRow ? intval($momentsRow->cnt) : 0;
+	$memoriesSaved = $memoriesRow ? intval($memoriesRow->cnt) : 0;
+	$worldsCreated = $worldsRow ? intval($worldsRow->cnt) : 0;
+
 	$userModel = new OssnUser();
 	$friendRows = $userModel->getFriends($guid, array('limit' => 2000, 'page_limit' => false));
 	$friendsCount = $friendRows ? count($friendRows) : 0;
@@ -126,6 +139,12 @@ function ossn_api_identity_compose($guid) {
 		ossn_api_identity_achievement('consistent', array('Стабильность', 'Стабильный', 'Непоколебимый'), intval($balance['longest_streak']), array(7, 30)),
 		ossn_api_identity_achievement('versatile', array('Разносторонность', 'Разносторонний', 'Универсал'), count($categoryCounts), array(3, 6)),
 		ossn_api_identity_achievement('wanderer', array('Странник', 'В пути', 'Странник', 'Кочевник'), $checkinsCount, array(1, 10, 30)),
+		// BERX WORLD — real thresholds over this session's own new
+		// objects, same honest tier pattern as every achievement above
+		// (a real count crossing a real threshold, never an invented score).
+		ossn_api_identity_achievement('organizer', array('Организатор', 'Инициатор', 'Организатор', 'Заводила'), $plansCreated, array(1, 5, 15)),
+		ossn_api_identity_achievement('chronicler', array('Хроники моментов', 'Летописец', 'Хранитель памяти'), $momentsCreated + $memoriesSaved, array(5, 25)),
+		ossn_api_identity_achievement('worldbuilder', array('Строитель миров', 'Строитель', 'Архитектор миров'), $worldsCreated, array(1, 3)),
 	);
 
 	return array(
@@ -143,6 +162,10 @@ function ossn_api_identity_compose($guid) {
 			'experiences_created' => $experiencesCreated,
 			'friends_count'       => $friendsCount,
 			'checkins_count'      => $checkinsCount,
+			'plans_created'       => $plansCreated,
+			'moments_created'     => $momentsCreated,
+			'memories_saved'      => $memoriesSaved,
+			'worlds_created'      => $worldsCreated,
 		),
 		'interests'          => $interests,
 		'achievements'       => $achievements,

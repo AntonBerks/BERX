@@ -31,11 +31,24 @@ function ossn_api_me_reputation($guid) {
 	$tripsRow = $db->select(array('from' => 'ossn_trips', 'params' => array('COUNT(*) as cnt'), 'wheres' => array(OssnDatabase::wheres('owner_guid', '=', $guid))));
 	$experiencesRow = $db->select(array('from' => 'ossn_experiences', 'params' => array('COUNT(*) as cnt'), 'wheres' => array(OssnDatabase::wheres('owner_guid', '=', $guid))));
 	$eventsGoing = class_exists('OssnEvents') ? intval(ossn_get_relationships(array('from' => $guid, 'type' => 'event:going', 'count' => true))) : 0;
+	$checkinsCount = class_exists('OssnPlaces') ? intval(ossn_get_relationships(array('from' => $guid, 'type' => OssnPlaces::CHECKIN_RELATION, 'count' => true))) : 0;
+	// BERX WORLD — same real COUNT() pattern, kept identical to
+	// profiles.php's own reputation block so neither goes stale
+	// relative to the other.
+	$momentsRow = $db->select(array('from' => 'ossn_moments', 'params' => array('COUNT(*) as cnt'), 'wheres' => array(OssnDatabase::wheres('owner_guid', '=', $guid))));
+	$memoriesRow = $db->select(array('from' => 'ossn_memories', 'params' => array('COUNT(*) as cnt'), 'wheres' => array(OssnDatabase::wheres('owner_guid', '=', $guid))));
+	$plansRow = $db->select(array('from' => 'ossn_plans', 'params' => array('COUNT(*) as cnt'), 'wheres' => array(OssnDatabase::wheres('owner_guid', '=', $guid))));
+	$worldsRow = $db->select(array('from' => 'ossn_worlds', 'params' => array('COUNT(*) as cnt'), 'wheres' => array(OssnDatabase::wheres('owner_guid', '=', $guid))));
 	return array(
 		'places_reviewed'     => $reviewsRow ? intval($reviewsRow->cnt) : 0,
 		'events_going'        => $eventsGoing,
 		'trips_created'       => $tripsRow ? intval($tripsRow->cnt) : 0,
 		'experiences_created' => $experiencesRow ? intval($experiencesRow->cnt) : 0,
+		'checkins_count'      => $checkinsCount,
+		'moments_created'     => $momentsRow ? intval($momentsRow->cnt) : 0,
+		'memories_saved'      => $memoriesRow ? intval($memoriesRow->cnt) : 0,
+		'plans_created'       => $plansRow ? intval($plansRow->cnt) : 0,
+		'worlds_created'      => $worldsRow ? intval($worldsRow->cnt) : 0,
 	);
 }
 

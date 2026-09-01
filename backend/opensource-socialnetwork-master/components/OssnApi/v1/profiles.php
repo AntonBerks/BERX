@@ -106,9 +106,22 @@ $reviewsRow = $db->select(array('from' => 'ossn_place_reviews', 'params' => arra
 $tripsRow = $db->select(array('from' => 'ossn_trips', 'params' => array('COUNT(*) as cnt'), 'wheres' => array(OssnDatabase::wheres('owner_guid', '=', intval($user->guid)))));
 $experiencesRow = $db->select(array('from' => 'ossn_experiences', 'params' => array('COUNT(*) as cnt'), 'wheres' => array(OssnDatabase::wheres('owner_guid', '=', intval($user->guid)))));
 $eventsAttended = 0;
+$checkinsCount = 0;
 if (class_exists('OssnEvents')) {
 	$eventsAttended = intval(ossn_get_relationships(array('from' => intval($user->guid), 'type' => 'event:going', 'count' => true)));
 }
+if (class_exists('OssnPlaces')) {
+	$checkinsCount = intval(ossn_get_relationships(array('from' => intval($user->guid), 'type' => OssnPlaces::CHECKIN_RELATION, 'count' => true)));
+}
+// BERX WORLD — same real COUNT() pattern, folded in alongside the
+// original four (see me.php's own ossn_api_me_reputation() — kept
+// identical between the two so neither goes stale relative to the
+// other). Count-only, same privacy posture as trips_created/
+// experiences_created above (no content exposed, just a number).
+$momentsRow = $db->select(array('from' => 'ossn_moments', 'params' => array('COUNT(*) as cnt'), 'wheres' => array(OssnDatabase::wheres('owner_guid', '=', intval($user->guid)))));
+$memoriesRow = $db->select(array('from' => 'ossn_memories', 'params' => array('COUNT(*) as cnt'), 'wheres' => array(OssnDatabase::wheres('owner_guid', '=', intval($user->guid)))));
+$plansRow = $db->select(array('from' => 'ossn_plans', 'params' => array('COUNT(*) as cnt'), 'wheres' => array(OssnDatabase::wheres('owner_guid', '=', intval($user->guid)))));
+$worldsRow = $db->select(array('from' => 'ossn_worlds', 'params' => array('COUNT(*) as cnt'), 'wheres' => array(OssnDatabase::wheres('owner_guid', '=', intval($user->guid)))));
 
 ossn_api_json(array(
 	'guid'        => intval($user->guid),
@@ -138,5 +151,10 @@ ossn_api_json(array(
 		'events_going'        => $eventsAttended,
 		'trips_created'       => $tripsRow ? intval($tripsRow->cnt) : 0,
 		'experiences_created' => $experiencesRow ? intval($experiencesRow->cnt) : 0,
+		'checkins_count'      => $checkinsCount,
+		'moments_created'     => $momentsRow ? intval($momentsRow->cnt) : 0,
+		'memories_saved'      => $memoriesRow ? intval($memoriesRow->cnt) : 0,
+		'plans_created'       => $plansRow ? intval($plansRow->cnt) : 0,
+		'worlds_created'      => $worldsRow ? intval($worldsRow->cnt) : 0,
 	),
 ));
