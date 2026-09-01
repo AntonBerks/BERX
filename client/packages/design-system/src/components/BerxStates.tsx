@@ -4,12 +4,17 @@
  * These four cover the "every screen needs loading/error/empty state"
  * requirement — real components, not a checklist item left unbuilt.
  */
-import {useEffect, useRef} from 'react';
+import {useEffect, useRef, useMemo} from 'react';
 import {View, Text, ActivityIndicator, Animated, StyleSheet} from 'react-native';
-import {colors, spacing, radius, typography} from '../tokens';
+import {spacing, radius, typography} from '../tokens';
 import {BerxButton} from './BerxButton';
 
+import {useBerxColors} from '../theme';
+import type {BerxColorTokens} from '../tokens';
+
 export function BerxLoadingState({label}: {label?: string}) {
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(colors), [colors]);
 	return (
 		<View style={styles.center}>
 			<ActivityIndicator color={colors.accent} size="large" />
@@ -19,6 +24,8 @@ export function BerxLoadingState({label}: {label?: string}) {
 }
 
 export function BerxErrorState({message, onRetry}: {message: string; onRetry?: () => void}) {
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(colors), [colors]);
 	return (
 		<View style={styles.center}>
 			<Text style={styles.errorText}>{message}</Text>
@@ -29,6 +36,8 @@ export function BerxErrorState({message, onRetry}: {message: string; onRetry?: (
 
 /** Real glass badge instead of bare text — same glyph BusinessOffersScreen.tsx's own empty state already established, now the shared default every screen gets. */
 export function BerxEmptyState({title, subtitle}: {title: string; subtitle?: string}) {
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(colors), [colors]);
 	return (
 		<View style={styles.center}>
 			<View style={styles.emptyBadge}>
@@ -42,6 +51,8 @@ export function BerxEmptyState({title, subtitle}: {title: string; subtitle?: str
 
 /** Pulsing placeholder block — used for a list of these while real content loads, instead of a bare spinner on content-heavy screens (feed, profile). */
 export function BerxSkeleton({width = '100%', height = 16, style}: {width?: number | string; height?: number; style?: object}) {
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(colors), [colors]);
 	const opacity = useRef(new Animated.Value(0.3)).current;
 	useEffect(() => {
 		const loop = Animated.loop(
@@ -65,7 +76,7 @@ export function BerxSkeleton({width = '100%', height = 16, style}: {width?: numb
 	);
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	center: {
 		flex: 1,
 		alignItems: 'center',

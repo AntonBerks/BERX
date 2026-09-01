@@ -19,13 +19,16 @@
  * a real filename label instead of a fake thumbnail — honest about
  * what it can and can't render before upload.
  */
-import {useState} from 'react';
+import {useState, useMemo} from 'react';
 import {View, Text, Image, StyleSheet} from 'react-native';
 import type {BerxApiClient, BerxFilePart} from '@berx/api/client';
-import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
+import {spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
+
+import {useBerxColors} from '../../../../packages/design-system/src/theme';
+import type {BerxColorTokens} from '@berx/design-system/tokens';
 
 interface Props {
 	api: BerxApiClient;
@@ -37,6 +40,8 @@ interface Props {
 }
 
 export default function CreateStoryScreen({api, pickImage, pickVideo, eventGuid, onCreated, onBack}: Props) {
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(colors), [colors]);
 	const [file, setFile] = useState<BerxFilePart | null>(null);
 	const [isVideo, setIsVideo] = useState(false);
 	const [previewUri, setPreviewUri] = useState<string | null>(null);
@@ -105,7 +110,7 @@ export default function CreateStoryScreen({api, pickImage, pickVideo, eventGuid,
 	);
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.black},
 	content: {padding: spacing.lg, gap: spacing.md},
 	preview: {width: '100%', height: 320, borderRadius: radius.md, backgroundColor: colors.graphite},

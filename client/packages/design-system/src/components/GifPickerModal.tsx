@@ -9,12 +9,15 @@
  * ConversationScreen's own attachment flow), so this component has no
  * upload logic of its own — it is purely a search/pick surface.
  */
-import {useCallback, useEffect, useState} from 'react';
+import {useCallback, useEffect, useState, useMemo} from 'react';
 import {View, Text, Modal, FlatList, Image, Pressable, StyleSheet} from 'react-native';
 import type {BerxGifResult} from '@berx/api/types';
-import {colors, spacing, typography, radius} from '../tokens';
+import {spacing, typography, radius} from '../tokens';
 import {BerxInput} from './BerxInput';
 import {BerxLoadingState, BerxEmptyState} from './BerxStates';
+
+import {useBerxColors} from '../theme';
+import type {BerxColorTokens} from '../tokens';
 
 interface Props {
 	visible: boolean;
@@ -27,6 +30,8 @@ interface Props {
 const COLUMN_COUNT = 3;
 
 export function GifPickerModal({visible, onClose, onSelect, search, trending}: Props) {
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(colors), [colors]);
 	const [query, setQuery] = useState('');
 	const [results, setResults] = useState<BerxGifResult[]>([]);
 	const [available, setAvailable] = useState(true);
@@ -105,7 +110,7 @@ export function GifPickerModal({visible, onClose, onSelect, search, trending}: P
 	);
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	backdrop: {flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end'},
 	sheet: {backgroundColor: colors.black, borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg, padding: spacing.md, height: '75%', gap: spacing.sm},
 	header: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'},

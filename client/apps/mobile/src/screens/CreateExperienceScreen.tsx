@@ -4,14 +4,17 @@
  * experiences.php). Anchor must be a real place or event — search
  * results come from the real api.searchPlaces()/searchEvents().
  */
-import {useState} from 'react';
+import {useState, useMemo} from 'react';
 import {View, Text, FlatList, Pressable, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxPlaceSearchResult, BerxEventSearchResult, BerxCollectionVisibility} from '@berx/api/types';
-import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
+import {spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
+
+import {useBerxColors} from '../../../../packages/design-system/src/theme';
+import type {BerxColorTokens} from '@berx/design-system/tokens';
 
 interface Props {
 	api: BerxApiClient;
@@ -22,6 +25,8 @@ interface Props {
 type Anchor = {type: 'place' | 'event'; guid: number; title: string};
 
 export default function CreateExperienceScreen({api, onCreated, onBack}: Props) {
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(colors), [colors]);
 	const [title, setTitle] = useState('');
 	const [description, setDescription] = useState('');
 	const [anchorQuery, setAnchorQuery] = useState('');
@@ -152,7 +157,7 @@ export default function CreateExperienceScreen({api, onCreated, onBack}: Props) 
 	);
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.bg},
 	body: {padding: spacing.md, gap: spacing.md},
 	label: {fontSize: typography.sizeXs, color: colors.textFaint, fontWeight: typography.weightBold, textTransform: 'uppercase'},

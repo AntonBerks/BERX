@@ -6,14 +6,20 @@
  * state, not a fake populated catalog. It establishes the visual
  * shape (list-card language) a real catalog would later fill.
  */
+import {useMemo} from 'react';
 import {View, Text, StyleSheet} from 'react-native';
-import {colors, spacing, typography} from '@berx/design-system/tokens';
+import {spacing, typography} from '@berx/design-system/tokens';
 import {BerxGlassSurface} from '../../../../../packages/design-system/src/components/BerxGlassSurface';
 import {BerxEyebrow} from '../../../../../packages/design-system/src/components/BerxBusinessPrimitives';
 import {BerxHeader} from '../../../../../packages/design-system/src/components/BerxHeader';
 import {BerxButton} from '../../../../../packages/design-system/src/components/BerxButton';
 
+import {useBerxColors} from '../../../../../packages/design-system/src/theme';
+import type {BerxColorTokens} from '@berx/design-system/tokens';
+
 export default function BusinessProductsScreen({onBack}: {onBack?: () => void} = {}) {
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(colors), [colors]);
 	return (
 		<View style={styles.screen}>
 			<BerxHeader onBack={onBack} />
@@ -32,7 +38,7 @@ export default function BusinessProductsScreen({onBack}: {onBack?: () => void} =
 	);
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.bg, padding: spacing.lg, gap: spacing.md},
 	pageTitle: {fontSize: typography.sizeTitle, color: colors.white, fontWeight: typography.weightBold},
 	emptyCard: {alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.xxl},

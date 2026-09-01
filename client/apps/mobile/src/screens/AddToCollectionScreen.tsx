@@ -5,14 +5,17 @@
  * (place/event/post) to any of the caller's own collections — shown
  * as a picker, not duplicated per source screen.
  */
-import {useCallback, useEffect, useState} from 'react';
+import {useCallback, useEffect, useState, useMemo} from 'react';
 import {View, Text, FlatList, Pressable, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxCollection, BerxCollectionItemType} from '@berx/api/types';
-import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
+import {spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
+
+import {useBerxColors} from '../../../../packages/design-system/src/theme';
+import type {BerxColorTokens} from '@berx/design-system/tokens';
 
 interface Props {
 	api: BerxApiClient;
@@ -25,6 +28,8 @@ interface Props {
 }
 
 export default function AddToCollectionScreen({api, myGuid, itemType, itemGuid, onCreateCollection, onDone, onBack}: Props) {
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(colors), [colors]);
 	const [items, setItems] = useState<BerxCollection[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
@@ -98,7 +103,7 @@ export default function AddToCollectionScreen({api, myGuid, itemType, itemGuid, 
 	);
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.bg},
 	toolbar: {padding: spacing.md},
 	list: {paddingHorizontal: spacing.md, gap: spacing.sm},

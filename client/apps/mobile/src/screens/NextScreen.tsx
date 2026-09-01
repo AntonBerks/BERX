@@ -8,15 +8,18 @@
  * has no real "when" until answered; an Event does. Forcing them into
  * one sorted list would fabricate a false single order.
  */
-import {useCallback, useEffect, useState} from 'react';
+import {useCallback, useEffect, useState, useMemo} from 'react';
 import {View, Text, Pressable, ScrollView, RefreshControl, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxNextResponse, BerxNextPlanInvite, BerxNextWorldInvite, BerxNextEvent} from '@berx/api/types';
 import {relativeTimeLabel} from '@berx/domain';
-import {colors, spacing, radius, typography} from '@berx/design-system/tokens';
+import {spacing, radius, typography} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
+
+import {useBerxColors} from '../../../../packages/design-system/src/theme';
+import type {BerxColorTokens} from '@berx/design-system/tokens';
 
 interface Props {
 	api: BerxApiClient;
@@ -27,6 +30,8 @@ interface Props {
 }
 
 export default function NextScreen({api, onOpenPlan, onOpenWorld, onOpenEvent, onBack}: Props) {
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(colors), [colors]);
 	const [data, setData] = useState<BerxNextResponse | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [refreshing, setRefreshing] = useState(false);
@@ -126,7 +131,7 @@ export default function NextScreen({api, onOpenPlan, onOpenWorld, onOpenEvent, o
 	);
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.black},
 	body: {padding: spacing.lg, gap: spacing.lg},
 	section: {gap: spacing.xs},

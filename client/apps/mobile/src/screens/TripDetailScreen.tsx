@@ -15,16 +15,19 @@
  * inline here instead of as a separate route, same principle as not
  * building empty screens just to hit a number.
  */
-import {useCallback, useEffect, useState} from 'react';
+import {useCallback, useEffect, useState, useMemo} from 'react';
 import {View, Text, FlatList, Image, Pressable, Alert, RefreshControl, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxTripDetail, BerxTripStop, BerxTripParticipant, BerxFriend, BerxCollectionVisibility} from '@berx/api/types';
-import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
+import {spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
+
+import {useBerxColors} from '../../../../packages/design-system/src/theme';
+import type {BerxColorTokens} from '@berx/design-system/tokens';
 
 interface Props {
 	api: BerxApiClient;
@@ -45,6 +48,8 @@ function groupByDay(stops: BerxTripStop[]): [number, BerxTripStop[]][] {
 }
 
 export default function TripDetailScreen({api, id, onOpenPlace, onOpenEvent, onDeleted, onBack}: Props) {
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(colors), [colors]);
 	const [trip, setTrip] = useState<BerxTripDetail | null>(null);
 	const [friends, setFriends] = useState<BerxFriend[]>([]);
 	const [loading, setLoading] = useState(true);
@@ -301,7 +306,7 @@ export default function TripDetailScreen({api, id, onOpenPlace, onOpenEvent, onD
 	);
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.bg},
 	description: {fontSize: typography.sizeSm, color: colors.textDim, paddingHorizontal: spacing.md, paddingTop: spacing.sm},
 	toolbar: {flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: spacing.md, paddingTop: spacing.sm},

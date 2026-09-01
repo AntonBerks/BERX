@@ -19,9 +19,13 @@
  * empty result is handled by whatever the destination screen already
  * does for one, same as any other real link in this app.
  */
+import {useMemo} from 'react';
 import type {ReactNode} from 'react';
 import {Text, StyleSheet, TextStyle} from 'react-native';
-import {colors, typography} from '@berx/design-system/tokens';
+import {typography} from '@berx/design-system/tokens';
+
+import {useBerxColors} from '../theme';
+import type {BerxColorTokens} from '../tokens';
 
 interface Props {
 	text: string;
@@ -33,6 +37,8 @@ interface Props {
 const TOKEN_RE = /([@#][\p{L}\p{N}_]+)/gu;
 
 export function BerxRichText({text, onOpenProfile, onOpenHashtag, style}: Props) {
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(colors), [colors]);
 	if (!text.includes('@') && !text.includes('#')) {
 		// The common case — plain text, no @/# at all — skips the regex
 		// entirely and renders exactly like a plain Text always did.
@@ -74,6 +80,6 @@ export function BerxRichText({text, onOpenProfile, onOpenHashtag, style}: Props)
 	return <Text style={style}>{parts}</Text>;
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	token: {color: colors.accent, fontWeight: typography.weightMedium},
 });

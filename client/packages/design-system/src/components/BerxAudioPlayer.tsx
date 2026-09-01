@@ -18,8 +18,12 @@
  * (or similar) from a library like react-native-track-player once
  * installed — `url`/`onPlay` map directly onto that kind of API.
  */
+import {useMemo} from 'react';
 import { View, Text, Pressable, Linking, StyleSheet } from 'react-native';
-import { colors, spacing, radius, typography } from '../tokens';
+import {spacing, radius, typography} from '../tokens';
+
+import {useBerxColors} from '../theme';
+import type {BerxColorTokens} from '../tokens';
 
 export interface BerxAudioPlayerProps {
 	url: string;
@@ -27,6 +31,8 @@ export interface BerxAudioPlayerProps {
 }
 
 export function BerxAudioPlayer({ url, onOpen }: BerxAudioPlayerProps) {
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(colors), [colors]);
 	async function handleOpen() {
 		onOpen?.();
 		try {
@@ -49,7 +55,7 @@ export function BerxAudioPlayer({ url, onOpen }: BerxAudioPlayerProps) {
 	);
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	bar: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.graphite, borderRadius: radius.md, padding: spacing.md },
 	playBadge: { width: 40, height: 40, borderRadius: radius.pill, backgroundColor: colors.accentSoft, alignItems: 'center', justifyContent: 'center' },
 	playGlyph: { color: colors.accent, fontSize: typography.sizeBase },

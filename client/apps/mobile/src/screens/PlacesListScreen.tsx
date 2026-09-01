@@ -21,18 +21,21 @@
  * thumbnail. Directive §19: "the Place should feel alive," not sit in
  * an album-grid cell.
  */
-import {useCallback, useEffect, useState} from 'react';
+import {useCallback, useEffect, useState, useMemo} from 'react';
 import {View, Text, FlatList, Pressable, RefreshControl, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxPlace, BerxPlaceCategory} from '@berx/api/types';
 import {ruPeopleLabel} from '@berx/domain';
-import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
+import {spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
 import {BerxPlaceCard} from '../../../../packages/design-system/src/components/BerxSpatialCards';
+
+import {useBerxColors} from '../../../../packages/design-system/src/theme';
+import type {BerxColorTokens} from '@berx/design-system/tokens';
 
 interface Props {
 	api: BerxApiClient;
@@ -44,6 +47,8 @@ interface Props {
 }
 
 export default function PlacesListScreen({api, onOpenPlace, onCreate, onOpenNearby, onOpenSaved, onBack}: Props) {
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(colors), [colors]);
 	const [query, setQuery] = useState('');
 	const [category, setCategory] = useState<string | undefined>(undefined);
 	const [categories, setCategories] = useState<BerxPlaceCategory[]>([]);
@@ -167,7 +172,7 @@ export default function PlacesListScreen({api, onOpenPlace, onCreate, onOpenNear
 	);
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.bg},
 	toolbar: {paddingHorizontal: spacing.md, paddingTop: spacing.sm, gap: spacing.sm},
 	toolbarRow: {flexDirection: 'row', gap: spacing.sm},

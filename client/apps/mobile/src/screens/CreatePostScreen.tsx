@@ -19,15 +19,18 @@
  * uploaded bytes are the real downloaded GIF, going through the exact
  * same uploadMedia()/attachMedia() path a picked photo already uses.
  */
-import {useEffect, useState} from 'react';
+import {useEffect, useState, useMemo} from 'react';
 import {View, Text, Image, Pressable, StyleSheet} from 'react-native';
 import type {BerxApiClient, BerxFilePart} from '@berx/api/client';
 import type {BerxCircle, BerxPostVisibility, BerxGifResult, BerxFriend} from '@berx/api/types';
-import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
+import {spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {GifPickerModal} from '../../../../packages/design-system/src/components/GifPickerModal';
 import {BerxMentionInput} from '../../../../packages/design-system/src/components/BerxMentionInput';
+
+import {useBerxColors} from '../../../../packages/design-system/src/theme';
+import type {BerxColorTokens} from '@berx/design-system/tokens';
 
 interface Props {
 	api: BerxApiClient;
@@ -41,6 +44,8 @@ interface Props {
 }
 
 export default function CreatePostScreen({api, pickImage, onCreated, draft, onOpenDrafts, repostTarget}: Props) {
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(colors), [colors]);
 	const [text, setText] = useState(draft?.text ?? '');
 	const [pickedPart, setPickedPart] = useState<BerxFilePart | null>(null);
 	const [previewUri, setPreviewUri] = useState<string | null>(null);
@@ -281,7 +286,7 @@ export default function CreatePostScreen({api, pickImage, onCreated, draft, onOp
 	);
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.black, padding: spacing.lg, gap: spacing.md},
 	titleRow: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.sm},
 	title: {color: colors.text, fontSize: typography.sizeXl, fontWeight: typography.weightBold},

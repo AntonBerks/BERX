@@ -14,9 +14,13 @@
  * hairline bottom edge instead of a flat 1px border, and the accent
  * glow token already defined but unused elsewhere in this pass.
  */
+import {useMemo} from 'react';
 import {View, Text, Pressable, StyleSheet} from 'react-native';
-import {colors, spacing, typography, radius} from '../tokens';
+import {spacing, typography, radius} from '../tokens';
 import {IconChevronLeft} from './BerxIcons';
+
+import {useBerxColors} from '../theme';
+import type {BerxColorTokens} from '../tokens';
 
 export interface BerxHeaderProps {
 	title?: string;
@@ -26,6 +30,8 @@ export interface BerxHeaderProps {
 }
 
 export function BerxHeader({title, subtitle, onBack}: BerxHeaderProps) {
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(colors), [colors]);
 	return (
 		<View style={styles.header}>
 			{onBack ? (
@@ -52,7 +58,7 @@ export function BerxHeader({title, subtitle, onBack}: BerxHeaderProps) {
 	);
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	header: {
 		flexDirection: 'row',
 		alignItems: 'center',

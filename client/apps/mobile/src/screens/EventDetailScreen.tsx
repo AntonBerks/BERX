@@ -30,12 +30,12 @@
  * Memory link — only ever shown once the server has already confirmed
  * has_checked_in, never a button that would 403.
  */
-import {useCallback, useEffect, useState} from 'react';
+import {useCallback, useEffect, useState, useMemo} from 'react';
 import {View, Text, ScrollView, Image, FlatList, Pressable, RefreshControl, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxEvent, BerxEventAttendee, BerxExperienceGraphFriend, BerxExperienceGraphWorldFriend, BerxEventStoryItem, BerxStoryFeedGroup, BerxLifeMoment} from '@berx/api/types';
 import {BerxApiError} from '@berx/core';
-import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
+import {spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
@@ -45,6 +45,9 @@ import {BerxAvatar} from '../../../../packages/design-system/src/components/Berx
 import {BerxGlassSurface} from '../../../../packages/design-system/src/components/BerxGlassSurface';
 import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
 import {Berx3DTilt} from '../../../../packages/design-system/src/components/Berx3DTilt';
+
+import {useBerxColors} from '../../../../packages/design-system/src/theme';
+import type {BerxColorTokens} from '@berx/design-system/tokens';
 
 interface Props {
 	api: BerxApiClient;
@@ -74,6 +77,8 @@ function groupStoriesByOwner(items: BerxEventStoryItem[]): BerxStoryFeedGroup[] 
 }
 
 export default function EventDetailScreen({api, guid, myGuid, onOpenPlace, onOpenCommunity, onOpenInvite, onAddToCollection, onAddToTrip, onAddToWorld, onAddEventStory, onOpenStoryGroup, onEdit, onBack}: Props) {
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(colors), [colors]);
 	const [event, setEvent] = useState<BerxEvent | null>(null);
 	const [attendees, setAttendees] = useState<BerxEventAttendee[]>([]);
 	const [loading, setLoading] = useState(true);
@@ -444,7 +449,7 @@ export default function EventDetailScreen({api, guid, myGuid, onOpenPlace, onOpe
 	);
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.bg},
 	hero: {aspectRatio: 1.6, backgroundColor: colors.graphite},
 	heroImage: {width: '100%', height: '100%'},

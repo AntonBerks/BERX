@@ -17,14 +17,17 @@
  * profile isn't a flow this app builds anywhere else, so this screen
  * isn't either.
  */
-import {useCallback, useEffect, useState} from 'react';
+import {useCallback, useEffect, useState, useMemo} from 'react';
 import {View, Text, FlatList, Image, Pressable, Dimensions, RefreshControl, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxDatingUserPhoto} from '@berx/api/types';
-import {colors, spacing, typography} from '@berx/design-system/tokens';
+import {spacing, typography} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
+
+import {useBerxColors} from '../../../../packages/design-system/src/theme';
+import type {BerxColorTokens} from '@berx/design-system/tokens';
 
 interface Props {
 	api: BerxApiClient;
@@ -36,6 +39,8 @@ interface Props {
 const TILE = Dimensions.get('window').width / 3 - spacing.md;
 
 export default function DatingUserPhotosScreen({api, userGuid, username, onBack}: Props) {
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(colors), [colors]);
 	const [photos, setPhotos] = useState<BerxDatingUserPhoto[]>([]);
 	const [authHeaders, setAuthHeaders] = useState<Record<string, string>>({});
 	const [loading, setLoading] = useState(true);
@@ -124,7 +129,7 @@ export default function DatingUserPhotosScreen({api, userGuid, username, onBack}
 	);
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.bg},
 	fadeFlex: {flex: 1},
 	grid: {padding: spacing.md, gap: spacing.sm},

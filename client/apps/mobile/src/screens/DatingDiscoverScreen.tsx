@@ -50,16 +50,19 @@
  * so it stayed, applied to the new full-bleed wrapper instead of a
  * small floating card.
  */
-import React, {useRef, useState} from 'react';
+import React, {useRef, useState, useMemo} from 'react';
 import {View, Text, Pressable, Animated, PanResponder, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxDatingProfileCard} from '@berx/api/types';
 import {BerxApiError} from '@berx/core';
-import {colors, spacing, radius, typography} from '@berx/design-system/tokens';
+import {spacing, radius, typography} from '@berx/design-system/tokens';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxGlassSurface} from '../../../../packages/design-system/src/components/BerxGlassSurface';
 import {BerxScrimHero, scrimBadgeStyles} from '../../../../packages/design-system/src/components/BerxScrimHero';
+
+import {useBerxColors} from '../../../../packages/design-system/src/theme';
+import type {BerxColorTokens} from '@berx/design-system/tokens';
 
 interface Props {
 	api: BerxApiClient;
@@ -73,6 +76,8 @@ interface Props {
 const SWIPE_THRESHOLD = 120;
 
 export default function DatingDiscoverScreen({api, onMatch, onOpenMatches, onOpenPrivacy, onOpenDatingProfile, onOpenSearch}: Props) {
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(colors), [colors]);
 	const [profiles, setProfiles] = useState<BerxDatingProfileCard[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
@@ -258,6 +263,8 @@ export default function DatingDiscoverScreen({api, onMatch, onOpenMatches, onOpe
 }
 
 function DatingTopBar({onOpenMatches, onOpenPrivacy, onOpenDatingProfile, onOpenSearch}: {onOpenMatches: () => void; onOpenPrivacy: () => void; onOpenDatingProfile: () => void; onOpenSearch?: () => void}) {
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(colors), [colors]);
 	return (
 		<View style={styles.topBar}>
 			<View style={styles.topBarLinks}>
@@ -281,7 +288,7 @@ function DatingTopBar({onOpenMatches, onOpenPrivacy, onOpenDatingProfile, onOpen
 	);
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.black, paddingTop: spacing.md},
 	topBar: {
 		flexDirection: 'row',

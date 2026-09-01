@@ -11,13 +11,16 @@
  * comments (myGuid === comment.author.guid) — the server re-checks
  * this regardless, this is just not showing a control that would 403.
  */
-import {useCallback, useEffect, useState} from 'react';
+import {useCallback, useEffect, useState, useMemo} from 'react';
 import {View, Text, Image, Pressable, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxObjectComment, BerxCommentableType} from '@berx/api/types';
-import {colors, spacing, typography, radius} from '../tokens';
+import {spacing, typography, radius} from '../tokens';
 import {BerxInput} from './BerxInput';
 import {BerxButton} from './BerxButton';
+
+import {useBerxColors} from '../theme';
+import type {BerxColorTokens} from '../tokens';
 
 interface Props {
 	api: BerxApiClient;
@@ -27,6 +30,8 @@ interface Props {
 }
 
 export function BerxDiscussion({api, type, id, myGuid}: Props) {
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(colors), [colors]);
 	const [comments, setComments] = useState<BerxObjectComment[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [text, setText] = useState('');
@@ -107,7 +112,7 @@ export function BerxDiscussion({api, type, id, myGuid}: Props) {
 	);
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	wrap: {gap: spacing.sm},
 	sectionTitle: {fontSize: typography.sizeXs, color: colors.textFaint, fontWeight: typography.weightBold, textTransform: 'uppercase'},
 	form: {flexDirection: 'row', gap: spacing.sm, alignItems: 'center'},

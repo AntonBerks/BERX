@@ -26,13 +26,16 @@
  * written a real row per (story, viewer) on every real story open).
  * Owner-only, matching every other real platform with this feature.
  */
-import {useEffect, useRef, useState} from 'react';
+import {useEffect, useRef, useState, useMemo} from 'react';
 import {View, Text, Image, Pressable, Animated, ScrollView, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxStoryFeedGroup, BerxStoryViewer} from '@berx/api/types';
 import {relativeTimeLabel} from '@berx/domain';
-import {colors, spacing, typography} from '@berx/design-system/tokens';
+import {spacing, typography} from '@berx/design-system/tokens';
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
+
+import {useBerxColors} from '../../../../packages/design-system/src/theme';
+import type {BerxColorTokens} from '@berx/design-system/tokens';
 
 interface Props {
 	api: BerxApiClient;
@@ -44,6 +47,8 @@ interface Props {
 const STORY_DURATION_MS = 5000;
 
 export default function StoryViewerScreen({api, group, myGuid, onClose}: Props) {
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(colors), [colors]);
 	const [index, setIndex] = useState(0);
 	const [paused, setPaused] = useState(false);
 	const [authHeaders, setAuthHeaders] = useState<Record<string, string>>({});
@@ -295,7 +300,7 @@ export default function StoryViewerScreen({api, group, myGuid, onClose}: Props) 
 	);
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.black},
 	progressRow: {flexDirection: 'row', gap: spacing.xs, padding: spacing.md, paddingTop: spacing.xl},
 	progressTrack: {flex: 1, height: 3, backgroundColor: colors.glass2, borderRadius: 2, overflow: 'hidden'},

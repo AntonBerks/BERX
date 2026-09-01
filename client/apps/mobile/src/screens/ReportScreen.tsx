@@ -8,14 +8,17 @@
  * places/events: those two are not in the real server whitelist, and
  * a report button there would 422 on every submission.
  */
-import {useState} from 'react';
+import {useState, useMemo} from 'react';
 import {View, Text, Pressable, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxReportTargetType, BerxReportReason} from '@berx/api/types';
-import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
+import {spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
+
+import {useBerxColors} from '../../../../packages/design-system/src/theme';
+import type {BerxColorTokens} from '@berx/design-system/tokens';
 
 interface Props {
 	api: BerxApiClient;
@@ -35,6 +38,8 @@ const REASONS: {key: BerxReportReason; label: string}[] = [
 ];
 
 export default function ReportScreen({api, targetType, targetGuid, onSubmitted, onBack}: Props) {
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(colors), [colors]);
 	const [reason, setReason] = useState<BerxReportReason | null>(null);
 	const [note, setNote] = useState('');
 	const [submitting, setSubmitting] = useState(false);
@@ -80,7 +85,7 @@ export default function ReportScreen({api, targetType, targetGuid, onSubmitted, 
 	);
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.bg},
 	body: {padding: spacing.md, gap: spacing.md},
 	label: {fontSize: typography.sizeXs, color: colors.textFaint, fontWeight: typography.weightBold, textTransform: 'uppercase'},

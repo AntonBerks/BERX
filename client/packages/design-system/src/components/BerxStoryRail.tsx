@@ -11,9 +11,12 @@
  * Every tile is a REAL story owner the caller can actually open. The
  * leading tile is the caller's own real create action.
  */
-import React from 'react';
+import React, {useMemo} from 'react';
 import {View, Text, Image, Pressable, ScrollView, StyleSheet, ViewStyle} from 'react-native';
-import {colors, spacing, typography} from '../tokens';
+import {spacing, typography} from '../tokens';
+
+import {useBerxColors} from '../theme';
+import type {BerxColorTokens} from '../tokens';
 
 export interface BerxStoryRailItem {
 	key: string;
@@ -33,6 +36,8 @@ export interface BerxStoryRailProps {
 }
 
 export function BerxStoryRail({items, onCreate, createLabel = 'Ваша история', size = 62, style}: BerxStoryRailProps) {
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(colors), [colors]);
 	const ring = size + 8;
 	return (
 		<ScrollView
@@ -74,7 +79,7 @@ export function BerxStoryRail({items, onCreate, createLabel = 'Ваша исто
 	);
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	rail: {paddingHorizontal: spacing.lg, gap: spacing.md, alignItems: 'flex-start'},
 	item: {alignItems: 'center', width: 72},
 	ring: {alignItems: 'center', justifyContent: 'center', borderWidth: 2},

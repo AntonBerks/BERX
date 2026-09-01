@@ -53,10 +53,13 @@
  * changed, per the transformation directive's own "preserve
  * functionality, reinvent presentation" rule.
  */
-import React, {useCallback, useEffect, useRef, useState} from 'react';
+import React, {useCallback, useEffect, useRef, useState, useMemo} from 'react';
 import {Animated, LayoutChangeEvent, Pressable, StyleSheet, Text, View} from 'react-native';
-import {colors, radius, spacing, typography} from '../tokens';
+import {radius, spacing, typography} from '../tokens';
 import {IconHome, IconUsers, IconPlus, IconPin, IconMenu} from './BerxIcons';
+
+import {useBerxColors} from '../theme';
+import type {BerxColorTokens} from '../tokens';
 
 export type BerxWayfinderTab = 'Home' | 'People' | 'Create' | 'Places' | 'Profile';
 
@@ -92,6 +95,8 @@ function tabIcon(tab: BerxWayfinderTab, size: number, color: string) {
  * Replaces AppShell's old inline `styles.tabBar` block.
  */
 export function BerxWayfinder({activeTab, onSelect, unreadNotifications}: Props) {
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(colors), [colors]);
 	const [positions, setPositions] = useState<Partial<Record<BerxWayfinderTab, {x: number; width: number}>>>({});
 	const indicatorX = useRef(new Animated.Value(0)).current;
 	const indicatorWidth = useRef(new Animated.Value(0)).current;
@@ -215,7 +220,7 @@ export function BerxWayfinder({activeTab, onSelect, unreadNotifications}: Props)
 const PILL_HEIGHT = 60;
 const ORB_SIZE = 56;
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	wrap: {
 		position: 'absolute',
 		left: 0,

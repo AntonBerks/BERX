@@ -15,14 +15,17 @@
  * already uses) — the friend chip list here is the same real
  * api.friends() every other invite flow in this app already calls.
  */
-import {useEffect, useState} from 'react';
+import {useEffect, useState, useMemo} from 'react';
 import {View, Text, Pressable, ScrollView, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxPlace, BerxFriend} from '@berx/api/types';
-import {colors, spacing, radius, typography} from '@berx/design-system/tokens';
+import {spacing, radius, typography} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
+
+import {useBerxColors} from '../../../../packages/design-system/src/theme';
+import type {BerxColorTokens} from '@berx/design-system/tokens';
 
 interface Props {
 	api: BerxApiClient;
@@ -38,6 +41,8 @@ function defaultStart(): {label: string; unix: number} {
 }
 
 export default function CreatePlanScreen({api, onCreated, onBack}: Props) {
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(colors), [colors]);
 	const [title, setTitle] = useState('');
 	const [notes, setNotes] = useState('');
 	const [places, setPlaces] = useState<BerxPlace[]>([]);
@@ -139,7 +144,7 @@ export default function CreatePlanScreen({api, onCreated, onBack}: Props) {
 	);
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.black},
 	body: {padding: spacing.lg, gap: spacing.md},
 	hint: {color: colors.textFaint, fontSize: typography.sizeXs},

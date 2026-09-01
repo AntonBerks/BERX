@@ -8,8 +8,12 @@
  * fake inline player thumbnail — no video preview generation exists
  * in this environment (see BerxMediaViewer's own header for why).
  */
+import {useMemo} from 'react';
 import { View, Image, Pressable, Text, StyleSheet } from 'react-native';
-import { colors, radius, typography } from '../tokens';
+import {radius, typography} from '../tokens';
+
+import {useBerxColors} from '../theme';
+import type {BerxColorTokens} from '../tokens';
 
 export interface BerxMediaGridItem {
 	guid: number;
@@ -25,6 +29,8 @@ export interface BerxMediaGridProps {
 }
 
 export function BerxMediaGrid({ items, columns = 3, onPress, onLongPress }: BerxMediaGridProps) {
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(colors), [colors]);
 	return (
 		<View style={styles.grid}>
 			{items.map((item, index) => (
@@ -48,7 +54,7 @@ export function BerxMediaGrid({ items, columns = 3, onPress, onLongPress }: Berx
 	);
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	grid: { flexDirection: 'row', flexWrap: 'wrap' },
 	tile: { aspectRatio: 1, padding: 1 },
 	tileInner: { flex: 1, backgroundColor: colors.graphite, borderRadius: radius.sm, overflow: 'hidden' },

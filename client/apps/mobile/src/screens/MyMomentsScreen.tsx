@@ -11,16 +11,19 @@
  * ExperienceDetailScreen already use for moments — not a Post feed
  * reskin.
  */
-import {useCallback, useEffect, useState} from 'react';
+import {useCallback, useEffect, useState, useMemo} from 'react';
 import {View, Text, FlatList, Pressable, RefreshControl, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxLifeMoment, BerxLifeMomentSourceType, BerxLifeMomentPerson} from '@berx/api/types';
 import {relativeTimeLabel} from '@berx/domain';
-import {colors, spacing, typography} from '@berx/design-system/tokens';
+import {spacing, typography} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
 import {BerxAvatarStack} from '../../../../packages/design-system/src/components/BerxAvatarStack';
+
+import {useBerxColors} from '../../../../packages/design-system/src/theme';
+import type {BerxColorTokens} from '@berx/design-system/tokens';
 
 interface Props {
 	api: BerxApiClient;
@@ -37,6 +40,8 @@ const SOURCE_LABEL: Record<BerxLifeMomentSourceType, string> = {
 };
 
 export default function MyMomentsScreen({api, onOpenEvent, onOpenExperience, onOpenPlace, onBack}: Props) {
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(colors), [colors]);
 	const [items, setItems] = useState<BerxLifeMoment[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [refreshing, setRefreshing] = useState(false);
@@ -122,7 +127,7 @@ export default function MyMomentsScreen({api, onOpenEvent, onOpenExperience, onO
 	);
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.black},
 	fadeFlex: {flex: 1},
 	list: {padding: spacing.lg},

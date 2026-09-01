@@ -25,15 +25,18 @@
  * already-shipped primitives RegisterScreen now uses, kept identical
  * across both screens on purpose.
  */
-import {useState} from 'react';
+import {useState, useMemo} from 'react';
 import {View, Text, ScrollView, KeyboardAvoidingView, Platform, Pressable, StyleSheet} from 'react-native';
 import type {BerxAuthState} from '@berx/auth';
-import {colors, spacing, typography} from '@berx/design-system/tokens';
+import {spacing, typography} from '@berx/design-system/tokens';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {BerxGlassSurface} from '../../../../packages/design-system/src/components/BerxGlassSurface';
 import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
 import {Berx3DTilt} from '../../../../packages/design-system/src/components/Berx3DTilt';
+
+import {useBerxColors} from '../../../../packages/design-system/src/theme';
+import type {BerxColorTokens} from '@berx/design-system/tokens';
 
 interface Props {
 	authState: BerxAuthState;
@@ -42,6 +45,8 @@ interface Props {
 }
 
 export default function LoginScreen({authState, onGoToRegister}: Props) {
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(colors), [colors]);
 	const [identifier, setIdentifier] = useState('');
 	const [password, setPassword] = useState('');
 	const snapshot = authState.getSnapshot();
@@ -119,7 +124,7 @@ export default function LoginScreen({authState, onGoToRegister}: Props) {
 	);
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.black},
 	scrollBody: {flexGrow: 1, justifyContent: 'center', padding: spacing.xl, gap: spacing.xl},
 	hero: {alignItems: 'center', gap: spacing.sm},

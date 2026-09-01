@@ -9,9 +9,13 @@
  * server's own fresh response (see api.votePoll()'s own comment) —
  * this component never predicts a result client-side.
  */
+import {useMemo} from 'react';
 import {View, Text, Pressable, StyleSheet} from 'react-native';
-import {colors, spacing, radius, typography} from '../tokens';
+import {spacing, radius, typography} from '../tokens';
 import type {BerxPostPoll} from '@berx/api/types';
+
+import {useBerxColors} from '../theme';
+import type {BerxColorTokens} from '../tokens';
 
 interface Props {
 	poll: BerxPostPoll;
@@ -23,6 +27,8 @@ interface Props {
 }
 
 export function BerxPollView({poll, onVote, voting, onClose, closing}: Props) {
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(colors), [colors]);
 	const showResults = poll.my_vote !== null || poll.is_ended;
 
 	return (
@@ -67,7 +73,7 @@ export function BerxPollView({poll, onVote, voting, onClose, closing}: Props) {
 	);
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	wrap: {gap: spacing.xs, marginTop: spacing.sm},
 	optionButton: {borderWidth: 1, borderColor: colors.borderSoft, borderRadius: radius.sm, paddingVertical: spacing.sm, paddingHorizontal: spacing.md, backgroundColor: colors.glass1},
 	optionButtonText: {color: colors.text, fontSize: typography.sizeSm, fontWeight: typography.weightMedium},

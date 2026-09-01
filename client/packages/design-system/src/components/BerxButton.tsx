@@ -4,8 +4,12 @@
  * not compiled/run in this sandbox (npm registry confirmed blocked,
  * 403, tested directly). Verify by dropping into a real RN project.
  */
+import {useMemo} from 'react';
 import { Pressable, Text, ActivityIndicator, StyleSheet, PressableProps } from 'react-native';
-import { colors, radius, spacing, typography, shadow } from '../tokens';
+import {radius, spacing, typography, shadow} from '../tokens';
+
+import {useBerxColors} from '../theme';
+import type {BerxColorTokens} from '../tokens';
 
 export type BerxButtonVariant = 'primary' | 'secondary' | 'danger';
 
@@ -23,6 +27,8 @@ export interface BerxButtonProps extends Omit<PressableProps, 'style'> {
  * product's button component.
  */
 export function BerxButton({ label, variant = 'primary', loading, fullWidth, disabled, ...rest }: BerxButtonProps) {
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(colors), [colors]);
 	const isDisabled = disabled || loading;
 	return (
 		<Pressable
@@ -54,7 +60,7 @@ export function BerxButton({ label, variant = 'primary', loading, fullWidth, dis
 	);
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	base: {
 		borderRadius: radius.pill,
 		paddingVertical: spacing.md,

@@ -41,17 +41,20 @@
  * same real attachment upload path as a picked photo — not a special
  * case, just a different file part.
  */
-import {useCallback, useEffect, useRef, useState} from 'react';
+import {useCallback, useEffect, useRef, useState, useMemo} from 'react';
 import {FlatList, Text, View, Image, Pressable, Alert, StyleSheet, Linking} from 'react-native';
 import type {BerxApiClient, BerxFilePart} from '@berx/api/client';
 import type {BerxMessage, BerxGifResult} from '@berx/api/types';
 import {relativeTimeLabel} from '@berx/domain';
-import {colors, spacing, radius, typography} from '@berx/design-system/tokens';
+import {spacing, radius, typography} from '@berx/design-system/tokens';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {BerxLoadingState, BerxErrorState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {GifPickerModal} from '../../../../packages/design-system/src/components/GifPickerModal';
+
+import {useBerxColors} from '../../../../packages/design-system/src/theme';
+import type {BerxColorTokens} from '@berx/design-system/tokens';
 
 interface Props {
 	api: BerxApiClient;
@@ -67,6 +70,8 @@ interface Props {
 }
 
 export default function ConversationScreen({api, myGuid, otherGuid, otherUsername, pickImage, onOpenPost, onOpenProfile, onBack}: Props) {
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(colors), [colors]);
 	const [messages, setMessages] = useState<BerxMessage[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
@@ -373,7 +378,7 @@ export default function ConversationScreen({api, myGuid, otherGuid, otherUsernam
 	);
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.black},
 	list: {flex: 1, paddingHorizontal: spacing.md},
 	bubble: {

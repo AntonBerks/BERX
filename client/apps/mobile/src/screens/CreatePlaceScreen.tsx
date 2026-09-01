@@ -3,14 +3,17 @@
  * Real submit: api.createPlace() (components/OssnApi/v1/places.php,
  * POST /places). Category select uses the real server whitelist.
  */
-import {useEffect, useState} from 'react';
+import {useEffect, useState, useMemo} from 'react';
 import {View, Text, ScrollView, Pressable, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxPlaceCategory} from '@berx/api/types';
-import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
+import {spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
+
+import {useBerxColors} from '../../../../packages/design-system/src/theme';
+import type {BerxColorTokens} from '@berx/design-system/tokens';
 
 interface Props {
 	api: BerxApiClient;
@@ -19,6 +22,8 @@ interface Props {
 }
 
 export default function CreatePlaceScreen({api, onCreated, onBack}: Props) {
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(colors), [colors]);
 	const [title, setTitle] = useState('');
 	const [description, setDescription] = useState('');
 	const [address, setAddress] = useState('');
@@ -74,7 +79,7 @@ export default function CreatePlaceScreen({api, onCreated, onBack}: Props) {
 	);
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.bg},
 	body: {padding: spacing.md, gap: spacing.md},
 	label: {fontSize: typography.sizeXs, color: colors.textFaint, fontWeight: typography.weightBold, textTransform: 'uppercase'},

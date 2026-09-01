@@ -9,11 +9,16 @@
  * controlled value/onChangeText); any caller-supplied onFocus/onBlur
  * still fires, this just also drives the visual ring.
  */
-import {useState} from 'react';
+import {useState, useMemo} from 'react';
 import {TextInput, TextInputProps, NativeSyntheticEvent, TextInputFocusEventData, StyleSheet} from 'react-native';
-import {colors, radius, spacing, typography} from '../tokens';
+import {radius, spacing, typography} from '../tokens';
+
+import {useBerxColors} from '../theme';
+import type {BerxColorTokens} from '../tokens';
 
 export function BerxInput(props: TextInputProps) {
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(colors), [colors]);
 	const [focused, setFocused] = useState(false);
 	return (
 		<TextInput
@@ -32,7 +37,7 @@ export function BerxInput(props: TextInputProps) {
 	);
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	input: {
 		backgroundColor: colors.glass1,
 		borderWidth: 1,

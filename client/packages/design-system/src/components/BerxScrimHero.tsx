@@ -9,9 +9,12 @@
  * at normal viewing distance; documented here as the honest reason
  * it's not one, not left unexplained.
  */
-import React from 'react';
+import React, {useMemo} from 'react';
 import {View, Image, Text, StyleSheet} from 'react-native';
 import {colors, spacing, typography, radius} from '../tokens';
+
+import {useBerxColors} from '../theme';
+import type {BerxColorTokens} from '../tokens';
 
 export interface BerxScrimHeroProps {
 	imageUrl: string | null;
@@ -34,6 +37,8 @@ export interface BerxScrimHeroProps {
 const SCRIM_STEPS = [0, 0.15, 0.35, 0.6, 0.92];
 
 export function BerxScrimHero({imageUrl, title, subtitle, badge, height = 280, fill, children}: BerxScrimHeroProps) {
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(colors), [colors]);
 	return (
 		<View style={[styles.wrap, fill ? styles.fill : {height}]}>
 			{imageUrl ? (
@@ -68,7 +73,7 @@ export function BerxScrimHero({imageUrl, title, subtitle, badge, height = 280, f
 	);
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	wrap: {width: '100%', backgroundColor: colors.graphite, justifyContent: 'flex-end'},
 	fill: {flex: 1},
 	fallback: {alignItems: 'center', justifyContent: 'center', backgroundColor: colors.graphite},

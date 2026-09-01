@@ -56,13 +56,13 @@
  * every other control on this screen keeps the systemic cyan accent
  * unchanged.
  */
-import React, {useEffect, useRef, useState} from 'react';
+import React, {useEffect, useRef, useState, useMemo} from 'react';
 import {View, Text, Image, Pressable, ScrollView, Animated, Alert, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxAuthState} from '@berx/auth';
 import type {BerxIdentity, BerxIdentityAchievement, BerxIdentityInterest, BerxStorySummary, BerxStoryFeedGroup, BerxPostDetail, BerxReputation} from '@berx/api/types';
 import {BerxApiError} from '@berx/core';
-import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
+import {spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxGradientCTA} from '../../../../packages/design-system/src/components/BerxGradientCTA';
 import {BerxLoadingState, BerxErrorState} from '../../../../packages/design-system/src/components/BerxStates';
@@ -72,6 +72,9 @@ import {BerxGlassSurface} from '../../../../packages/design-system/src/component
 import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
 import {Berx3DTilt} from '../../../../packages/design-system/src/components/Berx3DTilt';
 import {BerxSpatialLayer} from '../../../../packages/design-system/src/components/BerxSpatialLayer';
+
+import {useBerxColors} from '../../../../packages/design-system/src/theme';
+import type {BerxColorTokens} from '@berx/design-system/tokens';
 
 const HERO_SCRIM_STEPS = [0, 0.12, 0.3, 0.58, 0.9];
 
@@ -153,6 +156,8 @@ function joinedYear(unixSeconds?: number): string | null {
 }
 
 export default function ProfileScreen({api, authState, username, onBack, onMessage, onOpenNotifications, onOpenPoints, onOpenMissions, onOpenLifeGraph, onOpenMemories, onOpenWrapped, onOpenDatingPrivacy, onOpenDatingProfile, onOpenDatingPhotos, onOpenCommunities, onOpenPlans, onOpenWorlds, onOpenNext, onOpenMyMoments, onOpenDating, onOpenPlaces, onOpenEvents, onOpenSettings, onOpenBERXWorld, onOpenAlbums, onOpenCollections, onOpenTrips, onOpenExperiences, onOpenCreatorProfile, onOpenCreatorSettings, onOpenMyVideos, onOpenMyTracks, onOpenSavedPosts, onOpenEditProfile, onOpenMyPlaceClaims, onOpenRecentCheckins, onOpenAdminUnvalidated, onOpenAdminReports, onOpenAdminPlaceClaims, onReport, onOpenStoryGroup, onOpenPost}: Props) {
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(colors), [colors]);
 	const [profile, setProfile] = useState<ProfileData | null>(null);
 	const [identity, setIdentity] = useState<BerxIdentity | null>(null);
 	// Real scroll driver for the hero's parallax plane — this screen's
@@ -735,6 +740,8 @@ function MenuRow({
 	/** Real, honest count — omit or 0 renders nothing, never a fake "1". */
 	badge?: number;
 }) {
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(colors), [colors]);
 	return (
 		<Pressable
 			onPress={onPress}
@@ -757,7 +764,7 @@ function MenuRow({
 	);
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.black},
 	hero: {height: 460, backgroundColor: colors.graphite, justifyContent: 'flex-end', overflow: 'hidden'},
 	heroFallback: {alignItems: 'center', justifyContent: 'center', backgroundColor: colors.graphite},

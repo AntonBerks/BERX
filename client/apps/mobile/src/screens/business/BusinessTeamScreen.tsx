@@ -7,17 +7,20 @@
  * (no "search users" picker exists in this pass); a real product
  * screen would wire a real user search here.
  */
-import {useCallback, useEffect, useState} from 'react';
+import {useCallback, useEffect, useState, useMemo} from 'react';
 import {View, Text, Image, ScrollView, Pressable, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxBusinessTeamMember, BerxBusinessTeamRole} from '@berx/api/types';
-import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
+import {spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxGlassSurface} from '../../../../../packages/design-system/src/components/BerxGlassSurface';
 import {BerxEyebrow} from '../../../../../packages/design-system/src/components/BerxBusinessPrimitives';
 import {BerxHeader} from '../../../../../packages/design-system/src/components/BerxHeader';
 import {BerxInput} from '../../../../../packages/design-system/src/components/BerxInput';
 import {BerxButton} from '../../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState} from '../../../../../packages/design-system/src/components/BerxStates';
+
+import {useBerxColors} from '../../../../../packages/design-system/src/theme';
+import type {BerxColorTokens} from '@berx/design-system/tokens';
 
 interface Props {
 	api: BerxApiClient;
@@ -26,6 +29,8 @@ interface Props {
 }
 
 export default function BusinessTeamScreen({api, placeGuid, onBack}: Props) {
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(colors), [colors]);
 	const [team, setTeam] = useState<BerxBusinessTeamMember[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
@@ -127,7 +132,7 @@ export default function BusinessTeamScreen({api, placeGuid, onBack}: Props) {
 	);
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.bg},
 	content: {padding: spacing.lg, gap: spacing.md, paddingBottom: spacing.xxxl},
 	pageTitle: {fontSize: typography.sizeTitle, color: colors.white, fontWeight: typography.weightBold},

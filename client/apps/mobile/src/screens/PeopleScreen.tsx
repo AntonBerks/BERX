@@ -17,16 +17,19 @@
  * only what it can actually prove: who is online, who you actually
  * know, and how many friends you genuinely share with someone.
  */
-import {useCallback, useEffect, useRef, useState} from 'react';
+import {useCallback, useEffect, useRef, useState, useMemo} from 'react';
 import {View, Text, ScrollView, Pressable, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxOnlineFriend, BerxFriend, BerxPeopleSuggestion} from '@berx/api/types';
-import {colors, spacing, typography} from '@berx/design-system/tokens';
+import {spacing, typography} from '@berx/design-system/tokens';
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
 import {BerxLoadingState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxPersonCard, BerxLiveDot} from '../../../../packages/design-system/src/components/BerxSpatialCards';
 import {BerxAvatarStack} from '../../../../packages/design-system/src/components/BerxAvatarStack';
+
+import {useBerxColors} from '../../../../packages/design-system/src/theme';
+import type {BerxColorTokens} from '@berx/design-system/tokens';
 
 interface Props {
 	api: BerxApiClient;
@@ -46,6 +49,8 @@ interface SearchRow {
 const DEBOUNCE_MS = 400;
 
 export default function PeopleScreen({api, onOpenProfile, onOpenConversation, onOpenNearby, onOpenSocialMap, onOpenInvite}: Props) {
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(colors), [colors]);
 	const [online, setOnline] = useState<BerxOnlineFriend[]>([]);
 	const [friends, setFriends] = useState<BerxFriend[]>([]);
 	const [suggestions, setSuggestions] = useState<BerxPeopleSuggestion[]>([]);
@@ -226,7 +231,7 @@ export default function PeopleScreen({api, onOpenProfile, onOpenConversation, on
 	);
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.black},
 	head: {flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', paddingHorizontal: spacing.lg, paddingTop: spacing.lg, gap: spacing.md},
 	headTitles: {flex: 1, gap: 2},

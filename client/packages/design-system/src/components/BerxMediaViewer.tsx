@@ -13,10 +13,13 @@
  * multiple assets uses a plain horizontal FlatList with paging, which
  * needs no external library.
  */
-import {useState} from 'react';
+import {useState, useMemo} from 'react';
 import {View, Image, Text, FlatList, Modal, Pressable, Dimensions, StyleSheet} from 'react-native';
-import {colors, spacing, typography, radius} from '../tokens';
+import {spacing, typography, radius} from '../tokens';
 import type {BerxMediaAsset} from '@berx/api/types';
+
+import {useBerxColors} from '../theme';
+import type {BerxColorTokens} from '../tokens';
 
 export interface BerxMediaViewerProps {
 	assets: BerxMediaAsset[];
@@ -28,6 +31,8 @@ export interface BerxMediaViewerProps {
 const {width: SCREEN_WIDTH} = Dimensions.get('window');
 
 export function BerxMediaViewer({assets, initialIndex = 0, visible, onClose}: BerxMediaViewerProps) {
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(colors), [colors]);
 	const [index, setIndex] = useState(initialIndex);
 
 	if (!visible || assets.length === 0) return null;
@@ -73,7 +78,7 @@ export function BerxMediaViewer({assets, initialIndex = 0, visible, onClose}: Be
 	);
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	backdrop: {flex: 1, backgroundColor: 'rgba(5,5,5,0.96)'},
 	closeBtn: {position: 'absolute', top: 48, right: spacing.lg, zIndex: 1, width: 36, height: 36, borderRadius: radius.pill, backgroundColor: colors.glass2, alignItems: 'center', justifyContent: 'center'},
 	closeText: {color: colors.white, fontSize: typography.sizeBase},

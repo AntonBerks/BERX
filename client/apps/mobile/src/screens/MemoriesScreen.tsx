@@ -19,15 +19,18 @@
  * inventing a third pattern for "a group of real people connected to
  * one object."
  */
-import {useCallback, useEffect, useState} from 'react';
+import {useCallback, useEffect, useState, useMemo} from 'react';
 import {View, Text, Image, FlatList, Pressable, RefreshControl, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxMemory, BerxSavedMemory} from '@berx/api/types';
-import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
+import {spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxAvatar} from '../../../../packages/design-system/src/components/BerxAvatar';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
+
+import {useBerxColors} from '../../../../packages/design-system/src/theme';
+import type {BerxColorTokens} from '@berx/design-system/tokens';
 
 interface Props {
 	api: BerxApiClient;
@@ -65,6 +68,8 @@ function groupByYearsAgo(memories: BerxMemory[]): Section[] {
 }
 
 export default function MemoriesScreen({api, onOpenPost, onOpenAlbum, onOpenPlace, onOpenSavedMemory, onBack}: Props) {
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(colors), [colors]);
 	const [memories, setMemories] = useState<BerxMemory[]>([]);
 	const [saved, setSaved] = useState<BerxSavedMemory[]>([]);
 	const [loading, setLoading] = useState(true);
@@ -206,7 +211,7 @@ export default function MemoriesScreen({api, onOpenPost, onOpenAlbum, onOpenPlac
 	);
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.bg},
 	list: {padding: spacing.md},
 	fadeFlex: {flex: 1},

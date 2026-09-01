@@ -26,16 +26,19 @@
  * Same `pickImage` injected-prop pattern as AlbumDetailScreen — no
  * image-picker library is installable in this sandbox.
  */
-import {useCallback, useEffect, useState} from 'react';
+import {useCallback, useEffect, useState, useMemo} from 'react';
 import {View, Text, FlatList, Image, Pressable, Dimensions, RefreshControl, StyleSheet} from 'react-native';
 import type {BerxApiClient, BerxFilePart} from '@berx/api/client';
 import type {BerxDatingOwnPhoto, BerxDatingPhotoRequest} from '@berx/api/types';
-import {colors, spacing, typography} from '@berx/design-system/tokens';
+import {spacing, typography} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxGlassSurface} from '../../../../packages/design-system/src/components/BerxGlassSurface';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
+
+import {useBerxColors} from '../../../../packages/design-system/src/theme';
+import type {BerxColorTokens} from '@berx/design-system/tokens';
 
 interface Props {
 	api: BerxApiClient;
@@ -46,6 +49,8 @@ interface Props {
 const TILE = Dimensions.get('window').width / 3 - spacing.md;
 
 export default function DatingPhotosScreen({api, pickImage, onBack}: Props) {
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(colors), [colors]);
 	const [photos, setPhotos] = useState<BerxDatingOwnPhoto[]>([]);
 	const [requests, setRequests] = useState<BerxDatingPhotoRequest[]>([]);
 	const [granted, setGranted] = useState<BerxDatingPhotoRequest[]>([]);
@@ -219,7 +224,7 @@ export default function DatingPhotosScreen({api, pickImage, onBack}: Props) {
 	);
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.bg},
 	toolbar: {padding: spacing.md, gap: spacing.xs},
 	hint: {fontSize: typography.sizeXs, color: colors.textFaint, textAlign: 'center', padding: spacing.sm},

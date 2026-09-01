@@ -44,11 +44,14 @@ import {FlatList, Pressable, Text, View, Image, RefreshControl, StyleSheet} from
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxConversationSummary, BerxOnlineFriend, BerxPeopleSuggestion} from '@berx/api/types';
 import {relativeTimeLabel} from '@berx/domain';
-import {colors, spacing, radius, typography} from '@berx/design-system/tokens';
+import {spacing, radius, typography} from '@berx/design-system/tokens';
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {BerxErrorState, BerxEmptyState, BerxSkeleton} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxAvatar} from '../../../../packages/design-system/src/components/BerxAvatar';
 import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
+
+import {useBerxColors} from '../../../../packages/design-system/src/theme';
+import type {BerxColorTokens} from '@berx/design-system/tokens';
 
 const PEOPLE_SCRIM_STEPS = [0, 0.2, 0.45, 0.75, 0.95];
 
@@ -60,6 +63,8 @@ interface Props {
 }
 
 export default function ConversationListScreen({api, onOpenConversation, onOpenMessageSearch}: Props) {
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(colors), [colors]);
 	const [items, setItems] = useState<BerxConversationSummary[]>([]);
 	const [query, setQuery] = useState('');
 	const [loading, setLoading] = useState(true);
@@ -231,7 +236,7 @@ export default function ConversationListScreen({api, onOpenConversation, onOpenM
 	);
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.black},
 	titleRow: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.lg, paddingTop: spacing.md},
 	title: {color: colors.text, fontSize: typography.sizeXl, fontWeight: typography.weightBold},

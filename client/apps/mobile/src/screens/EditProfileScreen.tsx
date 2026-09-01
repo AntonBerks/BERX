@@ -29,16 +29,19 @@
  * session-cookie web action. Same pickImage-injected-prop pattern as
  * AlbumDetailScreen/EditPlaceScreen.
  */
-import {useCallback, useEffect, useState} from 'react';
+import {useCallback, useEffect, useState, useMemo} from 'react';
 import {View, Text, Image, Pressable, ScrollView, StyleSheet} from 'react-native';
 import type {BerxApiClient, BerxFilePart} from '@berx/api/client';
 import type {BerxUser} from '@berx/api/types';
-import {colors, spacing, typography} from '@berx/design-system/tokens';
+import {spacing, typography} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState} from '../../../../packages/design-system/src/components/BerxStates';
 import {Berx3DTilt} from '../../../../packages/design-system/src/components/Berx3DTilt';
+
+import {useBerxColors} from '../../../../packages/design-system/src/theme';
+import type {BerxColorTokens} from '@berx/design-system/tokens';
 
 interface Props {
 	api: BerxApiClient;
@@ -48,6 +51,8 @@ interface Props {
 }
 
 export default function EditProfileScreen({api, pickImage, onSaved, onBack}: Props) {
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(colors), [colors]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 	const [firstName, setFirstName] = useState('');
@@ -239,7 +244,7 @@ export default function EditProfileScreen({api, pickImage, onSaved, onBack}: Pro
 	);
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.bg},
 	hero: {height: 140, backgroundColor: colors.surface, marginBottom: 40},
 	heroImage: {width: '100%', height: '100%'},

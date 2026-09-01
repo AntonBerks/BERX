@@ -30,7 +30,7 @@
  * same constraint NearbyNowScreen documents), so distance ranking
  * stays in Nearby rather than being invented.
  */
-import {useCallback, useEffect, useRef, useState} from 'react';
+import {useCallback, useEffect, useRef, useState, useMemo} from 'react';
 import {View, Text, ScrollView, Pressable, Animated, RefreshControl, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {
@@ -44,7 +44,7 @@ import type {
 	BerxUser,
 } from '@berx/api/types';
 import {relativeTimeLabel} from '@berx/domain';
-import {colors, spacing, typography, radius, getBerxDaypartPalette} from '@berx/design-system/tokens';
+import {spacing, typography, radius, getBerxDaypartPalette} from '@berx/design-system/tokens';
 import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
 import {BerxSkeleton} from '../../../../packages/design-system/src/components/BerxStates';
 import {IconPlus, IconSearch, IconMessage, IconBell} from '../../../../packages/design-system/src/components/BerxIcons';
@@ -57,6 +57,9 @@ import {BerxGreetingHeader, BerxEditorialTitle} from '../../../../packages/desig
 import {BerxImmersivePost} from '../../../../packages/design-system/src/components/BerxImmersivePost';
 import {BerxPlaceCard, BerxEventCard, BerxPersonCard, BerxLiveDot} from '../../../../packages/design-system/src/components/BerxSpatialCards';
 import type {BerxRailAction} from '../../../../packages/design-system/src/components/BerxActionRail';
+
+import {useBerxColors} from '../../../../packages/design-system/src/theme';
+import type {BerxColorTokens} from '@berx/design-system/tokens';
 
 interface Props {
 	api: BerxApiClient;
@@ -113,6 +116,8 @@ export default function NowScreen({
 	onOpenStoryGroup,
 	onCreateStory,
 }: Props) {
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(colors), [colors]);
 	const [items, setItems] = useState<BerxFeedItem[]>([]);
 	const [storyGroups, setStoryGroups] = useState<BerxStoryFeedGroup[]>([]);
 	const [online, setOnline] = useState<BerxOnlineFriend[]>([]);
@@ -507,6 +512,8 @@ function SectionHead({
 	onMore?: () => void;
 	moreLabel?: string;
 }) {
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(colors), [colors]);
 	return (
 		<View style={styles.sectionHead}>
 			<View style={styles.sectionHeadLeft}>
@@ -522,7 +529,7 @@ function SectionHead({
 	);
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.black},
 	scroll: {flex: 1},
 	scrollContent: {paddingBottom: spacing.xxxl},

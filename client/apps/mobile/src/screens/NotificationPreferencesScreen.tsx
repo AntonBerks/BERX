@@ -12,14 +12,17 @@
  * the same finite, honest list of BERX-issued notification types, not
  * every core OSSN notification string that exists anywhere in the fork.
  */
-import {useCallback, useEffect, useState} from 'react';
+import {useCallback, useEffect, useState, useMemo} from 'react';
 import {View, Text, Switch, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxNotificationPrefs, BerxNotificationPrefType} from '@berx/api/types';
-import {colors, spacing, typography} from '@berx/design-system/tokens';
+import {spacing, typography} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxLoadingState, BerxErrorState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
+
+import {useBerxColors} from '../../../../packages/design-system/src/theme';
+import type {BerxColorTokens} from '@berx/design-system/tokens';
 
 interface Props {
 	api: BerxApiClient;
@@ -87,6 +90,8 @@ const ORDER: BerxNotificationPrefType[] = [
 ];
 
 export default function NotificationPreferencesScreen({api, onBack}: Props) {
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(colors), [colors]);
 	const [prefs, setPrefs] = useState<BerxNotificationPrefs | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
@@ -148,7 +153,7 @@ export default function NotificationPreferencesScreen({api, onBack}: Props) {
 	);
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.bg},
 	content: {padding: spacing.lg, gap: spacing.md},
 	hint: {fontSize: typography.sizeXs, color: colors.textFaint, marginBottom: spacing.sm},

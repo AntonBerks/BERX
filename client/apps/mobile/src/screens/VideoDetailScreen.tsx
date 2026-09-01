@@ -8,17 +8,20 @@
  * system. Delete reuses api.deletePost() (author/admin only,
  * server-side), which also cleans up the real attached video file.
  */
-import {useCallback, useEffect, useState} from 'react';
+import {useCallback, useEffect, useState, useMemo} from 'react';
 import {View, Text, Pressable, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxVideoPost, BerxPostComment} from '@berx/api/types';
 import {relativeTimeLabel} from '@berx/domain';
-import {colors, spacing, typography} from '@berx/design-system/tokens';
+import {spacing, typography} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {BerxVideoPlayer} from '../../../../packages/design-system/src/components/BerxVideoPlayer';
 import {BerxLoadingState, BerxErrorState} from '../../../../packages/design-system/src/components/BerxStates';
+
+import {useBerxColors} from '../../../../packages/design-system/src/theme';
+import type {BerxColorTokens} from '@berx/design-system/tokens';
 
 interface Props {
 	api: BerxApiClient;
@@ -30,6 +33,8 @@ interface Props {
 }
 
 export default function VideoDetailScreen({api, postGuid, myGuid, onOpenProfile, onDeleted, onBack}: Props) {
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(colors), [colors]);
 	const [video, setVideo] = useState<BerxVideoPost | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
@@ -151,7 +156,7 @@ export default function VideoDetailScreen({api, postGuid, myGuid, onOpenProfile,
 	);
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.black},
 	body: {padding: spacing.lg, gap: spacing.md},
 	author: {color: colors.accent, fontSize: typography.sizeLg, fontWeight: typography.weightMedium},

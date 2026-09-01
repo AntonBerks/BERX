@@ -15,10 +15,13 @@
  * composed graphite plane carrying the same overlay content — never a
  * grey "photo placeholder" pretending an image exists.
  */
-import React from 'react';
+import React, {useMemo} from 'react';
 import {View, Image, Pressable, StyleSheet, ViewStyle} from 'react-native';
-import {colors, radius, spacing, mediaRatio, elevation as elevationTokens} from '../tokens';
+import {radius, spacing, mediaRatio, elevation as elevationTokens} from '../tokens';
 import type {BerxElevation} from '../tokens';
+
+import {useBerxColors} from '../theme';
+import type {BerxColorTokens} from '../tokens';
 
 const SCRIM_STEPS = [0, 0.12, 0.3, 0.58, 0.9];
 
@@ -54,6 +57,8 @@ export function BerxMediaCard({
 	cornerRadius = radius.lg,
 	style,
 }: BerxMediaCardProps) {
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(colors), [colors]);
 	const body = (
 		<View
 			style={[
@@ -95,7 +100,7 @@ export function BerxMediaCard({
 	);
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	press: {},
 	wrap: {
 		overflow: 'hidden',

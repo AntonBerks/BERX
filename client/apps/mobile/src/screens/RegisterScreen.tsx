@@ -21,16 +21,19 @@
  * PlaceDetailScreen's hero); BerxFadeIn staggers a real entrance
  * instead of the whole screen appearing at once.
  */
-import {useState} from 'react';
+import {useState, useMemo} from 'react';
 import {View, Text, ScrollView, KeyboardAvoidingView, Platform, Pressable, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import {BerxApiError} from '@berx/core';
-import {colors, spacing, radius, typography, shadow} from '@berx/design-system/tokens';
+import {spacing, radius, typography, shadow} from '@berx/design-system/tokens';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {BerxGlassSurface} from '../../../../packages/design-system/src/components/BerxGlassSurface';
 import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
 import {Berx3DTilt} from '../../../../packages/design-system/src/components/Berx3DTilt';
+
+import {useBerxColors} from '../../../../packages/design-system/src/theme';
+import type {BerxColorTokens} from '@berx/design-system/tokens';
 
 interface Props {
 	api: BerxApiClient;
@@ -39,6 +42,8 @@ interface Props {
 }
 
 export default function RegisterScreen({api, onRegistered, onBack}: Props) {
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(colors), [colors]);
 	const [username, setUsername] = useState('');
 	const [firstname, setFirstname] = useState('');
 	const [lastname, setLastname] = useState('');
@@ -141,7 +146,7 @@ export default function RegisterScreen({api, onRegistered, onBack}: Props) {
 	);
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.black},
 	scrollBody: {flexGrow: 1, justifyContent: 'center', padding: spacing.xl, gap: spacing.xl},
 	hero: {alignItems: 'center', gap: spacing.sm},

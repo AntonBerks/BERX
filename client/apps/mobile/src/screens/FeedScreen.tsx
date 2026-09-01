@@ -25,17 +25,20 @@
  * ones. The story rail's circular rings (Instagram's own shape) are
  * now BERX-native squared tiles with a thin single-line frame.
  */
-import {useCallback, useEffect, useState} from 'react';
+import {useCallback, useEffect, useState, useMemo} from 'react';
 import {View, Text, FlatList, RefreshControl, StyleSheet, Pressable, GestureResponderEvent} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxFeedItem, BerxStoryFeedGroup, BerxTrendingHashtag} from '@berx/api/types';
 import {relativeTimeLabel} from '@berx/domain';
-import {colors, spacing, radius, typography} from '@berx/design-system/tokens';
+import {spacing, radius, typography} from '@berx/design-system/tokens';
 import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
 import {BerxErrorState, BerxEmptyState, BerxSkeleton} from '../../../../packages/design-system/src/components/BerxStates';
 import {IconPlus} from '../../../../packages/design-system/src/components/BerxIcons';
 import {BerxRichText} from '../../../../packages/design-system/src/components/BerxRichText';
 import {BerxPollView} from '../../../../packages/design-system/src/components/BerxPollView';
+
+import {useBerxColors} from '../../../../packages/design-system/src/theme';
+import type {BerxColorTokens} from '@berx/design-system/tokens';
 
 interface Props {
 	api: BerxApiClient;
@@ -49,6 +52,8 @@ interface Props {
 }
 
 export default function FeedScreen({api, myGuid, onOpenPost, onOpenProfile, onOpenHashtag, onCreatePost, onOpenStoryGroup, onCreateStory}: Props) {
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(colors), [colors]);
 	const [items, setItems] = useState<BerxFeedItem[]>([]);
 	const [votingPollGuid, setVotingPollGuid] = useState<number | null>(null);
 	const [storyGroups, setStoryGroups] = useState<BerxStoryFeedGroup[]>([]);
@@ -255,7 +260,7 @@ export default function FeedScreen({api, myGuid, onOpenPost, onOpenProfile, onOp
 	);
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.black},
 	header: {
 		flexDirection: 'row',

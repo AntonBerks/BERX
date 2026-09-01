@@ -13,16 +13,19 @@
  * could create a circle and manage members, but never rename it or
  * delete it again from the app.
  */
-import {useCallback, useEffect, useState} from 'react';
+import {useCallback, useEffect, useState, useMemo} from 'react';
 import {View, Text, FlatList, Image, Pressable, Alert, RefreshControl, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxCircleDetail, BerxCircleMember, BerxFriend} from '@berx/api/types';
-import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
+import {spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
+
+import {useBerxColors} from '../../../../packages/design-system/src/theme';
+import type {BerxColorTokens} from '@berx/design-system/tokens';
 
 interface Props {
 	api: BerxApiClient;
@@ -32,6 +35,8 @@ interface Props {
 }
 
 export default function CircleDetailScreen({api, id, onDeleted, onBack}: Props) {
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(colors), [colors]);
 	const [circle, setCircle] = useState<BerxCircleDetail | null>(null);
 	const [friends, setFriends] = useState<BerxFriend[]>([]);
 	const [loading, setLoading] = useState(true);
@@ -230,7 +235,7 @@ export default function CircleDetailScreen({api, id, onDeleted, onBack}: Props) 
 	);
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.bg},
 	toolbar: {padding: spacing.md, gap: spacing.sm},
 	toggleBtn: {alignSelf: 'flex-start'},

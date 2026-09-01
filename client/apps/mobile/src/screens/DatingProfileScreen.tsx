@@ -13,15 +13,18 @@
  * expected state for a new user, not an error), everything else
  * loads the real current values before editing.
  */
-import {useCallback, useEffect, useState} from 'react';
+import {useCallback, useEffect, useState, useMemo} from 'react';
 import {View, Text, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import {BerxApiError} from '@berx/core';
-import {colors, spacing, typography} from '@berx/design-system/tokens';
+import {spacing, typography} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState} from '../../../../packages/design-system/src/components/BerxStates';
+
+import {useBerxColors} from '../../../../packages/design-system/src/theme';
+import type {BerxColorTokens} from '@berx/design-system/tokens';
 
 interface Props {
 	api: BerxApiClient;
@@ -29,6 +32,8 @@ interface Props {
 }
 
 export default function DatingProfileScreen({api, onBack}: Props) {
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(colors), [colors]);
 	const [loading, setLoading] = useState(true);
 	const [pseudonym, setPseudonym] = useState('');
 	const [age, setAge] = useState('');
@@ -115,7 +120,7 @@ export default function DatingProfileScreen({api, onBack}: Props) {
 	);
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.black},
 	content: {padding: spacing.lg, gap: spacing.md},
 	status: {color: colors.textDim, fontSize: typography.sizeSm, textAlign: 'center'},

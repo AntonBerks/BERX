@@ -6,16 +6,19 @@
  * AppShell/routes (the "not yet wired" note this comment previously
  * carried is stale — a later session did the navigation wiring).
  */
-import {useCallback, useEffect, useState} from 'react';
+import {useCallback, useEffect, useState, useMemo} from 'react';
 import {View, Text, ScrollView, Pressable, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxPlace, BerxBusinessDashboard, BerxBusinessSubscription} from '@berx/api/types';
-import {colors, spacing, typography} from '@berx/design-system/tokens';
+import {spacing, typography} from '@berx/design-system/tokens';
 import {BerxScrimHero, scrimBadgeStyles} from '../../../../../packages/design-system/src/components/BerxScrimHero';
 import {BerxGlassSurface} from '../../../../../packages/design-system/src/components/BerxGlassSurface';
 import {BerxStatTile, BerxEyebrow} from '../../../../../packages/design-system/src/components/BerxBusinessPrimitives';
 import {BerxLoadingState, BerxErrorState} from '../../../../../packages/design-system/src/components/BerxStates';
 import {BerxFadeIn} from '../../../../../packages/design-system/src/components/BerxFadeIn';
+
+import {useBerxColors} from '../../../../../packages/design-system/src/theme';
+import type {BerxColorTokens} from '@berx/design-system/tokens';
 
 interface Props {
 	api: BerxApiClient;
@@ -38,6 +41,8 @@ const NAV_CARDS = [
 ] as const;
 
 export default function BusinessHomeScreen({api, placeGuid, onOpenProfile, onOpenDashboard, onOpenProducts, onOpenOffers, onOpenTeam, onOpenSettings}: Props) {
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(colors), [colors]);
 	const [place, setPlace] = useState<BerxPlace | null>(null);
 	const [dashboard, setDashboard] = useState<BerxBusinessDashboard | null>(null);
 	const [subscription, setSubscription] = useState<BerxBusinessSubscription | null>(null);
@@ -121,7 +126,7 @@ export default function BusinessHomeScreen({api, placeGuid, onOpenProfile, onOpe
 	);
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.bg},
 	scrollContent: {paddingBottom: spacing.xxxl},
 	body: {padding: spacing.lg, gap: spacing.lg, marginTop: -spacing.xl},

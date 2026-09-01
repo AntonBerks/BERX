@@ -35,12 +35,12 @@
  * resolves, plus a new /communities/{guid}/cover JSON route wrapping
  * it. Same pickImage-injected-prop pattern as EditPlaceScreen.
  */
-import {useEffect, useState} from 'react';
+import {useEffect, useState, useMemo} from 'react';
 import {View, Text, Image, Pressable, Alert, StyleSheet} from 'react-native';
 import type {BerxApiClient, BerxFilePart} from '@berx/api/client';
 import type {BerxCommunity, BerxEvent, BerxFeedItem, BerxCommunityMember} from '@berx/api/types';
 import {relativeTimeLabel} from '@berx/domain';
-import {colors, spacing, typography} from '@berx/design-system/tokens';
+import {spacing, typography} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
@@ -49,6 +49,9 @@ import {Berx3DTilt} from '../../../../packages/design-system/src/components/Berx
 import {BerxPollView} from '../../../../packages/design-system/src/components/BerxPollView';
 import {BerxAvatarStack} from '../../../../packages/design-system/src/components/BerxAvatarStack';
 import {BerxEventCard} from '../../../../packages/design-system/src/components/BerxSpatialCards';
+
+import {useBerxColors} from '../../../../packages/design-system/src/theme';
+import type {BerxColorTokens} from '@berx/design-system/tokens';
 
 interface Props {
 	api: BerxApiClient;
@@ -67,6 +70,8 @@ interface Props {
 }
 
 export default function CommunityDetailScreen({api, guid, myGuid, pickImage, onBack, onOpenRequests, onOpenModerators, onOpenMembers, onOpenEvent, onOpenPost, onReport, onDeleted}: Props) {
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(colors), [colors]);
 	const [community, setCommunity] = useState<BerxCommunity | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
@@ -460,7 +465,7 @@ export default function CommunityDetailScreen({api, guid, myGuid, pickImage, onB
 	);
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.black},
 	hero: {height: 160, backgroundColor: colors.surface, overflow: 'hidden'},
 	heroImage: {width: '100%', height: '100%'},

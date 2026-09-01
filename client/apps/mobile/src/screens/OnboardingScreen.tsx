@@ -21,13 +21,16 @@
  * picker, no invented profile fields (no bio/city field exists on
  * PATCH /me, so none is faked here).
  */
-import {useState} from 'react';
+import {useState, useMemo} from 'react';
 import {View, Text, StyleSheet} from 'react-native';
 import type {BerxApiClient, BerxFilePart} from '@berx/api/client';
 import type {BerxUser} from '@berx/api/types';
-import {colors, spacing, typography} from '@berx/design-system/tokens';
+import {spacing, typography} from '@berx/design-system/tokens';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxAvatar} from '../../../../packages/design-system/src/components/BerxAvatar';
+
+import {useBerxColors} from '../../../../packages/design-system/src/theme';
+import type {BerxColorTokens} from '@berx/design-system/tokens';
 
 interface Props {
 	api: BerxApiClient;
@@ -37,6 +40,8 @@ interface Props {
 }
 
 export default function OnboardingScreen({api, user, pickImage, onComplete}: Props) {
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(colors), [colors]);
 	const [step, setStep] = useState<'welcome' | 'avatar'>('welcome');
 	const [iconUrl, setIconUrl] = useState(user.icon_url);
 	const [uploading, setUploading] = useState(false);
@@ -83,7 +88,7 @@ export default function OnboardingScreen({api, user, pickImage, onComplete}: Pro
 	);
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.black, padding: spacing.xl, justifyContent: 'center', alignItems: 'center', gap: spacing.md},
 	eyebrow: {fontSize: typography.sizeSm, color: colors.textFaint, textTransform: 'uppercase', letterSpacing: 1},
 	name: {fontSize: typography.sizeXl, fontWeight: typography.weightBold, color: colors.text, marginTop: spacing.sm},

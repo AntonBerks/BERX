@@ -5,9 +5,13 @@
  * glow, BERX typography, real actions (message the match / keep
  * browsing) — not a static congratulations graphic.
  */
+import {useMemo} from 'react';
 import {View, Text, StyleSheet} from 'react-native';
-import {colors, spacing, typography} from '@berx/design-system/tokens';
+import {spacing, typography} from '@berx/design-system/tokens';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
+
+import {useBerxColors} from '../../../../packages/design-system/src/theme';
+import type {BerxColorTokens} from '@berx/design-system/tokens';
 
 interface Props {
 	otherUsername: string;
@@ -16,6 +20,8 @@ interface Props {
 }
 
 export default function DatingMatchScreen({otherUsername, onMessage, onContinueBrowsing}: Props) {
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(colors), [colors]);
 	return (
 		<View style={styles.screen}>
 			<View style={styles.glow} />
@@ -38,7 +44,7 @@ export default function DatingMatchScreen({otherUsername, onMessage, onContinueB
 	);
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	screen: {
 		flex: 1,
 		backgroundColor: colors.black,

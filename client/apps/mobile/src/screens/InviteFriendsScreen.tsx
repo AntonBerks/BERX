@@ -11,15 +11,18 @@
  * nothing, so this screen doesn't claim a reward is pending just
  * because someone typed the code in.
  */
-import {useCallback, useEffect, useState} from 'react';
+import {useCallback, useEffect, useState, useMemo} from 'react';
 import {View, Text, Share, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
-import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
+import {spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxGlassSurface} from '../../../../packages/design-system/src/components/BerxGlassSurface';
 import {BerxLoadingState, BerxErrorState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
+
+import {useBerxColors} from '../../../../packages/design-system/src/theme';
+import type {BerxColorTokens} from '@berx/design-system/tokens';
 
 interface Props {
 	api: BerxApiClient;
@@ -27,6 +30,8 @@ interface Props {
 }
 
 export default function InviteFriendsScreen({api, onBack}: Props) {
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(colors), [colors]);
 	const [code, setCode] = useState<string | null>(null);
 	const [referredCount, setReferredCount] = useState(0);
 	const [loading, setLoading] = useState(true);
@@ -84,7 +89,7 @@ export default function InviteFriendsScreen({api, onBack}: Props) {
 	);
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.bg},
 	content: {padding: spacing.lg, gap: spacing.md},
 	codeCard: {alignItems: 'center', gap: spacing.xs},

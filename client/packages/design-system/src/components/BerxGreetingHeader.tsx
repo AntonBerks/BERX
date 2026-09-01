@@ -14,9 +14,12 @@
  * The avatar and name are the caller's own real identity. Badges on
  * the utility buttons are real unread counts or nothing at all.
  */
-import React from 'react';
+import React, {useMemo} from 'react';
 import {View, Text, Image, Pressable, StyleSheet, ViewStyle} from 'react-native';
-import {colors, spacing, typography, radius} from '../tokens';
+import {spacing, typography, radius} from '../tokens';
+
+import {useBerxColors} from '../theme';
+import type {BerxColorTokens} from '../tokens';
 
 export interface BerxHeaderAction {
 	key: string;
@@ -37,6 +40,8 @@ export interface BerxGreetingHeaderProps {
 }
 
 export function BerxGreetingHeader({greeting, name, avatarUrl, onPressIdentity, actions = [], style}: BerxGreetingHeaderProps) {
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(colors), [colors]);
 	return (
 		<View style={[styles.row, style]}>
 			<Pressable style={styles.identity} onPress={onPressIdentity} disabled={!onPressIdentity}>
@@ -74,6 +79,8 @@ export function BerxGreetingHeader({greeting, name, avatarUrl, onPressIdentity, 
 
 /** The large two-line editorial headline the reference set puts under the greeting. Caller supplies real, live copy. */
 export function BerxEditorialTitle({lines, accentIndex, style}: {lines: string[]; accentIndex?: number; style?: ViewStyle}) {
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(colors), [colors]);
 	return (
 		<View style={[styles.titleWrap, style]}>
 			{lines.map((line: string, i: number) => (
@@ -85,7 +92,7 @@ export function BerxEditorialTitle({lines, accentIndex, style}: {lines: string[]
 	);
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	row: {
 		flexDirection: 'row',
 		alignItems: 'center',

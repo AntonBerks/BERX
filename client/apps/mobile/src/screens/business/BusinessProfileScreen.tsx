@@ -5,16 +5,19 @@
  * same real fields PlaceDetailScreen already reads (address/phone/
  * hours/website/category), presented with the Spatial Glass language.
  */
-import {useCallback, useEffect, useState} from 'react';
+import {useCallback, useEffect, useState, useMemo} from 'react';
 import {View, Text, ScrollView, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxPlace} from '@berx/api/types';
-import {colors, spacing, typography} from '@berx/design-system/tokens';
+import {spacing, typography} from '@berx/design-system/tokens';
 import {BerxScrimHero, scrimBadgeStyles} from '../../../../../packages/design-system/src/components/BerxScrimHero';
 import {BerxHeader} from '../../../../../packages/design-system/src/components/BerxHeader';
 import {BerxGlassSurface} from '../../../../../packages/design-system/src/components/BerxGlassSurface';
 import {BerxEyebrow} from '../../../../../packages/design-system/src/components/BerxBusinessPrimitives';
 import {BerxLoadingState, BerxErrorState} from '../../../../../packages/design-system/src/components/BerxStates';
+
+import {useBerxColors} from '../../../../../packages/design-system/src/theme';
+import type {BerxColorTokens} from '@berx/design-system/tokens';
 
 interface Props {
 	api: BerxApiClient;
@@ -29,6 +32,8 @@ const TYPE_LABEL: Record<string, string> = {
 };
 
 function InfoRow({icon, label}: {icon: string; label: string}) {
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(colors), [colors]);
 	return (
 		<View style={styles.infoRow}>
 			<Text style={styles.infoIcon}>{icon}</Text>
@@ -38,6 +43,8 @@ function InfoRow({icon, label}: {icon: string; label: string}) {
 }
 
 export default function BusinessProfileScreen({api, placeGuid, onBack}: Props) {
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(colors), [colors]);
 	const [place, setPlace] = useState<BerxPlace | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
@@ -103,7 +110,7 @@ export default function BusinessProfileScreen({api, placeGuid, onBack}: Props) {
 	);
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.bg},
 	body: {padding: spacing.lg, gap: spacing.md, marginTop: -spacing.lg},
 	description: {fontSize: typography.sizeBase, color: colors.text, lineHeight: typography.sizeBase * typography.lineHeightBase},

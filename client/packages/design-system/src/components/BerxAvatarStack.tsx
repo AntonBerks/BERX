@@ -10,9 +10,12 @@
  * fetched — this component never invents filler faces to make a stack
  * look fuller. With one real person it renders one avatar.
  */
-import React from 'react';
+import React, {useMemo} from 'react';
 import {View, Image, Text, StyleSheet, ViewStyle} from 'react-native';
-import {colors, typography} from '../tokens';
+import {typography} from '../tokens';
+
+import {useBerxColors} from '../theme';
+import type {BerxColorTokens} from '../tokens';
 
 export interface BerxStackPerson {
 	guid: number;
@@ -31,6 +34,8 @@ export interface BerxAvatarStackProps {
 }
 
 export function BerxAvatarStack({people, max = 4, size = 26, total, style}: BerxAvatarStackProps) {
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(colors), [colors]);
 	const shown = people.slice(0, max);
 	const realTotal = typeof total === 'number' ? total : people.length;
 	const overflow = Math.max(0, realTotal - shown.length);
@@ -74,7 +79,7 @@ export function BerxAvatarStack({people, max = 4, size = 26, total, style}: Berx
 	);
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	row: {flexDirection: 'row', alignItems: 'center'},
 	slot: {
 		borderWidth: 1.5,

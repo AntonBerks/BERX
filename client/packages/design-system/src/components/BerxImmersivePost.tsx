@@ -15,11 +15,14 @@
  * typographic branch instead, so the feed never pretends a picture
  * exists.
  */
-import React from 'react';
+import React, {useMemo} from 'react';
 import {View, Text, Image, Pressable, StyleSheet, ViewStyle} from 'react-native';
-import {colors, spacing, typography, radius, elevation, mediaRatio} from '../tokens';
+import {spacing, typography, radius, elevation, mediaRatio} from '../tokens';
 import {BerxActionRail} from './BerxActionRail';
 import type {BerxRailAction} from './BerxActionRail';
+
+import {useBerxColors} from '../theme';
+import type {BerxColorTokens} from '../tokens';
 
 const SCRIM_STEPS = [0, 0.1, 0.28, 0.56, 0.88];
 
@@ -57,6 +60,8 @@ export function BerxImmersivePost({
 	children,
 	style,
 }: BerxImmersivePostProps) {
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(colors), [colors]);
 	return (
 		<Pressable onPress={onPress} disabled={!onPress} style={[styles.wrap, elevation[3], {aspectRatio: mediaRatio[ratio]}, style]}>
 			<Image source={{uri: imageUrl}} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
@@ -107,7 +112,7 @@ export function BerxImmersivePost({
 	);
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	wrap: {
 		borderRadius: radius.lg + 8,
 		overflow: 'hidden',

@@ -2,8 +2,12 @@
  * !!! VERIFICATION STATUS: UNVERIFIED — see BerxButton.tsx header for
  * the full explanation. Same sandbox constraint applies here.
  */
+import {useMemo} from 'react';
 import { View, Image, Text, StyleSheet } from 'react-native';
-import { colors, typography, shadow } from '../tokens';
+import {typography, shadow} from '../tokens';
+
+import {useBerxColors} from '../theme';
+import type {BerxColorTokens} from '../tokens';
 
 export interface BerxAvatarProps {
 	iconUrl?: string | null;
@@ -14,6 +18,8 @@ export interface BerxAvatarProps {
 }
 
 export function BerxAvatar({ iconUrl, fallbackInitial, size = 44, hasActiveStory }: BerxAvatarProps) {
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(colors), [colors]);
 	const dimension = { width: size, height: size, borderRadius: size / 2 };
 	return (
 		<View
@@ -34,7 +40,7 @@ export function BerxAvatar({ iconUrl, fallbackInitial, size = 44, hasActiveStory
 	);
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	ring: {
 		alignItems: 'center',
 		justifyContent: 'center',

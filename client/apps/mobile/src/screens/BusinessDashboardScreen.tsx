@@ -37,19 +37,22 @@
  * its real claimant list to mark a specific customer's claim as
  * fulfilled — the real in-person verification step, never automatic.
  */
-import {useCallback, useEffect, useState} from 'react';
+import {useCallback, useEffect, useState, useMemo} from 'react';
 import {View, Text, Image, ScrollView, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxBusinessDashboard, BerxPlaceReview, BerxBusinessSubscription, BerxBusinessTeamMember, BerxBusinessMoment, BerxEvent, BerxBusinessCheckin, BerxBusinessOffer, BerxOfferRedemption} from '@berx/api/types';
 import {BerxAvatar} from '../../../../packages/design-system/src/components/BerxAvatar';
 import {relativeTimeLabel} from '@berx/domain';
-import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
+import {spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {BerxLoadingState, BerxErrorState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxGlassSurface} from '../../../../packages/design-system/src/components/BerxGlassSurface';
 import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
+
+import {useBerxColors} from '../../../../packages/design-system/src/theme';
+import type {BerxColorTokens} from '@berx/design-system/tokens';
 
 interface Props {
 	api: BerxApiClient;
@@ -69,6 +72,8 @@ const STATUS_LABEL: Record<string, string> = {
 };
 
 export default function BusinessDashboardScreen({api, placeGuid, onBack}: Props) {
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(colors), [colors]);
 	const [data, setData] = useState<BerxBusinessDashboard | null>(null);
 	const [subscription, setSubscription] = useState<BerxBusinessSubscription | null>(null);
 	const [team, setTeam] = useState<BerxBusinessTeamMember[]>([]);
@@ -476,7 +481,7 @@ export default function BusinessDashboardScreen({api, placeGuid, onBack}: Props)
 	);
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.bg},
 	body: {padding: spacing.md, gap: spacing.md},
 	statusRow: {},

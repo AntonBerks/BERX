@@ -13,16 +13,21 @@
  * actually return: each is optional and simply doesn't render when
  * the caller has no real value for it.
  */
-import React from 'react';
+import React, {useMemo} from 'react';
 import {View, Text, StyleSheet, ViewStyle} from 'react-native';
-import {colors, spacing, typography, radius} from '../tokens';
+import {spacing, typography, radius} from '../tokens';
 import {BerxMediaCard} from './BerxMediaCard';
 import {BerxAvatarStack} from './BerxAvatarStack';
 import type {BerxStackPerson} from './BerxAvatarStack';
 
+import {useBerxColors} from '../theme';
+import type {BerxColorTokens} from '../tokens';
+
 /* ---------------- shared atoms ---------------- */
 
 export function BerxLiveDot({label}: {label: string}) {
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(colors), [colors]);
 	return (
 		<View style={styles.livePill}>
 			<View style={styles.liveDot} />
@@ -32,6 +37,8 @@ export function BerxLiveDot({label}: {label: string}) {
 }
 
 export function BerxMetaPill({text, accent}: {text: string; accent?: boolean}) {
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(colors), [colors]);
 	return (
 		<View style={[styles.metaPill, accent && styles.metaPillAccent]}>
 			<Text style={[styles.metaPillText, accent && styles.metaPillTextAccent]} numberOfLines={1}>
@@ -85,6 +92,8 @@ export function BerxPlaceCard({
 	height,
 	style,
 }: BerxPlaceCardProps) {
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(colors), [colors]);
 	return (
 		<BerxMediaCard
 			imageUrl={imageUrl}
@@ -157,6 +166,8 @@ export function BerxEventCard({
 	height,
 	style,
 }: BerxEventCardProps) {
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(colors), [colors]);
 	return (
 		<BerxMediaCard
 			imageUrl={imageUrl}
@@ -219,6 +230,8 @@ export function BerxPersonCard({
 	height,
 	style,
 }: BerxPersonCardProps) {
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(colors), [colors]);
 	return (
 		<BerxMediaCard
 			imageUrl={imageUrl}
@@ -274,6 +287,8 @@ export function BerxMomentCard({
 	height,
 	style,
 }: BerxMomentCardProps) {
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(colors), [colors]);
 	return (
 		<BerxMediaCard
 			imageUrl={imageUrl}
@@ -300,7 +315,7 @@ export function BerxMomentCard({
 	);
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	livePill: {
 		flexDirection: 'row',
 		alignItems: 'center',

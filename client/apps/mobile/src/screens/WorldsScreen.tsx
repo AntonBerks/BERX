@@ -12,16 +12,19 @@
  * this reads as a stack of bordered "container cards" with a real
  * item-count breakdown by type, not a status list or a photo grid.
  */
-import {useCallback, useEffect, useState} from 'react';
+import {useCallback, useEffect, useState, useMemo} from 'react';
 import {View, Text, FlatList, Pressable, RefreshControl, StyleSheet, GestureResponderEvent} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxWorld, BerxWorldItemType, BerxDiscoveredWorld} from '@berx/api/types';
-import {colors, spacing, radius, typography} from '@berx/design-system/tokens';
+import {spacing, radius, typography} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxAvatar} from '../../../../packages/design-system/src/components/BerxAvatar';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
+
+import {useBerxColors} from '../../../../packages/design-system/src/theme';
+import type {BerxColorTokens} from '@berx/design-system/tokens';
 
 interface Props {
 	api: BerxApiClient;
@@ -47,6 +50,8 @@ function itemsSummary(world: BerxWorld): string {
 }
 
 export default function WorldsScreen({api, onOpenWorld, onCreate, onBack}: Props) {
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(colors), [colors]);
 	const [items, setItems] = useState<BerxWorld[]>([]);
 	const [discovered, setDiscovered] = useState<BerxDiscoveredWorld[]>([]);
 	const [loading, setLoading] = useState(true);
@@ -184,7 +189,7 @@ export default function WorldsScreen({api, onOpenWorld, onCreate, onBack}: Props
 	);
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.black},
 	toolbar: {paddingHorizontal: spacing.lg, paddingVertical: spacing.md, gap: spacing.sm},
 	hint: {color: colors.textFaint, fontSize: typography.sizeXs},

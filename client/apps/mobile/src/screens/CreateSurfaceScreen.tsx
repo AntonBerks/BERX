@@ -12,11 +12,15 @@
  * screen that already exists and already writes real server-side
  * objects. If BERX cannot really create it, it is not on this surface.
  */
+import {useMemo} from 'react';
 import {View, Text, ScrollView, Pressable, StyleSheet} from 'react-native';
-import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
+import {spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxGlassSurface} from '../../../../packages/design-system/src/components/BerxGlassSurface';
 import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
+
+import {useBerxColors} from '../../../../packages/design-system/src/theme';
+import type {BerxColorTokens} from '@berx/design-system/tokens';
 
 export interface CreateSurfaceProps {
 	onCreateMoment?: () => void;
@@ -44,6 +48,8 @@ interface Entry {
 }
 
 export default function CreateSurfaceScreen(props: CreateSurfaceProps) {
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(colors), [colors]);
 	// LIVED FIRST — the things that record real life as it happens.
 	const live: Entry[] = [
 		{
@@ -109,6 +115,8 @@ export default function CreateSurfaceScreen(props: CreateSurfaceProps) {
 }
 
 function Section({title, entries}: {title: string; entries: Entry[]}) {
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(colors), [colors]);
 	const visible = entries.filter((e: Entry) => !!e.onPress);
 	if (visible.length === 0) {
 		return null;
@@ -137,7 +145,7 @@ function Section({title, entries}: {title: string; entries: Entry[]}) {
 	);
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.black},
 	scroll: {padding: spacing.lg, paddingBottom: spacing.xxxl},
 	section: {marginBottom: spacing.xl},

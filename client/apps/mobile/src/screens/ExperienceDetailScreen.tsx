@@ -22,15 +22,18 @@
  * NOT rendered as a post card — no avatar, no like/comment row — a
  * quiet running log, not the app's main feed grammar.
  */
-import {useCallback, useEffect, useState} from 'react';
+import {useCallback, useEffect, useState, useMemo} from 'react';
 import {View, Text, FlatList, Image, Pressable, Alert, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxExperienceDetail, BerxExperienceParticipant, BerxFriend, BerxCollectionVisibility, BerxLifeMoment} from '@berx/api/types';
-import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
+import {spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState} from '../../../../packages/design-system/src/components/BerxStates';
+
+import {useBerxColors} from '../../../../packages/design-system/src/theme';
+import type {BerxColorTokens} from '@berx/design-system/tokens';
 
 interface Props {
 	api: BerxApiClient;
@@ -54,6 +57,8 @@ function fmtWhen(unix: number): string {
 }
 
 export default function ExperienceDetailScreen({api, id, myGuid, onOpenPlace, onOpenEvent, onDeleted, onAddToWorld, onBack}: Props) {
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(colors), [colors]);
 	const [experience, setExperience] = useState<BerxExperienceDetail | null>(null);
 	const [friends, setFriends] = useState<BerxFriend[]>([]);
 	const [loading, setLoading] = useState(true);
@@ -389,7 +394,7 @@ export default function ExperienceDetailScreen({api, id, myGuid, onOpenPlace, on
 	);
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.bg},
 	body: {padding: spacing.md, gap: spacing.md},
 	when: {fontSize: typography.sizeSm, color: colors.textDim},

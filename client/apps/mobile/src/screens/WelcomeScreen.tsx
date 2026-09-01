@@ -29,11 +29,15 @@
  * shifted through the gold family — see tokens/index.ts) still drives
  * the glow/wordmark accent, same as before this pass.
  */
+import {useMemo} from 'react';
 import {View, Text, StyleSheet} from 'react-native';
-import {colors, spacing, typography, radius, getBerxDaypartPalette} from '@berx/design-system/tokens';
+import {spacing, typography, radius, getBerxDaypartPalette} from '@berx/design-system/tokens';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
 import {BerxGlassSurface} from '../../../../packages/design-system/src/components/BerxGlassSurface';
+
+import {useBerxColors} from '../../../../packages/design-system/src/theme';
+import type {BerxColorTokens} from '@berx/design-system/tokens';
 
 interface Props {
 	onLogin: () => void;
@@ -44,6 +48,8 @@ const daypart = getBerxDaypartPalette(new Date().getHours());
 const LETTERS = ['B', 'E', 'R', 'X'];
 
 export default function WelcomeScreen({onLogin, onRegister}: Props) {
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(colors), [colors]);
 	return (
 		<View style={styles.screen}>
 			{/* Depth field — three asymmetric light sources, not a mirrored pair. */}
@@ -94,7 +100,7 @@ export default function WelcomeScreen({onLogin, onRegister}: Props) {
 	);
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.black, overflow: 'hidden'},
 	glowCore: {
 		position: 'absolute',

@@ -6,16 +6,19 @@
  * shown here; price is informational only, matching
  * BusinessDashboardScreen's existing, established honesty.
  */
-import {useCallback, useEffect, useState} from 'react';
+import {useCallback, useEffect, useState, useMemo} from 'react';
 import {View, Text, ScrollView, Pressable, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxPlace, BerxBusinessSubscription, BerxBusinessType, BerxOpeningInterval} from '@berx/api/types';
-import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
+import {spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxGlassSurface} from '../../../../../packages/design-system/src/components/BerxGlassSurface';
 import {BerxEyebrow} from '../../../../../packages/design-system/src/components/BerxBusinessPrimitives';
 import {BerxHeader} from '../../../../../packages/design-system/src/components/BerxHeader';
 import {BerxButton} from '../../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState} from '../../../../../packages/design-system/src/components/BerxStates';
+
+import {useBerxColors} from '../../../../../packages/design-system/src/theme';
+import type {BerxColorTokens} from '@berx/design-system/tokens';
 
 interface Props {
 	api: BerxApiClient;
@@ -69,6 +72,8 @@ function weekToIntervals(week: DayState[]): BerxOpeningInterval[] {
 }
 
 export default function BusinessSettingsScreen({api, placeGuid, onBack}: Props) {
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(colors), [colors]);
 	const [place, setPlace] = useState<BerxPlace | null>(null);
 	const [subscription, setSubscription] = useState<BerxBusinessSubscription | null>(null);
 	const [loading, setLoading] = useState(true);
@@ -102,7 +107,7 @@ export default function BusinessSettingsScreen({api, placeGuid, onBack}: Props) 
 		setTypeBusy(true);
 		try {
 			await api.setBusinessType(placeGuid, type);
-			setPlace((prev) => (prev ? {...prev, business_type: type} : prev));
+			setPlace((prev: BerxPlace | null) => (prev ? {...prev, business_type: type} : prev));
 		} catch {
 			// real server rejection — nothing optimistic
 		} finally {
@@ -122,12 +127,12 @@ export default function BusinessSettingsScreen({api, placeGuid, onBack}: Props) 
 	}
 
 	function toggleDay(weekday: number) {
-		setWeek((prev) => prev.map((d, i) => (i === weekday ? {...d, enabled: !d.enabled} : d)));
+		setWeek((prev: DayState[]) => prev.map((d: DayState, i: number) => (i === weekday ? {...d, enabled: !d.enabled} : d)));
 		setHoursSaved(false);
 	}
 
 	function adjustHour(weekday: number, field: 'openHour' | 'closeHour', delta: number) {
-		setWeek((prev) => prev.map((d, i) => {
+		setWeek((prev: DayState[]) => prev.map((d: DayState, i: number) => {
 			if (i !== weekday) return d;
 			const next = Math.max(0, Math.min(23, d[field] + delta));
 			return {...d, [field]: next};
@@ -217,7 +222,7 @@ export default function BusinessSettingsScreen({api, placeGuid, onBack}: Props) 
 	);
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	hoursCard: {gap: spacing.sm},
 	dayRow: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: spacing.xs},
 	dayToggle: {width: 40},

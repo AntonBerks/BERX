@@ -9,9 +9,13 @@
  * placeholder with a real play glyph rather than a fabricated
  * thumbnail. Real like/comment counts, never estimated.
  */
+import {useMemo} from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
-import { colors, spacing, radius, typography } from '../tokens';
+import {spacing, radius, typography} from '../tokens';
 import type { BerxVideoPost } from '@berx/api/types';
+
+import {useBerxColors} from '../theme';
+import type {BerxColorTokens} from '../tokens';
 
 export interface BerxVideoCardProps {
 	video: BerxVideoPost;
@@ -20,6 +24,8 @@ export interface BerxVideoCardProps {
 }
 
 export function BerxVideoCard({ video, onPress, onOpenProfile }: BerxVideoCardProps) {
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(colors), [colors]);
 	return (
 		<Pressable style={styles.card} onPress={() => onPress(video)}>
 			<View style={styles.poster}>
@@ -51,7 +57,7 @@ function formatDuration(seconds: number): string {
 	return `${m}:${String(s).padStart(2, '0')}`;
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	card: { backgroundColor: colors.surface, borderRadius: radius.md, overflow: 'hidden', marginBottom: spacing.sm },
 	poster: { aspectRatio: 16 / 9, backgroundColor: colors.graphite, alignItems: 'center', justifyContent: 'center' },
 	playBadge: { width: 48, height: 48, borderRadius: radius.pill, backgroundColor: 'rgba(5,5,5,0.55)', alignItems: 'center', justifyContent: 'center' },

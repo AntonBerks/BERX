@@ -5,14 +5,17 @@
  * only on the caller's own account — enforced server-side regardless
  * of what this screen sends.
  */
-import {useEffect, useState} from 'react';
+import {useEffect, useState, useMemo} from 'react';
 import {View, Text, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
-import {colors, spacing, typography} from '@berx/design-system/tokens';
+import {spacing, typography} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState} from '../../../../packages/design-system/src/components/BerxStates';
+
+import {useBerxColors} from '../../../../packages/design-system/src/theme';
+import type {BerxColorTokens} from '@berx/design-system/tokens';
 
 interface Props {
 	api: BerxApiClient;
@@ -22,6 +25,8 @@ interface Props {
 }
 
 export default function CreatorSettingsScreen({api, myUsername, onDisabled, onBack}: Props) {
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(colors), [colors]);
 	const [isCreator, setIsCreator] = useState<boolean | null>(null);
 	const [category, setCategory] = useState('');
 	const [bio, setBio] = useState('');
@@ -117,7 +122,7 @@ export default function CreatorSettingsScreen({api, myUsername, onDisabled, onBa
 	);
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.bg},
 	body: {padding: spacing.md, gap: spacing.md},
 	hint: {fontSize: typography.sizeSm, color: colors.textDim},

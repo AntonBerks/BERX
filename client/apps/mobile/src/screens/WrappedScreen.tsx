@@ -10,13 +10,16 @@
  * the other counts; top_place (the single most-visited real place
  * this period) gets its own line since it's not a plain number.
  */
-import {useCallback, useEffect, useState} from 'react';
+import {useCallback, useEffect, useState, useMemo} from 'react';
 import {View, Text, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxWrapped, BerxWrappedPeriod} from '@berx/api/types';
-import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
+import {spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
+
+import {useBerxColors} from '../../../../packages/design-system/src/theme';
+import type {BerxColorTokens} from '@berx/design-system/tokens';
 
 interface Props {
 	api: BerxApiClient;
@@ -38,6 +41,8 @@ const ROWS: {key: keyof BerxWrapped; label: string}[] = [
 ];
 
 export default function WrappedScreen({api, onBack}: Props) {
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(colors), [colors]);
 	const [period, setPeriod] = useState<BerxWrappedPeriod>('month');
 	const [data, setData] = useState<BerxWrapped | null>(null);
 	const [loading, setLoading] = useState(true);
@@ -98,7 +103,7 @@ export default function WrappedScreen({api, onBack}: Props) {
 	);
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.bg},
 	tabs: {flexDirection: 'row', gap: spacing.sm, padding: spacing.md},
 	tab: {fontSize: typography.sizeSm, color: colors.textFaint, paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: radius.pill, backgroundColor: colors.surface},

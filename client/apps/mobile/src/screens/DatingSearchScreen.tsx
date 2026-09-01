@@ -15,17 +15,20 @@
  * screen shows the same honest initial-letter treatment, not a photo
  * that doesn't exist yet for a searched stranger.
  */
-import {useState} from 'react';
+import {useState, useMemo} from 'react';
 import {View, Text, FlatList, Pressable, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxDatingProfileCard} from '@berx/api/types';
 import {BerxApiError} from '@berx/core';
-import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
+import {spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
+
+import {useBerxColors} from '../../../../packages/design-system/src/theme';
+import type {BerxColorTokens} from '@berx/design-system/tokens';
 
 interface Props {
 	api: BerxApiClient;
@@ -34,6 +37,8 @@ interface Props {
 }
 
 export default function DatingSearchScreen({api, onMatch, onBack}: Props) {
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(colors), [colors]);
 	const [q, setQ] = useState('');
 	const [results, setResults] = useState<BerxDatingProfileCard[]>([]);
 	const [searched, setSearched] = useState(false);
@@ -126,7 +131,7 @@ export default function DatingSearchScreen({api, onMatch, onBack}: Props) {
 	);
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.bg},
 	searchRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.lg, paddingBottom: spacing.sm},
 	searchInput: {flex: 1},

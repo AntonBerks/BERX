@@ -15,11 +15,11 @@
  * time-bound announcements Nearby Now already shows per-place, now
  * also visible as one pulse-of-the-city list.
  */
-import {useState} from 'react';
+import {useState, useMemo} from 'react';
 import {View, Text, FlatList, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxSocialMapPlacePin, BerxSocialMapEventPin, BerxSocialMapFriend, BerxCityModeResponse, BerxCityModeMoment} from '@berx/api/types';
-import {colors, spacing, typography} from '@berx/design-system/tokens';
+import {spacing, typography} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
@@ -27,6 +27,9 @@ import {BerxAvatar} from '../../../../packages/design-system/src/components/Berx
 import {BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxGlassSurface} from '../../../../packages/design-system/src/components/BerxGlassSurface';
 import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
+
+import {useBerxColors} from '../../../../packages/design-system/src/theme';
+import type {BerxColorTokens} from '@berx/design-system/tokens';
 
 interface Props {
 	api: BerxApiClient;
@@ -39,6 +42,8 @@ interface Props {
 type Row = {kind: 'place'; item: BerxSocialMapPlacePin} | {kind: 'event'; item: BerxSocialMapEventPin};
 
 export default function SocialMapScreen({api, onOpenPlace, onOpenEvent, onOpenProfile, onBack}: Props) {
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(colors), [colors]);
 	const [lat, setLat] = useState('');
 	const [lng, setLng] = useState('');
 	const [places, setPlaces] = useState<BerxSocialMapPlacePin[] | null>(null);
@@ -157,7 +162,7 @@ export default function SocialMapScreen({api, onOpenPlace, onOpenEvent, onOpenPr
 	);
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.bg},
 	form: {padding: spacing.md, gap: spacing.sm},
 	input: {marginBottom: 0},

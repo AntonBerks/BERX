@@ -21,13 +21,16 @@
  * coordinates, this is just "no on-device GPS reading available
  * here", not "trust the client".
  */
-import {useState} from 'react';
+import {useState, useMemo} from 'react';
 import {View, Text, Switch, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
-import {colors, spacing, typography} from '@berx/design-system/tokens';
+import {spacing, typography} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
+
+import {useBerxColors} from '../../../../packages/design-system/src/theme';
+import type {BerxColorTokens} from '@berx/design-system/tokens';
 
 interface Props {
 	api: BerxApiClient;
@@ -42,6 +45,8 @@ interface ToggleRowProps {
 }
 
 function ToggleRow({label, description, value, onChange}: ToggleRowProps) {
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(colors), [colors]);
 	return (
 		<View style={styles.row}>
 			<View style={styles.rowText}>
@@ -59,6 +64,8 @@ function ToggleRow({label, description, value, onChange}: ToggleRowProps) {
 }
 
 export default function DatingPrivacyScreen({api, onBack}: Props) {
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(colors), [colors]);
 	const [invisibleMode, setInvisibleMode] = useState(false);
 	const [hideAge, setHideAge] = useState(false);
 	const [hideCity, setHideCity] = useState(false);
@@ -170,7 +177,7 @@ export default function DatingPrivacyScreen({api, onBack}: Props) {
 	);
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.black},
 	content: {padding: spacing.lg, gap: spacing.lg},
 	row: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.md},

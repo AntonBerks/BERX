@@ -20,16 +20,19 @@
  * "ticket stub" idea survives as a chip on a real photo, not a
  * separate flat column doing the work instead of the photo.
  */
-import {useCallback, useEffect, useState} from 'react';
+import {useCallback, useEffect, useState, useMemo} from 'react';
 import {View, Text, FlatList, Pressable, RefreshControl, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxEvent, BerxPlaceCategory} from '@berx/api/types';
-import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
+import {spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxEventCard} from '../../../../packages/design-system/src/components/BerxSpatialCards';
 import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
+
+import {useBerxColors} from '../../../../packages/design-system/src/theme';
+import type {BerxColorTokens} from '@berx/design-system/tokens';
 
 interface Props {
 	api: BerxApiClient;
@@ -40,6 +43,8 @@ interface Props {
 }
 
 export default function EventsListScreen({api, onOpenEvent, onCreate, onOpenMine, onBack}: Props) {
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(colors), [colors]);
 	const [tab, setTab] = useState<'upcoming' | 'past'>('upcoming');
 	const [category, setCategory] = useState<string | undefined>(undefined);
 	const [categories, setCategories] = useState<BerxPlaceCategory[]>([]);
@@ -175,7 +180,7 @@ export default function EventsListScreen({api, onOpenEvent, onCreate, onOpenMine
 	);
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.bg},
 	toolbar: {paddingHorizontal: spacing.md, paddingTop: spacing.sm, gap: spacing.sm},
 	tabRow: {flexDirection: 'row', gap: spacing.xs},

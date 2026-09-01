@@ -21,17 +21,20 @@
  *     every other screen already uses — never a raw numeric-id field).
  * Removing an item is available to the owner or whoever added it.
  */
-import {useCallback, useEffect, useState} from 'react';
+import {useCallback, useEffect, useState, useMemo} from 'react';
 import {View, Text, Pressable, ScrollView, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxWorld, BerxWorldItemType, BerxPlace, BerxEvent, BerxPlan, BerxExperience} from '@berx/api/types';
-import {colors, spacing, radius, typography} from '@berx/design-system/tokens';
+import {spacing, radius, typography} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxAvatar} from '../../../../packages/design-system/src/components/BerxAvatar';
 import {BerxLoadingState, BerxErrorState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
 import BerxDepthScene from '../three/BerxDepthScene';
+
+import {useBerxColors} from '../../../../packages/design-system/src/theme';
+import type {BerxColorTokens} from '@berx/design-system/tokens';
 
 interface Props {
 	api: BerxApiClient;
@@ -47,6 +50,8 @@ const ITEM_TYPE_LABEL: Record<BerxWorldItemType, string> = {
 };
 
 export default function WorldDetailScreen({api, id, onBack}: Props) {
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(colors), [colors]);
 	const [world, setWorld] = useState<BerxWorld | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
@@ -330,7 +335,7 @@ export default function WorldDetailScreen({api, id, onBack}: Props) {
 	);
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.black},
 	body: {padding: spacing.lg, gap: spacing.md},
 	metaRow: {gap: 4, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center'},

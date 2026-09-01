@@ -9,13 +9,16 @@
  * me.php) — this screen does not fabricate a soft-delete that
  * doesn't exist.
  */
-import {useState} from 'react';
+import {useState, useMemo} from 'react';
 import {View, Text, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
-import {colors, spacing, typography} from '@berx/design-system/tokens';
+import {spacing, typography} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
+
+import {useBerxColors} from '../../../../packages/design-system/src/theme';
+import type {BerxColorTokens} from '@berx/design-system/tokens';
 
 interface Props {
 	api: BerxApiClient;
@@ -24,6 +27,8 @@ interface Props {
 }
 
 export default function DeleteAccountScreen({api, onDeleted, onBack}: Props) {
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(colors), [colors]);
 	const [password, setPassword] = useState('');
 	const [confirming, setConfirming] = useState(false);
 	const [submitting, setSubmitting] = useState(false);
@@ -80,7 +85,7 @@ export default function DeleteAccountScreen({api, onDeleted, onBack}: Props) {
 	);
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.bg},
 	body: {padding: spacing.md, gap: spacing.md},
 	warning: {fontSize: typography.sizeSm, color: colors.textDim},

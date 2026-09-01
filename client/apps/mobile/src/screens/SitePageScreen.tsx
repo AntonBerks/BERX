@@ -11,12 +11,15 @@
  * faking rich rendering — an honest degradation, not a stub, since
  * the underlying content is always the real, current admin text.
  */
-import {useCallback, useEffect, useState} from 'react';
+import {useCallback, useEffect, useState, useMemo} from 'react';
 import {View, Text, ScrollView, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
-import {colors, spacing, typography} from '@berx/design-system/tokens';
+import {spacing, typography} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxLoadingState, BerxErrorState} from '../../../../packages/design-system/src/components/BerxStates';
+
+import {useBerxColors} from '../../../../packages/design-system/src/theme';
+import type {BerxColorTokens} from '@berx/design-system/tokens';
 
 interface Props {
 	api: BerxApiClient;
@@ -41,6 +44,8 @@ function stripHtml(html: string): string {
 }
 
 export default function SitePageScreen({api, prefix, onBack}: Props) {
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(colors), [colors]);
 	const [title, setTitle] = useState('');
 	const [content, setContent] = useState('');
 	const [loading, setLoading] = useState(true);
@@ -80,7 +85,7 @@ export default function SitePageScreen({api, prefix, onBack}: Props) {
 	);
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.bg},
 	body: {padding: spacing.lg},
 	content: {color: colors.text, fontSize: typography.sizeBase, lineHeight: 22},

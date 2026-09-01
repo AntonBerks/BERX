@@ -35,12 +35,12 @@
  * client guess) — never a button that always shows and just errors
  * on a second tap.
  */
-import {useCallback, useEffect, useState} from 'react';
+import {useCallback, useEffect, useState, useMemo} from 'react';
 import {View, Text, ScrollView, Image, Pressable, Linking, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxPlace, BerxPlaceReview, BerxExperienceGraphFriend, BerxExperienceGraphWorldFriend, BerxBusinessOffer} from '@berx/api/types';
 import {BerxApiError} from '@berx/core';
-import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
+import {spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
@@ -50,6 +50,9 @@ import {BerxAvatar} from '../../../../packages/design-system/src/components/Berx
 import {BerxGlassSurface} from '../../../../packages/design-system/src/components/BerxGlassSurface';
 import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
 import {Berx3DTilt} from '../../../../packages/design-system/src/components/Berx3DTilt';
+
+import {useBerxColors} from '../../../../packages/design-system/src/theme';
+import type {BerxColorTokens} from '@berx/design-system/tokens';
 
 interface Props {
 	api: BerxApiClient;
@@ -65,6 +68,8 @@ interface Props {
 }
 
 export default function PlaceDetailScreen({api, guid, myGuid, isAdmin, onAddToCollection, onAddToTrip, onAddToWorld, onOpenBusinessDashboard, onEdit, onBack}: Props) {
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(colors), [colors]);
 	const [claimOpen, setClaimOpen] = useState(false);
 	const [claimMessage, setClaimMessage] = useState('');
 	const [claimBusy, setClaimBusy] = useState(false);
@@ -528,7 +533,7 @@ export default function PlaceDetailScreen({api, guid, myGuid, isAdmin, onAddToCo
 	);
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.bg},
 	hero: {aspectRatio: 1.6, backgroundColor: colors.graphite},
 	heroImage: {width: '100%', height: '100%'},

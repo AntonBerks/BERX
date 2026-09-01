@@ -7,17 +7,20 @@
  * ossn_place_hours server-side. Places with no structured hours are
  * never hidden by it — "unknown" is not treated as "closed".
  */
-import {useState} from 'react';
+import {useState, useMemo} from 'react';
 import {View, Text, FlatList, Image, Pressable, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxNearbyPlaceItem, BerxNearbyEventItem} from '@berx/api/types';
-import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
+import {spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxGlassSurface} from '../../../../packages/design-system/src/components/BerxGlassSurface';
 import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
+
+import {useBerxColors} from '../../../../packages/design-system/src/theme';
+import type {BerxColorTokens} from '@berx/design-system/tokens';
 
 interface Props {
 	api: BerxApiClient;
@@ -33,6 +36,8 @@ function fmtWhen(unix: number): string {
 }
 
 export default function NearbyNowScreen({api, onOpenPlace, onOpenEvent, onBack}: Props) {
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(colors), [colors]);
 	const [lat, setLat] = useState('');
 	const [lng, setLng] = useState('');
 	const [today, setToday] = useState(false);
@@ -130,7 +135,7 @@ export default function NearbyNowScreen({api, onOpenPlace, onOpenEvent, onBack}:
 	);
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.bg},
 	form: {padding: spacing.md, gap: spacing.sm},
 	row: {flexDirection: 'row', gap: spacing.sm},

@@ -17,7 +17,7 @@
  * PLATFORM_STORAGE.md for that placeholder's original rationale and
  * BERX_PATCH_CHANGELOG.md for this change.
  */
-import React, {useEffect, useState} from 'react';
+import React, {useEffect, useState, useMemo} from 'react';
 import {View, Text, Pressable, StyleSheet} from 'react-native';
 import {BerxApiClient} from '@berx/api/client';
 import {BERX_PRODUCTION_ENV} from '@berx/core';
@@ -25,7 +25,7 @@ import {BerxSecureTokenStorage} from './platform/secureTokenStorage';
 import {BerxAuthState, BerxAuthSnapshot} from '@berx/auth';
 import {pickImageFromLibrary, pickVideoFromLibrary} from '@berx/platform/mediaPicker';
 import {pickAudioFromDevice} from '@berx/platform/audioPicker';
-import {colors, spacing, typography} from '@berx/design-system/tokens';
+import {spacing, typography} from '@berx/design-system/tokens';
 import {BerxLoadingState, BerxErrorState} from '../../../packages/design-system/src/components/BerxStates';
 import {BerxWayfinder, BerxWayfinderTab} from '../../../packages/design-system/src/components/BerxWayfinder';
 import {BerxNavigator, useBerxNavigation} from './navigation/BerxNavigator';
@@ -146,6 +146,9 @@ import BusinessTeamScreen from './screens/business/BusinessTeamScreen';
 import BusinessSettingsScreen from './screens/business/BusinessSettingsScreen';
 import type {BerxStoryFeedGroup, BerxPostVisibility} from '@berx/api/types';
 
+import {useBerxColors, BerxThemeProvider} from '../../../packages/design-system/src/theme';
+import type {BerxColorTokens} from '@berx/design-system/tokens';
+
 const api = new BerxApiClient(BERX_PRODUCTION_ENV.apiBaseUrl, new BerxSecureTokenStorage());
 const authState = new BerxAuthState(api);
 
@@ -200,6 +203,8 @@ function useAuthSnapshot(): BerxAuthSnapshot {
 
 /** Renders whichever screen the current BerxNavigator stack entry points to — the one place that knows how route names map to screen components. */
 function RouteRenderer({name, params}: {name: BerxRouteName; params: unknown}) {
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(colors), [colors]);
 	const nav = useBerxNavigation();
 	const openProfile = (username: string) => nav.push('Profile', {username});
 
@@ -1297,6 +1302,8 @@ function FeedScreenRoute({onOpenProfile}: {onOpenProfile: (username: string) => 
 }
 
 function AuthenticatedApp() {
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(colors), [colors]);
 	const [activeTab, setActiveTab] = useState<BerxRouteName>('Home');
 	const [unreadNotifications, setUnreadNotifications] = useState(0);
 
@@ -1401,10 +1408,27 @@ function AuthenticatedApp() {
 
 /** Keeps its children mounted always; only toggles RN's real `display: none` style — this is what makes tab-switch preserve each tab's own navigation stack. */
 function TabPane({visible, children}: {visible: boolean; children: React.ReactNode}) {
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(colors), [colors]);
 	return <View style={[styles.tabPane, !visible && styles.tabPaneHidden]}>{children}</View>;
 }
 
+/**
+ * BERX THEME ROOT — the whole tree renders inside the real theme
+ * provider, so Day and Night are one product driven by one centralized
+ * palette rather than a Night app with a dead Day token block.
+ */
 export default function AppShell() {
+	return (
+		<BerxThemeProvider initialMode="night">
+			<AppShellInner />
+		</BerxThemeProvider>
+	);
+}
+
+function AppShellInner() {
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(colors), [colors]);
 	const snapshot = useAuthSnapshot();
 	const [showOnboarding, setShowOnboarding] = useState(false);
 
@@ -1482,7 +1506,7 @@ function UnauthenticatedFlow() {
 	return <WelcomeScreen onLogin={() => setScreen('login')} onRegister={() => setScreen('register')} />;
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	shell: {flex: 1, backgroundColor: colors.black},
 	content: {flex: 1},
 	tabPane: {flex: 1},

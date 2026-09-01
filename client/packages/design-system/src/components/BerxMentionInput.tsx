@@ -15,10 +15,13 @@
  * token immediately before the cursor — not a naive whole-text
  * substring search, so it only triggers while actually mid-mention.
  */
-import {useState} from 'react';
+import {useState, useMemo} from 'react';
 import {View, Text, Pressable, StyleSheet, TextInputProps, NativeSyntheticEvent, TextInputSelectionChangeEventData} from 'react-native';
-import {colors, spacing, radius, typography} from '../tokens';
+import {spacing, radius, typography} from '../tokens';
 import {BerxInput} from './BerxInput';
+
+import {useBerxColors} from '../theme';
+import type {BerxColorTokens} from '../tokens';
 
 interface MentionCandidate {
 	guid: number;
@@ -39,6 +42,8 @@ function activeMentionQuery(value: string, cursor: number): string | null {
 }
 
 export function BerxMentionInput({value, onChangeText, friends, ...rest}: Props) {
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(colors), [colors]);
 	const [selection, setSelection] = useState<{start: number; end: number}>({start: 0, end: 0});
 
 	const mentionQuery = activeMentionQuery(value, selection.start);
@@ -82,7 +87,7 @@ export function BerxMentionInput({value, onChangeText, friends, ...rest}: Props)
 	);
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	mentionBox: {backgroundColor: colors.glass1, borderRadius: radius.md, borderWidth: 1, borderColor: colors.borderSoft, overflow: 'hidden', marginTop: spacing.xs},
 	mentionRow: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.borderSoft},
 	mentionName: {color: colors.text, fontSize: typography.sizeSm, fontWeight: typography.weightMedium},

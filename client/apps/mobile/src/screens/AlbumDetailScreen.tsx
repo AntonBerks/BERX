@@ -15,16 +15,19 @@
  * prior UI caller anywhere in this codebase — only single-photo
  * delete existed before this). Owner-only, confirmed before sending.
  */
-import {useCallback, useEffect, useState} from 'react';
+import {useCallback, useEffect, useState, useMemo} from 'react';
 import {View, Text, FlatList, Image, Pressable, Alert, Dimensions, RefreshControl, StyleSheet} from 'react-native';
 import type {BerxApiClient, BerxFilePart} from '@berx/api/client';
 import type {BerxAlbumDetail, BerxAlbumPhoto} from '@berx/api/types';
 import type {BerxAuthState} from '@berx/auth';
-import {colors, spacing, typography} from '@berx/design-system/tokens';
+import {spacing, typography} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
+
+import {useBerxColors} from '../../../../packages/design-system/src/theme';
+import type {BerxColorTokens} from '@berx/design-system/tokens';
 
 interface Props {
 	api: BerxApiClient;
@@ -38,6 +41,8 @@ interface Props {
 const TILE = Dimensions.get('window').width / 3;
 
 export default function AlbumDetailScreen({api, guid, authState, pickImage, onBack, onDeleted}: Props) {
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(colors), [colors]);
 	const [album, setAlbum] = useState<BerxAlbumDetail | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [refreshing, setRefreshing] = useState(false);
@@ -172,7 +177,7 @@ export default function AlbumDetailScreen({api, guid, authState, pickImage, onBa
 	);
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.bg},
 	toolbar: {padding: spacing.md, gap: spacing.xs},
 	fadeFlex: {flex: 1},

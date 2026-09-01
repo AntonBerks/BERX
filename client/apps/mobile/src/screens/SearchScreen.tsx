@@ -27,14 +27,17 @@
  * (api.peopleDiscovery()) — reusing this screen's own existing real
  * estate for meaningful social discovery instead of a new screen.
  */
-import {useCallback, useEffect, useRef, useState} from 'react';
+import {useCallback, useEffect, useRef, useState, useMemo} from 'react';
 import {View, Text, FlatList, Pressable, Image, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxPlaceSearchResult, BerxEventSearchResult, BerxCommunitySearchResult, BerxPeopleSuggestion, BerxTrendingHashtag} from '@berx/api/types';
-import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
+import {spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {BerxEmptyState, BerxErrorState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
+
+import {useBerxColors} from '../../../../packages/design-system/src/theme';
+import type {BerxColorTokens} from '@berx/design-system/tokens';
 
 interface SearchResultUser {
 	guid: number;
@@ -63,6 +66,8 @@ const TABS: {key: Tab; label: string}[] = [
 ];
 
 export default function SearchScreen({api, onOpenProfile, onOpenPlace, onOpenEvent, onOpenCommunity, onOpenHashtag}: Props) {
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(colors), [colors]);
 	const [tab, setTab] = useState<Tab>('users');
 	const [query, setQuery] = useState('');
 	const [users, setUsers] = useState<SearchResultUser[]>([]);
@@ -258,7 +263,7 @@ export default function SearchScreen({api, onOpenProfile, onOpenPlace, onOpenEve
 	);
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.black},
 	searchBar: {padding: spacing.lg, paddingBottom: spacing.sm},
 	tabRow: {flexDirection: 'row', gap: spacing.xs, paddingHorizontal: spacing.lg, paddingBottom: spacing.sm},

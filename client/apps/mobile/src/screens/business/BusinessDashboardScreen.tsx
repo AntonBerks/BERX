@@ -7,15 +7,18 @@
  * untouched and still routed in AppShell; this is the reference for
  * when it's time to swap it in.
  */
-import {useCallback, useEffect, useState} from 'react';
+import {useCallback, useEffect, useState, useMemo} from 'react';
 import {View, Text, Image, ScrollView, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxBusinessDashboard, BerxBusinessSubscription, BerxBusinessTeamMember, BerxPlaceReview} from '@berx/api/types';
-import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
+import {spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxGlassSurface} from '../../../../../packages/design-system/src/components/BerxGlassSurface';
 import {BerxStatTile, BerxEyebrow} from '../../../../../packages/design-system/src/components/BerxBusinessPrimitives';
 import {BerxButton} from '../../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState} from '../../../../../packages/design-system/src/components/BerxStates';
+
+import {useBerxColors} from '../../../../../packages/design-system/src/theme';
+import type {BerxColorTokens} from '@berx/design-system/tokens';
 
 interface Props {
 	api: BerxApiClient;
@@ -29,6 +32,8 @@ function fmtDate(unix: number): string {
 }
 
 export default function BusinessDashboardScreen({api, placeGuid}: Props) {
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(colors), [colors]);
 	const [data, setData] = useState<BerxBusinessDashboard | null>(null);
 	const [subscription, setSubscription] = useState<BerxBusinessSubscription | null>(null);
 	const [team, setTeam] = useState<BerxBusinessTeamMember[]>([]);
@@ -132,7 +137,7 @@ export default function BusinessDashboardScreen({api, placeGuid}: Props) {
 	);
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.bg},
 	content: {padding: spacing.lg, gap: spacing.md, paddingBottom: spacing.xxxl},
 	pageTitle: {fontSize: typography.sizeTitle, color: colors.white, fontWeight: typography.weightBold},

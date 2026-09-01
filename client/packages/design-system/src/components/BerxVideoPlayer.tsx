@@ -21,8 +21,12 @@
  * (`url`, `posterColor`, `onPlay`) maps directly onto that library's
  * own real API, so no caller needs to change.
  */
+import {useMemo} from 'react';
 import { View, Text, Pressable, Linking, StyleSheet } from 'react-native';
-import { colors, spacing, radius, typography } from '../tokens';
+import {spacing, radius, typography} from '../tokens';
+
+import {useBerxColors} from '../theme';
+import type {BerxColorTokens} from '../tokens';
 
 export interface BerxVideoPlayerProps {
 	url: string;
@@ -31,6 +35,8 @@ export interface BerxVideoPlayerProps {
 }
 
 export function BerxVideoPlayer({ url, widthRatio = 16 / 9, onOpen }: BerxVideoPlayerProps) {
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(colors), [colors]);
 	async function handleOpen() {
 		onOpen?.();
 		try {
@@ -53,7 +59,7 @@ export function BerxVideoPlayer({ url, widthRatio = 16 / 9, onOpen }: BerxVideoP
 	);
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	frame: { backgroundColor: colors.graphite, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center', gap: spacing.sm },
 	playBadge: { width: 56, height: 56, borderRadius: radius.pill, backgroundColor: 'rgba(5,5,5,0.55)', alignItems: 'center', justifyContent: 'center' },
 	playGlyph: { color: colors.white, fontSize: typography.sizeXl },

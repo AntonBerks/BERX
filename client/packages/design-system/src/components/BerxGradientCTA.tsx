@@ -24,9 +24,12 @@
  * viewing distance; documented here as the honest reason it isn't a
  * shader, not left unexplained.
  */
-import React from 'react';
+import React, {useMemo} from 'react';
 import {Pressable, Text, View, ActivityIndicator, StyleSheet, PressableProps} from 'react-native';
-import {colors, radius, spacing, typography} from '../tokens';
+import {radius, spacing, typography} from '../tokens';
+
+import {useBerxColors} from '../theme';
+import type {BerxColorTokens} from '../tokens';
 
 const GRADIENT_FROM = {r: 0x8b, g: 0x5c, b: 0xf6}; // violet #8b5cf6
 const GRADIENT_TO = {r: 0xff, g: 0x6a, b: 0x00}; // orange #ff6a00
@@ -53,6 +56,8 @@ export interface BerxGradientCTAProps extends Omit<PressableProps, 'style'> {
 }
 
 export function BerxGradientCTA({label, loading, fullWidth, disabled, ...rest}: BerxGradientCTAProps) {
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(colors), [colors]);
 	const isDisabled = disabled || loading;
 	return (
 		<Pressable
@@ -72,7 +77,7 @@ export function BerxGradientCTA({label, loading, fullWidth, disabled, ...rest}: 
 	);
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	wrap: {
 		borderRadius: radius.pill,
 		minHeight: 44,

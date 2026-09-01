@@ -23,12 +23,12 @@
  * light theme anywhere else, and flipping just this one screen would
  * be jarring mid-navigation rather than editorial.
  */
-import {useCallback, useEffect, useState} from 'react';
+import {useCallback, useEffect, useState, useMemo} from 'react';
 import {View, Text, Image, Pressable, ScrollView, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxPostDetail, BerxPostComment, BerxMediaAsset, BerxFriend} from '@berx/api/types';
 import {relativeTimeLabel} from '@berx/domain';
-import {colors, spacing, radius, typography} from '@berx/design-system/tokens';
+import {spacing, radius, typography} from '@berx/design-system/tokens';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {BerxMentionInput} from '../../../../packages/design-system/src/components/BerxMentionInput';
@@ -38,6 +38,9 @@ import {BerxMediaGrid} from '../../../../packages/design-system/src/components/B
 import {BerxPollView} from '../../../../packages/design-system/src/components/BerxPollView';
 import {BerxMediaViewer} from '../../../../packages/design-system/src/components/BerxMediaViewer';
 import {BerxRichText} from '../../../../packages/design-system/src/components/BerxRichText';
+
+import {useBerxColors} from '../../../../packages/design-system/src/theme';
+import type {BerxColorTokens} from '@berx/design-system/tokens';
 
 interface Props {
 	api: BerxApiClient;
@@ -54,6 +57,8 @@ interface Props {
 }
 
 export default function PostDetailScreen({api, postGuid, myGuid, onOpenProfile, onOpenHashtag, onReport, onRepost, onShareToMessage, onBack}: Props) {
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(colors), [colors]);
 	const [post, setPost] = useState<BerxPostDetail | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
@@ -617,7 +622,7 @@ function orderCommentsThreaded(comments: BerxPostComment[]): {comment: BerxPostC
 	return out;
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.black},
 	container: {flex: 1, padding: spacing.lg, gap: spacing.md},
 	author: {color: colors.accent, fontWeight: typography.weightBold, fontSize: typography.sizeXs, textTransform: 'uppercase', letterSpacing: 0.6},

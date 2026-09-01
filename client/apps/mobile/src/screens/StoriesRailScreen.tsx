@@ -19,15 +19,18 @@
  * ownStories() into the same BerxStoryFeedGroup shape the rest of
  * this rail already uses, closes that loop.
  */
-import {useCallback, useEffect, useState} from 'react';
+import {useCallback, useEffect, useState, useMemo} from 'react';
 import {View, Text, FlatList, Pressable, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxStoryFeedGroup, BerxOwnStorySummary} from '@berx/api/types';
-import {colors, spacing, typography} from '@berx/design-system/tokens';
+import {spacing, typography} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxAvatar} from '../../../../packages/design-system/src/components/BerxAvatar';
 import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
+
+import {useBerxColors} from '../../../../packages/design-system/src/theme';
+import type {BerxColorTokens} from '@berx/design-system/tokens';
 
 interface Props {
 	api: BerxApiClient;
@@ -39,6 +42,8 @@ interface Props {
 }
 
 export default function StoriesRailScreen({api, myGuid, myUsername, onOpenGroup, onCreateStory, onBack}: Props) {
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(colors), [colors]);
 	const [groups, setGroups] = useState<BerxStoryFeedGroup[]>([]);
 	const [ownGroup, setOwnGroup] = useState<BerxStoryFeedGroup | null>(null);
 	const [loading, setLoading] = useState(true);
@@ -103,7 +108,7 @@ export default function StoriesRailScreen({api, myGuid, myUsername, onOpenGroup,
 	);
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.black},
 	createButton: {
 		margin: spacing.lg,

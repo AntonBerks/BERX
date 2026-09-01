@@ -6,9 +6,13 @@
  * for either exists (no audio-analysis pipeline), so neither is
  * faked; a plain note-glyph badge stands in honestly.
  */
+import {useMemo} from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
-import { colors, spacing, radius, typography } from '../tokens';
+import {spacing, radius, typography} from '../tokens';
 import type { BerxTrackPost } from '@berx/api/types';
+
+import {useBerxColors} from '../theme';
+import type {BerxColorTokens} from '../tokens';
 
 export interface BerxTrackCardProps {
 	track: BerxTrackPost;
@@ -17,6 +21,8 @@ export interface BerxTrackCardProps {
 }
 
 export function BerxTrackCard({ track, onPress, onOpenProfile }: BerxTrackCardProps) {
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(colors), [colors]);
 	return (
 		<Pressable style={styles.row} onPress={() => onPress(track)}>
 			<View style={styles.badge}>
@@ -35,7 +41,7 @@ export function BerxTrackCard({ track, onPress, onOpenProfile }: BerxTrackCardPr
 	);
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	row: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.surface, borderRadius: radius.md, padding: spacing.sm, marginBottom: spacing.sm },
 	badge: { width: 48, height: 48, borderRadius: radius.md, backgroundColor: colors.graphite, alignItems: 'center', justifyContent: 'center' },
 	badgeGlyph: { color: colors.accent, fontSize: typography.sizeLg },

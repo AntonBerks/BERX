@@ -16,9 +16,12 @@
  * being dark enough — legibility is not left to chance over an
  * arbitrary photo.
  */
-import React from 'react';
+import React, {useMemo} from 'react';
 import {View, Text, Pressable, StyleSheet, ViewStyle} from 'react-native';
-import {colors, spacing, typography} from '../tokens';
+import {spacing, typography} from '../tokens';
+
+import {useBerxColors} from '../theme';
+import type {BerxColorTokens} from '../tokens';
 
 export interface BerxRailAction {
 	key: string;
@@ -50,6 +53,8 @@ export function formatCount(n: number): string {
 }
 
 export function BerxActionRail({actions, size = 44, style}: BerxActionRailProps) {
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(colors), [colors]);
 	return (
 		<View style={[styles.rail, style]}>
 			{actions.map((a: BerxRailAction) => (
@@ -71,7 +76,7 @@ export function BerxActionRail({actions, size = 44, style}: BerxActionRailProps)
 	);
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	rail: {alignItems: 'center', gap: spacing.md},
 	slot: {alignItems: 'center', gap: 3},
 	button: {

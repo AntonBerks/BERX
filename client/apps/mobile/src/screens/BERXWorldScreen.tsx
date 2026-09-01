@@ -13,11 +13,15 @@
  * Foundation) shipped — this comment previously said Video had no
  * real backend, which is now stale and corrected.
  */
+import {useMemo} from 'react';
 import {View, Text, Pressable, StyleSheet} from 'react-native';
-import {colors, spacing, typography} from '@berx/design-system/tokens';
+import {spacing, typography} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxGlassSurface} from '../../../../packages/design-system/src/components/BerxGlassSurface';
 import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
+
+import {useBerxColors} from '../../../../packages/design-system/src/theme';
+import type {BerxColorTokens} from '@berx/design-system/tokens';
 
 interface Props {
 	onOpenPlaces: () => void;
@@ -33,6 +37,8 @@ interface Props {
 
 /** The two live, real-time surfaces get real hierarchy (full-width, elevated, a live dot) — not the same flat row as a static list. */
 function HeroCard({label, subtitle, onPress}: {label: string; subtitle: string; onPress: () => void}) {
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(colors), [colors]);
 	return (
 		<Pressable onPress={onPress}>
 			<BerxGlassSurface elevated style={styles.hero}>
@@ -45,6 +51,8 @@ function HeroCard({label, subtitle, onPress}: {label: string; subtitle: string; 
 }
 
 function WorldCard({label, subtitle, onPress}: {label: string; subtitle: string; onPress: () => void}) {
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(colors), [colors]);
 	return (
 		<Pressable style={styles.cardWrap} onPress={onPress}>
 			<BerxGlassSurface style={styles.card} padding="md">
@@ -56,6 +64,8 @@ function WorldCard({label, subtitle, onPress}: {label: string; subtitle: string;
 }
 
 export default function BERXWorldScreen({onOpenPlaces, onOpenEvents, onOpenNearby, onOpenCommunities, onOpenVideo, onOpenMusic, onOpenNearbyNow, onOpenSocialMap, onBack}: Props) {
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(colors), [colors]);
 	return (
 		<View style={styles.screen}>
 			<BerxHeader title="BERX World" onBack={onBack} />
@@ -75,7 +85,7 @@ export default function BERXWorldScreen({onOpenPlaces, onOpenEvents, onOpenNearb
 	);
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.bg},
 	heroRow: {padding: spacing.md, gap: spacing.sm},
 	hero: {gap: 4},

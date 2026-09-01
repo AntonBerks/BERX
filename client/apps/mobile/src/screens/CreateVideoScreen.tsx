@@ -8,13 +8,16 @@
  * packages/platform/src/mediaPicker.ts adapter's pickVideoFromLibrary,
  * injected the same way `pickImage` already is elsewhere.
  */
-import {useState} from 'react';
+import {useState, useMemo} from 'react';
 import {View, Text, StyleSheet} from 'react-native';
 import type {BerxApiClient, BerxFilePart} from '@berx/api/client';
-import {colors, spacing, typography} from '@berx/design-system/tokens';
+import {spacing, typography} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
+
+import {useBerxColors} from '../../../../packages/design-system/src/theme';
+import type {BerxColorTokens} from '@berx/design-system/tokens';
 
 interface Props {
 	api: BerxApiClient;
@@ -24,6 +27,8 @@ interface Props {
 }
 
 export default function CreateVideoScreen({api, pickVideo, onCreated, onBack}: Props) {
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(colors), [colors]);
 	const [text, setText] = useState('');
 	const [pickedPart, setPickedPart] = useState<BerxFilePart | null>(null);
 	const [pickedLabel, setPickedLabel] = useState<string | null>(null);
@@ -81,7 +86,7 @@ export default function CreateVideoScreen({api, pickVideo, onCreated, onBack}: P
 	);
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.black},
 	body: {padding: spacing.lg, gap: spacing.md},
 	input: {minHeight: 80, textAlignVertical: 'top'},

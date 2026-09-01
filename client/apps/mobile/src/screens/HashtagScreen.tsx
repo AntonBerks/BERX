@@ -9,16 +9,19 @@
  * visual grammar FeedScreen already established for a post — a
  * hashtag feed is still real posts, not a new kind of card.
  */
-import {useCallback, useEffect, useState} from 'react';
+import {useCallback, useEffect, useState, useMemo} from 'react';
 import {View, Text, FlatList, Pressable, RefreshControl, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxPostDetail} from '@berx/api/types';
 import {relativeTimeLabel} from '@berx/domain';
-import {colors, spacing, typography} from '@berx/design-system/tokens';
+import {spacing, typography} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
 import {BerxRichText} from '../../../../packages/design-system/src/components/BerxRichText';
+
+import {useBerxColors} from '../../../../packages/design-system/src/theme';
+import type {BerxColorTokens} from '@berx/design-system/tokens';
 
 interface Props {
 	api: BerxApiClient;
@@ -30,6 +33,8 @@ interface Props {
 }
 
 export default function HashtagScreen({api, tag, onOpenPost, onOpenProfile, onOpenHashtag, onBack}: Props) {
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(colors), [colors]);
 	const [posts, setPosts] = useState<BerxPostDetail[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [refreshing, setRefreshing] = useState(false);
@@ -93,7 +98,7 @@ export default function HashtagScreen({api, tag, onOpenPost, onOpenProfile, onOp
 	);
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.black},
 	fadeFlex: {flex: 1},
 	list: {paddingHorizontal: spacing.lg, paddingBottom: spacing.xxl},
