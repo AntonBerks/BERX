@@ -417,6 +417,8 @@ export default function NowScreen({
 								actions={railFor(lead)}
 								onPress={() => onOpenPost(lead.guid)}
 								onPressAuthor={() => lead.poster_username && onOpenProfile(lead.poster_username)}
+								trackTitle={lead.track_title}
+								onOpenTrack={lead.track_guid ? () => onOpenPost(lead.track_guid as number) : undefined}
 								onOpenComments={() => onOpenPost(lead.guid)}
 							/>
 							</BerxDepthCard>
@@ -538,6 +540,8 @@ export default function NowScreen({
 												actions={actions}
 												onPress={() => onOpenPost(item.guid)}
 												onPressAuthor={() => item.poster_username && onOpenProfile(item.poster_username)}
+												trackTitle={item.track_title}
+												onOpenTrack={item.track_guid ? () => onOpenPost(item.track_guid as number) : undefined}
 												onOpenComments={() => onOpenPost(item.guid)}>
 												{item.poll ? (
 													<BerxPollView

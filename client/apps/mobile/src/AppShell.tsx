@@ -288,6 +288,7 @@ function RouteRenderer({name, params}: {name: BerxRouteName; params: unknown}) {
 					onOpenMyMoments={!nav.canGoBack ? () => nav.push('MyMoments', undefined) : undefined}
 					onOpenDating={!nav.canGoBack ? () => nav.push('Dating', undefined) : undefined}
 					onOpenPlaces={!nav.canGoBack ? () => nav.push('Places', undefined) : undefined}
+			onOpenPlace={(guid: number) => nav.push('PlaceDetail', {guid})}
 					onOpenEvents={!nav.canGoBack ? () => nav.push('Events', undefined) : undefined}
 					onOpenSettings={!nav.canGoBack ? () => nav.push('Settings', undefined) : undefined}
 					onOpenBERXWorld={!nav.canGoBack ? () => nav.push('BERXWorld', undefined) : undefined}

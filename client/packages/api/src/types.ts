@@ -23,6 +23,14 @@ export interface BerxUser {
 	reputation: BerxReputation;
 	/** Real signal (Max Build) — server re-checks independently on every actual admin route; this only controls what the client offers to show. */
 	is_admin: boolean;
+	last_place: BerxLastPlace | null;
+}
+
+/** The user's single most recent REAL check-in — the profile's location line. null when they have never checked in; never a coordinate, never inferred. */
+export interface BerxLastPlace {
+	guid: number;
+	title: string;
+	time: number;
 }
 
 export interface BerxAuthSession {
@@ -64,6 +72,10 @@ export interface BerxFeedItem {
 	media_count?: number;
 	/** Real creator status of the author (OssnCreator), batched page-wide. Optional on the same terms as like_count: other builders of this shape do not compute it. */
 	poster_is_creator?: boolean;
+	/** Pointer to a real existing track post attached as this post's soundtrack. null for the overwhelming majority of posts. */
+	track_guid?: number | null;
+	/** The referenced track's own title, resolved once per distinct track on the page. null when the post has no track or the track has no text. */
+	track_title?: string | null;
 }
 
 /** BERX WORLD — real Post Polls. counts is a real, live per-option tally (options[i] pairs with counts[i]) — never a fabricated or estimated number. my_vote is the caller's own real option index, or null if they haven't voted (or aren't authenticated). */
@@ -291,6 +303,7 @@ export interface BerxProfileSummary {
 	mutual_communities_count: number;
 	/** Real presence (OssnUser::isOnline(10)) — same signal already used by conversations.php's with_online. */
 	is_online: boolean;
+	last_place: BerxLastPlace | null;
 }
 
 export interface BerxSearchUsersResponse {

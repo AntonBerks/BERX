@@ -24,6 +24,26 @@
  * same real live COUNT()s as profiles.php's own addition, for the
  * caller's own account. No invented score.
  */
+/**
+ * The single most recent REAL check-in, as a location line. Same source
+ * and same bound as profiles.php — one relationship row, place title
+ * only, null when the user has never checked in.
+ */
+function ossn_api_me_last_place($guid) {
+	if (!class_exists('OssnPlaces')) {
+		return null;
+	}
+	$last = (new OssnPlaces())->lastCheckin($guid);
+	if (!$last || !isset($last['place'])) {
+		return null;
+	}
+	return array(
+		'guid'  => intval($last['place']->guid),
+		'title' => (string) $last['place']->title,
+		'time'  => intval($last['time']),
+	);
+}
+
 function ossn_api_me_reputation($guid) {
 	$guid = intval($guid);
 	$db = new OssnDatabase();
@@ -87,6 +107,7 @@ function ossn_api_me_to_json($user) {
 		'profile_url'  => (string) $user->profileURL(),
 		'time_created' => intval($user->time_created),
 		'reputation'   => ossn_api_me_reputation($user->guid),
+		'last_place'   => ossn_api_me_last_place($user->guid),
 		// MAX BUILD — real signal for admin-only client UI (Admin
 		// screens like admin.php's own unvalidated-users queue and
 		// report.php's moderation queue were fully real but had no

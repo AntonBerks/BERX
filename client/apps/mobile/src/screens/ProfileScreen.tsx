@@ -60,7 +60,7 @@ import React, {useEffect, useRef, useState, useMemo} from 'react';
 import {View, Text, Image, Pressable, ScrollView, Animated, Alert, Dimensions, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxAuthState} from '@berx/auth';
-import type {BerxIdentity, BerxIdentityAchievement, BerxIdentityInterest, BerxStorySummary, BerxFriend, BerxStoryFeedGroup, BerxPostDetail, BerxReputation} from '@berx/api/types';
+import type {BerxLastPlace, BerxIdentity, BerxIdentityAchievement, BerxIdentityInterest, BerxStorySummary, BerxFriend, BerxStoryFeedGroup, BerxPostDetail, BerxReputation} from '@berx/api/types';
 import {BerxApiError} from '@berx/core';
 import {spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
@@ -113,6 +113,8 @@ interface ProfileData {
 	mutual_communities_count?: number;
 	/** The real shape both /me and /profiles/{username} return — kept as the shared BerxReputation type rather than a stale narrower copy (this file's local list had drifted behind the server, which the missing React types here hid from tsc). */
 	reputation?: BerxReputation;
+	/** Real location line: the user's most recent actual check-in. null when they have never checked in. */
+	last_place?: BerxLastPlace | null;
 }
 
 interface Props {
@@ -138,6 +140,8 @@ interface Props {
 	onOpenMyMoments?: () => void;
 	onOpenDating?: () => void;
 	onOpenPlaces?: () => void;
+	/** Opens the real place behind the profile's location line. */
+	onOpenPlace?: (guid: number) => void;
 	onOpenEvents?: () => void;
 	onOpenSettings?: () => void;
 	onOpenBERXWorld?: () => void;
@@ -170,7 +174,7 @@ function joinedYear(unixSeconds?: number): string | null {
 	return new Date(unixSeconds * 1000).getFullYear().toString();
 }
 
-export default function ProfileScreen({api, authState, username, onBack, onMessage, onOpenNotifications, onOpenPoints, onOpenMissions, onOpenLifeGraph, onOpenMemories, onOpenWrapped, onOpenDatingPrivacy, onOpenDatingProfile, onOpenDatingPhotos, onOpenCommunities, onOpenPlans, onOpenWorlds, onOpenNext, onOpenMyMoments, onOpenDating, onOpenPlaces, onOpenEvents, onOpenSettings, onOpenBERXWorld, onOpenAlbums, onOpenCollections, onOpenTrips, onOpenExperiences, onOpenCreatorProfile, onOpenCreatorSettings, onOpenMyVideos, onOpenMyTracks, onOpenSavedPosts, onOpenEditProfile, onOpenMyPlaceClaims, onOpenRecentCheckins, onOpenAdminUnvalidated, onOpenAdminReports, onOpenAdminPlaceClaims, onReport, onOpenStoryGroup, onOpenPost}: Props) {
+export default function ProfileScreen({api, authState, username, onBack, onMessage, onOpenNotifications, onOpenPoints, onOpenMissions, onOpenLifeGraph, onOpenMemories, onOpenWrapped, onOpenDatingPrivacy, onOpenDatingProfile, onOpenDatingPhotos, onOpenCommunities, onOpenPlans, onOpenWorlds, onOpenNext, onOpenMyMoments, onOpenDating, onOpenPlaces, onOpenPlace, onOpenEvents, onOpenSettings, onOpenBERXWorld, onOpenAlbums, onOpenCollections, onOpenTrips, onOpenExperiences, onOpenCreatorProfile, onOpenCreatorSettings, onOpenMyVideos, onOpenMyTracks, onOpenSavedPosts, onOpenEditProfile, onOpenMyPlaceClaims, onOpenRecentCheckins, onOpenAdminUnvalidated, onOpenAdminReports, onOpenAdminPlaceClaims, onReport, onOpenStoryGroup, onOpenPost}: Props) {
 	const colors = useBerxColors();
 	const styles = useMemo(() => makeStyles(colors), [colors]);
 	const [profile, setProfile] = useState<ProfileData | null>(null);
@@ -458,6 +462,20 @@ export default function ProfileScreen({api, authState, username, onBack, onMessa
 								].filter(Boolean).join(' · ')}
 							</Text>
 						) : null}
+						{/* Reference location line. Real: the person's most recent
+						    actual check-in. A user who has never checked in gets no
+						    line — never a placeholder city. */}
+						{profile.last_place ? (
+							<Pressable
+								style={styles.locationRow}
+								onPress={onOpenPlace ? () => onOpenPlace(profile.last_place!.guid) : undefined}
+								disabled={!onOpenPlace}>
+								<Text style={styles.locationGlyph}>◉</Text>
+								<Text style={styles.locationText} numberOfLines={1}>
+									{profile.last_place.title}
+								</Text>
+							</Pressable>
+						) : null}
 						{year ? <Text style={styles.joined}>На BERX с {year} года</Text> : null}
 						{identity && identity.interests.length > 0 ? (
 							<View style={styles.interestRow}>
@@ -478,40 +496,49 @@ export default function ProfileScreen({api, authState, username, onBack, onMessa
 						{/* Reference profile tiles: a face stack over the number, and an
 						    arrow only where a real route exists. Faces are shown only on
 						    your own profile, where /friends is genuinely your list. */}
+						{/* The reference profile's three-column stat row. BERX has no
+						    followers: friendship here is mutual, so the columns are the
+						    real BERX quantities — moments, mutual friends, communities
+						    joined — not an Instagram follower graph transplanted in.
+						    Communities comes from the identity payload, so the column
+						    only appears once that has actually loaded. */}
 						{profile.reputation ? (
-							<View style={styles.statTiles}>
+							<View style={styles.statColumns}>
 								<Pressable
-									style={styles.statTile}
+									style={styles.statColumn}
 									onPress={isOwn && onOpenMyMoments ? onOpenMyMoments : undefined}
 									disabled={!(isOwn && onOpenMyMoments)}>
-									<Text style={styles.statTileValue}>{profile.reputation.moments_created ?? 0}</Text>
-									<View style={styles.statTileFoot}>
-										<Text style={styles.statTileLabel}>Моменты</Text>
-										{isOwn && onOpenMyMoments ? <Text style={styles.statTileArrow}>↗</Text> : null}
-									</View>
+									<Text style={styles.statColumnValue}>{profile.reputation.moments_created ?? 0}</Text>
+									<Text style={styles.statColumnLabel}>Моменты</Text>
 								</Pressable>
-								{isOwn && friends.length > 0 ? (
-									<Pressable style={styles.statTile} onPress={onOpenCommunities} disabled={!onOpenCommunities}>
+								<Pressable
+									style={styles.statColumn}
+									onPress={isOwn && friends.length > 0 ? onOpenCommunities : undefined}
+									disabled={!(isOwn && friends.length > 0)}>
+									{isOwn && friends.length > 0 ? (
 										<BerxAvatarStack
 											people={friends.map((f: BerxFriend) => ({guid: f.guid, icon: f.icon, initial: (f.fullname || f.username).charAt(0)}))}
 											total={friends.length}
-											size={28}
+											size={26}
+											style={styles.statColumnStack}
 										/>
-										<View style={styles.statTileFoot}>
-											<Text style={styles.statTileLabel}>Друзья</Text>
-											{onOpenCommunities ? <Text style={styles.statTileArrow}>↗</Text> : null}
-										</View>
+									) : (
+										<Text style={styles.statColumnValue}>{mutualFriends}</Text>
+									)}
+									<Text style={styles.statColumnLabel}>{isOwn ? 'Друзья' : 'Общих друзей'}</Text>
+								</Pressable>
+								{identity ? (
+									<Pressable style={styles.statColumn} onPress={onOpenCommunities} disabled={!onOpenCommunities}>
+										<Text style={styles.statColumnValue}>{identity.reputation.communities_joined}</Text>
+										<Text style={styles.statColumnLabel}>Сообщества</Text>
 									</Pressable>
 								) : (
 									<Pressable
-										style={styles.statTile}
+										style={styles.statColumn}
 										onPress={profile.guid && onOpenExperiences ? () => onOpenExperiences(profile.guid!, isOwn) : undefined}
 										disabled={!(profile.guid && onOpenExperiences)}>
-										<Text style={styles.statTileValue}>{profile.reputation.experiences_created}</Text>
-										<View style={styles.statTileFoot}>
-											<Text style={styles.statTileLabel}>Впечатления</Text>
-											{profile.guid && onOpenExperiences ? <Text style={styles.statTileArrow}>↗</Text> : null}
-										</View>
+										<Text style={styles.statColumnValue}>{profile.reputation.experiences_created}</Text>
+										<Text style={styles.statColumnLabel}>Впечатления</Text>
 									</Pressable>
 								)}
 							</View>
@@ -860,6 +887,9 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	achievementChip: {gap: 2, minHeight: 60},
 	achievementTitle: {color: colors.accent, fontSize: typography.sizeXs, fontWeight: typography.weightBold},
 	achievementSubtitle: {color: colors.textFaint, fontSize: 10},
+	locationRow: {flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 4},
+	locationGlyph: {color: colors.accent, fontSize: 12},
+	locationText: {color: colors.text, fontSize: typography.sizeSm, fontWeight: typography.weightMedium},
 	interestRow: {flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, marginTop: spacing.sm},
 	interestPill: {paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: radius.pill, backgroundColor: colors.accentSoft, borderWidth: 1, borderColor: colors.accent},
 	interestPillText: {color: colors.accent, fontSize: typography.sizeXs, fontWeight: typography.weightMedium},
@@ -867,22 +897,13 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	mutualFriends: {color: colors.accent, fontSize: typography.sizeSm, marginTop: spacing.xs, fontWeight: typography.weightMedium},
 	pokeStatus: {color: colors.textDim, fontSize: typography.sizeXs, textAlign: 'center', marginTop: spacing.xs},
 	bannedBanner: {color: colors.danger, fontSize: typography.sizeSm, fontWeight: typography.weightMedium, textAlign: 'center'},
-	statTiles: {flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md},
+	statColumns: {flexDirection: 'row', gap: spacing.xl, marginTop: spacing.lg},
+	statColumn: {alignItems: 'flex-start', gap: 2, minHeight: 46, justifyContent: 'flex-end'},
+	statColumnStack: {marginBottom: 2},
+	statColumnValue: {color: colors.text, fontSize: typography.sizeTitle, fontWeight: typography.weightBold, letterSpacing: -0.6},
+	statColumnLabel: {color: colors.textDim, fontSize: typography.sizeXs},
 	gallery: {paddingHorizontal: spacing.lg, marginTop: spacing.lg, gap: spacing.md},
 	gallerySegments: {marginBottom: spacing.xs},
-	statTile: {
-		flex: 1,
-		padding: spacing.md,
-		borderRadius: radius.md,
-		backgroundColor: colors.glass2,
-		borderWidth: 1,
-		borderColor: colors.borderSoft,
-		gap: spacing.xs,
-	},
-	statTileValue: {color: colors.text, fontSize: typography.sizeTitle, fontWeight: typography.weightBold, letterSpacing: -0.6},
-	statTileFoot: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'},
-	statTileLabel: {color: colors.textDim, fontSize: typography.sizeXs},
-	statTileArrow: {color: colors.accent, fontSize: typography.sizeXs},
 	reputationRow: {flexDirection: 'row', gap: spacing.lg, marginTop: spacing.sm, marginBottom: spacing.sm, paddingRight: spacing.lg},
 	reputationStat: {alignItems: 'flex-start'},
 	reputationValue: {color: colors.white, fontSize: typography.sizeBase, fontWeight: typography.weightBold},

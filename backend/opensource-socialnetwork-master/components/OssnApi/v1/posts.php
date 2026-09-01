@@ -159,6 +159,27 @@ if ($segment0 === 'drafts' && $segment1 !== null && $segment2 === 'publish' && $
 			ossn_api_error('forbidden', 'Draft circle is no longer accessible', 403);
 		}
 	}
+	/**
+	 * Optional soundtrack: a reference to an EXISTING track post (a post
+	 * that really carries an audio asset — the same thing GET /tracks
+	 * lists). Stored the same flattened way berx_repost_of and the poll
+	 * already are; nothing new is uploaded here, and a guid that is not
+	 * genuinely a track is rejected rather than stored.
+	 */
+	$trackGuid = null;
+	$trackInput = input('track_guid');
+	if ($trackInput && is_numeric($trackInput)) {
+		$trackWall = new OssnWall();
+		$trackPost = $trackWall->GetPost(intval($trackInput));
+		$trackAsset = $trackPost && function_exists('ossn_api_track_asset_row_for_post')
+			? ossn_api_track_asset_row_for_post($trackPost->guid)
+			: null;
+		if (!$trackPost || !$trackAsset || ossn_api_is_blocked($api_user_guid, $trackPost->owner_guid)) {
+			ossn_api_error('not_found', 'Track not found', 404);
+		}
+		$trackGuid = intval($trackPost->guid);
+	}
+
 	$wall = new OssnWall();
 	$wall->owner_guid  = intval($api_user_guid);
 	$wall->poster_guid = intval($api_user_guid);
@@ -271,6 +292,27 @@ if ($segment0 === null && $method === 'POST') {
 		$repostOfGuid = intval($original->guid);
 	}
 
+	/**
+	 * Optional soundtrack: a reference to an EXISTING track post (a post
+	 * that really carries an audio asset — the same thing GET /tracks
+	 * lists). Stored the same flattened way berx_repost_of and the poll
+	 * already are; nothing new is uploaded here, and a guid that is not
+	 * genuinely a track is rejected rather than stored.
+	 */
+	$trackGuid = null;
+	$trackInput = input('track_guid');
+	if ($trackInput && is_numeric($trackInput)) {
+		$trackWall = new OssnWall();
+		$trackPost = $trackWall->GetPost(intval($trackInput));
+		$trackAsset = $trackPost && function_exists('ossn_api_track_asset_row_for_post')
+			? ossn_api_track_asset_row_for_post($trackPost->guid)
+			: null;
+		if (!$trackPost || !$trackAsset || ossn_api_is_blocked($api_user_guid, $trackPost->owner_guid)) {
+			ossn_api_error('not_found', 'Track not found', 404);
+		}
+		$trackGuid = intval($trackPost->guid);
+	}
+
 	$wall = new OssnWall();
 	$wall->owner_guid  = intval($api_user_guid);
 	$wall->poster_guid = intval($api_user_guid);
@@ -279,6 +321,9 @@ if ($segment0 === null && $method === 'POST') {
 	$wall->data->berx_visibility = $visibility;
 	if ($repostOfGuid) {
 		$wall->data->berx_repost_of = $repostOfGuid;
+	}
+	if ($trackGuid) {
+		$wall->data->berx_track_guid = $trackGuid;
 	}
 	// OssnWall::Post() only accepts a real string with strlen()>0 OR a
 	// literal null (its own real no-self-text branch, e.g. item_guid

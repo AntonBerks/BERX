@@ -218,6 +218,31 @@ if ($page && class_exists('OssnCreator')) {
 	$creatorGuids = (new OssnCreator())->creatorGuids($posterGuids);
 }
 
+/**
+ * Soundtrack titles for the page. Resolved once per DISTINCT referenced
+ * track, not once per post — a page where twenty posts share one track
+ * costs one lookup. Posts that reference nothing cost nothing.
+ */
+$trackTitles = array();
+if ($page) {
+	$trackGuids = array();
+	foreach ($page as $post) {
+		if (isset($post->berx_track_guid) && $post->berx_track_guid) {
+			$trackGuids[intval($post->berx_track_guid)] = true;
+		}
+	}
+	if ($trackGuids) {
+		$trackWall = new OssnWall();
+		foreach (array_keys($trackGuids) as $trackGuid) {
+			$trackPost = $trackWall->GetPost($trackGuid);
+			if ($trackPost) {
+				$title = trim((string) $trackPost->description);
+				$trackTitles[$trackGuid] = $title !== '' ? mb_substr($title, 0, 80) : null;
+			}
+		}
+	}
+}
+
 $items = array();
 foreach ($page as $post) {
 	$item = ossn_api_post_base_json($post, $api_user_guid);
@@ -228,6 +253,8 @@ foreach ($page as $post) {
 	$item['media_url'] = isset($mediaCovers[$guid]) ? $mediaCovers[$guid] : null;
 	$item['media_count'] = isset($mediaCounts[$guid]) ? $mediaCounts[$guid] : 0;
 	$item['poster_is_creator'] = isset($creatorGuids[intval($post->poster_guid)]);
+	$trackGuid = isset($post->berx_track_guid) ? intval($post->berx_track_guid) : 0;
+	$item['track_title'] = ($trackGuid && isset($trackTitles[$trackGuid])) ? $trackTitles[$trackGuid] : null;
 	$items[] = $item;
 }
 

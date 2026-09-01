@@ -725,6 +725,11 @@ function ossn_api_post_base_json($post, $viewerGuid = null) {
 		// way berx_visibility already is (OssnCircles::canViewPost()'s
 		// own header confirms this access pattern is real).
 		'repost_of'      => isset($post->berx_repost_of) && $post->berx_repost_of ? intval($post->berx_repost_of) : null,
+		// Optional soundtrack reference, read back the same flattened way.
+		// The pointer only; the track's own title/url are resolved by the
+		// caller that actually needs them, so a feed page stays free of
+		// per-item lookups.
+		'track_guid'     => isset($post->berx_track_guid) && $post->berx_track_guid ? intval($post->berx_track_guid) : null,
 		// BERX WORLD — real Post Polls (see OssnPolls.php's own header).
 		// null for the overwhelming majority of posts that never had a
 		// poll attached at creation — never a fabricated empty poll.

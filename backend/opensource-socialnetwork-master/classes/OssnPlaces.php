@@ -374,6 +374,18 @@ class OssnPlaces extends OssnObject {
 	}
 
 	/** @return array real PHP array — most recent check-ins first, hydrated with the place */
+	/**
+	 * The single most recent REAL check-in, or false. Used for the
+	 * location line on a profile: a check-in is already publicly visible
+	 * (checkinsForPlace() lists them per place), so this exposes nothing
+	 * new — it just reads the newest one instead of the whole history.
+	 * Bounded to one relationship row; never a coordinate, only the place.
+	 */
+	public function lastCheckin($userGuid) {
+		$rows = $this->recentCheckins($userGuid, 1);
+		return $rows ? $rows[0] : false;
+	}
+
 	public function recentCheckins($userGuid, $limit = 20) {
 		$rows = ossn_get_relationships(array('from' => intval($userGuid), 'type' => self::CHECKIN_RELATION, 'limit' => intval($limit), 'page_limit' => false, 'order_by' => 'r.time DESC'));
 		if (!$rows) {

@@ -95,6 +95,21 @@ if (!$isOwn) {
 		}
 	}
 }
+// Real location line: the single most recent check-in this user actually
+// made. Nothing is inferred and no coordinate is exposed — a user with no
+// check-ins simply has none, which the client renders as no line at all.
+$lastPlace = null;
+if (class_exists('OssnPlaces')) {
+	$lastCheckin = (new OssnPlaces())->lastCheckin($user->guid);
+	if ($lastCheckin && isset($lastCheckin['place'])) {
+		$lastPlace = array(
+			'guid'  => intval($lastCheckin['place']->guid),
+			'title' => (string) $lastCheckin['place']->title,
+			'time'  => intval($lastCheckin['time']),
+		);
+	}
+}
+
 $isCreator = false;
 if (class_exists('OssnCreator')) {
 	$creatorModel = new OssnCreator();
@@ -145,6 +160,7 @@ ossn_api_json(array(
 	// signal/threshold already used for conversations.php's
 	// with_online — never faked as a decorative "always online" dot.
 	'is_online'   => method_exists($user, 'isOnline') ? (bool) $user->isOnline(10) : false,
+	'last_place'  => $lastPlace,
 	'mutual_friends_count' => $mutualFriendsCount,
 	'mutual_communities_count' => $mutualCommunitiesCount,
 	'reputation'  => array(

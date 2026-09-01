@@ -59,6 +59,9 @@ export interface BerxImmersivePostProps {
 	 */
 	onOpenComments?: () => void;
 	commentPlaceholder?: string;
+	/** Real soundtrack attached to this post. Absent for posts that have none — never a placeholder track name. */
+	trackTitle?: string | null;
+	onOpenTrack?: () => void;
 	/** Rendered under the caption, still inside the card — used for a real poll attached to the post. */
 	children?: React.ReactNode;
 	style?: ViewStyle;
@@ -80,6 +83,8 @@ export function BerxImmersivePost({
 	onToggleFollow,
 	onOpenComments,
 	commentPlaceholder = 'Добавить комментарий',
+	trackTitle,
+	onOpenTrack,
 	ratio = 'hero',
 	children,
 	style,
@@ -141,6 +146,15 @@ export function BerxImmersivePost({
 						{text}
 					</Text>
 				) : null}
+				{trackTitle ? (
+					<Pressable style={styles.trackChip} onPress={onOpenTrack} disabled={!onOpenTrack}>
+						<Text style={styles.trackGlyph}>♪</Text>
+						<Text style={styles.trackText} numberOfLines={1}>
+							{trackTitle}
+						</Text>
+					</Pressable>
+				) : null}
+
 				{children}
 
 				{onOpenComments ? (
@@ -178,6 +192,21 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	followPillOn: {backgroundColor: 'rgba(255,255,255,0.06)', borderColor: 'rgba(255,255,255,0.16)'},
 	followText: {color: colors.onMedia, fontSize: typography.sizeXs, fontWeight: typography.weightBold},
 	followTextOn: {color: colors.onMediaDim, fontWeight: typography.weightMedium},
+	trackChip: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		gap: 6,
+		alignSelf: 'flex-start',
+		paddingHorizontal: spacing.md,
+		paddingVertical: 6,
+		borderRadius: radius.pill,
+		backgroundColor: 'rgba(255,255,255,0.12)',
+		borderWidth: 1,
+		borderColor: 'rgba(255,255,255,0.20)',
+		maxWidth: '85%',
+	},
+	trackGlyph: {color: colors.onMedia, fontSize: 12},
+	trackText: {color: colors.onMedia, fontSize: typography.sizeXs, fontWeight: typography.weightMedium, flexShrink: 1},
 	commentBar: {
 		flexDirection: 'row',
 		alignItems: 'center',

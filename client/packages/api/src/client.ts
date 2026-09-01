@@ -337,7 +337,7 @@ export class BerxApiClient {
 	 * no new wire format, same real mechanism this client already
 	 * uses everywhere else.
 	 */
-	async createPost(text: string, visibility?: BerxPostVisibility, repostOf?: number, pollOptions?: string[], pollEndsAt?: number): Promise<{guid: number}> {
+	async createPost(text: string, visibility?: BerxPostVisibility, repostOf?: number, pollOptions?: string[], pollEndsAt?: number, trackGuid?: number): Promise<{guid: number}> {
 		const pollFields: Record<string, string> = {};
 		if (pollOptions) {
 			pollOptions.forEach((opt, i) => {
@@ -347,7 +347,7 @@ export class BerxApiClient {
 				pollFields.poll_ends_at = String(pollEndsAt);
 			}
 		}
-		return this.request<{guid: number}>('/posts', {method: 'POST', body: {text, ...(visibility ? {visibility} : {}), ...(repostOf ? {repost_of: String(repostOf)} : {}), ...pollFields}});
+		return this.request<{guid: number}>('/posts', {method: 'POST', body: {text, ...(visibility ? {visibility} : {}), ...(repostOf ? {repost_of: String(repostOf)} : {}), ...(trackGuid ? {track_guid: String(trackGuid)} : {}), ...pollFields}});
 	}
 
 	async getPost(id: number): Promise<BerxPostDetail> {
