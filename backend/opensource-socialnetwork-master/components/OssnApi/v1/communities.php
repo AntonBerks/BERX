@@ -311,7 +311,7 @@ if ($segment0 !== null && $segment1 === 'posts' && $method === 'POST') {
 		if ($pollOptions) {
 			$pollEndsAtInput = input('poll_ends_at');
 			$pollEndsAt = ($pollEndsAtInput && is_numeric($pollEndsAtInput)) ? intval($pollEndsAtInput) : null;
-			(new OssnPolls())->create($guid, $pollOptions, $pollEndsAt);
+			(new OssnPolls())->create($guid, $pollOptions, $pollEndsAt, $api_user_guid);
 		}
 	}
 	ossn_api_json(array('guid' => intval($guid)));

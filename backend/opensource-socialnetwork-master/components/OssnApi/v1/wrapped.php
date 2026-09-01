@@ -155,8 +155,21 @@ $worldsRow = $db->select(array(
 ));
 $worldsCreated = $worldsRow ? intval($worldsRow->cnt) : 0;
 
+// BERX WORLD — same real period-scoped COUNT() pattern as every stat
+// above. owner_guid on ossn_post_polls is real, denormalized data
+// (see upgrade/upgrades/1785172100.php's own header).
+$pollsRow = $db->select(array(
+	'from'   => 'ossn_post_polls',
+	'params' => array('COUNT(*) as cnt'),
+	'wheres' => array(
+		OssnDatabase::wheres('owner_guid', '=', $userGuid),
+		OssnDatabase::wheres('time_created', '>=', $cutoff),
+	),
+));
+$pollsCreated = $pollsRow ? intval($pollsRow->cnt) : 0;
+
 $total = $postsCreated + $tripsCreated + $experiencesCount + $eventsGoing + $placesSaved + $checkinsCount
-	+ $momentsCreated + $memoriesSaved + $plansCreated + $worldsCreated;
+	+ $momentsCreated + $memoriesSaved + $plansCreated + $worldsCreated + $pollsCreated;
 
 ossn_api_json(array(
 	'period'            => $period,
@@ -172,4 +185,5 @@ ossn_api_json(array(
 	'memories_saved'    => $memoriesSaved,
 	'plans_created'     => $plansCreated,
 	'worlds_created'    => $worldsCreated,
+	'polls_created'     => $pollsCreated,
 ));

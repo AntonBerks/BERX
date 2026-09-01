@@ -82,10 +82,12 @@ function ossn_api_identity_compose($guid) {
 	$momentsRow = $db->select(array('from' => 'ossn_moments', 'params' => array('COUNT(*) as cnt'), 'wheres' => array(OssnDatabase::wheres('owner_guid', '=', $guid))));
 	$memoriesRow = $db->select(array('from' => 'ossn_memories', 'params' => array('COUNT(*) as cnt'), 'wheres' => array(OssnDatabase::wheres('owner_guid', '=', $guid))));
 	$worldsRow = $db->select(array('from' => 'ossn_worlds', 'params' => array('COUNT(*) as cnt'), 'wheres' => array(OssnDatabase::wheres('owner_guid', '=', $guid))));
+	$pollsRow = $db->select(array('from' => 'ossn_post_polls', 'params' => array('COUNT(*) as cnt'), 'wheres' => array(OssnDatabase::wheres('owner_guid', '=', $guid))));
 	$plansCreated = $plansRow ? intval($plansRow->cnt) : 0;
 	$momentsCreated = $momentsRow ? intval($momentsRow->cnt) : 0;
 	$memoriesSaved = $memoriesRow ? intval($memoriesRow->cnt) : 0;
 	$worldsCreated = $worldsRow ? intval($worldsRow->cnt) : 0;
+	$pollsCreated = $pollsRow ? intval($pollsRow->cnt) : 0;
 
 	$userModel = new OssnUser();
 	$friendRows = $userModel->getFriends($guid, array('limit' => 2000, 'page_limit' => false));
@@ -145,6 +147,7 @@ function ossn_api_identity_compose($guid) {
 		ossn_api_identity_achievement('organizer', array('Организатор', 'Инициатор', 'Организатор', 'Заводила'), $plansCreated, array(1, 5, 15)),
 		ossn_api_identity_achievement('chronicler', array('Хроники моментов', 'Летописец', 'Хранитель памяти'), $momentsCreated + $memoriesSaved, array(5, 25)),
 		ossn_api_identity_achievement('worldbuilder', array('Строитель миров', 'Строитель', 'Архитектор миров'), $worldsCreated, array(1, 3)),
+		ossn_api_identity_achievement('pollster', array('Голос народа', 'Опросчик', 'Трибун'), $pollsCreated, array(1, 5)),
 	);
 
 	return array(
@@ -166,6 +169,7 @@ function ossn_api_identity_compose($guid) {
 			'moments_created'     => $momentsCreated,
 			'memories_saved'      => $memoriesSaved,
 			'worlds_created'      => $worldsCreated,
+			'polls_created'       => $pollsCreated,
 		),
 		'interests'          => $interests,
 		'achievements'       => $achievements,

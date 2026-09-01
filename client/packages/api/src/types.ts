@@ -167,6 +167,8 @@ export interface BerxReputation {
 	moments_created: number;
 	memories_saved: number;
 	worlds_created: number;
+	/** BERX WORLD — real Post Polls (see OssnPolls.php's own header). */
+	polls_created: number;
 }
 
 /**
@@ -598,6 +600,8 @@ export interface BerxWrapped {
 	memories_saved?: number;
 	plans_created?: number;
 	worlds_created?: number;
+	/** BERX WORLD — real Post Polls (see OssnPolls.php's own header). */
+	polls_created?: number;
 }
 
 export interface BerxEventStoryItem {

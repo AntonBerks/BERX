@@ -34,6 +34,7 @@ const ROWS: {key: keyof BerxWrapped; label: string}[] = [
 	{key: 'moments_created', label: 'Моментов записано'},
 	{key: 'memories_saved', label: 'Воспоминаний сохранено'},
 	{key: 'worlds_created', label: 'Миров создано'},
+	{key: 'polls_created', label: 'Опросов создано'},
 ];
 
 export default function WrappedScreen({api, onBack}: Props) {

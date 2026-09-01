@@ -35,12 +35,12 @@ class OssnPolls extends OssnDatabase {
 		return $options;
 	}
 
-	/** Real single row per post (post_guid is a real UNIQUE KEY — a second create() for the same post is a genuine no-op insert failure, never a silent overwrite). */
-	public function create($postGuid, array $options, $endsAt = null) {
+	/** Real single row per post (post_guid is a real UNIQUE KEY — a second create() for the same post is a genuine no-op insert failure, never a silent overwrite). $ownerGuid is the real poll creator, denormalized here (see upgrade/upgrades/1785172100.php's own header) purely so reputation counts can do one simple COUNT(*) like every other domain's *_created stat, not a heavier join through OssnObject metadata. */
+	public function create($postGuid, array $options, $endsAt = null, $ownerGuid = null) {
 		return (bool) $this->insert(array(
 			'into'   => self::POLLS_TABLE,
-			'names'  => array('post_guid', 'options_json', 'ends_at', 'time_created'),
-			'values' => array(intval($postGuid), json_encode(array_values($options)), $endsAt ? intval($endsAt) : null, time()),
+			'names'  => array('post_guid', 'options_json', 'ends_at', 'time_created', 'owner_guid'),
+			'values' => array(intval($postGuid), json_encode(array_values($options)), $endsAt ? intval($endsAt) : null, time(), $ownerGuid ? intval($ownerGuid) : null),
 		));
 	}
 

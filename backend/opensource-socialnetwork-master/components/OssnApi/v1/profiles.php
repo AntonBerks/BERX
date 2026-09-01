@@ -122,6 +122,7 @@ $momentsRow = $db->select(array('from' => 'ossn_moments', 'params' => array('COU
 $memoriesRow = $db->select(array('from' => 'ossn_memories', 'params' => array('COUNT(*) as cnt'), 'wheres' => array(OssnDatabase::wheres('owner_guid', '=', intval($user->guid)))));
 $plansRow = $db->select(array('from' => 'ossn_plans', 'params' => array('COUNT(*) as cnt'), 'wheres' => array(OssnDatabase::wheres('owner_guid', '=', intval($user->guid)))));
 $worldsRow = $db->select(array('from' => 'ossn_worlds', 'params' => array('COUNT(*) as cnt'), 'wheres' => array(OssnDatabase::wheres('owner_guid', '=', intval($user->guid)))));
+$pollsRow = $db->select(array('from' => 'ossn_post_polls', 'params' => array('COUNT(*) as cnt'), 'wheres' => array(OssnDatabase::wheres('owner_guid', '=', intval($user->guid)))));
 
 ossn_api_json(array(
 	'guid'        => intval($user->guid),
@@ -156,5 +157,6 @@ ossn_api_json(array(
 		'memories_saved'      => $memoriesRow ? intval($memoriesRow->cnt) : 0,
 		'plans_created'       => $plansRow ? intval($plansRow->cnt) : 0,
 		'worlds_created'      => $worldsRow ? intval($worldsRow->cnt) : 0,
+		'polls_created'       => $pollsRow ? intval($pollsRow->cnt) : 0,
 	),
 ));

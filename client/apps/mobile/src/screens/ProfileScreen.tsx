@@ -406,6 +406,7 @@ export default function ProfileScreen({api, authState, username, onBack, onMessa
 								{profile.reputation.experiences_created > 0 ? <View style={styles.reputationStat}><Text style={styles.reputationValue}>{profile.reputation.experiences_created}</Text><Text style={styles.reputationLabel}>впечатлений</Text></View> : null}
 								{profile.reputation.checkins_count > 0 ? <View style={styles.reputationStat}><Text style={styles.reputationValue}>{profile.reputation.checkins_count}</Text><Text style={styles.reputationLabel}>отметок</Text></View> : null}
 								{profile.reputation.worlds_created > 0 ? <View style={styles.reputationStat}><Text style={styles.reputationValue}>{profile.reputation.worlds_created}</Text><Text style={styles.reputationLabel}>миров</Text></View> : null}
+								{profile.reputation.polls_created > 0 ? <View style={styles.reputationStat}><Text style={styles.reputationValue}>{profile.reputation.polls_created}</Text><Text style={styles.reputationLabel}>опросов</Text></View> : null}
 							</View>
 						) : null}
 

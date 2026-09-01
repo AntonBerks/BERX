@@ -39,6 +39,13 @@ function ossn_api_me_reputation($guid) {
 	$memoriesRow = $db->select(array('from' => 'ossn_memories', 'params' => array('COUNT(*) as cnt'), 'wheres' => array(OssnDatabase::wheres('owner_guid', '=', $guid))));
 	$plansRow = $db->select(array('from' => 'ossn_plans', 'params' => array('COUNT(*) as cnt'), 'wheres' => array(OssnDatabase::wheres('owner_guid', '=', $guid))));
 	$worldsRow = $db->select(array('from' => 'ossn_worlds', 'params' => array('COUNT(*) as cnt'), 'wheres' => array(OssnDatabase::wheres('owner_guid', '=', $guid))));
+	// BERX WORLD — same real COUNT() pattern, kept identical to
+	// profiles.php's own reputation block so neither goes stale
+	// relative to the other. owner_guid on ossn_post_polls is real,
+	// denormalized data (see upgrade/upgrades/1785172100.php's own
+	// header) — never a join through OssnObject metadata just to
+	// count polls.
+	$pollsRow = $db->select(array('from' => 'ossn_post_polls', 'params' => array('COUNT(*) as cnt'), 'wheres' => array(OssnDatabase::wheres('owner_guid', '=', $guid))));
 	return array(
 		'places_reviewed'     => $reviewsRow ? intval($reviewsRow->cnt) : 0,
 		'events_going'        => $eventsGoing,
@@ -49,6 +56,7 @@ function ossn_api_me_reputation($guid) {
 		'memories_saved'      => $memoriesRow ? intval($memoriesRow->cnt) : 0,
 		'plans_created'       => $plansRow ? intval($plansRow->cnt) : 0,
 		'worlds_created'      => $worldsRow ? intval($worldsRow->cnt) : 0,
+		'polls_created'       => $pollsRow ? intval($pollsRow->cnt) : 0,
 	);
 }
 
