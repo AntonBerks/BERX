@@ -57,7 +57,7 @@
  * unchanged.
  */
 import React, {useEffect, useRef, useState, useMemo} from 'react';
-import {View, Text, Image, Pressable, ScrollView, Animated, Alert, StyleSheet} from 'react-native';
+import {View, Text, Image, Pressable, ScrollView, Animated, Alert, Dimensions, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxAuthState} from '@berx/auth';
 import type {BerxIdentity, BerxIdentityAchievement, BerxIdentityInterest, BerxStorySummary, BerxFriend, BerxStoryFeedGroup, BerxPostDetail, BerxReputation} from '@berx/api/types';
@@ -80,6 +80,9 @@ import {BerxPhotoGrid} from '../../../../packages/design-system/src/components/B
 import {useBerxColors} from '../../../../packages/design-system/src/theme';
 import type {BerxColorTokens} from '@berx/design-system/tokens';
 
+
+// Reference proportion: the portrait owns the screen on open.
+const HERO_H = Math.round(Dimensions.get('window').height * 0.78);
 
 interface ProfileData {
 	guid?: number;
@@ -456,6 +459,15 @@ export default function ProfileScreen({api, authState, username, onBack, onMessa
 							</Text>
 						) : null}
 						{year ? <Text style={styles.joined}>На BERX с {year} года</Text> : null}
+						{identity && identity.interests.length > 0 ? (
+							<View style={styles.interestRow}>
+								{identity.interests.slice(0, 3).map((it: BerxIdentityInterest) => (
+									<View key={it.category} style={styles.interestPill}>
+										<Text style={styles.interestPillText}>{it.category}</Text>
+									</View>
+								))}
+							</View>
+						) : null}
 
 						{/* BERX SPATIAL — the reference profiles lead with two large,
 						    tappable stat tiles rather than a text stat line. These carry
@@ -529,12 +541,14 @@ export default function ProfileScreen({api, authState, username, onBack, onMessa
 
 			{galleryItems.length > 0 ? (
 				<View style={styles.gallery}>
-					<BerxSegmentedTabs
-						segments={gallerySegments}
+					{gallerySegments.length > 1 ? (
+						<BerxSegmentedTabs
+							segments={gallerySegments}
 						activeKey={gallerySeg}
-						onSelect={(k: string) => setGallerySeg(k as 'moments' | 'highlights')}
-						style={styles.gallerySegments}
-					/>
+							onSelect={(k: string) => setGallerySeg(k as 'moments' | 'highlights')}
+							style={styles.gallerySegments}
+						/>
+					) : null}
 					<BerxPhotoGrid items={galleryItems} />
 				</View>
 			) : null}
@@ -576,18 +590,6 @@ export default function ProfileScreen({api, authState, username, onBack, onMessa
 						</View>
 					) : null}
 
-					{identity.interests.length > 0 ? (
-						<View>
-							<Text style={styles.identitySectionTitle}>Интересы</Text>
-							<View style={styles.interestRow}>
-								{identity.interests.map((it: BerxIdentityInterest) => (
-									<View key={it.category} style={styles.interestPill}>
-										<Text style={styles.interestPillText}>{it.category}</Text>
-									</View>
-								))}
-							</View>
-						</View>
-					) : null}
 				</BerxFadeIn>
 			) : null}
 
@@ -810,7 +812,7 @@ function MenuRow({
 
 const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.bg},
-	hero: {height: 460, backgroundColor: colors.graphite, justifyContent: 'flex-end', overflow: 'hidden'},
+	hero: {height: HERO_H, backgroundColor: colors.mediaScrim, justifyContent: 'flex-end', overflow: 'hidden'},
 	heroFallback: {alignItems: 'center', justifyContent: 'center', backgroundColor: colors.graphite},
 	heroFallbackGlyph: {fontSize: typography.sizeHero, color: colors.textFaint, fontWeight: typography.weightBold},
 	onlineBadgeWrap: {position: 'absolute', top: spacing.xl, right: spacing.lg},
@@ -858,7 +860,7 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	achievementChip: {gap: 2, minHeight: 60},
 	achievementTitle: {color: colors.accent, fontSize: typography.sizeXs, fontWeight: typography.weightBold},
 	achievementSubtitle: {color: colors.textFaint, fontSize: 10},
-	interestRow: {flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs},
+	interestRow: {flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, marginTop: spacing.sm},
 	interestPill: {paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: radius.pill, backgroundColor: colors.accentSoft, borderWidth: 1, borderColor: colors.accent},
 	interestPillText: {color: colors.accent, fontSize: typography.sizeXs, fontWeight: typography.weightMedium},
 	joined: {color: colors.textFaint, fontSize: typography.sizeXs, marginTop: spacing.sm},
