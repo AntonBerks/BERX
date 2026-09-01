@@ -169,6 +169,8 @@ ossn_add_hook('notification:add', 'berx:moment:tag', 'ossn_api_notify_passthroug
 ossn_add_hook('notification:add', 'berx:world:invite', 'ossn_api_notify_passthrough');
 ossn_add_hook('notification:add', 'berx:world:joined', 'ossn_api_notify_passthrough');
 ossn_add_hook('notification:add', 'berx:world:ownership_transferred', 'ossn_api_notify_passthrough');
+/** BERX WORLD — Comment Threading. Stock 'comments:post' only ever reaches the WALL POST's owner_guid (see OssnNotifications' own ossn_notificaiton_comments_post_hook) — the actual parent comment's real author never hears about a reply unless they happen to also own the post. posts.php's comment-creation route supplies the real parent comment's owner_guid as the 5th param, same passthrough shape as every other real-target type above. */
+ossn_add_hook('notification:add', 'berx:comment:reply', 'ossn_api_notify_passthrough');
 
 /**
  * Real resource whitelist. Never build an include path from the URL

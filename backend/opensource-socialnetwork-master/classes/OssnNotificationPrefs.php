@@ -61,6 +61,7 @@ class OssnNotificationPrefs extends OssnDatabase {
 			'berx:world:invite',
 			'berx:world:joined',
 			'berx:world:ownership_transferred',
+			'berx:comment:reply',
 		);
 	}
 

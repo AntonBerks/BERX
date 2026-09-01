@@ -73,6 +73,7 @@ const NOTIFICATION_VERB: Record<string, string> = {
 	'like:post': 'нравится ваш пост',
 	'like:post:group:wall': 'нравится ваш пост в сообществе',
 	'comments:post': 'прокомментировал(а) ваш пост',
+	'berx:comment:reply': 'ответил(а) на ваш комментарий',
 	'comments:post:group:wall': 'прокомментировал(а) ваш пост в сообществе',
 	'wall:friends:tag': 'отметил(а) вас в посте',
 	'group:joinrequest': 'хочет вступить в',

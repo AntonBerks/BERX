@@ -366,7 +366,8 @@ export type BerxNotificationPrefType =
 	| 'berx:moment:tag'
 	| 'berx:world:invite'
 	| 'berx:world:joined'
-	| 'berx:world:ownership_transferred';
+	| 'berx:world:ownership_transferred'
+	| 'berx:comment:reply';
 
 export type BerxNotificationPrefs = Record<BerxNotificationPrefType, boolean>;
 

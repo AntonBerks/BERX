@@ -54,7 +54,8 @@ function ossn_api_notification_actor($guid) {
  * (confirmed by reading the real hook/callsite that set it, not
  * assumed from the type string alone):
  *   like:post, comments:post, comments:post:group:wall,
- *   like:post:group:wall, wall:friends:tag, berx:place:comment    -> post guid
+ *   like:post:group:wall, wall:friends:tag, berx:place:comment,
+ *   berx:comment:reply                                             -> post guid
  *   berx:place:review, berx:place:checkin, berx:offer:claimed     -> place guid
  *   berx:event:rsvp, berx:event:comment, berx:event:invite,
  *   berx:event:waitlist:promoted, berx:event:checkin,
@@ -81,7 +82,8 @@ function ossn_api_notification_subject($type, $subjectGuid) {
 		|| $type === 'comments:post:group:wall'
 		|| $type === 'like:post:group:wall'
 		|| $type === 'wall:friends:tag'
-		|| $type === 'berx:place:comment';
+		|| $type === 'berx:place:comment'
+		|| $type === 'berx:comment:reply';
 	if ($isPostType) {
 		$wall = new OssnWall();
 		$post = $wall->GetPost($subjectGuid);

@@ -519,6 +519,16 @@ if ($segment0 !== null && $segment1 === 'comments' && $segment2 === null && $met
 	}
 	if ($replyTo > 0 && class_exists('OssnCommentThreads')) {
 		(new OssnCommentThreads())->setParent(intval($id), $replyTo, intval($post->guid));
+		// BERX WORLD — real "someone replied to your comment" signal.
+		// Stock comments:post only ever reaches the wall post's OWNER
+		// (see OssnNotifications' own ossn_notificaiton_comments_post_
+		// hook) — a random commenter being replied to would otherwise
+		// hear nothing. Never notify yourself for your own reply, and
+		// never notify a post owner replying to a comment on their own
+		// post (comments:post already covers that real fact for them).
+		if (class_exists('OssnNotifications') && intval($parentComment->owner_guid) !== intval($api_user_guid)) {
+			(new OssnNotifications())->add('berx:comment:reply', intval($api_user_guid), intval($post->guid), intval($post->guid), intval($parentComment->owner_guid));
+		}
 	}
 	// MAX BUILD -- real engagement signal (OssnSignals, BERX Future
 	// Core -- see places.php's own comment for the full story).

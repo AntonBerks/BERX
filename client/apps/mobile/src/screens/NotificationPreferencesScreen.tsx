@@ -53,11 +53,13 @@ const LABELS: Record<BerxNotificationPrefType, string> = {
 	'berx:world:invite': 'Приглашение в мир',
 	'berx:world:joined': 'Кто-то вступил в ваш мир',
 	'berx:world:ownership_transferred': 'Вас сделали владельцем мира',
+	'berx:comment:reply': 'Ответ на ваш комментарий',
 };
 
 const ORDER: BerxNotificationPrefType[] = [
 	'like:post',
 	'comments:post',
+	'berx:comment:reply',
 	'wall:friends:tag',
 	'like:post:group:wall',
 	'comments:post:group:wall',
