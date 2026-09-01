@@ -23,13 +23,9 @@
  */
 
 export const colors = {
-	// Reference-derived ground. The reference set's dark screens are a
-	// deep blue-violet, not a neutral near-black — that tint is what lets
-	// violet/magenta chrome and colour-bleeding glass sit on it without
-	// looking pasted on.
-	black: '#0B0A14',
-	bg: '#0B0A14',
-	graphite: '#15131F',
+	black: '#07080A',
+	bg: '#07080A',
+	graphite: '#101317',
 
 	glass1: 'rgba(255,255,255,0.04)',
 	glass2: 'rgba(255,255,255,0.07)',
@@ -47,26 +43,21 @@ export const colors = {
 	textFaint: 'rgba(245,245,247,0.38)',
 
 	/**
-	 * REFERENCE PALETTE. Violet primary with a magenta secondary, the
-	 * common denominator of all four reference sheets (the violet
-	 * "Message" pill, the violet->magenta onboarding gradient, the pink
-	 * highlights on the warm sheet).
+	 * BERX BRAND ACCENT — cyan #4FD6E8. This is brand identity and is
+	 * fixed: the reference sheets define composition, depth, glass,
+	 * photography, hierarchy, spatial behaviour, interaction and density,
+	 * NOT the palette. A violet/magenta repaint derived from them was
+	 * reverted here on that basis. No purple or pink as a primary brand
+	 * colour, no gold.
 	 *
-	 * This replaces BERX cyan #4FD6E8 and supersedes the earlier
-	 * "NO PURPLE / NO GOLD" rule, at the owner's explicit direction after
-	 * being shown that the two instructions conflicted.
-	 *
-	 * Values are picked for contrast, not just hue: #8B6BFF reaches
-	 * 5.29:1 on the ground (#7C5CFF, the literal reference violet, only
-	 * makes 4.53 and fails as small text), and the magenta reaches 6.7.
-	 * Every screen reads colors.accent rather than a hex, so this is the
-	 * systemic repaint.
+	 * Every screen reads colors.accent rather than a hex, so this single
+	 * value is the systemic paint.
 	 */
-	accent: '#8B6BFF',
-	accentHover: '#A78BFA',
-	accentSoft: 'rgba(139,107,255,0.18)',
-	accentSecondary: '#FF5C8A',
-	accentSecondarySoft: 'rgba(255,92,138,0.18)',
+	accent: '#4FD6E8',
+	accentHover: '#7FE3F0',
+	accentSoft: 'rgba(79,214,232,0.16)',
+	accentSecondary: '#4FD6E8',
+	accentSecondarySoft: 'rgba(79,214,232,0.16)',
 	/**
 	 * Ink that sits ON an accent fill (an active nav orb, a primary
 	 * button, a badge). It is NOT `black`: Night's accent is a bright
@@ -74,7 +65,7 @@ export const colors = {
 	 * same dark ink fails contrast. A browser run of the Day palette
 	 * showed exactly that, which is why this is its own role.
 	 */
-	onAccent: '#0B0A14',
+	onAccent: '#07080A',
 	/**
 	 * The darkening layer laid over real photography, and the ground a
 	 * photo that fails to load falls back to. Deliberately IDENTICAL in
@@ -83,14 +74,14 @@ export const colors = {
 	 * into a white veil and make them invisible. A browser run of the
 	 * Day palette showed exactly that (contrast ratio 1.2).
 	 */
-	mediaScrim: '#0B0A14',
+	mediaScrim: '#07080A',
 
 	/** Ink that sits ON media (over mediaScrim). Constant in both environments, for the same reason mediaScrim is: a Day-flipped ink would turn dark on a dark photo. */
 	onMedia: '#F5F5F7',
 	onMediaDim: 'rgba(245,245,247,0.72)',
 	onMediaFaint: 'rgba(245,245,247,0.45)',
-	/** The accent as it appears ON media. Always the light violet: Day's deepened violet is tuned for a light ground and drops below 4.5:1 over mediaScrim. */
-	accentOnMedia: '#A78BFA',
+	/** The accent as it appears ON media. Always the bright Night cyan: Day's deepened teal is tuned for a light ground and only reaches ~4.25:1 over mediaScrim. */
+	accentOnMedia: '#4FD6E8',
 
 	danger: '#ff4d4f',
 	success: '#3ddc84',
@@ -103,8 +94,8 @@ export const colors = {
 	glassBusiness: 'rgba(255,255,255,0.045)',
 	glassBusinessBorder: 'rgba(255,255,255,0.09)',
 	glassBusinessHairline: 'rgba(255,255,255,0.14)',
-	scrimTop: 'rgba(11,10,20,0)',
-	scrimBottom: 'rgba(11,10,20,0.92)',
+	scrimTop: 'rgba(7,8,10,0)',
+	scrimBottom: 'rgba(7,8,10,0.92)',
 } as const;
 
 /**
@@ -122,52 +113,50 @@ export const colors = {
  * object is live, not aspirational.
  */
 export const colorsDay = {
-	// The reference set's light sheet is a cool violet-tinted white, not a
-	// warm paper white — the same tint the dark ground carries, inverted.
-	black: '#151221', // "black" here means the darkest ink on this environment, not a literal near-black surface
-	bg: '#F5F2FA',
-	graphite: '#E8E3F2',
+	black: '#17161A', // "black" here means the darkest ink on this environment, not a literal near-black surface
+	bg: '#F6F4EF',
+	graphite: '#EDEAE2',
 
-	glass1: 'rgba(21,18,33,0.035)',
-	glass2: 'rgba(21,18,33,0.06)',
-	glass3: 'rgba(21,18,33,0.09)',
-	surface: 'rgba(21,18,33,0.06)',
-	surface2: 'rgba(21,18,33,0.09)',
+	glass1: 'rgba(10,10,12,0.035)',
+	glass2: 'rgba(10,10,12,0.06)',
+	glass3: 'rgba(10,10,12,0.09)',
+	surface: 'rgba(10,10,12,0.06)',
+	surface2: 'rgba(10,10,12,0.09)',
 
-	border: 'rgba(21,18,33,0.10)',
-	borderSoft: 'rgba(21,18,33,0.07)',
-	borderStrong: 'rgba(21,18,33,0.16)',
+	border: 'rgba(10,10,12,0.10)',
+	borderSoft: 'rgba(10,10,12,0.07)',
+	borderStrong: 'rgba(10,10,12,0.16)',
 
-	white: '#151221', // inverted role: the "on-surface ink" color, matching how `colors.white` is Night's brightest ink
-	text: '#151221',
-	textDim: 'rgba(21,18,33,0.62)',
-	textFaint: 'rgba(21,18,33,0.36)',
+	white: '#17161A', // inverted role: the "on-surface ink" color, matching how `colors.white` is Night's brightest ink
+	text: '#17161A',
+	textDim: 'rgba(23,22,26,0.62)',
+	textFaint: 'rgba(23,22,26,0.36)',
 
-	/** Same violet and magenta, deepened for real contrast on a light surface — 6.06:1 and 5.06:1, both AA. */
-	accent: '#5B3FD6',
-	accentHover: '#4F35C4',
-	accentSoft: 'rgba(91,63,214,0.13)',
-	accentSecondary: '#C51F63',
-	accentSecondarySoft: 'rgba(197,31,99,0.13)',
-	onAccent: '#F5F2FA',
+	/** Same BERX cyan hue, deepened for real contrast against a light surface — not a second color. */
+	accent: '#0B7F91',
+	accentHover: '#0F97AC',
+	accentSoft: 'rgba(11,127,145,0.13)',
+	accentSecondary: '#0B7F91',
+	accentSecondarySoft: 'rgba(11,127,145,0.13)',
+	onAccent: '#F6F4EF',
 	/** Identical to Night on purpose — see the Night token's comment. */
-	mediaScrim: '#0B0A14',
+	mediaScrim: '#07080A',
 
 	/** Ink that sits ON media (over mediaScrim). Constant in both environments, for the same reason mediaScrim is: a Day-flipped ink would turn dark on a dark photo. */
 	onMedia: '#F5F5F7',
 	onMediaDim: 'rgba(245,245,247,0.72)',
 	onMediaFaint: 'rgba(245,245,247,0.45)',
-	/** The accent as it appears ON media. Always the light violet: Day's deepened violet is tuned for a light ground and drops below 4.5:1 over mediaScrim. */
-	accentOnMedia: '#A78BFA',
+	/** The accent as it appears ON media. Always the bright Night cyan: Day's deepened teal is tuned for a light ground and only reaches ~4.25:1 over mediaScrim. */
+	accentOnMedia: '#4FD6E8',
 
 	danger: '#d43d3f',
 	success: '#2fa968',
 
-	glassBusiness: 'rgba(21,18,33,0.035)',
-	glassBusinessBorder: 'rgba(21,18,33,0.08)',
-	glassBusinessHairline: 'rgba(21,18,33,0.12)',
-	scrimTop: 'rgba(245,242,250,0)',
-	scrimBottom: 'rgba(245,242,250,0.92)',
+	glassBusiness: 'rgba(10,10,12,0.035)',
+	glassBusinessBorder: 'rgba(10,10,12,0.08)',
+	glassBusinessHairline: 'rgba(10,10,12,0.12)',
+	scrimTop: 'rgba(246,244,239,0)',
+	scrimBottom: 'rgba(246,244,239,0.92)',
 } as const;
 
 /** The exact palette contract both environments satisfy — the type every theme-aware StyleSheet factory takes. */
@@ -181,8 +170,7 @@ export function getBerxEnvironmentColors(env: BerxEnvironment) {
 }
 
 /** Real gradient pair for the new gold accent — see the comment on colors.accent above. Used only by the Business/Spatial-Glass layer for now. */
-/** The reference onboarding gradient: violet into magenta. */
-export const gradientAccent = ['#8B6BFF', '#FF5C8A'] as const;
+export const gradientAccent = ['#4FD6E8', '#12707F'] as const;
 
 export const blur = {
 	sm: 8,
@@ -259,7 +247,7 @@ export const shadow = {
 		elevation: 12, // Android has no shadow blur/spread — elevation is the nearest equivalent
 	},
 	glow: {
-		shadowColor: colors.accent, // the reference violet
+		shadowColor: colors.accent, // #4FD6E8 — BERX CYAN
 		shadowOpacity: 0.16,
 		shadowRadius: 32,
 		shadowOffset: { width: 0, height: 0 },
@@ -294,15 +282,15 @@ const DAYPART_PALETTES: Record<BerxDaypart, BerxDaypartPalette> = {
 	lateNight: {
 		daypart: 'lateNight',
 		label: 'Ночь',
-		accent: '#4B3A8C', // deep violet — same hue as the primary, near its floor
-		accentSoft: 'rgba(75,58,140,0.16)',
-		bg: '#07060E', // darker than the base ground — deepest point of the day
+		accent: '#1E4A52', // deep tidal cyan — same hue as the primary, near its floor
+		accentSoft: 'rgba(30,74,82,0.14)',
+		bg: '#030406', // darker than the base --berx-black — deepest point of the day
 	},
 	morning: {
 		daypart: 'morning',
 		label: 'Утро',
-		accent: '#C4B5FF', // pale morning violet — the hue at its lightest
-		accentSoft: 'rgba(196,181,255,0.18)',
+		accent: '#A8ECF5', // pale morning cyan — the hue at its lightest
+		accentSoft: 'rgba(168,236,245,0.16)',
 		bg: colors.black,
 	},
 	day: {
@@ -315,16 +303,16 @@ const DAYPART_PALETTES: Record<BerxDaypart, BerxDaypartPalette> = {
 	evening: {
 		daypart: 'evening',
 		label: 'Вечер',
-		accent: '#FF5C8A', // dusk magenta — the reference set's evening hue
-		accentSoft: 'rgba(255,92,138,0.18)',
+		accent: '#2FA9BE', // deepening toward dusk teal — still the same hue family
+		accentSoft: 'rgba(47,169,190,0.16)',
 		bg: colors.black,
 	},
 	night: {
 		daypart: 'night',
 		label: 'Ночь',
-		accent: '#6D57C7', // dimmed night violet — the hue held back for the dark
-		accentSoft: 'rgba(109,87,199,0.16)',
-		bg: '#08070F',
+		accent: '#3F8894', // dimmed night cyan — the hue held back for the dark
+		accentSoft: 'rgba(63,136,148,0.14)',
+		bg: '#050609',
 	},
 };
 
