@@ -62,7 +62,7 @@ import type {BerxApiClient} from '@berx/api/client';
 import type {BerxAuthState} from '@berx/auth';
 import type {BerxLastPlace, BerxIdentity, BerxIdentityAchievement, BerxIdentityInterest, BerxStorySummary, BerxFriend, BerxStoryFeedGroup, BerxPostDetail, BerxReputation} from '@berx/api/types';
 import {BerxApiError} from '@berx/core';
-import {spacing, typography, radius, fonts} from '@berx/design-system/tokens';
+import {spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxGradientCTA} from '../../../../packages/design-system/src/components/BerxGradientCTA';
 import {BerxLoadingState, BerxErrorState} from '../../../../packages/design-system/src/components/BerxStates';
@@ -73,8 +73,6 @@ import {BerxFadeIn} from '../../../../packages/design-system/src/components/Berx
 import {Berx3DTilt} from '../../../../packages/design-system/src/components/Berx3DTilt';
 import {BerxSpatialLayer} from '../../../../packages/design-system/src/components/BerxSpatialLayer';
 import {BerxScrim} from '../../../../packages/design-system/src/components/BerxScrim';
-import {BerxBadge} from '../../../../packages/design-system/src/components/BerxObjects';
-import {BerxIcon} from '../../../../packages/design-system/src/icons/BerxIcon';
 import {BerxAvatarStack} from '../../../../packages/design-system/src/components/BerxAvatarStack';
 import {BerxSegmentedTabs} from '../../../../packages/design-system/src/components/BerxSegmentedTabs';
 import {BerxPhotoGrid} from '../../../../packages/design-system/src/components/BerxPhotoGrid';
@@ -440,15 +438,7 @@ export default function ProfileScreen({api, authState, username, onBack, onMessa
 							</View>
 						)}
 					</BerxSpatialLayer>
-					{/* The hero photo is arbitrary user media and can be bright end
-					    to end, so the scrim reaches further up and harder than a
-					    decorative one would. */}
-					{/* ease < 1 on purpose. The steps sit side by side rather than
-					    compositing, so an eased ramp leaves the MIDDLE of the scrim
-					    at ~20-40% opacity — enough for decoration, not nearly
-					    enough to carry a name over a bright photograph. A concave
-					    ramp reaches usable density early and holds it. */}
-					<BerxScrim coverage={0.66} strength={1} ease={0.62} />
+					<BerxScrim coverage={0.74} strength={0.9} />
 
 					{!isOwn && typeof profile.is_online === 'boolean' ? (
 						<View style={styles.onlineBadgeWrap}>
@@ -613,36 +603,19 @@ export default function ProfileScreen({api, authState, username, onBack, onMessa
 						</BerxGlassSurface>
 					) : null}
 
-					{/* Achievements are BERX OBJECTS, not text chips. Every one is
-					    the same glass slab from the product's 3D language, closed
-					    into a badge, with its real tier cut into the rim as notches
-					    — so rank is geometry rather than a word printed on a box.
-					    Un-earned ones render the same object dimmed, which is what
-					    makes progression read as progression instead of as a list
-					    that grows. Every tier here is a real threshold over a real
-					    count (identity.php), never an invented score. */}
-					{identity.achievements.length > 0 ? (
+					{identity.achievements.some((a: BerxIdentityAchievement) => a.tier > 0) ? (
 						<View>
 							<Text style={styles.identitySectionTitle}>Достижения</Text>
-							<ScrollView
-								horizontal
-								showsHorizontalScrollIndicator={false}
-								style={styles.railScroll}
-								contentContainerStyle={styles.badgeRail}>
-								{identity.achievements.map((a: BerxIdentityAchievement) => (
-									<View key={a.key} style={styles.badgeSlot}>
-										<BerxBadge size={78} tier={a.tier} dim={a.tier === 0} light={colors.accent} body={colors.graphite} />
-										<Text style={[styles.badgeLabel, a.tier === 0 && styles.badgeLabelDim]} numberOfLines={1}>
-											{a.label}
-										</Text>
-										{a.tier > 0 && a.tier_label ? (
-											<Text style={styles.badgeTier} numberOfLines={1}>
-												{a.tier_label}
-											</Text>
-										) : null}
+							<View style={styles.achievementRow}>
+								{identity.achievements.filter((a: BerxIdentityAchievement) => a.tier > 0).map((a: BerxIdentityAchievement) => (
+									<View key={a.key} style={styles.achievementChipWrap}>
+										<BerxGlassSurface padding="sm" style={styles.achievementChip}>
+											<Text style={styles.achievementTitle} numberOfLines={1}>{a.tier_label}</Text>
+											<Text style={styles.achievementSubtitle} numberOfLines={1}>{a.label}</Text>
+										</BerxGlassSurface>
 									</View>
 								))}
-							</ScrollView>
+							</View>
 						</View>
 					) : null}
 
@@ -686,57 +659,53 @@ export default function ProfileScreen({api, authState, username, onBack, onMessa
 				</View>
 			) : null}
 
-			{/* THE PROFILE'S OWN SPACES — a grid of destinations, not a
-			    stack of eight identical full-width buttons. That stack was the
-			    settings-menu pattern: every destination the same weight, the
-			    same shape and the same size as the one above it, so nothing
-			    read as a place worth going. Each tile is now an icon, a name
-			    and a real route. Only destinations this profile actually has
-			    are rendered — nothing here is a disabled placeholder. */}
-			{(() => {
-				const spaces: Array<{key: string; icon: string; label: string; onPress: () => void}> = [];
-				if (profile.guid && onOpenAlbums) {
-					spaces.push({key: 'albums', icon: 'image', label: 'Альбомы', onPress: () => onOpenAlbums(profile.guid!, isOwn)});
-				}
-				if (profile.guid && onOpenCollections) {
-					spaces.push({key: 'collections', icon: 'bookmark', label: 'Подборки', onPress: () => onOpenCollections(profile.guid!, isOwn)});
-				}
-				if (profile.guid && onOpenTrips) {
-					spaces.push({key: 'trips', icon: 'route', label: 'Поездки', onPress: () => onOpenTrips(profile.guid!, isOwn)});
-				}
-				if (profile.guid && onOpenExperiences) {
-					spaces.push({key: 'experiences', icon: 'sparkles', label: 'Впечатления', onPress: () => onOpenExperiences(profile.guid!, isOwn)});
-				}
-				if (profile.guid && onOpenMyVideos) {
-					spaces.push({key: 'videos', icon: 'video', label: isOwn ? 'Мои видео' : 'Видео', onPress: () => onOpenMyVideos(profile.guid!, isOwn)});
-				}
-				if (profile.guid && onOpenMyTracks) {
-					spaces.push({key: 'tracks', icon: 'music', label: isOwn ? 'Мои треки' : 'Треки', onPress: () => onOpenMyTracks(profile.guid!, isOwn)});
-				}
-				if (isOwn && onOpenCreatorSettings) {
-					spaces.push({key: 'creator', icon: 'star', label: 'Режим автора', onPress: onOpenCreatorSettings});
-				}
-				if (!isOwn && profile.is_creator && onOpenCreatorProfile) {
-					spaces.push({key: 'creator-profile', icon: 'star', label: 'Профиль автора', onPress: onOpenCreatorProfile});
-				}
-				if (spaces.length === 0) {
-					return null;
-				}
-				return (
-					<View style={styles.spacesGrid}>
-						{spaces.map((sp: {key: string; icon: string; label: string; onPress: () => void}) => (
-							<Pressable key={sp.key} style={styles.spaceTile} onPress={sp.onPress}>
-								<BerxGlassSurface level={2} padding="md" radius={radius.lg} style={styles.spaceTileInner}>
-									<BerxIcon name={sp.icon} size={19} color={colors.accent} />
-									<Text style={styles.spaceLabel} numberOfLines={1}>
-										{sp.label}
-									</Text>
-								</BerxGlassSurface>
-							</Pressable>
-						))}
-					</View>
-				);
-			})()}
+			{profile.guid && onOpenAlbums ? (
+				<View style={styles.actionRow}>
+					<BerxButton label="Альбомы" variant="secondary" onPress={() => onOpenAlbums(profile.guid!, isOwn)} fullWidth />
+				</View>
+			) : null}
+
+			{profile.guid && onOpenCollections ? (
+				<View style={styles.actionRow}>
+					<BerxButton label="Подборки" variant="secondary" onPress={() => onOpenCollections(profile.guid!, isOwn)} fullWidth />
+				</View>
+			) : null}
+
+			{profile.guid && onOpenTrips ? (
+				<View style={styles.actionRow}>
+					<BerxButton label="Поездки" variant="secondary" onPress={() => onOpenTrips(profile.guid!, isOwn)} fullWidth />
+				</View>
+			) : null}
+
+			{profile.guid && onOpenExperiences ? (
+				<View style={styles.actionRow}>
+					<BerxButton label="Впечатления" variant="secondary" onPress={() => onOpenExperiences(profile.guid!, isOwn)} fullWidth />
+				</View>
+			) : null}
+
+			{isOwn && onOpenCreatorSettings ? (
+				<View style={styles.actionRow}>
+					<BerxButton label="Режим автора" variant="secondary" onPress={onOpenCreatorSettings} fullWidth />
+				</View>
+			) : null}
+
+			{!isOwn && profile.is_creator && onOpenCreatorProfile ? (
+				<View style={styles.actionRow}>
+					<BerxButton label="Профиль автора" variant="secondary" onPress={onOpenCreatorProfile} fullWidth />
+				</View>
+			) : null}
+
+			{profile.guid && onOpenMyVideos ? (
+				<View style={styles.actionRow}>
+					<BerxButton label={isOwn ? 'Мои видео' : 'Видео'} variant="secondary" onPress={() => onOpenMyVideos(profile.guid!, isOwn)} fullWidth />
+				</View>
+			) : null}
+
+			{profile.guid && onOpenMyTracks ? (
+				<View style={styles.actionRow}>
+					<BerxButton label={isOwn ? 'Мои треки' : 'Треки'} variant="secondary" onPress={() => onOpenMyTracks(profile.guid!, isOwn)} fullWidth />
+				</View>
+			) : null}
 
 			{!isOwn && profile.guid ? (
 				<View style={styles.actionRow}>
@@ -892,18 +861,13 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 		backgroundColor: colors.bg,
 	},
 	heroAvatar: {width: 64, height: 64, borderRadius: 32, backgroundColor: colors.graphite},
-	// ON MEDIA, so it uses the onMedia ink family — not colors.text/
-	// textDim/textFaint, which are tuned for the app's own ground. Over a
-	// bright photograph those went nearly invisible: the name lost its
-	// contrast and the join date disappeared entirely.
 	heroWordmark: {
-		color: colors.onMedia,
-		fontFamily: fonts.display,
-		fontSize: 44,
-		lineHeight: 47,
-		letterSpacing: -0.4,
+		color: colors.white,
+		fontSize: typography.sizeHero,
+		fontWeight: typography.weightBold,
+		letterSpacing: -0.5,
 	},
-	heroUsername: {color: colors.onMediaDim, fontSize: typography.sizeBase, marginTop: 2},
+	heroUsername: {color: colors.textDim, fontSize: typography.sizeBase, marginTop: 2},
 	highlightsRail: {paddingHorizontal: spacing.lg, marginBottom: spacing.md},
 	highlightItem: {alignItems: 'center', width: 68, marginRight: spacing.md},
 	highlightRing: {width: 60, height: 60, borderRadius: 30, borderWidth: 2, borderColor: colors.accent, alignItems: 'center', justifyContent: 'center', overflow: 'hidden'},
@@ -920,42 +884,32 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	levelText: {color: colors.white, fontSize: typography.sizeBase, fontWeight: typography.weightBold},
 	streakText: {color: colors.textDim, fontSize: typography.sizeSm},
 	identitySectionTitle: {color: colors.textFaint, fontSize: typography.sizeXs, textTransform: 'uppercase' as const, letterSpacing: 0.5, marginBottom: spacing.xs},
-	// A horizontal ScrollView is a flex child of a column and will grow to
-	// fill it unless told not to.
-	railScroll: {flexGrow: 0, flexShrink: 0},
-	badgeRail: {gap: spacing.md, paddingVertical: spacing.xs, paddingRight: spacing.lg},
-	badgeSlot: {alignItems: 'center', width: 86, gap: 2},
-	badgeLabel: {color: colors.text, fontSize: typography.sizeXs, fontWeight: typography.weightMedium, textAlign: 'center', marginTop: 4},
-	badgeLabelDim: {color: colors.textFaint},
-	badgeTier: {color: colors.accent, fontSize: 10, fontWeight: typography.weightBold, textAlign: 'center'},
-	spacesGrid: {flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, paddingHorizontal: spacing.lg, marginTop: spacing.md},
-	spaceTile: {width: '48.5%'},
-	spaceTileInner: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm, minHeight: 52},
-	spaceLabel: {color: colors.text, fontSize: typography.sizeSm, fontWeight: typography.weightMedium, flex: 1},
+	achievementRow: {flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm},
+	achievementChipWrap: {width: '31%'},
+	achievementChip: {gap: 2, minHeight: 60},
 	achievementTitle: {color: colors.accent, fontSize: typography.sizeXs, fontWeight: typography.weightBold},
 	achievementSubtitle: {color: colors.textFaint, fontSize: 10},
 	locationRow: {flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 4},
-	locationGlyph: {color: colors.accentOnMedia, fontSize: 12},
-	locationText: {color: colors.onMedia, fontSize: typography.sizeSm, fontWeight: typography.weightMedium},
+	locationGlyph: {color: colors.accent, fontSize: 12},
+	locationText: {color: colors.text, fontSize: typography.sizeSm, fontWeight: typography.weightMedium},
 	interestRow: {flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, marginTop: spacing.sm},
-	interestPill: {paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: radius.pill, backgroundColor: 'rgba(255,130,87,0.16)', borderWidth: 1, borderColor: colors.accentOnMedia},
-	interestPillText: {color: colors.accentOnMedia, fontSize: typography.sizeXs, fontWeight: typography.weightMedium},
-	joined: {color: colors.onMediaFaint, fontSize: typography.sizeXs, marginTop: spacing.sm},
-	mutualFriends: {color: colors.accentOnMedia, fontSize: typography.sizeSm, marginTop: spacing.xs, fontWeight: typography.weightMedium},
+	interestPill: {paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: radius.pill, backgroundColor: colors.accentSoft, borderWidth: 1, borderColor: colors.accent},
+	interestPillText: {color: colors.accent, fontSize: typography.sizeXs, fontWeight: typography.weightMedium},
+	joined: {color: colors.textFaint, fontSize: typography.sizeXs, marginTop: spacing.sm},
+	mutualFriends: {color: colors.accent, fontSize: typography.sizeSm, marginTop: spacing.xs, fontWeight: typography.weightMedium},
 	pokeStatus: {color: colors.textDim, fontSize: typography.sizeXs, textAlign: 'center', marginTop: spacing.xs},
 	bannedBanner: {color: colors.danger, fontSize: typography.sizeSm, fontWeight: typography.weightMedium, textAlign: 'center'},
 	statColumns: {flexDirection: 'row', gap: spacing.xl, marginTop: spacing.lg},
 	statColumn: {alignItems: 'flex-start', gap: 2, minHeight: 46, justifyContent: 'flex-end'},
 	statColumnStack: {marginBottom: 2},
-	statColumnValue: {color: colors.onMedia, fontSize: typography.sizeTitle, fontWeight: typography.weightBold, letterSpacing: -0.6},
-	statColumnLabel: {color: colors.onMediaDim, fontSize: typography.sizeXs},
+	statColumnValue: {color: colors.text, fontSize: typography.sizeTitle, fontWeight: typography.weightBold, letterSpacing: -0.6},
+	statColumnLabel: {color: colors.textDim, fontSize: typography.sizeXs},
 	gallery: {paddingHorizontal: spacing.lg, marginTop: spacing.lg, gap: spacing.md},
 	gallerySegments: {marginBottom: spacing.xs},
 	reputationRow: {flexDirection: 'row', gap: spacing.lg, marginTop: spacing.sm, marginBottom: spacing.sm, paddingRight: spacing.lg},
 	reputationStat: {alignItems: 'flex-start'},
-	// In the hero, over media: the onMedia ink family, not the app's own.
-	reputationValue: {color: colors.onMedia, fontSize: typography.sizeBase, fontWeight: typography.weightBold},
-	reputationLabel: {color: colors.onMediaDim, fontSize: typography.sizeXs},
+	reputationValue: {color: colors.white, fontSize: typography.sizeBase, fontWeight: typography.weightBold},
+	reputationLabel: {color: colors.textDim, fontSize: typography.sizeXs},
 	actionRow: {paddingHorizontal: spacing.xl},
 	reportLink: {color: colors.textFaint, fontSize: typography.sizeXs, textDecorationLine: 'underline', textAlign: 'center'},
 	blockLink: {color: colors.danger, fontSize: typography.sizeXs, textDecorationLine: 'underline', textAlign: 'center'},

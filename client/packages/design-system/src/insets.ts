@@ -31,14 +31,9 @@ export interface BerxInsets {
 	right: number;
 }
 
-/**
- * BERX never starts content closer than this to an edge, inset or not.
- * The floor is generous on purpose: on a device with no cutout the real
- * inset is 0, and a 40pt serif headline sitting 12pt from the physical
- * top edge reads as broken even where it is technically legal.
- */
-const MIN_TOP = spacing.xl;
-const MIN_BOTTOM = spacing.md;
+/** BERX never starts content closer than this to an edge, inset or not. */
+const MIN_TOP = spacing.md;
+const MIN_BOTTOM = spacing.sm;
 
 export function useBerxInsets(): BerxInsets {
 	const insets = useSafeAreaInsets();

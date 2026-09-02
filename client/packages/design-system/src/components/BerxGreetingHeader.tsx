@@ -16,7 +16,7 @@
  */
 import React, {useMemo} from 'react';
 import {View, Text, Image, Pressable, StyleSheet, ViewStyle} from 'react-native';
-import {spacing, typography, radius, fonts} from '../tokens';
+import {spacing, typography, radius} from '../tokens';
 
 import {useBerxColors} from '../theme';
 import {useBerxInsets} from '../insets';
@@ -219,20 +219,13 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 		borderColor: colors.bg,
 	},
 	badgeText: {color: colors.onAccent, fontSize: 9, fontWeight: typography.weightBold},
-	// The headline is now a 40pt serif, so it needs real air under it —
-	// at spacing.xs the next element (a presence rail, a search field)
-	// crowded straight into its descenders.
-	titleWrap: {paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing.md, gap: 1},
-	// The screen headline is Instrument Serif, matching the entry
-	// sequence. A geometric-sans bold headline is what every competitor
-	// ships; the serif is the single change that makes a BERX screen
-	// recognisable from across a room.
+	titleWrap: {paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing.xs, gap: 1},
 	titleLine: {
 		color: colors.text,
-		fontFamily: fonts.display,
-		fontSize: 40,
-		lineHeight: 43,
-		letterSpacing: -0.4,
+		fontSize: 32,
+		lineHeight: 35,
+		fontWeight: typography.weightBold,
+		letterSpacing: -1,
 	},
 	/**
 	 * The lead line carries the display weight; the lines under it are the
@@ -240,16 +233,13 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	 * whole cyan sentence across the screen — pushed the photography below
 	 * the fold and made the accent shout instead of point.
 	 */
-	// The subtitle drops back to the interface face: a whole screen set
-	// in the display serif reads as a poster, not as a product.
 	titleSub: {
-		fontFamily: fonts.sans,
 		fontSize: typography.sizeBase,
 		lineHeight: 20,
 		fontWeight: typography.weightMedium,
 		letterSpacing: 0,
 		color: colors.textDim,
-		marginTop: 6,
+		marginTop: 4,
 	},
 	titleAccent: {color: colors.accent},
 	spacer: {height: radius.sm},

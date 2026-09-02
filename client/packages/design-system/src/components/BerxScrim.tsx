@@ -23,14 +23,6 @@ import {useBerxColors} from '../theme';
 export interface BerxScrimProps {
 	/** How much of the surface the ramp covers, 0..1 from the anchored edge. */
 	coverage?: number;
-	/**
-	 * Curve of the ramp. 2.2 keeps a decorative scrim out of the way of
-	 * the photograph; a scrim that has to carry TEXT over arbitrary user
-	 * media needs a much straighter ramp (~1.2), because at 2.2 the
-	 * middle of the gradient is only ~20% opaque and a bright photo shows
-	 * straight through it.
-	 */
-	ease?: number;
 	/** Opacity at the dense end. */
 	strength?: number;
 	/** Which edge the dense end sits against. */
@@ -41,22 +33,21 @@ export interface BerxScrimProps {
 }
 
 /** Exported for callers that need the ramp inline; same curve as the component. */
-export function scrimRamp(steps: number, strength: number, ease = 2.2): number[] {
+export function scrimRamp(steps: number, strength: number): number[] {
 	// t^2.2 keeps the top of the ramp genuinely transparent (so the photo
 	// is never veiled) and compresses the steps where they are darkest.
-	return Array.from({length: steps}, (_v, i) => strength * Math.pow((i + 1) / steps, ease));
+	return Array.from({length: steps}, (_v, i) => strength * Math.pow((i + 1) / steps, 2.2));
 }
 
 export function BerxScrim({
 	coverage = 0.66,
 	strength = 0.92,
 	from = 'bottom',
-	ease = 2.2,
 	steps = 18,
 	style,
 }: BerxScrimProps) {
 	const colors = useBerxColors();
-	const ramp = React.useMemo(() => scrimRamp(steps, strength, ease), [steps, strength, ease]);
+	const ramp = React.useMemo(() => scrimRamp(steps, strength), [steps, strength]);
 	const ordered = from === 'bottom' ? ramp : [...ramp].reverse();
 	return (
 		<View

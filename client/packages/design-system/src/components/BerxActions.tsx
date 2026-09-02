@@ -11,7 +11,7 @@
  * primary just established.
  */
 import {useMemo} from 'react';
-import {Pressable, Text, StyleSheet, ViewStyle} from 'react-native';
+import {Pressable, Text, View, StyleSheet, ViewStyle} from 'react-native';
 import Svg, {Defs, LinearGradient, Stop, Rect} from 'react-native-svg';
 import {typography, spacing} from '../tokens';
 
@@ -38,20 +38,15 @@ export function BerxPrimaryAction({label, onPress, tone = '#4FD6E8', ink = '#041
 			]}>
 			<Svg style={StyleSheet.absoluteFillObject} width="100%" height="100%">
 				<Defs>
-					{/* Lit from above, but ENTIRELY within the accent's own hue.
-					    Two earlier versions mixed white into the top of the fill —
-					    an inset hairline, then a full-width one — and both read as
-					    a grey cap sitting on the button rather than as light. A
-					    control lit in its own colour looks like an object; a
-					    control with white painted on it looks like a mistake. */}
-					<LinearGradient id={`${uid}-fill`} x1="0" y1="0" x2="0" y2="1">
-						<Stop offset="0%" stopColor={tone} stopOpacity={1} />
-						<Stop offset="55%" stopColor={tone} stopOpacity={0.97} />
+					<LinearGradient id={`${uid}-fill`} x1="0" y1="0" x2="0.2" y2="1">
+						<Stop offset="0%" stopColor="#FFFFFF" stopOpacity={0.55} />
+						<Stop offset="18%" stopColor={tone} stopOpacity={1} />
 						<Stop offset="100%" stopColor={tone} stopOpacity={0.86} />
 					</LinearGradient>
 				</Defs>
 				<Rect x="0" y="0" width="100%" height="100%" rx={30} ry={30} fill={`url(#${uid}-fill)`} />
 			</Svg>
+			<View pointerEvents="none" style={styles.primaryEdge} />
 			<Text style={[styles.primaryLabel, {color: ink}]}>{label}</Text>
 		</Pressable>
 	);
@@ -82,6 +77,15 @@ const styles = StyleSheet.create({
 		elevation: 12,
 	},
 	primaryPressed: {transform: [{scale: 0.985}], shadowOpacity: 0.3},
+	primaryEdge: {
+		position: 'absolute',
+		top: 1,
+		left: 22,
+		right: 22,
+		height: 1,
+		backgroundColor: '#FFFFFF',
+		opacity: 0.6,
+	},
 	primaryLabel: {fontSize: typography.sizeBase, fontWeight: typography.weightBold, letterSpacing: 0.2},
 	quiet: {height: 48, alignItems: 'center', justifyContent: 'center', marginTop: spacing.xs},
 	quietLabel: {fontSize: typography.sizeSm, color: 'rgba(255,255,255,0.62)', letterSpacing: 0.2},

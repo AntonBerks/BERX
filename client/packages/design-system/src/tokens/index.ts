@@ -23,89 +23,77 @@
  */
 
 export const colors = {
-	/**
-	 * BERX EMBER — the ground. Near-black, but NOT neutral and not blue:
-	 * there is warm violet in it, so a warm accent sitting on it belongs
-	 * to the same world instead of looking pasted on. A true #07080A
-	 * ground is what made every previous BERX screen read as a template.
-	 */
-	black: '#0B0910',
-	bg: '#0B0910',
-	graphite: '#171320',
+	black: '#07080A',
+	bg: '#07080A',
+	graphite: '#101317',
+
+	glass1: 'rgba(255,255,255,0.04)',
+	glass2: 'rgba(255,255,255,0.07)',
+	glass3: 'rgba(255,255,255,0.10)',
+	surface: 'rgba(255,255,255,0.07)', // = glass2
+	surface2: 'rgba(255,255,255,0.10)', // = glass3
+
+	border: 'rgba(255,255,255,0.10)',
+	borderSoft: 'rgba(255,255,255,0.08)',
+	borderStrong: 'rgba(255,255,255,0.16)',
+
+	white: '#ffffff',
+	text: '#f5f5f7',
+	textDim: 'rgba(245,245,247,0.64)',
+	textFaint: 'rgba(245,245,247,0.38)',
 
 	/**
-	 * Glass is warm-tinted, not pure white. White-on-black overlays go
-	 * grey and dead; a warm overlay on a warm ground stays alive.
-	 */
-	glass1: 'rgba(255,236,228,0.045)',
-	glass2: 'rgba(255,236,228,0.075)',
-	glass3: 'rgba(255,236,228,0.11)',
-	surface: 'rgba(255,236,228,0.075)',
-	surface2: 'rgba(255,236,228,0.11)',
-
-	border: 'rgba(255,236,228,0.11)',
-	borderSoft: 'rgba(255,236,228,0.08)',
-	borderStrong: 'rgba(255,236,228,0.18)',
-
-	white: '#FFFFFF',
-	text: '#F8F3EF',
-	textDim: 'rgba(248,243,239,0.66)',
-	textFaint: 'rgba(248,243,239,0.40)',
-
-	/**
-	 * EMBER — the BERX brand colour.
+	 * BERX BRAND ACCENT — cyan #4FD6E8. This is brand identity and is
+	 * fixed: the reference sheets define composition, depth, glass,
+	 * photography, hierarchy, spatial behaviour, interaction and density,
+	 * NOT the palette. A violet/magenta repaint derived from them was
+	 * reverted here on that basis. No purple or pink as a primary brand
+	 * colour, no gold.
 	 *
-	 * Warm coral, and deliberately so. Every social product of this kind
-	 * is blue, cyan, purple or pink; almost none is warm. A warm accent
-	 * on a warm-dark ground reads as light falling on a room rather than
-	 * as a UI colour applied to a surface, which is most of the reason
-	 * this palette looks expensive where the previous black-and-cyan one
-	 * looked like a starter template.
-	 *
-	 * Every screen reads colors.accent rather than a hex, so this one
-	 * value repaints the entire product.
+	 * Every screen reads colors.accent rather than a hex, so this single
+	 * value is the systemic paint.
 	 */
-	accent: '#FF6A45',
-	accentHover: '#FF8B6C',
-	accentSoft: 'rgba(255,106,69,0.16)',
-
+	accent: '#4FD6E8',
+	accentHover: '#7FE3F0',
+	accentSoft: 'rgba(79,214,232,0.16)',
+	accentSecondary: '#4FD6E8',
+	accentSecondarySoft: 'rgba(79,214,232,0.16)',
 	/**
-	 * AURORA — the cool counterpart, for live, positive and "happening
-	 * now" states. A single-accent product has nothing left to say when
-	 * something is genuinely alive; this is what it says it with.
+	 * Ink that sits ON an accent fill (an active nav orb, a primary
+	 * button, a badge). It is NOT `black`: Night's accent is a bright
+	 * cyan so dark ink reads, but Day's accent is a deep teal where the
+	 * same dark ink fails contrast. A browser run of the Day palette
+	 * showed exactly that, which is why this is its own role.
 	 */
-	accentSecondary: '#5FE3BE',
-	accentSecondarySoft: 'rgba(95,227,190,0.16)',
-
+	onAccent: '#07080A',
 	/**
-	 * Ink that sits ON an accent fill. Ember is a bright warm colour:
-	 * white on it reaches only ~2.9:1, which fails, while this deep
-	 * ember-black reaches ~6.3:1 AND looks more expensive than white.
+	 * The darkening layer laid over real photography, and the ground a
+	 * photo that fails to load falls back to. Deliberately IDENTICAL in
+	 * both environments: the text and controls that sit on media are
+	 * white in Night and Day alike, so a Day-tinted scrim would turn
+	 * into a white veil and make them invisible. A browser run of the
+	 * Day palette showed exactly that (contrast ratio 1.2).
 	 */
-	onAccent: '#26100A',
+	mediaScrim: '#07080A',
 
-	/**
-	 * Constant across BOTH environments on purpose: a photograph is dark
-	 * whatever the app's theme is, so the scrim and the ink over it must
-	 * not flip with the theme or white text lands on a white veil.
-	 */
-	mediaScrim: '#0B0910',
-	onMedia: '#F8F3EF',
-	onMediaDim: 'rgba(248,243,239,0.72)',
-	onMediaFaint: 'rgba(248,243,239,0.45)',
-	accentOnMedia: '#FF8257',
+	/** Ink that sits ON media (over mediaScrim). Constant in both environments, for the same reason mediaScrim is: a Day-flipped ink would turn dark on a dark photo. */
+	onMedia: '#F5F5F7',
+	onMediaDim: 'rgba(245,245,247,0.72)',
+	onMediaFaint: 'rgba(245,245,247,0.45)',
+	/** The accent as it appears ON media. Always the bright Night cyan: Day's deepened teal is tuned for a light ground and only reaches ~4.25:1 over mediaScrim. */
+	accentOnMedia: '#4FD6E8',
 
-	danger: '#F2415B',
-	success: '#5FE3BE',
+	danger: '#ff4d4f',
+	success: '#3ddc84',
 
 	/**
 	 * Spatial Glass / Living Media layer — additive, new tokens for
 	 * the Business design language. Nothing above this line is
 	 * changed; existing screens are unaffected.
 	 */
-	glassBusiness: 'rgba(255,236,228,0.05)',
-	glassBusinessBorder: 'rgba(255,236,228,0.10)',
-	glassBusinessHairline: 'rgba(255,236,228,0.16)',
+	glassBusiness: 'rgba(255,255,255,0.045)',
+	glassBusinessBorder: 'rgba(255,255,255,0.09)',
+	glassBusinessHairline: 'rgba(255,255,255,0.14)',
 	scrimTop: 'rgba(7,8,10,0)',
 	scrimBottom: 'rgba(7,8,10,0.92)',
 } as const;
@@ -125,50 +113,47 @@ export const colors = {
  * object is live, not aspirational.
  */
 export const colorsDay = {
-	black: '#1A1216', // "black" here means the darkest ink on this environment, not a literal near-black surface
-	// Warm paper, not white. A pure-white ground under a warm accent
-	// reads as a document; this reads as a room with the lights on.
-	bg: '#FBF6F1',
-	graphite: '#F2E9E1',
+	black: '#17161A', // "black" here means the darkest ink on this environment, not a literal near-black surface
+	bg: '#F6F4EF',
+	graphite: '#EDEAE2',
 
-	glass1: 'rgba(26,18,22,0.035)',
-	glass2: 'rgba(26,18,22,0.06)',
-	glass3: 'rgba(26,18,22,0.09)',
-	surface: 'rgba(26,18,22,0.06)',
-	surface2: 'rgba(26,18,22,0.09)',
+	glass1: 'rgba(10,10,12,0.035)',
+	glass2: 'rgba(10,10,12,0.06)',
+	glass3: 'rgba(10,10,12,0.09)',
+	surface: 'rgba(10,10,12,0.06)',
+	surface2: 'rgba(10,10,12,0.09)',
 
-	border: 'rgba(26,18,22,0.10)',
-	borderSoft: 'rgba(26,18,22,0.07)',
-	borderStrong: 'rgba(26,18,22,0.16)',
+	border: 'rgba(10,10,12,0.10)',
+	borderSoft: 'rgba(10,10,12,0.07)',
+	borderStrong: 'rgba(10,10,12,0.16)',
 
-	white: '#1A1216', // inverted role: the "on-surface ink" color, matching how `colors.white` is Night's brightest ink
-	text: '#1A1216',
-	textDim: 'rgba(26,18,22,0.64)',
-	textFaint: 'rgba(26,18,22,0.38)',
+	white: '#17161A', // inverted role: the "on-surface ink" color, matching how `colors.white` is Night's brightest ink
+	text: '#17161A',
+	textDim: 'rgba(23,22,26,0.62)',
+	textFaint: 'rgba(23,22,26,0.36)',
 
-	/** The same Ember hue, deepened for real contrast on warm paper — not a second colour. */
-	accent: '#D8442A',
-	accentHover: '#EC5A3E',
-	accentSoft: 'rgba(216,68,42,0.12)',
-	/** Aurora, deepened the same way. */
-	accentSecondary: '#0E8F76',
-	accentSecondarySoft: 'rgba(14,143,118,0.13)',
-	onAccent: '#FFF3EE',
+	/** Same BERX cyan hue, deepened for real contrast against a light surface — not a second color. */
+	accent: '#0B7F91',
+	accentHover: '#0F97AC',
+	accentSoft: 'rgba(11,127,145,0.13)',
+	accentSecondary: '#0B7F91',
+	accentSecondarySoft: 'rgba(11,127,145,0.13)',
+	onAccent: '#F6F4EF',
 	/** Identical to Night on purpose — see the Night token's comment. */
-	mediaScrim: '#0B0910',
+	mediaScrim: '#07080A',
 
 	/** Ink that sits ON media (over mediaScrim). Constant in both environments, for the same reason mediaScrim is: a Day-flipped ink would turn dark on a dark photo. */
-	onMedia: '#F8F3EF',
-	onMediaDim: 'rgba(248,243,239,0.72)',
-	onMediaFaint: 'rgba(248,243,239,0.45)',
-	/** Ember as it appears ON media — always the Night value, because Day's deepened ember is tuned for warm paper and dies on a dark photograph. */
-	accentOnMedia: '#FF8257',
+	onMedia: '#F5F5F7',
+	onMediaDim: 'rgba(245,245,247,0.72)',
+	onMediaFaint: 'rgba(245,245,247,0.45)',
+	/** The accent as it appears ON media. Always the bright Night cyan: Day's deepened teal is tuned for a light ground and only reaches ~4.25:1 over mediaScrim. */
+	accentOnMedia: '#4FD6E8',
 
-	danger: '#C42F47',
-	success: '#0E8F76',
+	danger: '#d43d3f',
+	success: '#2fa968',
 
-	glassBusiness: 'rgba(26,18,22,0.035)',
-	glassBusinessBorder: 'rgba(26,18,22,0.08)',
+	glassBusiness: 'rgba(10,10,12,0.035)',
+	glassBusinessBorder: 'rgba(10,10,12,0.08)',
 	glassBusinessHairline: 'rgba(10,10,12,0.12)',
 	scrimTop: 'rgba(246,244,239,0)',
 	scrimBottom: 'rgba(246,244,239,0.92)',
@@ -236,30 +221,6 @@ export const spacing = {
 	xl: 24,
 	xxl: 32,
 	xxxl: 48,
-} as const;
-
-/**
- * BERX TYPE — two real typefaces, downloaded into assets/fonts and
- * registered for React Native. Both are SIL OFL 1.1: commercial use
- * permitted, no attribution required in-product.
- *
- * Manrope carries the interface. It is a geometric sans with slightly
- * open apertures and a tall x-height, so it stays legible at 11pt in a
- * caption and still looks designed at 52pt — the system font does the
- * first job and not the second.
- *
- * Instrument Serif carries the display moments: the entry sequence,
- * completion states, editorial titles. A serif against a geometric
- * sans is the single cheapest way to make a product read as expensive
- * rather than as another sans-serif app, and it is what separates BERX
- * from every competitor rendering everything in one grotesque.
- */
-export const fonts = {
-	/** Interface. */
-	sans: 'Manrope',
-	/** Display. Use large, never below ~24pt. */
-	display: 'InstrumentSerif-Regular',
-	displayItalic: 'InstrumentSerif-Italic',
 } as const;
 
 export const typography = {

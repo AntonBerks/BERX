@@ -1,32 +1,36 @@
 /**
  * BERX WELCOME — screen 01, and the visual benchmark for the product.
  *
- * The composition is deliberately not a scene. Earlier versions drew a
- * dusk sky, a starfield, a city and a ringed sphere; fully-illustrated
- * scenery reads as a phone wallpaper, and it left the brand nothing to
- * own. What is here instead is an ENVIRONMENT: a warm near-black
- * ground, one soft ember pool falling through it, the BERX mark
- * standing in that light, and type doing most of the work.
+ * WHAT THIS SCREEN IS NOT, and why.
  *
- * Type does that work because BERX now ships real typefaces. The
- * display line is Instrument Serif — a serif against a geometric sans
- * is the cheapest way a product stops looking like every other app
- * rendered in one grotesque — set large and tight, with the interface
- * around it in Manrope.
+ * The version before this drew a scene: a gradient dusk sky, a
+ * starfield, a city skyline with lit windows, water, and a ringed
+ * sphere floating over it. Every one of those is a picture of
+ * something, and a first screen made of pictures reads as a phone
+ * wallpaper — the eye files it as illustration, and illustration is
+ * never read as luxury. It also fought the brand: with that much
+ * colour and shape in play, BERX itself had nothing left to own.
  *
- * Ember is the whole identity. It lights the ground, it is the mark,
- * and it is the one control that matters. Nothing else on the screen
- * is allowed to be colourful.
+ * This is the opposite discipline, and it is what expensive products
+ * actually do. A deep, almost-solid ground. One soft light falling
+ * through it that you feel rather than look at. Enormous, restrained
+ * typography with real air around it. One object so quiet you have to
+ * look twice. One control, and it is white — because the accent is
+ * worth more when it is spent on one word than smeared over a
+ * template.
+ *
+ * Everything is drawn: no photograph is bundled, none is claimed, and
+ * nothing here is a placeholder standing in for one.
  */
 import {useMemo} from 'react';
 import {View, Text, StyleSheet} from 'react-native';
-import {spacing, typography, fonts} from '@berx/design-system/tokens';
+import {spacing, typography} from '@berx/design-system/tokens';
 import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
-import {BerxEntryStage} from '../../../../packages/design-system/src/components/BerxEntryStage';
-import {BerxMark, BerxWordmark} from '../../../../packages/design-system/src/components/BerxLogo';
+import {BerxAura} from '../../../../packages/design-system/src/components/BerxAura';
+import {BerxLens} from '../../../../packages/design-system/src/components/BerxLens';
+import {BerxGrain} from '../../../../packages/design-system/src/components/BerxGrain';
 import {BerxPrimaryAction, BerxQuietAction} from '../../../../packages/design-system/src/components/BerxActions';
 import {BERX_SCENE} from '../../../../packages/design-system/src/palette';
-import {useBerxInsets} from '../../../../packages/design-system/src/insets';
 
 interface Props {
 	onLogin: () => void;
@@ -34,65 +38,65 @@ interface Props {
 }
 
 export default function WelcomeScreen({onLogin, onRegister}: Props) {
-	const insets = useBerxInsets();
 	const styles = useMemo(() => makeStyles(), []);
 	return (
-		<BerxEntryStage progress={0}>
-			{/* Mark, wordmark and headline are ONE block. Parking the mark in
-			    a top corner left a quarter-screen of nothing between it and
-			    the type, which reads as an unfinished layout rather than as
-			    space. */}
+		<View style={styles.screen}>
+			<BerxAura
+				ground={BERX_SCENE.ground}
+				glow={BERX_SCENE.glow}
+				counter={BERX_SCENE.counter}
+				intensity={0.9}
+				at={0.26}
+			/>
+			<BerxGrain opacity={0.04} />
+
+			{/* The object sits high, off the left margin, half out of frame —
+			    an object that fits neatly inside the composition is a logo. */}
+			<BerxFadeIn riseFrom={24} scaleFrom={0.94} style={styles.lensSlot}>
+				<BerxLens size={330} light={BERX_SCENE.light} body={BERX_SCENE.object} presence={0.95} />
+			</BerxFadeIn>
+
 			<View style={styles.copy}>
-				<BerxFadeIn riseFrom={20} scaleFrom={0.9}>
-					<BerxMark size={68} light={BERX_SCENE.light} body="#4A2C2A" style={styles.mark} />
+				<BerxFadeIn delayMs={200} riseFrom={16}>
+					<Text style={styles.mark}>BERX</Text>
 				</BerxFadeIn>
-				<BerxFadeIn delayMs={180} riseFrom={14}>
-					<BerxWordmark width={92} color="rgba(248,243,239,0.86)" />
-				</BerxFadeIn>
-				<BerxFadeIn delayMs={320} riseFrom={26}>
+				<BerxFadeIn delayMs={340} riseFrom={26}>
 					<Text style={styles.display}>Новый мир</Text>
-					<Text style={styles.displayAccent}>вокруг вас</Text>
+					<Text style={styles.displayThin}>вокруг вас</Text>
 				</BerxFadeIn>
-				<BerxFadeIn delayMs={460} riseFrom={14}>
-					<Text style={styles.lede}>Места, люди и впечатления — там, где вы сейчас.</Text>
+				<BerxFadeIn delayMs={480} riseFrom={16}>
+					<Text style={styles.lede}>Места, люди и впечатления — там, где вы есть.</Text>
 				</BerxFadeIn>
 			</View>
 
-			<View style={[styles.actions, {paddingBottom: insets.bottom + 20}]}>
-				<BerxFadeIn delayMs={620} riseFrom={28}>
-					<BerxPrimaryAction label="Начать" onPress={onRegister} tone={BERX_SCENE.light} ink="#26100A" />
-					<BerxQuietAction label="У меня уже есть аккаунт" onPress={onLogin} />
-				</BerxFadeIn>
-			</View>
-		</BerxEntryStage>
+			<BerxFadeIn delayMs={640} riseFrom={30} style={styles.actions}>
+				<BerxPrimaryAction label="Начать" onPress={onRegister} tone="#FFFFFF" ink="#0A0D12" />
+				<BerxQuietAction label="У меня уже есть аккаунт" onPress={onLogin} />
+			</BerxFadeIn>
+		</View>
 	);
 }
 
 const makeStyles = () =>
 	StyleSheet.create({
-		mark: {marginLeft: -10, marginBottom: spacing.lg},
-		copy: {position: 'absolute', left: spacing.xl, right: spacing.xl, bottom: 200},
-		display: {
-			fontFamily: fonts.display,
-			fontSize: 62,
-			lineHeight: 66,
-			color: '#F8F3EF',
-			letterSpacing: -1,
-			marginTop: spacing.md,
-		},
-		displayAccent: {
-			fontFamily: fonts.displayItalic,
-			fontSize: 62,
-			lineHeight: 66,
+		screen: {flex: 1, backgroundColor: BERX_SCENE.ground, overflow: 'hidden'},
+		lensSlot: {position: 'absolute', top: '9%', left: -96},
+		copy: {position: 'absolute', left: spacing.xl, right: spacing.xl, bottom: 214},
+		mark: {
+			fontSize: 12,
 			color: BERX_SCENE.light,
-			letterSpacing: -1,
+			letterSpacing: 6,
+			fontWeight: typography.weightBold,
+			marginBottom: spacing.xl,
 		},
+		display: {fontSize: 52, lineHeight: 56, fontWeight: '700', color: '#FFFFFF', letterSpacing: -2},
+		displayThin: {fontSize: 52, lineHeight: 56, fontWeight: '200', color: 'rgba(255,255,255,0.82)', letterSpacing: -2},
 		lede: {
 			fontSize: typography.sizeBase,
-			lineHeight: 25,
-			color: 'rgba(248,243,239,0.55)',
-			marginTop: spacing.lg,
-			maxWidth: 264,
+			lineHeight: 24,
+			color: 'rgba(255,255,255,0.5)',
+			marginTop: spacing.xl,
+			maxWidth: 270,
 		},
-		actions: {position: 'absolute', left: spacing.xl, right: spacing.xl, bottom: 0},
+		actions: {position: 'absolute', left: spacing.xl, right: spacing.xl, bottom: 40},
 	});

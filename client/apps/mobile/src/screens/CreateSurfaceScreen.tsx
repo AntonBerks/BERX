@@ -20,7 +20,6 @@ import {BerxDepthCard} from '../../../../packages/design-system/src/components/B
 import {BerxEditorialTitle} from '../../../../packages/design-system/src/components/BerxGreetingHeader';
 import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
-import {BerxIcon} from '../../../../packages/design-system/src/icons/BerxIcon';
 
 import {useBerxColors} from '../../../../packages/design-system/src/theme';
 import type {BerxColorTokens} from '@berx/design-system/tokens';
@@ -42,14 +41,7 @@ export interface CreateSurfaceProps {
 
 interface Entry {
 	key: string;
-	/**
-	 * A name from BERX's real icon set. These were Unicode dingbats
-	 * (◐ ▤ ◈ ◉ ❖ ⌖ ◍ ⬡ ▶ ♪) rendered as text, which meant the most
-	 * important creation surface in the product was drawn in whatever
-	 * glyphs the device happened to have — inconsistent weights,
-	 * inconsistent sizes, and several that rendered as unrelated shapes.
-	 */
-	icon: string;
+	glyph: string;
 	title: string;
 	subtitle: string;
 	onPress?: () => void;
@@ -64,7 +56,7 @@ export default function CreateSurfaceScreen(props: CreateSurfaceProps) {
 	const live: Entry[] = [
 		{
 			key: 'story',
-			icon: 'camera',
+			glyph: '◐',
 			title: 'История',
 			subtitle: 'Исчезает через 24 часа',
 			onPress: props.onCreateStory,
@@ -72,20 +64,20 @@ export default function CreateSurfaceScreen(props: CreateSurfaceProps) {
 		},
 		{
 			key: 'moment',
-			icon: 'sparkles',
+			glyph: '◇',
 			title: 'Момент',
 			subtitle: 'Записывается на месте — на событии, впечатлении или отметке',
 			onPress: props.onCreateMoment,
 			primary: true,
 		},
-		{key: 'post', icon: 'image', title: 'Пост', subtitle: 'Текст, фото, GIF или опрос', onPress: props.onCreatePost, primary: true},
+		{key: 'post', glyph: '▤', title: 'Пост', subtitle: 'Текст, фото, GIF или опрос', onPress: props.onCreatePost, primary: true},
 	];
 
 	// PLANNED — the things that put people somewhere together.
 	const planned: Entry[] = [
-		{key: 'plan', icon: 'calendar', title: 'План', subtitle: 'Позвать друзей, пока это ещё идея'},
-		{key: 'event', icon: 'ticket', title: 'Событие', subtitle: 'Время, место, участники'},
-		{key: 'experience', icon: 'star', title: 'Впечатление', subtitle: 'То, что пережили вместе'},
+		{key: 'plan', glyph: '◈', title: 'План', subtitle: 'Позвать друзей, пока это ещё идея'},
+		{key: 'event', glyph: '◉', title: 'Событие', subtitle: 'Время, место, участники'},
+		{key: 'experience', glyph: '❖', title: 'Впечатление', subtitle: 'То, что пережили вместе'},
 	];
 	planned[0].onPress = props.onCreatePlan;
 	planned[1].onPress = props.onCreateEvent;
@@ -93,9 +85,9 @@ export default function CreateSurfaceScreen(props: CreateSurfaceProps) {
 
 	// SPACES — the things that outlive a single evening.
 	const spaces: Entry[] = [
-		{key: 'place', icon: 'map-pin', title: 'Место', subtitle: 'Добавить реальное место на карту BERX'},
-		{key: 'world', icon: 'globe', title: 'Мир', subtitle: 'Своя подборка мест, событий и планов'},
-		{key: 'community', icon: 'users', title: 'Сообщество', subtitle: 'Пространство вокруг общего интереса'},
+		{key: 'place', glyph: '⌖', title: 'Место', subtitle: 'Добавить реальное место на карту BERX'},
+		{key: 'world', glyph: '◍', title: 'Мир', subtitle: 'Своя подборка мест, событий и планов'},
+		{key: 'community', glyph: '⬡', title: 'Сообщество', subtitle: 'Пространство вокруг общего интереса'},
 	];
 	spaces[0].onPress = props.onCreatePlace;
 	spaces[1].onPress = props.onCreateWorld;
@@ -103,8 +95,8 @@ export default function CreateSurfaceScreen(props: CreateSurfaceProps) {
 
 	// MEDIA — long-form things with their own players.
 	const media: Entry[] = [
-		{key: 'video', icon: 'video', title: 'Видео', subtitle: 'С обложкой и описанием'},
-		{key: 'track', icon: 'music', title: 'Трек', subtitle: 'Аудио с обложкой'},
+		{key: 'video', glyph: '▶', title: 'Видео', subtitle: 'С обложкой и описанием'},
+		{key: 'track', glyph: '♪', title: 'Трек', subtitle: 'Аудио с обложкой'},
 	];
 	media[0].onPress = props.onCreateVideo;
 	media[1].onPress = props.onCreateTrack;
@@ -151,7 +143,7 @@ function Section({title, entries}: {title: string; entries: Entry[]}) {
 						onPress={e.onPress}>
 						<BerxGlassSurface level={e.primary ? 3 : 2} padding="lg" radius={radius.xl} style={styles.tile}>
 							<View style={[styles.glyphPlate, e.primary && styles.glyphPlatePrimary]}>
-								<BerxIcon name={e.icon} size={20} color={e.primary ? colors.accent : colors.textDim} />
+								<Text style={[styles.glyph, e.primary && styles.glyphPrimary]}>{e.glyph}</Text>
 							</View>
 							<Text style={styles.entryTitle}>{e.title}</Text>
 							<Text style={styles.entrySubtitle} numberOfLines={2}>
@@ -170,15 +162,11 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	head: {paddingHorizontal: spacing.lg, paddingBottom: spacing.sm},
 	scroll: {padding: spacing.lg, paddingTop: spacing.sm, paddingBottom: 132},
 	section: {marginBottom: spacing.lg},
-	// Small caps, not a bold heading. Four bold section headings stacked
-	// down a screen of tiles compete with the tiles; a quiet label lets
-	// the things you can actually create be the loudest thing here.
 	sectionTitle: {
-		color: colors.textFaint,
-		fontSize: typography.sizeXs,
+		color: colors.text,
+		fontSize: typography.sizeLg,
 		fontWeight: typography.weightBold,
-		letterSpacing: 2,
-		textTransform: 'uppercase',
+		letterSpacing: -0.4,
 		marginBottom: spacing.md,
 	},
 	grid: {flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm},

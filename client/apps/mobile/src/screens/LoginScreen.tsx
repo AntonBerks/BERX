@@ -32,7 +32,7 @@ import {spacing, typography} from '@berx/design-system/tokens';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {BerxGlassSurface} from '../../../../packages/design-system/src/components/BerxGlassSurface';
-import {BerxEntryStage} from '../../../../packages/design-system/src/components/BerxEntryStage';
+import {BerxStage} from '../../../../packages/design-system/src/components/BerxStage';
 import {BerxEmblem} from '../../../../packages/design-system/src/components/BerxEmblem';
 import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
 
@@ -85,7 +85,7 @@ export default function LoginScreen({authState, onGoToRegister}: Props) {
 			    placement here is how the entry flow drifts apart one edit at
 			    a time. Rendered as an absolute background layer because this
 			    screen's root has to be the KeyboardAvoidingView. */}
-			<BerxEntryStage progress={0.35} field={0.42} presence={0.4} style={StyleSheet.absoluteFillObject as never} />
+			<BerxStage depth={0.2} seed={19} scrim={0.5} style={StyleSheet.absoluteFillObject as never} />
 			<ScrollView contentContainerStyle={styles.scrollBody} keyboardShouldPersistTaps="handled">
 				<BerxFadeIn riseFrom={8}>
 					<View style={styles.hero}>

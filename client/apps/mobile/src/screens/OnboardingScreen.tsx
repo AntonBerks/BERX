@@ -43,14 +43,12 @@ import {View, Text, Image, Pressable, ScrollView, ActivityIndicator, Dimensions,
 import type {BerxApiClient, BerxFilePart} from '@berx/api/client';
 import type {BerxUser, BerxPlace, BerxCommunity, BerxPeopleSuggestion, BerxPlaceCategory} from '@berx/api/types';
 import {ruPlural} from '@berx/domain';
-import {spacing, typography, radius, fonts} from '@berx/design-system/tokens';
+import {spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {BerxAvatar} from '../../../../packages/design-system/src/components/BerxAvatar';
-import {BerxEntryStage} from '../../../../packages/design-system/src/components/BerxEntryStage';
-import {BerxMark} from '../../../../packages/design-system/src/components/BerxLogo';
-import {BerxPrimaryAction, BerxQuietAction} from '../../../../packages/design-system/src/components/BerxActions';
-import {BERX_SCENE} from '../../../../packages/design-system/src/palette';
+import {BerxStage} from '../../../../packages/design-system/src/components/BerxStage';
+import {BerxEmblem} from '../../../../packages/design-system/src/components/BerxEmblem';
 import {BerxGlassSurface} from '../../../../packages/design-system/src/components/BerxGlassSurface';
 import {BerxPlaceCard} from '../../../../packages/design-system/src/components/BerxSpatialCards';
 import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
@@ -87,10 +85,7 @@ export default function OnboardingScreen({api, user, pickImage, onComplete}: Pro
 	const next = useCallback(() => setStepIndex((i: number) => Math.min(i + 1, STEPS.length - 1)), []);
 
 	return (
-		<BerxEntryStage
-			progress={0.4 + (stepIndex / (STEPS.length - 1)) * 0.6}
-			field={0.42}
-			presence={0.34}>
+		<BerxStage depth={stepIndex / (STEPS.length - 1)} seed={19} scrim={0.5}>
 			{/* Progress is real: it counts the steps this sequence actually
 			    has, and it is the only chrome above the content. */}
 			{step !== 'done' ? (
@@ -116,7 +111,7 @@ export default function OnboardingScreen({api, user, pickImage, onComplete}: Pro
 			) : (
 				<DoneStep user={user} onComplete={onComplete} />
 			)}
-		</BerxEntryStage>
+		</BerxStage>
 	);
 }
 
@@ -159,14 +154,8 @@ function StepFooter({
 	const styles = useMemo(() => makeStyles(colors), [colors]);
 	return (
 		<View style={styles.footer}>
-			<BerxPrimaryAction
-				label={loading ? '…' : primary}
-				onPress={primaryDisabled || loading ? () => undefined : onPrimary}
-				tone={BERX_SCENE.light}
-				ink="#26100A"
-				style={primaryDisabled || loading ? styles.actionMuted : undefined}
-			/>
-			{onSkip ? <BerxQuietAction label={skipLabel} onPress={onSkip} /> : null}
+			<BerxButton label={primary} onPress={onPrimary} disabled={primaryDisabled} loading={loading} fullWidth />
+			{onSkip ? <BerxButton label={skipLabel} variant="secondary" onPress={onSkip} fullWidth /> : null}
 		</View>
 	);
 }
@@ -242,7 +231,7 @@ function LocationStep({
 	return (
 		<>
 			<BerxFadeIn riseFrom={20} scaleFrom={0.88} style={styles.objectSlot}>
-				<BerxMark size={72} light={colors.accent} body="#4A2C2A" />
+				<BerxEmblem size={124} light={colors.accent} />
 			</BerxFadeIn>
 			<ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
 				<StepHead
@@ -784,7 +773,7 @@ function DoneStep({user, onComplete}: {user: BerxUser; onComplete: () => void}) 
 	return (
 		<>
 			<BerxFadeIn riseFrom={26} scaleFrom={0.86} style={styles.doneObject}>
-				<BerxMark size={110} light={colors.accent} body="#4A2C2A" />
+				<BerxEmblem size={168} light={colors.accent} />
 			</BerxFadeIn>
 			<View style={styles.doneCopy}>
 				<BerxFadeIn delayMs={200} riseFrom={22}>
@@ -797,7 +786,7 @@ function DoneStep({user, onComplete}: {user: BerxUser; onComplete: () => void}) 
 				</BerxFadeIn>
 			</View>
 			<View style={styles.footer}>
-				<BerxPrimaryAction label="Открыть BERX" onPress={onComplete} tone={BERX_SCENE.light} ink="#26100A" />
+				<BerxButton label="Открыть BERX" onPress={onComplete} fullWidth />
 			</View>
 		</>
 	);
@@ -806,21 +795,19 @@ function DoneStep({user, onComplete}: {user: BerxUser; onComplete: () => void}) 
 const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	progress: {flexDirection: 'row', gap: 4, paddingHorizontal: spacing.xl, paddingTop: spacing.xxl},
 	tick: {flex: 1, height: 2, borderRadius: radius.pill, backgroundColor: colors.onMediaFaint, opacity: 0.4},
-	tickDone: {backgroundColor: colors.accent, opacity: 1},
+	tickDone: {backgroundColor: colors.accentOnMedia, opacity: 1},
 	objectSlot: {position: 'absolute', top: '8%', right: '6%'},
-	scroll: {paddingHorizontal: spacing.xl, paddingTop: spacing.lg, paddingBottom: 190, gap: spacing.sm},
+	scroll: {paddingHorizontal: spacing.xl, paddingTop: spacing.xl, paddingBottom: 190, gap: spacing.sm},
 	head: {marginBottom: spacing.lg},
 	eyebrow: {
 		fontSize: typography.sizeXs,
-		color: colors.accent,
+		color: colors.accentOnMedia,
 		textTransform: 'uppercase',
 		letterSpacing: 2.4,
 		marginBottom: spacing.md,
-		fontWeight: typography.weightBold,
 	},
-	display: {fontFamily: fonts.display, fontSize: 44, lineHeight: 47, color: colors.onMedia, letterSpacing: -0.6},
-	displayAccent: {fontFamily: fonts.displayItalic, color: colors.accent},
-	actionMuted: {opacity: 0.42},
+	display: {fontSize: 36, lineHeight: 40, fontWeight: typography.weightBold, color: colors.onMedia, letterSpacing: -1.2},
+	displayAccent: {color: colors.accentOnMedia},
 	body: {fontSize: typography.sizeSm, lineHeight: 20, color: colors.onMediaDim, marginTop: spacing.lg, maxWidth: 320},
 	footer: {position: 'absolute', left: spacing.xl, right: spacing.xl, bottom: spacing.xxl, gap: spacing.sm},
 	loader: {marginTop: spacing.xl},
@@ -831,7 +818,7 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	chosen: {marginTop: spacing.md, gap: 4},
 	chosenTitle: {color: colors.onMedia, fontSize: typography.sizeLg, fontWeight: typography.weightBold},
 	chosenSub: {color: colors.onMediaDim, fontSize: typography.sizeSm},
-	chosenNote: {color: colors.accent, fontSize: typography.sizeSm, marginTop: spacing.sm},
+	chosenNote: {color: colors.accentOnMedia, fontSize: typography.sizeSm, marginTop: spacing.sm},
 	resultRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: spacing.md},
 	resultBody: {flex: 1},
 	resultTitle: {color: colors.onMedia, fontSize: typography.sizeBase, fontWeight: typography.weightMedium},
@@ -841,7 +828,7 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	chip: {paddingHorizontal: spacing.md, paddingVertical: 10, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.borderSoft},
 	chipActive: {backgroundColor: colors.accentSoft, borderColor: colors.accent},
 	chipText: {color: colors.onMediaDim, fontSize: typography.sizeSm},
-	chipTextActive: {color: colors.accent, fontWeight: typography.weightMedium},
+	chipTextActive: {color: colors.accentOnMedia, fontWeight: typography.weightMedium},
 
 	personRow: {
 		flexDirection: 'row',
@@ -860,7 +847,7 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	personSub: {color: colors.onMediaFaint, fontSize: typography.sizeXs, marginTop: 2},
 	pill: {paddingHorizontal: spacing.md, paddingVertical: 8, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.accent},
 	pillDone: {borderColor: colors.borderSoft},
-	pillText: {color: colors.accent, fontSize: typography.sizeXs, fontWeight: typography.weightMedium},
+	pillText: {color: colors.accentOnMedia, fontSize: typography.sizeXs, fontWeight: typography.weightMedium},
 	pillTextDone: {color: colors.onMediaFaint},
 
 	railScroll: {flexGrow: 0, flexShrink: 0, marginHorizontal: -spacing.xl},
@@ -896,7 +883,7 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 		justifyContent: 'center',
 	},
 	identityName: {color: colors.onMedia, fontSize: typography.sizeXl, fontWeight: typography.weightBold},
-	identityHandle: {color: colors.accent, fontSize: typography.sizeBase, marginBottom: spacing.md},
+	identityHandle: {color: colors.accentOnMedia, fontSize: typography.sizeBase, marginBottom: spacing.md},
 
 	doneObject: {position: 'absolute', top: '16%', alignSelf: 'center'},
 	doneCopy: {position: 'absolute', left: spacing.xl, right: spacing.xl, bottom: 190},
