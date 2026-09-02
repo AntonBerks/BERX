@@ -43,6 +43,8 @@ interface Props {
 	onOpenEvent: (guid: number) => void;
 	onDeleted?: () => void;
 	onAddToWorld?: () => void;
+	/** Experience → Group Chat ("context everywhere", master build directive §56) — finds this experience's real group or offers to create one; organizer or accepted participant only. */
+	onOpenGroupChat?: (anchor: {guid: number; title: string}) => void;
 	onBack?: () => void;
 }
 
@@ -56,7 +58,7 @@ function fmtWhen(unix: number): string {
 	return new Date(unix * 1000).toLocaleString('ru-RU', {day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit'});
 }
 
-export default function ExperienceDetailScreen({api, id, myGuid, onOpenPlace, onOpenEvent, onDeleted, onAddToWorld, onBack}: Props) {
+export default function ExperienceDetailScreen({api, id, myGuid, onOpenPlace, onOpenEvent, onDeleted, onAddToWorld, onOpenGroupChat, onBack}: Props) {
 	const colors = useBerxColors();
 	const styles = useMemo(() => makeStyles(colors), [colors]);
 	const [experience, setExperience] = useState<BerxExperienceDetail | null>(null);
@@ -300,6 +302,9 @@ export default function ExperienceDetailScreen({api, id, myGuid, onOpenPlace, on
 				{experience.description ? <Text style={styles.description}>{experience.description}</Text> : null}
 
 				{onAddToWorld ? <BerxButton label="В мир" variant="secondary" onPress={onAddToWorld} /> : null}
+				{onOpenGroupChat && (experience.is_own || experience.my_status === 'accepted') ? (
+					<BerxButton label="Групповой чат" variant="secondary" onPress={() => onOpenGroupChat({guid: experience.id, title: experience.title})} />
+				) : null}
 
 				{experience.scheduled_start * 1000 <= Date.now() && (experience.is_own || experience.my_status === 'accepted') ? (
 					<View style={styles.memoryRow}>

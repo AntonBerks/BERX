@@ -29,6 +29,9 @@ export type BerxRouteName =
 	| 'Search'
 	| 'Messages'
 	| 'Conversation'
+	| 'GroupChat'
+	| 'GroupInfo'
+	| 'CreateGroup'
 	| 'MessageSearch'
 	| 'Notifications'
 	| 'Points'
@@ -148,6 +151,18 @@ export interface BerxRouteParams {
 	Search: undefined;
 	Messages: undefined;
 	Conversation: { otherGuid: number; otherUsername?: string };
+	GroupChat: { groupId: number };
+	GroupInfo: { groupId: number };
+	// Optional real anchor (master build directive §56, "context
+	// everywhere"): set when pushed from CommunityDetail/EventDetail/
+	// ExperienceDetail/CircleDetail/TripDetail so the group is created
+	// already attached to that entity. Preselected participants (e.g.
+	// "Direct Message → Group creation") ride the same module-singleton
+	// AppShell already uses for real objects that only need to survive
+	// one push (see currentStoryGroup) rather than a params round trip.
+	CreateGroup: {
+		initialAnchor?: {type: 'community' | 'event' | 'experience' | 'circle' | 'trip'; guid: number; title: string};
+	} | undefined;
 	MessageSearch: undefined;
 	Notifications: undefined;
 	Points: undefined;
@@ -277,6 +292,16 @@ export const BERX_ROUTES: BerxRouteMeta[] = [
 	{ name: 'Search', connected: true },
 	{ name: 'Messages', connected: true },
 	{ name: 'Conversation', connected: true },
+	// MAX BUILD — full group-conversation entity (ossn_group_conversations
+	// + 6 related tables, classes/OssnGroupChat.php, /api/v1/groups):
+	// creation, roles/admin, invite+accept/decline ("message requests"),
+	// remove/leave, text+reply+reactions+edit+delete, unread, typing,
+	// pinned messages, mute, group settings. Not a 1:1 conversation
+	// dressed up — a real multi-participant entity, wired into
+	// Community/Event/Experience/Circle/Trip and Direct Message.
+	{ name: 'GroupChat', connected: true },
+	{ name: 'GroupInfo', connected: true },
+	{ name: 'CreateGroup', connected: true },
 	{ name: 'MessageSearch', connected: true },
 	{ name: 'Notifications', connected: true },
 	{ name: 'Points', connected: true },

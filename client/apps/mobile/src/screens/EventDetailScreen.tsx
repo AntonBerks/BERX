@@ -68,6 +68,8 @@ interface Props {
 	 * event rather than sending them to search for it again.
 	 */
 	onCreateExperience?: (anchor: {type: 'event'; guid: number; title: string}) => void;
+	/** Event → Attendees → Group Chat ("context everywhere", master build directive §56) — finds this event's real group or offers to create one; attendee-only, same gate as "Добавить историю". */
+	onOpenGroupChat?: (anchor: {guid: number; title: string}) => void;
 	onEdit?: () => void;
 	onBack?: () => void;
 }
@@ -83,7 +85,7 @@ function groupStoriesByOwner(items: BerxEventStoryItem[]): BerxStoryFeedGroup[] 
 	return Array.from(byOwner.values());
 }
 
-export default function EventDetailScreen({api, guid, myGuid, onOpenPlace, onOpenCommunity, onOpenInvite, onAddToCollection, onAddToTrip, onAddToWorld, onAddEventStory, onOpenStoryGroup, onCreateExperience, onEdit, onBack}: Props) {
+export default function EventDetailScreen({api, guid, myGuid, onOpenPlace, onOpenCommunity, onOpenInvite, onAddToCollection, onAddToTrip, onAddToWorld, onAddEventStory, onOpenStoryGroup, onCreateExperience, onOpenGroupChat, onEdit, onBack}: Props) {
 	const colors = useBerxColors();
 	const styles = useMemo(() => makeStyles(colors), [colors]);
 	const [event, setEvent] = useState<BerxEvent | null>(null);
@@ -330,6 +332,9 @@ export default function EventDetailScreen({api, guid, myGuid, onOpenPlace, onOpe
 					{onAddToTrip ? <BerxButton label="В поездку" variant="secondary" onPress={onAddToTrip} /> : null}
 					{onAddToWorld ? <BerxButton label="В мир" variant="secondary" onPress={onAddToWorld} /> : null}
 					{event.is_going && onAddEventStory ? <BerxButton label="Добавить историю" variant="secondary" onPress={() => onAddEventStory(event.guid)} /> : null}
+						{event.is_going && onOpenGroupChat ? (
+							<BerxButton label="Групповой чат" variant="secondary" onPress={() => onOpenGroupChat({guid: event.guid, title: event.title})} />
+						) : null}
 					{onCreateExperience ? (
 						<BerxButton
 							label="Впечатление"

@@ -67,9 +67,11 @@ interface Props {
 	onOpenPost?: (guid: number) => void;
 	onReport?: (guid: number) => void;
 	onDeleted?: () => void;
+	/** Community → Group Chat ("context everywhere", master build directive §56) — finds the community's real existing group or offers to create one, member-only. */
+	onOpenGroupChat?: (anchor: {guid: number; title: string}) => void;
 }
 
-export default function CommunityDetailScreen({api, guid, myGuid, pickImage, onBack, onOpenRequests, onOpenModerators, onOpenMembers, onOpenEvent, onOpenPost, onReport, onDeleted}: Props) {
+export default function CommunityDetailScreen({api, guid, myGuid, pickImage, onBack, onOpenRequests, onOpenModerators, onOpenMembers, onOpenEvent, onOpenPost, onReport, onDeleted, onOpenGroupChat}: Props) {
 	const colors = useBerxColors();
 	const styles = useMemo(() => makeStyles(colors), [colors]);
 	const [community, setCommunity] = useState<BerxCommunity | null>(null);
@@ -381,6 +383,9 @@ export default function CommunityDetailScreen({api, guid, myGuid, pickImage, onB
 						/>
 
 						{onOpenMembers ? <BerxButton label="Участники" variant="secondary" onPress={() => onOpenMembers(guid, isOwner)} fullWidth /> : null}
+						{onOpenGroupChat && community.is_member ? (
+							<BerxButton label="Групповой чат" variant="secondary" onPress={() => onOpenGroupChat({guid, title: community.name})} fullWidth />
+						) : null}
 
 						{events.length > 0 ? (
 							<View style={styles.eventsSection}>

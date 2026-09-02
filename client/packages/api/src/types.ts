@@ -172,6 +172,66 @@ export interface BerxMessage {
 	shared_story: BerxSharedStoryPreview | null;
 }
 
+/**
+ * BERX Group Chat — real multi-participant conversations, on their
+ * own tables (see backend classes/OssnGroupChat.php's own header for
+ * why this is not OssnMessages/BerxConversationSummary reskinned:
+ * OSSN's 1:1 primitive has no group concept anywhere in it).
+ */
+export type BerxGroupContextType = 'community' | 'event' | 'experience' | 'circle' | 'trip';
+export type BerxGroupRole = 'admin' | 'member';
+
+export interface BerxGroupParticipant {
+	guid: number;
+	username: string;
+	fullname: string;
+	icon: string | null;
+	role: BerxGroupRole;
+}
+
+export interface BerxGroupMessageReplyPreview {
+	id: number;
+	sender: BerxGroupParticipant | null;
+	text: string;
+}
+
+export interface BerxGroupMessage {
+	id: number;
+	conversation_id: number;
+	sender: BerxGroupParticipant | null;
+	/** null once deleted — the deletion itself is real, never a client-side hide. */
+	text: string | null;
+	deleted: boolean;
+	reply_to: BerxGroupMessageReplyPreview | null;
+	time_created: number;
+	time_edited: number | null;
+	reaction_count: number;
+	reacted_by_me: boolean;
+}
+
+export interface BerxGroupConversation {
+	id: number;
+	name: string;
+	description: string | null;
+	cover_url: string | null;
+	creator_guid: number;
+	/** Real "context everywhere" link — the entity this group was created from, or null for a group started directly from a Direct Message. */
+	context_type: BerxGroupContextType | null;
+	context_guid: number | null;
+	time_created: number;
+	participants: BerxGroupParticipant[];
+	participant_count: number;
+	/** null if the caller is not (or no longer) an active member. */
+	my_role: BerxGroupRole | null;
+	muted: boolean;
+	unread_count: number;
+	last_message: BerxGroupMessage | null;
+	/** Present only on GET /groups/{id} (the detail read), not on list rows. */
+	pinned_messages?: BerxGroupMessage[];
+	/** Present only on GET /groups/requests — when this invite was sent. */
+	invited_at?: number;
+}
+
 export interface BerxSharedPostPreview {
 	guid: number;
 	text: string | null;

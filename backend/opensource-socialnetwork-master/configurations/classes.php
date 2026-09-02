@@ -98,6 +98,11 @@ $OssnClasses = array(
 		// upgrade/upgrades/1785172200.php). Vocabulary is the shared
 		// place-category whitelist, not a second taxonomy.
 		'UserInterests',
+		// BERX Group Chat — real multi-participant conversations, NOT
+		// built on OssnMessages (OSSN core's from/to-pair primitive — see
+		// classes/OssnGroupChat.php's own header for why). Own tables,
+		// upgrade/upgrades/1785172300.php.
+		'GroupChat',
 );
 foreach ($OssnClasses as $class) {
 		$loadClass['Ossn' . $class] = ossn_route()->classes . "Ossn{$class}.php";

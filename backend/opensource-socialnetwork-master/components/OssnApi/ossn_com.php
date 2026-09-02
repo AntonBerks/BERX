@@ -308,6 +308,13 @@ function ossn_api_v1_resources() {
 		// it only ever affects whose posts YOU see in your own feed.
 		// See mute.php's own header.
 		'mute'          => __OSSN_API__ . 'v1/mute.php',
+		// BERX Group Chat — a genuinely new object (classes/
+		// OssnGroupChat.php, its own ossn_group_conversations/
+		// ossn_group_participants/ossn_group_messages/... tables). Real
+		// multi-participant conversations, not OssnMessages (OSSN
+		// core's strictly-1:1 primitive) reskinned. See that class's
+		// own header for why it needed its own tables.
+		'groups'        => __OSSN_API__ . 'v1/groups.php',
 		// (No separate 'activity' resource: lifegraph.php already IS
 		// the real composed-timeline concept -- Plans/Checkpoints/Life
 		// Moments/Memories were folded into its existing edge list

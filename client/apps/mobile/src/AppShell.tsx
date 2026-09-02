@@ -44,6 +44,9 @@ import PostDetailScreen from './screens/PostDetailScreen';
 import ProfileScreen from './screens/ProfileScreen';
 import ConversationListScreen from './screens/ConversationListScreen';
 import ConversationScreen from './screens/ConversationScreen';
+import GroupChatScreen from './screens/GroupChatScreen';
+import GroupInfoScreen from './screens/GroupInfoScreen';
+import CreateGroupScreen from './screens/CreateGroupScreen';
 import DatingDiscoverScreen from './screens/DatingDiscoverScreen';
 import DatingMatchScreen from './screens/DatingMatchScreen';
 import DatingMatchesScreen from './screens/DatingMatchesScreen';
@@ -167,6 +170,16 @@ const authState = new BerxAuthState(api);
 let currentStoryGroup: BerxStoryFeedGroup | null = null;
 
 /**
+ * "Direct Message → Group creation" (master build directive §56): the
+ * real {guid, username, fullname} of the 1:1 counterpart ConversationScreen
+ * was already showing, carried into CreateGroupScreen's participant
+ * picker without a route-param round trip — same module-singleton
+ * pattern as currentStoryGroup above, for the same reason (a real
+ * object, not primitives, that only needs to survive one push).
+ */
+let pendingGroupPreselect: Array<{guid: number; username: string; fullname: string}> | null = null;
+
+/**
  * Set by RegisterScreen's onRegistered callback, consumed once by
  * AppShell the moment the FOLLOWING login (post email-activation)
  * lands on 'authenticated' — shows OnboardingScreen exactly once for
@@ -210,6 +223,26 @@ function RouteRenderer({name, params}: {name: BerxRouteName; params: unknown}) {
 	const styles = useMemo(() => makeStyles(colors), [colors]);
 	const nav = useBerxNavigation();
 	const openProfile = (username: string) => nav.push('Profile', {username});
+	/**
+	 * "Context everywhere" for Group Chat (master build directive §56):
+	 * Community/Event/Experience/Circle/Trip → Group Chat. Real
+	 * find-then-offer-create — api.groupsForContext() is the same real
+	 * lookup GroupChat's own context_type/context_guid columns support,
+	 * so opening this from the same entity twice reopens the one real
+	 * group instead of quietly creating a duplicate every time.
+	 */
+	const openGroupChatForContext = async (anchor: {type: 'community' | 'event' | 'experience' | 'circle' | 'trip'; guid: number; title: string}) => {
+		try {
+			const res = await api.groupsForContext(anchor.type, anchor.guid);
+			if (res.groups.length > 0) {
+				nav.push('GroupChat', {groupId: res.groups[0].id});
+				return;
+			}
+		} catch {
+			// lookup failure — fall through to offering creation, same as "no group yet"
+		}
+		nav.push('CreateGroup', {initialAnchor: anchor});
+	};
 
 	switch (name) {
 		case 'Home':
@@ -320,6 +353,8 @@ function RouteRenderer({name, params}: {name: BerxRouteName; params: unknown}) {
 					api={api}
 					onOpenConversation={(otherGuid, otherUsername) => nav.push('Conversation', {otherGuid, otherUsername})}
 					onOpenMessageSearch={() => nav.push('MessageSearch', undefined)}
+					onOpenGroup={(groupId) => nav.push('GroupChat', {groupId})}
+					onCreateGroup={() => nav.push('CreateGroup', undefined)}
 				/>
 			);
 		case 'Conversation': {
@@ -340,6 +375,59 @@ function RouteRenderer({name, params}: {name: BerxRouteName; params: unknown}) {
 					pickImage={pickImage}
 					onOpenPost={(guid) => nav.push('PostDetail', {postGuid: guid})}
 					onOpenProfile={openProfile}
+					onCreateGroup={(preselect) => {
+						pendingGroupPreselect = [preselect];
+						nav.push('CreateGroup', undefined);
+					}}
+					onBack={nav.pop}
+				/>
+			);
+		}
+		case 'GroupChat': {
+			const p = params as {groupId: number};
+			const myGuid = authState.getSnapshot().user?.guid;
+			if (!myGuid) {
+				return <BerxErrorState message="Сессия недоступна" />;
+			}
+			return (
+				<GroupChatScreen
+					api={api}
+					myGuid={myGuid}
+					groupId={p.groupId}
+					onOpenInfo={(groupId) => nav.push('GroupInfo', {groupId})}
+					onOpenProfile={(guid) => nav.push('Profile', {username: String(guid)})}
+					onBack={nav.pop}
+				/>
+			);
+		}
+		case 'GroupInfo': {
+			const p = params as {groupId: number};
+			const myGuid = authState.getSnapshot().user?.guid;
+			if (!myGuid) {
+				return <BerxErrorState message="Сессия недоступна" />;
+			}
+			return (
+				<GroupInfoScreen
+					api={api}
+					myGuid={myGuid}
+					groupId={p.groupId}
+					onOpenProfile={(guid) => nav.push('Profile', {username: String(guid)})}
+					searchUsers={async (q) => (await api.searchUsers(q)).users}
+					onLeft={() => nav.replace('Messages', undefined)}
+					onBack={nav.pop}
+				/>
+			);
+		}
+		case 'CreateGroup': {
+			const p = (params as {initialAnchor?: {type: 'community' | 'event' | 'experience' | 'circle' | 'trip'; guid: number; title: string}} | undefined) ?? {};
+			const preselect = pendingGroupPreselect;
+			pendingGroupPreselect = null;
+			return (
+				<CreateGroupScreen
+					api={api}
+					initialAnchor={p.initialAnchor}
+					preselectPeople={preselect ?? undefined}
+					onCreated={(id) => nav.replace('GroupChat', {groupId: id})}
 					onBack={nav.pop}
 				/>
 			);
@@ -527,6 +615,7 @@ function RouteRenderer({name, params}: {name: BerxRouteName; params: unknown}) {
 					onOpenPost={(postGuid) => nav.push('PostDetail', {postGuid})}
 					onReport={(guid) => nav.push('Report', {targetType: 'group', targetGuid: guid})}
 					onDeleted={nav.pop}
+					onOpenGroupChat={(anchor) => openGroupChatForContext({type: 'community', ...anchor})}
 				/>
 			);
 		}
@@ -753,6 +842,7 @@ function RouteRenderer({name, params}: {name: BerxRouteName; params: unknown}) {
 						nav.push('StoryViewer', undefined);
 					}}
 					onCreateExperience={(anchor) => nav.push('CreateExperience', {initialAnchor: anchor})}
+					onOpenGroupChat={(anchor) => openGroupChatForContext({type: 'event', ...anchor})}
 					onEdit={() => nav.push('EditEvent', {guid: p.guid})}
 					onBack={nav.pop}
 				/>
@@ -968,7 +1058,15 @@ function RouteRenderer({name, params}: {name: BerxRouteName; params: unknown}) {
 			);
 		case 'CircleDetail': {
 			const p = params as {id: number};
-			return <CircleDetailScreen api={api} id={p.id} onDeleted={nav.pop} onBack={nav.pop} />;
+			return (
+				<CircleDetailScreen
+					api={api}
+					id={p.id}
+					onDeleted={nav.pop}
+					onOpenGroupChat={(anchor) => openGroupChatForContext({type: 'circle', ...anchor})}
+					onBack={nav.pop}
+				/>
+			);
 		}
 		case 'CreateCircle':
 			return (
@@ -1000,6 +1098,7 @@ function RouteRenderer({name, params}: {name: BerxRouteName; params: unknown}) {
 					onOpenPlace={(guid) => nav.push('PlaceDetail', {guid})}
 					onOpenEvent={(guid) => nav.push('EventDetail', {guid})}
 					onDeleted={nav.pop}
+					onOpenGroupChat={(anchor) => openGroupChatForContext({type: 'trip', ...anchor})}
 					onBack={nav.pop}
 				/>
 			);
@@ -1036,6 +1135,7 @@ function RouteRenderer({name, params}: {name: BerxRouteName; params: unknown}) {
 					onOpenEvent={(guid) => nav.push('EventDetail', {guid})}
 					onDeleted={nav.pop}
 					onAddToWorld={() => nav.push('AddToWorld', {itemType: 'experience', itemGuid: p.id})}
+					onOpenGroupChat={(anchor) => openGroupChatForContext({type: 'experience', ...anchor})}
 					onBack={nav.pop}
 				/>
 			);

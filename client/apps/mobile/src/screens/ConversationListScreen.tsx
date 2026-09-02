@@ -6,9 +6,7 @@
  * a client-side quick filter over the already-loaded list; "Поиск по
  * всем сообщениям" opens MessageSearchScreen, backed by the real
  * /api/v1/messagesearch endpoint (searches message CONTENT across all
- * conversations, not just usernames in this list). An honest
- * "Личные" tab only, no "Групповые" tab: the real API has no group
- * messaging, so a second tab would have nothing behind it.
+ * conversations, not just usernames in this list).
  *
  * BERX WORLD MAX BUILD -- real "В сети" rail: api.onlineFriends() (GET
  * /presence) always existed -- real ossn_users.last_activity, the same
@@ -38,11 +36,21 @@
  * editorial byline language FeedScreen already uses. Unread state
  * reads on the avatar itself (a real accent ring) instead of a
  * separate dot bolted on beside the text.
+ *
+ * GROUP CHAT — real multi-participant conversations now live
+ * alongside 1:1 ones here (api.myGroups()), not on a separate,
+ * disconnected screen: "Direct Message → Group creation" per the
+ * master build directive means the messaging surface is where a
+ * group starts and where it's found again. Pending invites
+ * (api.groupInviteRequests()) are the real "message requests" state
+ * — a group someone added you to that you haven't accepted or
+ * declined yet — surfaced with real inline accept/decline actions,
+ * not hidden inside the group itself where you'd never see it.
  */
 import {useCallback, useEffect, useMemo, useState} from 'react';
 import {FlatList, ScrollView, Pressable, Text, View, Image, RefreshControl, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
-import type {BerxConversationSummary, BerxOnlineFriend, BerxPeopleSuggestion} from '@berx/api/types';
+import type {BerxConversationSummary, BerxOnlineFriend, BerxPeopleSuggestion, BerxGroupConversation} from '@berx/api/types';
 import {relativeTimeLabel} from '@berx/domain';
 import {ruPlural} from '@berx/domain';
 import {spacing, radius, typography} from '@berx/design-system/tokens';
@@ -62,9 +70,11 @@ interface Props {
 	onOpenConversation: (otherGuid: number, otherUsername?: string) => void;
 	/** Real endpoint (components/OssnApi/v1/messagesearch.php) — distinct from this screen's own client-side quick filter below, which only filters the already-loaded list by username. */
 	onOpenMessageSearch?: () => void;
+	onOpenGroup?: (groupId: number) => void;
+	onCreateGroup?: () => void;
 }
 
-export default function ConversationListScreen({api, onOpenConversation, onOpenMessageSearch}: Props) {
+export default function ConversationListScreen({api, onOpenConversation, onOpenMessageSearch, onOpenGroup, onCreateGroup}: Props) {
 	const colors = useBerxColors();
 	const styles = useMemo(() => makeStyles(colors), [colors]);
 	const [items, setItems] = useState<BerxConversationSummary[]>([]);
@@ -75,6 +85,9 @@ export default function ConversationListScreen({api, onOpenConversation, onOpenM
 	const [unread, setUnread] = useState(0);
 	const [online, setOnline] = useState<BerxOnlineFriend[]>([]);
 	const [people, setPeople] = useState<BerxPeopleSuggestion[]>([]);
+	const [groups, setGroups] = useState<BerxGroupConversation[]>([]);
+	const [groupRequests, setGroupRequests] = useState<BerxGroupConversation[]>([]);
+	const [requestBusyId, setRequestBusyId] = useState<number | null>(null);
 
 	const load = useCallback(async () => {
 		try {
@@ -90,6 +103,8 @@ export default function ConversationListScreen({api, onOpenConversation, onOpenM
 			// Real presence — best-effort, never blocks the list itself.
 			api.onlineFriends().then((r) => setOnline(r.online)).catch(() => undefined);
 			api.peopleDiscovery().then((r) => setPeople(r.people)).catch(() => undefined);
+			api.myGroups().then((r) => setGroups(r.groups)).catch(() => undefined);
+			api.groupInviteRequests().then((r) => setGroupRequests(r.requests)).catch(() => undefined);
 		} catch {
 			setError('Не удалось загрузить диалоги');
 		} finally {
@@ -97,6 +112,24 @@ export default function ConversationListScreen({api, onOpenConversation, onOpenM
 			setRefreshing(false);
 		}
 	}, [api]);
+
+	async function respondToGroupRequest(groupId: number, accept: boolean) {
+		setRequestBusyId(groupId);
+		try {
+			if (accept) {
+				await api.acceptGroupInvite(groupId);
+				const res = await api.myGroups();
+				setGroups(res.groups);
+			} else {
+				await api.declineGroupInvite(groupId);
+			}
+			setGroupRequests((prev) => prev.filter((g) => g.id !== groupId));
+		} catch {
+			// leave the request visible — a transient failure shouldn't silently drop it
+		} finally {
+			setRequestBusyId(null);
+		}
+	}
 
 	useEffect(() => {
 		load();
@@ -151,10 +184,60 @@ export default function ConversationListScreen({api, onOpenConversation, onOpenM
 							: 'все прочитано',
 					]}
 				/>
+				{onCreateGroup ? (
+					<BerxCircleButton icon="plus" label="Группа" onPress={onCreateGroup} />
+				) : null}
 				{onOpenMessageSearch ? (
 					<BerxCircleButton icon="search" label="Поиск" onPress={onOpenMessageSearch} />
 				) : null}
 			</View>
+
+			{groupRequests.length > 0 ? (
+				<View style={styles.peopleSection}>
+					<Text style={styles.peopleLabel}>Запросы в группы</Text>
+					{groupRequests.map((g) => (
+						<View key={`request-${g.id}`} style={styles.requestRow}>
+							<Text style={styles.requestName} numberOfLines={1}>{g.name}</Text>
+							<View style={styles.requestActions}>
+								<Pressable
+									style={styles.requestAccept}
+									disabled={requestBusyId === g.id}
+									onPress={() => respondToGroupRequest(g.id, true)}>
+									<Text style={styles.requestAcceptText}>{requestBusyId === g.id ? '…' : 'Принять'}</Text>
+								</Pressable>
+								<Pressable
+									style={styles.requestDecline}
+									disabled={requestBusyId === g.id}
+									onPress={() => respondToGroupRequest(g.id, false)}>
+									<Text style={styles.requestDeclineText}>Отклонить</Text>
+								</Pressable>
+							</View>
+						</View>
+					))}
+				</View>
+			) : null}
+
+			{groups.length > 0 && onOpenGroup ? (
+				<View style={styles.peopleSection}>
+					<Text style={styles.peopleLabel}>Группы</Text>
+					{groups.map((g) => (
+						<Pressable key={`group-${g.id}`} style={styles.row} onPress={() => onOpenGroup(g.id)}>
+							<View style={[styles.rowAvatarWrap, g.unread_count > 0 && styles.rowAvatarWrapUnread]}>
+								<BerxAvatar iconUrl={g.cover_url} fallbackInitial={g.name.charAt(0)} size={48} />
+							</View>
+							<View style={styles.rowText}>
+								<Text style={styles.byline} numberOfLines={1}>
+									{g.name.toUpperCase()} · {g.participant_count} {ruPlural(g.participant_count, 'участник', 'участника', 'участников')}
+								</Text>
+								<Text style={[styles.lastMessage, g.unread_count > 0 && styles.lastMessageUnread]} numberOfLines={1}>
+									{g.last_message?.deleted ? 'Сообщение удалено' : g.last_message?.text ?? 'Пока нет сообщений'}
+								</Text>
+							</View>
+						</Pressable>
+					))}
+				</View>
+			) : null}
+
 			{online.length > 0 ? (
 				<ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.railScroll} contentContainerStyle={styles.onlineRow}>
 					{online.map((item: BerxOnlineFriend) => (
@@ -269,6 +352,13 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	peopleCardContent: {padding: spacing.sm, gap: 2},
 	peopleName: {color: colors.white, fontSize: typography.sizeSm, fontWeight: typography.weightBold},
 	peopleMeta: {color: colors.textDim, fontSize: typography.sizeXs},
+	requestRow: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.lg, paddingVertical: spacing.sm, gap: spacing.sm},
+	requestName: {flex: 1, color: colors.text, fontSize: typography.sizeSm, fontWeight: typography.weightMedium},
+	requestActions: {flexDirection: 'row', gap: spacing.xs},
+	requestAccept: {paddingHorizontal: spacing.sm, paddingVertical: spacing.xs, borderRadius: radius.pill, backgroundColor: colors.accentSoft},
+	requestAcceptText: {color: colors.accent, fontSize: typography.sizeXs, fontWeight: typography.weightMedium},
+	requestDecline: {paddingHorizontal: spacing.sm, paddingVertical: spacing.xs, borderRadius: radius.pill, backgroundColor: colors.surface},
+	requestDeclineText: {color: colors.textFaint, fontSize: typography.sizeXs},
 	searchBar: {padding: spacing.lg, paddingBottom: spacing.sm},
 	listFade: {flex: 1},
 	list: {backgroundColor: colors.bg, flex: 1},

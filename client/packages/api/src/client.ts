@@ -7,6 +7,10 @@ import type {
 	BerxPostPoll,
 	BerxConversationSummary,
 	BerxMessage,
+	BerxGroupConversation,
+	BerxGroupMessage,
+	BerxGroupParticipant,
+	BerxGroupContextType,
 	BerxProfileSummary,
 	BerxSearchUsersResponse,
 	BerxDatingDiscoverResponse,
@@ -1098,6 +1102,136 @@ export class BerxApiClient {
 	/** Sets MY OWN typing status toward otherGuid — server never lets this be set on someone else's behalf. */
 	async setTypingStatus(otherGuid: number, typing: boolean): Promise<{status: string}> {
 		return this.request<{status: string}>(`/conversations/${otherGuid}/typing`, {method: 'POST', body: {typing: typing ? '1' : '0'}});
+	}
+
+	/* ---------------- Group Chat ----------------
+	 * Real multi-participant conversations (components/OssnApi/v1/
+	 * groups.php, backend classes/OssnGroupChat.php) — a genuinely
+	 * separate entity from the 1:1 conversations above, not a reskin.
+	 */
+
+	async myGroups(): Promise<{groups: BerxGroupConversation[]}> {
+		return this.request<{groups: BerxGroupConversation[]}>('/groups');
+	}
+
+	/** The real "message requests" list — groups invited to but not yet accepted/declined. */
+	async groupInviteRequests(): Promise<{requests: BerxGroupConversation[]}> {
+		return this.request<{requests: BerxGroupConversation[]}>('/groups/requests');
+	}
+
+	/**
+	 * Real "context everywhere" lookup — the groups already tied to one
+	 * real BERX entity, so a contextual "Групповой чат" entry point
+	 * (Community/Event/Experience/Circle/Trip) finds the existing group
+	 * instead of creating a duplicate every time it's opened.
+	 */
+	async groupsForContext(type: BerxGroupContextType, guid: number): Promise<{groups: BerxGroupConversation[]}> {
+		return this.request<{groups: BerxGroupConversation[]}>(`/groups/context/${type}/${guid}`);
+	}
+
+	async createGroup(fields: {
+		name: string;
+		description?: string;
+		participantGuids: number[];
+		contextType?: BerxGroupContextType;
+		contextGuid?: number;
+	}): Promise<{group: BerxGroupConversation}> {
+		const body: Record<string, string> = {
+			name: fields.name,
+			participant_guids: fields.participantGuids.join(','),
+		};
+		if (fields.description) body.description = fields.description;
+		if (fields.contextType) body.context_type = fields.contextType;
+		if (fields.contextGuid) body.context_guid = String(fields.contextGuid);
+		return this.request<{group: BerxGroupConversation}>('/groups', {method: 'POST', body});
+	}
+
+	async getGroup(id: number): Promise<{group: BerxGroupConversation}> {
+		return this.request<{group: BerxGroupConversation}>(`/groups/${id}`);
+	}
+
+	/** Admin-only — name/description. */
+	async updateGroup(id: number, fields: {name?: string; description?: string}): Promise<{group: BerxGroupConversation}> {
+		const body: Record<string, string> = {};
+		if (fields.name !== undefined) body.name = fields.name;
+		if (fields.description !== undefined) body.description = fields.description;
+		return this.request<{group: BerxGroupConversation}>(`/groups/${id}`, {method: 'PATCH', body});
+	}
+
+	/** Admin-only — real invite; the added user lands PENDING until they accept. */
+	async addGroupParticipant(id: number, userGuid: number): Promise<{group: BerxGroupConversation}> {
+		return this.request<{group: BerxGroupConversation}>(`/groups/${id}/participants`, {method: 'POST', body: {user_guid: String(userGuid)}});
+	}
+
+	/** Admin-only. */
+	async removeGroupParticipant(id: number, userGuid: number): Promise<{status: string}> {
+		return this.request<{status: string}>(`/groups/${id}/participants/${userGuid}`, {method: 'DELETE'});
+	}
+
+	async leaveGroup(id: number): Promise<{status: string}> {
+		return this.request<{status: string}>(`/groups/${id}/leave`, {method: 'POST'});
+	}
+
+	async acceptGroupInvite(id: number): Promise<{group: BerxGroupConversation}> {
+		return this.request<{group: BerxGroupConversation}>(`/groups/${id}/accept`, {method: 'POST'});
+	}
+
+	async declineGroupInvite(id: number): Promise<{status: string}> {
+		return this.request<{status: string}>(`/groups/${id}/decline`, {method: 'POST'});
+	}
+
+	/** durationSeconds omitted/0 unmutes. */
+	async muteGroup(id: number, durationSeconds?: number): Promise<{status: string; muted_until: number | null}> {
+		return this.request<{status: string; muted_until: number | null}>(`/groups/${id}/mute`, {
+			method: 'POST',
+			body: durationSeconds ? {duration_seconds: String(durationSeconds)} : {},
+		});
+	}
+
+	async groupMessages(id: number, before?: number, limit = 50): Promise<{messages: BerxGroupMessage[]}> {
+		const params = new URLSearchParams();
+		if (before) params.set('before', String(before));
+		params.set('limit', String(limit));
+		return this.request<{messages: BerxGroupMessage[]}>(`/groups/${id}/messages?${params.toString()}`);
+	}
+
+	async sendGroupMessage(id: number, text: string, replyToId?: number): Promise<{message: BerxGroupMessage}> {
+		const body: Record<string, string> = {text};
+		if (replyToId) body.reply_to_id = String(replyToId);
+		return this.request<{message: BerxGroupMessage}>(`/groups/${id}/messages`, {method: 'POST', body});
+	}
+
+	async editGroupMessage(id: number, messageId: number, text: string): Promise<{message: BerxGroupMessage}> {
+		return this.request<{message: BerxGroupMessage}>(`/groups/${id}/messages/${messageId}`, {method: 'PATCH', body: {text}});
+	}
+
+	async deleteGroupMessage(id: number, messageId: number): Promise<{status: string}> {
+		return this.request<{status: string}>(`/groups/${id}/messages/${messageId}`, {method: 'DELETE'});
+	}
+
+	/** Real toggle — same binary convention as every other BERX reaction. */
+	async toggleGroupMessageReaction(id: number, messageId: number): Promise<{reacted: boolean; reaction_count: number}> {
+		return this.request<{reacted: boolean; reaction_count: number}>(`/groups/${id}/messages/${messageId}/react`, {method: 'POST'});
+	}
+
+	async pinGroupMessage(id: number, messageId: number): Promise<{status: string}> {
+		return this.request<{status: string}>(`/groups/${id}/messages/${messageId}/pin`, {method: 'POST'});
+	}
+
+	async unpinGroupMessage(id: number, messageId: number): Promise<{status: string}> {
+		return this.request<{status: string}>(`/groups/${id}/messages/${messageId}/pin`, {method: 'DELETE'});
+	}
+
+	async markGroupRead(id: number, upToMessageId: number): Promise<{status: string}> {
+		return this.request<{status: string}>(`/groups/${id}/read`, {method: 'POST', body: {message_id: String(upToMessageId)}});
+	}
+
+	async groupTyping(id: number): Promise<{typing: BerxGroupParticipant[]}> {
+		return this.request<{typing: BerxGroupParticipant[]}>(`/groups/${id}/typing`);
+	}
+
+	async setGroupTyping(id: number): Promise<{status: string}> {
+		return this.request<{status: string}>(`/groups/${id}/typing`, {method: 'POST'});
 	}
 
 	async datingDiscover(limit = 20, offset = 0): Promise<BerxDatingDiscoverResponse> {

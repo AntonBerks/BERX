@@ -66,10 +66,18 @@ interface Props {
 	onOpenPost?: (guid: number) => void;
 	/** BERX WORLD — tap-through on a shared story's byline (see message.shared_story). */
 	onOpenProfile?: (username: string) => void;
+	/**
+	 * "Direct Message → Group creation" (master build directive §56):
+	 * turns this 1:1 into a real group by seeding the new group's
+	 * participant picker with the person you're already talking to —
+	 * a real guid/username/fullname, not a re-search of someone you
+	 * just had open.
+	 */
+	onCreateGroup?: (preselect: {guid: number; username: string; fullname: string}) => void;
 	onBack: () => void;
 }
 
-export default function ConversationScreen({api, myGuid, otherGuid, otherUsername, pickImage, onOpenPost, onOpenProfile, onBack}: Props) {
+export default function ConversationScreen({api, myGuid, otherGuid, otherUsername, pickImage, onOpenPost, onOpenProfile, onCreateGroup, onBack}: Props) {
 	const colors = useBerxColors();
 	const styles = useMemo(() => makeStyles(colors), [colors]);
 	const [messages, setMessages] = useState<BerxMessage[]>([]);
@@ -267,6 +275,13 @@ export default function ConversationScreen({api, myGuid, otherGuid, otherUsernam
 	return (
 		<View style={styles.screen}>
 			<BerxHeader onBack={onBack} title={otherUsername ?? `Пользователь #${otherGuid}`} subtitle={withOnline ? 'в сети' : undefined} />
+			{onCreateGroup ? (
+				<Pressable
+					style={styles.createGroupRow}
+					onPress={() => onCreateGroup({guid: otherGuid, username: otherUsername ?? `#${otherGuid}`, fullname: ''})}>
+					<Text style={styles.createGroupText}>+ Создать группу с {otherUsername ?? `#${otherGuid}`}</Text>
+				</Pressable>
+			) : null}
 
 			{loading ? (
 				<BerxLoadingState label="Загрузка переписки..." />
@@ -380,6 +395,8 @@ export default function ConversationScreen({api, myGuid, otherGuid, otherUsernam
 
 const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.bg},
+	createGroupRow: {paddingHorizontal: spacing.md, paddingVertical: spacing.xs},
+	createGroupText: {color: colors.accent, fontSize: typography.sizeXs, fontWeight: typography.weightMedium},
 	list: {flex: 1, paddingHorizontal: spacing.md},
 	bubble: {
 		maxWidth: '80%',

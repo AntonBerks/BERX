@@ -31,10 +31,12 @@ interface Props {
 	api: BerxApiClient;
 	id: number;
 	onDeleted?: () => void;
+	/** Circle → Group Chat ("context everywhere", master build directive §56) — finds this circle's real group or offers to create one, pre-seeded with the circle's own real members. */
+	onOpenGroupChat?: (anchor: {guid: number; title: string}) => void;
 	onBack?: () => void;
 }
 
-export default function CircleDetailScreen({api, id, onDeleted, onBack}: Props) {
+export default function CircleDetailScreen({api, id, onDeleted, onOpenGroupChat, onBack}: Props) {
 	const colors = useBerxColors();
 	const styles = useMemo(() => makeStyles(colors), [colors]);
 	const [circle, setCircle] = useState<BerxCircleDetail | null>(null);
@@ -178,6 +180,11 @@ export default function CircleDetailScreen({api, id, onDeleted, onBack}: Props) 
 					<Pressable style={styles.toggleBtn} onPress={openEdit}>
 						<Text style={styles.toggleBtnText}>Переименовать / удалить</Text>
 					</Pressable>
+					{onOpenGroupChat ? (
+						<Pressable style={styles.toggleBtn} onPress={() => onOpenGroupChat({guid: circle.id, title: circle.name})}>
+							<Text style={styles.toggleBtnText}>Групповой чат</Text>
+						</Pressable>
+					) : null}
 				</View>
 			)}
 

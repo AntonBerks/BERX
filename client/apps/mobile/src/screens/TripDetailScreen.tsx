@@ -35,6 +35,8 @@ interface Props {
 	onOpenPlace: (guid: number) => void;
 	onOpenEvent: (guid: number) => void;
 	onDeleted?: () => void;
+	/** Trip → Group Chat ("context everywhere", master build directive §56) — finds this trip's real group or offers to create one, owner-only (same gate as the rest of this toolbar). */
+	onOpenGroupChat?: (anchor: {guid: number; title: string}) => void;
 	onBack?: () => void;
 }
 
@@ -47,7 +49,7 @@ function groupByDay(stops: BerxTripStop[]): [number, BerxTripStop[]][] {
 	return Array.from(map.entries()).sort((a, b) => a[0] - b[0]);
 }
 
-export default function TripDetailScreen({api, id, onOpenPlace, onOpenEvent, onDeleted, onBack}: Props) {
+export default function TripDetailScreen({api, id, onOpenPlace, onOpenEvent, onDeleted, onOpenGroupChat, onBack}: Props) {
 	const colors = useBerxColors();
 	const styles = useMemo(() => makeStyles(colors), [colors]);
 	const [trip, setTrip] = useState<BerxTripDetail | null>(null);
@@ -196,6 +198,11 @@ export default function TripDetailScreen({api, id, onOpenPlace, onOpenEvent, onD
 					<Pressable onPress={openEdit}>
 						<Text style={styles.toggleBtnText}>Редактировать</Text>
 					</Pressable>
+					{onOpenGroupChat ? (
+						<Pressable onPress={() => onOpenGroupChat({guid: trip.id, title: trip.title})}>
+							<Text style={styles.toggleBtnText}>Групповой чат</Text>
+						</Pressable>
+					) : null}
 				</View>
 			) : null}
 
