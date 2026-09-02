@@ -104,73 +104,98 @@ export function BerxWordmark({width = 220, color = '#FFFFFF', accent, style}: Be
 /* ------------------------------------------------------------------ */
 
 /**
- * One blade of the mark, drawn as TWO faces of a single folded plane:
- * a lit face and a shadow face meeting on the blade's spine. That fold
- * is the whole reason the symbol reads as an object rather than as a
- * flat glyph — a blade painted in one tone is a shape, a blade with
- * two is a surface catching light.
+ * THE SYMBOL — one solid monogram X, and nothing else.
  *
- * The wedge is narrow at the centre and wide at the tip, so four of
- * them open outward like an aperture instead of closing into a star.
- * A small inner radius keeps them from meeting: the gap at the centre
- * is where the light comes through, and it is what stops the mark
- * turning into a solid blob at small sizes.
+ * Two earlier constructions were thrown away on sight. The first
+ * rotated a blade by 0/90/180/270 and produced a plus sign. The second
+ * put four faceted blades on the diagonals around an open centre and
+ * read as scattered shards — four shapes where a mark needs one.
+ *
+ * This is the X from the logotype itself, at the same stroke weight
+ * and the same round caps, so the symbol and the word are literally
+ * the same letter. It is drawn as two crossing strokes rather than one
+ * shape, and the two carry different light: the stroke running with
+ * the key is bright along its length, the one running across it is in
+ * shadow, and a short highlight sits where the lit stroke passes over
+ * the other. That single fold is what makes it read as two planes
+ * crossing in space instead of as a flat glyph — and it survives being
+ * shrunk to a 16pt tab icon, which the shards never would.
  */
-const BLADE_LIT = 'M0 -21 L-12 -88 L0 -92 Z';
-const BLADE_SHADE = 'M0 -21 L0 -92 L12 -88 Z';
+
+/** The logotype's own X, on its 62 × 100 grid, centred on the origin. */
+const X_LIT = 'M-31 -50 L31 50';
+const X_SHADE = 'M31 -50 L-31 50';
 
 export interface BerxMarkProps {
 	size?: number;
-	/** The light on the leading faces. */
+	/** The light along the lit stroke. */
 	light?: string;
-	/** The body of the shadow faces. */
+	/** The stroke lying in shadow. Normally a hair above the ground. */
 	body?: string;
 	/** Draw the soft spill the object throws into the air around it. */
 	spill?: boolean;
+	/** Flat two-tone, no gradients — for tab bars and other small sizes. */
+	flat?: boolean;
 	style?: ViewStyle;
 }
 
-export function BerxMark({size = 96, light = '#4FD6E8', body = '#0E141C', spill = true, style}: BerxMarkProps) {
+export function BerxMark({size = 96, light = '#FF6A45', body = '#5A3A34', spill = true, flat = false, style}: BerxMarkProps) {
 	const uid = useMemo(() => Math.random().toString(36).slice(2, 8), []);
-	// DIAGONALS, not axes. Rotating a vertical blade by 0/90/180/270
-	// makes a plus sign; BERX's mark is an X, so the blades sit at 45°.
-	// Brightness runs around the mark from the key at the upper left.
-	const blades = [
-		{deg: -45, lit: 1, shade: 0.5},
-		{deg: 45, lit: 0.62, shade: 0.26},
-		{deg: 135, lit: 0.3, shade: 0.14},
-		{deg: 225, lit: 0.72, shade: 0.34},
-	];
+	// The stroke is centred on the path, so the drawn mark overhangs its
+	// grid by half a stroke; the viewBox is padded to match.
+	const W = 15;
 	return (
 		<View pointerEvents="none" style={[{width: size, height: size}, style]}>
-			<Svg width={size} height={size} viewBox="-100 -100 200 200">
+			<Svg width={size} height={size} viewBox="-58 -58 116 116">
 				<Defs>
-					{blades.map((b, i: number) => (
-						<LinearGradient key={i} id={`${uid}-l${i}`} x1="0.5" y1="1" x2="0.5" y2="0">
-							<Stop offset="0%" stopColor={light} stopOpacity={b.lit * 0.45} />
-							<Stop offset="70%" stopColor={light} stopOpacity={b.lit * 0.92} />
-							<Stop offset="100%" stopColor="#FFFFFF" stopOpacity={b.lit} />
-						</LinearGradient>
-					))}
-					{blades.map((b, i: number) => (
-						<LinearGradient key={`s${i}`} id={`${uid}-s${i}`} x1="0.5" y1="1" x2="0.5" y2="0">
-							<Stop offset="0%" stopColor={body} stopOpacity={0.95} />
-							<Stop offset="100%" stopColor={light} stopOpacity={b.shade} />
-						</LinearGradient>
-					))}
+					{/* The lit stroke stays in the accent's own hue for its whole
+					    length. An earlier version ramped from white, which bleached
+					    the tip and made the mark look like a highlight rather than
+					    like a coloured object. */}
+					<LinearGradient id={`${uid}-lit`} x1="0" y1="0" x2="1" y2="1">
+						<Stop offset="0%" stopColor={light} stopOpacity={1} />
+						<Stop offset="52%" stopColor={light} stopOpacity={0.94} />
+						<Stop offset="100%" stopColor={light} stopOpacity={0.7} />
+					</LinearGradient>
+					<LinearGradient id={`${uid}-shade`} x1="1" y1="0" x2="0" y2="1">
+						<Stop offset="0%" stopColor={body} stopOpacity={0.92} />
+						<Stop offset="100%" stopColor={body} stopOpacity={0.62} />
+					</LinearGradient>
 					<RadialGradient id={`${uid}-spill`} cx="50%" cy="50%" r="50%">
-						<Stop offset="0%" stopColor={light} stopOpacity={0.22} />
-						<Stop offset="34%" stopColor={light} stopOpacity={0.08} />
+						<Stop offset="0%" stopColor={light} stopOpacity={0.2} />
+						<Stop offset="40%" stopColor={light} stopOpacity={0.06} />
 						<Stop offset="100%" stopColor={light} stopOpacity={0} />
 					</RadialGradient>
 				</Defs>
-				{spill ? <Path d="M-100 -100 H100 V100 H-100 Z" fill={`url(#${uid}-spill)`} /> : null}
-				{blades.map((b, i: number) => (
-					<G key={b.deg} transform={`rotate(${b.deg})`}>
-						<Path d={BLADE_SHADE} fill={`url(#${uid}-s${i})`} />
-						<Path d={BLADE_LIT} fill={`url(#${uid}-l${i})`} />
-					</G>
-				))}
+				{spill && !flat ? <Path d="M-58 -58 H58 V58 H-58 Z" fill={`url(#${uid}-spill)`} /> : null}
+				{/* Shadow stroke first: the lit one crosses OVER it. */}
+				<Path
+					d={X_SHADE}
+					fill="none"
+					stroke={flat ? body : `url(#${uid}-shade)`}
+					strokeWidth={W}
+					strokeLinecap="round"
+				/>
+				<Path
+					d={X_LIT}
+					fill="none"
+					stroke={flat ? light : `url(#${uid}-lit)`}
+					strokeWidth={W}
+					strokeLinecap="round"
+				/>
+				{/* The crossing highlight — a short bright run right where the
+				    lit plane passes over the other. Without it the two strokes
+				    read as printed on one another rather than stacked. */}
+				{!flat ? (
+					<Path
+						d="M-9 -14 L9 14"
+						fill="none"
+						stroke="#FFFFFF"
+						strokeOpacity={0.3}
+						strokeWidth={W - 5}
+						strokeLinecap="round"
+					/>
+				) : null}
 			</Svg>
 		</View>
 	);
@@ -182,9 +207,9 @@ export function BerxMark({size = 96, light = '#4FD6E8', body = '#0E141C', spill 
 
 export function BerxLockup({
 	width = 200,
-	light = '#4FD6E8',
+	light = '#FF6A45',
 	color = '#FFFFFF',
-	body = '#0E141C',
+	body = '#5A3A34',
 	style,
 }: {
 	width?: number;

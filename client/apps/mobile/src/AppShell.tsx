@@ -150,6 +150,11 @@ import type {BerxStoryFeedGroup, BerxPostVisibility} from '@berx/api/types';
 
 import {useBerxColors, BerxThemeProvider} from '../../../packages/design-system/src/theme';
 import {SafeAreaProvider} from '../../../packages/design-system/src/insets';
+import {installBerxTypeface} from '../../../packages/design-system/src/typeface';
+
+// Installed once, at module load, before any screen renders: BERX ships
+// its own typeface and RN Text does not inherit a family from a parent.
+installBerxTypeface();
 import type {BerxColorTokens} from '@berx/design-system/tokens';
 
 const api = new BerxApiClient(BERX_PRODUCTION_ENV.apiBaseUrl, new BerxSecureTokenStorage());

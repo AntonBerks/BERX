@@ -76,21 +76,24 @@ export const BERX_DAWN: BerxScenePalette = {
 /**
  * BERX SCENE — the ground the entry sequence stands on.
  *
- * Near-black, but not neutral: there is enough of the accent's own hue
- * in `ground` that the light sitting on it belongs to the same world.
- * A true #000 ground with a coloured glow on it always looks like two
- * separate things.
+ * Near-black, but warm: there is violet and red in `ground`, so the
+ * ember light sitting on it belongs to the same world. A neutral or
+ * blue-black ground under a warm accent always reads as two separate
+ * things stuck together, which is exactly what the old black-and-cyan
+ * BERX looked like.
  */
 export const BERX_SCENE = {
-	ground: '#080A0F',
-	/** The main pool. Deliberately desaturated — a saturated glow on a
-	 *  dark ground is the signature of a template. */
-	glow: '#2E7C8C',
-	/** Opposite corner, cooler and much fainter, so the frame is not
-	 *  lit by one colour alone. */
-	counter: '#3B3F7A',
-	/** BERX cyan, spent only where it is worth spending. */
-	light: '#4FD6E8',
-	/** Body of the glass object: a hair above the ground, never below. */
-	object: '#101620',
+	ground: '#0B0910',
+	/** The main pool: ember, well off full saturation. */
+	glow: '#C2482C',
+	/** Opposite corner — a deep plum that keeps the frame from being lit
+	 *  by one colour alone, and never becomes a purple gradient because
+	 *  it never gets above a few percent. */
+	counter: '#3A2350',
+	/** Ember itself, spent only where it is worth spending. */
+	light: '#FF6A45',
+	/** Aurora — the cool counterpart, for anything alive. */
+	live: '#5FE3BE',
+	/** Body of a glass object: a hair above the ground, never below. */
+	object: '#171320',
 } as const;
