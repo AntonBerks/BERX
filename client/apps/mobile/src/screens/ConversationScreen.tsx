@@ -40,8 +40,16 @@
  * real Blob client-side (fetch().blob()) and sent through the exact
  * same real attachment upload path as a picked photo — not a special
  * case, just a different file part.
+ *
+ * BERX WORLD — real spatial entrance for messages (master directive
+ * §20: "New message: appear → move through depth → settle"), same
+ * mechanism as GroupChatScreen's own (see its header): `seenIds` grows
+ * monotonically, so a message already displayed once never replays
+ * its entrance just because a later poll re-delivers the same list
+ * (its own read-receipt flipping, say) — only a genuinely new message
+ * id gets the BerxFadeIn treatment.
  */
-import {useCallback, useEffect, useRef, useState, useMemo} from 'react';
+import {Fragment, useCallback, useEffect, useRef, useState, useMemo} from 'react';
 import {FlatList, Text, View, Image, Pressable, Alert, StyleSheet, Linking} from 'react-native';
 import type {BerxApiClient, BerxFilePart} from '@berx/api/client';
 import type {BerxMessage, BerxGifResult} from '@berx/api/types';
@@ -52,6 +60,7 @@ import {BerxInput} from '../../../../packages/design-system/src/components/BerxI
 import {BerxLoadingState, BerxErrorState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {GifPickerModal} from '../../../../packages/design-system/src/components/GifPickerModal';
+import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
 
 import {useBerxColors} from '../../../../packages/design-system/src/theme';
 import type {BerxColorTokens} from '@berx/design-system/tokens';
@@ -104,6 +113,23 @@ export default function ConversationScreen({api, myGuid, otherGuid, otherUsernam
 	useEffect(() => { sendingRef.current = sending; }, [sending]);
 	useEffect(() => { deletingIdRef.current = deletingId; }, [deletingId]);
 	useEffect(() => { editingIdRef.current = editingId; }, [editingId]);
+
+	// Real spatial entrance for messages (master directive §20: "New
+	// message: appear → move through depth → settle"), same real
+	// mechanism as GroupChatScreen's own — see its header for why a
+	// monotonically-growing seen-set (not a per-render flag) is what
+	// makes this correct rather than decorative: a message already
+	// marked seen never replays the animation just because a later poll
+	// re-delivers the same list (e.g. its own read-receipt flipping).
+	const seenIds = useRef<Set<number>>(new Set());
+	const [freshIds, setFreshIds] = useState<Set<number>>(new Set());
+	useEffect(() => {
+		const arrivals = messages.map((m) => m.id).filter((id) => !seenIds.current.has(id));
+		if (arrivals.length > 0) {
+			arrivals.forEach((id) => seenIds.current.add(id));
+			setFreshIds(new Set(arrivals));
+		}
+	}, [messages]);
 
 	const load = useCallback(async () => {
 		try {
@@ -293,7 +319,15 @@ export default function ConversationScreen({api, myGuid, otherGuid, otherUsernam
 					style={styles.list}
 					data={messages}
 					keyExtractor={(m: BerxMessage) => String(m.id)}
-					renderItem={({item}: {item: BerxMessage}) => (
+					renderItem={({item}: {item: BerxMessage}) => {
+						// Real entrance — see this file's own header. A message
+						// already marked seen renders bare (Fragment), so it never
+						// replays the animation on a later re-render.
+						const fresh = freshIds.has(item.id);
+						const Wrap = fresh ? BerxFadeIn : Fragment;
+						const wrapProps = fresh ? {riseFrom: 14, scaleFrom: 0.97} : {};
+						return (
+						<Wrap {...wrapProps}>
 						<Pressable
 							onLongPress={() => handleLongPress(item)}
 							disabled={deletingId === item.id}
@@ -332,7 +366,9 @@ export default function ConversationScreen({api, myGuid, otherGuid, otherUsernam
 								) : null}
 							</View>
 						</Pressable>
-					)}
+						</Wrap>
+						);
+					}}
 				/>
 			)}
 

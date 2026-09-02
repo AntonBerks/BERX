@@ -14,8 +14,19 @@
  * server route and reflects only what the server actually confirmed —
  * nothing here is optimistic-and-hope, because the server is the only
  * place role/membership is actually enforced.
+ *
+ * BERX WORLD — real spatial entrance for messages (master directive
+ * §20: "New message: appear → move through depth → settle"). Every
+ * message id that appears in a `messages` update — first load or a
+ * later poll tick alike — is tracked in `seenIds` (a ref, so marking a
+ * message seen never itself triggers a render); a message not yet in
+ * that set is genuinely new, gets one entrance via BerxFadeIn, and is
+ * added to the set so a later re-render of the SAME message (its
+ * reaction count changing, say) never replays the animation. This is
+ * why it's correct rather than decorative: it distinguishes an actual
+ * new arrival from the poll simply re-delivering the list.
  */
-import {useCallback, useEffect, useRef, useState, useMemo} from 'react';
+import {Fragment, useCallback, useEffect, useRef, useState, useMemo} from 'react';
 import {FlatList, Text, View, Pressable, Alert, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxGroupMessage, BerxGroupConversation} from '@berx/api/types';
@@ -26,6 +37,7 @@ import {BerxInput} from '../../../../packages/design-system/src/components/BerxI
 import {BerxLoadingState, BerxErrorState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxAvatar} from '../../../../packages/design-system/src/components/BerxAvatar';
+import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
 
 import {useBerxColors} from '../../../../packages/design-system/src/theme';
 import type {BerxColorTokens} from '@berx/design-system/tokens';
@@ -60,6 +72,19 @@ export default function GroupChatScreen({api, myGuid, groupId, onOpenInfo, onOpe
 	useEffect(() => { sendingRef.current = sending; }, [sending]);
 	useEffect(() => { deletingIdRef.current = deletingId; }, [deletingId]);
 	useEffect(() => { editingIdRef.current = editingId; }, [editingId]);
+
+	// Real spatial entrance tracking — see this file's own header. Grows
+	// monotonically; a message id is never removed, so it never
+	// re-animates once it has genuinely arrived once.
+	const seenIds = useRef<Set<number>>(new Set());
+	const [freshIds, setFreshIds] = useState<Set<number>>(new Set());
+	useEffect(() => {
+		const arrivals = messages.map((m) => m.id).filter((id) => !seenIds.current.has(id));
+		if (arrivals.length > 0) {
+			arrivals.forEach((id) => seenIds.current.add(id));
+			setFreshIds(new Set(arrivals));
+		}
+	}, [messages]);
 
 	const load = useCallback(async () => {
 		try {
@@ -247,46 +272,57 @@ export default function GroupChatScreen({api, myGuid, groupId, onOpenInfo, onOpe
 				keyExtractor={(m: BerxGroupMessage) => String(m.id)}
 				renderItem={({item}: {item: BerxGroupMessage}) => {
 					const isMine = item.sender?.guid === myGuid;
+					// Real entrance — see this file's own header. A message
+					// already marked seen renders bare (Fragment), so it never
+					// replays the animation on a later re-render (a reaction
+					// count changing, say).
+					const fresh = freshIds.has(item.id);
+					const Wrap = fresh ? BerxFadeIn : Fragment;
+					const wrapProps = fresh ? {riseFrom: 14, scaleFrom: 0.97} : {};
 					if (item.deleted) {
 						return (
-							<View style={[styles.bubble, isMine ? styles.bubbleMine : styles.bubbleTheirs, styles.bubbleDeletedWrap]}>
-								<Text style={styles.bubbleDeletedText}>Сообщение удалено</Text>
-							</View>
+							<Wrap {...wrapProps}>
+								<View style={[styles.bubble, isMine ? styles.bubbleMine : styles.bubbleTheirs, styles.bubbleDeletedWrap]}>
+									<Text style={styles.bubbleDeletedText}>Сообщение удалено</Text>
+								</View>
+							</Wrap>
 						);
 					}
 					return (
-						<Pressable
-							onLongPress={() => handleLongPress(item)}
-							disabled={deletingId === item.id}
-							style={[styles.bubble, isMine ? styles.bubbleMine : styles.bubbleTheirs, deletingId === item.id && styles.bubbleDeleting, editingId === item.id && styles.bubbleEditing]}>
-							{!isMine ? (
-								<Pressable
-									style={styles.senderRow}
-									onPress={() => item.sender && onOpenProfile && onOpenProfile(item.sender.guid)}
-									disabled={!item.sender || !onOpenProfile}>
-									<BerxAvatar iconUrl={item.sender?.icon ?? null} fallbackInitial={(item.sender?.username ?? '?').charAt(0)} size={20} />
-									<Text style={styles.senderName}>{item.sender?.fullname || item.sender?.username || 'BERX'}</Text>
-								</Pressable>
-							) : null}
-							{item.reply_to ? (
-								<View style={styles.replyPreview}>
-									<Text style={styles.replyPreviewAuthor}>{item.reply_to.sender?.fullname || item.reply_to.sender?.username || 'BERX'}</Text>
-									<Text style={styles.replyPreviewText} numberOfLines={2}>{item.reply_to.text}</Text>
-								</View>
-							) : null}
-							<Text style={styles.bubbleText}>{item.text}</Text>
-							<View style={styles.bubbleMetaRow}>
-								<Text style={styles.bubbleTime}>
-									{relativeTimeLabel(item.time_created)}
-									{item.time_edited ? ' · изменено' : ''}
-								</Text>
-								<Pressable onPress={() => handleToggleReaction(item.id)} hitSlop={8}>
-									<Text style={[styles.reaction, item.reacted_by_me && styles.reactionActive]}>
-										♥ {item.reaction_count > 0 ? item.reaction_count : ''}
+						<Wrap {...wrapProps}>
+							<Pressable
+								onLongPress={() => handleLongPress(item)}
+								disabled={deletingId === item.id}
+								style={[styles.bubble, isMine ? styles.bubbleMine : styles.bubbleTheirs, deletingId === item.id && styles.bubbleDeleting, editingId === item.id && styles.bubbleEditing]}>
+								{!isMine ? (
+									<Pressable
+										style={styles.senderRow}
+										onPress={() => item.sender && onOpenProfile && onOpenProfile(item.sender.guid)}
+										disabled={!item.sender || !onOpenProfile}>
+										<BerxAvatar iconUrl={item.sender?.icon ?? null} fallbackInitial={(item.sender?.username ?? '?').charAt(0)} size={20} />
+										<Text style={styles.senderName}>{item.sender?.fullname || item.sender?.username || 'BERX'}</Text>
+									</Pressable>
+								) : null}
+								{item.reply_to ? (
+									<View style={styles.replyPreview}>
+										<Text style={styles.replyPreviewAuthor}>{item.reply_to.sender?.fullname || item.reply_to.sender?.username || 'BERX'}</Text>
+										<Text style={styles.replyPreviewText} numberOfLines={2}>{item.reply_to.text}</Text>
+									</View>
+								) : null}
+								<Text style={styles.bubbleText}>{item.text}</Text>
+								<View style={styles.bubbleMetaRow}>
+									<Text style={styles.bubbleTime}>
+										{relativeTimeLabel(item.time_created)}
+										{item.time_edited ? ' · изменено' : ''}
 									</Text>
-								</Pressable>
-							</View>
-						</Pressable>
+									<Pressable onPress={() => handleToggleReaction(item.id)} hitSlop={8}>
+										<Text style={[styles.reaction, item.reacted_by_me && styles.reactionActive]}>
+											♥ {item.reaction_count > 0 ? item.reaction_count : ''}
+										</Text>
+									</Pressable>
+								</View>
+							</Pressable>
+						</Wrap>
 					);
 				}}
 			/>
