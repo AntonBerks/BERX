@@ -1,91 +1,59 @@
 # BERX — Resource License Registry
 
-Every external resource considered for BERX, with the licence verified
-by reading the actual licence text — never inferred from "free
-download". Only GREEN resources may ship.
+Every external resource in BERX, what its licence permits, and whether
+it ships or is reference-only. Nothing enters the product without an
+entry here.
 
-## Environment constraint (verified, not assumed)
+## GREEN — shipped in the product
 
-This build environment reaches the network through an egress proxy with
-an allow-list. Reachability was tested directly:
+| Resource | Source | Licence | Commercial | Modify | Attribution | Used for |
+| --- | --- | --- | --- | --- | --- | --- |
+| Manrope | fonts.gstatic.com (Google Fonts) | SIL OFL 1.1 | Yes | Yes | Not required in-product | The interface typeface. 6 weights in `client/assets/fonts/` |
+| Instrument Serif | fonts.gstatic.com (Google Fonts) | SIL OFL 1.1 | Yes | Yes | Not required in-product | Display type: entry sequence, every screen headline, profile names. Roman + italic |
+| Lucide icons | lucide-static (npm) | ISC | Yes | Yes | Not required | All 82 glyphs in `packages/design-system/src/icons/geometry.ts` |
+| react-native-svg | npm | MIT | Yes | Yes | Not required | The whole drawn visual layer: aura, planes, logo, scrims, actions |
+| react-native-safe-area-context | npm | MIT | Yes | Yes | Not required | Real measured insets (`design-system/src/insets.ts`) |
+
+SIL OFL 1.1 permits bundling and embedding in a commercial application.
+Its only real constraints are that the fonts may not be sold on their
+own and that a modified font may not keep the Reserved Font Name — BERX
+does neither.
+
+## ORIGINAL — authored for BERX, no third-party licence involved
+
+| Asset | Where |
+| --- | --- |
+| BERX logotype | `BerxLogo.tsx` — drawn geometry on a 62x100 grid, not a typeset word |
+| BERX symbol (monogram X) | `BerxLogo.tsx` — the logotype's own X as two crossing lit planes |
+| BERX Planes (the 3D language) | `BerxPlanes.tsx` — glass slabs at measured depths |
+| BERX Aura (the lit ground) | `BerxAura.tsx` |
+| Ember palette | `tokens/index.ts`, `palette.ts` |
+
+## NOT ACQUIRED — and why, stated rather than implied
+
+Every stock-photography and design-file host reachable from this
+environment is blocked by the network policy. Tested, not assumed:
 
 | Host | Result |
-|---|---|
-| `registry.npmjs.org` | reachable |
-| `raw.githubusercontent.com` | reachable |
-| `api.github.com` | reachable but repo-scoped to this session |
-| `images.unsplash.com`, `api.unsplash.com` | **blocked** (proxy 403) |
-| `www.figma.com` | **blocked** |
-| `cdn.jsdelivr.net` | **blocked** |
+| --- | --- |
+| images.unsplash.com | blocked |
+| api.unsplash.com | blocked |
+| www.figma.com | blocked |
+| cdn.jsdelivr.net | blocked |
+| github.com (HTML) | 403 |
 
-Consequences, stated plainly rather than worked around:
-- Icon and code assets are acquirable (npm + raw.githubusercontent).
-- **Stock photography is not acquirable here.** No Unsplash/Pexels asset
-  is bundled, and none is claimed to be. See ASSET_MANIFEST.md.
-- Figma Community files cannot be duplicated from this environment.
+Reachable and used: `registry.npmjs.org`, `fonts.googleapis.com`,
+`fonts.gstatic.com`, `raw.githubusercontent.com`.
 
----
+Consequence, and it is a real one: **BERX bundles no stock photography
+and claims none.** Screens that run before an account exists have no
+user media either — every API resource except `auth` is behind a bearer
+token (`components/OssnApi/ossn_com.php`) — so their ground is original
+drawn artwork rather than an unlicensed image or a grey placeholder
+box. Where the product does have real media (place covers, avatars,
+feed photos, profile heroes), that media leads the composition.
 
-## GREEN — commercially usable, shipped
-
-### Lucide
-- **RESOURCE**: Lucide icon family (82 curated glyphs)
-- **SOURCE**: npm `lucide-static@1.39.0`
-- **URL**: https://github.com/lucide-icons/lucide
-- **TYPE**: SVG icon set
-- **LICENSE**: ISC — text vendored at `design-resources/icons/LICENSE-lucide.txt`
-- **COMMERCIAL USE**: yes
-- **ATTRIBUTION**: not required by ISC; licence text retained anyway
-- **DOWNLOAD**: yes
-- **PRODUCTION USE**: yes — the BERX primary icon family
-- **REFERENCE ONLY**: no
-- **REASON**: single coherent geometry (24×24, stroke 2, round caps);
-  all 82 curated glyphs verified deviation-free before normalisation.
-
-### react-native-svg
-- **RESOURCE**: SVG renderer
-- **SOURCE**: npm `react-native-svg@15.15.5`
-- **LICENSE**: MIT
-- **COMMERCIAL USE**: yes
-- **PRODUCTION USE**: yes — required to render the icon family at all
-- **REASON**: BERX previously had no SVG renderer, which is why icons
-  were glyph characters.
-
----
-
-## GREEN — verified, deliberately NOT used
-
-| Resource | Licence | Why not used |
-|---|---|---|
-| Tabler Icons (`@tabler/icons`) | MIT | A second icon family would break the one-system rule (§11). |
-| Phosphor Icons (`@phosphor-icons/core`) | MIT | Same. |
-| Feather Icons | MIT | Superseded by Lucide, which is its maintained successor. |
-| free-gophers-pack | CC0 | Cartoon mascot illustration; contradicts BERX's premium/photographic direction. |
-
-Recorded so the decision is visible, not repeated.
-
----
-
-## YELLOW — licence unclear, reference only
-
-| Resource | Status |
-|---|---|
-| `realvjy/3dicons` | Repository not resolvable from this environment (404 on the raw paths tried); licence text could not be read, so it is **not** downloaded or shipped. |
-
-## RED — must never ship
-
-| Resource | Reason |
-|---|---|
-| The reference sheets supplied for this project | Third-party product screenshots. Used **only** as visual blueprint and, cropped, as local QA imagery in the gitignored harness. Never bundled, never shipped, never presented as BERX content. |
-| Any Google-image-sourced photography | Provenance and licence unknown. |
-| Celebrity photography | Personality rights. |
-
----
-
-## 3D assets
-
-No third-party 3D asset library was reachable and licence-verifiable
-from this environment. Per the substitution rule, BERX 3D is therefore
-**original**, built from real transforms rather than downloaded models —
-see `BERX_DESIGN_STATE.md`. Nothing is claimed to be a licensed
-third-party 3D pack.
+The photographic plates visible in development screenshots are served
+only by the local test harness (`client/harness/img/`, gitignored) and
+are reference crops. They are not bundled, not referenced by any
+shipped code path, and are not part of the product.

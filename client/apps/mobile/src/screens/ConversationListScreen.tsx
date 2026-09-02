@@ -256,7 +256,7 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	headline: {flex: 1},
 	titleRow: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.lg, paddingTop: spacing.md},
 	title: {color: colors.text, fontSize: typography.sizeXl, fontWeight: typography.weightBold},
-	onlineRow: {paddingHorizontal: spacing.lg, paddingBottom: spacing.sm, gap: spacing.sm},
+	onlineRow: {paddingHorizontal: spacing.lg, paddingTop: spacing.xs, paddingBottom: spacing.sm, gap: spacing.sm},
 	onlineItem: {alignItems: 'center', width: 60, marginRight: spacing.xs},
 	onlineAvatarWrap: {width: 48, height: 48},
 	onlineAvatar: {width: 48, height: 48, borderRadius: 24, backgroundColor: colors.graphite},

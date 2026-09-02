@@ -1,65 +1,78 @@
-# BERX — Design State
+# BERX Design State
 
-Working state. Update in place; do not append history.
+## Identity — BERX Ember
 
-## DONE
+The black-and-cyan system is retired. It read as a starter template and
+no amount of composition work was going to fix the palette underneath.
 
-- **Resource channel established.** Reachability verified by direct test
-  (see RESOURCE_LICENSE_REGISTRY.md): npm and raw.githubusercontent are
-  open; Unsplash, Pexels, Figma and jsDelivr are proxy-blocked.
-- **Icon system.** Lucide (ISC) acquired via npm, 82 glyphs curated to
-  what BERX actually uses, normalised to one geometry (24×24, stroke 2,
-  round caps — zero deviations across all 82), generated into
-  `geometry.ts`, rendered by `BerxIcon.tsx`. `react-native-svg` (MIT)
-  installed; BERX previously had no SVG renderer at all.
-- **Glass system.** Four levels plus hero, theme-resolved
-  (`BerxGlassSurface`, `useBerxGlass`).
-- **Scrim system.** One primitive (`BerxScrim`, 18-step eased ramp)
-  replacing six hand-rolled copies that visibly banded on real photos.
-- **Depth/3D.** `BerxDepthCard` — real perspective/rotateX/scale driven
-  by measured scroll position, plus press-depth springs shared through
-  `BerxMediaCard`.
-- **Theme.** Night/Day/Auto, live at runtime, verified by DOM identity.
-- **NOW** rebuilt as a full-device photographic stage with floating
-  chrome.
-- **PROFILE, PLACES, EVENTS, MOMENTS, CREATE, MESSAGING, COMMUNITIES,
-  map** reconstructed toward the reference composition.
+| Role | Night | Day |
+| --- | --- | --- |
+| Ground | `#0B0910` — near-black with violet and red in it | `#FBF6F1` warm paper |
+| Brand (Ember) | `#FF6A45` | `#D8442A` |
+| Aurora (live / positive) | `#5FE3BE` | `#0E8F76` |
+| Ink | `#F8F3EF` | `#1A1216` |
+| On accent | `#26100A` | `#FFF3EE` |
 
-## CURRENT
+Ember is warm on purpose. Every product in this category is blue, cyan,
+purple or pink; a warm accent on a warm-dark ground reads as light
+falling on a room rather than as a UI colour applied to a surface.
+White on ember reaches only ~2.9:1, so `onAccent` is a deep ember-black
+at ~6.3:1 — which also looks better.
 
-Icon family is built but not yet adopted screen-by-screen: BERX still
-renders many controls as text glyphs (`◎`, `♡`, `➤`). Replacing those
-with `BerxIcon` is the next visible step and is what §11 actually asks
-for.
+Every screen reads `colors.accent`, never a hex, so the identity is one
+file.
 
-## NEXT
+## Type
 
-1. Adopt `BerxIcon` across nav, action rail, utilities, states.
-2. Original BERX 3D object language (checkpoints, badges, rewards) —
-   procedural, since no licensed 3D pack is reachable.
-3. Onboarding/auth as a cinematic world entry (§15).
-4. Remaining screen areas per the execution order.
+Manrope for the interface, Instrument Serif for display. Installed as
+the default family by patching `Text`/`TextInput` render once
+(`design-system/src/typeface.ts`) — RN `Text` does not inherit a family,
+so the alternative was naming it in every style in the app.
 
-## BLOCKED
+## The system
 
-- **Stock photography.** Image hosts are proxy-blocked. Not solvable
-  from inside this environment; needs either a proxy allow-list change
-  or photographs supplied directly.
-- **Figma Community duplication.** figma.com unreachable.
-- **Native/device runtime.** No android/ios project, no SDK, no
-  emulator. All visual QA is a browser harness (react-native-web +
-  Playwright) — it verifies the JS/UI layer, not native modules.
-- **PHP server.** No MySQL here; the API is exercised through a local
-  harness serving the real endpoints' response shapes.
+| Piece | What it is |
+| --- | --- |
+| `BerxAura` | The lit ground: two very soft pools over warm near-black |
+| `BerxPlanes` | The 3D language: glass slabs at measured depths, each catching the light on one edge |
+| `BerxEntryStage` | Aura + planes + grain, shared by the entire entry sequence; `progress` moves the camera through it, `presence` pulls the 3D back on content-heavy screens |
+| `BerxLogo` | Drawn logotype + monogram symbol |
+| `BerxActions` | The lit primary control and the quiet secondary |
+| `BerxGlassPanel` | Real glass: gradient edge, inner highlight, tinted body, shadow |
+| `BerxScrim` | Stacked-step gradient; `ease < 1` where it has to carry text over user media |
+| `BerxGrain` | Atmosphere; degrades to nothing where SVG filters are unsupported |
+| `insets.ts` | Real measured safe area — BERX had none before |
 
-## DECISIONS
+## Done
 
-- **One icon family.** Tabler and Phosphor are MIT and were verified,
-  but shipping more than one family would defeat the system.
-- **No bundled stock photos** rather than shipping images of unverified
-  provenance.
-- **Original 3D** rather than claiming a licensed 3D pack that could not
-  be reached or licence-checked.
-- **Palette** stays BERX: `#07080A` / `#4FD6E8` / `#F6F4EF` / `#0B7F91`.
-  Colour in the UI comes from photography, which is where the references
-  get theirs.
+- Ember palette across the whole product (one token file).
+- Manrope + Instrument Serif downloaded, registered, installed.
+- Logotype and symbol drawn.
+- Entry sequence on one shared stage: splash, welcome, discover, login,
+  register, and all seven onboarding steps.
+- Onboarding steps backed by real endpoints, including a new real
+  interests store (`ossn_user_interests`, `/me/interests`,
+  `/places?for_you=1`).
+- Navigation: real icon set, filled create orb.
+- Serif headlines on every screen with an editorial title.
+- CREATE rebuilt off Unicode dingbats onto the real icon set.
+- Profile hero made legible over real photography.
+- Safe-area insets applied product-wide.
+
+## Next
+
+- Places detail, map and the checkpoint objects on the plane language.
+- Business and analytics surfaces.
+- Wallet, tickets, rewards as plane-language objects.
+- Day environment visual QA (Night is what has been inspected).
+
+## Known limits, stated rather than hidden
+
+- No device or emulator exists in this environment. Everything is
+  verified in a browser harness (react-native-web + esbuild +
+  Playwright) against a mock server returning the real endpoint shapes.
+  It verifies the JS/UI layer only.
+- No stock photography is bundled or claimed — see
+  `RESOURCE_LICENSE_REGISTRY.md` for the tested host results.
+- Font weight resolution on Android depends on native linking
+  (`react-native.config.js`); documented in `typeface.ts`.

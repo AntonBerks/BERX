@@ -219,7 +219,10 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 		borderColor: colors.bg,
 	},
 	badgeText: {color: colors.onAccent, fontSize: 9, fontWeight: typography.weightBold},
-	titleWrap: {paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing.xs, gap: 1},
+	// The headline is now a 40pt serif, so it needs real air under it —
+	// at spacing.xs the next element (a presence rail, a search field)
+	// crowded straight into its descenders.
+	titleWrap: {paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing.md, gap: 1},
 	// The screen headline is Instrument Serif, matching the entry
 	// sequence. A geometric-sans bold headline is what every competitor
 	// ships; the serif is the single change that makes a BERX screen
