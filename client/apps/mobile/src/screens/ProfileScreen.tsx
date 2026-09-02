@@ -73,6 +73,8 @@ import {BerxFadeIn} from '../../../../packages/design-system/src/components/Berx
 import {Berx3DTilt} from '../../../../packages/design-system/src/components/Berx3DTilt';
 import {BerxSpatialLayer} from '../../../../packages/design-system/src/components/BerxSpatialLayer';
 import {BerxScrim} from '../../../../packages/design-system/src/components/BerxScrim';
+import {BerxBadge} from '../../../../packages/design-system/src/components/BerxObjects';
+import {BerxIcon} from '../../../../packages/design-system/src/icons/BerxIcon';
 import {BerxAvatarStack} from '../../../../packages/design-system/src/components/BerxAvatarStack';
 import {BerxSegmentedTabs} from '../../../../packages/design-system/src/components/BerxSegmentedTabs';
 import {BerxPhotoGrid} from '../../../../packages/design-system/src/components/BerxPhotoGrid';
@@ -611,19 +613,36 @@ export default function ProfileScreen({api, authState, username, onBack, onMessa
 						</BerxGlassSurface>
 					) : null}
 
-					{identity.achievements.some((a: BerxIdentityAchievement) => a.tier > 0) ? (
+					{/* Achievements are BERX OBJECTS, not text chips. Every one is
+					    the same glass slab from the product's 3D language, closed
+					    into a badge, with its real tier cut into the rim as notches
+					    — so rank is geometry rather than a word printed on a box.
+					    Un-earned ones render the same object dimmed, which is what
+					    makes progression read as progression instead of as a list
+					    that grows. Every tier here is a real threshold over a real
+					    count (identity.php), never an invented score. */}
+					{identity.achievements.length > 0 ? (
 						<View>
 							<Text style={styles.identitySectionTitle}>Достижения</Text>
-							<View style={styles.achievementRow}>
-								{identity.achievements.filter((a: BerxIdentityAchievement) => a.tier > 0).map((a: BerxIdentityAchievement) => (
-									<View key={a.key} style={styles.achievementChipWrap}>
-										<BerxGlassSurface padding="sm" style={styles.achievementChip}>
-											<Text style={styles.achievementTitle} numberOfLines={1}>{a.tier_label}</Text>
-											<Text style={styles.achievementSubtitle} numberOfLines={1}>{a.label}</Text>
-										</BerxGlassSurface>
+							<ScrollView
+								horizontal
+								showsHorizontalScrollIndicator={false}
+								style={styles.railScroll}
+								contentContainerStyle={styles.badgeRail}>
+								{identity.achievements.map((a: BerxIdentityAchievement) => (
+									<View key={a.key} style={styles.badgeSlot}>
+										<BerxBadge size={78} tier={a.tier} dim={a.tier === 0} light={colors.accent} body={colors.graphite} />
+										<Text style={[styles.badgeLabel, a.tier === 0 && styles.badgeLabelDim]} numberOfLines={1}>
+											{a.label}
+										</Text>
+										{a.tier > 0 && a.tier_label ? (
+											<Text style={styles.badgeTier} numberOfLines={1}>
+												{a.tier_label}
+											</Text>
+										) : null}
 									</View>
 								))}
-							</View>
+							</ScrollView>
 						</View>
 					) : null}
 
@@ -667,53 +686,57 @@ export default function ProfileScreen({api, authState, username, onBack, onMessa
 				</View>
 			) : null}
 
-			{profile.guid && onOpenAlbums ? (
-				<View style={styles.actionRow}>
-					<BerxButton label="Альбомы" variant="secondary" onPress={() => onOpenAlbums(profile.guid!, isOwn)} fullWidth />
-				</View>
-			) : null}
-
-			{profile.guid && onOpenCollections ? (
-				<View style={styles.actionRow}>
-					<BerxButton label="Подборки" variant="secondary" onPress={() => onOpenCollections(profile.guid!, isOwn)} fullWidth />
-				</View>
-			) : null}
-
-			{profile.guid && onOpenTrips ? (
-				<View style={styles.actionRow}>
-					<BerxButton label="Поездки" variant="secondary" onPress={() => onOpenTrips(profile.guid!, isOwn)} fullWidth />
-				</View>
-			) : null}
-
-			{profile.guid && onOpenExperiences ? (
-				<View style={styles.actionRow}>
-					<BerxButton label="Впечатления" variant="secondary" onPress={() => onOpenExperiences(profile.guid!, isOwn)} fullWidth />
-				</View>
-			) : null}
-
-			{isOwn && onOpenCreatorSettings ? (
-				<View style={styles.actionRow}>
-					<BerxButton label="Режим автора" variant="secondary" onPress={onOpenCreatorSettings} fullWidth />
-				</View>
-			) : null}
-
-			{!isOwn && profile.is_creator && onOpenCreatorProfile ? (
-				<View style={styles.actionRow}>
-					<BerxButton label="Профиль автора" variant="secondary" onPress={onOpenCreatorProfile} fullWidth />
-				</View>
-			) : null}
-
-			{profile.guid && onOpenMyVideos ? (
-				<View style={styles.actionRow}>
-					<BerxButton label={isOwn ? 'Мои видео' : 'Видео'} variant="secondary" onPress={() => onOpenMyVideos(profile.guid!, isOwn)} fullWidth />
-				</View>
-			) : null}
-
-			{profile.guid && onOpenMyTracks ? (
-				<View style={styles.actionRow}>
-					<BerxButton label={isOwn ? 'Мои треки' : 'Треки'} variant="secondary" onPress={() => onOpenMyTracks(profile.guid!, isOwn)} fullWidth />
-				</View>
-			) : null}
+			{/* THE PROFILE'S OWN SPACES — a grid of destinations, not a
+			    stack of eight identical full-width buttons. That stack was the
+			    settings-menu pattern: every destination the same weight, the
+			    same shape and the same size as the one above it, so nothing
+			    read as a place worth going. Each tile is now an icon, a name
+			    and a real route. Only destinations this profile actually has
+			    are rendered — nothing here is a disabled placeholder. */}
+			{(() => {
+				const spaces: Array<{key: string; icon: string; label: string; onPress: () => void}> = [];
+				if (profile.guid && onOpenAlbums) {
+					spaces.push({key: 'albums', icon: 'image', label: 'Альбомы', onPress: () => onOpenAlbums(profile.guid!, isOwn)});
+				}
+				if (profile.guid && onOpenCollections) {
+					spaces.push({key: 'collections', icon: 'bookmark', label: 'Подборки', onPress: () => onOpenCollections(profile.guid!, isOwn)});
+				}
+				if (profile.guid && onOpenTrips) {
+					spaces.push({key: 'trips', icon: 'route', label: 'Поездки', onPress: () => onOpenTrips(profile.guid!, isOwn)});
+				}
+				if (profile.guid && onOpenExperiences) {
+					spaces.push({key: 'experiences', icon: 'sparkles', label: 'Впечатления', onPress: () => onOpenExperiences(profile.guid!, isOwn)});
+				}
+				if (profile.guid && onOpenMyVideos) {
+					spaces.push({key: 'videos', icon: 'video', label: isOwn ? 'Мои видео' : 'Видео', onPress: () => onOpenMyVideos(profile.guid!, isOwn)});
+				}
+				if (profile.guid && onOpenMyTracks) {
+					spaces.push({key: 'tracks', icon: 'music', label: isOwn ? 'Мои треки' : 'Треки', onPress: () => onOpenMyTracks(profile.guid!, isOwn)});
+				}
+				if (isOwn && onOpenCreatorSettings) {
+					spaces.push({key: 'creator', icon: 'star', label: 'Режим автора', onPress: onOpenCreatorSettings});
+				}
+				if (!isOwn && profile.is_creator && onOpenCreatorProfile) {
+					spaces.push({key: 'creator-profile', icon: 'star', label: 'Профиль автора', onPress: onOpenCreatorProfile});
+				}
+				if (spaces.length === 0) {
+					return null;
+				}
+				return (
+					<View style={styles.spacesGrid}>
+						{spaces.map((sp: {key: string; icon: string; label: string; onPress: () => void}) => (
+							<Pressable key={sp.key} style={styles.spaceTile} onPress={sp.onPress}>
+								<BerxGlassSurface level={2} padding="md" radius={radius.lg} style={styles.spaceTileInner}>
+									<BerxIcon name={sp.icon} size={19} color={colors.accent} />
+									<Text style={styles.spaceLabel} numberOfLines={1}>
+										{sp.label}
+									</Text>
+								</BerxGlassSurface>
+							</Pressable>
+						))}
+					</View>
+				);
+			})()}
 
 			{!isOwn && profile.guid ? (
 				<View style={styles.actionRow}>
@@ -897,9 +920,18 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	levelText: {color: colors.white, fontSize: typography.sizeBase, fontWeight: typography.weightBold},
 	streakText: {color: colors.textDim, fontSize: typography.sizeSm},
 	identitySectionTitle: {color: colors.textFaint, fontSize: typography.sizeXs, textTransform: 'uppercase' as const, letterSpacing: 0.5, marginBottom: spacing.xs},
-	achievementRow: {flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm},
-	achievementChipWrap: {width: '31%'},
-	achievementChip: {gap: 2, minHeight: 60},
+	// A horizontal ScrollView is a flex child of a column and will grow to
+	// fill it unless told not to.
+	railScroll: {flexGrow: 0, flexShrink: 0},
+	badgeRail: {gap: spacing.md, paddingVertical: spacing.xs, paddingRight: spacing.lg},
+	badgeSlot: {alignItems: 'center', width: 86, gap: 2},
+	badgeLabel: {color: colors.text, fontSize: typography.sizeXs, fontWeight: typography.weightMedium, textAlign: 'center', marginTop: 4},
+	badgeLabelDim: {color: colors.textFaint},
+	badgeTier: {color: colors.accent, fontSize: 10, fontWeight: typography.weightBold, textAlign: 'center'},
+	spacesGrid: {flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, paddingHorizontal: spacing.lg, marginTop: spacing.md},
+	spaceTile: {width: '48.5%'},
+	spaceTileInner: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm, minHeight: 52},
+	spaceLabel: {color: colors.text, fontSize: typography.sizeSm, fontWeight: typography.weightMedium, flex: 1},
 	achievementTitle: {color: colors.accent, fontSize: typography.sizeXs, fontWeight: typography.weightBold},
 	achievementSubtitle: {color: colors.textFaint, fontSize: 10},
 	locationRow: {flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 4},
