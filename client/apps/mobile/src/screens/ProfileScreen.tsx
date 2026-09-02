@@ -62,7 +62,7 @@ import type {BerxApiClient} from '@berx/api/client';
 import type {BerxAuthState} from '@berx/auth';
 import type {BerxLastPlace, BerxIdentity, BerxIdentityAchievement, BerxIdentityInterest, BerxStorySummary, BerxFriend, BerxStoryFeedGroup, BerxPostDetail, BerxReputation} from '@berx/api/types';
 import {BerxApiError} from '@berx/core';
-import {spacing, typography, radius} from '@berx/design-system/tokens';
+import {spacing, typography, radius, fonts} from '@berx/design-system/tokens';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxGradientCTA} from '../../../../packages/design-system/src/components/BerxGradientCTA';
 import {BerxLoadingState, BerxErrorState} from '../../../../packages/design-system/src/components/BerxStates';
@@ -438,7 +438,15 @@ export default function ProfileScreen({api, authState, username, onBack, onMessa
 							</View>
 						)}
 					</BerxSpatialLayer>
-					<BerxScrim coverage={0.74} strength={0.9} />
+					{/* The hero photo is arbitrary user media and can be bright end
+					    to end, so the scrim reaches further up and harder than a
+					    decorative one would. */}
+					{/* ease < 1 on purpose. The steps sit side by side rather than
+					    compositing, so an eased ramp leaves the MIDDLE of the scrim
+					    at ~20-40% opacity — enough for decoration, not nearly
+					    enough to carry a name over a bright photograph. A concave
+					    ramp reaches usable density early and holds it. */}
+					<BerxScrim coverage={0.66} strength={1} ease={0.62} />
 
 					{!isOwn && typeof profile.is_online === 'boolean' ? (
 						<View style={styles.onlineBadgeWrap}>
@@ -861,13 +869,18 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 		backgroundColor: colors.bg,
 	},
 	heroAvatar: {width: 64, height: 64, borderRadius: 32, backgroundColor: colors.graphite},
+	// ON MEDIA, so it uses the onMedia ink family — not colors.text/
+	// textDim/textFaint, which are tuned for the app's own ground. Over a
+	// bright photograph those went nearly invisible: the name lost its
+	// contrast and the join date disappeared entirely.
 	heroWordmark: {
-		color: colors.white,
-		fontSize: typography.sizeHero,
-		fontWeight: typography.weightBold,
-		letterSpacing: -0.5,
+		color: colors.onMedia,
+		fontFamily: fonts.display,
+		fontSize: 44,
+		lineHeight: 47,
+		letterSpacing: -0.4,
 	},
-	heroUsername: {color: colors.textDim, fontSize: typography.sizeBase, marginTop: 2},
+	heroUsername: {color: colors.onMediaDim, fontSize: typography.sizeBase, marginTop: 2},
 	highlightsRail: {paddingHorizontal: spacing.lg, marginBottom: spacing.md},
 	highlightItem: {alignItems: 'center', width: 68, marginRight: spacing.md},
 	highlightRing: {width: 60, height: 60, borderRadius: 30, borderWidth: 2, borderColor: colors.accent, alignItems: 'center', justifyContent: 'center', overflow: 'hidden'},
@@ -890,26 +903,27 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	achievementTitle: {color: colors.accent, fontSize: typography.sizeXs, fontWeight: typography.weightBold},
 	achievementSubtitle: {color: colors.textFaint, fontSize: 10},
 	locationRow: {flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 4},
-	locationGlyph: {color: colors.accent, fontSize: 12},
-	locationText: {color: colors.text, fontSize: typography.sizeSm, fontWeight: typography.weightMedium},
+	locationGlyph: {color: colors.accentOnMedia, fontSize: 12},
+	locationText: {color: colors.onMedia, fontSize: typography.sizeSm, fontWeight: typography.weightMedium},
 	interestRow: {flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, marginTop: spacing.sm},
-	interestPill: {paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: radius.pill, backgroundColor: colors.accentSoft, borderWidth: 1, borderColor: colors.accent},
-	interestPillText: {color: colors.accent, fontSize: typography.sizeXs, fontWeight: typography.weightMedium},
-	joined: {color: colors.textFaint, fontSize: typography.sizeXs, marginTop: spacing.sm},
-	mutualFriends: {color: colors.accent, fontSize: typography.sizeSm, marginTop: spacing.xs, fontWeight: typography.weightMedium},
+	interestPill: {paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: radius.pill, backgroundColor: 'rgba(255,130,87,0.16)', borderWidth: 1, borderColor: colors.accentOnMedia},
+	interestPillText: {color: colors.accentOnMedia, fontSize: typography.sizeXs, fontWeight: typography.weightMedium},
+	joined: {color: colors.onMediaFaint, fontSize: typography.sizeXs, marginTop: spacing.sm},
+	mutualFriends: {color: colors.accentOnMedia, fontSize: typography.sizeSm, marginTop: spacing.xs, fontWeight: typography.weightMedium},
 	pokeStatus: {color: colors.textDim, fontSize: typography.sizeXs, textAlign: 'center', marginTop: spacing.xs},
 	bannedBanner: {color: colors.danger, fontSize: typography.sizeSm, fontWeight: typography.weightMedium, textAlign: 'center'},
 	statColumns: {flexDirection: 'row', gap: spacing.xl, marginTop: spacing.lg},
 	statColumn: {alignItems: 'flex-start', gap: 2, minHeight: 46, justifyContent: 'flex-end'},
 	statColumnStack: {marginBottom: 2},
-	statColumnValue: {color: colors.text, fontSize: typography.sizeTitle, fontWeight: typography.weightBold, letterSpacing: -0.6},
-	statColumnLabel: {color: colors.textDim, fontSize: typography.sizeXs},
+	statColumnValue: {color: colors.onMedia, fontSize: typography.sizeTitle, fontWeight: typography.weightBold, letterSpacing: -0.6},
+	statColumnLabel: {color: colors.onMediaDim, fontSize: typography.sizeXs},
 	gallery: {paddingHorizontal: spacing.lg, marginTop: spacing.lg, gap: spacing.md},
 	gallerySegments: {marginBottom: spacing.xs},
 	reputationRow: {flexDirection: 'row', gap: spacing.lg, marginTop: spacing.sm, marginBottom: spacing.sm, paddingRight: spacing.lg},
 	reputationStat: {alignItems: 'flex-start'},
-	reputationValue: {color: colors.white, fontSize: typography.sizeBase, fontWeight: typography.weightBold},
-	reputationLabel: {color: colors.textDim, fontSize: typography.sizeXs},
+	// In the hero, over media: the onMedia ink family, not the app's own.
+	reputationValue: {color: colors.onMedia, fontSize: typography.sizeBase, fontWeight: typography.weightBold},
+	reputationLabel: {color: colors.onMediaDim, fontSize: typography.sizeXs},
 	actionRow: {paddingHorizontal: spacing.xl},
 	reportLink: {color: colors.textFaint, fontSize: typography.sizeXs, textDecorationLine: 'underline', textAlign: 'center'},
 	blockLink: {color: colors.danger, fontSize: typography.sizeXs, textDecorationLine: 'underline', textAlign: 'center'},
