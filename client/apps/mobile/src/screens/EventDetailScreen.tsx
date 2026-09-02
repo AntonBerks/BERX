@@ -61,6 +61,13 @@ interface Props {
 	onAddToWorld?: () => void;
 	onAddEventStory?: (eventGuid: number) => void;
 	onOpenStoryGroup?: (group: BerxStoryFeedGroup) => void;
+	/**
+	 * Real "context everywhere" entry point (master build directive §56),
+	 * same reasoning as PlaceDetailScreen's own: from an event the user
+	 * is already looking at, record a real experience anchored to THIS
+	 * event rather than sending them to search for it again.
+	 */
+	onCreateExperience?: (anchor: {type: 'event'; guid: number; title: string}) => void;
 	onEdit?: () => void;
 	onBack?: () => void;
 }
@@ -76,7 +83,7 @@ function groupStoriesByOwner(items: BerxEventStoryItem[]): BerxStoryFeedGroup[] 
 	return Array.from(byOwner.values());
 }
 
-export default function EventDetailScreen({api, guid, myGuid, onOpenPlace, onOpenCommunity, onOpenInvite, onAddToCollection, onAddToTrip, onAddToWorld, onAddEventStory, onOpenStoryGroup, onEdit, onBack}: Props) {
+export default function EventDetailScreen({api, guid, myGuid, onOpenPlace, onOpenCommunity, onOpenInvite, onAddToCollection, onAddToTrip, onAddToWorld, onAddEventStory, onOpenStoryGroup, onCreateExperience, onEdit, onBack}: Props) {
 	const colors = useBerxColors();
 	const styles = useMemo(() => makeStyles(colors), [colors]);
 	const [event, setEvent] = useState<BerxEvent | null>(null);
@@ -323,6 +330,13 @@ export default function EventDetailScreen({api, guid, myGuid, onOpenPlace, onOpe
 					{onAddToTrip ? <BerxButton label="В поездку" variant="secondary" onPress={onAddToTrip} /> : null}
 					{onAddToWorld ? <BerxButton label="В мир" variant="secondary" onPress={onAddToWorld} /> : null}
 					{event.is_going && onAddEventStory ? <BerxButton label="Добавить историю" variant="secondary" onPress={() => onAddEventStory(event.guid)} /> : null}
+					{onCreateExperience ? (
+						<BerxButton
+							label="Впечатление"
+							variant="secondary"
+							onPress={() => onCreateExperience({type: 'event', guid: event.guid, title: event.title})}
+						/>
+					) : null}
 					{myGuid === event.owner_guid && onEdit ? <BerxButton label="Редактировать" variant="secondary" onPress={onEdit} /> : null}
 					{event.is_going && !event.has_checked_in && event.starts * 1000 <= Date.now() ? (
 						<BerxButton

@@ -205,7 +205,10 @@ export interface BerxRouteParams {
 	CreateTrip: undefined;
 	Experiences: { userGuid?: number; isOwn: boolean };
 	ExperienceDetail: { id: number };
-	CreateExperience: undefined;
+	// Optional real anchor (master build directive §56, "context
+	// everywhere"): set when pushed from PlaceDetail/EventDetail so the
+	// place/event is already attached, skipping the search step.
+	CreateExperience: { initialAnchor?: {type: 'place' | 'event'; guid: number; title: string} } | undefined;
 	CreatorProfile: { username: string };
 	CreatorSettings: undefined;
 	VideoFeed: undefined;

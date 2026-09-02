@@ -224,7 +224,7 @@ function RouteRenderer({name, params}: {name: BerxRouteName; params: unknown}) {
 					onCreateVideo={() => nav.push('CreateVideo', undefined)}
 					onCreateTrack={() => nav.push('CreateTrack', undefined)}
 					onCreateEvent={() => nav.push('CreateEvent', undefined)}
-					onCreateExperience={() => nav.push('CreateExperience', undefined)}
+					onCreateExperience={() => nav.push('CreateExperience', undefined)} // generic entry — no place/event known here
 					onCreatePlace={() => nav.push('CreatePlace', undefined)}
 					onCreatePlan={() => nav.push('CreatePlan', undefined)}
 					onCreateWorld={() => nav.push('CreateWorld', undefined)}
@@ -686,6 +686,7 @@ function RouteRenderer({name, params}: {name: BerxRouteName; params: unknown}) {
 					onAddToTrip={() => nav.push('AddToTrip', {itemType: 'place', itemGuid: p.guid})}
 					onAddToWorld={() => nav.push('AddToWorld', {itemType: 'place', itemGuid: p.guid})}
 					onOpenBusinessDashboard={(placeGuid) => nav.push('BusinessHome', {placeGuid})}
+					onCreateExperience={(anchor) => nav.push('CreateExperience', {initialAnchor: anchor})}
 					onEdit={() => nav.push('EditPlace', {guid: p.guid})}
 					onBack={nav.pop}
 				/>
@@ -751,6 +752,7 @@ function RouteRenderer({name, params}: {name: BerxRouteName; params: unknown}) {
 						currentStoryGroup = group;
 						nav.push('StoryViewer', undefined);
 					}}
+					onCreateExperience={(anchor) => nav.push('CreateExperience', {initialAnchor: anchor})}
 					onEdit={() => nav.push('EditEvent', {guid: p.guid})}
 					onBack={nav.pop}
 				/>
@@ -1018,7 +1020,7 @@ function RouteRenderer({name, params}: {name: BerxRouteName; params: unknown}) {
 					userGuid={p.userGuid}
 					isOwn={p.isOwn}
 					onOpenExperience={(id) => nav.push('ExperienceDetail', {id})}
-					onCreate={() => nav.push('CreateExperience', undefined)}
+					onCreate={() => nav.push('CreateExperience', undefined)} // generic entry — no place/event known here
 					onBack={nav.pop}
 				/>
 			);
@@ -1038,14 +1040,17 @@ function RouteRenderer({name, params}: {name: BerxRouteName; params: unknown}) {
 				/>
 			);
 		}
-		case 'CreateExperience':
+		case 'CreateExperience': {
+			const p = params as {initialAnchor?: {type: 'place' | 'event'; guid: number; title: string}} | undefined;
 			return (
 				<CreateExperienceScreen
 					api={api}
+					initialAnchor={p?.initialAnchor}
 					onCreated={(id) => nav.replace('ExperienceDetail', {id})}
 					onBack={nav.pop}
 				/>
 			);
+		}
 		case 'CreatorProfile': {
 			const p = params as {username: string};
 			return (

@@ -63,11 +63,18 @@ interface Props {
 	onAddToTrip?: () => void;
 	onAddToWorld?: () => void;
 	onOpenBusinessDashboard?: (placeGuid: number) => void;
+	/**
+	 * Real "context everywhere" entry point (master build directive §56):
+	 * from a place the user is actually looking at, offer to record a
+	 * real experience anchored to THIS place — not a generic create
+	 * button that makes them search for it again.
+	 */
+	onCreateExperience?: (anchor: {type: 'place'; guid: number; title: string}) => void;
 	onEdit?: () => void;
 	onBack?: () => void;
 }
 
-export default function PlaceDetailScreen({api, guid, myGuid, isAdmin, onAddToCollection, onAddToTrip, onAddToWorld, onOpenBusinessDashboard, onEdit, onBack}: Props) {
+export default function PlaceDetailScreen({api, guid, myGuid, isAdmin, onAddToCollection, onAddToTrip, onAddToWorld, onOpenBusinessDashboard, onCreateExperience, onEdit, onBack}: Props) {
 	const colors = useBerxColors();
 	const styles = useMemo(() => makeStyles(colors), [colors]);
 	const [claimOpen, setClaimOpen] = useState(false);
@@ -362,6 +369,13 @@ export default function PlaceDetailScreen({api, guid, myGuid, isAdmin, onAddToCo
 					{onAddToWorld ? <BerxButton label="В мир" variant="secondary" onPress={onAddToWorld} /> : null}
 					{place.lat !== null && place.lng !== null ? <BerxButton label="Маршрут" variant="secondary" onPress={buildRoute} /> : null}
 					{place.lat !== null && place.lng !== null ? <BerxButton label="Отметиться" variant="secondary" onPress={() => { setCheckinOpen(!checkinOpen); setCheckinMessage(null); }} /> : null}
+					{onCreateExperience ? (
+						<BerxButton
+							label="Впечатление"
+							variant="secondary"
+							onPress={() => onCreateExperience({type: 'place', guid: place.guid, title: place.title})}
+						/>
+					) : null}
 				</View>
 
 				{checkinOpen ? (

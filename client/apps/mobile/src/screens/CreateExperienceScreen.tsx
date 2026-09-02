@@ -16,24 +16,33 @@ import {BerxButton} from '../../../../packages/design-system/src/components/Berx
 import {useBerxColors} from '../../../../packages/design-system/src/theme';
 import type {BerxColorTokens} from '@berx/design-system/tokens';
 
+type Anchor = {type: 'place' | 'event'; guid: number; title: string};
+
 interface Props {
 	api: BerxApiClient;
 	onCreated: (id: number) => void;
 	onBack?: () => void;
+	/**
+	 * Real "context everywhere" entry point (master build directive §56:
+	 * "Если пользователь находится на Place → предложить post/check-in/
+	 * review/experience"). When set — e.g. PlaceDetailScreen's own
+	 * "Добавить впечатление" button — the anchor is pre-filled and the
+	 * search step is skipped entirely, instead of asking the user to
+	 * re-find the exact place they are already looking at.
+	 */
+	initialAnchor?: Anchor;
 }
 
-type Anchor = {type: 'place' | 'event'; guid: number; title: string};
-
-export default function CreateExperienceScreen({api, onCreated, onBack}: Props) {
+export default function CreateExperienceScreen({api, onCreated, onBack, initialAnchor}: Props) {
 	const colors = useBerxColors();
 	const styles = useMemo(() => makeStyles(colors), [colors]);
 	const [title, setTitle] = useState('');
 	const [description, setDescription] = useState('');
 	const [anchorQuery, setAnchorQuery] = useState('');
-	const [anchorTab, setAnchorTab] = useState<'place' | 'event'>('place');
+	const [anchorTab, setAnchorTab] = useState<'place' | 'event'>(initialAnchor?.type ?? 'place');
 	const [places, setPlaces] = useState<BerxPlaceSearchResult[]>([]);
 	const [events, setEvents] = useState<BerxEventSearchResult[]>([]);
-	const [anchor, setAnchor] = useState<Anchor | null>(null);
+	const [anchor, setAnchor] = useState<Anchor | null>(initialAnchor ?? null);
 	const [visibility, setVisibility] = useState<BerxCollectionVisibility>('private');
 	const [submitting, setSubmitting] = useState(false);
 	const [error, setError] = useState<string | null>(null);
@@ -98,14 +107,21 @@ export default function CreateExperienceScreen({api, onCreated, onBack}: Props) 
 				<BerxInput placeholder="Описание (необязательно)" value={description} onChangeText={setDescription} multiline />
 
 				<Text style={styles.label}>Привязать к</Text>
-				<View style={styles.row}>
-					<Pressable style={[styles.chip, anchorTab === 'place' && styles.chipActive]} onPress={() => { setAnchorTab('place'); setAnchor(null); }}>
-						<Text style={[styles.chipText, anchorTab === 'place' && styles.chipTextActive]}>Место</Text>
-					</Pressable>
-					<Pressable style={[styles.chip, anchorTab === 'event' && styles.chipActive]} onPress={() => { setAnchorTab('event'); setAnchor(null); }}>
-						<Text style={[styles.chipText, anchorTab === 'event' && styles.chipTextActive]}>Событие</Text>
-					</Pressable>
-				</View>
+				{/* The place/event toggle only matters while the anchor is still
+				    being chosen. Coming from a real Place/Event screen the
+				    anchor is already fixed — showing a toggle that could clear
+				    it would contradict the "context everywhere" entry point
+				    this prop exists for. */}
+				{!initialAnchor ? (
+					<View style={styles.row}>
+						<Pressable style={[styles.chip, anchorTab === 'place' && styles.chipActive]} onPress={() => { setAnchorTab('place'); setAnchor(null); }}>
+							<Text style={[styles.chipText, anchorTab === 'place' && styles.chipTextActive]}>Место</Text>
+						</Pressable>
+						<Pressable style={[styles.chip, anchorTab === 'event' && styles.chipActive]} onPress={() => { setAnchorTab('event'); setAnchor(null); }}>
+							<Text style={[styles.chipText, anchorTab === 'event' && styles.chipTextActive]}>Событие</Text>
+						</Pressable>
+					</View>
+				) : null}
 
 				{anchor ? (
 					<View style={styles.anchorSelected}>
