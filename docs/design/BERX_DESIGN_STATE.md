@@ -37,6 +37,7 @@ so the alternative was naming it in every style in the app.
 | `BerxPlanes` | The 3D language: glass slabs at measured depths, each catching the light on one edge |
 | `BerxEntryStage` | Aura + planes + grain, shared by the entire entry sequence; `progress` moves the camera through it, `presence` pulls the 3D back on content-heavy screens |
 | `BerxLogo` | Drawn logotype + monogram symbol |
+| `BerxObjects` | The 3D object family: checkpoint, badge, reward, ticket — one slab, one light, four uses. Each takes a `dim` state for not-yet-earned / not-yet-reached |
 | `BerxActions` | The lit primary control and the quiet secondary |
 | `BerxGlassPanel` | Real glass: gradient edge, inner highlight, tinted body, shadow |
 | `BerxScrim` | Stacked-step gradient; `ease < 1` where it has to carry text over user media |
@@ -57,11 +58,14 @@ so the alternative was naming it in every style in the app.
 - Serif headlines on every screen with an editorial title.
 - CREATE rebuilt off Unicode dingbats onto the real icon set.
 - Profile hero made legible over real photography.
+- BERX 3D object family drawn (checkpoint, badge, reward, ticket).
 - Safe-area insets applied product-wide.
 
 ## Next
 
-- Places detail, map and the checkpoint objects on the plane language.
+- Wire the 3D objects into the screens that own them: checkpoints,
+  rewards, identity/achievements, wallet and tickets.
+- Places detail and the live map.
 - Business and analytics surfaces.
 - Wallet, tickets, rewards as plane-language objects.
 - Day environment visual QA (Night is what has been inspected).
