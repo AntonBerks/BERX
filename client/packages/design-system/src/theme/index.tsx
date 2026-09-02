@@ -1,96 +1,88 @@
 /**
  * !!! VERIFICATION STATUS: UNVERIFIED — see BerxButton.tsx header.
  *
- * BERX THEME RUNTIME — one centralized source for which environment
- * (Day or Night) the app is actually rendering in, and the real
- * palette that follows from it.
+ * BERX THEME RUNTIME — now driven by the Color World Engine
+ * (../worlds.ts) rather than a plain Day/Night switch.
  *
- * Why this exists: every screen used to build its StyleSheet once, at
- * module load, against the imported Night palette. That is a snapshot
- * — it can never change at runtime, which is why BERX shipped with a
- * fully-defined Day palette that nothing could actually reach. The
- * fix is structural: styles become a FACTORY that takes a palette,
- * and each screen resolves the live palette through this context, so
- * both environments are the same product rather than one real theme
- * and one dead token block.
+ * Every screen already resolves its palette through this context
+ * (`useBerxColors()`/`useBerxGlass()`) instead of importing tokens
+ * directly — that migration is what makes a real, app-wide World
+ * system possible without touching every screen: this file swaps
+ * `colors`/`glass` for whichever World is selected, and the whole app
+ * follows, immediately, everywhere it's already wired.
  *
- * MODE:
- *   'night' / 'day' — explicit.
- *   'auto'          — resolved from the device's own real local hour
- *                     (07:00-18:59 Day, otherwise Night). Deterministic,
- *                     no persistence layer and no server round-trip:
- *                     the same local hour always resolves the same way.
+ * Default world is `night_ice` — today's shipped palette, unchanged —
+ * so an app that never opens World Select looks exactly as it did
+ * before this file existed. `useBerxScene()` is new: it exposes the
+ * live World's BerxAura/BerxLens/BerxOrb colours (ground/glow/
+ * counter/light/object/fill), for real spatial screens (World Select,
+ * Welcome) to read instead of hardcoding one scene's palette.
  *
- * There is no storage module installable in this sandbox (npm is
- * blocked), so the chosen mode lives for the session rather than
- * being written to disk — stated honestly here rather than pretending
- * a preference is persisted.
+ * PERSISTENCE — same honest constraint the old Day/Night mode had: no
+ * storage module is installable in this sandbox (npm is blocked), so
+ * the chosen World lives for the session only, not across app
+ * restarts. Stated here rather than silently dropped.
  */
 import React, {createContext, useCallback, useContext, useMemo, useState} from 'react';
-import {colors as nightColors, colorsDay, glassNight, glassDay} from '../tokens';
-import type {BerxColorTokens, BerxEnvironment, BerxGlassLevelTokens} from '../tokens';
+import {BERX_WORLDS} from '../worlds';
+import type {BerxWorld, BerxWorldScene} from '../worlds';
+import type {BerxColorTokens, BerxGlassLevelTokens} from '../tokens';
 
-export type BerxThemeMode = 'night' | 'day' | 'auto';
+export type {BerxWorld, BerxWorldScene} from '../worlds';
+export {BERX_WORLDS, BERX_WORLD_ORDER} from '../worlds';
 
 export interface BerxThemeValue {
-	mode: BerxThemeMode;
-	/** The environment actually being rendered — 'auto' has already been resolved here. */
-	env: BerxEnvironment;
+	world: BerxWorld;
 	colors: BerxColorTokens;
 	glass: Record<1 | 2 | 3 | 4, BerxGlassLevelTokens>;
-	setMode: (mode: BerxThemeMode) => void;
+	scene: BerxWorldScene;
+	setWorld: (world: BerxWorld) => void;
 }
 
-/** Real, deterministic resolution of 'auto' from a real local hour. Exported so it is unit-testable without a renderer. */
-export function resolveBerxEnvironment(mode: BerxThemeMode, hour: number): BerxEnvironment {
-	if (mode === 'day') return 'day';
-	if (mode === 'night') return 'night';
-	return hour >= 7 && hour < 19 ? 'day' : 'night';
-}
+const DEFAULT_WORLD: BerxWorld = 'night_ice';
+const DEFAULT_DEF = BERX_WORLDS[DEFAULT_WORLD];
 
 const DEFAULT_VALUE: BerxThemeValue = {
-	mode: 'night',
-	env: 'night',
-	colors: nightColors,
-	glass: glassNight,
-	setMode: () => undefined,
+	world: DEFAULT_WORLD,
+	colors: DEFAULT_DEF.colors,
+	glass: DEFAULT_DEF.glass,
+	scene: DEFAULT_DEF.scene,
+	setWorld: () => undefined,
 };
 
 const BerxThemeContext = createContext<BerxThemeValue>(DEFAULT_VALUE);
 
 export function BerxThemeProvider({
 	children,
-	initialMode = 'night',
+	initialWorld = DEFAULT_WORLD,
 }: {
 	children: React.ReactNode;
-	initialMode?: BerxThemeMode;
+	initialWorld?: BerxWorld;
 }) {
-	const [mode, setMode] = useState<BerxThemeMode>(initialMode);
-
-	const handleSetMode = useCallback((next: BerxThemeMode) => setMode(next), []);
+	const [world, setWorldState] = useState<BerxWorld>(initialWorld);
+	const setWorld = useCallback((next: BerxWorld) => setWorldState(next), []);
 
 	const value = useMemo<BerxThemeValue>(() => {
-		const env = resolveBerxEnvironment(mode, new Date().getHours());
-		return {
-			mode,
-			env,
-			colors: env === 'day' ? (colorsDay as unknown as BerxColorTokens) : nightColors,
-			glass: env === 'day' ? glassDay : glassNight,
-			setMode: handleSetMode,
-		};
-	}, [mode, handleSetMode]);
+		const def = BERX_WORLDS[world] ?? DEFAULT_DEF;
+		return {world, colors: def.colors, glass: def.glass, scene: def.scene, setWorld};
+	}, [world, setWorld]);
 
 	return <BerxThemeContext.Provider value={value}>{children}</BerxThemeContext.Provider>;
 }
 
-/** The live palette. Outside a provider this is the Night palette — the same values every screen used before the migration, so an un-wrapped tree still renders correctly. */
+/** The live palette. Outside a provider this is Night/Ice — the same values every screen used before Worlds existed, so an un-wrapped tree still renders correctly. */
 export function useBerxColors(): BerxColorTokens {
 	return useContext(BerxThemeContext).colors;
 }
 
-/** The live glass ladder for the current environment. */
+/** The live glass ladder for the current World. */
 export function useBerxGlass(): Record<1 | 2 | 3 | 4, BerxGlassLevelTokens> {
 	return useContext(BerxThemeContext).glass;
+}
+
+/** The live World's BerxAura/BerxLens/BerxOrb scene colours. */
+export function useBerxScene(): BerxWorldScene {
+	return useContext(BerxThemeContext).scene;
 }
 
 export function useBerxTheme(): BerxThemeValue {

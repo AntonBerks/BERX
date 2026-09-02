@@ -5,13 +5,13 @@
  * API. No rows for password/email change — those belong to
  * ProfileScreen's own edit flow, not duplicated here.
  *
- * OPUS 5 — "Оформление" is a real, live theme switch over the
- * centralized palette (packages/design-system/src/theme). The earlier
- * "BERX is Premium Dark only, by decision" note no longer applies:
- * Night and Day are both complete palettes now. 'Авто' resolves from
- * the device's own real local hour — no invented preference storage
- * (no persistence module is installable here, so the choice lives for
- * the session; that limitation is stated, not hidden).
+ * BERX WORLD — "Оформление" now opens the real Color World Engine
+ * (packages/design-system/src/worlds.ts) instead of a plain Day/Night
+ * switch: Night/Ice, Day/Ice, Sun, Aurora — four full palettes, not a
+ * light/dark pair. No invented preference storage (no persistence
+ * module is installable here, so the choice lives for the session;
+ * that limitation is stated, not hidden — same as the Day/Night
+ * switch it replaces).
  *
  * MAX BUILD — real "Уведомления" row: notification preferences now
  * have a real, enforced backend (see classes/OssnNotificationPrefs.php
@@ -29,7 +29,7 @@ import {spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 
 import {useBerxColors, useBerxTheme} from '../../../../packages/design-system/src/theme';
-import type {BerxThemeMode} from '../../../../packages/design-system/src/theme';
+import {BERX_WORLDS} from '../../../../packages/design-system/src/worlds';
 import type {BerxColorTokens} from '@berx/design-system/tokens';
 
 interface Props {
@@ -42,6 +42,8 @@ interface Props {
 	onOpenDatingPrivacy: () => void;
 	onOpenCircles?: () => void;
 	onOpenSitePage?: (prefix: 'about' | 'terms' | 'privacy') => void;
+	/** Opens the real Color World Engine picker (WorldSelectScreen) — see this file's own header. */
+	onOpenWorldSelect?: () => void;
 	onBack?: () => void;
 }
 
@@ -56,38 +58,29 @@ function Row({label, onPress, danger}: {label: string; onPress: () => void; dang
 	);
 }
 
-export default function SettingsScreen({onOpenDeviceSessions, onOpenNotificationPreferences, onOpenInviteFriends, onOpenBlockedUsers, onOpenMutedUsers, onOpenDeleteAccount, onOpenDatingPrivacy, onOpenCircles, onOpenSitePage, onBack}: Props) {
+export default function SettingsScreen({onOpenDeviceSessions, onOpenNotificationPreferences, onOpenInviteFriends, onOpenBlockedUsers, onOpenMutedUsers, onOpenDeleteAccount, onOpenDatingPrivacy, onOpenCircles, onOpenSitePage, onOpenWorldSelect, onBack}: Props) {
 	const colors = useBerxColors();
 	const styles = useMemo(() => makeStyles(colors), [colors]);
-	// BERX THEME — a real, live switch over the centralized palette (see
-	// packages/design-system/src/theme). 'Авто' resolves from the
-	// device's own real local hour, deterministically.
+	// BERX WORLD — the real Color World Engine (see this file's own
+	// header and packages/design-system/src/worlds.ts).
 	const theme = useBerxTheme();
-	const themeEnvLabel = theme.env === 'day' ? 'дневная' : 'ночная';
-	const themeOptions: {key: BerxThemeMode; label: string}[] = [
-		{key: 'night', label: 'Ночь'},
-		{key: 'day', label: 'День'},
-		{key: 'auto', label: 'Авто'},
-	];
+	const currentWorld = BERX_WORLDS[theme.world];
 	return (
 		<View style={styles.screen}>
 			<BerxHeader title="Настройки" onBack={onBack} />
 			<Text style={styles.sectionLabel}>Оформление</Text>
 			<View style={styles.group}>
-				<View style={styles.themeRow}>
-					{themeOptions.map((opt: {key: BerxThemeMode; label: string}) => (
-						<Pressable
-							key={opt.key}
-							style={[styles.themeChip, theme.mode === opt.key && styles.themeChipActive]}
-							onPress={() => theme.setMode(opt.key)}>
-							<Text style={[styles.themeChipText, theme.mode === opt.key && styles.themeChipTextActive]}>{opt.label}</Text>
-						</Pressable>
-					))}
-				</View>
-				<Text style={styles.themeHint}>
-					Сейчас: {themeEnvLabel} среда
-					{theme.mode === 'auto' ? ' · по местному времени' : ''}
-				</Text>
+				{onOpenWorldSelect ? (
+					<Pressable style={styles.row} onPress={onOpenWorldSelect}>
+						<View>
+							<Text style={styles.rowLabel}>Мир</Text>
+							<Text style={styles.themeHint}>{currentWorld.name}</Text>
+						</View>
+						<Text style={styles.chevron}>›</Text>
+					</Pressable>
+				) : (
+					<Text style={styles.themeHint}>Мир: {currentWorld.name}</Text>
+				)}
 			</View>
 
 			<Text style={styles.sectionLabel}>Уведомления</Text>
