@@ -48,7 +48,7 @@ import {BerxButton} from '../../../../packages/design-system/src/components/Berx
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {BerxAvatar} from '../../../../packages/design-system/src/components/BerxAvatar';
 import {BerxStage} from '../../../../packages/design-system/src/components/BerxStage';
-import {BerxEmblem} from '../../../../packages/design-system/src/components/BerxEmblem';
+import {SpatialEmblem} from '../../../../packages/design-system/src/spatial/SpatialEmblem';
 import {BerxGlassSurface} from '../../../../packages/design-system/src/components/BerxGlassSurface';
 import {BerxPlaceCard} from '../../../../packages/design-system/src/components/BerxSpatialCards';
 import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
@@ -231,7 +231,7 @@ function LocationStep({
 	return (
 		<>
 			<BerxFadeIn riseFrom={20} scaleFrom={0.88} style={styles.objectSlot}>
-				<BerxEmblem size={124} light={colors.accent} />
+				<SpatialEmblem size={124} light={colors.accent} />
 			</BerxFadeIn>
 			<ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
 				<StepHead
@@ -773,7 +773,7 @@ function DoneStep({user, onComplete}: {user: BerxUser; onComplete: () => void}) 
 	return (
 		<>
 			<BerxFadeIn riseFrom={26} scaleFrom={0.86} style={styles.doneObject}>
-				<BerxEmblem size={168} light={colors.accent} />
+				<SpatialEmblem size={168} light={colors.accent} />
 			</BerxFadeIn>
 			<View style={styles.doneCopy}>
 				<BerxFadeIn delayMs={200} riseFrom={22}>
