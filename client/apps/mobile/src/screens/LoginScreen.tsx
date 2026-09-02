@@ -33,7 +33,7 @@ import {BerxButton} from '../../../../packages/design-system/src/components/Berx
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {BerxGlassSurface} from '../../../../packages/design-system/src/components/BerxGlassSurface';
 import {BerxStage} from '../../../../packages/design-system/src/components/BerxStage';
-import {BerxEmblem} from '../../../../packages/design-system/src/components/BerxEmblem';
+import {SpatialEmblem} from '../../../../packages/design-system/src/spatial/SpatialEmblem';
 import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
 
 import {useBerxColors} from '../../../../packages/design-system/src/theme';
@@ -84,12 +84,17 @@ export default function LoginScreen({authState, onGoToRegister}: Props) {
 			    and onboarding all stand on BerxStage; hand-copying its light
 			    placement here is how the entry flow drifts apart one edit at
 			    a time. Rendered as an absolute background layer because this
-			    screen's root has to be the KeyboardAvoidingView. */}
-			<BerxStage depth={0.2} seed={19} scrim={0.5} style={StyleSheet.absoluteFillObject as never} />
+			    screen's root has to be the KeyboardAvoidingView.
+			    depth=1: Login is a LAST-STEP screen the same way Register is
+			    (see RegisterScreen's own comment on this) — reached either
+			    directly from Welcome or after Register, but either way it's
+			    the final screen before crossing into the authenticated app,
+			    so the camera belongs at its highest point here too. */}
+			<BerxStage depth={1} seed={19} scrim={0.5} style={StyleSheet.absoluteFillObject as never} />
 			<ScrollView contentContainerStyle={styles.scrollBody} keyboardShouldPersistTaps="handled">
 				<BerxFadeIn riseFrom={8}>
 					<View style={styles.hero}>
-						<BerxEmblem size={104} light={colors.accent} style={styles.heroEmblem} />
+						<SpatialEmblem size={104} light={colors.accent} style={styles.heroEmblem} />
 						<Text style={styles.heroTitle}>С возвращением</Text>
 						<Text style={styles.tagline}>Мир, который вы создаёте сами</Text>
 					</View>

@@ -112,8 +112,15 @@ export default function RegisterScreen({api, onRegistered, onBack}: Props) {
 			    and onboarding all stand on BerxStage; hand-copying its light
 			    placement here is how the entry flow drifts apart one edit at
 			    a time. Rendered as an absolute background layer because this
-			    screen's root has to be the KeyboardAvoidingView. */}
-			<BerxStage depth={0.2} seed={19} scrim={0.5} style={StyleSheet.absoluteFillObject as never} />
+			    screen's root has to be the KeyboardAvoidingView.
+			    depth=1: Register is the LAST step of the entry sequence
+			    (Discover's own final page already reaches depth=1 — see its
+			    own `index / (PAGES.length - 1)`), so the camera should
+			    already be at its highest point here, not reset partway back
+			    down — a depth mismatch across a real screen transition reads
+			    as the camera jumping backward, which is the exact thing this
+			    shared-stage architecture exists to prevent. */}
+			<BerxStage depth={1} seed={19} scrim={0.5} style={StyleSheet.absoluteFillObject as never} />
 			<ScrollView contentContainerStyle={styles.scrollBody} keyboardShouldPersistTaps="handled">
 				<BerxFadeIn riseFrom={8}>
 					<View style={styles.hero}>
