@@ -9,9 +9,17 @@
  * the sequence, so the last onboarding step is recognisably the same
  * place as this one, seen from further up.
  *
- * The mark is not painted on: BerxEmblemReveal assembles the object
- * plane by plane and settles out of a lean, ending in exactly the pose
- * BerxEmblem holds everywhere else in the app.
+ * The mark is not painted on: the reveal assembles the object plane by
+ * plane and settles out of a lean, ending in exactly the pose the
+ * emblem holds everywhere else in the app.
+ *
+ * SpatialRenderer: this is now SpatialEmblemReveal (packages/design-
+ * system/src/spatial), the true FIRST FRAME of the product — on iOS/
+ * Android a real @react-three/fiber/native scene assembles three real
+ * meshes with an actual camera, not a flat logo cross-fading in; on
+ * web (this harness) it's a pixel-identical passthrough to the
+ * existing BerxEmblemReveal. Not device-verified — see
+ * SpatialEmblemReveal.native.tsx's own header.
  *
  * HONEST ABOUT WHAT IT WAITS FOR. This screen is not a fake loading
  * bar. It holds for the length of its own reveal and then hands over —
@@ -23,7 +31,7 @@ import {useEffect, useMemo, useRef} from 'react';
 import {Animated, Easing, View, Text, StyleSheet} from 'react-native';
 import {spacing, typography} from '@berx/design-system/tokens';
 import {BerxStage} from '../../../../packages/design-system/src/components/BerxStage';
-import {BerxEmblemReveal} from '../../../../packages/design-system/src/components/BerxEmblem';
+import {SpatialEmblemReveal} from '../../../../packages/design-system/src/spatial/SpatialEmblemReveal';
 
 import {useBerxColors} from '../../../../packages/design-system/src/theme';
 import type {BerxColorTokens} from '@berx/design-system/tokens';
@@ -61,7 +69,7 @@ export default function SplashScreen({onDone}: Props) {
 	return (
 		<BerxStage depth={0} seed={19} scrim={0.3}>
 			<View style={styles.center}>
-				<BerxEmblemReveal size={172} light={colors.accent} />
+				<SpatialEmblemReveal size={172} light={colors.accent} />
 				<Animated.View
 					style={[
 						styles.wordSlot,
