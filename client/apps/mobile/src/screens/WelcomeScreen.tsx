@@ -21,16 +21,31 @@
  *
  * Everything is drawn: no photograph is bundled, none is claimed, and
  * nothing here is a placeholder standing in for one.
+ *
+ * BERX WORLD — this screen used to paint itself from a standalone,
+ * hardcoded `BERX_SCENE` constant (palette.ts), a real parallel
+ * copy of exactly what worlds.ts's `night_ice` world now IS. That
+ * meant Welcome could never actually reflect a chosen World — it
+ * looked the same regardless. Reading `useBerxScene()`/
+ * `useBerxColors()` instead makes this screen live: pick Sun in
+ * WorldSelectScreen, come back here, and Welcome is warm gold, not
+ * cyan. The object itself (SpatialLens) is now the real True3D/2D
+ * renderer split too — see SpatialLens.tsx's own header — while
+ * keeping the exact same restrained "look twice" mood BerxLens was
+ * built for; this file changes WHERE the colours and the object come
+ * from, not what the composition is.
  */
 import {useMemo} from 'react';
 import {View, Text, StyleSheet} from 'react-native';
 import {spacing, typography} from '@berx/design-system/tokens';
 import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
 import {BerxAura} from '../../../../packages/design-system/src/components/BerxAura';
-import {BerxLens} from '../../../../packages/design-system/src/components/BerxLens';
 import {BerxGrain} from '../../../../packages/design-system/src/components/BerxGrain';
 import {BerxPrimaryAction, BerxQuietAction} from '../../../../packages/design-system/src/components/BerxActions';
-import {BERX_SCENE} from '../../../../packages/design-system/src/palette';
+import {SpatialLens} from '../../../../packages/design-system/src/spatial/SpatialLens';
+import {useBerxScene, useBerxColors} from '../../../../packages/design-system/src/theme';
+import type {BerxWorldScene} from '../../../../packages/design-system/src/theme';
+import type {BerxColorTokens} from '@berx/design-system/tokens';
 
 interface Props {
 	onLogin: () => void;
@@ -38,22 +53,18 @@ interface Props {
 }
 
 export default function WelcomeScreen({onLogin, onRegister}: Props) {
-	const styles = useMemo(() => makeStyles(), []);
+	const scene = useBerxScene();
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(scene, colors), [scene, colors]);
 	return (
 		<View style={styles.screen}>
-			<BerxAura
-				ground={BERX_SCENE.ground}
-				glow={BERX_SCENE.glow}
-				counter={BERX_SCENE.counter}
-				intensity={0.9}
-				at={0.26}
-			/>
+			<BerxAura ground={scene.ground} glow={scene.glow} counter={scene.counter} intensity={0.9} at={0.26} />
 			<BerxGrain opacity={0.04} />
 
 			{/* The object sits high, off the left margin, half out of frame —
 			    an object that fits neatly inside the composition is a logo. */}
 			<BerxFadeIn riseFrom={24} scaleFrom={0.94} style={styles.lensSlot}>
-				<BerxLens size={330} light={BERX_SCENE.light} body={BERX_SCENE.object} presence={0.95} />
+				<SpatialLens size={330} light={scene.light} body={scene.object} presence={0.95} />
 			</BerxFadeIn>
 
 			<View style={styles.copy}>
@@ -77,24 +88,29 @@ export default function WelcomeScreen({onLogin, onRegister}: Props) {
 	);
 }
 
-const makeStyles = () =>
+const makeStyles = (scene: BerxWorldScene, colors: BerxColorTokens) =>
 	StyleSheet.create({
-		screen: {flex: 1, backgroundColor: BERX_SCENE.ground, overflow: 'hidden'},
+		screen: {flex: 1, backgroundColor: scene.ground, overflow: 'hidden'},
 		lensSlot: {position: 'absolute', top: '9%', left: -96},
 		copy: {position: 'absolute', left: spacing.xl, right: spacing.xl, bottom: 214},
 		mark: {
 			fontSize: 12,
-			color: BERX_SCENE.light,
+			color: scene.light,
 			letterSpacing: 6,
 			fontWeight: typography.weightBold,
 			marginBottom: spacing.xl,
 		},
-		display: {fontSize: 52, lineHeight: 56, fontWeight: '700', color: '#FFFFFF', letterSpacing: -2},
-		displayThin: {fontSize: 52, lineHeight: 56, fontWeight: '200', color: 'rgba(255,255,255,0.82)', letterSpacing: -2},
+		// Copy stays a constant near-white/white regardless of World —
+		// same reasoning as tokens/index.ts's own onMedia (media/scene ink
+		// is deliberately world-invariant; only the accent and the
+		// ground move), so light-toned worlds (Day/Ice, Sun) don't lose
+		// contrast against their own brighter ground.
+		display: {fontSize: 52, lineHeight: 56, fontWeight: '700', color: colors.onMedia, letterSpacing: -2},
+		displayThin: {fontSize: 52, lineHeight: 56, fontWeight: '200', color: colors.onMediaDim, letterSpacing: -2},
 		lede: {
 			fontSize: typography.sizeBase,
 			lineHeight: 24,
-			color: 'rgba(255,255,255,0.5)',
+			color: colors.onMediaFaint,
 			marginTop: spacing.xl,
 			maxWidth: 270,
 		},

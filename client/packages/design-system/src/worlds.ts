@@ -240,9 +240,14 @@ const AURORA_COLORS: BerxColorTokens = {
 	accentSecondarySoft: 'rgba(63,224,176,0.16)',
 	onAccent: '#05100E',
 	mediaScrim: '#05100E',
-	onMedia: '#EFFBF7',
-	onMediaDim: 'rgba(239,251,247,0.72)',
-	onMediaFaint: 'rgba(239,251,247,0.45)',
+	// Pure, world-invariant white — same value every other world uses.
+	// onMedia sits over photos/video, which don't change colour with the
+	// app's theme, so it must not carry this world's own tint either
+	// (see tokens/index.ts's own comment on why Night's onMedia is
+	// "deliberately IDENTICAL" to Day's).
+	onMedia: '#F5F5F7',
+	onMediaDim: 'rgba(245,245,247,0.72)',
+	onMediaFaint: 'rgba(245,245,247,0.45)',
 	accentOnMedia: '#3FE0B0',
 
 	danger: '#FF5D6C',
