@@ -56,7 +56,7 @@
 import {Fragment, useCallback, useEffect, useRef, useState, useMemo} from 'react';
 import {Animated, LayoutChangeEvent, Pressable, StyleSheet, Text, View} from 'react-native';
 import {radius, spacing, typography} from '../tokens';
-import {IconHome, IconUsers, IconPlus, IconPin, IconMenu} from './BerxIcons';
+import {BerxIcon} from '../icons/BerxIcon';
 
 import {useBerxColors} from '../theme';
 import type {BerxColorTokens} from '../tokens';
@@ -75,19 +75,17 @@ interface Props {
 	unreadNotifications: number;
 }
 
+/**
+ * The wayfinder used the hand-built View-primitive icons from before
+ * react-native-svg existed in this project — triangles and rounded
+ * boxes standing in for a real set. It now draws from the real 82-glyph
+ * Lucide (ISC) geometry every other surface uses, so navigation stops
+ * being the one place in BERX with its own private icon language.
+ */
 function tabIcon(tab: BerxWayfinderTab, size: number, color: string) {
-	switch (tab) {
-		case 'Home':
-			return <IconHome size={size} color={color} />;
-		case 'People':
-			return <IconUsers size={size} color={color} />;
-		case 'Create':
-			return <IconPlus size={size} color={color} />;
-		case 'Places':
-			return <IconPin size={size} color={color} />;
-		case 'Profile':
-			return <IconMenu size={size} color={color} />;
-	}
+	const name =
+		tab === 'Home' ? 'home' : tab === 'People' ? 'users' : tab === 'Create' ? 'plus' : tab === 'Places' ? 'map-pin' : 'user';
+	return <BerxIcon name={name} size={size} color={color} strokeWidth={2} />;
 }
 
 /**
@@ -223,7 +221,9 @@ export function BerxWayfinder({activeTab, onSelect, unreadNotifications}: Props)
 					style={[styles.orb, activeTab === 'Create' && styles.orbActive]}
 					hitSlop={8}
 				>
-					{tabIcon('Create', 24, activeTab === 'Create' ? colors.onAccent : colors.accent)}
+					{/* The orb is filled, so its glyph is always the ink that sits ON
+					    the accent — never the accent itself, which would vanish. */}
+					{tabIcon('Create', 24, colors.onAccent)}
 				</Pressable>
 			</Animated.View>
 		</View>
@@ -288,19 +288,20 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 		width: ORB_SIZE,
 		height: ORB_SIZE,
 		borderRadius: ORB_SIZE / 2,
-		backgroundColor: colors.bg,
-		borderWidth: 2,
-		borderColor: colors.accent,
+		// FILLED, not outlined. As a ring on the ground colour the orb read
+		// as a hollow placeholder rather than as the product's primary
+		// action; it is the one control on the bar that should look solid.
+		backgroundColor: colors.accent,
 		alignItems: 'center',
 		justifyContent: 'center',
 		shadowColor: colors.accent,
-		shadowOpacity: 0.5,
+		shadowOpacity: 0.55,
 		shadowRadius: 16,
 		shadowOffset: {width: 0, height: 0},
 		elevation: 10,
 	},
 	orbActive: {
-		backgroundColor: colors.accent,
+		backgroundColor: colors.accentHover,
 	},
 	badge: {
 		position: 'absolute',

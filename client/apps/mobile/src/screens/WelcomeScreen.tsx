@@ -22,9 +22,7 @@ import {useMemo} from 'react';
 import {View, Text, StyleSheet} from 'react-native';
 import {spacing, typography, fonts} from '@berx/design-system/tokens';
 import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
-import {BerxAura} from '../../../../packages/design-system/src/components/BerxAura';
-import {BerxGrain} from '../../../../packages/design-system/src/components/BerxGrain';
-import {BerxPlanes} from '../../../../packages/design-system/src/components/BerxPlanes';
+import {BerxEntryStage} from '../../../../packages/design-system/src/components/BerxEntryStage';
 import {BerxMark, BerxWordmark} from '../../../../packages/design-system/src/components/BerxLogo';
 import {BerxPrimaryAction, BerxQuietAction} from '../../../../packages/design-system/src/components/BerxActions';
 import {BERX_SCENE} from '../../../../packages/design-system/src/palette';
@@ -39,39 +37,7 @@ export default function WelcomeScreen({onLogin, onRegister}: Props) {
 	const insets = useBerxInsets();
 	const styles = useMemo(() => makeStyles(), []);
 	return (
-		<View style={styles.screen}>
-			<BerxAura
-				ground={BERX_SCENE.ground}
-				glow={BERX_SCENE.glow}
-				counter={BERX_SCENE.counter}
-				intensity={1}
-				at={0.52}
-			/>
-			{/* BERX's own 3D, filling the upper half: glass slabs floating at
-			    three depths, each catching the ember along one edge. The
-			    alternative was half a screen of empty ground, which reads as
-			    an unfinished layout rather than as space. */}
-			<BerxPlanes
-				planes={[
-					// Discrete OBJECTS, not sheets. An earlier set ran 0.62–0.72 of
-					// the screen wide and bled off both edges at once, which reads
-					// as a stack of ramps rather than as slabs floating in a room.
-					// They are also kept clear of the type block below.
-					{x: 0.68, y: 0.09, w: 0.3, depth: 0.88, tilt: -6},
-					{x: 0.3, y: 0.15, w: 0.24, depth: 0.72, tilt: 4},
-					{x: 0.74, y: 0.24, w: 0.44, depth: 0.1, tilt: -3},
-					{x: 0.22, y: 0.3, w: 0.34, depth: 0.42, tilt: 7},
-					{x: 0.52, y: 0.38, w: 0.2, depth: 0.8, tilt: -8},
-				]}
-				light={BERX_SCENE.light}
-				body={BERX_SCENE.object}
-			/>
-			<BerxGrain opacity={0.045} />
-
-			{/* The mark stands high in the light, at the size of an object
-			    rather than of a logo in a corner. */}
-			{/* The safe-area inset is applied on the host View: BerxFadeIn
-			    takes a single ViewStyle, not a style array. */}
+		<BerxEntryStage progress={0}>
 			{/* Mark, wordmark and headline are ONE block. Parking the mark in
 			    a top corner left a quarter-screen of nothing between it and
 			    the type, which reads as an unfinished layout rather than as
@@ -98,13 +64,12 @@ export default function WelcomeScreen({onLogin, onRegister}: Props) {
 					<BerxQuietAction label="У меня уже есть аккаунт" onPress={onLogin} />
 				</BerxFadeIn>
 			</View>
-		</View>
+		</BerxEntryStage>
 	);
 }
 
 const makeStyles = () =>
 	StyleSheet.create({
-		screen: {flex: 1, backgroundColor: BERX_SCENE.ground, overflow: 'hidden'},
 		mark: {marginLeft: -10, marginBottom: spacing.lg},
 		copy: {position: 'absolute', left: spacing.xl, right: spacing.xl, bottom: 200},
 		display: {

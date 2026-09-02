@@ -20,10 +20,11 @@
 import {useMemo, useRef, useState} from 'react';
 import {View, Text, Animated, Dimensions, StyleSheet} from 'react-native';
 import type {NativeSyntheticEvent, NativeScrollEvent} from 'react-native';
-import {spacing, typography, radius} from '@berx/design-system/tokens';
-import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
-import {BerxStage} from '../../../../packages/design-system/src/components/BerxStage';
-import {BerxEmblem} from '../../../../packages/design-system/src/components/BerxEmblem';
+import {spacing, typography, radius, fonts} from '@berx/design-system/tokens';
+import {BerxPrimaryAction, BerxQuietAction} from '../../../../packages/design-system/src/components/BerxActions';
+import {BERX_SCENE} from '../../../../packages/design-system/src/palette';
+import {BerxEntryStage} from '../../../../packages/design-system/src/components/BerxEntryStage';
+import {BerxMark} from '../../../../packages/design-system/src/components/BerxLogo';
 import {BerxIcon} from '../../../../packages/design-system/src/icons/BerxIcon';
 
 import {useBerxColors} from '../../../../packages/design-system/src/theme';
@@ -98,7 +99,7 @@ export default function DiscoverScreen({onFinish, onSkip}: Props) {
 	return (
 		// The camera rises as the pages advance: page 3 looks down on the
 		// city that page 1 stood in.
-		<BerxStage depth={index / (PAGES.length - 1)} seed={19} scrim={0.5}>
+		<BerxEntryStage progress={0.25 + (index / (PAGES.length - 1)) * 0.35} field={0.48} presence={0.55}>
 			<Animated.FlatList
 				ref={listRef}
 				data={PAGES}
@@ -133,7 +134,7 @@ export default function DiscoverScreen({onFinish, onSkip}: Props) {
 					return (
 						<View style={styles.page}>
 							<Animated.View style={[styles.objectSlot, {opacity, transform: [{translateX: translate}]}]}>
-								<BerxEmblem size={150} light={colors.accent} tilt={i * 4} />
+								<BerxMark size={78} light={colors.accent} body="#4A2C2A" />
 							</Animated.View>
 							<Animated.View style={[styles.copy, {opacity, transform: [{translateX: translate}]}]}>
 								<View style={styles.eyebrowRow}>
@@ -158,10 +159,10 @@ export default function DiscoverScreen({onFinish, onSkip}: Props) {
 						<View key={p.key} style={[styles.dot, i === index && styles.dotActive]} />
 					))}
 				</View>
-				<BerxButton label={last ? 'Начать' : 'Дальше'} onPress={advance} fullWidth />
-				<BerxButton label="Пропустить" variant="secondary" onPress={onSkip} fullWidth />
+				<BerxPrimaryAction label={last ? 'Создать аккаунт' : 'Дальше'} onPress={advance} tone={BERX_SCENE.light} ink="#26100A" />
+				<BerxQuietAction label="Пропустить" onPress={onSkip} />
 			</View>
-		</BerxStage>
+		</BerxEntryStage>
 	);
 }
 
@@ -172,32 +173,35 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	// block) was then laid out against a zero-height box and pushed off
 	// the top of the screen. The page renders as a full device frame.
 	page: {width: SCREEN_W, height: SCREEN_H},
-	objectSlot: {position: 'absolute', top: '15%', right: '8%'},
-	copy: {position: 'absolute', left: spacing.xl, right: spacing.xl, bottom: 250},
+	objectSlot: {position: 'absolute', top: '13%', left: spacing.xl},
+	copy: {position: 'absolute', left: spacing.xl, right: spacing.xl, bottom: 230},
 	eyebrowRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.md},
 	eyebrow: {
 		fontSize: typography.sizeXs,
-		color: colors.accentOnMedia,
+		color: colors.accent,
 		textTransform: 'uppercase',
 		letterSpacing: 2.4,
-	},
-	display: {
-		fontSize: 42,
-		lineHeight: 46,
 		fontWeight: typography.weightBold,
-		color: colors.onMedia,
-		letterSpacing: -1.4,
 	},
-	displayAccent: {color: colors.accentOnMedia},
+	// Instrument Serif, large. The serif is what stops the sequence
+	// reading as another sans-serif app.
+	display: {
+		fontFamily: fonts.display,
+		fontSize: 52,
+		lineHeight: 56,
+		color: colors.onMedia,
+		letterSpacing: -0.8,
+	},
+	displayAccent: {fontFamily: fonts.displayItalic, color: colors.accent},
 	body: {
 		fontSize: typography.sizeBase,
-		lineHeight: 22,
+		lineHeight: 24,
 		color: colors.onMediaDim,
 		marginTop: spacing.lg,
-		maxWidth: 300,
+		maxWidth: 292,
 	},
 	footer: {position: 'absolute', left: spacing.xl, right: spacing.xl, bottom: spacing.xxl, gap: spacing.sm},
 	dots: {flexDirection: 'row', gap: spacing.xs, marginBottom: spacing.lg},
 	dot: {width: 22, height: 3, borderRadius: radius.pill, backgroundColor: colors.onMediaFaint},
-	dotActive: {backgroundColor: colors.accentOnMedia, width: 34},
+	dotActive: {backgroundColor: colors.accent, width: 34},
 });
