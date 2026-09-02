@@ -15,7 +15,19 @@
  *
  * Visually it is the same BerxStage as splash and welcome, moving
  * through it: `depth` rises page by page, so the three pages are one
- * continuous camera move rather than three separate backdrops.
+ * continuous camera move rather than three separate backdrops. Already
+ * live-World-reactive before this pass too — BerxStage itself reads
+ * useBerxColors(), and this screen's own copy/icons already read
+ * colors.accentOnMedia/onMedia rather than a hardcoded palette.
+ *
+ * SpatialRenderer: the per-page object is now SpatialEmblem (packages/
+ * design-system/src/spatial), not BerxEmblem directly — same True3D/2D
+ * file-level split as Welcome's SpatialLens and World Select's
+ * SpatialHero. On web (this harness) it's a pixel-identical pass
+ * through to the existing BerxEmblem; on iOS/Android, Metro resolves
+ * to SpatialEmblem.native.tsx — a real three-plane Three.js stack with
+ * an actual camera and depth-offset geometry, not device-verified from
+ * this environment.
  */
 import {useMemo, useRef, useState} from 'react';
 import {View, Text, Animated, Dimensions, StyleSheet} from 'react-native';
@@ -23,7 +35,7 @@ import type {NativeSyntheticEvent, NativeScrollEvent} from 'react-native';
 import {spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxStage} from '../../../../packages/design-system/src/components/BerxStage';
-import {BerxEmblem} from '../../../../packages/design-system/src/components/BerxEmblem';
+import {SpatialEmblem} from '../../../../packages/design-system/src/spatial/SpatialEmblem';
 import {BerxIcon} from '../../../../packages/design-system/src/icons/BerxIcon';
 
 import {useBerxColors} from '../../../../packages/design-system/src/theme';
@@ -133,7 +145,7 @@ export default function DiscoverScreen({onFinish, onSkip}: Props) {
 					return (
 						<View style={styles.page}>
 							<Animated.View style={[styles.objectSlot, {opacity, transform: [{translateX: translate}]}]}>
-								<BerxEmblem size={150} light={colors.accent} tilt={i * 4} />
+								<SpatialEmblem size={150} light={colors.accent} tilt={i * 4} />
 							</Animated.View>
 							<Animated.View style={[styles.copy, {opacity, transform: [{translateX: translate}]}]}>
 								<View style={styles.eyebrowRow}>
