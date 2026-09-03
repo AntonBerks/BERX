@@ -1,16 +1,31 @@
 /**
  * !!! VERIFICATION STATUS: UNVERIFIED — see BerxButton.tsx header.
  *
- * No icon font or SVG library is installed (react-native-vector-icons/
- * @expo/vector-icons/react-native-svg are all external npm packages,
- * same "npm registry blocked" constraint as everywhere else this
- * session) — these five glyphs are built from plain View primitives
- * (borders, rotation, border-radius) rather than faking a font-icon
- * reference that would render as a blank box or tofu character with
- * nothing actually linked. Simple shapes only, by design: this is a
- * real, honest substitute for an icon library, not a placeholder.
+ * No icon FONT is installed (react-native-vector-icons / @expo/
+ * vector-icons are external npm packages, same "npm registry blocked"
+ * constraint as everywhere else) — so these glyphs are drawn, not
+ * referenced from a font that would render as tofu with nothing
+ * actually linked.
+ *
+ * CORRECTION TO THIS FILE'S ORIGINAL HEADER: it also claimed
+ * react-native-svg was unavailable, and built every glyph from View
+ * primitives (borders, rotation, border-radius) on that basis. That
+ * claim is false — react-native-svg@15.15.5 is a declared dependency
+ * in package.json and installed on disk, and BerxOrb/BerxActions have
+ * been rendering real SVG through it all along. The constraint these
+ * icons were shaped around does not exist.
+ *
+ * The View-primitive glyphs that hold their proportions are left as
+ * they are rather than churned for the sake of it. IconHeart did not:
+ * it is two circles with a triangle beneath, and the triangle is wider
+ * than the two lobes combined, so its points stick out at the sides and
+ * it reads as a DIAMOND at every size — visibly so in the feed's stat
+ * row and in Profile's menu. A shape that is not the shape it is named
+ * after is a defect, not a stylistic simplification, so that one is now
+ * a real path.
  */
 import {View} from 'react-native';
+import Svg, {Path} from 'react-native-svg';
 
 interface IconProps {
 	size?: number;
@@ -168,28 +183,19 @@ export function IconChevronLeft({size = 16, color}: IconProps) {
 	);
 }
 
+/**
+ * A real heart path, so it is a heart at 13px and at 40px alike. The
+ * two-circles-plus-triangle construction this replaced could not hold
+ * the silhouette at any size.
+ */
 export function IconHeart({size = 20, color}: IconProps) {
-	const lobe = size * 0.32;
 	return (
-		<View style={{width: size, height: size, alignItems: 'center', justifyContent: 'flex-end'}}>
-			<View style={{flexDirection: 'row'}}>
-				<View style={{width: lobe, height: lobe, borderRadius: lobe / 2, backgroundColor: color, marginRight: -lobe * 0.3}} />
-				<View style={{width: lobe, height: lobe, borderRadius: lobe / 2, backgroundColor: color, marginLeft: -lobe * 0.3}} />
-			</View>
-			<View
-				style={{
-					width: 0,
-					height: 0,
-					marginTop: -lobe * 0.55,
-					borderLeftWidth: size * 0.32,
-					borderRightWidth: size * 0.32,
-					borderTopWidth: size * 0.4,
-					borderLeftColor: 'transparent',
-					borderRightColor: 'transparent',
-					borderTopColor: color,
-				}}
+		<Svg width={size} height={size} viewBox="0 0 24 24">
+			<Path
+				d="M12 20.6l-1.3-1.2C5.2 14.5 2 11.6 2 8.1 2 5.3 4.2 3.1 7 3.1c1.6 0 3.1.7 4 1.9 0.9-1.2 2.4-1.9 4-1.9 2.8 0 5 2.2 5 5 0 3.5-3.2 6.4-8.7 11.3L12 20.6z"
+				fill={color}
 			/>
-		</View>
+		</Svg>
 	);
 }
 

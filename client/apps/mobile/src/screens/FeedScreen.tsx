@@ -45,12 +45,31 @@ import {relativeTimeLabel} from '@berx/domain';
 import {spacing, radius, typography} from '@berx/design-system/tokens';
 import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
 import {BerxErrorState, BerxEmptyState, BerxSkeleton} from '../../../../packages/design-system/src/components/BerxStates';
-import {IconPlus} from '../../../../packages/design-system/src/components/BerxIcons';
+import {IconPlus, IconHeart, IconMessage} from '../../../../packages/design-system/src/components/BerxIcons';
 import {BerxRichText} from '../../../../packages/design-system/src/components/BerxRichText';
 import {BerxPollView} from '../../../../packages/design-system/src/components/BerxPollView';
 
 import {useBerxColors} from '../../../../packages/design-system/src/theme';
 import type {BerxColorTokens} from '@berx/design-system/tokens';
+
+/**
+ * WHO ACTUALLY WROTE THIS POST.
+ *
+ * `owner_guid` is the wall the post lives ON, not the person who wrote
+ * it. For a Community Wall post that wall is the GROUP, and a group has
+ * no username — so `owner_username` is honestly null, and this screen
+ * used to fall back to the literal string 'BERX', attributing a real
+ * person's post to the product itself. `poster_guid`/`poster_username`
+ * is the real, separate author column OssnWall::Post() has always set
+ * (see ossn_com.php's own comment on it, and BerxFeedItem's).
+ *
+ * Falls back to owner_username for the shapes built by endpoints that
+ * do not resolve a poster, rather than assuming every caller populates
+ * it.
+ */
+function authorOf(item: BerxFeedItem): string | null {
+	return item.poster_username ?? item.owner_username;
+}
 
 interface Props {
 	api: BerxApiClient;
@@ -159,10 +178,25 @@ export default function FeedScreen({api, myGuid, onOpenPost, onOpenProfile, onOp
 				}
 				renderItem={({item}: {item: BerxStoryFeedGroup}) => (
 					<Pressable style={styles.storyItem} onPress={() => onOpenStoryGroup(item)}>
-						<View style={styles.storyTile}>
-							<Text style={styles.storyTileInitial}>{(item.owner_username ?? '?').charAt(0).toUpperCase()}</Text>
+						{/* has_unseen is real per-viewer state from the ossn_stories_views
+						    rows markViewed() has always written, and the rail was
+						    ignoring it: EVERY tile got the accent frame, so a rail
+						    where you had already watched everything looked exactly
+						    like one full of new stories. The frame is the whole
+						    point of a story rail — it is the only thing that says
+						    "there is something here for you". Seen groups keep a
+						    quiet border: still present, no longer calling. */}
+						<View style={[styles.storyTile, item.has_unseen ? styles.storyTileUnseen : styles.storyTileSeen]}>
+							{item.owner_icon ? (
+								<Image
+									source={{uri: item.owner_icon}}
+									style={[styles.storyTileImage, !item.has_unseen && styles.storyTileImageSeen]}
+								/>
+							) : (
+								<Text style={styles.storyTileInitial}>{(item.owner_username ?? '?').charAt(0).toUpperCase()}</Text>
+							)}
 						</View>
-						<Text style={styles.storyLabel} numberOfLines={1}>
+						<Text style={[styles.storyLabel, item.has_unseen && styles.storyLabelUnseen]} numberOfLines={1}>
 							{item.owner_username ?? `#${item.owner_guid}`}
 						</Text>
 					</Pressable>
@@ -186,19 +220,23 @@ export default function FeedScreen({api, myGuid, onOpenPost, onOpenProfile, onOp
 		return (
 			<View style={styles.screen}>
 				{header}
-				{/* Real skeleton shape matching the actual card layout below (avatar + author line + body lines) — BerxSkeleton existed as a real, working, animated component with zero screen actually using it until now. */}
+				{/* The skeleton has to be the shape of the thing that arrives, or
+				    the content visibly jumps when it lands. This one had drifted:
+				    it drew a 36px avatar over a two-line author column, which was
+				    the old card layout — the editorial unit has a 22px squared
+				    mark and a SINGLE byline line. Matched back to it, including a
+				    media block on the units likeliest to have one, so the page
+				    settles instead of reflowing. */}
 				<View style={styles.skeletonList}>
-					{[0, 1, 2, 3].map((i) => (
+					{[0, 1, 2].map((i) => (
 						<View key={i} style={styles.skeletonCard}>
 							<View style={styles.skeletonHeaderRow}>
-								<BerxSkeleton width={36} height={36} style={styles.skeletonAvatar} />
-								<View style={styles.skeletonAuthorCol}>
-									<BerxSkeleton width="40%" height={12} />
-									<BerxSkeleton width="25%" height={10} style={styles.skeletonGapSm} />
-								</View>
+								<BerxSkeleton width={22} height={22} style={styles.skeletonAvatar} />
+								<BerxSkeleton width="46%" height={11} />
 							</View>
-							<BerxSkeleton width="90%" height={14} style={styles.skeletonGap} />
-							<BerxSkeleton width="60%" height={14} style={styles.skeletonGapSm} />
+							<BerxSkeleton width="92%" height={16} style={styles.skeletonGap} />
+							<BerxSkeleton width="58%" height={16} style={styles.skeletonGapSm} />
+							{i === 0 ? <BerxSkeleton width="100%" height={220} style={styles.skeletonMedia} /> : null}
 						</View>
 					))}
 				</View>
@@ -237,18 +275,38 @@ export default function FeedScreen({api, myGuid, onOpenPost, onOpenProfile, onOp
 						/>
 					}
 					renderItem={({item}: {item: BerxFeedItem}) => (
-					<Pressable style={styles.unit} onPress={() => onOpenPost(item.guid)}>
+					<Pressable
+						style={({pressed}: {pressed: boolean}) => [styles.unit, pressed && styles.unitPressed]}
+						onPress={() => onOpenPost(item.guid)}>
 						<Pressable
 							style={styles.bylineRow}
-							onPress={() => item.owner_username && onOpenProfile(item.owner_username)}
-							disabled={!item.owner_username}
+							onPress={() => { const a = authorOf(item); if (a) onOpenProfile(a); }}
+							disabled={!authorOf(item)}
 							hitSlop={8}
 						>
+							{/* The author's real face, in BERX's own squared mark rather than
+							    the circular avatar this screen deliberately moved away from.
+							    poster_icon has been on every feed item all along (ossn_com.php's
+							    own comment: "it was simply never sent, which is why every feed
+							    byline rendered an initial instead of a face") — the initial is
+							    now the FALLBACK for a deleted account, not everyone's default. */}
 							<View style={styles.bylineMark}>
-								<Text style={styles.bylineMarkInitial}>{(item.owner_username ?? 'B').charAt(0).toUpperCase()}</Text>
+								{item.poster_icon ? (
+									<Image source={{uri: item.poster_icon}} style={styles.bylineMarkImage} />
+								) : (
+									<Text style={styles.bylineMarkInitial}>{(authorOf(item) ?? 'B').charAt(0).toUpperCase()}</Text>
+								)}
 							</View>
+							{/* Real creator status, batched page-wide by feed.php and never
+							    rendered until now. One accent dot, immediately after the
+							    name it describes — parked at the far right of the row it
+							    read as an unread indicator instead of as a fact about
+							    the author. */}
+							{item.poster_is_creator ? <View style={styles.creatorDot} /> : null}
 							<Text style={styles.byline} numberOfLines={1}>
-								{(item.owner_username ?? 'BERX').toUpperCase()} · {relativeTimeLabel(item.time_created)}
+								{(authorOf(item) ?? 'BERX').toUpperCase()} · {relativeTimeLabel(item.time_created)}
+								{item.is_edited ? ' · ИЗМ.' : ''}
+								{item.repost_of ? ' · РЕПОСТ' : ''}
 							</Text>
 						</Pressable>
 						<BerxRichText text={item.text} onOpenProfile={onOpenProfile} onOpenHashtag={onOpenHashtag} style={styles.text} />
@@ -262,12 +320,36 @@ export default function FeedScreen({api, myGuid, onOpenPost, onOpenProfile, onOp
 								) : null}
 							</View>
 						) : null}
+						{/* Real attached soundtrack. track_title is resolved server-side
+						    once per distinct track on the page and was never displayed,
+						    so a post WITH music looked identical to one without. */}
+						{item.track_title ? (
+							<View style={styles.trackRow}>
+								<View style={styles.trackMark} />
+								<Text style={styles.trackTitle} numberOfLines={1}>{item.track_title}</Text>
+							</View>
+						) : null}
+						{/* Drawn with the product's own icon geometry, not emoji. A
+						    heart glyph and 💬 render in the OS emoji font — a foreign
+						    object, at a size and weight BERX does not control, sitting
+						    inside a product built on its own drawn icon set. `is_liked`
+						    now reads as colour (the heart is solid either way), which
+						    is the honest distinction on a filled mark. */}
 						{(item.like_count ?? 0) > 0 || (item.comment_count ?? 0) > 0 ? (
-							<Text style={styles.stats}>
-								{(item.like_count ?? 0) > 0 ? `${item.is_liked ? '♥' : '♡'} ${item.like_count}` : null}
-								{(item.like_count ?? 0) > 0 && (item.comment_count ?? 0) > 0 ? '   ' : null}
-								{(item.comment_count ?? 0) > 0 ? `💬 ${item.comment_count}` : null}
-							</Text>
+							<View style={styles.stats}>
+								{(item.like_count ?? 0) > 0 ? (
+									<View style={styles.statItem}>
+										<IconHeart size={16} color={item.is_liked ? colors.accent : colors.textFaint} />
+										<Text style={[styles.statText, item.is_liked && styles.statTextLiked]}>{item.like_count}</Text>
+									</View>
+								) : null}
+								{(item.comment_count ?? 0) > 0 ? (
+									<View style={styles.statItem}>
+										<IconMessage size={15} color={colors.textFaint} />
+										<Text style={styles.statText}>{item.comment_count}</Text>
+									</View>
+								) : null}
+							</View>
 						) : null}
 						{item.poll ? (
 							<Pressable onPress={(e: GestureResponderEvent) => e.stopPropagation()}>
@@ -317,11 +399,18 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 		height: 56,
 		borderRadius: radius.sm,
 		borderWidth: 1,
-		borderColor: colors.accent,
 		alignItems: 'center',
 		justifyContent: 'center',
 		backgroundColor: colors.graphite,
+		overflow: 'hidden',
 	},
+	storyTileUnseen: {borderColor: colors.accent},
+	// Not invisible — watched, which is a different thing from absent.
+	storyTileSeen: {borderColor: colors.borderSoft},
+	storyTileImage: {width: '100%', height: '100%', resizeMode: 'cover'},
+	// A watched story reads back a step. Real state, expressed as
+	// presence rather than as a badge.
+	storyTileImageSeen: {opacity: 0.45},
 	storyTileInitial: {color: colors.text, fontSize: typography.sizeBase, fontWeight: typography.weightBold},
 	addStoryTile: {
 		width: 56,
@@ -334,6 +423,7 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 		justifyContent: 'center',
 	},
 	storyLabel: {color: colors.textFaint, fontSize: 10, marginTop: spacing.xs, textAlign: 'center'},
+	storyLabelUnseen: {color: colors.textDim, fontWeight: typography.weightMedium},
 	fadeFlex: {flex: 1},
 	skeletonList: {flex: 1},
 	skeletonCard: {
@@ -341,10 +431,11 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 		paddingVertical: spacing.lg,
 	},
 	skeletonHeaderRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm},
-	skeletonAvatar: {borderRadius: radius.sm},
-	skeletonAuthorCol: {flex: 1, gap: 4},
+	// radius.sm/2 — the same squared mark the real byline uses, not a circle.
+	skeletonAvatar: {borderRadius: radius.sm / 2},
 	skeletonGap: {marginTop: spacing.md},
 	skeletonGapSm: {marginTop: spacing.xs},
+	skeletonMedia: {marginTop: spacing.md, borderRadius: radius.md},
 	// The editorial unit — no card, no border, no background fill.
 	// Same visual grammar as PostDetailScreen's own byline/paragraph
 	// treatment, applied here for the first time so feed and detail
@@ -354,6 +445,9 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 		paddingHorizontal: spacing.lg,
 		paddingVertical: spacing.lg,
 	},
+	// Real press feedback. A tappable unit that does not acknowledge the
+	// touch reads as broken for the frame before the next screen arrives.
+	unitPressed: {backgroundColor: colors.glass2},
 	bylineRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.sm},
 	bylineMark: {
 		width: 22,
@@ -365,6 +459,8 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 		justifyContent: 'center',
 	},
 	bylineMarkInitial: {color: colors.accent, fontSize: 10, fontWeight: typography.weightBold},
+	bylineMarkImage: {width: '100%', height: '100%', resizeMode: 'cover'},
+	creatorDot: {width: 5, height: 5, borderRadius: 2.5, backgroundColor: colors.accent},
 	byline: {
 		flex: 1,
 		color: colors.textFaint,
@@ -395,6 +491,14 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	media: {width: '100%', aspectRatio: 1.3},
 	mediaCountBadge: {position: 'absolute', top: spacing.sm, right: spacing.sm, paddingHorizontal: spacing.sm, paddingVertical: 2, borderRadius: radius.pill, backgroundColor: 'rgba(0,0,0,0.55)'},
 	mediaCountText: {color: colors.white, fontSize: typography.sizeXs, fontWeight: typography.weightBold},
-	stats: {color: colors.textFaint, fontSize: typography.sizeSm, marginTop: spacing.sm},
+	trackRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.md},
+	// A short accent bar, the same "one line of light" mark the rest of
+	// the spatial system uses — not a musical note glyph from a font.
+	trackMark: {width: 2, height: 14, borderRadius: 1, backgroundColor: colors.accent},
+	trackTitle: {flex: 1, color: colors.textDim, fontSize: typography.sizeXs, letterSpacing: 0.2},
+	stats: {flexDirection: 'row', alignItems: 'center', gap: spacing.lg, marginTop: spacing.md},
+	statItem: {flexDirection: 'row', alignItems: 'center', gap: spacing.xs},
+	statText: {color: colors.textFaint, fontSize: typography.sizeSm, fontVariant: ['tabular-nums']},
+	statTextLiked: {color: colors.accent},
 	separator: {height: 1, backgroundColor: colors.borderSoft, marginHorizontal: spacing.lg},
 });
