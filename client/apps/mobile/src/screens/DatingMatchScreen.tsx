@@ -1,14 +1,29 @@
 /**
  * !!! VERIFICATION STATUS: UNVERIFIED — see LoginScreen.tsx header.
  *
- * Own BERX visual language, not a Tinder/Pure/Bumble clone: orange
- * glow, BERX typography, real actions (message the match / keep
- * browsing) — not a static congratulations graphic.
+ * BERX WORLD REBUILD — was the old visual identity outright: the
+ * header used to describe "orange glow" (a retired accent, gone
+ * before this session), and the body never used real data at all —
+ * two empty circular placeholders with no props to ever fill them,
+ * static, no motion, a plain accent-soft glow behind static text.
+ *
+ * Real spatial 3D now carries the one real event this screen exists
+ * to show: two identities, previously apart, meeting (BerxMatchScene
+ * — see its own header for exactly why it draws two abstract identity
+ * spheres rather than two photos: BERX Match's real backend withholds
+ * profile photos until a separate consented grant flow, so a
+ * fabricated face here would misrepresent a real privacy boundary,
+ * not just look worse). No compatibility score is invented — the
+ * convergence performs the one real fact available: a mutual like
+ * just happened.
  */
 import {useMemo} from 'react';
 import {View, Text, StyleSheet} from 'react-native';
 import {spacing, typography} from '@berx/design-system/tokens';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
+import {BerxGlassSurface} from '../../../../packages/design-system/src/components/BerxGlassSurface';
+import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
+import BerxMatchScene from '../three/BerxMatchScene';
 
 import {useBerxColors} from '../../../../packages/design-system/src/theme';
 import type {BerxColorTokens} from '@berx/design-system/tokens';
@@ -24,22 +39,21 @@ export default function DatingMatchScreen({otherUsername, onMessage, onContinueB
 	const styles = useMemo(() => makeStyles(colors), [colors]);
 	return (
 		<View style={styles.screen}>
-			<View style={styles.glow} />
-			<Text style={styles.title}>Это совпадение!</Text>
-			<Text style={styles.subtitle}>Вы понравились друг другу с {otherUsername}</Text>
+			<BerxFadeIn riseFrom={0} style={styles.sceneWrap}>
+				<BerxMatchScene />
+			</BerxFadeIn>
 
-			<View style={styles.avatars}>
-				<View style={styles.avatarPlaceholder} />
-				<View style={styles.heart}>
-					<Text style={styles.heartText}>♥</Text>
-				</View>
-				<View style={styles.avatarPlaceholder} />
-			</View>
+			<BerxFadeIn delayMs={180} style={styles.copy}>
+				<Text style={styles.title}>Это совпадение!</Text>
+				<Text style={styles.subtitle}>Вы понравились друг другу с {otherUsername}</Text>
+			</BerxFadeIn>
 
-			<View style={styles.actions}>
-				<BerxButton label="Написать" onPress={onMessage} fullWidth />
-				<BerxButton label="Продолжить просмотр" variant="secondary" onPress={onContinueBrowsing} fullWidth />
-			</View>
+			<BerxFadeIn delayMs={320} style={styles.actionsWrap}>
+				<BerxGlassSurface padding="lg" style={styles.actions}>
+					<BerxButton label="Написать" onPress={onMessage} fullWidth />
+					<BerxButton label="Продолжить просмотр" variant="secondary" onPress={onContinueBrowsing} fullWidth />
+				</BerxGlassSurface>
+			</BerxFadeIn>
 		</View>
 	);
 }
@@ -52,33 +66,10 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 		justifyContent: 'center',
 		padding: spacing.xl,
 	},
-	glow: {
-		position: 'absolute',
-		top: -80,
-		width: 320,
-		height: 320,
-		borderRadius: 160,
-		backgroundColor: colors.accentSoft,
-	},
-	title: {color: colors.accent, fontSize: typography.sizeHero, fontWeight: typography.weightBold, marginBottom: spacing.sm},
-	subtitle: {color: colors.textDim, fontSize: typography.sizeBase, marginBottom: spacing.xxl, textAlign: 'center'},
-	avatars: {flexDirection: 'row', alignItems: 'center', gap: spacing.lg, marginBottom: spacing.xxl},
-	avatarPlaceholder: {
-		width: 100,
-		height: 100,
-		borderRadius: 50,
-		backgroundColor: colors.graphite,
-		borderWidth: 3,
-		borderColor: colors.accent,
-	},
-	heart: {
-		width: 44,
-		height: 44,
-		borderRadius: 22,
-		backgroundColor: colors.accent,
-		alignItems: 'center',
-		justifyContent: 'center',
-	},
-	heartText: {color: colors.onAccent, fontSize: 20},
+	sceneWrap: {width: '76%', maxWidth: 320},
+	copy: {alignItems: 'center', marginTop: spacing.lg, marginBottom: spacing.xxl},
+	title: {color: colors.accent, fontSize: typography.sizeHero, fontWeight: typography.weightBold, marginBottom: spacing.sm, textAlign: 'center'},
+	subtitle: {color: colors.textDim, fontSize: typography.sizeBase, textAlign: 'center'},
+	actionsWrap: {width: '100%'},
 	actions: {width: '100%', gap: spacing.md},
 });
