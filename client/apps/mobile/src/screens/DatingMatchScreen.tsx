@@ -20,8 +20,7 @@
 import {useMemo} from 'react';
 import {View, Text, StyleSheet} from 'react-native';
 import {spacing, typography} from '@berx/design-system/tokens';
-import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
-import {BerxGlassSurface} from '../../../../packages/design-system/src/components/BerxGlassSurface';
+import {BerxPrimaryAction, BerxQuietAction} from '../../../../packages/design-system/src/components/BerxActions';
 import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
 import BerxMatchScene from '../three/BerxMatchScene';
 
@@ -44,15 +43,23 @@ export default function DatingMatchScreen({otherUsername, onMessage, onContinueB
 			</BerxFadeIn>
 
 			<BerxFadeIn delayMs={180} style={styles.copy}>
-				<Text style={styles.title}>Это совпадение!</Text>
-				<Text style={styles.subtitle}>Вы понравились друг другу с {otherUsername}</Text>
+				<Text style={styles.title}>Это совпадение</Text>
+				{/* The one accent word on the screen is the person's name — the
+				    only part of this sentence that is actually about them. */}
+				<Text style={styles.subtitle}>
+					Вы понравились друг другу с <Text style={styles.subtitleName}>{otherUsername}</Text>
+				</Text>
 			</BerxFadeIn>
 
 			<BerxFadeIn delayMs={320} style={styles.actionsWrap}>
-				<BerxGlassSurface padding="lg" style={styles.actions}>
-					<BerxButton label="Написать" onPress={onMessage} fullWidth />
-					<BerxButton label="Продолжить просмотр" variant="secondary" onPress={onContinueBrowsing} fullWidth />
-				</BerxGlassSurface>
+				{/* No glass box around the actions. It drew a rectangle around
+				    two buttons that were already complete objects, and put a
+				    second container edge inside a screen that has no other
+				    edges — the primary action IS the emphasis. Same pair
+				    Welcome uses, so the product's first screen and its most
+				    emotional one speak with one control language. */}
+				<BerxPrimaryAction label="Написать" onPress={onMessage} />
+				<BerxQuietAction label="Продолжить просмотр" onPress={onContinueBrowsing} />
 			</BerxFadeIn>
 		</View>
 	);
@@ -68,8 +75,16 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	},
 	sceneWrap: {width: '76%', maxWidth: 320},
 	copy: {alignItems: 'center', marginTop: spacing.lg, marginBottom: spacing.xxl},
-	title: {color: colors.accent, fontSize: typography.sizeHero, fontWeight: typography.weightBold, marginBottom: spacing.sm, textAlign: 'center'},
-	subtitle: {color: colors.textDim, fontSize: typography.sizeBase, textAlign: 'center'},
-	actionsWrap: {width: '100%'},
-	actions: {width: '100%', gap: spacing.md},
+	// White, not accent. A hero-sized headline in the brand colour spends
+	// the entire accent budget of the screen on decoration, and then the
+	// primary action — the thing the user is actually meant to press —
+	// has to compete with it in the same colour. The headline is the
+	// event; the accent belongs on the button. (Same rule WelcomeScreen's
+	// header states: worth more spent on one word than smeared over a
+	// template.) Dropped the exclamation mark with it: the composition
+	// already carries the moment.
+	title: {color: colors.text, fontSize: typography.sizeHero, fontWeight: typography.weightBold, letterSpacing: -1, marginBottom: spacing.sm, textAlign: 'center'},
+	subtitle: {color: colors.textDim, fontSize: typography.sizeBase, lineHeight: 22, textAlign: 'center'},
+	subtitleName: {color: colors.accent, fontWeight: typography.weightMedium},
+	actionsWrap: {width: '100%', gap: spacing.sm},
 });

@@ -38,10 +38,23 @@ export function BerxPrimaryAction({label, onPress, tone = '#4FD6E8', ink = '#041
 			]}>
 			<Svg style={StyleSheet.absoluteFillObject} width="100%" height="100%">
 				<Defs>
-					<LinearGradient id={`${uid}-fill`} x1="0" y1="0" x2="0.2" y2="1">
-						<Stop offset="0%" stopColor="#FFFFFF" stopOpacity={0.55} />
-						<Stop offset="18%" stopColor={tone} stopOpacity={1} />
-						<Stop offset="100%" stopColor={tone} stopOpacity={0.86} />
+					{/* Two jobs, cleanly split. This gradient is the BODY shading —
+					    tone to slightly-dimmer tone down the height, which is what
+					    gives the pill volume. The specular is `primaryEdge` below:
+					    a 1px line, because that is what a highlight on a hard
+					    glossy edge actually is.
+
+					    The white stop used to run all the way to 18%, which on a
+					    60px control is an ~11px white-to-cyan smear across the top
+					    — it read as a grey band laid over the button, not as light
+					    on it, and it was doing the specular's job badly on top of
+					    the specular already doing it well. Pulled in to 6% and cut
+					    to a fraction of the opacity, it now just keeps the top edge
+					    from going flat under the hairline. */}
+					<LinearGradient id={`${uid}-fill`} x1="0" y1="0" x2="0.15" y2="1">
+						<Stop offset="0%" stopColor="#FFFFFF" stopOpacity={0.22} />
+						<Stop offset="6%" stopColor={tone} stopOpacity={1} />
+						<Stop offset="100%" stopColor={tone} stopOpacity={0.82} />
 					</LinearGradient>
 				</Defs>
 				<Rect x="0" y="0" width="100%" height="100%" rx={30} ry={30} fill={`url(#${uid}-fill)`} />

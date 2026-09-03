@@ -13,7 +13,8 @@
 import {useCallback, useEffect, useState, useMemo} from 'react';
 import {View, Text, FlatList, Pressable, RefreshControl, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
-import type {BerxCircle} from '@berx/api/types';
+import type {BerxCircle, BerxCircleKind} from '@berx/api/types';
+import {ruPeopleLabel} from '@berx/domain';
 import {spacing, typography} from '@berx/design-system/tokens';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
@@ -30,12 +31,38 @@ interface Props {
 	onBack?: () => void;
 }
 
-const KIND_LABEL: Record<string, string> = {
+/**
+ * Keyed on the REAL kind union rather than `Record<string, string>`, so
+ * TypeScript proves every value the backend can send has a Russian
+ * label. It previously fell back to `?? item.kind`, which meant an
+ * unmapped kind would render the raw database enum to the user — and
+ * that is exactly what happened. OssnCircles::isValidKind() whitelists
+ * these four and coerces anything else to null on create, so this map
+ * is now provably complete and the fallback is gone rather than left
+ * as a trap.
+ *
+ * The lookup is still guarded at RUNTIME by kindLabel() below, because
+ * a compile-time union only constrains what the server is SUPPOSED to
+ * send. When a server sends something outside its own contract, an
+ * unguarded lookup renders the string "undefined" into the UI — which
+ * is worse than the raw enum this fix was made to stop leaking. So an
+ * unrecognised kind drops the segment entirely: the kind is decorative
+ * metadata next to a real name and a real member count, and showing
+ * nothing is always better than showing broken text.
+ */
+const KIND_LABEL: Record<Exclude<BerxCircleKind, null>, string> = {
 	family: 'Семья',
 	work: 'Работа',
 	travel: 'Путешествия',
 	close_friends: 'Близкие друзья',
 };
+
+/** ' · Семья', or '' if the server sent a kind outside its own contract. */
+function kindLabel(kind: BerxCircleKind): string {
+	if (!kind) return '';
+	const label = KIND_LABEL[kind];
+	return label ? ` · ${label}` : '';
+}
 
 export default function CirclesScreen({api, onOpenCircle, onCreate, onBack}: Props) {
 	const colors = useBerxColors();
@@ -106,8 +133,8 @@ export default function CirclesScreen({api, onOpenCircle, onCreate, onBack}: Pro
 								<BerxGlassSurface padding="md" style={styles.row}>
 									<Text style={styles.title}>{item.name}</Text>
 									<Text style={styles.meta}>
-										{item.member_count} {item.member_count === 1 ? 'человек' : 'человек'}
-										{item.kind ? ` · ${KIND_LABEL[item.kind] ?? item.kind}` : ''}
+										{ruPeopleLabel(item.member_count)}
+										{kindLabel(item.kind)}
 									</Text>
 								</BerxGlassSurface>
 							</Pressable>

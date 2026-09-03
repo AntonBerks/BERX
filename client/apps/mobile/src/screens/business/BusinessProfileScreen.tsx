@@ -8,7 +8,7 @@
 import {useCallback, useEffect, useState, useMemo} from 'react';
 import {View, Text, ScrollView, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
-import type {BerxPlace} from '@berx/api/types';
+import type {BerxPlace, BerxBusinessType} from '@berx/api/types';
 import {spacing, typography} from '@berx/design-system/tokens';
 import {BerxScrimHero, scrimBadgeStyles} from '../../../../../packages/design-system/src/components/BerxScrimHero';
 import {BerxHeader} from '../../../../../packages/design-system/src/components/BerxHeader';
@@ -25,7 +25,19 @@ interface Props {
 	onBack?: () => void;
 }
 
-const TYPE_LABEL: Record<string, string> = {
+/**
+ * Keyed on the real BerxBusinessType union, not `Record<string, string>`
+ * — so adding a business type to the API without a Russian label is a
+ * compile error rather than a raw database enum appearing in a badge on
+ * a business's own profile. Same fix, same reason, as CirclesScreen's
+ * KIND_LABEL.
+ *
+ * The `|| ''` is the runtime half: the union says what the server is
+ * supposed to send, not what it will send, and an unguarded lookup
+ * renders the string "undefined" into a badge on a real business's
+ * profile. An unrecognised type shows no badge.
+ */
+const TYPE_LABEL: Record<BerxBusinessType, string> = {
 	restaurant: 'Ресторан', cafe: 'Кафе', bar: 'Бар', hotel: 'Отель', shop: 'Магазин',
 	beauty: 'Красота', fitness: 'Фитнес', entertainment: 'Развлечения', events: 'События',
 	services: 'Услуги', creators: 'Автор', other: 'Другое',
@@ -78,7 +90,7 @@ export default function BusinessProfileScreen({api, placeGuid, onBack}: Props) {
 				badge={
 					place.business_type ? (
 						<View style={scrimBadgeStyles.badge}>
-							<Text style={scrimBadgeStyles.badgeTextAccent}>{TYPE_LABEL[place.business_type] ?? place.business_type}</Text>
+							<Text style={scrimBadgeStyles.badgeTextAccent}>{TYPE_LABEL[place.business_type] || ''}</Text>
 						</View>
 					) : undefined
 				}
