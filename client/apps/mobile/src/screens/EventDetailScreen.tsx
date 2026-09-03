@@ -29,9 +29,19 @@
  * action (api.saveMemoryFromEventCheckin()) closes the Checkpoint ->
  * Memory link — only ever shown once the server has already confirmed
  * has_checked_in, never a button that would 403.
+ *
+ * BERX WORLD REBUILD — same gap PlaceDetailScreen had: a small
+ * fixed-ratio photo, plain-text when/place lines, a wrapped row of
+ * buttons, and a plain hairline-divided moments log. All state/
+ * handlers below are unchanged; only the render/style layer moved to
+ * BERX WORLD's vocabulary: a full-bleed hero that recedes on real
+ * scroll (BerxSpatialLayer) with title/when/place resting on its
+ * scrim, a real "friends going" presence badge (BerxAvatarStack) on
+ * the hero itself, a glass action bar, and moments as individual
+ * BerxGlassSurface cards instead of hairline-divided rows.
  */
-import {useCallback, useEffect, useState, useMemo} from 'react';
-import {View, Text, ScrollView, Image, FlatList, Pressable, RefreshControl, StyleSheet} from 'react-native';
+import {useCallback, useEffect, useRef, useState, useMemo} from 'react';
+import {View, Text, Animated, Image, FlatList, Pressable, RefreshControl, Dimensions, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxEvent, BerxEventAttendee, BerxExperienceGraphFriend, BerxExperienceGraphWorldFriend, BerxEventStoryItem, BerxStoryFeedGroup, BerxLifeMoment} from '@berx/api/types';
 import {BerxApiError} from '@berx/core';
@@ -41,13 +51,18 @@ import {BerxButton} from '../../../../packages/design-system/src/components/Berx
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {BerxLoadingState, BerxErrorState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxDiscussion} from '../../../../packages/design-system/src/components/BerxDiscussion';
-import {BerxAvatar} from '../../../../packages/design-system/src/components/BerxAvatar';
 import {BerxGlassSurface} from '../../../../packages/design-system/src/components/BerxGlassSurface';
 import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
-import {Berx3DTilt} from '../../../../packages/design-system/src/components/Berx3DTilt';
+import {BerxSpatialLayer} from '../../../../packages/design-system/src/components/BerxSpatialLayer';
+import {BerxScrim} from '../../../../packages/design-system/src/components/BerxScrim';
+import {BerxAvatarStack} from '../../../../packages/design-system/src/components/BerxAvatarStack';
 
 import {useBerxColors} from '../../../../packages/design-system/src/theme';
 import type {BerxColorTokens} from '@berx/design-system/tokens';
+
+// Same reasoning as PlaceDetailScreen's own HERO_H — cinematic but not
+// overwhelming, since attendees/moments/discussion follow below.
+const HERO_H = Math.round(Dimensions.get('window').height * 0.58);
 
 interface Props {
 	api: BerxApiClient;
@@ -110,6 +125,7 @@ export default function EventDetailScreen({api, guid, myGuid, onOpenPlace, onOpe
 	const [moments, setMoments] = useState<BerxLifeMoment[]>([]);
 	const [momentText, setMomentText] = useState('');
 	const [momentBusy, setMomentBusy] = useState(false);
+	const scrollY = useRef(new Animated.Value(0)).current;
 
 	const load = useCallback(async () => {
 		setLoading(true);
@@ -275,8 +291,10 @@ export default function EventDetailScreen({api, guid, myGuid, onOpenPlace, onOpe
 		: `Встать в лист ожидания${event.waitlist_count > 0 ? ` (${event.waitlist_count})` : ''}`;
 
 	return (
-		<ScrollView
+		<Animated.ScrollView
 			style={styles.screen}
+			scrollEventThrottle={16}
+			onScroll={Animated.event([{nativeEvent: {contentOffset: {y: scrollY}}}], {useNativeDriver: true})}
 			refreshControl={
 				<RefreshControl
 					refreshing={refreshing}
@@ -288,29 +306,51 @@ export default function EventDetailScreen({api, guid, myGuid, onOpenPlace, onOpe
 				/>
 			}>
 			<BerxHeader title={event.title} onBack={onBack} />
-			<Berx3DTilt style={styles.hero} maxAngle={6}>
-				{event.cover_url ? (
-					<Image source={{uri: event.cover_url}} style={styles.heroImage} />
-				) : (
-					<View style={styles.heroFallback}>
-						<Text style={styles.heroInitial}>{event.title.charAt(0).toUpperCase()}</Text>
-					</View>
-				)}
-			</Berx3DTilt>
+
+			<View style={styles.hero}>
+				{/* BERX SPATIAL — same real scroll-driven parallax as
+				    PlaceDetailScreen's hero (BerxSpatialLayer, this screen's
+				    own scrollY driver). */}
+				<BerxSpatialLayer plane="background" driver={scrollY} range={280} style={StyleSheet.absoluteFillObject}>
+					{event.cover_url ? (
+						<Image source={{uri: event.cover_url}} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
+					) : (
+						<View style={[StyleSheet.absoluteFillObject, styles.heroFallback]}>
+							<Text style={styles.heroFallbackGlyph}>{event.title.charAt(0).toUpperCase()}</Text>
+						</View>
+					)}
+				</BerxSpatialLayer>
+				<BerxScrim coverage={0.72} strength={0.88} />
+
+				{friendsGoing.length > 0 ? (
+					<BerxGlassSurface padding="sm" style={styles.presenceBadge}>
+						<BerxAvatarStack
+							people={friendsGoing.slice(0, 6).map((f: BerxExperienceGraphFriend) => ({guid: f.guid, icon: f.icon, initial: f.username.charAt(0)}))}
+							total={friendsGoing.length}
+							size={26}
+						/>
+						<Text style={styles.presenceLabel}>{friendsGoing.length === 1 ? '1 друг идёт' : `${friendsGoing.length} друзей идут`}</Text>
+					</BerxGlassSurface>
+				) : null}
+
+				<BerxFadeIn riseFrom={0} style={styles.heroContent}>
+					<Text style={styles.heroTitle}>{event.title}</Text>
+					<Text style={styles.when}>
+						{date.toLocaleDateString('ru-RU', {day: 'numeric', month: 'long'})} · {date.toLocaleTimeString('ru-RU', {hour: '2-digit', minute: '2-digit'})}
+					</Text>
+					{event.place ? (
+						<Text style={styles.place} onPress={() => onOpenPlace?.(event.place!.guid)}>📍 {event.place.title}</Text>
+					) : event.location ? (
+						<Text style={styles.place}>📍 {event.location}</Text>
+					) : null}
+					{event.group ? (
+						<Text style={styles.place} onPress={() => onOpenCommunity?.(event.group!.guid)}>👥 Организовано сообществом «{event.group.title}»</Text>
+					) : null}
+				</BerxFadeIn>
+			</View>
 
 			<BerxFadeIn style={styles.body}>
-				<Text style={styles.when}>
-					{date.toLocaleDateString('ru-RU', {day: 'numeric', month: 'long'})} · {date.toLocaleTimeString('ru-RU', {hour: '2-digit', minute: '2-digit'})}
-				</Text>
-				{event.place ? (
-					<Text style={styles.place} onPress={() => onOpenPlace?.(event.place!.guid)}>📍 {event.place.title}</Text>
-				) : event.location ? (
-					<Text style={styles.place}>📍 {event.location}</Text>
-				) : null}
-				{event.group ? (
-					<Text style={styles.place} onPress={() => onOpenCommunity?.(event.group!.guid)}>👥 Организовано сообществом «{event.group.title}»</Text>
-				) : null}
-
+				<BerxGlassSurface padding="sm" style={styles.actionBar}>
 				<View style={styles.actions}>
 					<BerxButton
 						label={rsvpLabel}
@@ -354,6 +394,7 @@ export default function EventDetailScreen({api, guid, myGuid, onOpenPlace, onOpe
 						/>
 					) : null}
 				</View>
+				</BerxGlassSurface>
 				{rsvpError ? <Text style={styles.error}>{rsvpError}</Text> : null}
 
 				{checkinOpen ? (
@@ -386,7 +427,7 @@ export default function EventDetailScreen({api, guid, myGuid, onOpenPlace, onOpe
 								<BerxButton label="+" onPress={createMoment} loading={momentBusy} disabled={!momentText.trim()} />
 							</View>
 							{moments.map((m: BerxLifeMoment) => (
-								<View key={m.id} style={styles.momentRow}>
+								<BerxGlassSurface key={m.id} padding="sm" style={styles.momentRow}>
 									<View style={styles.momentRowHeader}>
 										<Text style={styles.momentAuthor}>{m.owner_username ?? 'Кто-то'}</Text>
 										{myGuid === m.owner_guid ? (
@@ -396,7 +437,7 @@ export default function EventDetailScreen({api, guid, myGuid, onOpenPlace, onOpe
 										) : null}
 									</View>
 									<Text style={styles.momentText}>{m.text}</Text>
-								</View>
+								</BerxGlassSurface>
 							))}
 						</View>
 					</>
@@ -405,17 +446,6 @@ export default function EventDetailScreen({api, guid, myGuid, onOpenPlace, onOpe
 				{event.description ? <Text style={styles.description}>{event.description}</Text> : null}
 
 				{event.seats_left !== null ? <Text style={styles.seats}>Свободных мест: {event.seats_left}</Text> : null}
-
-				{friendsGoing.length > 0 ? (
-					<BerxGlassSurface padding="sm" style={styles.friendsHereRow}>
-						{friendsGoing.slice(0, 8).map((f: BerxExperienceGraphFriend) => (
-							<View key={f.guid} style={styles.friendHereItem}>
-								<BerxAvatar iconUrl={f.icon} fallbackInitial={f.username.charAt(0)} size={36} />
-							</View>
-						))}
-						<Text style={styles.friendsHereLabel}>{friendsGoing.length === 1 ? '1 друг идёт' : `${friendsGoing.length} друзей идут`}</Text>
-					</BerxGlassSurface>
-				) : null}
 
 				{friendsWorlds.length > 0 ? (
 					<Text style={styles.friendsWorldsLine}>
@@ -464,20 +494,30 @@ export default function EventDetailScreen({api, guid, myGuid, onOpenPlace, onOpe
 
 				<BerxDiscussion api={api} type="event" id={event.guid} myGuid={myGuid} />
 			</BerxFadeIn>
-		</ScrollView>
+		</Animated.ScrollView>
 	);
 }
 
 const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.bg},
-	hero: {aspectRatio: 1.6, backgroundColor: colors.graphite},
-	heroImage: {width: '100%', height: '100%'},
-	heroFallback: {flex: 1, alignItems: 'center', justifyContent: 'center'},
-	heroInitial: {fontSize: typography.sizeHero, color: colors.textFaint},
+	hero: {height: HERO_H, backgroundColor: colors.mediaScrim, justifyContent: 'flex-end', overflow: 'hidden'},
+	heroFallback: {alignItems: 'center', justifyContent: 'center', backgroundColor: colors.graphite},
+	heroFallbackGlyph: {fontSize: typography.sizeHero, color: colors.textFaint, fontWeight: typography.weightBold},
+	presenceBadge: {position: 'absolute', top: spacing.xl, right: spacing.lg, flexDirection: 'row', alignItems: 'center', gap: spacing.sm},
+	presenceLabel: {fontSize: typography.sizeXs, color: colors.onMediaDim},
+	heroContent: {padding: spacing.xl, gap: 2},
+	heroTitle: {
+		fontSize: typography.sizeTitle,
+		fontWeight: typography.weightBold,
+		color: colors.onMedia,
+		letterSpacing: -0.4,
+		marginBottom: spacing.xs,
+	},
 	body: {padding: spacing.md, gap: spacing.md},
-	when: {fontSize: typography.sizeSm, color: colors.textDim},
-	place: {fontSize: typography.sizeSm, color: colors.accent},
-	actions: {flexDirection: 'row', gap: spacing.sm},
+	when: {fontSize: typography.sizeSm, color: colors.onMediaDim},
+	place: {fontSize: typography.sizeSm, color: colors.accentOnMedia},
+	actions: {flexDirection: 'row', gap: spacing.sm, flexWrap: 'wrap'},
+	actionBar: {gap: spacing.sm},
 	error: {fontSize: typography.sizeSm, color: colors.danger},
 	checkinForm: {gap: spacing.sm},
 	checkinHint: {fontSize: typography.sizeXs, color: colors.textFaint},
@@ -490,18 +530,15 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	seats: {fontSize: typography.sizeSm, color: colors.textFaint},
 	sectionTitle: {fontSize: typography.sizeXs, color: colors.textFaint, fontWeight: typography.weightBold, textTransform: 'uppercase'},
 	// BERX WORLD — Life Moments: a quiet running log scoped to this
-	// event, deliberately not styled like a post card.
+	// event, each entry its own real glass card rather than a post.
 	momentsSection: {gap: spacing.xs, marginTop: spacing.xs},
 	momentInputRow: {flexDirection: 'row', gap: spacing.xs, alignItems: 'center'},
 	momentInputField: {flex: 1},
-	momentRow: {paddingVertical: spacing.xs, borderBottomWidth: 1, borderBottomColor: colors.borderSoft},
+	momentRow: {gap: 2},
 	momentRowHeader: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'},
 	momentAuthor: {fontSize: typography.sizeXs, color: colors.textFaint, fontWeight: typography.weightBold},
 	momentDelete: {fontSize: typography.sizeXs, color: colors.danger},
 	momentText: {fontSize: typography.sizeSm, color: colors.white, marginTop: 2},
-	friendsHereRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginTop: spacing.sm},
-	friendHereItem: {marginLeft: -spacing.xs},
-	friendsHereLabel: {fontSize: typography.sizeSm, color: colors.textDim, marginLeft: spacing.sm},
 	friendsWorldsLine: {fontSize: typography.sizeXs, color: colors.textFaint, fontStyle: 'italic'},
 	storyRow: {gap: spacing.sm, paddingVertical: spacing.xs},
 	storyItem: {alignItems: 'center', width: 64, marginRight: spacing.sm},
