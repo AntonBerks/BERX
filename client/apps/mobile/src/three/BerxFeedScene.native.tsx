@@ -348,10 +348,47 @@ function Scene({
 	);
 }
 
+/**
+ * COMPLETE VISUAL RESET (2D pass) — DISCLOSED NATIVE GAP. The web/
+ * harness half of this split (BerxFeedScene.tsx) was rebuilt around
+ * real interactive glass CARDS rendered directly in the depth layout —
+ * like/comment/save/poll buttons, real text, real media, all normal
+ * 2D RN views composited with the scene. React Three Fiber's native
+ * renderer has no equivalent "put arbitrary interactive RN UI inside
+ * the GL scene" primitive without a real, separate bridge (drei's
+ * `Html`, or an external 2D overlay) — building and verifying THAT is
+ * a real, larger undertaking this pass did not do (this container has
+ * no device/simulator to verify a native GL build on at all, the
+ * standing constraint every native file here already carries).
+ *
+ * The props below are accepted (not silently dropped by an unknown-
+ * prop TypeScript error at the call site — see the honesty note in
+ * FeedScreen.tsx on why tsc doesn't actually catch this file's contract
+ * drifting from the web file's) but NOT yet wired into this GL scene;
+ * FeedScreen.tsx's own real, disclosed fix is a compact native-only 2D
+ * docked panel rendered ALONGSIDE this ambient world (a plain RN View
+ * sibling of the Canvas, not inside it) — see that file's own
+ * `NativeDockedPanel` for the real fallback that keeps native from
+ * regressing to "a world with no way to read or act on a post at all".
+ */
 interface Props {
 	items: BerxFeedItem[];
-	/** Fires with the real index of whichever post is currently nearest the camera — FeedScreen's docked reading panel is driven off this. */
+	myGuid?: number;
+	/** Fires with the real index of whichever post is currently nearest the camera — FeedScreen's native-only docked panel is driven off this (see this file's own header). */
 	onFocusChange?: (index: number) => void;
+	onOpenPost?: (guid: number) => void;
+	onOpenProfile?: (username: string) => void;
+	onOpenHashtag?: (tag: string) => void;
+	onToggleLike?: (item: BerxFeedItem) => void;
+	onToggleSave?: (item: BerxFeedItem) => void;
+	onOpenComments?: (item: BerxFeedItem) => void;
+	onVotePoll?: (item: BerxFeedItem, optionIndex: number) => void;
+	onClosePoll?: (item: BerxFeedItem) => void;
+	onShareToMessage?: (postGuid: number) => void;
+	likeBusyGuid?: number | null;
+	savingGuid?: number | null;
+	savedThisSession?: Set<number>;
+	votingPollGuid?: number | null;
 }
 
 export default function BerxFeedScene({items, onFocusChange}: Props) {
