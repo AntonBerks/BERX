@@ -22,6 +22,7 @@
  */
 import {useState, useMemo} from 'react';
 import {View, Text, FlatList, Image, Pressable, StyleSheet} from 'react-native';
+import {ruPlural} from '@berx/domain';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxNearbyPlace} from '@berx/api/types';
 import {spacing, typography, radius} from '@berx/design-system/tokens';
@@ -88,7 +89,7 @@ export default function PlacesNearbyScreen({api, onOpenPlace, onBack}: Props) {
 					topInset={!onBack}
 					style={styles.headline}
 					accentIndex={1}
-					lines={['Рядом', searched ? `${items.length} ${items.length === 1 ? 'место' : 'мест'} в ${radiusKm} км` : 'что вокруг вас прямо сейчас']}
+					lines={['Рядом', searched ? `${items.length} ${ruPlural(items.length, 'место', 'места', 'мест')} в ${radiusKm} км` : 'что вокруг вас прямо сейчас']}
 				/>
 				{onBack ? (
 					<View style={styles.headActions}>

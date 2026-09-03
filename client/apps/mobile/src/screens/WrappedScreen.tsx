@@ -12,6 +12,7 @@
  */
 import {useCallback, useEffect, useState, useMemo} from 'react';
 import {View, Text, StyleSheet} from 'react-native';
+import {ruPlural} from '@berx/domain';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxWrapped, BerxWrappedPeriod} from '@berx/api/types';
 import {spacing, typography, radius} from '@berx/design-system/tokens';
@@ -96,7 +97,7 @@ export default function WrappedScreen({api, onBack}: Props) {
 				<View style={styles.topPlace}>
 					<Text style={styles.topPlaceLabel}>Чаще всего вы были здесь</Text>
 					<Text style={styles.topPlaceTitle}>{data.top_place.title}</Text>
-					<Text style={styles.topPlaceVisits}>{data.top_place.visits} {data.top_place.visits === 1 ? 'раз' : 'раза'}</Text>
+					<Text style={styles.topPlaceVisits}>{data.top_place.visits} {ruPlural(data.top_place.visits, 'раз', 'раза', 'раз')}</Text>
 				</View>
 			) : null}
 		</View>

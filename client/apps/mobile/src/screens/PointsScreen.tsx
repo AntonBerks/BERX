@@ -26,7 +26,7 @@ import {View, Text, FlatList, RefreshControl, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxPointsBalance, BerxPointsHistoryEntry} from '@berx/api/types';
 import {BerxApiError} from '@berx/core';
-import {relativeTimeLabel} from '@berx/domain';
+import {relativeTimeLabel, ruPlural} from '@berx/domain';
 import {spacing, typography} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
@@ -158,7 +158,7 @@ export default function PointsScreen({api, onBack}: Props) {
 							<BerxGlassSurface padding="md" style={styles.streakRow}>
 								<Text style={styles.streakGlyph}>🔥</Text>
 								<View>
-									<Text style={styles.streakValue}>{balance.current_streak} {balance.current_streak === 1 ? 'день' : 'дней'} подряд</Text>
+									<Text style={styles.streakValue}>{balance.current_streak} {ruPlural(balance.current_streak, 'день', 'дня', 'дней')} подряд</Text>
 									<Text style={styles.streakCaption}>Лучший результат: {balance.longest_streak}</Text>
 								</View>
 							</BerxGlassSurface>

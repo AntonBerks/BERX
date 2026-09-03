@@ -30,7 +30,7 @@ import {Fragment, useCallback, useEffect, useRef, useState, useMemo} from 'react
 import {FlatList, Text, View, Pressable, Alert, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxGroupMessage, BerxGroupConversation} from '@berx/api/types';
-import {relativeTimeLabel} from '@berx/domain';
+import {relativeTimeLabel, ruPlural} from '@berx/domain';
 import {spacing, radius, typography} from '@berx/design-system/tokens';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
@@ -253,7 +253,7 @@ export default function GroupChatScreen({api, myGuid, groupId, onOpenInfo, onOpe
 			<BerxHeader
 				onBack={onBack}
 				title={group.name}
-				subtitle={`${group.participant_count} ${group.participant_count === 1 ? 'участник' : 'участников'}`}
+				subtitle={`${group.participant_count} ${ruPlural(group.participant_count, 'участник', 'участника', 'участников')}`}
 			/>
 			<Pressable style={styles.infoBar} onPress={() => onOpenInfo(groupId)}>
 				<Text style={styles.infoBarLabel}>Информация о группе и участники</Text>

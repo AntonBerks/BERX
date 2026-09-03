@@ -16,6 +16,7 @@
  */
 import {useState, useMemo} from 'react';
 import {View, Text, FlatList, Image, Pressable, StyleSheet} from 'react-native';
+import {ruPlural} from '@berx/domain';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxNearbyPlaceItem, BerxNearbyEventItem} from '@berx/api/types';
 import {spacing, typography, radius} from '@berx/design-system/tokens';
@@ -91,7 +92,7 @@ export default function NearbyNowScreen({api, onOpenPlace, onOpenEvent, onBack}:
 					topInset={!onBack}
 					style={styles.headline}
 					accentIndex={1}
-					lines={['Рядом сейчас', places === null ? 'живая картина вокруг' : `${rows.length} ${rows.length === 1 ? 'место рядом' : 'мест и событий рядом'}`]}
+					lines={['Рядом сейчас', places === null ? 'живая картина вокруг' : `${rows.length} ${ruPlural(rows.length, 'место и событие рядом', 'места и события рядом', 'мест и событий рядом')}`]}
 				/>
 				{onBack ? (
 					<View style={styles.headActions}>

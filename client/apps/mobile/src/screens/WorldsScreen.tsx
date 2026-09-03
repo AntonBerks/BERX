@@ -14,6 +14,7 @@
  */
 import {useCallback, useEffect, useState, useMemo} from 'react';
 import {View, Text, FlatList, Pressable, RefreshControl, StyleSheet, GestureResponderEvent} from 'react-native';
+import {ruPlural} from '@berx/domain';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxWorld, BerxWorldItemType, BerxDiscoveredWorld} from '@berx/api/types';
 import {spacing, radius, typography} from '@berx/design-system/tokens';
@@ -108,7 +109,7 @@ export default function WorldsScreen({api, onOpenWorld, onCreate, onBack}: Props
 						return (
 							<Pressable style={styles.discoverCard} onPress={() => onOpenWorld(item.id)}>
 								<Text style={styles.discoverTitle} numberOfLines={1}>{item.title}</Text>
-								<Text style={styles.discoverMeta}>{item.member_count} {item.member_count === 1 ? 'участник' : 'участников'} · {item.item_count} объектов</Text>
+								<Text style={styles.discoverMeta}>{item.member_count} {ruPlural(item.member_count, 'участник', 'участника', 'участников')} · {item.item_count} {ruPlural(item.item_count, 'объект', 'объекта', 'объектов')}</Text>
 								<Pressable
 									style={[styles.discoverJoinButton, joined && styles.discoverJoinButtonDone]}
 									onPress={(e: GestureResponderEvent) => {
@@ -177,7 +178,7 @@ export default function WorldsScreen({api, onOpenWorld, onCreate, onBack}: Props
 												</View>
 											))}
 										</View>
-										<Text style={styles.memberCount}>{accepted.length} {accepted.length === 1 ? 'участник' : 'участников'}</Text>
+										<Text style={styles.memberCount}>{accepted.length} {ruPlural(accepted.length, 'участник', 'участника', 'участников')}</Text>
 									</View>
 								</Pressable>
 							);

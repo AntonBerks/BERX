@@ -12,6 +12,7 @@
  */
 import {useCallback, useEffect, useState, useMemo} from 'react';
 import {View, Text, FlatList, Pressable, StyleSheet} from 'react-native';
+import {ruPlural} from '@berx/domain';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxWorld, BerxWorldItemType} from '@berx/api/types';
 import {spacing, typography, radius} from '@berx/design-system/tokens';
@@ -89,7 +90,7 @@ export default function AddToWorldScreen({api, itemType, itemGuid, onCreateWorld
 							<Pressable style={styles.row} onPress={() => (added ? undefined : addTo(item.id))} disabled={busyId === item.id || added}>
 								<View style={styles.rowBody}>
 									<Text style={styles.title}>{item.title}</Text>
-									<Text style={styles.meta}>{item.items.length} {item.items.length === 1 ? 'объект' : 'объектов'} · {item.visibility === 'public' ? 'открытый' : 'закрытый'}</Text>
+									<Text style={styles.meta}>{item.items.length} {ruPlural(item.items.length, 'объект', 'объекта', 'объектов')} · {item.visibility === 'public' ? 'открытый' : 'закрытый'}</Text>
 								</View>
 								<Text style={added ? styles.addedText : styles.addText}>
 									{busyId === item.id ? '…' : added ? 'Добавлено ✓' : 'Добавить'}

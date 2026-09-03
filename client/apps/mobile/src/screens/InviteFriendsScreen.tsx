@@ -13,6 +13,7 @@
  */
 import {useCallback, useEffect, useState, useMemo} from 'react';
 import {View, Text, Share, StyleSheet} from 'react-native';
+import {ruPlural} from '@berx/domain';
 import type {BerxApiClient} from '@berx/api/client';
 import {spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
@@ -82,7 +83,7 @@ export default function InviteFriendsScreen({api, onBack}: Props) {
 				<BerxButton label="Поделиться кодом" onPress={share} fullWidth />
 				<BerxGlassSurface padding="md" style={styles.statRow}>
 					<Text style={styles.statValue}>{referredCount}</Text>
-					<Text style={styles.statLabel}>{referredCount === 1 ? 'друг присоединился' : 'друзей присоединилось'}</Text>
+					<Text style={styles.statLabel}>{ruPlural(referredCount, 'друг присоединился', 'друга присоединились', 'друзей присоединилось')}</Text>
 				</BerxGlassSurface>
 			</BerxFadeIn>
 		</View>

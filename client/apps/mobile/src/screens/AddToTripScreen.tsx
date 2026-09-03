@@ -11,6 +11,7 @@
  */
 import {useCallback, useEffect, useState, useMemo} from 'react';
 import {View, Text, FlatList, Pressable, StyleSheet} from 'react-native';
+import {ruPlural} from '@berx/domain';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxTrip, BerxTripItemType} from '@berx/api/types';
 import {spacing, typography, radius} from '@berx/design-system/tokens';
@@ -89,7 +90,7 @@ export default function AddToTripScreen({api, myGuid, itemType, itemGuid, onCrea
 							<Pressable style={styles.row} onPress={() => (added ? undefined : addTo(item.id))} disabled={busyId === item.id || added}>
 								<View style={styles.rowBody}>
 									<Text style={styles.title}>{item.title}</Text>
-									<Text style={styles.meta}>{item.stop_count} {item.stop_count === 1 ? 'место' : 'мест'}</Text>
+									<Text style={styles.meta}>{item.stop_count} {ruPlural(item.stop_count, 'место', 'места', 'мест')}</Text>
 								</View>
 								<Text style={added ? styles.addedText : styles.addText}>
 									{busyId === item.id ? '…' : added ? 'Добавлено ✓' : 'Добавить'}

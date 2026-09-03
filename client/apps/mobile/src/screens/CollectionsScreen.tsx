@@ -7,6 +7,7 @@
  */
 import {useCallback, useEffect, useState, useMemo} from 'react';
 import {View, Text, FlatList, Pressable, RefreshControl, StyleSheet} from 'react-native';
+import {ruPlural} from '@berx/domain';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxCollection} from '@berx/api/types';
 import {spacing, typography, radius} from '@berx/design-system/tokens';
@@ -87,7 +88,7 @@ export default function CollectionsScreen({api, userGuid, isOwn, onOpenCollectio
 								<View style={styles.rowBody}>
 									<Text style={styles.title} numberOfLines={1}>{item.title}</Text>
 									<Text style={styles.meta}>
-										{item.item_count} {item.item_count === 1 ? 'элемент' : 'элементов'}
+										{item.item_count} {ruPlural(item.item_count, 'элемент', 'элемента', 'элементов')}
 										{item.visibility === 'private' ? ' · Приватная' : ''}
 									</Text>
 								</View>

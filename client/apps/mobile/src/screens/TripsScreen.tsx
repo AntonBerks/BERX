@@ -6,6 +6,7 @@
  */
 import {useCallback, useEffect, useState, useMemo} from 'react';
 import {View, Text, FlatList, Pressable, RefreshControl, StyleSheet} from 'react-native';
+import {ruPlural} from '@berx/domain';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxTrip} from '@berx/api/types';
 import {spacing, typography, radius} from '@berx/design-system/tokens';
@@ -93,7 +94,7 @@ export default function TripsScreen({api, userGuid, isOwn, onOpenTrip, onCreate,
 								<Pressable style={styles.row} onPress={() => onOpenTrip(item.id)}>
 									<Text style={styles.title} numberOfLines={1}>{item.title}</Text>
 									<Text style={styles.meta}>
-										{item.stop_count} {item.stop_count === 1 ? 'точка' : 'точек'}
+										{item.stop_count} {ruPlural(item.stop_count, 'точка', 'точки', 'точек')}
 										{start ? ` · ${start}${end ? ` — ${end}` : ''}` : ''}
 										{!item.is_own ? ' · Совместная' : item.visibility === 'private' ? ' · Приватная' : ''}
 									</Text>

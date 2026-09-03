@@ -7,6 +7,7 @@
  */
 import {useCallback, useEffect, useState, useMemo} from 'react';
 import {View, Text, ScrollView, StyleSheet} from 'react-native';
+import {ruPlural} from '@berx/domain';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxPlace, BerxBusinessType} from '@berx/api/types';
 import {spacing, typography} from '@berx/design-system/tokens';
@@ -114,7 +115,7 @@ export default function BusinessProfileScreen({api, placeGuid, onBack}: Props) {
 					<Text style={styles.ratingValue}>{place.rating.toFixed(1)}</Text>
 					<View>
 						<Text style={styles.ratingStars}>{'★'.repeat(Math.round(place.rating))}{'☆'.repeat(5 - Math.round(place.rating))}</Text>
-						<Text style={styles.ratingCount}>{place.rating_count} {place.rating_count === 1 ? 'отзыв' : 'отзывов'}</Text>
+						<Text style={styles.ratingCount}>{place.rating_count} {ruPlural(place.rating_count, 'отзыв', 'отзыва', 'отзывов')}</Text>
 					</View>
 				</BerxGlassSurface>
 			</View>

@@ -322,7 +322,7 @@ export default function SearchScreen({api, onOpenProfile, onOpenPlace, onOpenEve
 						renderItem={({item}: {item: BerxTrendingHashtag}) => (
 							<Pressable style={styles.row} onPress={() => onOpenHashtag && onOpenHashtag(item.hashtag)}>
 								<Text style={styles.fullname}>#{item.hashtag}</Text>
-								<Text style={styles.username}>{item.post_count} {item.post_count === 1 ? 'пост' : 'постов'}</Text>
+								<Text style={styles.username}>{item.post_count} {ruPlural(item.post_count, 'пост', 'поста', 'постов')}</Text>
 							</Pressable>
 						)}
 					/>

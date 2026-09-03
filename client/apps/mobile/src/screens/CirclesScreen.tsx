@@ -14,7 +14,7 @@ import {useCallback, useEffect, useState, useMemo} from 'react';
 import {View, Text, FlatList, Pressable, RefreshControl, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxCircle, BerxCircleKind} from '@berx/api/types';
-import {ruPeopleLabel} from '@berx/domain';
+import {ruPeopleLabel, ruPlural} from '@berx/domain';
 import {spacing, typography} from '@berx/design-system/tokens';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
@@ -102,7 +102,7 @@ export default function CirclesScreen({api, onOpenCircle, onCreate, onBack}: Pro
 					accentIndex={1}
 					lines={[
 						'Круги',
-						items.length > 0 ? `${items.length} ${items.length === 1 ? 'круг' : 'круга'}` : 'приватные списки друзей',
+						items.length > 0 ? `${items.length} ${ruPlural(items.length, 'круг', 'круга', 'кругов')}` : 'приватные списки друзей',
 					]}
 				/>
 				<View style={styles.headActions}>
