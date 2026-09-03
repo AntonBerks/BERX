@@ -206,6 +206,19 @@ export const motion = {
 	durationFast: 150,
 	durationBase: 220,
 	durationSlow: 380,
+	/**
+	 * AMBIENT, not responsive. The three durations above are all
+	 * answers to something the user just did, and they are all under
+	 * 400ms because a response that takes longer stops feeling
+	 * connected to the input. A breath answers nothing: it is the
+	 * half-cycle of a loop that runs while the product is idle or
+	 * working (the loading orb, ambient drift on a spatial object).
+	 * It belongs on a human timescale, not an interface one — 1400ms
+	 * each way is a ~2.8s cycle, near the resting end of real
+	 * breathing. Deliberately far outside the responsive range so it
+	 * can never be mistaken for one and reused as a transition.
+	 */
+	durationBreath: 1400,
 };
 
 /**

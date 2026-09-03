@@ -22,6 +22,7 @@ import type {ViewStyle} from 'react-native';
 import {useFrame} from '@react-three/fiber/native';
 import type {Group} from 'three';
 import {SpatialStage} from './engine/SpatialStage';
+import {useSpatialGlass} from './engine/quality';
 
 export interface SpatialEmblemProps {
 	size?: number;
@@ -34,6 +35,7 @@ const DEG = Math.PI / 180;
 
 function PlaneStack({light, tilt}: {light: string; tilt: number}) {
 	const group = useRef<Group>(null);
+	const glass = useSpatialGlass();
 	useFrame((_state, delta) => {
 		// Slow, continuous — "subtle movement" per the master directive,
 		// not the tumbling BerxEmblem's own header explicitly refuses.
@@ -51,7 +53,11 @@ function PlaneStack({light, tilt}: {light: string; tilt: number}) {
 			{planes.map((p, i) => (
 				<mesh key={i} position={[0, -i * 0.12, p.z]}>
 					<boxGeometry args={[1.5, 1.5, 0.06]} />
-					<meshStandardMaterial color={p.color} emissive={light} emissiveIntensity={p.emissive} roughness={0.5} metalness={0.15} />
+						{/* The shared BERX glass — the emblem's planes are made of the
+					    same substance as every other BERX object, so its edges
+					    catch the rim light and its body carries the attenuation
+					    tint instead of reading as flat painted card. */}
+					<meshPhysicalMaterial {...glass} color={p.color} emissive={light} emissiveIntensity={p.emissive} />
 				</mesh>
 			))}
 		</group>

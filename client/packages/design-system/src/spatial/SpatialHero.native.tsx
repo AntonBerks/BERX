@@ -37,6 +37,7 @@ import {useFrame} from '@react-three/fiber/native';
 import type {Mesh} from 'three';
 import type {ViewStyle} from 'react-native';
 import {SpatialStage} from './engine/SpatialStage';
+import {useSpatialGlass, useSpatialQuality} from './engine/quality';
 import {SPATIAL_MOTION, SPATIAL_QUALITY} from './engine/stage';
 import type {SpatialQuality} from './engine/stage';
 
@@ -53,9 +54,14 @@ export interface SpatialHeroProps {
 	style?: ViewStyle;
 }
 
-function OrbMesh({light, fill, body, ring, segments}: {light: string; fill: string; body: string; ring: boolean; segments: number}) {
+function OrbMesh({light, fill, body, ring}: {light: string; fill: string; body: string; ring: boolean}) {
 	const sphere = useRef<Mesh>(null);
 	const torus = useRef<Mesh>(null);
+	// Both read from the stage this object is standing on, so the hero
+	// cannot silently disagree with its own canvas about what tier it is
+	// being drawn at.
+	const glass = useSpatialGlass();
+	const segments = SPATIAL_QUALITY[useSpatialQuality()].segments;
 	// Real rotation, driven by the renderer's own frame delta — not a
 	// fixed-duration Animated loop guessing at frame time.
 	useFrame((_state, delta) => {
@@ -66,21 +72,27 @@ function OrbMesh({light, fill, body, ring, segments}: {light: string; fill: stri
 		<group>
 			<mesh ref={sphere}>
 				<sphereGeometry args={[1, segments, segments]} />
+				{/* The shared BERX glass recipe, not a private set of numbers.
+				    This object used to carry its own roughness/transmission/
+				    clearcoat values that were close to, but not the same as,
+				    every other BERX object's — which is exactly how a product
+				    stops looking like it is made of one material. `thickness`
+				    is the one honest override: this is the largest BERX object
+				    on screen, and attenuation is a function of how far light
+				    actually travels through the body. */}
 				<meshPhysicalMaterial
+					{...glass}
 					color={body}
 					emissive={light}
 					emissiveIntensity={0.32}
-					roughness={0.28}
-					metalness={0.08}
-					transmission={0.32}
-					thickness={1.3}
-					clearcoat={0.55}
-					clearcoatRoughness={0.25}
+					thickness={1.4}
 				/>
 			</mesh>
 			{ring ? (
 				<mesh ref={torus} rotation={[Math.PI / 2.35, 0, 0]}>
 					<torusGeometry args={[1.34, 0.01, 12, Math.max(24, segments)]} />
+					{/* The ring stays a simple emissive band on purpose: it is a
+					    line of light, not a body with an inside. */}
 					<meshStandardMaterial color={fill} emissive={light} emissiveIntensity={0.7} roughness={0.4} />
 				</mesh>
 			) : null}
@@ -98,8 +110,11 @@ export function SpatialHero({
 	style,
 }: SpatialHeroProps) {
 	return (
-		<SpatialStage camera="hero" quality={quality} width={size} height={size} style={style}>
-			<OrbMesh light={light} fill={fill} body={body} ring={ring} segments={SPATIAL_QUALITY[quality].segments} />
+		// grounded: this is a single hero object sitting at the origin —
+		// exactly the case the contact disc is for. It is what stops the
+		// orb reading as a sticker floating on the background.
+		<SpatialStage camera="hero" quality={quality} grounded width={size} height={size} style={style}>
+			<OrbMesh light={light} fill={fill} body={body} ring={ring} />
 		</SpatialStage>
 	);
 }

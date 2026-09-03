@@ -24,6 +24,15 @@ export interface SpatialStageProps {
 	quality?: SpatialQuality;
 	/** Scales the whole lighting rig on native. No-op here — 2D has no rig. */
 	intensity?: number;
+	/**
+	 * Draws the contact disc under the subject on native. No-op here.
+	 *
+	 * Declared even though it is unused because TypeScript resolves the
+	 * `.tsx` half of this split, not the `.native.tsx` one: a prop that
+	 * exists only on the native half is a type error at every call site
+	 * that passes it. Accept-and-ignore keeps the two halves one type.
+	 */
+	grounded?: boolean;
 	width?: number;
 	height?: number;
 	style?: ViewStyle;

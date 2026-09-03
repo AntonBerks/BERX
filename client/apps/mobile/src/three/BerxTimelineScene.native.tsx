@@ -27,15 +27,17 @@
  * places you went, and they should not read as equal in weight to a
  * real visit.
  */
-import {useMemo, useRef} from 'react';
+import {useRef} from 'react';
 import type {MutableRefObject} from 'react';
-import {View, PanResponder, StyleSheet, Text, GestureResponderEvent, PanResponderGestureState} from 'react-native';
+import {View, StyleSheet, Text} from 'react-native';
 import {useFrame} from '@react-three/fiber/native';
 import type {RootState} from '@react-three/fiber/native';
 import type {Group} from 'three';
 import type {BerxLifeGraphEdge} from '@berx/api/types';
 import {colors, spacing, radius, typography} from '@berx/design-system/tokens';
 import {SpatialStage} from '@berx/design-system/spatial/engine/SpatialStage';
+import {useSpatialGlass} from '@berx/design-system/spatial/engine/quality';
+import {useSpatialDrag} from '@berx/design-system/spatial/engine/useSpatialDrag';
 import {
 	SPATIAL_KEY_LIGHT,
 	SPATIAL_FILL_LIGHT,
@@ -57,6 +59,8 @@ function EventNode({edge, index}: {edge: BerxLifeGraphEdge; index: number}) {
 	const x = side * (0.55 + (index % 3) * 0.12);
 	const z = -index * SPACING_Z;
 
+	const glass = useSpatialGlass();
+
 	useFrame((state: RootState) => {
 		if (!ref.current) return;
 		ref.current.rotation.y = state.clock.elapsedTime * SPATIAL_MOTION.driftRadPerSec + index;
@@ -66,12 +70,14 @@ function EventNode({edge, index}: {edge: BerxLifeGraphEdge; index: number}) {
 		<group ref={ref} position={[x, 0, z]}>
 			<mesh>
 				{isReward ? <octahedronGeometry args={[0.1, 0]} /> : <boxGeometry args={[0.18, 0.18, 0.18]} />}
-				<meshStandardMaterial
+				{/* Same BERX glass as every other object in the app — a reward
+				    and a visit differ in emissive strength and silhouette, not
+				    in what they are made of. */}
+				<meshPhysicalMaterial
+					{...glass}
 					color={isReward ? SPATIAL_KEY_LIGHT : SPATIAL_FILL_LIGHT}
 					emissive={SPATIAL_KEY_LIGHT}
 					emissiveIntensity={isReward ? SPATIAL_EMISSIVE.live : SPATIAL_EMISSIVE.quiet}
-					roughness={0.35}
-					metalness={0.2}
 				/>
 			</mesh>
 			{/* A stem down to the axis, so each event reads as attached to the
@@ -94,10 +100,11 @@ function TimeAxis({length}: {length: number}) {
 	);
 }
 
-function Scene({edges, dollyRef}: {edges: BerxLifeGraphEdge[]; dollyRef: MutableRefObject<number>}) {
+function Scene({edges, dollyRef, advance}: {edges: BerxLifeGraphEdge[]; dollyRef: MutableRefObject<number>; advance: (d: number) => void}) {
 	// Real camera translation along the time axis — the user is moving
 	// THROUGH their history, not spinning it in front of them.
-	useFrame((state: RootState) => {
+	useFrame((state: RootState, delta: number) => {
+		advance(delta);
 		state.camera.position.z = 2.2 - dollyRef.current;
 		state.camera.lookAt(0, 0, state.camera.position.z - 3);
 	});
@@ -117,34 +124,24 @@ interface Props {
 }
 
 export default function BerxTimelineScene({edges}: Props) {
-	const dollyRef = useRef(0);
-	const lastDx = useRef(0);
 	const shown = edges.slice(0, MAX_NODES);
-	const maxDolly = Math.max(shown.length - 1, 0) * SPACING_Z;
-
-	const panResponder = useMemo(
-		() =>
-			PanResponder.create({
-				onStartShouldSetPanResponder: () => true,
-				onPanResponderGrant: () => {
-					lastDx.current = 0;
-				},
-				onPanResponderMove: (_evt: GestureResponderEvent, gesture: PanResponderGestureState) => {
-					const next = dollyRef.current - (gesture.dx - lastDx.current) * 0.02;
-					// Clamped to the real extent of the real history — you cannot
-					// dolly past the beginning or the end of what actually happened.
-					dollyRef.current = Math.max(0, Math.min(maxDolly, next));
-					lastDx.current = gesture.dx;
-				},
-			}),
-		[maxDolly]
-	);
+	// A flick now coasts back through history and decelerates, instead of
+	// stopping the instant the finger lifts. Still clamped to the REAL
+	// extent of the REAL history: momentum cannot carry the camera past
+	// the beginning or the end of what actually happened, and hitting
+	// either end kills the velocity rather than bouncing off it.
+	const {panHandlers, valueRef: dollyRef, advance} = useSpatialDrag({
+		sensitivity: 0.02,
+		min: 0,
+		max: Math.max(shown.length - 1, 0) * SPACING_Z,
+		invert: true,
+	});
 
 	return (
 		<View style={styles.wrap}>
-			<View style={styles.canvasBox} {...panResponder.panHandlers}>
+			<View style={styles.canvasBox} {...panHandlers}>
 				<SpatialStage camera="scene" style={StyleSheet.absoluteFillObject as never}>
-					<Scene edges={shown} dollyRef={dollyRef} />
+					<Scene edges={shown} dollyRef={dollyRef} advance={advance} />
 				</SpatialStage>
 			</View>
 			<Text style={styles.hint}>Проведите пальцем — камера движется вглубь вашей истории</Text>

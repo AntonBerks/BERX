@@ -34,15 +34,17 @@
  * own PanResponder driving the group's rotation each frame through
  * useFrame. Real camera-relative motion, not a CSS trick.
  */
-import {useMemo, useRef} from 'react';
+import {useRef} from 'react';
 import type {MutableRefObject} from 'react';
-import {View, PanResponder, StyleSheet, Text, GestureResponderEvent, PanResponderGestureState} from 'react-native';
+import {View, StyleSheet, Text} from 'react-native';
 import {useFrame} from '@react-three/fiber/native';
 import type {RootState} from '@react-three/fiber/native';
 import type {Group, Mesh} from 'three';
 import type {BerxWorld, BerxWorldItem, BerxWorldItemType} from '@berx/api/types';
 import {colors, spacing, radius, typography} from '@berx/design-system/tokens';
 import {SpatialStage} from '@berx/design-system/spatial/engine/SpatialStage';
+import {useSpatialGlass} from '@berx/design-system/spatial/engine/quality';
+import {useSpatialDrag} from '@berx/design-system/spatial/engine/useSpatialDrag';
 import {
 	SPATIAL_KEY_LIGHT,
 	SPATIAL_FILL_LIGHT,
@@ -78,6 +80,7 @@ function ItemNode({item, index, total}: {item: BerxWorldItem; index: number; tot
 	const x = Math.cos(angle) * orbit;
 	const y = Math.sin(angle) * orbit * 0.32;
 	const isPlan = item.item_type === 'plan';
+	const glass = useSpatialGlass();
 
 	useFrame((state: RootState) => {
 		if (!ref.current) return;
@@ -92,14 +95,27 @@ function ItemNode({item, index, total}: {item: BerxWorldItem; index: number; tot
 	return (
 		<mesh ref={ref} position={[x, y, z]}>
 			<octahedronGeometry args={[0.22, 0]} />
-			<meshStandardMaterial
-				color={isPlan ? SPATIAL_FILL_LIGHT : SPATIAL_KEY_LIGHT}
-				emissive={SPATIAL_KEY_LIGHT}
-				emissiveIntensity={isPlan ? SPATIAL_EMISSIVE.dormant : SPATIAL_EMISSIVE.present}
-				wireframe={isPlan}
-				transparent
-				opacity={isPlan ? 0.6 : 0.94}
-			/>
+			{/* A committed item is solid BERX glass; a Plan stays the dim
+			    wireframe it always was — an intention, not yet a thing. The
+			    wireframe deliberately keeps the cheaper material: there is no
+			    solid surface there for light to refract through. */}
+			{isPlan ? (
+				<meshStandardMaterial
+					color={SPATIAL_FILL_LIGHT}
+					emissive={SPATIAL_KEY_LIGHT}
+					emissiveIntensity={SPATIAL_EMISSIVE.dormant}
+					wireframe
+					transparent
+					opacity={0.6}
+				/>
+			) : (
+				<meshPhysicalMaterial
+					{...glass}
+					color={SPATIAL_KEY_LIGHT}
+					emissive={SPATIAL_KEY_LIGHT}
+					emissiveIntensity={SPATIAL_EMISSIVE.present}
+				/>
+			)}
 		</mesh>
 	);
 }
@@ -120,9 +136,12 @@ function WorldShell() {
 	);
 }
 
-function Scene({items, rotationRef}: {items: BerxWorldItem[]; rotationRef: MutableRefObject<number>}) {
+function Scene({items, rotationRef, advance}: {items: BerxWorldItem[]; rotationRef: MutableRefObject<number>; advance: (d: number) => void}) {
 	const groupRef = useRef<Group>(null);
-	useFrame(() => {
+	useFrame((_state: RootState, delta: number) => {
+		// Spin-down happens in the render loop, so the coast after a flick
+		// is frame-locked to what is actually being drawn.
+		advance(delta);
 		if (groupRef.current) groupRef.current.rotation.y = rotationRef.current;
 	});
 	return (
@@ -151,31 +170,18 @@ interface Props {
 }
 
 export default function BerxDepthScene({world}: Props) {
-	const rotationRef = useRef(0);
-	const lastDx = useRef(0);
-
-	const panResponder = useMemo(
-		() =>
-			PanResponder.create({
-				onStartShouldSetPanResponder: () => true,
-				onPanResponderGrant: () => {
-					lastDx.current = 0;
-				},
-				onPanResponderMove: (_evt: GestureResponderEvent, gesture: PanResponderGestureState) => {
-					rotationRef.current += (gesture.dx - lastDx.current) * 0.008;
-					lastDx.current = gesture.dx;
-				},
-			}),
-		[]
-	);
+	// No min/max: a World is a thing you walk all the way around, so the
+	// orbit is deliberately unbounded and a flick spins it down over about
+	// a second rather than stopping dead under the finger.
+	const {panHandlers, valueRef: rotationRef, advance} = useSpatialDrag({sensitivity: 0.008});
 
 	return (
 		<View style={styles.wrap}>
-			<View style={styles.canvasBox} {...panResponder.panHandlers}>
+			<View style={styles.canvasBox} {...panHandlers}>
 				{/* One shared stage: BERX's camera language and three-point rig,
 				    not a scene-local set of lights. */}
 				<SpatialStage camera="scene" style={StyleSheet.absoluteFillObject as never}>
-					<Scene items={world.items} rotationRef={rotationRef} />
+					<Scene items={world.items} rotationRef={rotationRef} advance={advance} />
 				</SpatialStage>
 			</View>
 			<Text style={styles.hint}>Проведите пальцем — сцена повернётся вокруг мира</Text>

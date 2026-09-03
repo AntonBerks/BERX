@@ -18,6 +18,7 @@ import type {ViewStyle} from 'react-native';
 import {useFrame} from '@react-three/fiber/native';
 import type {Mesh} from 'three';
 import {SpatialStage} from './engine/SpatialStage';
+import {useSpatialGlass} from './engine/quality';
 
 export interface SpatialLensProps {
 	size?: number;
@@ -30,6 +31,7 @@ export interface SpatialLensProps {
 
 function LensMesh({light, body, presence}: {light: string; body: string; presence: number}) {
 	const mesh = useRef<Mesh>(null);
+	const glass = useSpatialGlass();
 	// Barely-there rotation — this object earns attention by being
 	// looked at twice, not by moving; a fast spin would contradict that.
 	useFrame((_state, delta) => {
@@ -38,14 +40,19 @@ function LensMesh({light, body, presence}: {light: string; body: string; presenc
 	return (
 		<mesh ref={mesh} scale={[1, 1, 0.16]}>
 			<sphereGeometry args={[1, 48, 48]} />
+			{/* Shared BERX glass, with two deliberate overrides. This object
+			    is a thin LENS, not a solid body: `thickness` is small because
+			    light barely has to travel through it, and `transmission` is
+			    pulled well down because a nearly-clear lens over a near-black
+			    ground would disappear entirely. Quiet, still glass — not a
+			    different material. */}
 			<meshPhysicalMaterial
+				{...glass}
 				color={body}
 				emissive={light}
 				emissiveIntensity={0.06 * presence}
-				roughness={0.5}
-				metalness={0.05}
-				transmission={0.1}
-				clearcoat={0.3}
+				transmission={0.14}
+				thickness={0.22}
 			/>
 		</mesh>
 	);

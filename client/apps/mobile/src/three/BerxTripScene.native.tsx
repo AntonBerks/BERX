@@ -26,15 +26,17 @@
  * cluster you orbit. Clamped to the real number of days — you cannot
  * travel past the trip's actual last day.
  */
-import {useMemo, useRef} from 'react';
+import {useRef} from 'react';
 import type {MutableRefObject} from 'react';
-import {View, PanResponder, StyleSheet, Text, GestureResponderEvent, PanResponderGestureState} from 'react-native';
+import {View, StyleSheet, Text} from 'react-native';
 import {useFrame} from '@react-three/fiber/native';
 import type {RootState} from '@react-three/fiber/native';
 import type {Group} from 'three';
 import type {BerxTripStop} from '@berx/api/types';
 import {colors, spacing, radius, typography} from '@berx/design-system/tokens';
 import {SpatialStage} from '@berx/design-system/spatial/engine/SpatialStage';
+import {useSpatialGlass} from '@berx/design-system/spatial/engine/quality';
+import {useSpatialDrag} from '@berx/design-system/spatial/engine/useSpatialDrag';
 import {SPATIAL_KEY_LIGHT, SPATIAL_FILL_LIGHT, SPATIAL_EMISSIVE, SPATIAL_MOTION} from '@berx/design-system/spatial/engine/stage';
 
 const DAY_SPACING = 1.5;
@@ -52,6 +54,8 @@ function DayRing({z}: {z: number}) {
 
 function StopNode({x, z, isEvent, index}: {x: number; z: number; isEvent: boolean; index: number}) {
 	const ref = useRef<Group>(null);
+	// The one BERX glass recipe, at whatever tier the stage resolved.
+	const glass = useSpatialGlass();
 	useFrame((state: RootState) => {
 		if (!ref.current) return;
 		ref.current.rotation.y = state.clock.elapsedTime * SPATIAL_MOTION.driftRadPerSec + index;
@@ -59,21 +63,26 @@ function StopNode({x, z, isEvent, index}: {x: number; z: number; isEvent: boolea
 	return (
 		<group ref={ref} position={[x, 0, -z]}>
 			<mesh>
-				{isEvent ? <boxGeometry args={[0.16, 0.16, 0.16]} /> : <sphereGeometry args={[0.11, 16, 16]} />}
-				<meshStandardMaterial
+				{isEvent ? <boxGeometry args={[0.16, 0.16, 0.16]} /> : <sphereGeometry args={[0.11, 32, 32]} />}
+				{/* Physical, not standard: these stops are the same dark BERX
+				    glass as every other object in the app, so light passes
+				    through them and picks up the attenuation tint on the way. */}
+				<meshPhysicalMaterial
+					{...glass}
 					color={isEvent ? SPATIAL_FILL_LIGHT : SPATIAL_KEY_LIGHT}
 					emissive={SPATIAL_KEY_LIGHT}
 					emissiveIntensity={SPATIAL_EMISSIVE.present}
-					roughness={0.32}
-					metalness={0.15}
 				/>
 			</mesh>
 		</group>
 	);
 }
 
-function Scene({days, dollyRef}: {days: [number, BerxTripStop[]][]; dollyRef: MutableRefObject<number>}) {
-	useFrame((state: RootState) => {
+function Scene({days, dollyRef, advance}: {days: [number, BerxTripStop[]][]; dollyRef: MutableRefObject<number>; advance: (d: number) => void}) {
+	useFrame((state: RootState, delta: number) => {
+		// Momentum is advanced here rather than in its own loop, so the
+		// coast after a flick is in lockstep with the frames drawing it.
+		advance(delta);
 		state.camera.position.z = 2.4 - dollyRef.current;
 		state.camera.lookAt(0, 0, state.camera.position.z - 3);
 	});
@@ -105,31 +114,22 @@ interface Props {
 }
 
 export default function BerxTripScene({days}: Props) {
-	const dollyRef = useRef(0);
-	const lastDx = useRef(0);
-	const maxDolly = Math.max(days.length - 1, 0) * DAY_SPACING;
-
-	const panResponder = useMemo(
-		() =>
-			PanResponder.create({
-				onStartShouldSetPanResponder: () => true,
-				onPanResponderGrant: () => {
-					lastDx.current = 0;
-				},
-				onPanResponderMove: (_evt: GestureResponderEvent, gesture: PanResponderGestureState) => {
-					const next = dollyRef.current - (gesture.dx - lastDx.current) * 0.02;
-					dollyRef.current = Math.max(0, Math.min(maxDolly, next));
-					lastDx.current = gesture.dx;
-				},
-			}),
-		[maxDolly]
-	);
+	// Travel along the itinerary now carries momentum: a flick coasts
+	// through the days and decelerates, instead of stopping the instant
+	// the finger leaves the glass. Still clamped to the trip's REAL day
+	// count in both directions — coasting cannot invent a Day 9.
+	const {panHandlers, valueRef: dollyRef, advance} = useSpatialDrag({
+		sensitivity: 0.02,
+		min: 0,
+		max: Math.max(days.length - 1, 0) * DAY_SPACING,
+		invert: true,
+	});
 
 	return (
 		<View style={styles.wrap}>
-			<View style={styles.canvasBox} {...panResponder.panHandlers}>
+			<View style={styles.canvasBox} {...panHandlers}>
 				<SpatialStage camera="scene" style={StyleSheet.absoluteFillObject as never}>
-					<Scene days={days} dollyRef={dollyRef} />
+					<Scene days={days} dollyRef={dollyRef} advance={advance} />
 				</SpatialStage>
 			</View>
 			<Text style={styles.hint}>Проведите пальцем — камера движется по дням маршрута</Text>

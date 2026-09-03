@@ -22,9 +22,11 @@
  * for how that check was confirmed to actually catch errors).
  */
 import {useEffect, useRef} from 'react';
-import {View, ViewStyle} from 'react-native';
-import {Canvas, useFrame} from '@react-three/fiber/native';
+import type {ViewStyle} from 'react-native';
+import {useFrame} from '@react-three/fiber/native';
 import type {Group, Mesh} from 'three';
+import {SpatialStage} from './engine/SpatialStage';
+import {useSpatialGlass} from './engine/quality';
 
 export interface SpatialEmblemRevealProps {
 	size?: number;
@@ -48,6 +50,7 @@ function easeOutCubic(t: number): number {
 
 function RevealStack({light, tilt, delayMsSeconds}: {light: string; tilt: number; delayMsSeconds: number}) {
 	const group = useRef<Group>(null);
+	const glass = useSpatialGlass();
 	const meshes = useRef<(Mesh | null)[]>([null, null, null]);
 	// Captured on the first real frame rather than threaded in as a prop
 	// from outside the Canvas — a ref set inside onCreated/useEffect and
@@ -95,7 +98,10 @@ function RevealStack({light, tilt, delayMsSeconds}: {light: string; tilt: number
 			{planes.map((p, i) => (
 				<mesh key={i} ref={(m) => { meshes.current[i] = m; }} position={[0, -i * 0.12 + p.drop, p.z]}>
 					<boxGeometry args={[1.5, 1.5, 0.06]} />
-					<meshStandardMaterial color={p.color} emissive={light} emissiveIntensity={p.emissive} roughness={0.5} metalness={0.15} transparent opacity={0} />
+						{/* Same shared glass as the settled SpatialEmblem — the whole
+					    point of the handover being invisible. `transparent` is the
+					    reveal's own addition: the planes fade in as they land. */}
+					<meshPhysicalMaterial {...glass} color={p.color} emissive={light} emissiveIntensity={p.emissive} transparent opacity={0} />
 				</mesh>
 			))}
 		</group>
@@ -123,12 +129,14 @@ export function SpatialEmblemReveal({size = 120, tilt = 0, light = '#4FD6E8', de
 	}, []);
 
 	return (
-		<View style={[{width: size, height: size}, style]}>
-			<Canvas camera={{position: [0, 0, 3.2], fov: 32}}>
-				<ambientLight intensity={0.3} />
-				<pointLight position={[1.6, 1.4, 2.2]} color={light} intensity={1.1} />
-				<RevealStack light={light} tilt={tilt} delayMsSeconds={delayMs / 1000} />
-			</Canvas>
-		</View>
+		// The shared BERX stage, NOT a private Canvas. This object used to
+		// declare its own camera and its own ambient + point light — so the
+		// emblem's arrival was lit by one rig and the SpatialEmblem it
+		// settles into by another, and the object visibly changed material
+		// at the handover. Same lens, same sun, both halves of the same
+		// moment. This was the last mini-engine in the codebase.
+		<SpatialStage camera="object" width={size} height={size} style={style}>
+			<RevealStack light={light} tilt={tilt} delayMsSeconds={delayMs / 1000} />
+		</SpatialStage>
 	);
 }

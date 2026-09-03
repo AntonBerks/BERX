@@ -34,13 +34,15 @@
  */
 import {useMemo, useRef} from 'react';
 import type {MutableRefObject} from 'react';
-import {View, PanResponder, StyleSheet, Text, GestureResponderEvent, PanResponderGestureState} from 'react-native';
+import {View, StyleSheet, Text} from 'react-native';
 import {useFrame} from '@react-three/fiber/native';
 import type {RootState} from '@react-three/fiber/native';
 import type {Group} from 'three';
 import type {BerxFriend, BerxPeopleSuggestion} from '@berx/api/types';
 import {colors, spacing, radius, typography} from '@berx/design-system/tokens';
 import {SpatialStage} from '@berx/design-system/spatial/engine/SpatialStage';
+import {useSpatialGlass} from '@berx/design-system/spatial/engine/quality';
+import {useSpatialDrag} from '@berx/design-system/spatial/engine/useSpatialDrag';
 import {
 	SPATIAL_KEY_LIGHT,
 	SPATIAL_FILL_LIGHT,
@@ -60,6 +62,7 @@ const MAX_SUGGESTIONS = 12;
 /** You. The anchor everything else is positioned relative to. */
 function SelfNode() {
 	const ref = useRef<Group>(null);
+	const glass = useSpatialGlass();
 	useFrame((state: RootState) => {
 		if (!ref.current) return;
 		// A slow breath, so the centre reads as alive rather than as a dot.
@@ -69,13 +72,12 @@ function SelfNode() {
 	return (
 		<group ref={ref}>
 			<mesh>
-				<icosahedronGeometry args={[0.26, 1]} />
-				<meshStandardMaterial
+				<icosahedronGeometry args={[0.26, 2]} />
+				<meshPhysicalMaterial
+					{...glass}
 					color={SPATIAL_KEY_LIGHT}
 					emissive={SPATIAL_KEY_LIGHT}
 					emissiveIntensity={SPATIAL_EMISSIVE.live}
-					roughness={0.25}
-					metalness={0.2}
 				/>
 			</mesh>
 		</group>
@@ -95,16 +97,16 @@ function Edge({angle, length}: {angle: number; length: number}) {
 function FriendNode({angle, isOnline}: {angle: number; isOnline: boolean}) {
 	const x = Math.cos(angle) * FRIEND_RING;
 	const y = Math.sin(angle) * FRIEND_RING;
+	const glass = useSpatialGlass();
 	return (
 		<mesh position={[x, y, 0]}>
-			<sphereGeometry args={[0.13, 16, 16]} />
-			<meshStandardMaterial
+			<sphereGeometry args={[0.13, 32, 32]} />
+			<meshPhysicalMaterial
+				{...glass}
 				color={isOnline ? SPATIAL_KEY_LIGHT : SPATIAL_FILL_LIGHT}
 				emissive={SPATIAL_KEY_LIGHT}
 				// The one real per-friend difference BERX can prove: presence.
 				emissiveIntensity={isOnline ? SPATIAL_EMISSIVE.present : SPATIAL_EMISSIVE.dormant}
-				roughness={0.4}
-				metalness={0.1}
 			/>
 		</mesh>
 	);
@@ -132,14 +134,17 @@ function Scene({
 	onlineGuids,
 	suggestions,
 	rotationRef,
+	advance,
 }: {
 	friends: BerxFriend[];
 	onlineGuids: Set<number>;
 	suggestions: BerxPeopleSuggestion[];
 	rotationRef: MutableRefObject<number>;
+	advance: (d: number) => void;
 }) {
 	const group = useRef<Group>(null);
-	useFrame(() => {
+	useFrame((_state: RootState, delta: number) => {
+		advance(delta);
 		if (group.current) group.current.rotation.z = rotationRef.current;
 	});
 
@@ -179,34 +184,21 @@ interface Props {
 }
 
 export default function BerxSocialScene({friends, online, suggestions}: Props) {
-	const rotationRef = useRef(0);
-	const lastDx = useRef(0);
 	const onlineGuids = useMemo(() => new Set(online.map((o) => o.guid)), [online]);
-
-	const panResponder = useMemo(
-		() =>
-			PanResponder.create({
-				onStartShouldSetPanResponder: () => true,
-				onPanResponderGrant: () => {
-					lastDx.current = 0;
-				},
-				onPanResponderMove: (_evt: GestureResponderEvent, gesture: PanResponderGestureState) => {
-					rotationRef.current += (gesture.dx - lastDx.current) * 0.008;
-					lastDx.current = gesture.dx;
-				},
-			}),
-		[]
-	);
+	// Unbounded, like Worlds: your circle is something you turn all the
+	// way around. A flick keeps it turning and lets it settle.
+	const {panHandlers, valueRef: rotationRef, advance} = useSpatialDrag({sensitivity: 0.008});
 
 	return (
 		<View style={styles.wrap}>
-			<View style={styles.canvasBox} {...panResponder.panHandlers}>
+			<View style={styles.canvasBox} {...panHandlers}>
 				<SpatialStage camera="scene" style={StyleSheet.absoluteFillObject as never}>
 					<Scene
 						friends={friends.slice(0, MAX_FRIENDS)}
 						onlineGuids={onlineGuids}
 						suggestions={suggestions.slice(0, MAX_SUGGESTIONS)}
 						rotationRef={rotationRef}
+						advance={advance}
 					/>
 				</SpatialStage>
 			</View>

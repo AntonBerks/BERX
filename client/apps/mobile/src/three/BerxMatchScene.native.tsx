@@ -37,6 +37,7 @@ import {View, StyleSheet} from 'react-native';
 import {useFrame} from '@react-three/fiber/native';
 import type {Mesh} from 'three';
 import {SpatialStage} from '@berx/design-system/spatial/engine/SpatialStage';
+import {useSpatialGlass} from '@berx/design-system/spatial/engine/quality';
 import {SPATIAL_KEY_LIGHT, SPATIAL_FILL_LIGHT, SPATIAL_EMISSIVE} from '@berx/design-system/spatial/engine/stage';
 
 const APPROACH_DURATION = 1.1; // seconds — the two identities closing the distance
@@ -50,6 +51,7 @@ function easeOutCubic(t: number): number {
 
 function IdentitySphere({side, light}: {side: 1 | -1; light: string}) {
 	const ref = useRef<Mesh>(null);
+	const glass = useSpatialGlass();
 	const startedAt = useRef<number | null>(null);
 
 	useFrame((state) => {
@@ -81,16 +83,18 @@ function IdentitySphere({side, light}: {side: 1 | -1; light: string}) {
 	return (
 		<mesh ref={ref} position={[side * START_OFFSET, 0, 0]}>
 			<sphereGeometry args={[0.62, 48, 48]} />
+			{/* The shared BERX glass. These two spheres are the most-looked-at
+			    3D objects in the product — the moment a match resolves — so they
+			    are the LAST place a private, nearly-identical material set
+			    belongs. `thickness` is the one honest override: these are large
+			    bodies, and the attenuation tint should have real depth to
+			    develop across. */}
 			<meshPhysicalMaterial
+				{...glass}
 				color="#0B1016"
 				emissive={light}
 				emissiveIntensity={SPATIAL_EMISSIVE.quiet}
-				roughness={0.26}
-				metalness={0.1}
-				transmission={0.32}
-				thickness={1.1}
-				clearcoat={0.6}
-				clearcoatRoughness={0.22}
+				thickness={1.2}
 			/>
 		</mesh>
 	);
