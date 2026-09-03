@@ -48,10 +48,17 @@ if ($segment0 === 'users') {
 	$out = array();
 	if ($rows) {
 		foreach ($rows as $row) {
+			// The searched user's own real avatar. searchUsers() already
+			// returns full user rows, so iconURL() here costs nothing extra —
+			// it was simply never sent, which is why a people-search result
+			// list was the only list of humans in BERX with no faces in it.
+			// Same shape and same source as every other endpoint's icon.
+			$searchUser = ossn_user_by_guid(intval($row->guid));
 			$out[] = array(
 				'guid'     => intval($row->guid),
 				'username' => (string) $row->username,
 				'fullname' => trim($row->first_name . ' ' . $row->last_name),
+				'icon'     => $searchUser ? (string) $searchUser->iconURL()->large : null,
 			);
 		}
 	}
