@@ -25,7 +25,7 @@ import {View, Text, FlatList, Image, Pressable, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxNearbyPlace} from '@berx/api/types';
 import {spacing, typography, radius} from '@berx/design-system/tokens';
-import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
+import {BerxEditorialTitle, BerxCircleButton} from '../../../../packages/design-system/src/components/BerxGreetingHeader';
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
@@ -79,7 +79,23 @@ export default function PlacesNearbyScreen({api, onOpenPlace, onBack}: Props) {
 	return (
 		<View style={styles.screen}>
 			<BerxAura ground={scene.ground} glow={scene.glow} counter={scene.counter} intensity={0.55} at={0.1} />
-			<BerxHeader title="Рядом" onBack={onBack} />
+			{/* Editorial header, not a title bar: this is a destination you
+			    navigate TO, like People or Circles — not a detail pushed off a
+			    list, where a back-bar is the right weight. The second line is
+			    live state, never fixed copy. */}
+			<View style={styles.head}>
+				<BerxEditorialTitle
+					topInset={!onBack}
+					style={styles.headline}
+					accentIndex={1}
+					lines={['Рядом', searched ? `${items.length} ${items.length === 1 ? 'место' : 'мест'} в ${radiusKm} км` : 'что вокруг вас прямо сейчас']}
+				/>
+				{onBack ? (
+					<View style={styles.headActions}>
+						<BerxCircleButton icon="chevron-left" onPress={onBack} />
+					</View>
+				) : null}
+			</View>
 			<BerxGlassSurface level={3} padding="md" style={styles.form}>
 				<View style={styles.row}>
 					<View style={styles.half}><BerxInput placeholder="Широта" value={lat} onChangeText={setLat} keyboardType="decimal-pad" /></View>
@@ -129,6 +145,9 @@ export default function PlacesNearbyScreen({api, onOpenPlace, onBack}: Props) {
 
 const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.bg},
+	head: {flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', paddingHorizontal: spacing.lg, paddingTop: spacing.lg, gap: spacing.md},
+	headline: {flex: 1, paddingHorizontal: 0, paddingTop: 0},
+	headActions: {flexDirection: 'row', gap: spacing.sm},
 	form: {margin: spacing.md, gap: spacing.sm},
 	row: {flexDirection: 'row', gap: spacing.sm},
 	half: {flex: 1},

@@ -77,7 +77,11 @@ export default function WelcomeScreen({onLogin, onRegister}: Props) {
 			</View>
 
 			<BerxFadeIn delayMs={640} riseFrom={30} style={styles.actions}>
-				<BerxPrimaryAction label="Начать" onPress={onRegister} tone="#FFFFFF" ink="#0A0D12" />
+				{/* Deliberately white, not accent — "the accent is worth more spent
+				    on one word than smeared over a template" (this file's header).
+				    Routed through tokens rather than literals: `onAccent` is
+				    exactly this role, dark ink on a light fill. */}
+				<BerxPrimaryAction label="Начать" onPress={onRegister} tone={colors.white} ink={colors.onAccent} />
 				<BerxQuietAction label="У меня уже есть аккаунт" onPress={onLogin} />
 			</BerxFadeIn>
 		</View>
@@ -96,11 +100,9 @@ const makeStyles = (scene: BerxScene, colors: BerxColorTokens) =>
 			fontWeight: typography.weightBold,
 			marginBottom: spacing.xl,
 		},
-		// Copy stays a constant near-white/white regardless of World —
-		// same reasoning as tokens/index.ts's own onMedia (media/scene ink
-		// is deliberately world-invariant; only the accent and the
-		// ground move), so light-toned worlds (Day/Ice, Sun) don't lose
-		// contrast against their own brighter ground.
+		// Copy uses the onMedia ink scale rather than colors.text: this
+		// type sits on a drawn scene, which is the same situation as type
+		// over a photograph, and onMedia is the role built for it.
 		display: {fontSize: 52, lineHeight: 56, fontWeight: '700', color: colors.onMedia, letterSpacing: -2},
 		displayThin: {fontSize: 52, lineHeight: 56, fontWeight: '200', color: colors.onMediaDim, letterSpacing: -2},
 		lede: {
