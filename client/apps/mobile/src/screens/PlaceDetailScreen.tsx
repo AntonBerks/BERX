@@ -11,12 +11,6 @@
  * client methods with zero UI callers — an owner could create a
  * place but never edit or delete it again.
  *
- * Future UI pass: body content gets a real BerxFadeIn entrance, and
- * the "friends here" row (Experience Graph signal) now sits on a
- * small BerxGlassSurface strip instead of a plain inline row, giving
- * that real social signal the same material weight it gets on
- * Profile's reputation strip.
- *
  * MAX BUILD — real geo-verified check-in (api.checkInAtPlace(),
  * components/OssnApi/v1/places.php's checkin route). "Friends here"
  * now also includes friends_checked_in from the Experience Graph
@@ -34,9 +28,23 @@
  * already_fulfilled state (viewer-scoped server response, not a
  * client guess) — never a button that always shows and just errors
  * on a second tap.
+ *
+ * BERX WORLD REBUILD — this was still the old composition: a small
+ * fixed-ratio photo, then plain-text info lines, a wrapped row of
+ * buttons, and reviews as bordered plain rows with raw ★ characters —
+ * the generic list-detail pattern the new design language replaces.
+ * All state/handlers below are unchanged; only the render/style layer
+ * moved to BERX WORLD's own vocabulary: a full-bleed hero that recedes
+ * on real scroll (BerxSpatialLayer, the same driver ProfileScreen's
+ * hero uses) with the title/category/rating/verified badge resting on
+ * its scrim instead of sitting in plain text underneath, a real
+ * "friends here" presence badge (BerxAvatarStack — real faces, never
+ * invented) surfaced ON the hero rather than buried in the body, a
+ * glass action bar instead of a wrapped button row, and reviews as
+ * individual BerxGlassSurface cards instead of hairline-divided rows.
  */
-import {useCallback, useEffect, useState, useMemo} from 'react';
-import {View, Text, ScrollView, Image, Pressable, Linking, StyleSheet} from 'react-native';
+import {useCallback, useEffect, useRef, useState, useMemo} from 'react';
+import {View, Text, Animated, Image, Pressable, Linking, Dimensions, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxPlace, BerxPlaceReview, BerxExperienceGraphFriend, BerxExperienceGraphWorldFriend, BerxBusinessOffer} from '@berx/api/types';
 import {BerxApiError} from '@berx/core';
@@ -46,13 +54,18 @@ import {BerxButton} from '../../../../packages/design-system/src/components/Berx
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {BerxLoadingState, BerxErrorState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxDiscussion} from '../../../../packages/design-system/src/components/BerxDiscussion';
-import {BerxAvatar} from '../../../../packages/design-system/src/components/BerxAvatar';
 import {BerxGlassSurface} from '../../../../packages/design-system/src/components/BerxGlassSurface';
 import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
-import {Berx3DTilt} from '../../../../packages/design-system/src/components/Berx3DTilt';
+import {BerxSpatialLayer} from '../../../../packages/design-system/src/components/BerxSpatialLayer';
+import {BerxScrim} from '../../../../packages/design-system/src/components/BerxScrim';
+import {BerxAvatarStack} from '../../../../packages/design-system/src/components/BerxAvatarStack';
 
 import {useBerxColors} from '../../../../packages/design-system/src/theme';
 import type {BerxColorTokens} from '@berx/design-system/tokens';
+
+// Cinematic but not overwhelming — Place has a long real body (offers,
+// reviews, discussion) below it, unlike Profile's shorter hero-first page.
+const HERO_H = Math.round(Dimensions.get('window').height * 0.58);
 
 interface Props {
 	api: BerxApiClient;
@@ -103,6 +116,7 @@ export default function PlaceDetailScreen({api, guid, myGuid, isAdmin, onAddToCo
 	const [checkinLng, setCheckinLng] = useState('');
 	const [checkinBusy, setCheckinBusy] = useState(false);
 	const [checkinMessage, setCheckinMessage] = useState<string | null>(null);
+	const scrollY = useRef(new Animated.Value(0)).current;
 
 	const load = useCallback(async () => {
 		setLoading(true);
@@ -333,50 +347,74 @@ export default function PlaceDetailScreen({api, guid, myGuid, isAdmin, onAddToCo
 	const alreadyReviewed = reviews.some((r) => r.author?.guid === myGuid);
 
 	return (
-		<ScrollView style={styles.screen}>
+		<Animated.ScrollView
+			style={styles.screen}
+			scrollEventThrottle={16}
+			onScroll={Animated.event([{nativeEvent: {contentOffset: {y: scrollY}}}], {useNativeDriver: true})}>
 			<BerxHeader title={place.title} onBack={onBack} />
-			<Berx3DTilt style={styles.hero} maxAngle={6}>
-				{place.cover_url ? (
-					<Image source={{uri: place.cover_url}} style={styles.heroImage} />
-				) : (
-					<View style={styles.heroFallback}>
-						<Text style={styles.heroInitial}>{place.title.charAt(0).toUpperCase()}</Text>
+
+			<View style={styles.hero}>
+				{/* BERX SPATIAL — the photo sits on the background plane and
+				    drifts slower than the page above it, driven by this
+				    screen's own real scroll offset (same driver ProfileScreen's
+				    hero uses). Real parallax depth, not an ambient loop. */}
+				<BerxSpatialLayer plane="background" driver={scrollY} range={280} style={StyleSheet.absoluteFillObject}>
+					{place.cover_url ? (
+						<Image source={{uri: place.cover_url}} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
+					) : (
+						<View style={[StyleSheet.absoluteFillObject, styles.heroFallback]}>
+							<Text style={styles.heroFallbackGlyph}>{place.title.charAt(0).toUpperCase()}</Text>
+						</View>
+					)}
+				</BerxSpatialLayer>
+				<BerxScrim coverage={0.72} strength={0.88} />
+
+				{friendsHere.length > 0 ? (
+					<BerxGlassSurface padding="sm" style={styles.presenceBadge}>
+						<BerxAvatarStack
+							people={friendsHere.slice(0, 6).map((f: BerxExperienceGraphFriend) => ({guid: f.guid, icon: f.icon, initial: f.username.charAt(0)}))}
+							total={friendsHere.length}
+							size={26}
+						/>
+						<Text style={styles.presenceLabel}>{friendsHere.length === 1 ? '1 друг был здесь' : `${friendsHere.length} друзей были здесь`}</Text>
+					</BerxGlassSurface>
+				) : null}
+
+				<BerxFadeIn riseFrom={0} style={styles.heroContent}>
+					<View style={styles.metaRow}>
+						{place.category ? <View style={styles.chip}><Text style={styles.chipText}>{place.category}</Text></View> : null}
+						{place.price ? <Text style={styles.priceText}>{'$'.repeat(place.price)}</Text> : null}
+						{place.rating_count > 0 ? <Text style={styles.ratingText}>★ {place.rating} ({place.rating_count})</Text> : null}
+						{place.is_business && place.verified ? <Text style={styles.verifiedBadge}>✓ Верифицированный бизнес</Text> : null}
 					</View>
-				)}
-			</Berx3DTilt>
+					<Text style={styles.heroTitle}>{place.title}</Text>
+					{place.address ? <Text style={styles.heroAddress}>{place.address}</Text> : null}
+				</BerxFadeIn>
+			</View>
 
 			<BerxFadeIn style={styles.body}>
-				<View style={styles.metaRow}>
-					{place.category ? <View style={styles.chip}><Text style={styles.chipText}>{place.category}</Text></View> : null}
-					{place.price ? <Text style={styles.priceText}>{'$'.repeat(place.price)}</Text> : null}
-					{place.rating_count > 0 ? <Text style={styles.ratingText}>★ {place.rating} ({place.rating_count})</Text> : null}
-					{place.is_business && place.verified ? <Text style={styles.verifiedBadge}>✓ Верифицированный бизнес</Text> : null}
-				</View>
-
-				{place.address ? <Text style={styles.address}>{place.address}</Text> : null}
-				{place.phone ? <Text style={styles.address}>{place.phone}</Text> : null}
-				{place.hours ? <Text style={styles.address}>{place.hours}</Text> : null}
-
-				<View style={styles.actions}>
-					<BerxButton
-						label={place.is_saved ? 'Сохранено' : 'Сохранить'}
-						variant={place.is_saved ? 'primary' : 'secondary'}
-						loading={saving}
-						onPress={toggleSave}
-					/>
-					{onAddToCollection ? <BerxButton label="В подборку" variant="secondary" onPress={onAddToCollection} /> : null}
-					{onAddToTrip ? <BerxButton label="В поездку" variant="secondary" onPress={onAddToTrip} /> : null}
-					{onAddToWorld ? <BerxButton label="В мир" variant="secondary" onPress={onAddToWorld} /> : null}
-					{place.lat !== null && place.lng !== null ? <BerxButton label="Маршрут" variant="secondary" onPress={buildRoute} /> : null}
-					{place.lat !== null && place.lng !== null ? <BerxButton label="Отметиться" variant="secondary" onPress={() => { setCheckinOpen(!checkinOpen); setCheckinMessage(null); }} /> : null}
-					{onCreateExperience ? (
+				<BerxGlassSurface padding="sm" style={styles.actionBar}>
+					<View style={styles.actions}>
 						<BerxButton
-							label="Впечатление"
-							variant="secondary"
-							onPress={() => onCreateExperience({type: 'place', guid: place.guid, title: place.title})}
+							label={place.is_saved ? 'Сохранено' : 'Сохранить'}
+							variant={place.is_saved ? 'primary' : 'secondary'}
+							loading={saving}
+							onPress={toggleSave}
 						/>
-					) : null}
-				</View>
+						{onAddToCollection ? <BerxButton label="В подборку" variant="secondary" onPress={onAddToCollection} /> : null}
+						{onAddToTrip ? <BerxButton label="В поездку" variant="secondary" onPress={onAddToTrip} /> : null}
+						{onAddToWorld ? <BerxButton label="В мир" variant="secondary" onPress={onAddToWorld} /> : null}
+						{place.lat !== null && place.lng !== null ? <BerxButton label="Маршрут" variant="secondary" onPress={buildRoute} /> : null}
+						{place.lat !== null && place.lng !== null ? <BerxButton label="Отметиться" variant="secondary" onPress={() => { setCheckinOpen(!checkinOpen); setCheckinMessage(null); }} /> : null}
+						{onCreateExperience ? (
+							<BerxButton
+								label="Впечатление"
+								variant="secondary"
+								onPress={() => onCreateExperience({type: 'place', guid: place.guid, title: place.title})}
+							/>
+						) : null}
+					</View>
+				</BerxGlassSurface>
 
 				{checkinOpen ? (
 					<BerxGlassSurface padding="sm" style={styles.checkinForm}>
@@ -391,24 +429,24 @@ export default function PlaceDetailScreen({api, guid, myGuid, isAdmin, onAddToCo
 				{checkinMessage ? <Text style={styles.checkinMessage}>{checkinMessage}</Text> : null}
 
 				{myGuid === place.owner_guid ? (
-					<View style={styles.actions}>
-						{onEdit ? <BerxButton label="Редактировать" variant="secondary" onPress={onEdit} /> : null}
-						<BerxButton
-							label={place.is_business ? 'Отключить бизнес-статус' : 'Стать бизнесом'}
-							variant="secondary"
-							loading={businessBusy}
-							onPress={toggleBusiness}
-						/>
-						{place.is_business && onOpenBusinessDashboard ? (
-							<BerxButton label="Панель бизнеса" variant="secondary" onPress={() => onOpenBusinessDashboard(place.guid)} />
-						) : null}
-					</View>
+					<BerxGlassSurface padding="sm" style={styles.actionBar}>
+						<View style={styles.actions}>
+							{onEdit ? <BerxButton label="Редактировать" variant="secondary" onPress={onEdit} /> : null}
+							<BerxButton
+								label={place.is_business ? 'Отключить бизнес-статус' : 'Стать бизнесом'}
+								variant="secondary"
+								loading={businessBusy}
+								onPress={toggleBusiness}
+							/>
+							{place.is_business && onOpenBusinessDashboard ? (
+								<BerxButton label="Панель бизнеса" variant="secondary" onPress={() => onOpenBusinessDashboard(place.guid)} />
+							) : null}
+						</View>
+					</BerxGlassSurface>
 				) : (
-					<View style={styles.actions}>
-						<Pressable onPress={() => setClaimOpen(!claimOpen)}>
-							<Text style={styles.claimLink}>{claimOpen ? 'Скрыть' : 'Это моё место? Заявить права'}</Text>
-						</Pressable>
-					</View>
+					<Pressable onPress={() => setClaimOpen(!claimOpen)} style={styles.claimRow}>
+						<Text style={styles.claimLink}>{claimOpen ? 'Скрыть' : 'Это моё место? Заявить права'}</Text>
+					</Pressable>
 				)}
 
 				{claimOpen ? (
@@ -421,14 +459,16 @@ export default function PlaceDetailScreen({api, guid, myGuid, isAdmin, onAddToCo
 				{claimResult ? <Text style={styles.checkinMessage}>{claimResult}</Text> : null}
 
 				{isAdmin && place.is_business ? (
-					<View style={styles.actions}>
-						<BerxButton
-							label={place.verified ? 'Снять верификацию' : 'Верифицировать бизнес'}
-							variant="secondary"
-							loading={verifyBusy}
-							onPress={toggleVerified}
-						/>
-					</View>
+					<BerxGlassSurface padding="sm" style={styles.actionBar}>
+						<View style={styles.actions}>
+							<BerxButton
+								label={place.verified ? 'Снять верификацию' : 'Верифицировать бизнес'}
+								variant="secondary"
+								loading={verifyBusy}
+								onPress={toggleVerified}
+							/>
+						</View>
+					</BerxGlassSurface>
 				) : null}
 
 				{place.description ? <Text style={styles.description}>{place.description}</Text> : null}
@@ -438,17 +478,6 @@ export default function PlaceDetailScreen({api, guid, myGuid, isAdmin, onAddToCo
 					{place.phone ? <Text style={styles.infoLine}>📞 {place.phone}</Text> : null}
 					{place.website ? <Text style={styles.infoLine}>🔗 {place.website}</Text> : null}
 				</View>
-
-				{friendsHere.length > 0 ? (
-					<BerxGlassSurface padding="sm" style={styles.friendsHereRow}>
-						{friendsHere.slice(0, 8).map((f: BerxExperienceGraphFriend) => (
-							<View key={f.guid} style={styles.friendHereItem}>
-								<BerxAvatar iconUrl={f.icon} fallbackInitial={f.username.charAt(0)} size={36} />
-							</View>
-						))}
-						<Text style={styles.friendsHereLabel}>{friendsHere.length === 1 ? '1 друг был здесь' : `${friendsHere.length} друзей были здесь`}</Text>
-					</BerxGlassSurface>
-				) : null}
 
 				{friendsWorlds.length > 0 ? (
 					<Text style={styles.friendsWorldsLine}>
@@ -501,7 +530,7 @@ export default function PlaceDetailScreen({api, guid, myGuid, isAdmin, onAddToCo
 				)}
 
 				{reviews.map((r) => (
-					<View key={r.guid} style={styles.reviewRow}>
+					<BerxGlassSurface key={r.guid} padding="sm" style={styles.reviewRow}>
 						<Text style={styles.reviewAuthor}>{r.author?.fullname ?? 'Пользователь'}</Text>
 						<Text style={styles.reviewStars}>{'★'.repeat(r.rating)}{'☆'.repeat(5 - r.rating)}</Text>
 						{r.text ? <Text style={styles.reviewText}>{r.text}</Text> : null}
@@ -538,35 +567,46 @@ export default function PlaceDetailScreen({api, guid, myGuid, isAdmin, onAddToCo
 								/>
 							</View>
 						) : null}
-					</View>
+					</BerxGlassSurface>
 				))}
 
 				<BerxDiscussion api={api} type="place" id={place.guid} myGuid={myGuid || undefined} />
 			</BerxFadeIn>
-		</ScrollView>
+		</Animated.ScrollView>
 	);
 }
 
 const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.bg},
-	hero: {aspectRatio: 1.6, backgroundColor: colors.graphite},
-	heroImage: {width: '100%', height: '100%'},
-	heroFallback: {flex: 1, alignItems: 'center', justifyContent: 'center'},
-	heroInitial: {fontSize: typography.sizeHero, color: colors.textFaint},
+	hero: {height: HERO_H, backgroundColor: colors.mediaScrim, justifyContent: 'flex-end', overflow: 'hidden'},
+	heroFallback: {alignItems: 'center', justifyContent: 'center', backgroundColor: colors.graphite},
+	heroFallbackGlyph: {fontSize: typography.sizeHero, color: colors.textFaint, fontWeight: typography.weightBold},
+	presenceBadge: {position: 'absolute', top: spacing.xl, right: spacing.lg, flexDirection: 'row', alignItems: 'center', gap: spacing.sm},
+	presenceLabel: {fontSize: typography.sizeXs, color: colors.onMediaDim},
+	heroContent: {padding: spacing.xl, gap: spacing.xs},
+	heroTitle: {
+		fontSize: typography.sizeTitle,
+		fontWeight: typography.weightBold,
+		color: colors.onMedia,
+		letterSpacing: -0.4,
+		marginTop: spacing.xs,
+	},
+	heroAddress: {fontSize: typography.sizeSm, color: colors.onMediaDim, marginTop: 2},
 	body: {padding: spacing.md, gap: spacing.md},
-	metaRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm},
-	chip: {paddingHorizontal: spacing.sm, paddingVertical: 2, borderRadius: radius.pill, backgroundColor: colors.surface2},
-	chipText: {fontSize: typography.sizeXs, color: colors.textDim},
-	priceText: {fontSize: typography.sizeXs, color: colors.textFaint, fontWeight: typography.weightBold},
-	ratingText: {fontSize: typography.sizeSm, color: colors.accent, fontWeight: typography.weightMedium},
-	verifiedBadge: {fontSize: typography.sizeXs, color: colors.accent, fontWeight: typography.weightBold},
-	address: {fontSize: typography.sizeSm, color: colors.textDim},
+	metaRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flexWrap: 'wrap'},
+	chip: {paddingHorizontal: spacing.sm, paddingVertical: 2, borderRadius: radius.pill, backgroundColor: 'rgba(255,255,255,0.14)'},
+	chipText: {fontSize: typography.sizeXs, color: colors.onMedia},
+	priceText: {fontSize: typography.sizeXs, color: colors.onMediaDim, fontWeight: typography.weightBold},
+	ratingText: {fontSize: typography.sizeSm, color: colors.accentOnMedia, fontWeight: typography.weightMedium},
+	verifiedBadge: {fontSize: typography.sizeXs, color: colors.accentOnMedia, fontWeight: typography.weightBold},
 	actions: {flexDirection: 'row', gap: spacing.sm, flexWrap: 'wrap'},
+	actionBar: {gap: spacing.sm},
 	checkinForm: {gap: spacing.sm},
 	checkinHint: {fontSize: typography.sizeXs, color: colors.textFaint},
 	checkinRow: {flexDirection: 'row', gap: spacing.sm},
 	checkinHalf: {flex: 1},
 	checkinMessage: {fontSize: typography.sizeSm, color: colors.accent},
+	claimRow: {paddingVertical: spacing.xs},
 	claimLink: {fontSize: typography.sizeSm, color: colors.accent, fontWeight: typography.weightMedium},
 	description: {fontSize: typography.sizeBase, color: colors.text, lineHeight: typography.sizeBase * typography.lineHeightBase},
 	infoBlock: {gap: spacing.xs},
@@ -578,16 +618,13 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	offerMetaRow: {flexDirection: 'row', gap: spacing.sm},
 	offerMeta: {fontSize: typography.sizeXs, color: colors.textFaint},
 	offerClaimedLabel: {fontSize: typography.sizeSm, color: colors.accent, fontWeight: typography.weightMedium},
-	friendsHereRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginTop: spacing.sm},
-	friendHereItem: {marginLeft: -spacing.xs},
-	friendsHereLabel: {fontSize: typography.sizeSm, color: colors.textDim, marginLeft: spacing.sm},
 	friendsWorldsLine: {fontSize: typography.sizeXs, color: colors.textFaint, fontStyle: 'italic'},
 	reviewForm: {gap: spacing.sm},
 	starRow: {flexDirection: 'row', gap: spacing.xs},
 	star: {fontSize: 24, color: colors.border},
 	starActive: {color: colors.accent},
 	note: {fontSize: typography.sizeSm, color: colors.textFaint},
-	reviewRow: {gap: 4, paddingVertical: spacing.sm, borderTopWidth: 1, borderTopColor: colors.borderSoft},
+	reviewRow: {gap: 4},
 	reviewAuthor: {fontSize: typography.sizeSm, color: colors.white, fontWeight: typography.weightMedium},
 	reviewStars: {fontSize: typography.sizeXs, color: colors.accent},
 	reviewText: {fontSize: typography.sizeSm, color: colors.textDim},
