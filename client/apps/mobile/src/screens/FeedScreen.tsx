@@ -24,9 +24,21 @@
  * consistent visual grammar across feed and detail, not two competing
  * ones. The story rail's circular rings (Instagram's own shape) are
  * now BERX-native squared tiles with a thin single-line frame.
+ *
+ * BERX WORLD — closes a real rendering gap: feed.php has always
+ * returned a real media_url/media_count/like_count/comment_count per
+ * item (batched, see BerxFeedItem's own comments), but this editorial
+ * unit never rendered any of them — a post with a real photo showed
+ * as bare text, and real engagement was invisible until you opened
+ * it. A real photo now gets real framed presence (the same "frame,
+ * not halo" single hairline the story rail already uses, not a card),
+ * and real like/comment counts sit under it as a quiet stat line —
+ * PostDetailScreen still owns the actual Like/Comment interaction,
+ * this is a reading of what the server already returned, not a new
+ * control surface.
  */
 import {useCallback, useEffect, useState, useMemo} from 'react';
-import {View, Text, FlatList, RefreshControl, StyleSheet, Pressable, GestureResponderEvent} from 'react-native';
+import {View, Text, Image, FlatList, RefreshControl, StyleSheet, Pressable, GestureResponderEvent} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxFeedItem, BerxStoryFeedGroup, BerxTrendingHashtag} from '@berx/api/types';
 import {relativeTimeLabel} from '@berx/domain';
@@ -240,6 +252,23 @@ export default function FeedScreen({api, myGuid, onOpenPost, onOpenProfile, onOp
 							</Text>
 						</Pressable>
 						<BerxRichText text={item.text} onOpenProfile={onOpenProfile} onOpenHashtag={onOpenHashtag} style={styles.text} />
+						{item.media_url ? (
+							<View style={styles.mediaFrame}>
+								<Image source={{uri: item.media_url}} style={styles.media} resizeMode="cover" />
+								{item.media_count && item.media_count > 1 ? (
+									<View style={styles.mediaCountBadge}>
+										<Text style={styles.mediaCountText}>1/{item.media_count}</Text>
+									</View>
+								) : null}
+							</View>
+						) : null}
+						{(item.like_count ?? 0) > 0 || (item.comment_count ?? 0) > 0 ? (
+							<Text style={styles.stats}>
+								{(item.like_count ?? 0) > 0 ? `${item.is_liked ? '♥' : '♡'} ${item.like_count}` : null}
+								{(item.like_count ?? 0) > 0 && (item.comment_count ?? 0) > 0 ? '   ' : null}
+								{(item.comment_count ?? 0) > 0 ? `💬 ${item.comment_count}` : null}
+							</Text>
+						) : null}
 						{item.poll ? (
 							<Pressable onPress={(e: GestureResponderEvent) => e.stopPropagation()}>
 								<BerxPollView
@@ -351,5 +380,21 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 		letterSpacing: -0.1,
 		lineHeight: typography.sizeLg * 1.32,
 	},
+	// Same "frame, not halo" language as the story rail's own squared
+	// tile — a single thin hairline, never a shadowed card, so a real
+	// photo gets real presence without reintroducing the boxed-card
+	// grammar this screen already moved past.
+	mediaFrame: {
+		marginTop: spacing.md,
+		borderRadius: radius.md,
+		borderWidth: 1,
+		borderColor: colors.borderSoft,
+		overflow: 'hidden',
+		backgroundColor: colors.graphite,
+	},
+	media: {width: '100%', aspectRatio: 1.3},
+	mediaCountBadge: {position: 'absolute', top: spacing.sm, right: spacing.sm, paddingHorizontal: spacing.sm, paddingVertical: 2, borderRadius: radius.pill, backgroundColor: 'rgba(0,0,0,0.55)'},
+	mediaCountText: {color: colors.white, fontSize: typography.sizeXs, fontWeight: typography.weightBold},
+	stats: {color: colors.textFaint, fontSize: typography.sizeSm, marginTop: spacing.sm},
 	separator: {height: 1, backgroundColor: colors.borderSoft, marginHorizontal: spacing.lg},
 });
