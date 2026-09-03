@@ -30,12 +30,27 @@
  * item (batched, see BerxFeedItem's own comments), but this editorial
  * unit never rendered any of them — a post with a real photo showed
  * as bare text, and real engagement was invisible until you opened
- * it. A real photo now gets real framed presence (the same "frame,
- * not halo" single hairline the story rail already uses, not a card),
- * and real like/comment counts sit under it as a quiet stat line —
- * PostDetailScreen still owns the actual Like/Comment interaction,
- * this is a reading of what the server already returned, not a new
- * control surface.
+ * it.
+ *
+ * RECOMPOSED (not restyled) around media: a photo post used to put its
+ * real engagement counts in a flat icon-and-number row printed BELOW
+ * the frame, like a caption — the exact generic-list grammar this
+ * screen's own header already renamed once and still was. NOW already
+ * solved this for real: a floating glass BerxActionRail sitting ON the
+ * photograph itself, self-contained for legibility against whatever
+ * the photo happens to be (see BerxActionRail's own header — real dark
+ * base + hairline per button, not a hope that the photo is dark
+ * enough). A feed post's media now uses that SAME rail, at a smaller
+ * scale for a card instead of a full-bleed stage, so a photo moment in
+ * the feed and a photo moment on NOW read as the same product's two
+ * views of one idea rather than two different card languages.
+ *
+ * PostDetailScreen still owns the actual Like/Comment INTERACTION —
+ * that has not changed. Both rail buttons route to onOpenPost, the
+ * same as tapping anywhere else on the unit; this is still a reading
+ * of real state (count, is_liked), not a new inline toggle. A text-only
+ * post (no photo — no surface to float glass on) keeps the plain
+ * stat row.
  */
 import {useCallback, useEffect, useState, useMemo} from 'react';
 import {View, Text, Image, FlatList, RefreshControl, StyleSheet, Pressable, GestureResponderEvent} from 'react-native';
@@ -48,10 +63,25 @@ import {BerxErrorState, BerxEmptyState, BerxSkeleton} from '../../../../packages
 import {BerxRichText} from '../../../../packages/design-system/src/components/BerxRichText';
 import {BerxStoryRail} from '../../../../packages/design-system/src/components/BerxStoryRail';
 import {BerxPollView} from '../../../../packages/design-system/src/components/BerxPollView';
+import {BerxGlassSurface} from '../../../../packages/design-system/src/components/BerxGlassSurface';
+import {BerxActionRail} from '../../../../packages/design-system/src/components/BerxActionRail';
+import type {BerxRailAction} from '../../../../packages/design-system/src/components/BerxActionRail';
+import {BlurView} from 'expo-blur';
 
-import {useBerxColors} from '../../../../packages/design-system/src/theme';
+import {useBerxColors, useBerxGlass} from '../../../../packages/design-system/src/theme';
+import {useBerxInsets} from '../../../../packages/design-system/src/insets';
 import type {BerxColorTokens} from '@berx/design-system/tokens';
 import {BerxIcon} from '../../../../packages/design-system/src/icons/BerxIcon';
+
+/**
+ * The header's own real content height (title line + vertical padding),
+ * NOT counting the safe-area inset — that is added separately per
+ * device, below. A fixed number rather than an onLayout measurement:
+ * the alternative is a one-frame jump the instant the real height
+ * resolves, and the header's content never changes shape, so nothing
+ * is actually being guessed here — this is what it measures to.
+ */
+const HEADER_CONTENT_H = 52;
 
 /**
  * WHO ACTUALLY WROTE THIS POST.
@@ -85,7 +115,10 @@ interface Props {
 
 export default function FeedScreen({api, myGuid, onOpenPost, onOpenProfile, onOpenHashtag, onCreatePost, onOpenStoryGroup, onCreateStory}: Props) {
 	const colors = useBerxColors();
+	const glass = useBerxGlass();
+	const insets = useBerxInsets();
 	const styles = useMemo(() => makeStyles(colors), [colors]);
+	const headerH = HEADER_CONTENT_H + insets.top;
 	const [items, setItems] = useState<BerxFeedItem[]>([]);
 	const [votingPollGuid, setVotingPollGuid] = useState<number | null>(null);
 	const [storyGroups, setStoryGroups] = useState<BerxStoryFeedGroup[]>([]);
@@ -148,14 +181,48 @@ export default function FeedScreen({api, myGuid, onOpenPost, onOpenProfile, onOp
 		load();
 	}
 
+	/*
+	 * RECOMPOSED, not just restyled. The header used to be a plain
+	 * in-flow View — flush black on black, no depth from the content
+	 * beneath it, and laid out from y=0 with no safe-area awareness at
+	 * all, so on any real device with a notch or status bar the BERX
+	 * wordmark sat partly under it. `useBerxInsets()` has existed in
+	 * this package since it was written specifically to fix that exact
+	 * defect, and no screen had ever actually called it — a real, live
+	 * rendering bug, not a styling preference.
+	 *
+	 * It now floats ABOVE the scrolling feed on real glass — a genuine
+	 * BlurView backdrop (see BerxGlassSurface's own header for what that
+	 * means), so content visibly softens as it passes underneath rather
+	 * than vanishing behind a flat panel. The bar composes the SAME
+	 * level-2 recipe BerxGlassSurface uses (blur + fill + hairline) but
+	 * by hand rather than through that component: BerxGlassSurface
+	 * draws a border on all four edges, which is correct for a floating
+	 * panel and wrong for a full-bleed bar — it would draw a visible
+	 * hairline down the screen's own left/right edges. A bar gets a
+	 * hairline on its bottom edge only, the edge that actually separates
+	 * it from the content sliding underneath.
+	 *
+	 * The compose control IS a floating panel — a real glass capsule,
+	 * not a bare glyph adrift on the background. That one legitimately
+	 * uses BerxGlassSurface as designed.
+	 */
+	const barGlass = glass[2];
 	const header = (
-		<View style={styles.header}>
-			<Text style={styles.headerTitle}>
-				BER<Text style={styles.headerTitleAccent}>X</Text>
-			</Text>
-			<Pressable onPress={onCreatePost} hitSlop={10} style={styles.headerCreate}>
-				<BerxIcon name="plus" size={20} color={colors.accent}  />
-			</Pressable>
+		<View style={[styles.header, {height: headerH}]}>
+			<BlurView pointerEvents="none" style={StyleSheet.absoluteFillObject} intensity={barGlass.blurRadius} tint="dark" />
+			<View pointerEvents="none" style={[StyleSheet.absoluteFillObject, {backgroundColor: barGlass.fill}]} />
+			<View pointerEvents="none" style={[styles.headerHairline, {backgroundColor: barGlass.border}]} />
+			<View style={[styles.headerRow, {paddingTop: insets.top}]}>
+				<Text style={styles.headerTitle}>
+					BER<Text style={styles.headerTitleAccent}>X</Text>
+				</Text>
+				<Pressable onPress={onCreatePost} hitSlop={6} style={({pressed}: {pressed: boolean}) => [pressed && styles.headerCreatePressed]}>
+					<BerxGlassSurface level={3} padding={0} radius={20} style={styles.headerCreate}>
+						<BerxIcon name="plus" size={18} color={colors.accent} />
+					</BerxGlassSurface>
+				</Pressable>
+			</View>
 		</View>
 	);
 
@@ -191,12 +258,20 @@ export default function FeedScreen({api, myGuid, onOpenPost, onOpenProfile, onOp
 	);
 
 
+	/*
+	 * Real glass pills, not the flat `colors.surface` fill they used to
+	 * carry. Material consistency: a chip and the header's own compose
+	 * capsule are both level-1/3 glass now instead of two different
+	 * ad-hoc fills that happened to both be roundish.
+	 */
 	const trendingRail =
 		trending.length > 0 && onOpenHashtag ? (
 			<View style={styles.trendingRail}>
 				{trending.slice(0, 8).map((h: BerxTrendingHashtag) => (
-					<Pressable key={h.hashtag} style={styles.trendingChip} onPress={() => onOpenHashtag(h.hashtag)}>
-						<Text style={styles.trendingChipText}>#{h.hashtag}</Text>
+					<Pressable key={h.hashtag} onPress={() => onOpenHashtag(h.hashtag)}>
+						<BerxGlassSurface level={1} padding={0} radius={radius.pill} style={styles.trendingChip}>
+							<Text style={styles.trendingChipText}>#{h.hashtag}</Text>
+						</BerxGlassSurface>
 					</Pressable>
 				))}
 			</View>
@@ -205,7 +280,6 @@ export default function FeedScreen({api, myGuid, onOpenPost, onOpenProfile, onOp
 	if (loading) {
 		return (
 			<View style={styles.screen}>
-				{header}
 				{/* The skeleton has to be the shape of the thing that arrives, or
 				    the content visibly jumps when it lands. This one had drifted:
 				    it drew a 36px avatar over a two-line author column, which was
@@ -213,7 +287,7 @@ export default function FeedScreen({api, myGuid, onOpenPost, onOpenProfile, onOp
 				    mark and a SINGLE byline line. Matched back to it, including a
 				    media block on the units likeliest to have one, so the page
 				    settles instead of reflowing. */}
-				<View style={styles.skeletonList}>
+				<View style={[styles.skeletonList, {paddingTop: headerH}]}>
 					{[0, 1, 2].map((i) => (
 						<View key={i} style={styles.skeletonCard}>
 							<View style={styles.skeletonHeaderRow}>
@@ -226,6 +300,7 @@ export default function FeedScreen({api, myGuid, onOpenPost, onOpenProfile, onOp
 						</View>
 					))}
 				</View>
+				{header}
 			</View>
 		);
 	}
@@ -233,21 +308,23 @@ export default function FeedScreen({api, myGuid, onOpenPost, onOpenProfile, onOp
 	if (error) {
 		return (
 			<View style={styles.screen}>
+				<View style={{paddingTop: headerH, flex: 1}}>
+					<BerxErrorState message={error} onRetry={load} />
+				</View>
 				{header}
-				<BerxErrorState message={error} onRetry={load} />
 			</View>
 		);
 	}
 
 	return (
 		<View style={styles.screen}>
-			{header}
 			<BerxFadeIn style={styles.fadeFlex}>
 				<FlatList
 					style={styles.list}
+					contentContainerStyle={{paddingTop: headerH}}
 					data={items}
 					keyExtractor={(item: BerxFeedItem) => String(item.guid)}
-					refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />}
+					refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} progressViewOffset={headerH} />}
 					ListHeaderComponent={
 						<>
 							{storyRail}
@@ -297,13 +374,43 @@ export default function FeedScreen({api, myGuid, onOpenPost, onOpenProfile, onOp
 						</Pressable>
 						<BerxRichText text={item.text} onOpenProfile={onOpenProfile} onOpenHashtag={onOpenHashtag} style={styles.text} />
 						{item.media_url ? (
+							/* A single hairline in one flat colour used to be the whole
+							   edge treatment — a real photo just stopped at a grey line.
+							   The lit top edge is the same "one light source wrapping
+							   one edge" language BerxOrb/BerxGlassPanel already use
+							   product-wide, applied here without turning this into a
+							   full glass panel (a photo needs to stay legible, not sit
+							   behind a translucent tint). Not wrapped in Berx3DTilt: this
+							   whole card is already one Pressable that opens the post,
+							   and Berx3DTilt installs its own touch responder — nesting
+							   it here would make ONLY the photo silently stop opening
+							   the post, a real interaction regression for a decorative
+							   touch. Real 3D depth response belongs on a surface that
+							   owns its own touch, not one already claimed by a parent. */
 							<View style={styles.mediaFrame}>
 								<Image source={{uri: item.media_url}} style={styles.media} resizeMode="cover" />
+								<View pointerEvents="none" style={styles.mediaEdgeLight} />
 								{item.media_count && item.media_count > 1 ? (
 									<View style={styles.mediaCountBadge}>
 										<Text style={styles.mediaCountText}>1/{item.media_count}</Text>
 									</View>
 								) : null}
+								{/* Real engagement, floating ON the photograph — the same
+								    BerxActionRail NOW's own stage uses, at card scale
+								    instead of full-bleed. Both buttons route to onOpenPost,
+								    same as tapping anywhere else on the unit: this reads
+								    real state (count, is_liked), it does not add a new
+								    inline like/comment control that didn't exist before. */}
+								<BerxActionRail
+									size={34}
+									style={styles.mediaRail}
+									actions={
+										[
+											{key: 'like', icon: 'heart', count: item.like_count, active: item.is_liked, onPress: () => onOpenPost(item.guid)},
+											{key: 'comment', icon: 'message-circle', count: item.comment_count, onPress: () => onOpenPost(item.guid)},
+										] as BerxRailAction[]
+									}
+								/>
 							</View>
 						) : null}
 						{/* Real attached soundtrack. track_title is resolved server-side
@@ -315,18 +422,26 @@ export default function FeedScreen({api, myGuid, onOpenPost, onOpenProfile, onOp
 						    — the same mistake as the hand-drawn icons, and NOW showed
 						    the same data with a third treatment again. */}
 						{item.track_title ? (
-							<View style={styles.trackRow}>
+							<BerxGlassSurface level={1} padding={0} radius={radius.pill} style={styles.trackRow}>
 								<BerxIcon name="music" size={13} color={colors.accent} />
 								<Text style={styles.trackTitle} numberOfLines={1}>{item.track_title}</Text>
-							</View>
+							</BerxGlassSurface>
 						) : null}
 						{/* Drawn with the product's own icon geometry, not emoji. A
 						    heart glyph and 💬 render in the OS emoji font — a foreign
 						    object, at a size and weight BERX does not control, sitting
 						    inside a product built on its own drawn icon set. `is_liked`
 						    now reads as colour (the heart is solid either way), which
-						    is the honest distinction on a filled mark. */}
-						{(item.like_count ?? 0) > 0 || (item.comment_count ?? 0) > 0 ? (
+						    is the honest distinction on a filled mark.
+
+						    MEDIA POSTS SKIP THIS: their engagement now lives on the
+						    photo's own floating rail above, so printing the same two
+						    numbers again here would just repeat them under the frame.
+						    A text-only post has no photo to float glass on, so it
+						    keeps the plain row — the right call for a surface that IS
+						    just background, not a claim that this row is somehow
+						    more honest than the rail. */}
+						{!item.media_url && ((item.like_count ?? 0) > 0 || (item.comment_count ?? 0) > 0) ? (
 							<View style={styles.stats}>
 								{(item.like_count ?? 0) > 0 ? (
 									<View style={styles.statItem}>
@@ -358,26 +473,46 @@ export default function FeedScreen({api, myGuid, onOpenPost, onOpenProfile, onOp
 				ItemSeparatorComponent={() => <View style={styles.separator} />}
 				/>
 			</BerxFadeIn>
+			{header}
 		</View>
 	);
 }
 
 const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.bg},
+	// Floats ABOVE the scroll content on real glass — position:absolute
+	// + a fixed pixel height (rather than intrinsic sizing) because the
+	// FlatList content below needs to know exactly how much top padding
+	// clears it, and an intrinsically-sized sibling can't be measured
+	// before its own first paint without a layout-shift flash.
 	header: {
+		position: 'absolute',
+		top: 0,
+		left: 0,
+		right: 0,
+		overflow: 'hidden',
+		zIndex: 10,
+	},
+	headerRow: {
+		flex: 1,
 		flexDirection: 'row',
 		alignItems: 'center',
 		justifyContent: 'space-between',
 		paddingHorizontal: spacing.lg,
-		paddingVertical: spacing.md,
 	},
+	// The one edge that actually separates the bar from the content
+	// sliding underneath it — not a border on all four sides, which is
+	// what BerxGlassSurface draws and why this bar composes the same
+	// blur+fill recipe by hand instead of reusing that component.
+	headerHairline: {position: 'absolute', left: 0, right: 0, bottom: 0, height: 1},
 	headerTitle: {color: colors.text, fontSize: typography.sizeXl, fontWeight: typography.weightBold, letterSpacing: 1},
 	headerTitleAccent: {color: colors.accent},
-	headerCreate: {padding: spacing.xs},
+	headerCreate: {width: 36, height: 36, alignItems: 'center', justifyContent: 'center'},
+	headerCreatePressed: {opacity: 0.6},
 	list: {backgroundColor: colors.bg},
 	storyRailWrap: {borderBottomWidth: 1, borderBottomColor: colors.borderSoft, paddingBottom: spacing.md},
 	trendingRail: {flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.borderSoft},
-	trendingChip: {paddingHorizontal: spacing.sm, paddingVertical: 4, borderRadius: radius.pill, backgroundColor: colors.surface},
+	trendingChip: {paddingHorizontal: spacing.sm, paddingVertical: 5},
 	trendingChipText: {color: colors.accent, fontSize: typography.sizeXs, fontWeight: typography.weightMedium},
 	fadeFlex: {flex: 1},
 	skeletonList: {flex: 1},
@@ -444,10 +579,26 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 		backgroundColor: colors.graphite,
 	},
 	media: {width: '100%', aspectRatio: 1.3},
+	// One light source wrapping the top edge only — the same restrained
+	// "brightest at one edge, gone by the opposite corner" language
+	// BerxOrb/BerxGlassPanel use, scaled down to a hairline so the photo
+	// underneath stays fully legible instead of sitting behind a tint.
+	mediaEdgeLight: {position: 'absolute', top: 0, left: spacing.lg, right: spacing.lg, height: 1, backgroundColor: 'rgba(255,255,255,0.4)'},
 	mediaCountBadge: {position: 'absolute', top: spacing.sm, right: spacing.sm, paddingHorizontal: spacing.sm, paddingVertical: 2, borderRadius: radius.pill, backgroundColor: 'rgba(0,0,0,0.55)'},
 	mediaCountText: {color: colors.white, fontSize: typography.sizeXs, fontWeight: typography.weightBold},
-	trackRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.md},
-	trackTitle: {flex: 1, color: colors.textDim, fontSize: typography.sizeXs, letterSpacing: 0.2},
+	// Bottom-right — clear of the media-count badge, which sits top-right.
+	mediaRail: {position: 'absolute', right: spacing.sm, bottom: spacing.sm},
+	trackRow: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		gap: spacing.sm,
+		alignSelf: 'flex-start',
+		marginTop: spacing.md,
+		paddingHorizontal: spacing.md,
+		paddingVertical: spacing.xs,
+		maxWidth: '100%',
+	},
+	trackTitle: {flexShrink: 1, color: colors.textDim, fontSize: typography.sizeXs, letterSpacing: 0.2},
 	stats: {flexDirection: 'row', alignItems: 'center', gap: spacing.lg, marginTop: spacing.md},
 	statItem: {flexDirection: 'row', alignItems: 'center', gap: spacing.xs},
 	statText: {color: colors.textFaint, fontSize: typography.sizeSm, fontVariant: ['tabular-nums']},

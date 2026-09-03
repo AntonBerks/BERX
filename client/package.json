@@ -25,6 +25,7 @@
     "typescript": "^5.8.3"
   },
   "dependencies": {
+    "expo-blur": "^57.0.2",
     "react-native-svg": "^15.15.5"
   }
 }
