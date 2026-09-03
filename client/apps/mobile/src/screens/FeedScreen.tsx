@@ -46,7 +46,7 @@ import {spacing, radius, typography} from '@berx/design-system/tokens';
 import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
 import {BerxErrorState, BerxEmptyState, BerxSkeleton} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxRichText} from '../../../../packages/design-system/src/components/BerxRichText';
-import {BerxEdgeFade} from '../../../../packages/design-system/src/components/BerxEdgeFade';
+import {BerxStoryRail} from '../../../../packages/design-system/src/components/BerxStoryRail';
 import {BerxPollView} from '../../../../packages/design-system/src/components/BerxPollView';
 
 import {useBerxColors} from '../../../../packages/design-system/src/theme';
@@ -159,55 +159,37 @@ export default function FeedScreen({api, myGuid, onOpenPost, onOpenProfile, onOp
 		</View>
 	);
 
+	/*
+	 * ONE story rail, not two. This screen reimplemented the rail inline
+	 * — its own FlatList, its own tiles, its own eleven styles — while
+	 * BerxStoryRail already existed and NOW was using it. Two
+	 * implementations of the same concept, showing the same data, and
+	 * they did not even agree on the SHAPE: squared tiles here, circular
+	 * portraits there.
+	 *
+	 * Both shapes carried a written justification and the two
+	 * contradicted each other. Resolved toward the shared component: it
+	 * is the better implementation (real unseen state, create AND
+	 * see-all tiles, media-ink switching), its shape cites the reference
+	 * set, and one shape on both screens beats a per-screen preference on
+	 * either.
+	 */
 	const storyRail = (
 		<View style={styles.storyRailWrap}>
-			<FlatList
-				horizontal
-				showsHorizontalScrollIndicator={false}
-				data={storyGroups}
-				keyExtractor={(g: BerxStoryFeedGroup) => String(g.owner_guid)}
-				contentContainerStyle={styles.storyRail}
-				ListHeaderComponent={
-					<Pressable style={styles.storyItem} onPress={onCreateStory}>
-						<View style={styles.addStoryTile}>
-							<BerxIcon name="plus" size={18} color={colors.accent}  />
-						</View>
-						<Text style={styles.storyLabel} numberOfLines={1}>
-							Ваша история
-						</Text>
-					</Pressable>
-				}
-				renderItem={({item}: {item: BerxStoryFeedGroup}) => (
-					<Pressable style={styles.storyItem} onPress={() => onOpenStoryGroup(item)}>
-						{/* has_unseen is real per-viewer state from the ossn_stories_views
-						    rows markViewed() has always written, and the rail was
-						    ignoring it: EVERY tile got the accent frame, so a rail
-						    where you had already watched everything looked exactly
-						    like one full of new stories. The frame is the whole
-						    point of a story rail — it is the only thing that says
-						    "there is something here for you". Seen groups keep a
-						    quiet border: still present, no longer calling. */}
-						<View style={[styles.storyTile, item.has_unseen ? styles.storyTileUnseen : styles.storyTileSeen]}>
-							{item.owner_icon ? (
-								<Image
-									source={{uri: item.owner_icon}}
-									style={[styles.storyTileImage, !item.has_unseen && styles.storyTileImageSeen]}
-								/>
-							) : (
-								<Text style={styles.storyTileInitial}>{(item.owner_username ?? '?').charAt(0).toUpperCase()}</Text>
-							)}
-						</View>
-						<Text style={[styles.storyLabel, item.has_unseen && styles.storyLabelUnseen]} numberOfLines={1}>
-							{item.owner_username ?? `#${item.owner_guid}`}
-						</Text>
-					</Pressable>
-				)}
+			<BerxStoryRail
+				onCreate={onCreateStory}
+				createLabel="Ваша история"
+				items={storyGroups.map((g: BerxStoryFeedGroup) => ({
+					key: String(g.owner_guid),
+					label: g.owner_username ?? `#${g.owner_guid}`,
+					iconUrl: g.owner_icon,
+					unseen: g.has_unseen,
+					onPress: () => onOpenStoryGroup(g),
+				}))}
 			/>
-			{/* The rail keeps scrolling past the edge; without this it just
-			    stopped mid-tile with no sign there was more. */}
-			<BerxEdgeFade color={colors.bg} width={36} />
 		</View>
 	);
+
 
 	const trendingRail =
 		trending.length > 0 && onOpenHashtag ? (
@@ -326,10 +308,15 @@ export default function FeedScreen({api, myGuid, onOpenPost, onOpenProfile, onOp
 						) : null}
 						{/* Real attached soundtrack. track_title is resolved server-side
 						    once per distinct track on the page and was never displayed,
-						    so a post WITH music looked identical to one without. */}
+						    so a post WITH music looked identical to one without.
+
+						    Marked with the family's own `music` glyph. I first drew an
+						    abstract accent bar here, before finding the licensed family
+						    — the same mistake as the hand-drawn icons, and NOW showed
+						    the same data with a third treatment again. */}
 						{item.track_title ? (
 							<View style={styles.trackRow}>
-								<View style={styles.trackMark} />
+								<BerxIcon name="music" size={13} color={colors.accent} />
 								<Text style={styles.trackTitle} numberOfLines={1}>{item.track_title}</Text>
 							</View>
 						) : null}
@@ -392,42 +379,6 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	trendingRail: {flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.borderSoft},
 	trendingChip: {paddingHorizontal: spacing.sm, paddingVertical: 4, borderRadius: radius.pill, backgroundColor: colors.surface},
 	trendingChipText: {color: colors.accent, fontSize: typography.sizeXs, fontWeight: typography.weightMedium},
-	storyRail: {paddingHorizontal: spacing.lg, paddingTop: spacing.md, gap: spacing.sm},
-	storyItem: {alignItems: 'center', width: 64, marginRight: spacing.sm},
-	// BERX-native tile, not Instagram's circular ring: a squared frame
-	// (radius.sm, not a pill) with a single thin accent line, not a
-	// thick ring — the same "frame, not halo" language as
-	// BerxWayfinder's own restrained use of the accent.
-	storyTile: {
-		width: 56,
-		height: 56,
-		borderRadius: radius.sm,
-		borderWidth: 1,
-		alignItems: 'center',
-		justifyContent: 'center',
-		backgroundColor: colors.graphite,
-		overflow: 'hidden',
-	},
-	storyTileUnseen: {borderColor: colors.accent},
-	// Not invisible — watched, which is a different thing from absent.
-	storyTileSeen: {borderColor: colors.borderSoft},
-	storyTileImage: {width: '100%', height: '100%', resizeMode: 'cover'},
-	// A watched story reads back a step. Real state, expressed as
-	// presence rather than as a badge.
-	storyTileImageSeen: {opacity: 0.45},
-	storyTileInitial: {color: colors.text, fontSize: typography.sizeBase, fontWeight: typography.weightBold},
-	addStoryTile: {
-		width: 56,
-		height: 56,
-		borderRadius: radius.sm,
-		borderWidth: 1,
-		borderColor: colors.borderStrong,
-		borderStyle: 'dashed',
-		alignItems: 'center',
-		justifyContent: 'center',
-	},
-	storyLabel: {color: colors.textFaint, fontSize: 10, marginTop: spacing.xs, textAlign: 'center'},
-	storyLabelUnseen: {color: colors.textDim, fontWeight: typography.weightMedium},
 	fadeFlex: {flex: 1},
 	skeletonList: {flex: 1},
 	skeletonCard: {
@@ -496,9 +447,6 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	mediaCountBadge: {position: 'absolute', top: spacing.sm, right: spacing.sm, paddingHorizontal: spacing.sm, paddingVertical: 2, borderRadius: radius.pill, backgroundColor: 'rgba(0,0,0,0.55)'},
 	mediaCountText: {color: colors.white, fontSize: typography.sizeXs, fontWeight: typography.weightBold},
 	trackRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.md},
-	// A short accent bar, the same "one line of light" mark the rest of
-	// the spatial system uses — not a musical note glyph from a font.
-	trackMark: {width: 2, height: 14, borderRadius: 1, backgroundColor: colors.accent},
 	trackTitle: {flex: 1, color: colors.textDim, fontSize: typography.sizeXs, letterSpacing: 0.2},
 	stats: {flexDirection: 'row', alignItems: 'center', gap: spacing.lg, marginTop: spacing.md},
 	statItem: {flexDirection: 'row', alignItems: 'center', gap: spacing.xs},

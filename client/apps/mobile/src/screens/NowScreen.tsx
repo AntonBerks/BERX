@@ -450,8 +450,11 @@ export default function NowScreen({
 									style={styles.stageTrack}
 									onPress={lead.track_guid ? () => onOpenPost(lead.track_guid as number) : undefined}
 									disabled={!lead.track_guid}>
+									{/* The family has a real `music` glyph; ♪ is a text character
+									    from whatever font happens to be resolving. */}
+									<BerxIcon name="music" size={13} color={colors.onMedia} />
 									<Text style={styles.stageTrackText} numberOfLines={1}>
-										♪  {lead.track_title}
+										{lead.track_title}
 									</Text>
 								</Pressable>
 							) : null}
@@ -657,17 +660,23 @@ export default function NowScreen({
 												closing={votingPollGuid === item.guid}
 											/>
 										) : null}
+										{/* Was ♥/♡ and ◌ — text glyphs for two concepts this very
+										    screen already draws properly in its own action rail a few
+										    hundred pixels above. Three treatments of "like" on one
+										    screen. Now the one family, with `filled` carrying the
+										    liked state the way it does everywhere else. */}
 										<View style={styles.textActions}>
-											<Pressable onPress={() => handleToggleLike(item)} hitSlop={8}>
-												<Text style={[styles.textAction, item.is_liked && styles.textActionActive]}>
-													{item.is_liked ? '♥' : '♡'}
-													{typeof item.like_count === 'number' && item.like_count > 0 ? ` ${item.like_count}` : ''}
-												</Text>
+											<Pressable onPress={() => handleToggleLike(item)} hitSlop={8} style={styles.textActionBtn}>
+												<BerxIcon name="heart" size={15} filled={item.is_liked} color={item.is_liked ? colors.accent : colors.textFaint} />
+												{typeof item.like_count === 'number' && item.like_count > 0 ? (
+													<Text style={[styles.textAction, item.is_liked && styles.textActionActive]}>{item.like_count}</Text>
+												) : null}
 											</Pressable>
-											<Pressable onPress={() => onOpenPost(item.guid)} hitSlop={8}>
-												<Text style={styles.textAction}>
-													◌{typeof item.comment_count === 'number' && item.comment_count > 0 ? ` ${item.comment_count}` : ''}
-												</Text>
+											<Pressable onPress={() => onOpenPost(item.guid)} hitSlop={8} style={styles.textActionBtn}>
+												<BerxIcon name="message-circle" size={15} color={colors.textFaint} />
+												{typeof item.comment_count === 'number' && item.comment_count > 0 ? (
+													<Text style={styles.textAction}>{item.comment_count}</Text>
+												) : null}
 											</Pressable>
 										</View>
 									</Pressable>
@@ -753,6 +762,11 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	stageCaption: {color: colors.onMedia, fontSize: typography.sizeLg, fontWeight: typography.weightMedium, lineHeight: 23},
 	stageTrack: {
 		alignSelf: 'flex-start',
+		// Now holds a glyph beside the title rather than a character
+		// inside it, so the chip lays its two children out itself.
+		flexDirection: 'row',
+		alignItems: 'center',
+		gap: spacing.sm,
 		paddingHorizontal: spacing.md,
 		paddingVertical: 6,
 		borderRadius: radius.pill,
@@ -867,6 +881,7 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 		letterSpacing: -0.2,
 		lineHeight: typography.sizeLg * 1.34,
 	},
+	textActionBtn: {flexDirection: 'row', alignItems: 'center', gap: 5},
 	textActions: {flexDirection: 'row', gap: spacing.lg, marginTop: 2},
 	textAction: {color: colors.textFaint, fontSize: typography.sizeSm},
 	textActionActive: {color: colors.accent},
