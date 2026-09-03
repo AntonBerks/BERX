@@ -47,7 +47,6 @@ export type BerxRouteName =
 	| 'DatingMatches'
 	| 'DatingPrivacy'
 	| 'Settings'
-	| 'WorldSelect'
 	| 'DeviceSessions'
 	| 'NotificationPreferences'
 	| 'InviteFriends'
@@ -179,7 +178,6 @@ export interface BerxRouteParams {
 	DatingUserPhotos: { userGuid: number; username: string };
 	DatingPrivacy: undefined;
 	Settings: undefined;
-	WorldSelect: undefined;
 	DeviceSessions: undefined;
 	NotificationPreferences: undefined;
 	InviteFriends: undefined;
@@ -329,10 +327,6 @@ export const BERX_ROUTES: BerxRouteMeta[] = [
 	{ name: 'DatingUserPhotos', connected: true },
 	{ name: 'DatingPrivacy', connected: true },
 	{ name: 'Settings', connected: true },
-	// BERX WORLD — real Color World Engine picker (worlds.ts): Night/Ice,
-	// Day/Ice, Sun, Aurora. Not a mock preview — sets the live theme
-	// context every already-wired screen reads from.
-	{ name: 'WorldSelect', connected: true },
 	{ name: 'DeviceSessions', connected: true },
 	{ name: 'NotificationPreferences', connected: true },
 	{ name: 'InviteFriends', connected: true },

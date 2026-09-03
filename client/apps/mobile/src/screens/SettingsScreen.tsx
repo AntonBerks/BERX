@@ -5,13 +5,10 @@
  * API. No rows for password/email change — those belong to
  * ProfileScreen's own edit flow, not duplicated here.
  *
- * BERX WORLD — "Оформление" now opens the real Color World Engine
- * (packages/design-system/src/worlds.ts) instead of a plain Day/Night
- * switch: Night/Ice, Day/Ice, Sun, Aurora — four full palettes, not a
- * light/dark pair. No invented preference storage (no persistence
- * module is installable here, so the choice lives for the session;
- * that limitation is stated, not hidden — same as the Day/Night
- * switch it replaces).
+ * BERX WORLD — the old "Оформление" Day/Night switch (and a later,
+ * now-reverted Color World Engine picker) is removed: BERX has one
+ * systemic dark identity, not a palette a person picks. Spatial depth/
+ * glass/atmosphere is the design language; it isn't a theme setting.
  *
  * MAX BUILD — real "Уведомления" row: notification preferences now
  * have a real, enforced backend (see classes/OssnNotificationPrefs.php
@@ -28,8 +25,7 @@ import {View, Text, Pressable, StyleSheet} from 'react-native';
 import {spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 
-import {useBerxColors, useBerxTheme} from '../../../../packages/design-system/src/theme';
-import {BERX_WORLDS} from '../../../../packages/design-system/src/worlds';
+import {useBerxColors} from '../../../../packages/design-system/src/theme';
 import type {BerxColorTokens} from '@berx/design-system/tokens';
 
 interface Props {
@@ -42,8 +38,6 @@ interface Props {
 	onOpenDatingPrivacy: () => void;
 	onOpenCircles?: () => void;
 	onOpenSitePage?: (prefix: 'about' | 'terms' | 'privacy') => void;
-	/** Opens the real Color World Engine picker (WorldSelectScreen) — see this file's own header. */
-	onOpenWorldSelect?: () => void;
 	onBack?: () => void;
 }
 
@@ -58,31 +52,12 @@ function Row({label, onPress, danger}: {label: string; onPress: () => void; dang
 	);
 }
 
-export default function SettingsScreen({onOpenDeviceSessions, onOpenNotificationPreferences, onOpenInviteFriends, onOpenBlockedUsers, onOpenMutedUsers, onOpenDeleteAccount, onOpenDatingPrivacy, onOpenCircles, onOpenSitePage, onOpenWorldSelect, onBack}: Props) {
+export default function SettingsScreen({onOpenDeviceSessions, onOpenNotificationPreferences, onOpenInviteFriends, onOpenBlockedUsers, onOpenMutedUsers, onOpenDeleteAccount, onOpenDatingPrivacy, onOpenCircles, onOpenSitePage, onBack}: Props) {
 	const colors = useBerxColors();
 	const styles = useMemo(() => makeStyles(colors), [colors]);
-	// BERX WORLD — the real Color World Engine (see this file's own
-	// header and packages/design-system/src/worlds.ts).
-	const theme = useBerxTheme();
-	const currentWorld = BERX_WORLDS[theme.world];
 	return (
 		<View style={styles.screen}>
 			<BerxHeader title="Настройки" onBack={onBack} />
-			<Text style={styles.sectionLabel}>Оформление</Text>
-			<View style={styles.group}>
-				{onOpenWorldSelect ? (
-					<Pressable style={styles.row} onPress={onOpenWorldSelect}>
-						<View>
-							<Text style={styles.rowLabel}>Мир</Text>
-							<Text style={styles.themeHint}>{currentWorld.name}</Text>
-						</View>
-						<Text style={styles.chevron}>›</Text>
-					</Pressable>
-				) : (
-					<Text style={styles.themeHint}>Мир: {currentWorld.name}</Text>
-				)}
-			</View>
-
 			<Text style={styles.sectionLabel}>Уведомления</Text>
 			<View style={styles.group}>
 				<Row label="Уведомления" onPress={onOpenNotificationPreferences} />
@@ -122,20 +97,6 @@ export default function SettingsScreen({onOpenDeviceSessions, onOpenNotification
 }
 
 const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
-	themeRow: {flexDirection: 'row', gap: spacing.xs, padding: spacing.md},
-	themeChip: {
-		flex: 1,
-		alignItems: 'center',
-		paddingVertical: spacing.sm,
-		borderRadius: radius.pill,
-		backgroundColor: colors.glass2,
-		borderWidth: 1,
-		borderColor: colors.borderSoft,
-	},
-	themeChipActive: {backgroundColor: colors.accentSoft, borderColor: colors.accent},
-	themeChipText: {color: colors.textDim, fontSize: typography.sizeSm, fontWeight: typography.weightMedium},
-	themeChipTextActive: {color: colors.accent},
-	themeHint: {color: colors.textFaint, fontSize: typography.sizeXs, paddingHorizontal: spacing.md, paddingBottom: spacing.md},
 	screen: {flex: 1, backgroundColor: colors.bg},
 	sectionLabel: {fontSize: typography.sizeXs, color: colors.textFaint, fontWeight: typography.weightBold, textTransform: 'uppercase', paddingHorizontal: spacing.md, paddingTop: spacing.md, paddingBottom: spacing.xs},
 	group: {marginHorizontal: spacing.md, borderRadius: radius.md, overflow: 'hidden', backgroundColor: colors.surface},

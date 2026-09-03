@@ -110,7 +110,6 @@ import AdminPlaceClaimsScreen from './screens/AdminPlaceClaimsScreen';
 import MyPlaceClaimsScreen from './screens/MyPlaceClaimsScreen';
 import MessageSearchScreen from './screens/MessageSearchScreen';
 import SettingsScreen from './screens/SettingsScreen';
-import WorldSelectScreen from './screens/WorldSelectScreen';
 import BlockedUsersScreen from './screens/BlockedUsersScreen';
 import MutedUsersScreen from './screens/MutedUsersScreen';
 import BERXWorldScreen from './screens/BERXWorldScreen';
@@ -152,7 +151,7 @@ import BusinessTeamScreen from './screens/business/BusinessTeamScreen';
 import BusinessSettingsScreen from './screens/business/BusinessSettingsScreen';
 import type {BerxStoryFeedGroup, BerxPostVisibility} from '@berx/api/types';
 
-import {useBerxColors, useBerxTheme, BerxThemeProvider} from '../../../packages/design-system/src/theme';
+import {useBerxColors, BerxThemeProvider} from '../../../packages/design-system/src/theme';
 import {SafeAreaProvider} from '../../../packages/design-system/src/insets';
 import type {BerxColorTokens} from '@berx/design-system/tokens';
 
@@ -223,7 +222,6 @@ function RouteRenderer({name, params}: {name: BerxRouteName; params: unknown}) {
 	const colors = useBerxColors();
 	const styles = useMemo(() => makeStyles(colors), [colors]);
 	const nav = useBerxNavigation();
-	const theme = useBerxTheme();
 	const openProfile = (username: string) => nav.push('Profile', {username});
 	/**
 	 * "Context everywhere" for Group Chat (master build directive §56):
@@ -929,22 +927,9 @@ function RouteRenderer({name, params}: {name: BerxRouteName; params: unknown}) {
 					onOpenDeleteAccount={() => nav.push('DeleteAccount', undefined)}
 					onOpenDatingPrivacy={() => nav.push('DatingPrivacy', undefined)}
 					onOpenCircles={() => nav.push('Circles', undefined)}
-					onOpenWorldSelect={() => nav.push('WorldSelect', undefined)}
 					onBack={nav.pop}
 				/>
 			);
-		case 'WorldSelect': {
-			return (
-				<WorldSelectScreen
-					initialWorld={theme.world}
-					onSelect={(world) => {
-						theme.setWorld(world);
-						nav.pop();
-					}}
-					onBack={nav.pop}
-				/>
-			);
-		}
 		case 'BlockedUsers':
 			return <BlockedUsersScreen api={api} onBack={nav.pop} />;
 		case 'MutedUsers':
@@ -1551,7 +1536,7 @@ function TabPane({visible, children}: {visible: boolean; children: React.ReactNo
 export default function AppShell() {
 	return (
 		<SafeAreaProvider>
-			<BerxThemeProvider initialWorld="night_ice">
+			<BerxThemeProvider>
 				<AppShellInner />
 			</BerxThemeProvider>
 		</SafeAreaProvider>
@@ -1620,31 +1605,13 @@ function AppShellInner() {
  * explicitly.
  */
 function UnauthenticatedFlow() {
-	const [screen, setScreen] = useState<'splash' | 'welcome' | 'world' | 'discover' | 'login' | 'register'>('splash');
-	const theme = useBerxTheme();
+	const [screen, setScreen] = useState<'splash' | 'welcome' | 'discover' | 'login' | 'register'>('splash');
 
 	if (screen === 'splash') {
 		// The reveal runs on its own clock and then hands over. It is not a
 		// progress bar for the real boot — that is AppShell's own 'booting'
 		// state, which has already finished by the time this renders.
 		return <SplashScreen onDone={() => setScreen('welcome')} />;
-	}
-	if (screen === 'world') {
-		// BERX WORLD — the real "first run" choice (directive §6): a new
-		// account picks its atmosphere before seeing the pitch, and the
-		// choice is live immediately — theme.setWorld() drives the SAME
-		// BerxThemeProvider Discover/Register/the whole authenticated app
-		// read from, not a separate preview-only state.
-		return (
-			<WorldSelectScreen
-				initialWorld={theme.world}
-				onSelect={(world) => {
-					theme.setWorld(world);
-					setScreen('discover');
-				}}
-				onBack={() => setScreen('discover')}
-			/>
-		);
 	}
 	if (screen === 'discover') {
 		return <DiscoverScreen onFinish={() => setScreen('register')} onSkip={() => setScreen('register')} />;
@@ -1664,11 +1631,10 @@ function UnauthenticatedFlow() {
 			/>
 		);
 	}
-	// "Создать аккаунт" goes through World Select, then Discover: a new
-	// account picks its atmosphere, then sees what BERX is, before it
-	// sees a form. "У меня уже есть BERX" goes straight to Login — an
-	// existing user does not need the pitch or a first-run choice.
-	return <WelcomeScreen onLogin={() => setScreen('login')} onRegister={() => setScreen('world')} />;
+	// "Создать аккаунт" goes to Discover first — a new account sees what
+	// BERX is before it sees a form. "У меня уже есть BERX" goes straight
+	// to Login — an existing user does not need the pitch.
+	return <WelcomeScreen onLogin={() => setScreen('login')} onRegister={() => setScreen('discover')} />;
 }
 
 const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({

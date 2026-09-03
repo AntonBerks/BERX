@@ -1,17 +1,15 @@
 /**
  * !!! VERIFICATION STATUS: UNVERIFIED — see BerxButton.tsx header.
  *
- * Real, DELIBERATE, SCOPED exception to the systemic accent — see
- * BERX_DECISIONS.md, "Design" (originally scoped against cyan
- * #4fd6e8, now against its gold #D9A93F successor; the exception's
- * scope was never about the specific accent hex, only about staying
- * scoped) — user-directed, explicit reference image, confirmed
- * in-session. The systemic accent stays the app's one accent
- * everywhere else (links, focus rings, primary buttons, badges); this
- * violet→orange gradient exists ONLY for the one social "Follow"-class
- * action this component is used for — never applied system-wide,
- * never silently spreading to other buttons. See BERX_DECISIONS.md's
- * own "Editorial CTA gradient" entry.
+ * BERX WORLD — the violet→orange gradient this used to carry (a
+ * scoped, documented exception at the time — see BERX_DECISIONS.md's
+ * "Editorial CTA gradient" entry) is retired: the current, binding
+ * rule is no purple/violet/magenta anywhere in BERX, without
+ * exception, and a warm-orange second stop isn't part of the single
+ * cyan identity either. This is now a single-hue cyan sheen — the
+ * bright accent deepening into itself — so a CTA that wants extra
+ * visual weight still reads as unmistakably BERX rather than
+ * borrowing a hue from nowhere else in the system.
  *
  * No gradient library is installed (no expo-linear-gradient/
  * react-native-linear-gradient — same real npm constraint as every
@@ -31,8 +29,10 @@ import {radius, spacing, typography} from '../tokens';
 import {useBerxColors} from '../theme';
 import type {BerxColorTokens} from '../tokens';
 
-const GRADIENT_FROM = {r: 0x8b, g: 0x5c, b: 0xf6}; // violet #8b5cf6
-const GRADIENT_TO = {r: 0xff, g: 0x6a, b: 0x00}; // orange #ff6a00
+// Single-hue cyan sheen — the systemic accent deepening into a dark
+// teal, never a second, unrelated hue.
+const GRADIENT_FROM = {r: 0x4f, g: 0xd6, b: 0xe8}; // accent cyan #4FD6E8
+const GRADIENT_TO = {r: 0x0b, g: 0x5f, b: 0x70}; // deep teal, same hue family
 const STRIPS = 18;
 
 function lerp(a: number, b: number, t: number): number {

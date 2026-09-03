@@ -22,18 +22,14 @@
  * Everything is drawn: no photograph is bundled, none is claimed, and
  * nothing here is a placeholder standing in for one.
  *
- * BERX WORLD — this screen used to paint itself from a standalone,
- * hardcoded `BERX_SCENE` constant (palette.ts), a real parallel
- * copy of exactly what worlds.ts's `night_ice` world now IS. That
- * meant Welcome could never actually reflect a chosen World — it
- * looked the same regardless. Reading `useBerxScene()`/
- * `useBerxColors()` instead makes this screen live: pick Sun in
- * WorldSelectScreen, come back here, and Welcome is warm gold, not
- * cyan. The object itself (SpatialLens) is now the real True3D/2D
- * renderer split too — see SpatialLens.tsx's own header — while
- * keeping the exact same restrained "look twice" mood BerxLens was
- * built for; this file changes WHERE the colours and the object come
- * from, not what the composition is.
+ * This reads `useBerxScene()`/`useBerxColors()` rather than a
+ * hardcoded standalone constant — the single systemic cyan identity
+ * (colors.bg #07080A, colors.accent #4FD6E8), not a private copy of
+ * it. There is one BERX Spatial identity, not a palette a user picks;
+ * this file just avoids owning its own duplicate of it. The object
+ * itself (SpatialLens) is the real True3D/2D renderer split — see
+ * SpatialLens.tsx's own header — keeping the exact same restrained
+ * "look twice" mood BerxLens was built for.
  */
 import {useMemo} from 'react';
 import {View, Text, StyleSheet} from 'react-native';
@@ -44,7 +40,7 @@ import {BerxGrain} from '../../../../packages/design-system/src/components/BerxG
 import {BerxPrimaryAction, BerxQuietAction} from '../../../../packages/design-system/src/components/BerxActions';
 import {SpatialLens} from '../../../../packages/design-system/src/spatial/SpatialLens';
 import {useBerxScene, useBerxColors} from '../../../../packages/design-system/src/theme';
-import type {BerxWorldScene} from '../../../../packages/design-system/src/theme';
+import type {BerxScene} from '../../../../packages/design-system/src/theme';
 import type {BerxColorTokens} from '@berx/design-system/tokens';
 
 interface Props {
@@ -88,7 +84,7 @@ export default function WelcomeScreen({onLogin, onRegister}: Props) {
 	);
 }
 
-const makeStyles = (scene: BerxWorldScene, colors: BerxColorTokens) =>
+const makeStyles = (scene: BerxScene, colors: BerxColorTokens) =>
 	StyleSheet.create({
 		screen: {flex: 1, backgroundColor: scene.ground, overflow: 'hidden'},
 		lensSlot: {position: 'absolute', top: '9%', left: -96},

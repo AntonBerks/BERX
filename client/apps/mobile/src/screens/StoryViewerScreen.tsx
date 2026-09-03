@@ -25,6 +25,15 @@
  * viewerCount(), zero prior UI caller — markViewed() has always
  * written a real row per (story, viewer) on every real story open).
  * Owner-only, matching every other real platform with this feature.
+ *
+ * BERX WORLD — the footer text sat directly on the raw photo with no
+ * legibility scrim, and the viewers panel was a flat ad-hoc
+ * rgba(0,0,0,0.6) box instead of BERX's own glass material. Added the
+ * same real BerxScrim every other photo-backed screen uses for text
+ * legibility, and moved the viewers panel onto BerxGlassSurface. The
+ * core mechanic — progress bars, tap-to-advance/back, hold-to-pause —
+ * is untouched; this is a real full-bleed media viewer already, not
+ * the generic pattern the rebuild directive targets.
  */
 import {useEffect, useRef, useState, useMemo} from 'react';
 import {View, Text, Image, Pressable, Animated, ScrollView, StyleSheet} from 'react-native';
@@ -33,6 +42,8 @@ import type {BerxStoryFeedGroup, BerxStoryViewer} from '@berx/api/types';
 import {relativeTimeLabel} from '@berx/domain';
 import {spacing, typography} from '@berx/design-system/tokens';
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
+import {BerxScrim} from '../../../../packages/design-system/src/components/BerxScrim';
+import {BerxGlassSurface} from '../../../../packages/design-system/src/components/BerxGlassSurface';
 
 import {useBerxColors} from '../../../../packages/design-system/src/theme';
 import type {BerxColorTokens} from '@berx/design-system/tokens';
@@ -235,6 +246,8 @@ export default function StoryViewerScreen({api, group, myGuid, onClose}: Props) 
 				/>
 			</View>
 
+			<BerxScrim coverage={0.5} strength={0.85} />
+
 			<View style={styles.footer}>
 				{current.caption ? <Text style={styles.caption}>{current.caption}</Text> : null}
 				<View style={styles.footerRow}>
@@ -257,7 +270,7 @@ export default function StoryViewerScreen({api, group, myGuid, onClose}: Props) 
 				</View>
 
 				{isOwn && showViewers ? (
-					<View style={styles.viewersPanel}>
+					<BerxGlassSurface level={4} padding="sm" style={styles.viewersPanel}>
 						<Text style={styles.viewersPanelTitle}>Просмотрели</Text>
 						{viewersLoading ? (
 							<Text style={styles.viewersHint}>Загрузка...</Text>
@@ -273,7 +286,7 @@ export default function StoryViewerScreen({api, group, myGuid, onClose}: Props) 
 								))}
 							</ScrollView>
 						)}
-					</View>
+					</BerxGlassSurface>
 				) : null}
 
 				{!isOwn ? (
@@ -314,23 +327,27 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	tapRight: {flex: 1},
 	footer: {position: 'absolute', bottom: 0, left: 0, right: 0, padding: spacing.lg},
 	footerRow: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'},
-	caption: {color: colors.text, fontSize: typography.sizeBase, marginBottom: spacing.sm},
-	owner: {color: colors.textDim, fontSize: typography.sizeSm},
+	// Real fix, not cosmetic: these sit directly on a photo scrim, which
+	// stays dark in every World — the general UI ink tokens (colors.text
+	// etc.) flip dark in Day and would go invisible here. The dedicated
+	// onMedia* tokens are deliberately World-invariant for exactly this.
+	caption: {color: colors.onMedia, fontSize: typography.sizeBase, marginBottom: spacing.sm},
+	owner: {color: colors.onMediaDim, fontSize: typography.sizeSm},
 	ownActions: {flexDirection: 'row', alignItems: 'center', gap: spacing.md},
-	highlightText: {color: colors.textDim, fontSize: typography.sizeSm},
-	highlightTextActive: {color: colors.accent, fontWeight: typography.weightMedium},
+	highlightText: {color: colors.onMediaDim, fontSize: typography.sizeSm},
+	highlightTextActive: {color: colors.accentOnMedia, fontWeight: typography.weightMedium},
 	deleteText: {color: colors.danger, fontSize: typography.sizeSm},
-	viewersText: {color: colors.textDim, fontSize: typography.sizeSm},
-	viewersPanel: {marginTop: spacing.sm, maxHeight: 160, backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: 12, padding: spacing.sm, gap: 4},
-	viewersPanelTitle: {color: colors.textFaint, fontSize: typography.sizeXs, fontWeight: typography.weightBold, textTransform: 'uppercase', marginBottom: 4},
-	viewersHint: {color: colors.textFaint, fontSize: typography.sizeSm},
+	viewersText: {color: colors.onMediaDim, fontSize: typography.sizeSm},
+	viewersPanel: {marginTop: spacing.sm, maxHeight: 160, gap: 4},
+	viewersPanelTitle: {color: colors.onMediaFaint, fontSize: typography.sizeXs, fontWeight: typography.weightBold, textTransform: 'uppercase', marginBottom: 4},
+	viewersHint: {color: colors.onMediaFaint, fontSize: typography.sizeSm},
 	viewerRow: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 4},
-	viewerName: {color: colors.text, fontSize: typography.sizeSm},
-	viewerTime: {color: colors.textFaint, fontSize: typography.sizeXs},
+	viewerName: {color: colors.onMedia, fontSize: typography.sizeSm},
+	viewerTime: {color: colors.onMediaFaint, fontSize: typography.sizeXs},
 	replyRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.sm},
 	replyInput: {flex: 1, backgroundColor: 'rgba(255,255,255,0.12)', color: colors.white, borderColor: 'rgba(255,255,255,0.3)'},
 	replySend: {color: colors.white, fontSize: typography.sizeSm, fontWeight: typography.weightMedium},
-	replyStatus: {color: colors.textFaint, fontSize: typography.sizeXs, marginTop: 4},
+	replyStatus: {color: colors.onMediaFaint, fontSize: typography.sizeXs, marginTop: 4},
 	closeButton: {position: 'absolute', top: spacing.xl, right: spacing.md, padding: spacing.sm},
-	closeText: {color: colors.text, fontSize: typography.sizeLg},
+	closeText: {color: colors.onMedia, fontSize: typography.sizeLg},
 });
