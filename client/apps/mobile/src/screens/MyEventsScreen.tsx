@@ -4,7 +4,7 @@
  *
  * MAX BUILD — "shared activities": each event now carries a real
  * friends_going_count (computed server-side in the same request, no
- * extra round trip), shown as a "👥 N идут" nudge — turning a flat
+ * extra round trip), shown as a drawn "N идут" nudge — turning a flat
  * list of your own plans into a real cross-reference of who else is
  * already going, without a second screen or a second fetch.
  */
@@ -19,6 +19,7 @@ import {BerxFadeIn} from '../../../../packages/design-system/src/components/Berx
 
 import {useBerxColors} from '../../../../packages/design-system/src/theme';
 import type {BerxColorTokens} from '@berx/design-system/tokens';
+import {BerxIcon} from '../../../../packages/design-system/src/icons/BerxIcon';
 
 interface Props {
 	api: BerxApiClient;
@@ -83,7 +84,15 @@ export default function MyEventsScreen({api, onOpenEvent, onBack}: Props) {
 									{item.cover_url ? <Image source={{uri: item.cover_url}} style={styles.cardImage} /> : <View style={styles.cardImageFallback} />}
 									<View style={styles.cardBody}>
 										<Text style={styles.cardTitle} numberOfLines={1}>{item.title}</Text>
-										<Text style={styles.cardMeta}>{date.toLocaleDateString('ru-RU', {day: 'numeric', month: 'long'})}{item.friends_going_count ? ` · 👥 ${item.friends_going_count} идут` : ''}</Text>
+									<View style={styles.cardMetaRow}>
+										<Text style={styles.cardMeta}>{date.toLocaleDateString('ru-RU', {day: 'numeric', month: 'long'})}</Text>
+										{item.friends_going_count ? (
+											<View style={styles.cardMetaChip}>
+												<BerxIcon name="users" size={12} color={colors.textFaint} />
+												<Text style={styles.cardMeta}>{item.friends_going_count} идут</Text>
+											</View>
+										) : null}
+									</View>
 									</View>
 								</Pressable>
 							);
@@ -104,5 +113,7 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	cardImageFallback: {width: 56, height: 56, borderRadius: radius.sm, backgroundColor: colors.graphite},
 	cardBody: {flex: 1},
 	cardTitle: {fontSize: typography.sizeBase, color: colors.white, fontWeight: typography.weightMedium},
+	cardMetaRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flexWrap: 'wrap'},
+	cardMetaChip: {flexDirection: 'row', alignItems: 'center', gap: 4},
 	cardMeta: {fontSize: typography.sizeXs, color: colors.textFaint},
 });

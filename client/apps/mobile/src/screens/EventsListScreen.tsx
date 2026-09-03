@@ -4,7 +4,7 @@
  * v1/events.php). No ticket/payment UI anywhere — that backend does
  * not exist (see BERX_DECISIONS.md).
  *
- * MAX BUILD — real "🔥 В тренде" rail. api.trendingEvents() wires
+ * MAX BUILD — real "В тренде" rail. api.trendingEvents() wires
  * OssnSignals (BERX Future Core) into a live 7-day engagement ranking
  * over real RSVP activity — same real mechanism as PlacesListScreen's
  * own trending rail. Best-effort, hidden entirely when nothing has
@@ -42,6 +42,8 @@ import {BerxEditorialTitle, BerxCircleButton} from '../../../../packages/design-
 
 import {useBerxColors} from '../../../../packages/design-system/src/theme';
 import type {BerxColorTokens} from '@berx/design-system/tokens';
+import {BerxIcon} from '../../../../packages/design-system/src/icons/BerxIcon';
+import {BerxEdgeFade} from '../../../../packages/design-system/src/components/BerxEdgeFade';
 
 // Reference lead plate: one dominant card, nearly the full width.
 const LEAD_W = Math.round(Dimensions.get('window').width - 32);
@@ -128,8 +130,13 @@ export default function EventsListScreen({api, onOpenEvent, onCreate, onOpenMine
 				</View>
 			</View>
 			{trending.length > 0 ? (
-				<View>
-					<Text style={styles.trendingLabel}>В тренде</Text>
+			<View>
+					{/* Same `flame` mark PlacesList and NearbyNow use — one glyph for
+					    "happening now" across the product. */}
+					<View style={styles.trendingHead}>
+						<BerxIcon name="flame" size={14} color={colors.accent} />
+						<Text style={styles.trendingLabel}>В тренде</Text>
+					</View>
 					<FlatList
 						horizontal
 						showsHorizontalScrollIndicator={false}
@@ -150,10 +157,13 @@ export default function EventsListScreen({api, onOpenEvent, onCreate, onOpenMine
 									onPress={() => onOpenEvent(item.guid)}
 								/>
 							</View>
-						)}
+					)}
 					/>
+					<BerxEdgeFade color={colors.bg} width={36} />
 				</View>
 			) : null}
+		{/* The category chips scroll too, and cut off just as hard. */}
+			<View>
 			<ScrollView
 				horizontal
 				showsHorizontalScrollIndicator={false}
@@ -168,6 +178,8 @@ export default function EventsListScreen({api, onOpenEvent, onCreate, onOpenMine
 					</Pressable>
 				))}
 				</ScrollView>
+			<BerxEdgeFade color={colors.bg} width={32} />
+			</View>
 			{error ? (
 				<BerxErrorState message={error} onRetry={load} />
 			) : items.length === 0 ? (
@@ -225,7 +237,10 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	tabActive: {backgroundColor: colors.accentSoft},
 	tabText: {fontSize: typography.sizeSm, color: colors.textDim, fontWeight: typography.weightMedium},
 	tabTextActive: {color: colors.accent},
-	trendingLabel: {color: colors.text, fontSize: typography.sizeLg, fontWeight: typography.weightBold, letterSpacing: -0.4, paddingHorizontal: spacing.lg, paddingTop: spacing.sm},
+	trendingHead: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.lg, paddingTop: spacing.sm},
+	// Padding lives on trendingHead now — keeping it here as well pushed
+	// the label away from the glyph beside it.
+	trendingLabel: {color: colors.text, fontSize: typography.sizeLg, fontWeight: typography.weightBold, letterSpacing: -0.4},
 	trendingRow: {paddingHorizontal: spacing.lg, paddingVertical: spacing.md, gap: spacing.md},
 	trendingTile: {width: LEAD_W, marginRight: spacing.md},
 	chipRow: {paddingHorizontal: spacing.lg, paddingVertical: spacing.sm, gap: spacing.sm, alignItems: 'center'},

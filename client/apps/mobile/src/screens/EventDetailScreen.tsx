@@ -59,6 +59,7 @@ import {BerxAvatarStack} from '../../../../packages/design-system/src/components
 
 import {useBerxColors} from '../../../../packages/design-system/src/theme';
 import type {BerxColorTokens} from '@berx/design-system/tokens';
+import {BerxIcon} from '../../../../packages/design-system/src/icons/BerxIcon';
 
 // Same reasoning as PlaceDetailScreen's own HERO_H — cinematic but not
 // overwhelming, since attendees/moments/discussion follow below.
@@ -339,12 +340,21 @@ export default function EventDetailScreen({api, guid, myGuid, onOpenPlace, onOpe
 						{date.toLocaleDateString('ru-RU', {day: 'numeric', month: 'long'})} · {date.toLocaleTimeString('ru-RU', {hour: '2-digit', minute: '2-digit'})}
 					</Text>
 					{event.place ? (
-						<Text style={styles.place} onPress={() => onOpenPlace?.(event.place!.guid)}>📍 {event.place.title}</Text>
+						<Pressable style={styles.placeRow} onPress={() => onOpenPlace?.(event.place!.guid)}>
+							<BerxIcon name="map-pin" size={14} color={colors.textDim} />
+							<Text style={styles.place}>{event.place.title}</Text>
+						</Pressable>
 					) : event.location ? (
-						<Text style={styles.place}>📍 {event.location}</Text>
+						<View style={styles.placeRow}>
+							<BerxIcon name="map-pin" size={14} color={colors.textDim} />
+							<Text style={styles.place}>{event.location}</Text>
+						</View>
 					) : null}
 					{event.group ? (
-						<Text style={styles.place} onPress={() => onOpenCommunity?.(event.group!.guid)}>👥 Организовано сообществом «{event.group.title}»</Text>
+						<Pressable style={styles.placeRow} onPress={() => onOpenCommunity?.(event.group!.guid)}>
+							<BerxIcon name="users" size={14} color={colors.textDim} />
+							<Text style={styles.place}>Организовано сообществом «{event.group.title}»</Text>
+						</Pressable>
 					) : null}
 				</BerxFadeIn>
 			</View>
@@ -352,9 +362,17 @@ export default function EventDetailScreen({api, guid, myGuid, onOpenPlace, onOpe
 			<BerxFadeIn style={styles.body}>
 				<BerxGlassSurface padding="sm" style={styles.actionBar}>
 				<View style={styles.actions}>
+				{/* The variant was INVERTED: primary when already going, secondary
+					    when not. So "Пойду" — the whole point of the screen — was
+					    drawn quiet, and "Вы идёте", a settled state needing no
+					    emphasis at all, was drawn in the accent. The accent belongs
+					    on the action you want taken, never on the one already taken.
+					    Also stays secondary when the button is dead (ended, full):
+					    an accent on a disabled control is a promise the screen
+					    cannot keep. */}
 					<BerxButton
 						label={rsvpLabel}
-						variant={event.is_going ? 'primary' : 'secondary'}
+						variant={!event.is_going && !rsvpDisabled ? 'primary' : 'secondary'}
 						loading={rsvping}
 						disabled={rsvpDisabled}
 						onPress={toggleRsvp}
@@ -368,19 +386,12 @@ export default function EventDetailScreen({api, guid, myGuid, onOpenPlace, onOpe
 						/>
 					) : null}
 					{!event.has_ended ? <BerxButton label="Пригласить" variant="secondary" onPress={() => onOpenInvite(event.guid)} /> : null}
-					{onAddToCollection ? <BerxButton label="В подборку" variant="secondary" onPress={onAddToCollection} /> : null}
-					{onAddToTrip ? <BerxButton label="В поездку" variant="secondary" onPress={onAddToTrip} /> : null}
-					{onAddToWorld ? <BerxButton label="В мир" variant="secondary" onPress={onAddToWorld} /> : null}
+					{/* Going-only actions, which only exist once you have RSVP'd —
+					    they belong with the RSVP, not scattered among the filing
+					    actions below. */}
 					{event.is_going && onAddEventStory ? <BerxButton label="Добавить историю" variant="secondary" onPress={() => onAddEventStory(event.guid)} /> : null}
-						{event.is_going && onOpenGroupChat ? (
-							<BerxButton label="Групповой чат" variant="secondary" onPress={() => onOpenGroupChat({guid: event.guid, title: event.title})} />
-						) : null}
-					{onCreateExperience ? (
-						<BerxButton
-							label="Впечатление"
-							variant="secondary"
-							onPress={() => onCreateExperience({type: 'event', guid: event.guid, title: event.title})}
-						/>
+					{event.is_going && onOpenGroupChat ? (
+						<BerxButton label="Групповой чат" variant="secondary" onPress={() => onOpenGroupChat({guid: event.guid, title: event.title})} />
 					) : null}
 					{myGuid === event.owner_guid && onEdit ? <BerxButton label="Редактировать" variant="secondary" onPress={onEdit} /> : null}
 					{event.is_going && !event.has_checked_in && event.starts * 1000 <= Date.now() ? (
@@ -394,6 +405,27 @@ export default function EventDetailScreen({api, guid, myGuid, onOpenPlace, onOpe
 						/>
 					) : null}
 				</View>
+				{/* Same three-job split PlaceDetail now uses: DO (rsvp, invite,
+				    check in), and FILE — the "add this event to a thing"
+				    actions, which were interleaved with the rest so nothing on
+				    the screen read as the thing to do. */}
+				{onAddToCollection || onAddToTrip || onAddToWorld || onCreateExperience ? (
+					<View style={styles.fileGroup}>
+						<Text style={styles.fileLabel}>Добавить</Text>
+						<View style={styles.actions}>
+							{onAddToCollection ? <BerxButton label="В подборку" variant="secondary" onPress={onAddToCollection} /> : null}
+							{onAddToTrip ? <BerxButton label="В поездку" variant="secondary" onPress={onAddToTrip} /> : null}
+							{onAddToWorld ? <BerxButton label="В мир" variant="secondary" onPress={onAddToWorld} /> : null}
+							{onCreateExperience ? (
+								<BerxButton
+									label="Впечатление"
+									variant="secondary"
+									onPress={() => onCreateExperience({type: 'event', guid: event.guid, title: event.title})}
+								/>
+							) : null}
+						</View>
+					</View>
+				) : null}
 				</BerxGlassSurface>
 				{rsvpError ? <Text style={styles.error}>{rsvpError}</Text> : null}
 
@@ -515,6 +547,9 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	},
 	body: {padding: spacing.md, gap: spacing.md},
 	when: {fontSize: typography.sizeSm, color: colors.onMediaDim},
+	placeRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm},
+	fileGroup: {marginTop: spacing.md, gap: spacing.sm},
+	fileLabel: {color: colors.textFaint, fontSize: typography.sizeXs, textTransform: 'uppercase', letterSpacing: 0.5},
 	place: {fontSize: typography.sizeSm, color: colors.accentOnMedia},
 	actions: {flexDirection: 'row', gap: spacing.sm, flexWrap: 'wrap'},
 	actionBar: {gap: spacing.sm},
