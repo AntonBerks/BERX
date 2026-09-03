@@ -31,7 +31,8 @@ import {useEffect, useRef} from 'react';
 import {View, Animated, Easing, StyleSheet} from 'react-native';
 import Svg, {Defs, RadialGradient, Stop, Circle} from 'react-native-svg';
 import {BerxOrb} from '@berx/design-system/components/BerxOrb';
-import {SPATIAL_KEY_LIGHT, SPATIAL_FILL_LIGHT} from '@berx/design-system/spatial/engine/stage';
+import {SPATIAL_FILL_LIGHT} from '@berx/design-system/spatial/engine/stage';
+import {useBerxColors} from '@berx/design-system/theme';
 
 const APPROACH_MS = 1100;
 const FLASH_UP_MS = 90;
@@ -43,14 +44,16 @@ const GLOW_SIZE = ORB_SIZE * 3;
 
 /** Soft light with no edge: full-strength core falling to fully transparent. */
 function ContactGlow() {
+	const colors = useBerxColors();
+	const keyLight = colors.accent;
 	return (
 		<Svg width={GLOW_SIZE} height={GLOW_SIZE} viewBox="0 0 100 100">
 			<Defs>
 				<RadialGradient id="berx-match-glow" cx="50%" cy="50%" r="50%">
-					<Stop offset="0%" stopColor={SPATIAL_KEY_LIGHT} stopOpacity={0.55} />
-					<Stop offset="22%" stopColor={SPATIAL_KEY_LIGHT} stopOpacity={0.26} />
-					<Stop offset="52%" stopColor={SPATIAL_KEY_LIGHT} stopOpacity={0.08} />
-					<Stop offset="100%" stopColor={SPATIAL_KEY_LIGHT} stopOpacity={0} />
+					<Stop offset="0%" stopColor={keyLight} stopOpacity={0.55} />
+					<Stop offset="22%" stopColor={keyLight} stopOpacity={0.26} />
+					<Stop offset="52%" stopColor={keyLight} stopOpacity={0.08} />
+					<Stop offset="100%" stopColor={keyLight} stopOpacity={0} />
 				</RadialGradient>
 			</Defs>
 			<Circle cx="50" cy="50" r="50" fill="url(#berx-match-glow)" />
@@ -95,7 +98,7 @@ export default function BerxMatchScene() {
 				<ContactGlow />
 			</Animated.View>
 			<Animated.View style={[styles.orbSlot, {transform: [{translateX: leftX}]}]}>
-				<BerxOrb size={ORB_SIZE} light={SPATIAL_KEY_LIGHT} />
+				<BerxOrb size={ORB_SIZE} />
 			</Animated.View>
 			<Animated.View style={[styles.orbSlot, {transform: [{translateX: rightX}]}]}>
 				<BerxOrb size={ORB_SIZE} light={SPATIAL_FILL_LIGHT} />

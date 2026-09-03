@@ -3,13 +3,15 @@
  *
  * BERX WORLD — the violet→orange gradient this used to carry (a
  * scoped, documented exception at the time — see BERX_DECISIONS.md's
- * "Editorial CTA gradient" entry) is retired: the current, binding
- * rule is no purple/violet/magenta anywhere in BERX, without
- * exception, and a warm-orange second stop isn't part of the single
- * cyan identity either. This is now a single-hue cyan sheen — the
- * bright accent deepening into itself — so a CTA that wants extra
- * visual weight still reads as unmistakably BERX rather than
- * borrowing a hue from nowhere else in the system.
+ * "Editorial CTA gradient" entry) was retired for a single-hue sheen —
+ * the bright accent deepening into itself — so a CTA that wants extra
+ * visual weight still reads as unmistakably BERX rather than borrowing
+ * a hue from nowhere else in the system. Now LIVE: the sheen is built
+ * per-render from useBerxColors().accent, whichever of the five real
+ * Obsidian & Aurora accents is actually selected (see theme/index.tsx
+ * for the switching itself), not a module-level constant baked from
+ * one fixed hex — a CTA left on screen through an accent change shows
+ * the new accent's own gradient.
  *
  * No gradient library is installed (no expo-linear-gradient/
  * react-native-linear-gradient — same real npm constraint as every
@@ -27,27 +29,25 @@ import {Pressable, Text, View, ActivityIndicator, StyleSheet, PressableProps} fr
 import {radius, spacing, typography} from '../tokens';
 
 import {useBerxColors} from '../theme';
+import {mixHex} from '../theme/accentMath';
 import type {BerxColorTokens} from '../tokens';
 
-// Single-hue aquamarine sheen — the systemic accent deepening into a
-// dark teal, never a second, unrelated hue.
-const GRADIENT_FROM = {r: 0x00, g: 0xe5, b: 0xcc}; // accent aquamarine #00E5CC
-const GRADIENT_TO = {r: 0x0a, g: 0x4d, b: 0x44}; // deep teal, same hue family
 const STRIPS = 18;
 
-function lerp(a: number, b: number, t: number): number {
-	return Math.round(a + (b - a) * t);
+/**
+ * Single-hue sheen — the LIVE accent deepening toward the ground, never
+ * a second colour. Computed per-render from whichever accent is
+ * actually selected (mixHex toward colors.bg), not a module-level
+ * constant baked from one fixed hex — a CTA left on screen through an
+ * accent change must show the new accent's own gradient, not
+ * Aquamarine's forever.
+ */
+function buildStripColors(accent: string, ground: string): string[] {
+	return Array.from({length: STRIPS}, (_, i) => {
+		const t = STRIPS <= 1 ? 0 : i / (STRIPS - 1);
+		return mixHex(accent, ground, t * 0.75);
+	});
 }
-
-function stripColor(i: number): string {
-	const t = STRIPS <= 1 ? 0 : i / (STRIPS - 1);
-	const r = lerp(GRADIENT_FROM.r, GRADIENT_TO.r, t);
-	const g = lerp(GRADIENT_FROM.g, GRADIENT_TO.g, t);
-	const b = lerp(GRADIENT_FROM.b, GRADIENT_TO.b, t);
-	return `rgb(${r},${g},${b})`;
-}
-
-const STRIP_COLORS = Array.from({length: STRIPS}, (_, i) => stripColor(i));
 
 export interface BerxGradientCTAProps extends Omit<PressableProps, 'style'> {
 	label: string;
@@ -58,6 +58,7 @@ export interface BerxGradientCTAProps extends Omit<PressableProps, 'style'> {
 export function BerxGradientCTA({label, loading, fullWidth, disabled, ...rest}: BerxGradientCTAProps) {
 	const colors = useBerxColors();
 	const styles = useMemo(() => makeStyles(colors), [colors]);
+	const stripColors = useMemo(() => buildStripColors(colors.accent, colors.black), [colors.accent, colors.black]);
 	const isDisabled = disabled || loading;
 	return (
 		<Pressable
@@ -66,7 +67,7 @@ export function BerxGradientCTA({label, loading, fullWidth, disabled, ...rest}: 
 			{...rest}
 		>
 			<View style={styles.gradient} pointerEvents="none">
-				{STRIP_COLORS.map((c, i) => (
+				{stripColors.map((c, i) => (
 					<View key={i} style={[styles.strip, {backgroundColor: c}]} />
 				))}
 			</View>

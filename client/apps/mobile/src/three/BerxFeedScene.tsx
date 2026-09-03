@@ -48,7 +48,7 @@ import {useSpatialDrag} from '../../../../packages/design-system/src/spatial/eng
 // 2D half can import the exact same fill-light value the 3D scene
 // paints its glass with, rather than guessing at a 2D token that
 // doesn't exist for it.
-import {SPATIAL_FILL_LIGHT, SPATIAL_KEY_LIGHT} from '../../../../packages/design-system/src/spatial/engine/stage';
+import {SPATIAL_FILL_LIGHT} from '../../../../packages/design-system/src/spatial/engine/stage';
 
 /** Matches the native scene's own world unit — one post per SPACING_Z of drag/camera travel. */
 const SPACING_Z = 0.95;
@@ -150,7 +150,7 @@ export default function BerxFeedScene({items, onFocusChange}: Props) {
 
 	return (
 		<View style={styles.wrap} onLayout={onLayout} {...drag.panHandlers}>
-			<BerxAura ground={colors.bg} glow={SPATIAL_KEY_LIGHT} intensity={0.5} at={0.38} style={StyleSheet.absoluteFillObject} />
+			<BerxAura ground={colors.bg} glow={colors.accent} intensity={0.5} at={0.38} style={StyleSheet.absoluteFillObject} />
 			{/* The order axis — the same single line the 3D scene recedes along. */}
 			<View style={[styles.axis, {height: size.height * 0.7, left: size.width / 2}]} />
 			{/* Stems first, under every node — the connective read the 3D
@@ -218,7 +218,7 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	// light — the same sphere/plane, real-texture/flat material split
 	// the 3D scene draws.
 	nodeMedia: {position: 'absolute', borderWidth: 1, borderColor: SPATIAL_FILL_LIGHT},
-	nodeText: {position: 'absolute', backgroundColor: SPATIAL_KEY_LIGHT, borderRadius: 4},
+	nodeText: {position: 'absolute', backgroundColor: colors.accent, borderRadius: 4},
 	emptyWrap: {...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center'},
 	empty: {color: colors.textFaint, fontSize: typography.sizeSm},
 });

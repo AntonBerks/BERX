@@ -43,10 +43,9 @@ import type {Group, Mesh} from 'three';
 import type {BerxWorld, BerxWorldItem, BerxWorldItemType} from '@berx/api/types';
 import {colors, spacing, radius, typography} from '@berx/design-system/tokens';
 import {SpatialStage} from '@berx/design-system/spatial/engine/SpatialStage';
-import {useSpatialGlass} from '@berx/design-system/spatial/engine/quality';
+import {useSpatialGlass, useSpatialKeyLight} from '@berx/design-system/spatial/engine/quality';
 import {useSpatialDrag} from '@berx/design-system/spatial/engine/useSpatialDrag';
 import {
-	SPATIAL_KEY_LIGHT,
 	SPATIAL_FILL_LIGHT,
 	SPATIAL_EMISSIVE,
 	SPATIAL_MOTION,
@@ -81,6 +80,7 @@ function ItemNode({item, index, total}: {item: BerxWorldItem; index: number; tot
 	const y = Math.sin(angle) * orbit * 0.32;
 	const isPlan = item.item_type === 'plan';
 	const glass = useSpatialGlass();
+	const keyLight = useSpatialKeyLight();
 
 	useFrame((state: RootState) => {
 		if (!ref.current) return;
@@ -102,19 +102,14 @@ function ItemNode({item, index, total}: {item: BerxWorldItem; index: number; tot
 			{isPlan ? (
 				<meshStandardMaterial
 					color={SPATIAL_FILL_LIGHT}
-					emissive={SPATIAL_KEY_LIGHT}
+					emissive={keyLight}
 					emissiveIntensity={SPATIAL_EMISSIVE.dormant}
 					wireframe
 					transparent
 					opacity={0.6}
 				/>
 			) : (
-				<meshPhysicalMaterial
-					{...glass}
-					color={SPATIAL_KEY_LIGHT}
-					emissive={SPATIAL_KEY_LIGHT}
-					emissiveIntensity={SPATIAL_EMISSIVE.present}
-				/>
+				<meshPhysicalMaterial {...glass} color={keyLight} emissive={keyLight} emissiveIntensity={SPATIAL_EMISSIVE.present} />
 			)}
 		</mesh>
 	);
@@ -122,15 +117,16 @@ function ItemNode({item, index, total}: {item: BerxWorldItem; index: number; tot
 
 /** Two crossed rings — the World's own boundary, so the cluster reads as contained rather than floating in nothing. */
 function WorldShell() {
+	const keyLight = useSpatialKeyLight();
 	return (
 		<>
 			<mesh rotation={[Math.PI / 2.4, 0, 0]}>
 				<torusGeometry args={[2.3, 0.006, 8, 64]} />
-				<meshBasicMaterial color={SPATIAL_KEY_LIGHT} transparent opacity={0.22} />
+				<meshBasicMaterial color={keyLight} transparent opacity={0.22} />
 			</mesh>
 			<mesh rotation={[0, Math.PI / 2.4, 0]}>
 				<torusGeometry args={[2.05, 0.006, 8, 64]} />
-				<meshBasicMaterial color={SPATIAL_KEY_LIGHT} transparent opacity={0.17} />
+				<meshBasicMaterial color={keyLight} transparent opacity={0.17} />
 			</mesh>
 		</>
 	);
@@ -138,6 +134,7 @@ function WorldShell() {
 
 function Scene({items, rotationRef, advance}: {items: BerxWorldItem[]; rotationRef: MutableRefObject<number>; advance: (d: number) => void}) {
 	const groupRef = useRef<Group>(null);
+	const keyLight = useSpatialKeyLight();
 	useFrame((_state: RootState, delta: number) => {
 		// Spin-down happens in the render loop, so the coast after a flick
 		// is frame-locked to what is actually being drawn.
@@ -147,7 +144,7 @@ function Scene({items, rotationRef, advance}: {items: BerxWorldItem[]; rotationR
 	return (
 		<>
 			{/* The ground plane grid — a real horizon so depth has somewhere to recede to. */}
-			<gridHelper args={[10, 20, SPATIAL_KEY_LIGHT, '#12181F']} position={[0, -1.2, 0]} />
+			<gridHelper args={[10, 20, keyLight, '#12181F']} position={[0, -1.2, 0]} />
 			<group ref={groupRef}>
 				{items.length > 0 ? <WorldShell /> : null}
 				{items.length > 0 ? (
@@ -157,7 +154,7 @@ function Scene({items, rotationRef, advance}: {items: BerxWorldItem[]; rotationR
 				) : (
 					<mesh>
 						<octahedronGeometry args={[0.24, 0]} />
-						<meshStandardMaterial color={SPATIAL_KEY_LIGHT} emissive={SPATIAL_KEY_LIGHT} emissiveIntensity={SPATIAL_EMISSIVE.present} />
+						<meshStandardMaterial color={keyLight} emissive={keyLight} emissiveIntensity={SPATIAL_EMISSIVE.present} />
 					</mesh>
 				)}
 			</group>

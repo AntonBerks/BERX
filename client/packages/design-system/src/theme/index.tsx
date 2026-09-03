@@ -30,21 +30,28 @@
  * selected (see accentMath.ts) — not five hand-tuned tables that would
  * silently keep Aquamarine's own values for every other choice.
  *
- * WHAT IS NOT FULLY REACTIVE, DISCLOSED RATHER THAN CLAIMED OTHERWISE.
- * Every screen already reading useBerxColors()/useBerxGlass()/
- * useBerxScene() (the established, and by far the majority, calling
- * convention) is reactive to both mode and accent with ZERO changes to
- * that screen — this file is the one place that actually changed. A
- * small, real, named set of files instead import colours as STATIC
- * top-level values (default prop values in BerxOrb/BerxLogo/
- * BerxActions/BerxGradientCTA, and the dependency-free 3D spatial
- * engine's own SPATIAL_KEY_LIGHT in spatial/engine/stage.ts, which is
- * deliberately dependency-free — no React import — so every native
- * *.native.tsx scene and its 2D fallback can share one literal without
- * pulling React state into files that don't otherwise need it) —
- * those do NOT yet re-paint on an accent change. Converting them is
- * real, additional, currently-unstarted work, not something this file
- * can silently claim to have already done.
+ * REACTIVE COVERAGE. Every screen already reading useBerxColors()/
+ * useBerxGlass()/useBerxScene() (the established, and by far the
+ * majority, calling convention) is reactive to both mode and accent
+ * with ZERO changes to that screen — this file is the one place that
+ * actually changed. BerxOrb/BerxLogo/BerxActions/BerxGradientCTA now
+ * resolve their own default colours from useBerxColors() rather than a
+ * hardcoded hex. The 3D spatial engine's key light (every real BERX 3D
+ * scene's accent) is reactive via useSpatialKeyLight() (spatial/
+ * engine/quality.tsx) — every *.native.tsx scene, its 2D fallback, the
+ * ground-contact spill, and the PMREM reflection environment all read
+ * that hook rather than stage.ts's own SPATIAL_KEY_LIGHT constant,
+ * which stays dependency-free (no React import) precisely so the hook
+ * has something real to fall back to outside a BerxThemeProvider,
+ * rather than being the live source of truth itself. `palette.ts`
+ * (BERX_DUSK/NIGHT/DAWN, BERX_SCENE) is confirmed dead code — nothing
+ * in the app imports it (scene.ts's own header already flagged this) —
+ * left as authored reference art rather than force-fit into
+ * reactivity nothing renders. scene.ts's OWN BERX_SCENE (the one
+ * that's actually live, via useBerxScene()) has its ground/light
+ * fields overridden reactively by buildScene() below; counter/object/
+ * fill stay fixed bounce/body tones on purpose, the same "bounce
+ * doesn't chase the accent" rule BerxOrb's own `fill` prop follows.
  *
  * THE TRANSITION. `LayoutAnimation.configureNext` (real, standard RN —
  * not a fabricated animation) runs immediately before every mode/

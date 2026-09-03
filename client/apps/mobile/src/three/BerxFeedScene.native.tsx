@@ -76,10 +76,9 @@ import type {Group} from 'three';
 import type {BerxFeedItem} from '@berx/api/types';
 import {colors} from '@berx/design-system/tokens';
 import {SpatialStage} from '@berx/design-system/spatial/engine/SpatialStage';
-import {useSpatialGlass} from '@berx/design-system/spatial/engine/quality';
+import {useSpatialGlass, useSpatialKeyLight} from '@berx/design-system/spatial/engine/quality';
 import {useSpatialDrag} from '@berx/design-system/spatial/engine/useSpatialDrag';
 import {
-	SPATIAL_KEY_LIGHT,
 	SPATIAL_FILL_LIGHT,
 	SPATIAL_EMISSIVE,
 	SPATIAL_MOTION,
@@ -112,6 +111,7 @@ function useNodeRig(index: number, maxResonance: number, item: BerxFeedItem) {
 	const x = side * (0.52 + (index % 3) * 0.13);
 	const z = -index * SPACING_Z;
 	const glass = useSpatialGlass();
+	const keyLight = useSpatialKeyLight();
 	const t = maxResonance > 0 ? Math.min(1, resonance(item) / maxResonance) : 0;
 	const emissiveIntensity = SPATIAL_EMISSIVE.dormant + (SPATIAL_EMISSIVE.live - SPATIAL_EMISSIVE.dormant) * t;
 
@@ -120,27 +120,28 @@ function useNodeRig(index: number, maxResonance: number, item: BerxFeedItem) {
 		ref.current.rotation.y = state.clock.elapsedTime * SPATIAL_MOTION.driftRadPerSec + index;
 	});
 
-	return {ref, x, z, glass, emissiveIntensity};
+	return {ref, x, z, glass, keyLight, emissiveIntensity};
 }
 
 /** The stem down to the axis, shared by every node variant, so each post reads as attached to the stream rather than floating loose beside it. */
 function Stem({x}: {x: number}) {
+	const keyLight = useSpatialKeyLight();
 	return (
 		<mesh position={[-x / 2, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
 			<cylinderGeometry args={[0.004, 0.004, Math.abs(x), 6]} />
-			<meshBasicMaterial color={SPATIAL_KEY_LIGHT} transparent opacity={0.26} />
+			<meshBasicMaterial color={keyLight} transparent opacity={0.26} />
 		</mesh>
 	);
 }
 
 /** A text-only post — a cut plane, the same "an intention, not a photographed thing" distinction BerxDepthScene already draws, applied here to words vs media. */
 function PostNodeText({item, index, maxResonance}: NodeProps) {
-	const {ref, x, z, glass, emissiveIntensity} = useNodeRig(index, maxResonance, item);
+	const {ref, x, z, glass, keyLight, emissiveIntensity} = useNodeRig(index, maxResonance, item);
 	return (
 		<group ref={ref} position={[x, 0, z]}>
 			<mesh>
 				<boxGeometry args={[0.2, 0.2, 0.05]} />
-				<meshPhysicalMaterial {...glass} color={SPATIAL_KEY_LIGHT} emissive={SPATIAL_KEY_LIGHT} emissiveIntensity={emissiveIntensity} />
+				<meshPhysicalMaterial {...glass} color={keyLight} emissive={keyLight} emissiveIntensity={emissiveIntensity} />
 			</mesh>
 			<Stem x={x} />
 		</group>
@@ -149,12 +150,12 @@ function PostNodeText({item, index, maxResonance}: NodeProps) {
 
 /** A media post before/without its real texture — the same plain glass sphere this scene drew before texture-mapping existed. Used as the Suspense fallback AND the error-boundary fallback, so a slow or dead image degrades to this instead of ever taking the node — or the scene — down. */
 function PostNodeMediaFallback({item, index, maxResonance}: NodeProps) {
-	const {ref, x, z, glass, emissiveIntensity} = useNodeRig(index, maxResonance, item);
+	const {ref, x, z, glass, keyLight, emissiveIntensity} = useNodeRig(index, maxResonance, item);
 	return (
 		<group ref={ref} position={[x, 0, z]}>
 			<mesh>
 				<sphereGeometry args={[MEDIA_RADIUS, 24, 24]} />
-				<meshPhysicalMaterial {...glass} color={SPATIAL_FILL_LIGHT} emissive={SPATIAL_KEY_LIGHT} emissiveIntensity={emissiveIntensity} />
+				<meshPhysicalMaterial {...glass} color={SPATIAL_FILL_LIGHT} emissive={keyLight} emissiveIntensity={emissiveIntensity} />
 			</mesh>
 			<Stem x={x} />
 		</group>
@@ -163,13 +164,13 @@ function PostNodeMediaFallback({item, index, maxResonance}: NodeProps) {
 
 /** A media post wearing its own real photograph as the sphere's texture map. Suspends while the image loads — always rendered inside the Suspense/TextureBoundary pair below, never bare. */
 function PostNodeMedia({item, index, maxResonance, url}: NodeProps & {url: string}) {
-	const {ref, x, z, glass, emissiveIntensity} = useNodeRig(index, maxResonance, item);
+	const {ref, x, z, glass, keyLight, emissiveIntensity} = useNodeRig(index, maxResonance, item);
 	const texture = useLoader(TextureLoader, url);
 	return (
 		<group ref={ref} position={[x, 0, z]}>
 			<mesh>
 				<sphereGeometry args={[MEDIA_RADIUS, 24, 24]} />
-				<meshPhysicalMaterial {...glass} map={texture} color="#ffffff" emissive={SPATIAL_KEY_LIGHT} emissiveIntensity={emissiveIntensity} />
+				<meshPhysicalMaterial {...glass} map={texture} color="#ffffff" emissive={keyLight} emissiveIntensity={emissiveIntensity} />
 			</mesh>
 			<Stem x={x} />
 		</group>
@@ -202,10 +203,11 @@ function PostNode(props: NodeProps) {
 
 /** The order axis itself — one line the stream recedes along, same role Timeline's TimeAxis plays for history. */
 function StreamAxis({length}: {length: number}) {
+	const keyLight = useSpatialKeyLight();
 	return (
 		<mesh position={[0, 0, -length / 2]} rotation={[Math.PI / 2, 0, 0]}>
 			<cylinderGeometry args={[0.007, 0.007, length, 8]} />
-			<meshBasicMaterial color={SPATIAL_KEY_LIGHT} transparent opacity={0.32} />
+			<meshBasicMaterial color={keyLight} transparent opacity={0.32} />
 		</mesh>
 	);
 }

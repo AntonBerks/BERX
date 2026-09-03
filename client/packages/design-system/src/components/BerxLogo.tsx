@@ -27,6 +27,7 @@
 import {useMemo} from 'react';
 import {View, ViewStyle} from 'react-native';
 import Svg, {Defs, LinearGradient, RadialGradient, Stop, Path, G} from 'react-native-svg';
+import {useBerxColors} from '../theme';
 
 /* ------------------------------------------------------------------ */
 /* The logotype                                                        */
@@ -121,16 +122,19 @@ const BLADE_SHADE = 'M0 -21 L0 -92 L12 -88 Z';
 
 export interface BerxMarkProps {
 	size?: number;
-	/** The light on the leading faces. */
+	/** The light on the leading faces — defaults to the LIVE accent (useBerxColors().accent). */
 	light?: string;
-	/** The body of the shadow faces. */
+	/** The body of the shadow faces — defaults to the live ground (useBerxColors().graphite). */
 	body?: string;
 	/** Draw the soft spill the object throws into the air around it. */
 	spill?: boolean;
 	style?: ViewStyle;
 }
 
-export function BerxMark({size = 96, light = '#00E5CC', body = '#0E141C', spill = true, style}: BerxMarkProps) {
+export function BerxMark({size = 96, light, body, spill = true, style}: BerxMarkProps) {
+	const colors = useBerxColors();
+	const resolvedLight = light ?? colors.accent;
+	const resolvedBody = body ?? colors.graphite;
 	const uid = useMemo(() => Math.random().toString(36).slice(2, 8), []);
 	// DIAGONALS, not axes. Rotating a vertical blade by 0/90/180/270
 	// makes a plus sign; BERX's mark is an X, so the blades sit at 45°.
@@ -147,21 +151,21 @@ export function BerxMark({size = 96, light = '#00E5CC', body = '#0E141C', spill 
 				<Defs>
 					{blades.map((b, i: number) => (
 						<LinearGradient key={i} id={`${uid}-l${i}`} x1="0.5" y1="1" x2="0.5" y2="0">
-							<Stop offset="0%" stopColor={light} stopOpacity={b.lit * 0.45} />
-							<Stop offset="70%" stopColor={light} stopOpacity={b.lit * 0.92} />
+							<Stop offset="0%" stopColor={resolvedLight} stopOpacity={b.lit * 0.45} />
+							<Stop offset="70%" stopColor={resolvedLight} stopOpacity={b.lit * 0.92} />
 							<Stop offset="100%" stopColor="#FFFFFF" stopOpacity={b.lit} />
 						</LinearGradient>
 					))}
 					{blades.map((b, i: number) => (
 						<LinearGradient key={`s${i}`} id={`${uid}-s${i}`} x1="0.5" y1="1" x2="0.5" y2="0">
-							<Stop offset="0%" stopColor={body} stopOpacity={0.95} />
-							<Stop offset="100%" stopColor={light} stopOpacity={b.shade} />
+							<Stop offset="0%" stopColor={resolvedBody} stopOpacity={0.95} />
+							<Stop offset="100%" stopColor={resolvedLight} stopOpacity={b.shade} />
 						</LinearGradient>
 					))}
 					<RadialGradient id={`${uid}-spill`} cx="50%" cy="50%" r="50%">
-						<Stop offset="0%" stopColor={light} stopOpacity={0.22} />
-						<Stop offset="34%" stopColor={light} stopOpacity={0.08} />
-						<Stop offset="100%" stopColor={light} stopOpacity={0} />
+						<Stop offset="0%" stopColor={resolvedLight} stopOpacity={0.22} />
+						<Stop offset="34%" stopColor={resolvedLight} stopOpacity={0.08} />
+						<Stop offset="100%" stopColor={resolvedLight} stopOpacity={0} />
 					</RadialGradient>
 				</Defs>
 				{spill ? <Path d="M-100 -100 H100 V100 H-100 Z" fill={`url(#${uid}-spill)`} /> : null}
@@ -182,9 +186,9 @@ export function BerxMark({size = 96, light = '#00E5CC', body = '#0E141C', spill 
 
 export function BerxLockup({
 	width = 200,
-	light = '#00E5CC',
+	light,
 	color = '#FFFFFF',
-	body = '#0E141C',
+	body,
 	style,
 }: {
 	width?: number;

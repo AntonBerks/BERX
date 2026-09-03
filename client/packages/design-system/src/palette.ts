@@ -3,15 +3,27 @@
  * colour of the brand.
  *
  * tokens/index.ts holds BERX's identity: the ground, the surfaces, the
- * text, and BERX cyan. This file holds the ATMOSPHERES those live in.
- * A product painted in only its two brand colours from edge to edge
- * reads as a template; a product whose scenes have real colour and
- * whose brand owns the light, the rims and the controls reads as a
+ * text, and the live accent. This file holds the ATMOSPHERES those
+ * live in. A product painted in only its two brand colours from edge
+ * to edge reads as a template; a product whose scenes have real colour
+ * and whose brand owns the light, the rims and the controls reads as a
  * place.
  *
- * BERX cyan is `light` in every palette here — it is always the source
- * lighting the frame, so the identity is never diluted no matter how
- * rich the sky gets.
+ * The accent is `light` in every palette here — it is always the
+ * source lighting the frame, so the identity is never diluted no
+ * matter how rich the sky gets.
+ *
+ * CONFIRMED DEAD CODE, LEFT AS AUTHORED REFERENCE, NOT WIRED TO THE
+ * LIVE THEME. Nothing in the app imports BERX_DUSK/BERX_NIGHT/
+ * BERX_DAWN/BERX_SCENE from this file (scene.ts's own header already
+ * flagged this — its BERX_SCENE, a DIFFERENT, actually-live object of
+ * the same name, is the one useBerxScene() resolves). `light` below
+ * still reads the current default accent so this stays internally
+ * consistent if it's ever picked up, but forcing three hand-authored
+ * sky gradients (sky/bloom/bounce/ink, curated stop by stop) to
+ * re-derive from a live accent for zero rendered effect would trade a
+ * real, deliberate colour story for a mechanical one nothing shows —
+ * disclosed here rather than silently left stale.
  */
 
 export interface BerxScenePalette {

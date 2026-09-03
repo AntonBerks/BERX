@@ -35,19 +35,20 @@ import type {Group} from 'three';
 import type {BerxTripStop} from '@berx/api/types';
 import {colors, spacing, radius, typography} from '@berx/design-system/tokens';
 import {SpatialStage} from '@berx/design-system/spatial/engine/SpatialStage';
-import {useSpatialGlass} from '@berx/design-system/spatial/engine/quality';
+import {useSpatialGlass, useSpatialKeyLight} from '@berx/design-system/spatial/engine/quality';
 import {useSpatialDrag} from '@berx/design-system/spatial/engine/useSpatialDrag';
-import {SPATIAL_KEY_LIGHT, SPATIAL_FILL_LIGHT, SPATIAL_EMISSIVE, SPATIAL_MOTION} from '@berx/design-system/spatial/engine/stage';
+import {SPATIAL_FILL_LIGHT, SPATIAL_EMISSIVE, SPATIAL_MOTION} from '@berx/design-system/spatial/engine/stage';
 
 const DAY_SPACING = 1.5;
 const MAX_STOPS = 40;
 
 /** One day's ring — the real boundary between it and the next. */
 function DayRing({z}: {z: number}) {
+	const keyLight = useSpatialKeyLight();
 	return (
 		<mesh position={[0, 0, -z]} rotation={[Math.PI / 2, 0, 0]}>
 			<torusGeometry args={[0.85, 0.004, 8, 48]} />
-			<meshBasicMaterial color={SPATIAL_KEY_LIGHT} transparent opacity={0.22} />
+			<meshBasicMaterial color={keyLight} transparent opacity={0.22} />
 		</mesh>
 	);
 }
@@ -56,6 +57,7 @@ function StopNode({x, z, isEvent, index}: {x: number; z: number; isEvent: boolea
 	const ref = useRef<Group>(null);
 	// The one BERX glass recipe, at whatever tier the stage resolved.
 	const glass = useSpatialGlass();
+	const keyLight = useSpatialKeyLight();
 	useFrame((state: RootState) => {
 		if (!ref.current) return;
 		ref.current.rotation.y = state.clock.elapsedTime * SPATIAL_MOTION.driftRadPerSec + index;
@@ -69,8 +71,8 @@ function StopNode({x, z, isEvent, index}: {x: number; z: number; isEvent: boolea
 				    through them and picks up the attenuation tint on the way. */}
 				<meshPhysicalMaterial
 					{...glass}
-					color={isEvent ? SPATIAL_FILL_LIGHT : SPATIAL_KEY_LIGHT}
-					emissive={SPATIAL_KEY_LIGHT}
+					color={isEvent ? SPATIAL_FILL_LIGHT : keyLight}
+					emissive={keyLight}
 					emissiveIntensity={SPATIAL_EMISSIVE.present}
 				/>
 			</mesh>

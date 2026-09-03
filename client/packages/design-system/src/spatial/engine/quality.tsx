@@ -18,8 +18,9 @@
  */
 import {createContext, useContext} from 'react';
 import type {ReactNode} from 'react';
-import {SPATIAL_GLASS_BY_QUALITY} from './stage';
+import {SPATIAL_GLASS_BY_QUALITY, SPATIAL_KEY_LIGHT} from './stage';
 import type {SpatialQuality} from './stage';
+import {useBerxColors} from '../../theme';
 
 const SpatialQualityContext = createContext<SpatialQuality>('high');
 
@@ -44,4 +45,22 @@ export function useSpatialQuality(): SpatialQuality {
  */
 export function useSpatialGlass() {
 	return SPATIAL_GLASS_BY_QUALITY[useSpatialQuality()];
+}
+
+/**
+ * The LIVE key light — every real BERX 3D scene's brand accent, as
+ * whichever of the five Obsidian & Aurora accents is actually
+ * selected (useBerxColors().accent — see theme/index.tsx for the
+ * switching itself), not stage.ts's own fixed SPATIAL_KEY_LIGHT
+ * constant. stage.ts stays dependency-free on purpose (no React
+ * import, so the web bundle can read its plain data without pulling
+ * the native GL stack in) — this hook is the reactive call site a real
+ * scene COMPONENT should use instead of importing that constant
+ * directly, the same relationship useSpatialGlass() already has to
+ * SPATIAL_GLASS_BY_QUALITY. Falls back to stage.ts's own constant
+ * outside a BerxThemeProvider, so a scene rendered somewhere
+ * unexpected still lights correctly rather than reading undefined.
+ */
+export function useSpatialKeyLight(): string {
+	return useBerxColors().accent ?? SPATIAL_KEY_LIGHT;
 }

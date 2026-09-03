@@ -57,9 +57,9 @@ import {
 	Scene,
 } from 'three';
 import type {Scene as ThreeScene, WebGLRenderer} from 'three';
-import {SPATIAL_CAMERA, SPATIAL_ENV, SPATIAL_GROUND_DISC, SPATIAL_KEY_LIGHT, SPATIAL_LIGHT, SPATIAL_QUALITY} from './stage';
+import {SPATIAL_CAMERA, SPATIAL_ENV, SPATIAL_GROUND_DISC, SPATIAL_LIGHT, SPATIAL_QUALITY} from './stage';
 import type {SpatialQuality} from './stage';
-import {SpatialQualityProvider} from './quality';
+import {SpatialQualityProvider, useSpatialKeyLight} from './quality';
 
 /**
  * Builds the room BERX objects reflect. Plain emissive-ish panels in a
@@ -71,22 +71,32 @@ import {SpatialQualityProvider} from './quality';
  * the environment scene to light the panels that are themselves the
  * lights, which is circular.
  */
-function buildEnvironmentScene(): ThreeScene {
+/**
+ * `keyLight` overrides SPATIAL_ENV's own KEY panel colour (its first
+ * panel — see that panel's own comment) with whichever of the five
+ * Obsidian & Aurora accents is actually live, so the reflection an
+ * accent-lit glass object picks up matches the light it is actually
+ * lit by. The FILL/HORIZON panels stay fixed — the same deliberate
+ * "bounce doesn't chase the accent" rule useSpatialKeyLight's own
+ * header documents.
+ */
+function buildEnvironmentScene(keyLight: string): ThreeScene {
 	const scene = new Scene();
 	const box = new BoxGeometry(SPATIAL_ENV.roomSize, SPATIAL_ENV.roomSize, SPATIAL_ENV.roomSize);
 	// BackSide so we are standing INSIDE the room looking out at its walls.
 	const room = new Mesh(box, new MeshLambertMaterial({color: '#05060A', side: BackSide}));
 	scene.add(room);
 
-	for (const panel of SPATIAL_ENV.panels) {
+	SPATIAL_ENV.panels.forEach((panel, i) => {
+		const color = i === 0 ? keyLight : panel.color;
 		const light = new Mesh(
 			new BoxGeometry(1, 1, 1),
-			new MeshBasicMaterial({color: new Color(panel.color).multiplyScalar(panel.intensity)})
+			new MeshBasicMaterial({color: new Color(color).multiplyScalar(panel.intensity)})
 		);
 		light.position.set(...panel.position);
 		light.scale.set(...panel.scale);
 		scene.add(light);
-	}
+	});
 	return scene;
 }
 
@@ -113,10 +123,15 @@ function disposeEnvironmentScene(scene: ThreeScene) {
 function SpatialEnvironment() {
 	const gl = useThree((s) => s.gl) as WebGLRenderer;
 	const scene = useThree((s) => s.scene);
+	// LIVE — an accent switch rebuilds this environment (a real, one-off
+	// GPU cost each time, same as the mount cost this effect already
+	// documented below), so glass reflects the new accent rather than
+	// whichever one happened to be selected when the stage first mounted.
+	const keyLight = useSpatialKeyLight();
 
 	useEffect(() => {
 		const pmrem = new PMREMGenerator(gl);
-		const envScene = buildEnvironmentScene();
+		const envScene = buildEnvironmentScene(keyLight);
 		const target = pmrem.fromScene(envScene, SPATIAL_ENV.blur);
 		scene.environment = target.texture;
 		scene.environmentIntensity = SPATIAL_ENV.intensity;
@@ -128,7 +143,7 @@ function SpatialEnvironment() {
 			pmrem.dispose();
 			disposeEnvironmentScene(envScene);
 		};
-	}, [gl, scene]);
+	}, [gl, scene, keyLight]);
 
 	return null;
 }
@@ -149,13 +164,18 @@ function SpatialEnvironment() {
  * straight-line ramp; rings give it a curve.
  */
 function GroundContact({segments, intensity}: {segments: number; intensity: number}) {
+	// The LIVE accent — real spill from a real object should be tinted by
+	// whichever of the five Obsidian & Aurora accents is actually
+	// selected, not the fixed constant stage.ts falls back to outside a
+	// theme (see useSpatialKeyLight's own header).
+	const keyLight = useSpatialKeyLight();
 	const geometry = useMemo(() => {
 		const theta = Math.max(16, Math.min(segments, 64));
 		const rings = 6;
 		const geo = new RingGeometry(0, SPATIAL_GROUND_DISC.radius, theta, rings);
 		const position = geo.attributes.position;
 		const rgba = new Float32Array(position.count * 4);
-		const tint = new Color(SPATIAL_KEY_LIGHT);
+		const tint = new Color(keyLight);
 		for (let i = 0; i < position.count; i += 1) {
 			const distance = Math.hypot(position.getX(i), position.getY(i)) / SPATIAL_GROUND_DISC.radius;
 			// Quadratic falloff — light spill drops off fast near the object
@@ -168,7 +188,7 @@ function GroundContact({segments, intensity}: {segments: number; intensity: numb
 		}
 		geo.setAttribute('color', new BufferAttribute(rgba, 4));
 		return geo;
-	}, [segments]);
+	}, [segments, keyLight]);
 
 	// Disposed on unmount because it is built here, not by R3F.
 	useEffect(() => () => geometry.dispose(), [geometry]);

@@ -37,8 +37,8 @@ import {View, StyleSheet} from 'react-native';
 import {useFrame} from '@react-three/fiber/native';
 import type {Mesh} from 'three';
 import {SpatialStage} from '@berx/design-system/spatial/engine/SpatialStage';
-import {useSpatialGlass} from '@berx/design-system/spatial/engine/quality';
-import {SPATIAL_KEY_LIGHT, SPATIAL_FILL_LIGHT, SPATIAL_EMISSIVE} from '@berx/design-system/spatial/engine/stage';
+import {useSpatialGlass, useSpatialKeyLight} from '@berx/design-system/spatial/engine/quality';
+import {SPATIAL_FILL_LIGHT, SPATIAL_EMISSIVE} from '@berx/design-system/spatial/engine/stage';
 
 const APPROACH_DURATION = 1.1; // seconds — the two identities closing the distance
 const SETTLE_DURATION = 0.6; // the brief emissive spark once they meet
@@ -101,12 +101,13 @@ function IdentitySphere({side, light}: {side: 1 | -1; light: string}) {
 }
 
 export default function BerxMatchScene() {
+	const keyLight = useSpatialKeyLight();
 	return (
 		<View style={styles.wrap}>
 			<SpatialStage camera="hero" style={StyleSheet.absoluteFillObject as never}>
 				{/* You, arriving from the camera side, and them, arriving from
 				    depth — both real, neither pictured (see header). */}
-				<IdentitySphere side={-1} light={SPATIAL_KEY_LIGHT} />
+				<IdentitySphere side={-1} light={keyLight} />
 				<IdentitySphere side={1} light={SPATIAL_FILL_LIGHT} />
 			</SpatialStage>
 		</View>

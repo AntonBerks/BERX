@@ -36,10 +36,9 @@ import type {Group} from 'three';
 import type {BerxLifeGraphEdge} from '@berx/api/types';
 import {colors, spacing, radius, typography} from '@berx/design-system/tokens';
 import {SpatialStage} from '@berx/design-system/spatial/engine/SpatialStage';
-import {useSpatialGlass} from '@berx/design-system/spatial/engine/quality';
+import {useSpatialGlass, useSpatialKeyLight} from '@berx/design-system/spatial/engine/quality';
 import {useSpatialDrag} from '@berx/design-system/spatial/engine/useSpatialDrag';
 import {
-	SPATIAL_KEY_LIGHT,
 	SPATIAL_FILL_LIGHT,
 	SPATIAL_EMISSIVE,
 	SPATIAL_MOTION,
@@ -60,6 +59,7 @@ function EventNode({edge, index}: {edge: BerxLifeGraphEdge; index: number}) {
 	const z = -index * SPACING_Z;
 
 	const glass = useSpatialGlass();
+	const keyLight = useSpatialKeyLight();
 
 	useFrame((state: RootState) => {
 		if (!ref.current) return;
@@ -75,8 +75,8 @@ function EventNode({edge, index}: {edge: BerxLifeGraphEdge; index: number}) {
 				    in what they are made of. */}
 				<meshPhysicalMaterial
 					{...glass}
-					color={isReward ? SPATIAL_KEY_LIGHT : SPATIAL_FILL_LIGHT}
-					emissive={SPATIAL_KEY_LIGHT}
+					color={isReward ? keyLight : SPATIAL_FILL_LIGHT}
+					emissive={keyLight}
 					emissiveIntensity={isReward ? SPATIAL_EMISSIVE.live : SPATIAL_EMISSIVE.quiet}
 				/>
 			</mesh>
@@ -84,7 +84,7 @@ function EventNode({edge, index}: {edge: BerxLifeGraphEdge; index: number}) {
 			    timeline rather than floating loose beside it. */}
 			<mesh position={[-x / 2, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
 				<cylinderGeometry args={[0.004, 0.004, Math.abs(x), 6]} />
-				<meshBasicMaterial color={SPATIAL_KEY_LIGHT} transparent opacity={0.28} />
+				<meshBasicMaterial color={keyLight} transparent opacity={0.28} />
 			</mesh>
 		</group>
 	);
@@ -92,10 +92,11 @@ function EventNode({edge, index}: {edge: BerxLifeGraphEdge; index: number}) {
 
 /** The time axis itself — one long line receding from the camera into the past. */
 function TimeAxis({length}: {length: number}) {
+	const keyLight = useSpatialKeyLight();
 	return (
 		<mesh position={[0, 0, -length / 2]} rotation={[Math.PI / 2, 0, 0]}>
 			<cylinderGeometry args={[0.008, 0.008, length, 8]} />
-			<meshBasicMaterial color={SPATIAL_KEY_LIGHT} transparent opacity={0.35} />
+			<meshBasicMaterial color={keyLight} transparent opacity={0.35} />
 		</mesh>
 	);
 }

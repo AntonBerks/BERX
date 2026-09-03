@@ -41,10 +41,9 @@ import type {Group} from 'three';
 import type {BerxFriend, BerxPeopleSuggestion} from '@berx/api/types';
 import {colors, spacing, radius, typography} from '@berx/design-system/tokens';
 import {SpatialStage} from '@berx/design-system/spatial/engine/SpatialStage';
-import {useSpatialGlass} from '@berx/design-system/spatial/engine/quality';
+import {useSpatialGlass, useSpatialKeyLight} from '@berx/design-system/spatial/engine/quality';
 import {useSpatialDrag} from '@berx/design-system/spatial/engine/useSpatialDrag';
 import {
-	SPATIAL_KEY_LIGHT,
 	SPATIAL_FILL_LIGHT,
 	SPATIAL_EMISSIVE,
 	SPATIAL_MOTION,
@@ -63,6 +62,7 @@ const MAX_SUGGESTIONS = 12;
 function SelfNode() {
 	const ref = useRef<Group>(null);
 	const glass = useSpatialGlass();
+	const keyLight = useSpatialKeyLight();
 	useFrame((state: RootState) => {
 		if (!ref.current) return;
 		// A slow breath, so the centre reads as alive rather than as a dot.
@@ -73,12 +73,7 @@ function SelfNode() {
 		<group ref={ref}>
 			<mesh>
 				<icosahedronGeometry args={[0.26, 2]} />
-				<meshPhysicalMaterial
-					{...glass}
-					color={SPATIAL_KEY_LIGHT}
-					emissive={SPATIAL_KEY_LIGHT}
-					emissiveIntensity={SPATIAL_EMISSIVE.live}
-				/>
+				<meshPhysicalMaterial {...glass} color={keyLight} emissive={keyLight} emissiveIntensity={SPATIAL_EMISSIVE.live} />
 			</mesh>
 		</group>
 	);
@@ -86,10 +81,11 @@ function SelfNode() {
 
 /** A real friendship edge: centre -> friend. Only ever drawn for a real connection. */
 function Edge({angle, length}: {angle: number; length: number}) {
+	const keyLight = useSpatialKeyLight();
 	return (
 		<mesh position={[(Math.cos(angle) * length) / 2, (Math.sin(angle) * length) / 2, 0]} rotation={[0, 0, angle - Math.PI / 2]}>
 			<cylinderGeometry args={[0.0035, 0.0035, length, 6]} />
-			<meshBasicMaterial color={SPATIAL_KEY_LIGHT} transparent opacity={0.3} />
+			<meshBasicMaterial color={keyLight} transparent opacity={0.3} />
 		</mesh>
 	);
 }
@@ -98,13 +94,14 @@ function FriendNode({angle, isOnline}: {angle: number; isOnline: boolean}) {
 	const x = Math.cos(angle) * FRIEND_RING;
 	const y = Math.sin(angle) * FRIEND_RING;
 	const glass = useSpatialGlass();
+	const keyLight = useSpatialKeyLight();
 	return (
 		<mesh position={[x, y, 0]}>
 			<sphereGeometry args={[0.13, 32, 32]} />
 			<meshPhysicalMaterial
 				{...glass}
-				color={isOnline ? SPATIAL_KEY_LIGHT : SPATIAL_FILL_LIGHT}
-				emissive={SPATIAL_KEY_LIGHT}
+				color={isOnline ? keyLight : SPATIAL_FILL_LIGHT}
+				emissive={keyLight}
 				// The one real per-friend difference BERX can prove: presence.
 				emissiveIntensity={isOnline ? SPATIAL_EMISSIVE.present : SPATIAL_EMISSIVE.dormant}
 			/>
@@ -114,12 +111,13 @@ function FriendNode({angle, isOnline}: {angle: number; isOnline: boolean}) {
 
 /** Not connected to you — so no edge, and a wireframe body: present in the graph, not yet part of it. */
 function SuggestionNode({angle, distance}: {angle: number; distance: number}) {
+	const keyLight = useSpatialKeyLight();
 	return (
 		<mesh position={[Math.cos(angle) * distance, Math.sin(angle) * distance, -0.35]}>
 			<octahedronGeometry args={[0.12, 0]} />
 			<meshStandardMaterial
 				color={SPATIAL_FILL_LIGHT}
-				emissive={SPATIAL_KEY_LIGHT}
+				emissive={keyLight}
 				emissiveIntensity={SPATIAL_EMISSIVE.quiet}
 				wireframe
 				transparent
