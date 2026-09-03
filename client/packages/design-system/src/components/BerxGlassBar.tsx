@@ -42,9 +42,14 @@ export function BerxGlassBar({level = 2, edge = 'bottom', children, style, onLay
 	const g = glass[level];
 	return (
 		<View style={[styles.base, style]} onLayout={onLayout}>
-			<BlurView pointerEvents="none" style={StyleSheet.absoluteFillObject} intensity={g.blurRadius} tint="dark" />
-			<View pointerEvents="none" style={[StyleSheet.absoluteFillObject, {backgroundColor: g.fill}]} />
-			<View pointerEvents="none" style={[styles.hairline, edge === 'top' ? {top: 0} : {bottom: 0}, {backgroundColor: g.border}]} />
+			{/* See BerxGlassSurface's own header for the real bug this
+			    `behind` zIndex fixes: on web, these absolute decorative
+			    layers otherwise paint ABOVE a plain <Svg> child regardless
+			    of DOM order (react-native-svg's <Svg> stays CSS
+			    `position: static`, unlike RNW's own <View>). */}
+			<BlurView pointerEvents="none" style={[StyleSheet.absoluteFillObject, styles.behind]} intensity={g.blurRadius} tint="dark" />
+			<View pointerEvents="none" style={[StyleSheet.absoluteFillObject, styles.behind, {backgroundColor: g.fill}]} />
+			<View pointerEvents="none" style={[styles.hairline, styles.behind, edge === 'top' ? {top: 0} : {bottom: 0}, {backgroundColor: g.border}]} />
 			{children}
 		</View>
 	);
@@ -52,5 +57,6 @@ export function BerxGlassBar({level = 2, edge = 'bottom', children, style, onLay
 
 const styles = StyleSheet.create({
 	base: {overflow: 'hidden'},
+	behind: {zIndex: -1},
 	hairline: {position: 'absolute', left: 0, right: 0, height: 1},
 });

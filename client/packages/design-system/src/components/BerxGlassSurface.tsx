@@ -90,22 +90,30 @@ export function BerxGlassSurface({
 				padding !== 0 ? {padding: spacing[padding]} : null,
 				style,
 			]}>
-			{/* Real optical blur of whatever sits behind this surface — a
-			    genuine UIVisualEffectView on iOS, a real CSS
-			    backdrop-filter on web, a plain semi-transparent view on
-			    Android (expo-blur's own documented fallback, identical to
-			    this component's behaviour before blur existed — no
-			    regression). `intensity` is `blurRadius` from the level
-			    token, which existed as a declared, unconsumed design
-			    intent since before real blur was available in this
-			    sandbox. */}
-			<BlurView pointerEvents="none" style={StyleSheet.absoluteFillObject} intensity={g.blurRadius} tint="dark" />
-			{/* BERX's own tint, unchanged, layered ON the blur rather than
-			    replaced by it — this is what still carries the level's
-			    exact colour and opacity; the blur beneath only softens
-			    what shows through it. */}
-			<View pointerEvents="none" style={[StyleSheet.absoluteFillObject, {backgroundColor: g.fill}]} />
-			<View style={[styles.hairline, {backgroundColor: active ? colors.accent : g.hairline, opacity: active ? 0.5 : 1}]} />
+			{/*
+			 * REAL BUG, WEB-ONLY, FOUND WHILE FIXING FEED'S HEADER ICONS.
+			 * On web, react-native-web's own <View> defaults to CSS
+			 * `position: relative`, but react-native-svg's <Svg> renders a
+			 * bare <svg> tag that does not go through that reset and stays
+			 * `position: static`. Per CSS's own paint-order rules, a
+			 * POSITIONED sibling with `z-index: auto` still paints above a
+			 * non-positioned one REGARDLESS of DOM order — so an icon
+			 * passed straight as this surface's only child (no wrapping
+			 * View in between) rendered as an invisible glowing circle:
+			 * present in the DOM, correct geometry, simply painted under
+			 * its own surface's glass. These three layers now carry an
+			 * explicit negative zIndex, which moves them into CSS's
+			 * "negative z-index" paint step — BEHIND every normal in-flow
+			 * child, positioned or not, without requiring children to be
+			 * wrapped in anything or restructuring how multi-child callers
+			 * lay themselves out via this surface's own outer `style`.
+			 * Native is unaffected either way — RN's own paint order is
+			 * DOM order regardless of position, this CSS rule doesn't
+			 * exist there; an explicit zIndex there simply confirms what
+			 * source order already gave it for free. */}
+			<BlurView pointerEvents="none" style={[StyleSheet.absoluteFillObject, styles.behind]} intensity={g.blurRadius} tint="dark" />
+			<View pointerEvents="none" style={[StyleSheet.absoluteFillObject, styles.behind, {backgroundColor: g.fill}]} />
+			<View style={[styles.hairline, styles.behind, {backgroundColor: active ? colors.accent : g.hairline, opacity: active ? 0.5 : 1}]} />
 			{children}
 		</View>
 	);
@@ -116,6 +124,10 @@ const styles = StyleSheet.create({
 		borderWidth: 1,
 		overflow: 'hidden',
 	},
+	// See the real-bug comment above — keeps these three decorative
+	// layers behind any in-flow child regardless of DOM order or the
+	// child's own position type.
+	behind: {zIndex: -1},
 	hairline: {
 		position: 'absolute',
 		top: 0,
