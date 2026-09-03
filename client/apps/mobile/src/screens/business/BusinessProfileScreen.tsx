@@ -19,6 +19,8 @@ import {BerxLoadingState, BerxErrorState} from '../../../../../packages/design-s
 
 import {useBerxColors} from '../../../../../packages/design-system/src/theme';
 import type {BerxColorTokens} from '@berx/design-system/tokens';
+import {BerxIcon} from '../../../../../packages/design-system/src/icons/BerxIcon';
+import type {BerxIconName} from '../../../../../packages/design-system/src/icons/geometry';
 
 interface Props {
 	api: BerxApiClient;
@@ -44,12 +46,14 @@ const TYPE_LABEL: Record<BerxBusinessType, string> = {
 	services: 'Услуги', creators: 'Автор', other: 'Другое',
 };
 
-function InfoRow({icon, label}: {icon: string; label: string}) {
+/** Takes a glyph NAME, not an emoji character — the four call sites below
+ *  were passing 📍 🕐 📞 🔗 as strings. */
+function InfoRow({icon, label}: {icon: BerxIconName; label: string}) {
 	const colors = useBerxColors();
 	const styles = useMemo(() => makeStyles(colors), [colors]);
 	return (
 		<View style={styles.infoRow}>
-			<Text style={styles.infoIcon}>{icon}</Text>
+			<BerxIcon name={icon} size={15} color={colors.textFaint} />
 			<Text style={styles.infoText}>{label}</Text>
 		</View>
 	);
@@ -101,10 +105,10 @@ export default function BusinessProfileScreen({api, placeGuid, onBack}: Props) {
 
 				<BerxEyebrow>Контакты</BerxEyebrow>
 				<BerxGlassSurface style={styles.infoCard}>
-					{place.address ? <InfoRow icon="📍" label={place.address} /> : null}
-					{place.hours ? <InfoRow icon="🕐" label={place.hours} /> : null}
-					{place.phone ? <InfoRow icon="📞" label={place.phone} /> : null}
-					{place.website ? <InfoRow icon="🔗" label={place.website} /> : null}
+					{place.address ? <InfoRow icon="map-pin" label={place.address} /> : null}
+					{place.hours ? <InfoRow icon="clock" label={place.hours} /> : null}
+					{place.phone ? <InfoRow icon="phone" label={place.phone} /> : null}
+					{place.website ? <InfoRow icon="link-2" label={place.website} /> : null}
 					{!place.address && !place.hours && !place.phone && !place.website ? (
 						<Text style={styles.emptyInfo}>Контакты ещё не заполнены.</Text>
 					) : null}

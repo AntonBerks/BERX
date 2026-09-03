@@ -30,6 +30,7 @@ import {BerxLoadingState, BerxErrorState} from '../../../../../packages/design-s
 
 import {useBerxColors} from '../../../../../packages/design-system/src/theme';
 import type {BerxColorTokens} from '@berx/design-system/tokens';
+import {BerxIcon} from '../../../../../packages/design-system/src/icons/BerxIcon';
 
 interface Props {
 	api: BerxApiClient;
@@ -175,7 +176,10 @@ export default function BusinessOffersScreen({api, placeGuid, onBack}: Props) {
 				offers.map((o) => (
 					<BerxGlassSurface key={o.id} style={styles.offerCard}>
 						<View style={styles.offerHeaderRow}>
-							<Text style={styles.offerTitle} numberOfLines={1}>{o.active ? '🎁' : '⏸'} {o.title}</Text>
+							<View style={styles.glyphRow}>
+								<BerxIcon name={o.active ? 'gift' : 'pause'} size={14} color={o.active ? colors.accent : colors.textFaint} />
+								<Text style={styles.offerTitle} numberOfLines={1}>{o.title}</Text>
+							</View>
 							{o.active ? (
 								<Text style={styles.deactivateLink} onPress={() => handleDeactivate(o.id)}>
 									{busyId === o.id ? '…' : 'Остановить'}
@@ -229,6 +233,7 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	emptyText: {color: colors.textFaint, fontSize: typography.sizeSm},
 	offerCard: {gap: spacing.xs},
 	offerHeaderRow: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm},
+	glyphRow: {flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1},
 	offerTitle: {flex: 1, color: colors.white, fontSize: typography.sizeBase, fontWeight: typography.weightMedium},
 	deactivateLink: {color: colors.danger, fontSize: typography.sizeXs},
 	inactiveLabel: {color: colors.textFaint, fontSize: typography.sizeXs},

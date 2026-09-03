@@ -7,7 +7,7 @@
  * list, with no way to filter down to communities you're actually a
  * member of.
  *
- * MAX BUILD — real "🔥 В тренде" rail. api.trendingCommunities() wires
+ * MAX BUILD — real "В тренде" rail. api.trendingCommunities() wires
  * OssnSignals (BERX Future Core) into a live 7-day engagement ranking
  * over real approved-join activity — same real mechanism as
  * PlacesListScreen/EventsListScreen's own trending rails. Best-effort,
@@ -125,7 +125,7 @@ export default function CommunitiesListScreen({api, onOpenCommunity, onCreate, o
 								<BerxScrimHero
 									imageUrl={item.cover_url}
 									title={item.name}
-									subtitle={`🔥 ${ruPeopleLabel(item.distinct_actors)}`}
+									subtitle={ruPeopleLabel(item.distinct_actors)}
 									height={140}
 								/>
 							</Pressable>

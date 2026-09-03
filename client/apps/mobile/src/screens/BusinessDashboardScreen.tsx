@@ -53,6 +53,7 @@ import {BerxFadeIn} from '../../../../packages/design-system/src/components/Berx
 
 import {useBerxColors} from '../../../../packages/design-system/src/theme';
 import type {BerxColorTokens} from '@berx/design-system/tokens';
+import {BerxIcon} from '../../../../packages/design-system/src/icons/BerxIcon';
 
 interface Props {
 	api: BerxApiClient;
@@ -369,7 +370,7 @@ export default function BusinessDashboardScreen({api, placeGuid, onBack}: Props)
 					<View style={styles.momentsList}>
 						{moments.map((m) => (
 							<View key={m.id} style={styles.momentRow}>
-								<Text style={styles.momentRowText} numberOfLines={1}>🔥 {m.text}</Text>
+								<View style={styles.glyphRow}><BerxIcon name="flame" size={13} color={colors.accent} /><Text style={styles.momentRowText} numberOfLines={1}>{m.text}</Text></View>
 								<Text style={styles.momentRowRemove} onPress={() => handleDeleteMoment(m.id)}>Убрать</Text>
 							</View>
 						))}
@@ -394,7 +395,10 @@ export default function BusinessDashboardScreen({api, placeGuid, onBack}: Props)
 						{offers.map((o) => (
 							<BerxGlassSurface key={o.id} padding="sm" style={styles.offerCard}>
 								<View style={styles.momentRow}>
-									<Text style={styles.momentRowText} numberOfLines={1}>{o.active ? '🎁' : '⏸'} {o.title} · {o.redemptions_count}{o.max_redemptions !== null ? `/${o.max_redemptions}` : ''}</Text>
+									<View style={styles.glyphRow}>
+										<BerxIcon name={o.active ? 'gift' : 'pause'} size={13} color={o.active ? colors.accent : colors.textFaint} />
+										<Text style={styles.momentRowText} numberOfLines={1}>{o.title} · {o.redemptions_count}{o.max_redemptions !== null ? `/${o.max_redemptions}` : ''}</Text>
+									</View>
 									{o.active ? <Text style={styles.momentRowRemove} onPress={() => handleDeactivateOffer(o.id)}>Остановить</Text> : null}
 								</View>
 								<Text style={styles.offerExpandLink} onPress={() => toggleOfferExpanded(o.id)}>
@@ -502,6 +506,7 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	momentForm: {flexDirection: 'row', gap: spacing.sm, alignItems: 'center'},
 	momentsList: {gap: spacing.xs},
 	momentRow: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: colors.surface, borderRadius: radius.sm, padding: spacing.sm},
+	glyphRow: {flexDirection: 'row', alignItems: 'center', gap: 6},
 	momentRowText: {flex: 1, fontSize: typography.sizeSm, color: colors.accent},
 	momentRowRemove: {fontSize: typography.sizeXs, color: colors.danger, paddingLeft: spacing.sm},
 	empty: {color: colors.textFaint, fontSize: typography.sizeSm},

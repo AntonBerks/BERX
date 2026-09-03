@@ -142,7 +142,7 @@ export default function DatingMatchesScreen({api, onOpenConversation, onOpenPhot
 									<Text style={styles.username}>@{item.username}</Text>
 								</View>
 								<Pressable onPress={() => toggleIdeas(item.guid)} hitSlop={8}>
-									<Text style={styles.photosLink}>{expandedGuid === item.guid ? 'Скрыть идеи' : '💡 Идеи'}</Text>
+									<Text style={styles.photosLink}>{expandedGuid === item.guid ? 'Скрыть идеи' : 'Идеи'}</Text>
 								</Pressable>
 								{onOpenPhotos ? (
 									<Pressable onPress={() => onOpenPhotos(item.guid, item.username)} hitSlop={8}>

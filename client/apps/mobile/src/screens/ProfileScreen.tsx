@@ -608,7 +608,7 @@ export default function ProfileScreen({api, authState, username, onBack, onMessa
 				<BerxFadeIn style={styles.pinnedSection} delayMs={50}>
 					<Pressable onPress={() => onOpenPost(pinnedPost.guid)}>
 						<BerxGlassSurface elevated padding="md" style={styles.pinnedCard}>
-							<Text style={styles.pinnedLabel}>📌 Закреплено</Text>
+							<View style={styles.pinnedRow}><BerxIcon name="pin" size={12} color={colors.accent} /><Text style={styles.pinnedLabel}>Закреплено</Text></View>
 							<Text style={styles.pinnedText} numberOfLines={3}>{pinnedPost.text}</Text>
 						</BerxGlassSurface>
 					</Pressable>
@@ -671,7 +671,7 @@ export default function ProfileScreen({api, authState, username, onBack, onMessa
 
 			{!isOwn && profile.guid ? (
 				<View style={styles.actionRow}>
-					<BerxButton label="👋 Толкнуть" variant="secondary" loading={pokeBusy} onPress={handlePoke} fullWidth />
+					<BerxButton label="Толкнуть" variant="secondary" loading={pokeBusy} onPress={handlePoke} fullWidth />
 					{pokeStatus ? <Text style={styles.pokeStatus}>{pokeStatus}</Text> : null}
 				</View>
 			) : null}
@@ -961,6 +961,7 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	blockLink: {color: colors.danger, fontSize: typography.sizeXs, textDecorationLine: 'underline', textAlign: 'center'},
 	muteStatus: {color: colors.textFaint, fontSize: typography.sizeXs, textAlign: 'center', marginTop: 2},
 	menuList: {paddingHorizontal: spacing.xl, paddingTop: spacing.lg, gap: spacing.md},
+	pinnedRow: {flexDirection: 'row', alignItems: 'center', gap: 5},
 	streakRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm},
 	streakMark: {width: 2, height: 12, borderRadius: 1, backgroundColor: colors.accent},
 	sectionLabel: {color: colors.textFaint, fontSize: typography.sizeXs, marginBottom: spacing.xs, marginLeft: spacing.xs, textTransform: 'uppercase' as const, letterSpacing: 0.5},

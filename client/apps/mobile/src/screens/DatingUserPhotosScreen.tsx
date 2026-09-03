@@ -28,6 +28,7 @@ import {BerxFadeIn} from '../../../../packages/design-system/src/components/Berx
 
 import {useBerxColors} from '../../../../packages/design-system/src/theme';
 import type {BerxColorTokens} from '@berx/design-system/tokens';
+import {BerxIcon} from '../../../../packages/design-system/src/icons/BerxIcon';
 
 interface Props {
 	api: BerxApiClient;
@@ -115,7 +116,7 @@ export default function DatingUserPhotosScreen({api, userGuid, username, onBack}
 									style={[styles.tileWrap, styles.locked]}
 									onPress={() => requestAccess(item.id)}
 									disabled={busyId === item.id || requestedIds.has(item.id)}>
-									<Text style={styles.lockIcon}>🔒</Text>
+									<BerxIcon name="lock" size={22} color={colors.textFaint} />
 									<Text style={styles.lockLabel}>
 										{requestedIds.has(item.id) ? 'Запрошено' : busyId === item.id ? '…' : 'Запросить доступ'}
 									</Text>

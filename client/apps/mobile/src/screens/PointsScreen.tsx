@@ -36,6 +36,7 @@ import {BerxFadeIn} from '../../../../packages/design-system/src/components/Berx
 
 import {useBerxColors} from '../../../../packages/design-system/src/theme';
 import type {BerxColorTokens} from '@berx/design-system/tokens';
+import {BerxIcon} from '../../../../packages/design-system/src/icons/BerxIcon';
 
 interface Props {
 	api: BerxApiClient;
@@ -156,7 +157,7 @@ export default function PointsScreen({api, onBack}: Props) {
 
 						{balance.current_streak > 0 ? (
 							<BerxGlassSurface padding="md" style={styles.streakRow}>
-								<Text style={styles.streakGlyph}>🔥</Text>
+								<BerxIcon name="flame" size={18} color={colors.accent} />
 								<View>
 									<Text style={styles.streakValue}>{balance.current_streak} {ruPlural(balance.current_streak, 'день', 'дня', 'дней')} подряд</Text>
 									<Text style={styles.streakCaption}>Лучший результат: {balance.longest_streak}</Text>

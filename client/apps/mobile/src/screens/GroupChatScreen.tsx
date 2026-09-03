@@ -41,6 +41,7 @@ import {BerxFadeIn} from '../../../../packages/design-system/src/components/Berx
 
 import {useBerxColors} from '../../../../packages/design-system/src/theme';
 import type {BerxColorTokens} from '@berx/design-system/tokens';
+import {BerxIcon} from '../../../../packages/design-system/src/icons/BerxIcon';
 
 interface Props {
 	api: BerxApiClient;
@@ -261,7 +262,10 @@ export default function GroupChatScreen({api, myGuid, groupId, onOpenInfo, onOpe
 
 			{group.pinned_messages && group.pinned_messages.length > 0 ? (
 				<View style={styles.pinnedBar}>
-					<Text style={styles.pinnedLabel}>📌 {group.pinned_messages[0].text}</Text>
+				<View style={styles.pinnedRow}>
+						<BerxIcon name="pin" size={13} color={colors.accent} />
+						<Text style={styles.pinnedLabel} numberOfLines={1}>{group.pinned_messages[0].text}</Text>
+					</View>
 				</View>
 			) : null}
 
@@ -315,10 +319,11 @@ export default function GroupChatScreen({api, myGuid, groupId, onOpenInfo, onOpe
 										{relativeTimeLabel(item.time_created)}
 										{item.time_edited ? ' · изменено' : ''}
 									</Text>
-									<Pressable onPress={() => handleToggleReaction(item.id)} hitSlop={8}>
-										<Text style={[styles.reaction, item.reacted_by_me && styles.reactionActive]}>
-											♥ {item.reaction_count > 0 ? item.reaction_count : ''}
-										</Text>
+								<Pressable onPress={() => handleToggleReaction(item.id)} hitSlop={8} style={styles.reactionBtn}>
+										<BerxIcon name="heart" size={12} filled={item.reacted_by_me} color={item.reacted_by_me ? colors.accent : colors.textFaint} />
+										{item.reaction_count > 0 ? (
+											<Text style={[styles.reaction, item.reacted_by_me && styles.reactionActive]}>{item.reaction_count}</Text>
+										) : null}
 									</Pressable>
 								</View>
 							</Pressable>
@@ -364,6 +369,7 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	infoBar: {paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderBottomWidth: 1, borderBottomColor: colors.borderSoft},
 	infoBarLabel: {color: colors.accent, fontSize: typography.sizeXs, textAlign: 'center'},
 	pinnedBar: {backgroundColor: colors.glass2, paddingHorizontal: spacing.md, paddingVertical: spacing.xs},
+	pinnedRow: {flexDirection: 'row', alignItems: 'center', gap: 6},
 	pinnedLabel: {color: colors.textDim, fontSize: typography.sizeXs},
 	list: {flex: 1, paddingHorizontal: spacing.md},
 	bubble: {
@@ -390,8 +396,13 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	bubbleText: {color: colors.text, fontSize: typography.sizeBase},
 	bubbleMetaRow: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 4, marginTop: spacing.xs},
 	bubbleTime: {color: colors.textFaint, fontSize: typography.sizeXs},
+	reactionBtn: {flexDirection: 'row', alignItems: 'center', gap: 4},
 	reaction: {color: colors.textFaint, fontSize: typography.sizeXs},
-	reactionActive: {color: colors.danger},
+	// Was colors.danger — same mismatch just fixed in PostDetail's comment
+	// likes: red is the destructive role, and the heart beside this count
+	// was already filled accent-cyan, so the glyph and its own number
+	// disagreed. Third occurrence of this exact bug in one session.
+	reactionActive: {color: colors.accent},
 	composer: {
 		flexDirection: 'row',
 		alignItems: 'flex-end',

@@ -64,6 +64,7 @@ import {BerxFadeIn} from '../../../../packages/design-system/src/components/Berx
 
 import {useBerxColors} from '../../../../packages/design-system/src/theme';
 import type {BerxColorTokens} from '@berx/design-system/tokens';
+import {BerxIcon} from '../../../../packages/design-system/src/icons/BerxIcon';
 
 interface Props {
 	api: BerxApiClient;
@@ -339,7 +340,10 @@ export default function ConversationScreen({api, myGuid, otherGuid, otherUsernam
 									</Pressable>
 								) : (
 									<Pressable style={styles.attachmentFile} onPress={() => Linking.openURL(item.attachment!.url)}>
-										<Text style={styles.attachmentFileLabel} numberOfLines={1}>📎 {item.attachment.name}</Text>
+									<View style={styles.attachmentFileRow}>
+										<BerxIcon name="paperclip" size={14} color={colors.textDim} />
+										<Text style={styles.attachmentFileLabel} numberOfLines={1}>{item.attachment.name}</Text>
+									</View>
 									</Pressable>
 								)
 							) : null}
@@ -351,7 +355,10 @@ export default function ConversationScreen({api, myGuid, otherGuid, otherUsernam
 							) : null}
 							{item.shared_story ? (
 								<Pressable style={styles.sharedPost} onPress={() => item.shared_story!.owner_username && onOpenProfile && onOpenProfile(item.shared_story!.owner_username)}>
-									<Text style={styles.sharedPostAuthor}>📖 История · {item.shared_story.owner_username ?? 'BERX'}</Text>
+								<View style={styles.attachmentFileRow}>
+										<BerxIcon name="image" size={13} color={colors.accent} />
+										<Text style={styles.sharedPostAuthor}>История · {item.shared_story.owner_username ?? 'BERX'}</Text>
+									</View>
 									{item.shared_story.caption ? <Text style={styles.sharedPostText} numberOfLines={3}>{item.shared_story.caption}</Text> : null}
 								</Pressable>
 							) : null}
@@ -389,7 +396,10 @@ export default function ConversationScreen({api, myGuid, otherGuid, otherUsernam
 				</View>
 			) : pendingAttachment ? (
 				<View style={styles.pendingAttachmentRow}>
-					<Text style={styles.pendingAttachmentLabel} numberOfLines={1}>📎 {pendingAttachmentLabel ?? 'вложение'}</Text>
+				<View style={styles.attachmentFileRow}>
+						<BerxIcon name="paperclip" size={14} color={colors.textDim} />
+						<Text style={styles.pendingAttachmentLabel} numberOfLines={1}>{pendingAttachmentLabel ?? 'вложение'}</Text>
+					</View>
 					<Pressable onPress={() => { setPendingAttachment(null); setPendingAttachmentLabel(null); }} hitSlop={8}>
 						<Text style={styles.editingCancel}>Убрать</Text>
 					</Pressable>
@@ -399,7 +409,7 @@ export default function ConversationScreen({api, myGuid, otherGuid, otherUsernam
 			<View style={styles.composer}>
 				{pickImage && editingId === null ? (
 					<Pressable style={styles.attachButton} onPress={handlePickAttachment} hitSlop={8}>
-						<Text style={styles.attachButtonLabel}>📎</Text>
+					<BerxIcon name="paperclip" size={18} color={colors.textDim} />
 					</Pressable>
 				) : null}
 				{editingId === null ? (
@@ -474,6 +484,7 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	sendError: {color: colors.danger, fontSize: typography.sizeXs, paddingHorizontal: spacing.md, paddingBottom: spacing.sm},
 	attachmentImage: {width: 180, height: 180, borderRadius: radius.sm, marginBottom: spacing.xs},
 	attachmentFile: {backgroundColor: colors.glass2, borderRadius: radius.sm, padding: spacing.sm, marginBottom: spacing.xs},
+	attachmentFileRow: {flexDirection: 'row', alignItems: 'center', gap: 6},
 	attachmentFileLabel: {color: colors.text, fontSize: typography.sizeSm},
 	sharedPost: {backgroundColor: colors.glass2, borderRadius: radius.sm, padding: spacing.sm, marginBottom: spacing.xs, gap: 2},
 	sharedPostAuthor: {color: colors.accent, fontSize: typography.sizeXs, fontWeight: typography.weightMedium},
