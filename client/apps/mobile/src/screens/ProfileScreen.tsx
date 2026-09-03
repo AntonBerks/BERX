@@ -67,7 +67,6 @@ import {BerxButton} from '../../../../packages/design-system/src/components/Berx
 import {BerxGradientCTA} from '../../../../packages/design-system/src/components/BerxGradientCTA';
 import {BerxLoadingState, BerxErrorState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
-import {IconHeart, IconLock, IconBell, IconStar, IconUsers, IconChevronRight, IconEdit} from '../../../../packages/design-system/src/components/BerxIcons';
 import {ruPlural} from '@berx/domain';
 import {BerxGlassSurface} from '../../../../packages/design-system/src/components/BerxGlassSurface';
 import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
@@ -81,6 +80,7 @@ import {BerxPhotoGrid} from '../../../../packages/design-system/src/components/B
 
 import {useBerxColors} from '../../../../packages/design-system/src/theme';
 import type {BerxColorTokens} from '@berx/design-system/tokens';
+import {BerxIcon} from '../../../../packages/design-system/src/icons/BerxIcon';
 
 
 // Reference proportion: the portrait owns the screen on open.
@@ -723,8 +723,8 @@ export default function ProfileScreen({api, authState, username, onBack, onMessa
 				<View style={styles.menuList}>
 					<Text style={styles.sectionLabel}>Автор</Text>
 					<View style={styles.menuGroup}>
-						{isOwn && onOpenCreatorSettings ? <MenuRow label="Режим автора" icon={<IconStar size={18} color={colors.text} />} onPress={onOpenCreatorSettings} isFirst isLast /> : null}
-						{!isOwn && profile.is_creator && onOpenCreatorProfile ? <MenuRow label="Профиль автора" icon={<IconStar size={18} color={colors.text} />} onPress={onOpenCreatorProfile} isFirst isLast /> : null}
+						{isOwn && onOpenCreatorSettings ? <MenuRow label="Режим автора" icon={<BerxIcon name="star" size={18} color={colors.text}  filled />} onPress={onOpenCreatorSettings} isFirst isLast /> : null}
+						{!isOwn && profile.is_creator && onOpenCreatorProfile ? <MenuRow label="Профиль автора" icon={<BerxIcon name="star" size={18} color={colors.text}  filled />} onPress={onOpenCreatorProfile} isFirst isLast /> : null}
 					</View>
 				</View>
 			) : null}
@@ -758,50 +758,50 @@ export default function ProfileScreen({api, authState, username, onBack, onMessa
 				<BerxFadeIn style={styles.menuList} delayMs={100}>
 					<Text style={styles.sectionLabel}>Аккаунт</Text>
 					<View style={styles.menuGroup}>
-						{onOpenEditProfile ? <MenuRow label="Редактировать профиль" icon={<IconEdit size={18} color={colors.text} />} onPress={onOpenEditProfile} isFirst isLast /> : null}
+						{onOpenEditProfile ? <MenuRow label="Редактировать профиль" icon={<BerxIcon name="edit-3" size={18} color={colors.text}  />} onPress={onOpenEditProfile} isFirst isLast /> : null}
 					</View>
 
 					<Text style={styles.sectionLabel}>Знакомства</Text>
 					<View style={styles.menuGroup}>
-						{onOpenDating ? <MenuRow label="Discover" icon={<IconHeart size={18} color={colors.text} />} onPress={onOpenDating} isFirst /> : null}
-						{onOpenDatingProfile ? <MenuRow label="Анкета" icon={<IconHeart size={18} color={colors.text} />} onPress={onOpenDatingProfile} /> : null}
-						{onOpenDatingPhotos ? <MenuRow label="Приватные фото" icon={<IconLock size={18} color={colors.text} />} onPress={onOpenDatingPhotos} /> : null}
-						{onOpenDatingPrivacy ? <MenuRow label="Приватность" icon={<IconLock size={18} color={colors.text} />} onPress={onOpenDatingPrivacy} isLast /> : null}
+						{onOpenDating ? <MenuRow label="Discover" icon={<BerxIcon name="heart" size={18} color={colors.text}  filled />} onPress={onOpenDating} isFirst /> : null}
+						{onOpenDatingProfile ? <MenuRow label="Анкета" icon={<BerxIcon name="heart" size={18} color={colors.text}  filled />} onPress={onOpenDatingProfile} /> : null}
+						{onOpenDatingPhotos ? <MenuRow label="Приватные фото" icon={<BerxIcon name="lock" size={18} color={colors.text}  />} onPress={onOpenDatingPhotos} /> : null}
+						{onOpenDatingPrivacy ? <MenuRow label="Приватность" icon={<BerxIcon name="lock" size={18} color={colors.text}  />} onPress={onOpenDatingPrivacy} isLast /> : null}
 					</View>
 
 					<Text style={styles.sectionLabel}>BERX World</Text>
 					<View style={styles.menuGroup}>
-						{onOpenBERXWorld ? <MenuRow label="Обзор" icon={<IconUsers size={18} color={colors.text} />} onPress={onOpenBERXWorld} isFirst /> : null}
-						{onOpenPlaces ? <MenuRow label="Места" icon={<IconUsers size={18} color={colors.text} />} onPress={onOpenPlaces} /> : null}
-						{onOpenEvents ? <MenuRow label="События" icon={<IconStar size={18} color={colors.text} />} onPress={onOpenEvents} /> : null}
-						{onOpenCommunities ? <MenuRow label="Сообщества" icon={<IconUsers size={18} color={colors.text} />} onPress={onOpenCommunities} /> : null}
-						{onOpenPlans ? <MenuRow label="Планы" icon={<IconUsers size={18} color={colors.text} />} onPress={onOpenPlans} /> : null}
-						{onOpenWorlds ? <MenuRow label="Миры" icon={<IconUsers size={18} color={colors.text} />} onPress={onOpenWorlds} /> : null}
-						{onOpenNext ? <MenuRow label="Дальше" icon={<IconStar size={18} color={colors.text} />} onPress={onOpenNext} badge={nextCount} /> : null}
-						{onOpenMyMoments ? <MenuRow label="Мои моменты" icon={<IconUsers size={18} color={colors.text} />} onPress={onOpenMyMoments} isLast /> : null}
+						{onOpenBERXWorld ? <MenuRow label="Обзор" icon={<BerxIcon name="users" size={18} color={colors.text}  />} onPress={onOpenBERXWorld} isFirst /> : null}
+						{onOpenPlaces ? <MenuRow label="Места" icon={<BerxIcon name="users" size={18} color={colors.text}  />} onPress={onOpenPlaces} /> : null}
+						{onOpenEvents ? <MenuRow label="События" icon={<BerxIcon name="star" size={18} color={colors.text}  filled />} onPress={onOpenEvents} /> : null}
+						{onOpenCommunities ? <MenuRow label="Сообщества" icon={<BerxIcon name="users" size={18} color={colors.text}  />} onPress={onOpenCommunities} /> : null}
+						{onOpenPlans ? <MenuRow label="Планы" icon={<BerxIcon name="users" size={18} color={colors.text}  />} onPress={onOpenPlans} /> : null}
+						{onOpenWorlds ? <MenuRow label="Миры" icon={<BerxIcon name="users" size={18} color={colors.text}  />} onPress={onOpenWorlds} /> : null}
+						{onOpenNext ? <MenuRow label="Дальше" icon={<BerxIcon name="star" size={18} color={colors.text}  filled />} onPress={onOpenNext} badge={nextCount} /> : null}
+						{onOpenMyMoments ? <MenuRow label="Мои моменты" icon={<BerxIcon name="users" size={18} color={colors.text}  />} onPress={onOpenMyMoments} isLast /> : null}
 					</View>
 
 					<Text style={styles.sectionLabel}>Активность</Text>
 					<View style={styles.menuGroup}>
-						{onOpenNotifications ? <MenuRow label={unreadNotifications > 0 ? `Уведомления (${unreadNotifications})` : 'Уведомления'} icon={<IconBell size={18} color={colors.text} />} onPress={onOpenNotifications} isFirst /> : null}
-						{onOpenPoints ? <MenuRow label="Баллы и уровень" icon={<IconStar size={18} color={colors.text} />} onPress={onOpenPoints} /> : null}
-						{onOpenMissions ? <MenuRow label="Задания дня" icon={<IconStar size={18} color={colors.text} />} onPress={onOpenMissions} /> : null}
-						{onOpenLifeGraph ? <MenuRow label="Ваш путь в BERX" icon={<IconStar size={18} color={colors.text} />} onPress={onOpenLifeGraph} /> : null}
-						{onOpenMemories ? <MenuRow label="Воспоминания" icon={<IconStar size={18} color={colors.text} />} onPress={onOpenMemories} /> : null}
-						{onOpenRecentCheckins ? <MenuRow label="Мои отметки" icon={<IconStar size={18} color={colors.text} />} onPress={onOpenRecentCheckins} /> : null}
-						{onOpenSavedPosts ? <MenuRow label="Сохранённые посты" icon={<IconStar size={18} color={colors.text} />} onPress={onOpenSavedPosts} /> : null}
-						{onOpenMyPlaceClaims ? <MenuRow label="Мои заявки на бизнес" icon={<IconStar size={18} color={colors.text} />} onPress={onOpenMyPlaceClaims} /> : null}
-						{onOpenWrapped ? <MenuRow label="BERX Wrapped" icon={<IconStar size={18} color={colors.text} />} onPress={onOpenWrapped} /> : null}
-						{onOpenSettings ? <MenuRow label="Настройки" icon={<IconLock size={18} color={colors.text} />} onPress={onOpenSettings} isLast /> : null}
+						{onOpenNotifications ? <MenuRow label={unreadNotifications > 0 ? `Уведомления (${unreadNotifications})` : 'Уведомления'} icon={<BerxIcon name="bell" size={18} color={colors.text}  />} onPress={onOpenNotifications} isFirst /> : null}
+						{onOpenPoints ? <MenuRow label="Баллы и уровень" icon={<BerxIcon name="star" size={18} color={colors.text}  filled />} onPress={onOpenPoints} /> : null}
+						{onOpenMissions ? <MenuRow label="Задания дня" icon={<BerxIcon name="star" size={18} color={colors.text}  filled />} onPress={onOpenMissions} /> : null}
+						{onOpenLifeGraph ? <MenuRow label="Ваш путь в BERX" icon={<BerxIcon name="star" size={18} color={colors.text}  filled />} onPress={onOpenLifeGraph} /> : null}
+						{onOpenMemories ? <MenuRow label="Воспоминания" icon={<BerxIcon name="star" size={18} color={colors.text}  filled />} onPress={onOpenMemories} /> : null}
+						{onOpenRecentCheckins ? <MenuRow label="Мои отметки" icon={<BerxIcon name="star" size={18} color={colors.text}  filled />} onPress={onOpenRecentCheckins} /> : null}
+						{onOpenSavedPosts ? <MenuRow label="Сохранённые посты" icon={<BerxIcon name="star" size={18} color={colors.text}  filled />} onPress={onOpenSavedPosts} /> : null}
+						{onOpenMyPlaceClaims ? <MenuRow label="Мои заявки на бизнес" icon={<BerxIcon name="star" size={18} color={colors.text}  filled />} onPress={onOpenMyPlaceClaims} /> : null}
+						{onOpenWrapped ? <MenuRow label="BERX Wrapped" icon={<BerxIcon name="star" size={18} color={colors.text}  filled />} onPress={onOpenWrapped} /> : null}
+						{onOpenSettings ? <MenuRow label="Настройки" icon={<BerxIcon name="lock" size={18} color={colors.text}  />} onPress={onOpenSettings} isLast /> : null}
 					</View>
 
 					{profile.is_admin && (onOpenAdminUnvalidated || onOpenAdminReports || onOpenAdminPlaceClaims) ? (
 						<>
 							<Text style={styles.sectionLabel}>Администрирование</Text>
 							<View style={styles.menuGroup}>
-								{onOpenAdminUnvalidated ? <MenuRow label="Неподтверждённые пользователи" icon={<IconLock size={18} color={colors.text} />} onPress={onOpenAdminUnvalidated} isFirst /> : null}
-								{onOpenAdminReports ? <MenuRow label="Жалобы" icon={<IconLock size={18} color={colors.text} />} onPress={onOpenAdminReports} /> : null}
-								{onOpenAdminPlaceClaims ? <MenuRow label="Заявки на бизнес" icon={<IconLock size={18} color={colors.text} />} onPress={onOpenAdminPlaceClaims} isLast /> : null}
+								{onOpenAdminUnvalidated ? <MenuRow label="Неподтверждённые пользователи" icon={<BerxIcon name="lock" size={18} color={colors.text}  />} onPress={onOpenAdminUnvalidated} isFirst /> : null}
+								{onOpenAdminReports ? <MenuRow label="Жалобы" icon={<BerxIcon name="lock" size={18} color={colors.text}  />} onPress={onOpenAdminReports} /> : null}
+								{onOpenAdminPlaceClaims ? <MenuRow label="Заявки на бизнес" icon={<BerxIcon name="lock" size={18} color={colors.text}  />} onPress={onOpenAdminPlaceClaims} isLast /> : null}
 							</View>
 						</>
 					) : null}
@@ -864,7 +864,7 @@ function MenuRow({
 					<Text style={styles.menuRowBadgeText}>{badge > 9 ? '9+' : String(badge)}</Text>
 				</View>
 			) : null}
-			<IconChevronRight size={16} color={colors.textFaint} />
+			<BerxIcon name="chevron-right" size={16} color={colors.textFaint}  />
 		</Pressable>
 	);
 }

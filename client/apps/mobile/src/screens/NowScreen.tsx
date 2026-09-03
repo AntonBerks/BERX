@@ -47,7 +47,6 @@ import {relativeTimeLabel} from '@berx/domain';
 import {spacing, typography, radius, getBerxDaypartPalette} from '@berx/design-system/tokens';
 import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
 import {BerxSkeleton} from '../../../../packages/design-system/src/components/BerxStates';
-import {IconPlus, IconSearch, IconMessage, IconBell} from '../../../../packages/design-system/src/components/BerxIcons';
 import {BerxRichText} from '../../../../packages/design-system/src/components/BerxRichText';
 import {BerxPollView} from '../../../../packages/design-system/src/components/BerxPollView';
 import {BerxSpatialLayer} from '../../../../packages/design-system/src/components/BerxSpatialLayer';
@@ -398,12 +397,12 @@ export default function NowScreen({
 								avatarUrl={me ? me.icon_url : null}
 								onPressIdentity={onOpenMyProfile}
 								actions={[
-									...(onOpenSearch ? [{key: 'search', icon: <IconSearch size={17} color={colors.onMedia} />, onPress: onOpenSearch}] : []),
+									...(onOpenSearch ? [{key: 'search', icon: <BerxIcon name="search" size={17} color={colors.onMedia}  />, onPress: onOpenSearch}] : []),
 									...(onOpenMessages
-										? [{key: 'msg', icon: <IconMessage size={17} color={colors.onMedia} />, badge: unread, onPress: onOpenMessages}]
+										? [{key: 'msg', icon: <BerxIcon name="message-circle" size={17} color={colors.onMedia}  />, badge: unread, onPress: onOpenMessages}]
 										: []),
 									...(onOpenNotifications
-										? [{key: 'bell', icon: <IconBell size={17} color={colors.onMedia} />, onPress: onOpenNotifications}]
+										? [{key: 'bell', icon: <BerxIcon name="bell" size={17} color={colors.onMedia}  />, onPress: onOpenNotifications}]
 										: []),
 								]}
 								onMedia
@@ -472,12 +471,12 @@ export default function NowScreen({
 							avatarUrl={me ? me.icon_url : null}
 							onPressIdentity={onOpenMyProfile}
 							actions={[
-								...(onOpenSearch ? [{key: 'search', icon: <IconSearch size={17} color={colors.text} />, onPress: onOpenSearch}] : []),
+								...(onOpenSearch ? [{key: 'search', icon: <BerxIcon name="search" size={17} color={colors.text}  />, onPress: onOpenSearch}] : []),
 								...(onOpenMessages
-									? [{key: 'msg', icon: <IconMessage size={17} color={colors.text} />, badge: unread, onPress: onOpenMessages}]
+									? [{key: 'msg', icon: <BerxIcon name="message-circle" size={17} color={colors.text}  />, badge: unread, onPress: onOpenMessages}]
 									: []),
 								...(onOpenNotifications
-									? [{key: 'bell', icon: <IconBell size={17} color={colors.text} />, onPress: onOpenNotifications}]
+									? [{key: 'bell', icon: <BerxIcon name="bell" size={17} color={colors.text}  />, onPress: onOpenNotifications}]
 									: []),
 							]}
 						/>
@@ -680,7 +679,7 @@ export default function NowScreen({
 
 					{/* ACTION — the real create entry, kept at the end of the environment. */}
 					<Pressable style={styles.createStrip} onPress={onCreatePost}>
-						<IconPlus size={18} color={colors.accent} />
+						<BerxIcon name="plus" size={18} color={colors.accent}  />
 						<Text style={styles.createStripText}>Добавить момент</Text>
 					</Pressable>
 				</BerxFadeIn>

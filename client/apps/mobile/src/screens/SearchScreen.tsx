@@ -36,11 +36,11 @@ import {ruPlural} from '@berx/domain';
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {BerxEmptyState, BerxErrorState, BerxLoadingState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxEdgeFade} from '../../../../packages/design-system/src/components/BerxEdgeFade';
-import {IconUsers, IconStar} from '../../../../packages/design-system/src/components/BerxIcons';
 import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
 
 import {useBerxColors} from '../../../../packages/design-system/src/theme';
 import type {BerxColorTokens} from '@berx/design-system/tokens';
+import {BerxIcon} from '../../../../packages/design-system/src/icons/BerxIcon';
 
 interface SearchResultUser {
 	guid: number;
@@ -198,7 +198,7 @@ export default function SearchScreen({api, onOpenProfile, onOpenPlace, onOpenEve
 									</Text>
 									{item.mutual_communities_count > 0 ? (
 										<View style={styles.metaChip}>
-											<IconUsers size={13} color={colors.textFaint} />
+											<BerxIcon name="users" size={13} color={colors.textFaint}  />
 											<Text style={styles.username}>{item.mutual_communities_count}</Text>
 										</View>
 									) : null}
@@ -251,7 +251,7 @@ export default function SearchScreen({api, onOpenProfile, onOpenPlace, onOpenEve
 										{item.category ? <Text style={styles.username}>{item.category}</Text> : null}
 										{item.friends_count > 0 ? (
 											<View style={styles.metaChip}>
-												<IconUsers size={13} color={colors.textFaint} />
+												<BerxIcon name="users" size={13} color={colors.textFaint}  />
 												<Text style={styles.username}>{item.friends_count}</Text>
 											</View>
 										) : null}
@@ -259,7 +259,7 @@ export default function SearchScreen({api, onOpenProfile, onOpenPlace, onOpenEve
 								</View>
 								{item.rating > 0 ? (
 									<View style={styles.metaChip}>
-										<IconStar size={13} color={colors.accent} />
+										<BerxIcon name="star" size={13} color={colors.accent}  filled />
 										<Text style={styles.rating}>{item.rating}</Text>
 									</View>
 								) : null}
@@ -281,7 +281,7 @@ export default function SearchScreen({api, onOpenProfile, onOpenPlace, onOpenEve
 									<Text style={styles.username}>{new Date(item.starts * 1000).toLocaleDateString('ru-RU')}</Text>
 									{item.friends_count > 0 ? (
 										<View style={styles.metaChip}>
-											<IconUsers size={13} color={colors.textFaint} />
+											<BerxIcon name="users" size={13} color={colors.textFaint}  />
 											<Text style={styles.username}>{item.friends_count}</Text>
 										</View>
 									) : null}
@@ -305,7 +305,7 @@ export default function SearchScreen({api, onOpenProfile, onOpenPlace, onOpenEve
 								</Text>
 								{item.friends_count > 0 ? (
 									<View style={styles.metaChip}>
-										<IconUsers size={13} color={colors.textFaint} />
+										<BerxIcon name="users" size={13} color={colors.textFaint}  />
 										<Text style={styles.username}>{item.friends_count}</Text>
 									</View>
 								) : null}

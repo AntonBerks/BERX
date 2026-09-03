@@ -20,6 +20,16 @@ export interface BerxIconProps {
 	size?: number;
 	color?: string;
 	strokeWidth?: number;
+	/**
+	 * Fill the glyph with its own stroke colour.
+	 *
+	 * The family is stroked, which is right for labels. A few glyphs are
+	 * not labels but STATES — a liked heart, a rated star — and the
+	 * clearest way to show "on" inside an outlined family is to fill the
+	 * same shape. This keeps that as one glyph in two states rather than
+	 * two different drawings that have to be kept in sync.
+	 */
+	filled?: boolean;
 }
 
 const TAGS = {path: Path, circle: Circle, rect: Rect, line: Line, polyline: Polyline, polygon: Polygon, ellipse: Ellipse};
@@ -50,7 +60,7 @@ function parse(markup: string): Node[] {
 
 const CACHE = new Map<string, Node[]>();
 
-export const BerxIcon = memo(function BerxIcon({name, size = 22, color, strokeWidth = 2}: BerxIconProps) {
+export const BerxIcon = memo(function BerxIcon({name, size = 22, color, strokeWidth = 2, filled = false}: BerxIconProps) {
 	const colors = useBerxColors();
 	const nodes = useMemo(() => {
 		const hit = CACHE.get(name);
@@ -65,7 +75,7 @@ export const BerxIcon = memo(function BerxIcon({name, size = 22, color, strokeWi
 			width={size}
 			height={size}
 			viewBox="0 0 24 24"
-			fill="none"
+			fill={filled ? color ?? colors.text : 'none'}
 			stroke={color ?? colors.text}
 			strokeWidth={strokeWidth}
 			strokeLinecap="round"

@@ -9,19 +9,18 @@
  * MAX BUILD — the back control was a plain "‹ Назад" text glyph, the
  * one visibly "OSSN web-admin" leftover on every single screen in the
  * app (BerxHeader is used everywhere). Replaced with a real glass
- * circular chip + IconChevronLeft (same plain-View icon construction
- * as the rest of BerxIcons.tsx — no icon font/SVG lib installed), a
+ * circular chip + a chevron from the one licensed BerxIcon family, a
  * hairline bottom edge instead of a flat 1px border, and the accent
  * glow token already defined but unused elsewhere in this pass.
  */
 import {useMemo} from 'react';
 import {View, Text, Pressable, StyleSheet} from 'react-native';
 import {spacing, typography, radius} from '../tokens';
-import {IconChevronLeft} from './BerxIcons';
 
 import {useBerxColors} from '../theme';
 import {useBerxInsets} from '../insets';
 import type {BerxColorTokens} from '../tokens';
+import {BerxIcon} from '../icons/BerxIcon';
 
 export interface BerxHeaderProps {
 	title?: string;
@@ -46,7 +45,7 @@ export function BerxHeader({title, subtitle, onBack, topInset = true}: BerxHeade
 		<View style={[styles.header, topInset && {paddingTop: insets.top}]}>
 			{onBack ? (
 				<Pressable onPress={onBack} hitSlop={12} style={({pressed}: {pressed: boolean}) => [styles.backButton, styles.backChip, pressed && styles.backChipPressed]}>
-					<IconChevronLeft size={16} color={colors.accent} />
+					<BerxIcon name="chevron-left" size={16} color={colors.accent}  />
 				</Pressable>
 			) : (
 				<View style={styles.backButton} />

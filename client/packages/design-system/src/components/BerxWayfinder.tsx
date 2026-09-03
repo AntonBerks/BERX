@@ -56,10 +56,10 @@
 import {Fragment, useCallback, useEffect, useRef, useState, useMemo} from 'react';
 import {Animated, LayoutChangeEvent, Pressable, StyleSheet, Text, View} from 'react-native';
 import {radius, spacing, typography} from '../tokens';
-import {IconHome, IconUsers, IconPlus, IconPin, IconMenu} from './BerxIcons';
 
 import {useBerxColors} from '../theme';
 import type {BerxColorTokens} from '../tokens';
+import {BerxIcon} from '../icons/BerxIcon';
 
 export type BerxWayfinderTab = 'Home' | 'People' | 'Create' | 'Places' | 'Profile';
 
@@ -78,15 +78,15 @@ interface Props {
 function tabIcon(tab: BerxWayfinderTab, size: number, color: string) {
 	switch (tab) {
 		case 'Home':
-			return <IconHome size={size} color={color} />;
+			return <BerxIcon name="home" size={size} color={color}  />;
 		case 'People':
-			return <IconUsers size={size} color={color} />;
+			return <BerxIcon name="users" size={size} color={color}  />;
 		case 'Create':
-			return <IconPlus size={size} color={color} />;
+			return <BerxIcon name="plus" size={size} color={color}  />;
 		case 'Places':
-			return <IconPin size={size} color={color} />;
+			return <BerxIcon name="map-pin" size={size} color={color}  />;
 		case 'Profile':
-			return <IconMenu size={size} color={color} />;
+			return <BerxIcon name="more-horizontal" size={size} color={color}  />;
 	}
 }
 

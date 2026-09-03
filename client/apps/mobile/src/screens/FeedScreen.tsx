@@ -45,13 +45,13 @@ import {relativeTimeLabel} from '@berx/domain';
 import {spacing, radius, typography} from '@berx/design-system/tokens';
 import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
 import {BerxErrorState, BerxEmptyState, BerxSkeleton} from '../../../../packages/design-system/src/components/BerxStates';
-import {IconPlus, IconHeart, IconMessage} from '../../../../packages/design-system/src/components/BerxIcons';
 import {BerxRichText} from '../../../../packages/design-system/src/components/BerxRichText';
 import {BerxEdgeFade} from '../../../../packages/design-system/src/components/BerxEdgeFade';
 import {BerxPollView} from '../../../../packages/design-system/src/components/BerxPollView';
 
 import {useBerxColors} from '../../../../packages/design-system/src/theme';
 import type {BerxColorTokens} from '@berx/design-system/tokens';
+import {BerxIcon} from '../../../../packages/design-system/src/icons/BerxIcon';
 
 /**
  * WHO ACTUALLY WROTE THIS POST.
@@ -154,7 +154,7 @@ export default function FeedScreen({api, myGuid, onOpenPost, onOpenProfile, onOp
 				BER<Text style={styles.headerTitleAccent}>X</Text>
 			</Text>
 			<Pressable onPress={onCreatePost} hitSlop={10} style={styles.headerCreate}>
-				<IconPlus size={20} color={colors.accent} />
+				<BerxIcon name="plus" size={20} color={colors.accent}  />
 			</Pressable>
 		</View>
 	);
@@ -170,7 +170,7 @@ export default function FeedScreen({api, myGuid, onOpenPost, onOpenProfile, onOp
 				ListHeaderComponent={
 					<Pressable style={styles.storyItem} onPress={onCreateStory}>
 						<View style={styles.addStoryTile}>
-							<IconPlus size={18} color={colors.accent} />
+							<BerxIcon name="plus" size={18} color={colors.accent}  />
 						</View>
 						<Text style={styles.storyLabel} numberOfLines={1}>
 							Ваша история
@@ -343,13 +343,13 @@ export default function FeedScreen({api, myGuid, onOpenPost, onOpenProfile, onOp
 							<View style={styles.stats}>
 								{(item.like_count ?? 0) > 0 ? (
 									<View style={styles.statItem}>
-										<IconHeart size={16} color={item.is_liked ? colors.accent : colors.textFaint} />
+										<BerxIcon name="heart" size={16} color={item.is_liked ? colors.accent : colors.textFaint}  filled />
 										<Text style={[styles.statText, item.is_liked && styles.statTextLiked]}>{item.like_count}</Text>
 									</View>
 								) : null}
 								{(item.comment_count ?? 0) > 0 ? (
 									<View style={styles.statItem}>
-										<IconMessage size={15} color={colors.textFaint} />
+										<BerxIcon name="message-circle" size={15} color={colors.textFaint}  />
 										<Text style={styles.statText}>{item.comment_count}</Text>
 									</View>
 								) : null}
