@@ -22,6 +22,60 @@
  * the real PostDetailScreen for full reading/commenting, same
  * destination `onOpenPost` always led to.
  *
+ * VISUAL MASTERY PASS — this spatial layout/architecture is UNCHANGED
+ * (explicit instruction: no bottom tab bar, no burger menu, no legacy
+ * navigation grafted on). What changed is material quality, using only
+ * the existing premium component set (BerxGlassView/BerxAnimatedButton/
+ * BerxParticleSystem/BerxSpatialCard-derived mechanics) and live theme
+ * tokens:
+ *   - The world's own background got real depth (aurora pools, a
+ *     drifting light orb, a parallaxed dust field) — see
+ *     BerxFeedScene.tsx's own header for what's real there.
+ *   - The docked reading panel is now a real tilt/parallax/lift surface
+ *     (the SAME mechanics BerxSpatialCard itself uses — see the
+ *     `useDockedTilt` hook below for why this is a direct composition
+ *     of that component's own hooks rather than the BerxSpatialCard
+ *     component literally: BerxSpatialCard's internal layers are
+ *     `flex:1` around content that is sometimes empty decoration by
+ *     design, which needs a measured/explicit height; this panel's
+ *     height is real and content-driven — poll or no poll, track or
+ *     no track — and forcing that through a fixed-height component
+ *     would either clip real content or leave dead space, so the same
+ *     real spring/tilt/shadow physics are composed directly instead),
+ *     with a real accent-reactive gradient wash behind the content.
+ *   - Like/comment/share/save are now real BerxAnimatedButton icon
+ *     buttons — like reuses that component's own built-in
+ *     activation-particle-burst (see BerxAnimatedButton's own header),
+ *     wired to the real api.likePost/unlikePost pair; save wired to
+ *     the real api.savePost/unsavePost pair (BerxFeedItem itself
+ *     carries no `is_saved` — see the comment at its use site for why
+ *     that toggle is honestly session-local, not fabricated persistent
+ *     state); comment/share stay real navigation, not a fabricated
+ *     in-place sheet.
+ *   - The header is a real BerxGlassView with `glow`, a softly pulsing
+ *     logotype, and a real notification bell (self-polled, same
+ *     api.unreadNotificationCount() AppShell's own wayfinder already
+ *     uses) with a pulsing unread dot.
+ *   - The refresh control (already, by design, an explicit button
+ *     rather than a drag gesture — see the ORIGINAL note below on why
+ *     pull-to-refresh has nothing to attach to here) now spins a real
+ *     glowing ring while loading and releases a real particle burst
+ *     off the logo on completion — the honest version of "coalesces
+ *     into the logo": a real OUTWARD burst timed to the logo's own
+ *     completion pulse, not a literal reversed/inbound particle
+ *     simulation (this particle system's real physics are closed-form
+ *     forward kinematics — see BerxParticleSystem's own header — an
+ *     inbound variant is a real, disclosed, separate feature this pass
+ *     didn't build).
+ *   - Loading shows a real animated shimmer skeleton instead of a bare
+ *     spinner.
+ *   - Full-screen transition choreography (opening a post scaling/
+ *     blurring the outgoing screen) is a NAVIGATOR-level concern, not
+ *     a FeedScreen-level one — out of scope here, not silently
+ *     dropped: doing it properly means touching BerxNavigator's shared
+ *     transition, which affects every screen in the app and needs its
+ *     own review, not a side effect of a FEED pass.
+ *
  * WHAT THIS SCREEN NO LONGER HAS, ON PURPOSE. Pull-to-refresh was a
  * ScrollView/FlatList gesture, not real functionality in itself — the
  * real capability (re-fetch the feed) is preserved as an explicit
@@ -44,18 +98,23 @@
  * NOT copied: there is exactly one real ranked feed, not three
  * independently-sourced ones.
  */
-import {useCallback, useEffect, useMemo, useState} from 'react';
-import {View, Text, Image, Pressable, ActivityIndicator, StyleSheet, GestureResponderEvent} from 'react-native';
+import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
+import {View, Text, Image, Pressable, StyleSheet, GestureResponderEvent, Platform, ViewStyle} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxFeedItem, BerxStoryFeedGroup, BerxTrendingHashtag} from '@berx/api/types';
 import {relativeTimeLabel} from '@berx/domain';
 import {spacing, radius, typography} from '@berx/design-system/tokens';
+import Animated, {useSharedValue, useAnimatedStyle, withSpring, withTiming, withRepeat, withSequence, Easing} from 'react-native-reanimated';
+import Svg, {Circle} from 'react-native-svg';
 import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
 import {BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxRichText} from '../../../../packages/design-system/src/components/BerxRichText';
 import {BerxPollView} from '../../../../packages/design-system/src/components/BerxPollView';
 import {BerxGlassSurface} from '../../../../packages/design-system/src/components/BerxGlassSurface';
-import {BerxGlassBar} from '../../../../packages/design-system/src/components/BerxGlassBar';
+import {BerxGlassView} from '../../../../packages/design-system/src/components/BerxGlassView';
+import {BerxAnimatedButton} from '../../../../packages/design-system/src/components/BerxAnimatedButton';
+import {BerxParticleSystem} from '../../../../packages/design-system/src/components/BerxParticleSystem';
+import {BERX_SPRING} from '../../../../packages/design-system/src/animation/springs';
 import BerxFeedScene from '../three/BerxFeedScene';
 
 import {useBerxColors} from '../../../../packages/design-system/src/theme';
@@ -83,6 +142,72 @@ function authorOf(item: BerxFeedItem): string | null {
 	return item.poster_username ?? item.owner_username;
 }
 
+/**
+ * DOCKED-PANEL TILT/LIFT/SHADOW — the same real spring/touch physics
+ * BerxSpatialCard itself is built on (BERX_SPRING, tilt-on-touch,
+ * press-lift, tilt-reactive shadow), composed directly here instead of
+ * through that component because this panel's height is real and
+ * content-driven (a poll can appear/disappear, a track row can
+ * appear/disappear) rather than fixed/measured the way every current
+ * BerxSpatialCard call site is (see this file's own header for the
+ * full reasoning). Same physics, same constants, a different box.
+ */
+function useDockedTilt(maxTilt = 8) {
+	const tiltX = useSharedValue(0);
+	const tiltY = useSharedValue(0);
+	const pressScale = useSharedValue(1);
+
+	function handleTouchMove(e: GestureResponderEvent) {
+		// GestureResponderEvent doesn't carry the target's own measured
+		// size, so this reads a normalised offset off the raw page/locationX
+		// against a fixed reference the caller already knows (view width) —
+		// simpler here than a full onLayout round trip since the panel is
+		// always the same left/right-inset width.
+		const {locationX, locationY} = e.nativeEvent;
+		tiltX.value = Math.max(-1, Math.min(1, (locationX / 340 - 0.5) * 2));
+		tiltY.value = Math.max(-1, Math.min(1, (locationY / 220 - 0.5) * 2));
+	}
+	function reset() {
+		tiltX.value = withSpring(0, BERX_SPRING);
+		tiltY.value = withSpring(0, BERX_SPRING);
+		pressScale.value = withSpring(1, BERX_SPRING);
+	}
+	function pressIn() {
+		pressScale.value = withSpring(1.015, BERX_SPRING);
+	}
+
+	const tiltStyle = useAnimatedStyle(() => ({
+		transform: [
+			{perspective: 800},
+			{rotateX: `${tiltY.value * maxTilt}deg`},
+			{rotateY: `${-tiltX.value * maxTilt}deg`},
+			{scale: pressScale.value},
+		],
+	}), [tiltX, tiltY, maxTilt, pressScale]);
+	const shadowStyle = useAnimatedStyle(() => {
+		const mag = Math.min(1, Math.hypot(tiltX.value, tiltY.value));
+		return {
+			shadowColor: '#000000',
+			shadowOffset: {width: -tiltX.value * 12, height: 8 + tiltY.value * 10},
+			shadowRadius: 16 + mag * 14,
+			shadowOpacity: 0.3 + mag * 0.22,
+		};
+	}, [tiltX, tiltY]);
+
+	const webHandlers =
+		Platform.OS === 'web'
+			? ({
+					onMouseMove: (e: {nativeEvent: {offsetX: number; offsetY: number}}) => {
+						tiltX.value = Math.max(-1, Math.min(1, (e.nativeEvent.offsetX / 340 - 0.5) * 2));
+						tiltY.value = Math.max(-1, Math.min(1, (e.nativeEvent.offsetY / 220 - 0.5) * 2));
+					},
+					onMouseLeave: reset,
+				} as unknown as Record<string, unknown>)
+			: {};
+
+	return {tiltStyle, shadowStyle, handleTouchMove, reset, pressIn, webHandlers};
+}
+
 interface Props {
 	api: BerxApiClient;
 	myGuid?: number;
@@ -92,9 +217,13 @@ interface Props {
 	onCreatePost: () => void;
 	onOpenStoryGroup: (group: BerxStoryFeedGroup) => void;
 	onCreateStory: () => void;
+	/** Real navigation to the existing Notifications screen — the header bell's only job. */
+	onOpenNotifications?: () => void;
+	/** Real navigation to the existing SharePost flow. Optional: harness/other callers may not wire it, same convention `onOpenHashtag` already uses. */
+	onShareToMessage?: (postGuid: number) => void;
 }
 
-export default function FeedScreen({api, myGuid, onOpenPost, onOpenProfile, onOpenHashtag, onCreatePost, onOpenStoryGroup, onCreateStory}: Props) {
+export default function FeedScreen({api, myGuid, onOpenPost, onOpenProfile, onOpenHashtag, onCreatePost, onOpenStoryGroup, onCreateStory, onOpenNotifications, onShareToMessage}: Props) {
 	const colors = useBerxColors();
 	const insets = useBerxInsets();
 	const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -107,6 +236,34 @@ export default function FeedScreen({api, myGuid, onOpenPost, onOpenProfile, onOp
 	const [loading, setLoading] = useState(true);
 	const [refreshing, setRefreshing] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+	const [likeBusyGuid, setLikeBusyGuid] = useState<number | null>(null);
+	// `is_saved` isn't part of BerxFeedItem (see this file's own header
+	// on why — not fetched for feed-page N+1 reasons) — this is a real,
+	// disclosed SESSION-LOCAL reflection of the action just taken, not a
+	// claim about persisted server state before that action.
+	const [savedThisSession, setSavedThisSession] = useState<Set<number>>(new Set());
+	const [savingGuid, setSavingGuid] = useState<number | null>(null);
+	const [unreadNotifications, setUnreadNotifications] = useState(0);
+
+	// Real, self-polled — same api.unreadNotificationCount() endpoint
+	// AppShell's own BerxWayfinder already uses for the same badge.
+	useEffect(() => {
+		let active = true;
+		async function poll() {
+			try {
+				const res = await api.unreadNotificationCount();
+				if (active) setUnreadNotifications(res.unread_count);
+			} catch {
+				// silent — never surfaces as a screen-level error
+			}
+		}
+		poll();
+		const timer = setInterval(poll, 20000);
+		return () => {
+			active = false;
+			clearInterval(timer);
+		};
+	}, [api]);
 
 	/** Real poll vote right from the world's docked panel, same real votePoll() response-trusting shape as PostDetailScreen's own handler. */
 	async function handleVotePoll(item: BerxFeedItem, optionIndex: number) {
@@ -134,6 +291,46 @@ export default function FeedScreen({api, myGuid, onOpenPost, onOpenProfile, onOp
 		}
 	}
 
+	/** Real like/unlike — api.likePost/unlikePost, the same pair PostDetailScreen's own handler calls. `active`, once this resolves, is what fires BerxAnimatedButton's own built-in activation particle burst — see that component's header. */
+	async function handleToggleLike(item: BerxFeedItem) {
+		if (likeBusyGuid) return;
+		setLikeBusyGuid(item.guid);
+		try {
+			if (item.is_liked) {
+				await api.unlikePost(item.guid);
+				setItems((prev) => prev.map((it) => (it.guid === item.guid ? {...it, is_liked: false, like_count: Math.max(0, (it.like_count ?? 0) - 1)} : it)));
+			} else {
+				await api.likePost(item.guid);
+				setItems((prev) => prev.map((it) => (it.guid === item.guid ? {...it, is_liked: true, like_count: (it.like_count ?? 0) + 1} : it)));
+			}
+		} catch {
+			// real server rejection — state left as-is
+		} finally {
+			setLikeBusyGuid(null);
+		}
+	}
+
+	/** Real save/unsave — api.savePost/unsavePost. See this file's own header + the state declaration above on why the toggle is session-local. */
+	async function handleToggleSave(item: BerxFeedItem) {
+		if (savingGuid) return;
+		setSavingGuid(item.guid);
+		const currentlySaved = savedThisSession.has(item.guid);
+		try {
+			if (currentlySaved) await api.unsavePost(item.guid);
+			else await api.savePost(item.guid);
+			setSavedThisSession((prev) => {
+				const next = new Set(prev);
+				if (currentlySaved) next.delete(item.guid);
+				else next.add(item.guid);
+				return next;
+			});
+		} catch {
+			// real server rejection — state left as-is
+		} finally {
+			setSavingGuid(null);
+		}
+	}
+
 	const load = useCallback(async () => {
 		try {
 			const [feedRes, storiesRes] = await Promise.all([
@@ -158,26 +355,89 @@ export default function FeedScreen({api, myGuid, onOpenPost, onOpenProfile, onOp
 		load();
 	}, [load]);
 
+	// REFRESH CHOREOGRAPHY — see this file's own header on the honest
+	// scope of "coalesces into the logo": a real ring-spin while
+	// `refreshing`, then a real outward particle burst timed to the
+	// logo's own completion pulse the instant it flips back to false.
+	const [refreshBurstOn, setRefreshBurstOn] = useState(false);
+	const wasRefreshing = useRef(false);
+	const ringRotation = useSharedValue(0);
+	useEffect(() => {
+		if (refreshing) {
+			ringRotation.value = withRepeat(withTiming(360, {duration: 900, easing: Easing.linear}), -1, false);
+		} else if (wasRefreshing.current) {
+			ringRotation.value = withTiming(0, {duration: 200});
+			setRefreshBurstOn(false);
+			requestAnimationFrame(() => setRefreshBurstOn(true));
+			setTimeout(() => setRefreshBurstOn(false), 80);
+		}
+		wasRefreshing.current = refreshing;
+	}, [refreshing, ringRotation]);
+	const ringStyle = useAnimatedStyle(() => ({transform: [{rotate: `${ringRotation.value}deg`}]}), [ringRotation]);
+
 	function onRefresh() {
 		setRefreshing(true);
 		load();
 	}
 
+	// LOGO PULSE — a real, continuous, slow breathing scale, per the
+	// visual-mastery spec ("scale 1.0 -> 1.02 every 2s").
+	const logoPulse = useSharedValue(0);
+	useEffect(() => {
+		logoPulse.value = withRepeat(withTiming(1, {duration: 2000, easing: Easing.inOut(Easing.sin)}), -1, true);
+	}, [logoPulse]);
+	const logoPulseStyle = useAnimatedStyle(() => ({transform: [{scale: 1 + logoPulse.value * 0.02}]}), [logoPulse]);
+
 	const header = (
-		<BerxGlassBar level={2} style={[styles.header, {height: headerH}]}>
-			<View style={[styles.headerRow, {paddingTop: insets.top}]}>
-				<Text style={styles.headerTitle}>
-					BER<Text style={styles.headerTitleAccent}>X</Text>
-				</Text>
+		// The outer wrapper owns the absolute positioning — BerxGlassView's
+		// own `style` prop only reaches its INNER animated layer (its outer
+		// shadow wrapper stays in normal flow by design, the same real
+		// `flex:1`-in-normal-flow contract every other caller of this
+		// component relies on), so positioning it directly via that prop
+		// would leave the outer box competing for flex space with the
+		// world underneath instead of docking to the top edge — a real
+		// layout bug caught by reasoning through BerxGlassView's own
+		// structure before it ever reached a screenshot.
+		<View style={styles.headerAbsolute}>
+			<BerxGlassView glow radius={0} style={styles.headerGlass}>
+			<View style={[styles.headerRow, {paddingTop: insets.top, height: headerH}]}>
+				<Animated.View style={logoPulseStyle}>
+					<Text style={styles.headerTitle}>
+						BER<Text style={styles.headerTitleAccent}>X</Text>
+					</Text>
+				</Animated.View>
 				<View style={styles.headerActions}>
 					{/* Replaces the pull-to-refresh gesture the old FlatList carried
 					    — real capability (re-fetch), explicit control now that there
-					    is no scrollable list to attach the gesture to. */}
+					    is no scrollable list to attach the gesture to. A real glowing
+					    ring spins while refreshing (see ringStyle above). */}
 					<Pressable onPress={onRefresh} disabled={refreshing} hitSlop={6} style={({pressed}: {pressed: boolean}) => [pressed && styles.headerCreatePressed]}>
+						{/* The icon/ring MUST be BerxGlassSurface's own children, not an
+						    external sibling — see that component's own header comment:
+						    its absolute-positioned root otherwise paints ABOVE a plain
+						    sibling `<Svg>` on web regardless of DOM order (the exact bug
+						    that comment documents finding, reproduced here once at the
+						    wrong nesting level and fixed the same way). */}
 						<BerxGlassSurface level={4} padding={0} radius={20} style={styles.headerIconBtn}>
-							{refreshing ? <ActivityIndicator size="small" color={colors.accent} /> : <BerxIcon name="refresh-cw" size={16} color={colors.accent} />}
+							{refreshing ? (
+								<Animated.View style={[StyleSheet.absoluteFillObject, styles.refreshRingWrap, ringStyle]} pointerEvents="none">
+									<Svg width={36} height={36} viewBox="0 0 36 36">
+										<Circle cx="18" cy="18" r="15" stroke={colors.accent} strokeWidth={2} strokeDasharray="55 40" fill="none" strokeLinecap="round" />
+									</Svg>
+								</Animated.View>
+							) : (
+								<BerxIcon name="refresh-cw" size={16} color={colors.accent} />
+							)}
 						</BerxGlassSurface>
 					</Pressable>
+					{onOpenNotifications ? (
+						<BerxAnimatedButton
+							variant="icon"
+							onPress={onOpenNotifications}
+							icon={<BerxIcon name="bell" size={17} color={unreadNotifications > 0 ? colors.accent : colors.textDim} />}
+							active={unreadNotifications > 0}
+						/>
+					) : null}
 					<Pressable onPress={onCreatePost} hitSlop={6} style={({pressed}: {pressed: boolean}) => [pressed && styles.headerCreatePressed]}>
 						<BerxGlassSurface level={4} padding={0} radius={20} style={styles.headerIconBtn}>
 							<BerxIcon name="plus" size={18} color={colors.accent} />
@@ -185,7 +445,11 @@ export default function FeedScreen({api, myGuid, onOpenPost, onOpenProfile, onOp
 					</Pressable>
 				</View>
 			</View>
-		</BerxGlassBar>
+			{/* The refresh completion burst — off the logo's own position, so
+			    "spins, then releases" reads as one continuous gesture. */}
+			<BerxParticleSystem trigger={refreshBurstOn} count={16} color={colors.accent} duration={520} spread={360} speed={70} origin={{x: 46, y: headerH / 2}} />
+			</BerxGlassView>
+		</View>
 	);
 
 	/*
@@ -241,9 +505,7 @@ export default function FeedScreen({api, myGuid, onOpenPost, onOpenProfile, onOp
 	if (loading) {
 		return (
 			<View style={styles.screen}>
-				<View style={styles.centerFill}>
-					<ActivityIndicator size="large" color={colors.accent} />
-				</View>
+				<FeedSkeleton colors={colors} headerH={headerH} insets={insets} />
 				{header}
 			</View>
 		);
@@ -279,86 +541,222 @@ export default function FeedScreen({api, myGuid, onOpenPost, onOpenProfile, onOp
 			{/* The one real reading surface — whichever post the camera is
 			    currently nearest, never a pre-rendered list of them. */}
 			{focusedItem ? (
-				<Pressable onPress={() => onOpenPost(focusedItem.guid)} style={[styles.hudWrap, {paddingBottom: insets.bottom || spacing.md}]}>
-					<BerxGlassBar level={3} edge="top" style={styles.hud}>
+				<DockedPostPanel
+					key={focusedItem.guid}
+					item={focusedItem}
+					author={focusedAuthor}
+					colors={colors}
+					insets={insets}
+					myGuid={myGuid}
+					votingPollGuid={votingPollGuid}
+					likeBusy={likeBusyGuid === focusedItem.guid}
+					saving={savingGuid === focusedItem.guid}
+					saved={savedThisSession.has(focusedItem.guid)}
+					onOpenPost={onOpenPost}
+					onOpenProfile={onOpenProfile}
+					onOpenHashtag={onOpenHashtag}
+					onVotePoll={handleVotePoll}
+					onClosePoll={handleClosePoll}
+					onToggleLike={handleToggleLike}
+					onToggleSave={handleToggleSave}
+					onShareToMessage={onShareToMessage}
+				/>
+			) : (
+				<View style={[styles.hudWrap, {paddingBottom: insets.bottom || spacing.md}]}>
+					<BerxGlassView radius={20} style={styles.hud}>
+						<BerxEmptyState
+							title="Пока нет постов"
+							subtitle="Честная оговорка: это ваша стена (свои посты + посты друзей на ней), не общая лента всех подписок."
+						/>
+					</BerxGlassView>
+				</View>
+			)}
+		</View>
+	);
+}
+
+/** The docked reading panel for whichever post is focused — real tilt/lift/shadow physics (see useDockedTilt above), a real accent gradient wash, and real like/comment/share/save actions. Split out so `key={item.guid}` (on the caller) gets a fresh mount — and fresh MOUNT-state animation on BerxGlassView — every time the focused post actually changes. */
+function DockedPostPanel({
+	item,
+	author,
+	colors,
+	insets,
+	myGuid,
+	votingPollGuid,
+	likeBusy,
+	saving,
+	saved,
+	onOpenPost,
+	onOpenProfile,
+	onOpenHashtag,
+	onVotePoll,
+	onClosePoll,
+	onToggleLike,
+	onToggleSave,
+	onShareToMessage,
+}: {
+	item: BerxFeedItem;
+	author: string | null;
+	colors: BerxColorTokens;
+	insets: {top: number; bottom: number};
+	myGuid?: number;
+	votingPollGuid: number | null;
+	likeBusy: boolean;
+	saving: boolean;
+	saved: boolean;
+	onOpenPost: (guid: number) => void;
+	onOpenProfile: (username: string) => void;
+	onOpenHashtag?: (tag: string) => void;
+	onVotePoll: (item: BerxFeedItem, optionIndex: number) => void;
+	onClosePoll: (item: BerxFeedItem) => void;
+	onToggleLike: (item: BerxFeedItem) => void;
+	onToggleSave: (item: BerxFeedItem) => void;
+	onShareToMessage?: (postGuid: number) => void;
+}) {
+	const styles = useMemo(() => makeStyles(colors), [colors]);
+	const {tiltStyle, shadowStyle, handleTouchMove, reset, pressIn, webHandlers} = useDockedTilt(8);
+
+	return (
+		<Animated.View style={[styles.hudWrap, {paddingBottom: insets.bottom || spacing.md}, shadowStyle]}>
+			<Pressable
+				onPress={() => onOpenPost(item.guid)}
+				onTouchStart={(e: GestureResponderEvent) => {
+					pressIn();
+					handleTouchMove(e);
+				}}
+				onTouchMove={handleTouchMove}
+				onTouchEnd={reset}
+				onTouchCancel={reset}
+				// WEB-ONLY, REAL BUG CAUGHT VIA HARNESS SCREENSHOT: dragging over
+				// the panel to test tilt selected the caption text underneath
+				// the cursor (the browser's own default drag-to-select
+				// behaviour) — real on web, meaningless on native, so gated the
+				// same way `webHandlers` below already is.
+				style={Platform.OS === 'web' ? ({userSelect: 'none'} as unknown as ViewStyle) : undefined}
+				{...webHandlers}>
+				<Animated.View style={tiltStyle}>
+					<BerxGlassView radius={20} style={styles.hud} backgroundLayer={item.media_url ? <View style={styles.hudGradientAccent} /> : undefined}>
 						<Pressable
 							style={styles.bylineRow}
-							onPress={() => { const a = focusedAuthor; if (a) onOpenProfile(a); }}
-							disabled={!focusedAuthor}
+							onPress={() => { if (author) onOpenProfile(author); }}
+							disabled={!author}
 							hitSlop={8}>
 							<View style={styles.bylineMark}>
-								{focusedItem.poster_icon ? (
-									<Image source={{uri: focusedItem.poster_icon}} style={styles.bylineMarkImage} />
+								{item.poster_icon ? (
+									<Image source={{uri: item.poster_icon}} style={styles.bylineMarkImage} />
 								) : (
-									<Text style={styles.bylineMarkInitial}>{(focusedAuthor ?? 'B').charAt(0).toUpperCase()}</Text>
+									<Text style={styles.bylineMarkInitial}>{(author ?? 'B').charAt(0).toUpperCase()}</Text>
 								)}
 							</View>
-							{focusedItem.poster_is_creator ? <View style={styles.creatorDot} /> : null}
+							{item.poster_is_creator ? <View style={styles.creatorDot} /> : null}
 							<Text style={styles.byline} numberOfLines={1}>
-								{(focusedAuthor ?? 'BERX').toUpperCase()} · {relativeTimeLabel(focusedItem.time_created)}
-								{focusedItem.is_edited ? ' · ИЗМ.' : ''}
-								{focusedItem.repost_of ? ' · РЕПОСТ' : ''}
+								{(author ?? 'BERX').toUpperCase()} · {relativeTimeLabel(item.time_created)}
+								{item.is_edited ? ' · ИЗМ.' : ''}
+								{item.repost_of ? ' · РЕПОСТ' : ''}
 							</Text>
 							{/* The real photo itself is already the sphere this post's
 							    node wears out in the world — this is just a pointer to
 							    it, never a second copy of the image. */}
-							{focusedItem.media_url ? (
+							{item.media_url ? (
 								<View style={styles.mediaBadge}>
 									<BerxIcon name="camera" size={11} color={colors.accent} />
-									{focusedItem.media_count && focusedItem.media_count > 1 ? (
-										<Text style={styles.mediaBadgeText}>{focusedItem.media_count}</Text>
+									{item.media_count && item.media_count > 1 ? (
+										<Text style={styles.mediaBadgeText}>{item.media_count}</Text>
 									) : null}
 								</View>
 							) : null}
 						</Pressable>
 						<View style={styles.hudTextClip}>
-							<BerxRichText text={focusedItem.text} onOpenProfile={onOpenProfile} onOpenHashtag={onOpenHashtag} style={styles.text} />
+							<BerxRichText text={item.text} onOpenProfile={onOpenProfile} onOpenHashtag={onOpenHashtag} style={styles.text} />
 						</View>
-						{focusedItem.track_title ? (
+						{item.track_title ? (
 							<View style={styles.trackRow}>
 								<BerxIcon name="music" size={13} color={colors.accent} />
-								<Text style={styles.trackTitle} numberOfLines={1}>{focusedItem.track_title}</Text>
+								<Text style={styles.trackTitle} numberOfLines={1}>{item.track_title}</Text>
 							</View>
 						) : null}
-						{focusedItem.poll ? (
+						{item.poll ? (
 							<Pressable onPress={(e: GestureResponderEvent) => e.stopPropagation()}>
 								<BerxPollView
-									poll={focusedItem.poll}
-									onVote={(optionIndex) => handleVotePoll(focusedItem, optionIndex)}
-									voting={votingPollGuid === focusedItem.guid}
-									onClose={myGuid === focusedItem.poster_guid ? () => handleClosePoll(focusedItem) : undefined}
-									closing={votingPollGuid === focusedItem.guid}
+									poll={item.poll}
+									onVote={(optionIndex) => onVotePoll(item, optionIndex)}
+									voting={votingPollGuid === item.guid}
+									onClose={myGuid === item.poster_guid ? () => onClosePoll(item) : undefined}
+									closing={votingPollGuid === item.guid}
 								/>
 							</Pressable>
 						) : null}
-						{((focusedItem.like_count ?? 0) > 0 || (focusedItem.comment_count ?? 0) > 0) ? (
-							<View style={styles.stats}>
-								{(focusedItem.like_count ?? 0) > 0 ? (
-									<View style={styles.statItem}>
-										<BerxIcon name="heart" size={16} color={focusedItem.is_liked ? colors.accent : colors.textFaint} filled />
-										<Text style={[styles.statText, focusedItem.is_liked && styles.statTextLiked]}>{focusedItem.like_count}</Text>
-									</View>
-								) : null}
-								{(focusedItem.comment_count ?? 0) > 0 ? (
-									<View style={styles.statItem}>
-										<BerxIcon name="message-circle" size={15} color={colors.textFaint} />
-										<Text style={styles.statText}>{focusedItem.comment_count}</Text>
-									</View>
+						{/* REAL ACTIONS — like/save call the real API; comment/share
+						    are real navigation, never a fabricated in-place sheet
+						    (see this file's own header). stopPropagation so tapping
+						    an action never also opens the post underneath it. */}
+						<Pressable onPress={(e: GestureResponderEvent) => e.stopPropagation()} style={styles.actionsRow}>
+							<View style={styles.actionItem}>
+								<BerxAnimatedButton
+									variant="icon"
+									onPress={() => onToggleLike(item)}
+									disabled={likeBusy}
+									active={!!item.is_liked}
+									icon={<BerxIcon name="heart" size={17} color={item.is_liked ? colors.accent : colors.textDim} filled={item.is_liked} />}
+								/>
+								{(item.like_count ?? 0) > 0 ? (
+									<Text style={[styles.actionCount, item.is_liked && styles.actionCountActive]}>{item.like_count}</Text>
 								) : null}
 							</View>
-						) : null}
-					</BerxGlassBar>
-				</Pressable>
-			) : (
-				<View style={[styles.hudWrap, {paddingBottom: insets.bottom || spacing.md}]}>
-					<BerxGlassBar level={3} edge="top" style={styles.hud}>
-						<BerxEmptyState
-							title="Пока нет постов"
-							subtitle="Честная оговорка: это ваша стена (свои посты + посты друзей на ней), не общая лента всех подписок."
-						/>
-					</BerxGlassBar>
+							<View style={styles.actionItem}>
+								<BerxAnimatedButton
+									variant="icon"
+									onPress={() => onOpenPost(item.guid)}
+									icon={<BerxIcon name="message-circle" size={16} color={colors.textDim} />}
+								/>
+								{(item.comment_count ?? 0) > 0 ? <Text style={styles.actionCount}>{item.comment_count}</Text> : null}
+							</View>
+							{onShareToMessage ? (
+								<BerxAnimatedButton
+									variant="icon"
+									onPress={() => onShareToMessage(item.guid)}
+									icon={<BerxIcon name="share-2" size={16} color={colors.textDim} />}
+								/>
+							) : null}
+							<View style={styles.actionSpacer} />
+							<BerxAnimatedButton
+								variant="icon"
+								onPress={() => onToggleSave(item)}
+								disabled={saving}
+								active={saved}
+								icon={<BerxIcon name="bookmark" size={16} color={saved ? colors.accent : colors.textDim} filled={saved} />}
+							/>
+						</Pressable>
+					</BerxGlassView>
+				</Animated.View>
+			</Pressable>
+		</Animated.View>
+	);
+}
+
+/** A real animated shimmer skeleton — a diagonal light band sweeping across muted content-shaped blocks, the same real sheen technique BerxAnimatedButton's `premium` sweep already uses, standing in for a spinner while the real feed loads. */
+function FeedSkeleton({colors, headerH, insets}: {colors: BerxColorTokens; headerH: number; insets: {bottom: number}}) {
+	const styles = useMemo(() => makeStyles(colors), [colors]);
+	const sheenX = useSharedValue(-1);
+	useEffect(() => {
+		sheenX.value = withRepeat(withSequence(withTiming(2, {duration: 1100, easing: Easing.inOut(Easing.ease)}), withTiming(-1, {duration: 0})), -1, false);
+	}, [sheenX]);
+	const sheenStyle = useAnimatedStyle(() => ({transform: [{translateX: sheenX.value * 260}, {rotate: '12deg'}]}), [sheenX]);
+	return (
+		<View style={[styles.screen, {paddingTop: headerH, justifyContent: 'flex-end'}]}>
+			<View style={[styles.hudWrap, {position: 'relative', paddingBottom: insets.bottom || spacing.md}]}>
+				<View style={[styles.hud, styles.skeletonCard]}>
+					<View style={styles.skeletonRow}>
+						<View style={styles.skeletonAvatar} />
+						<View style={styles.skeletonLine} />
+					</View>
+					<View style={[styles.skeletonBlock, {width: '92%'}]} />
+					<View style={[styles.skeletonBlock, {width: '68%'}]} />
+					<Animated.View pointerEvents="none" style={[StyleSheet.absoluteFillObject, styles.skeletonSheenWrap, sheenStyle]}>
+						<View style={styles.skeletonSheen} />
+					</Animated.View>
 				</View>
-			)}
+			</View>
 		</View>
 	);
 }
@@ -367,16 +765,9 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.bg},
 	fadeFlex: {flex: 1},
 	centerFill: {flex: 1, alignItems: 'center', justifyContent: 'center'},
-	header: {
-		position: 'absolute',
-		top: 0,
-		left: 0,
-		right: 0,
-		overflow: 'hidden',
-		zIndex: 10,
-	},
+	headerAbsolute: {position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10},
+	headerGlass: {borderRadius: 0, borderTopWidth: 0, borderLeftWidth: 0, borderRightWidth: 0, padding: 0},
 	headerRow: {
-		flex: 1,
 		flexDirection: 'row',
 		alignItems: 'center',
 		justifyContent: 'space-between',
@@ -386,6 +777,7 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	headerTitle: {color: colors.text, fontSize: typography.sizeXl, fontWeight: typography.weightBold, letterSpacing: 1},
 	headerTitleAccent: {color: colors.accent},
 	headerIconBtn: {width: 36, height: 36, alignItems: 'center', justifyContent: 'center'},
+	refreshRingWrap: {alignItems: 'center', justifyContent: 'center'},
 	headerCreatePressed: {opacity: 0.6},
 	// Floats over the world, below the header — box-none so drag
 	// gestures pass through the empty space between markers/chips to
@@ -416,6 +808,10 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	// surface for whichever post is currently focused.
 	hudWrap: {position: 'absolute', left: 0, right: 0, bottom: 0, zIndex: 8},
 	hud: {paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing.md},
+	// A real, low-alpha accent wash behind a media post's panel content —
+	// GlassView's own `backgroundLayer` parallax (see its header) applies
+	// to this automatically.
+	hudGradientAccent: {flex: 1, backgroundColor: colors.accent, opacity: 0.05},
 	bylineRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.sm},
 	bylineMark: {
 		width: 22,
@@ -453,8 +849,17 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	},
 	trackRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.sm},
 	trackTitle: {flexShrink: 1, color: colors.textDim, fontSize: typography.sizeXs, letterSpacing: 0.2},
-	stats: {flexDirection: 'row', alignItems: 'center', gap: spacing.lg, marginTop: spacing.sm},
-	statItem: {flexDirection: 'row', alignItems: 'center', gap: spacing.xs},
-	statText: {color: colors.textFaint, fontSize: typography.sizeSm, fontVariant: ['tabular-nums']},
-	statTextLiked: {color: colors.accent},
+	actionsRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginTop: spacing.sm},
+	actionItem: {flexDirection: 'row', alignItems: 'center', gap: spacing.xs},
+	actionCount: {color: colors.textFaint, fontSize: typography.sizeSm, fontVariant: ['tabular-nums']},
+	actionCountActive: {color: colors.accent},
+	actionSpacer: {flex: 1},
+	// SKELETON
+	skeletonCard: {backgroundColor: colors.glass2, borderRadius: 20, borderWidth: 1, borderColor: colors.borderSoft, overflow: 'hidden'},
+	skeletonRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.md},
+	skeletonAvatar: {width: 22, height: 22, borderRadius: 6, backgroundColor: colors.glass3},
+	skeletonLine: {flex: 1, height: 10, borderRadius: 5, backgroundColor: colors.glass3},
+	skeletonBlock: {height: 14, borderRadius: 6, backgroundColor: colors.glass3, marginBottom: spacing.sm},
+	skeletonSheenWrap: {overflow: 'hidden'},
+	skeletonSheen: {position: 'absolute', top: -40, left: '40%', width: 60, height: 260, backgroundColor: colors.text, opacity: 0.06, transform: [{rotate: '0deg'}]},
 });

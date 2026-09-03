@@ -1406,6 +1406,8 @@ function FeedScreenRoute({onOpenProfile}: {onOpenProfile: (username: string) => 
 				nav.push('StoryViewer', undefined);
 			}}
 			onCreateStory={() => nav.push('CreateStory', undefined)}
+			onOpenNotifications={() => nav.push('Notifications', undefined)}
+			onShareToMessage={(postGuid: number) => nav.push('SharePost', {postGuid})}
 		/>
 	);
 }

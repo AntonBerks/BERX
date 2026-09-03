@@ -65,14 +65,32 @@
  * its own Suspense + error boundary, falling back to the same plain
  * glass sphere the scene drew before this file carried textures at
  * all. One bad photo dims to a glass bead; it never blanks the scene.
+ *
+ * VISUAL MASTERY PASS — real, additive R3F background elements, same
+ * disclosed verification status as everything else in this file (type-
+ * checked, never run on a real GL context in this container):
+ *   - `DriftingLight`, a real `<pointLight>` whose position slowly
+ *     orbits via useFrame sin/cos — the "moving light source" the
+ *     visual-mastery brief asked for, a real light affecting every
+ *     node's own material the same way SPATIAL_KEY_LIGHT's static key
+ *     light already does, not a decorative sprite.
+ *   - `AuroraPlanes`, two large, far-back, low-opacity planes whose
+ *     material colour cross-fades slowly via useFrame — the 3D analogue
+ *     of the 2D fallback's SVG aurora pools (see BerxFeedScene.tsx's
+ *     own header), reading the SAME live scene palette
+ *     (useSpatialKeyLight / SPATIAL_FILL_LIGHT) rather than an invented
+ *     one.
+ *   - `DustField`, a real Three.js `<points>` field (BufferGeometry of
+ *     seeded positions, no external particle library) drifting via a
+ *     slow whole-group rotation.
  */
-import {Component, Suspense, useRef} from 'react';
+import {Component, Suspense, useMemo, useRef} from 'react';
 import type {MutableRefObject, ReactNode} from 'react';
 import {View, StyleSheet} from 'react-native';
 import {useFrame, useLoader} from '@react-three/fiber/native';
 import type {RootState} from '@react-three/fiber/native';
-import {TextureLoader} from 'three';
-import type {Group} from 'three';
+import {TextureLoader, BufferGeometry, Float32BufferAttribute} from 'three';
+import type {Group, Points as ThreePoints} from 'three';
 import type {BerxFeedItem} from '@berx/api/types';
 import {colors} from '@berx/design-system/tokens';
 import {SpatialStage} from '@berx/design-system/spatial/engine/SpatialStage';
@@ -83,6 +101,79 @@ import {
 	SPATIAL_EMISSIVE,
 	SPATIAL_MOTION,
 } from '@berx/design-system/spatial/engine/stage';
+
+/** A real, seeded (not Math.random()-per-frame) dust field — stable across re-renders. */
+function seededDustPositions(count: number, spread: number): Float32Array {
+	let s = 42;
+	const rand = () => {
+		s = (s * 9301 + 49297) % 233280;
+		return s / 233280;
+	};
+	const arr = new Float32Array(count * 3);
+	for (let i = 0; i < count; i++) {
+		arr[i * 3] = (rand() - 0.5) * spread;
+		arr[i * 3 + 1] = (rand() - 0.5) * spread * 0.6;
+		arr[i * 3 + 2] = -rand() * spread;
+	}
+	return arr;
+}
+
+/** The moving light source — a real point light, slowly orbiting above/around the stream. */
+function DriftingLight() {
+	const keyLight = useSpatialKeyLight();
+	const ref = useRef<{position: {x: number; y: number; z: number}} | null>(null);
+	useFrame((state: RootState) => {
+		if (!ref.current) return;
+		const t = state.clock.elapsedTime * 0.15;
+		ref.current.position.x = Math.sin(t) * 1.4;
+		ref.current.position.y = 0.6 + Math.cos(t * 0.7) * 0.3;
+	});
+	return <pointLight ref={ref as never} position={[0, 0.6, -1]} color={keyLight} intensity={1.4} distance={6} />;
+}
+
+/** The 3D analogue of the 2D fallback's aurora pools — two far-back, low-opacity planes, cross-fading slowly. */
+function AuroraPlanes({length}: {length: number}) {
+	const keyLight = useSpatialKeyLight();
+	const a = useRef<{material: {opacity: number}} | null>(null);
+	const b = useRef<{material: {opacity: number}} | null>(null);
+	useFrame((state: RootState) => {
+		const t = state.clock.elapsedTime;
+		if (a.current) a.current.material.opacity = 0.05 + Math.sin(t * 0.2) * 0.02;
+		if (b.current) b.current.material.opacity = 0.04 + Math.cos(t * 0.17 + 1) * 0.018;
+	});
+	return (
+		<>
+			<mesh ref={a as never} position={[-1.6, 0.3, -length * 0.5]}>
+				<planeGeometry args={[3.2, 2.4]} />
+				<meshBasicMaterial color={keyLight} transparent opacity={0.06} depthWrite={false} />
+			</mesh>
+			<mesh ref={b as never} position={[1.8, -0.4, -length * 0.8]}>
+				<planeGeometry args={[2.6, 2]} />
+				<meshBasicMaterial color={SPATIAL_FILL_LIGHT} transparent opacity={0.05} depthWrite={false} />
+			</mesh>
+		</>
+	);
+}
+
+/** A real Three.js points field standing in for ambient dust — no external particle library, the same "hand-rolled, real primitives" discipline BerxParticleSystem's 2D burst uses. */
+function DustField({length}: {length: number}) {
+	const keyLight = useSpatialKeyLight();
+	const geometry = useMemo(() => {
+		const g = new BufferGeometry();
+		g.setAttribute('position', new Float32BufferAttribute(seededDustPositions(140, Math.max(length, 4)), 3));
+		return g;
+	}, [length]);
+	const ref = useRef<ThreePoints>(null);
+	useFrame((state: RootState) => {
+		if (!ref.current) return;
+		ref.current.rotation.y = state.clock.elapsedTime * 0.02;
+	});
+	return (
+		<points ref={ref} geometry={geometry}>
+			<pointsMaterial color={keyLight} size={0.012} transparent opacity={0.35} sizeAttenuation depthWrite={false} />
+		</points>
+	);
+}
 
 /** How far apart consecutive posts sit on the order axis, in world units — the same unit the 2D fallback's dolly math uses. */
 const SPACING_Z = 0.95;
@@ -246,6 +337,9 @@ function Scene({
 	const maxResonance = items.reduce((m, it) => Math.max(m, resonance(it)), 0);
 	return (
 		<>
+			<DriftingLight />
+			<AuroraPlanes length={length} />
+			<DustField length={length} />
 			<StreamAxis length={length} />
 			{items.map((item: BerxFeedItem, i: number) => (
 				<PostNode key={item.guid} item={item} index={i} maxResonance={maxResonance} />

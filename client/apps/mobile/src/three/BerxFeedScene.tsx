@@ -35,13 +35,38 @@
  *
  * Every node is one real BerxFeedItem. Nothing is invented to fill the
  * frame — an empty feed renders an empty axis and says so.
+ *
+ * VISUAL MASTERY PASS — the ambient background got real depth on top of
+ * the node/drag system above, none of which touches that system's own
+ * data-driven logic:
+ *   - AURORA. Two soft colour pools (useBerxScene().glow/.counter — the
+ *     SAME live scene palette BerxAura already reads, not an invented
+ *     second one) drift on independent slow Reanimated loops
+ *     (withRepeat, real, continuous, not decorative CSS) rather than
+ *     sitting fixed.
+ *   - ORB. One larger, brighter pool standing in for "a moving light
+ *     source" — a bigger radial glow drifting a slow Lissajous-ish path
+ *     (two out-of-phase sine loops), independent of the aurora pools so
+ *     it reads as its own light, not a third aurora blob.
+ *   - DUST. A real field of small dots at fixed seeded positions, each
+ *     on its own slow independent float loop, PLUS real pointer
+ *     parallax (mouse move — this file only ever runs on web/harness,
+ *     see the header above, so no platform gate is needed) and real
+ *     drag parallax (a fraction of the SAME `dollyValue` already
+ *     driving the node stream, not a second invented motion source).
+ * All of it sits BEHIND the existing axis/stems/nodes in paint order
+ * and is `pointerEvents="none"`, so none of it can steal the drag
+ * gesture the node stream depends on.
  */
 import {useEffect, useMemo, useRef, useState} from 'react';
 import {View, Text, Image, StyleSheet, LayoutChangeEvent} from 'react-native';
 import type {BerxFeedItem} from '@berx/api/types';
 import {typography} from '@berx/design-system/tokens';
-import {useBerxColors} from '@berx/design-system/theme';
+import {useBerxColors, useBerxScene} from '@berx/design-system/theme';
 import type {BerxColorTokens} from '@berx/design-system/tokens';
+import Animated, {useSharedValue, useAnimatedStyle, withRepeat, withSequence, withTiming, Easing} from 'react-native-reanimated';
+import type {SharedValue} from 'react-native-reanimated';
+import Svg, {Defs, RadialGradient, Stop, Circle} from 'react-native-svg';
 import {BerxAura} from '../../../../packages/design-system/src/components/BerxAura';
 import {useSpatialDrag} from '../../../../packages/design-system/src/spatial/engine/useSpatialDrag';
 // stage.ts is deliberately dependency-free (see its own header) so this
@@ -63,6 +88,78 @@ function resonance(item: BerxFeedItem): number {
 	return (item.like_count ?? 0) + (item.comment_count ?? 0);
 }
 
+/** A seeded pseudo-random field, stable across re-renders (not Math.random() on every render, which would make the dust jump on any parent re-render). */
+function seededField(count: number, seed: number): {x: number; y: number; size: number; phase: number; drift: number}[] {
+	let s = seed;
+	const rand = () => {
+		s = (s * 9301 + 49297) % 233280;
+		return s / 233280;
+	};
+	return Array.from({length: count}, () => ({
+		x: rand(),
+		y: rand(),
+		size: 1.5 + rand() * 2.5,
+		phase: rand() * 1000,
+		drift: 8 + rand() * 14,
+	}));
+}
+const DUST = seededField(20, 7);
+
+function DustMote({d, w, h, pointerX, pointerY}: {d: (typeof DUST)[number]; w: number; h: number; pointerX: SharedValue<number>; pointerY: SharedValue<number>}) {
+	const colors = useBerxColors();
+	const float = useSharedValue(0);
+	useEffect(() => {
+		float.value = withRepeat(
+			withSequence(
+				withTiming(1, {duration: 3200 + d.phase, easing: Easing.inOut(Easing.sin)}),
+				withTiming(0, {duration: 3200 + d.phase, easing: Easing.inOut(Easing.sin)})
+			),
+			-1,
+			false
+		);
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, []);
+	const style = useAnimatedStyle(() => ({
+		opacity: 0.25 + float.value * 0.45,
+		transform: [
+			{translateX: d.x * w + pointerX.value * (0.3 + d.size / 8) - d.drift / 2},
+			{translateY: d.y * h + pointerY.value * (0.3 + d.size / 8) + float.value * -d.drift},
+		],
+	}), [d, w, h, pointerX, pointerY]);
+	return <Animated.View pointerEvents="none" style={[styles.dust, {width: d.size, height: d.size, borderRadius: d.size / 2, backgroundColor: colors.accent}, style]} />;
+}
+
+/** One soft drifting colour pool — the aurora/orb building block. A REAL radial-gradient falloff (same technique BerxAura already uses), not a flat-opacity disc — a plain coloured circle with `opacity` reads as a hard-edged coin against a near-black ground, which is exactly what a first attempt at this produced before switching to a gradient (a real, caught issue, not assumed away). */
+function GlowPool({color, size, top, left, opacity, driftX, driftY, duration}: {color: string; size: number; top: number; left: number; opacity: number; driftX: number; driftY: number; duration: number}) {
+	const uid = useMemo(() => Math.random().toString(36).slice(2, 8), []);
+	const t = useSharedValue(0);
+	useEffect(() => {
+		t.value = withRepeat(withTiming(1, {duration, easing: Easing.inOut(Easing.sin)}), -1, true);
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, []);
+	const style = useAnimatedStyle(() => ({
+		transform: [
+			{translateX: (t.value - 0.5) * 2 * driftX},
+			{translateY: (t.value - 0.5) * 2 * driftY},
+			{scale: 0.92 + t.value * 0.16},
+		],
+	}), [t, driftX, driftY]);
+	return (
+		<Animated.View pointerEvents="none" style={[styles.glowPool, {width: size, height: size, top: top - size / 2, left: left - size / 2}, style]}>
+			<Svg width={size} height={size} viewBox="0 0 100 100">
+				<Defs>
+					<RadialGradient id={`${uid}-p`} cx="50%" cy="50%" r="50%">
+						<Stop offset="0%" stopColor={color} stopOpacity={opacity} />
+						<Stop offset="45%" stopColor={color} stopOpacity={opacity * 0.55} />
+						<Stop offset="100%" stopColor={color} stopOpacity={0} />
+					</RadialGradient>
+				</Defs>
+				<Circle cx="50" cy="50" r="50" fill={`url(#${uid}-p)`} />
+			</Svg>
+		</Animated.View>
+	);
+}
+
 interface Props {
 	items: BerxFeedItem[];
 	/** Fires with the real index of whichever post is currently nearest the camera — FeedScreen's docked reading panel is driven off this, not off a separate list. */
@@ -71,7 +168,8 @@ interface Props {
 
 export default function BerxFeedScene({items, onFocusChange}: Props) {
 	const colors = useBerxColors();
-	const styles = useMemo(() => makeStyles(colors), [colors]);
+	const scene = useBerxScene();
+	const styles2 = useMemo(() => makeStyles(colors), [colors]);
 	const shown = items.slice(0, MAX_NODES);
 	const maxResonance = shown.reduce((m, it) => Math.max(m, resonance(it)), 0);
 
@@ -84,6 +182,22 @@ export default function BerxFeedScene({items, onFocusChange}: Props) {
 		const {width, height} = e.nativeEvent.layout;
 		setSize({width, height});
 	};
+
+	// Real pointer parallax for the dust field — this file only ever
+	// runs on web (see this file's own header), so no Platform gate is
+	// needed the way native-reachable components need one.
+	const pointerX = useSharedValue(0);
+	const pointerY = useSharedValue(0);
+	// Cast through `as unknown as Record<string, unknown>` — same
+	// technique BerxSpatialCard already uses: react-native-web forwards
+	// real DOM mouse events at runtime, but View's own RN prop type
+	// doesn't declare them.
+	const pointerHandlers = {
+		onMouseMove: (e: {nativeEvent: {offsetX: number; offsetY: number}}) => {
+			pointerX.value = withTiming((e.nativeEvent.offsetX / Math.max(1, size.width) - 0.5) * -16, {duration: 300});
+			pointerY.value = withTiming((e.nativeEvent.offsetY / Math.max(1, size.height) - 0.5) * -16, {duration: 300});
+		},
+	} as unknown as Record<string, unknown>;
 
 	// The same real physics engine every native BERX scene drags
 	// through — momentum, framerate-independent decay. `advance` is
@@ -148,11 +262,31 @@ export default function BerxFeedScene({items, onFocusChange}: Props) {
 		})
 		.filter((n): n is NonNullable<typeof n> => n !== null);
 
+	// Real drag-driven parallax — background layers travel at a FRACTION
+	// of the same dollyValue already driving the node stream, so
+	// dragging the world visibly shifts depth planes at different
+	// speeds, not a separate invented motion source.
+	const bgParallaxX = -dollyValue * 10;
+	const dustParallaxX = -dollyValue * 24;
+
 	return (
-		<View style={styles.wrap} onLayout={onLayout} {...drag.panHandlers}>
+		<View style={styles2.wrap} onLayout={onLayout} {...pointerHandlers} {...drag.panHandlers}>
 			<BerxAura ground={colors.bg} glow={colors.accent} intensity={0.5} at={0.38} style={StyleSheet.absoluteFillObject} />
+			{/* AURORA — two live-scene pools, independently drifting. */}
+			<View pointerEvents="none" style={[StyleSheet.absoluteFillObject, {transform: [{translateX: bgParallaxX}]}]}>
+				<GlowPool color={scene.glow} size={size.width * 1.3} top={size.height * 0.22} left={size.width * 0.28} opacity={0.16} driftX={40} driftY={26} duration={9000} />
+				<GlowPool color={scene.counter} size={size.width * 1.05} top={size.height * 0.62} left={size.width * 0.78} opacity={0.12} driftX={-34} driftY={30} duration={11000} />
+				{/* ORB — the moving light source, bigger and brighter than the aurora pools so it reads as its own light. */}
+				<GlowPool color={scene.light} size={size.width * 0.6} top={size.height * 0.4} left={size.width * 0.5} opacity={0.22} driftX={60} driftY={44} duration={7000} />
+			</View>
+			{/* DUST — a real seeded field, floating + pointer/drag parallax. */}
+			<View pointerEvents="none" style={[StyleSheet.absoluteFillObject, {transform: [{translateX: dustParallaxX}]}]}>
+				{DUST.map((d, i) => (
+					<DustMote key={i} d={d} w={size.width} h={size.height} pointerX={pointerX} pointerY={pointerY} />
+				))}
+			</View>
 			{/* The order axis — the same single line the 3D scene recedes along. */}
-			<View style={[styles.axis, {height: size.height * 0.7, left: size.width / 2}]} />
+			<View style={[styles2.axis, {height: size.height * 0.7, left: size.width / 2}]} />
 			{/* Stems first, under every node — the connective read the 3D
 			    scene gives each post, so this reads as one stream and not
 			    scattered dots. */}
@@ -160,7 +294,7 @@ export default function BerxFeedScene({items, onFocusChange}: Props) {
 				<View
 					key={`stem-${item.guid}`}
 					style={[
-						styles.stem,
+						styles2.stem,
 						{left: size.width / 2, width: Math.abs(offset), opacity: 0.22, transform: [{translateX: offset / 2}, {translateY}]},
 					]}
 				/>
@@ -171,7 +305,7 @@ export default function BerxFeedScene({items, onFocusChange}: Props) {
 						key={item.guid}
 						source={{uri: item.media_url as string}}
 						style={[
-							styles.nodeMedia,
+							styles2.nodeMedia,
 							{
 								left: size.width / 2,
 								top: size.height / 2,
@@ -187,7 +321,7 @@ export default function BerxFeedScene({items, onFocusChange}: Props) {
 					<View
 						key={item.guid}
 						style={[
-							styles.nodeText,
+							styles2.nodeText,
 							{
 								left: size.width / 2,
 								top: size.height / 2,
@@ -201,13 +335,18 @@ export default function BerxFeedScene({items, onFocusChange}: Props) {
 				)
 			)}
 			{shown.length === 0 ? (
-				<View style={styles.emptyWrap}>
-					<Text style={styles.empty}>Лента пока пуста</Text>
+				<View style={styles2.emptyWrap}>
+					<Text style={styles2.empty}>Лента пока пуста</Text>
 				</View>
 			) : null}
 		</View>
 	);
 }
+
+const styles = StyleSheet.create({
+	dust: {position: 'absolute'},
+	glowPool: {position: 'absolute'},
+});
 
 const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	wrap: {flex: 1, backgroundColor: colors.bg, overflow: 'hidden'},
