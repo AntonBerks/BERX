@@ -18,9 +18,10 @@
  * was confirmed to actually catch errors, not silently pass).
  */
 import {useRef} from 'react';
-import {View, ViewStyle} from 'react-native';
-import {Canvas, useFrame} from '@react-three/fiber/native';
+import type {ViewStyle} from 'react-native';
+import {useFrame} from '@react-three/fiber/native';
 import type {Group} from 'three';
+import {SpatialStage} from './engine/SpatialStage';
 
 export interface SpatialEmblemProps {
 	size?: number;
@@ -59,12 +60,13 @@ function PlaneStack({light, tilt}: {light: string; tilt: number}) {
 
 export function SpatialEmblem({size = 120, tilt = 0, light = '#4FD6E8', style}: SpatialEmblemProps) {
 	return (
-		<View style={[{width: size, height: size}, style]}>
-			<Canvas camera={{position: [0, 0, 3.2], fov: 32}}>
-				<ambientLight intensity={0.3} />
-				<pointLight position={[1.6, 1.4, 2.2]} color={light} intensity={1.1} />
-				<PlaneStack light={light} tilt={tilt} />
-			</Canvas>
-		</View>
+		// Camera and lights come from the one shared BERX rig — this
+		// object's previous private camera/lights were already identical to
+		// it, so composing from the stage changes nothing visually and
+		// makes the emblem provably lit by the same sun as every other
+		// real 3D object in the app.
+		<SpatialStage camera="object" width={size} height={size} style={style}>
+			<PlaneStack light={light} tilt={tilt} />
+		</SpatialStage>
 	);
 }

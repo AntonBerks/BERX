@@ -61,7 +61,15 @@ export function BerxFadeIn({children, style, delayMs = 0, riseFrom = 12, scaleFr
 				},
 			]}
 		>
-			{children}
+			{/* React.Children.toArray, not a bare {children}: a caller writing
+			    <BerxFadeIn>{a}{b}{c}</BerxFadeIn> hands us props.children as a
+			    plain UNKEYED array, and passing that straight through as this
+			    View's single child makes React reconcile it as a keyed list —
+			    which logged a "unique key" warning on every screen that wraps
+			    more than one element (most of them). toArray() is the API for
+			    exactly this: it assigns stable keys and drops null/undefined
+			    holes. Dev-only noise, but it was masking real warnings. */}
+			{React.Children.toArray(children)}
 		</Animated.View>
 	);
 }

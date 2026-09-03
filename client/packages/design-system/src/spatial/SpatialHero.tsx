@@ -24,9 +24,18 @@
  */
 import {BerxOrb} from '../components/BerxOrb';
 import type {BerxOrbProps} from '../components/BerxOrb';
+import type {SpatialQuality} from './engine/stage';
 
-export type SpatialHeroProps = BerxOrbProps;
+/**
+ * PROP PARITY with the native half matters: TypeScript resolves this
+ * .tsx (not the .native.tsx), so a prop the native scene accepts must
+ * exist here too or every caller passing it fails the typecheck. The
+ * 2D renderer has no quality tiers to turn — BerxOrb is a handful of
+ * SVG gradients either way — so it accepts and ignores it rather than
+ * pretending to scale.
+ */
+export type SpatialHeroProps = BerxOrbProps & {quality?: SpatialQuality};
 
-export function SpatialHero(props: SpatialHeroProps) {
+export function SpatialHero({quality: _quality, ...props}: SpatialHeroProps) {
 	return <BerxOrb {...props} />;
 }

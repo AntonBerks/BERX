@@ -1,17 +1,26 @@
 /**
  * !!! VERIFICATION STATUS: UNVERIFIED — see BerxButton.tsx header.
  *
- * BERX Future UI — real, native 3D depth interaction. No 3D engine, no
- * new dependency (react-three-fiber/Three.js/Skia are not installable
- * in this sandbox — npm is blocked, see BerxIcons.tsx's own header for
- * the same constraint on icon libs). This is genuinely three-
- * dimensional, not a flat card pretending to be one: RN's `transform`
- * style array supports a real `perspective` matrix component plus
- * `rotateX`/`rotateY`, all natively rendered by the platform's own
- * compositor (no JS-side pixel faking). PanResponder tracks the raw
- * touch position inside the card and maps it to a real rotation
- * around both axes — the same "holographic card" interaction pattern
- * used by native iOS/Android widgets, built from RN primitives only.
+ * BERX Future UI — depth INTERACTION for flat surfaces. Deliberately
+ * not a 3D scene.
+ *
+ * CORRECTION (this header used to claim "react-three-fiber/Three.js
+ * are not installable in this sandbox — npm is blocked"): that is
+ * FALSE today. three@0.169.0, @react-three/fiber@9.7.0 (with its real
+ * /native entry) and expo-gl@15.1.7 are all installed and every R3F
+ * peer range is satisfied. Real 3D scenes live in spatial/*.native.tsx
+ * and compose from SpatialStage. The stale claim is removed rather
+ * than left to mislead the next reader into thinking 3D is impossible.
+ *
+ * What this component IS: a perspective TRANSFORM, not a rendered
+ * scene. RN's `transform` style array supports a real `perspective`
+ * matrix component plus `rotateX`/`rotateY`, composited natively (no
+ * JS-side pixel faking), and PanResponder maps touch position to
+ * rotation around both axes. That is a genuine 3D transform of a flat
+ * plane — it is NOT a camera, geometry, lighting or a render pipeline,
+ * and it must never be described as "real 3D" in the sense
+ * SpatialStage is. Use it to give a card depth RESPONSE; use a
+ * SpatialStage scene when the content itself should exist in depth.
  *
  * Wrap any card-like surface (BerxGlassSurface, a stat tile, a hero
  * image) in this to give it real depth response to touch instead of a

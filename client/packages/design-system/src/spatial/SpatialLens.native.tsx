@@ -14,9 +14,10 @@
  * applies here.
  */
 import {useRef} from 'react';
-import {View, ViewStyle} from 'react-native';
-import {Canvas, useFrame} from '@react-three/fiber/native';
+import type {ViewStyle} from 'react-native';
+import {useFrame} from '@react-three/fiber/native';
 import type {Mesh} from 'three';
+import {SpatialStage} from './engine/SpatialStage';
 
 export interface SpatialLensProps {
 	size?: number;
@@ -53,14 +54,21 @@ function LensMesh({light, body, presence}: {light: string; body: string; presenc
 export function SpatialLens({size = 240, light = '#7FE8F2', body = '#10151C', presence = 1, style}: SpatialLensProps) {
 	const k = Math.max(0, Math.min(1, presence));
 	return (
-		<View style={[{width: size, height: size}, style]}>
-			<Canvas camera={{position: [0, 0, 3.2], fov: 34}}>
-				<ambientLight intensity={0.06} />
-				{/* The single "edge the light comes from" — low, off to the
-				    upper-left, matching BerxLens's own 2D gradient angle. */}
-				<pointLight position={[-1.6, 1.3, 1.8]} color={light} intensity={0.9 * k} />
-				<LensMesh light={light} body={body} presence={k} />
-			</Canvas>
-		</View>
+		// The shared BERX rig, turned right down (intensity 0.18): this
+		// object is deliberately the quietest thing in the product — "one
+		// object so quiet you have to look twice" — and that restraint is
+		// now a dimmer setting on the ONE rig rather than a private
+		// lighting setup of its own.
+		<SpatialStage camera="object" intensity={0.18} width={size} height={size} style={style}>
+			{/* The one scene-local light, and the one thing the stage
+			    deliberately does not own: light DIRECTION. This object's
+			    key comes from the upper-LEFT because its 2D twin (BerxLens)
+			    is drawn with its gradient at that angle — the 3D and 2D
+			    renderings of the same object must agree about where the
+			    light is, so this stays bound to the 2D artwork, not to the
+			    rig's default upper-right key. */}
+			<pointLight position={[-1.6, 1.3, 1.8]} color={light} intensity={0.9 * k} />
+			<LensMesh light={light} body={body} presence={k} />
+		</SpatialStage>
 	);
 }

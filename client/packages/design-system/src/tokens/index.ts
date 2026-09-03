@@ -13,13 +13,15 @@
  * new Day environment's tokens, defined but not yet wired to a
  * runtime switch across every screen — honestly scoped, not faked).
  *
- * MAX BUILD — cyan #4fd6e8 is RETIRED. New accent: warm gold #D9A93F.
- * See BERX_DECISIONS.md for the full rationale; short version: this
- * is a deliberately different hue family from BOTH previously-tried-
- * and-rejected accents (orange #ff6a00, violet #8b5cf6), chosen so it
- * reads as a genuinely new identity rather than "back to orange."
- * Mirrors the live PHP web theme's `--berx-accent` (updated in the
- * same batch — themes/berx/plugins/default/css/core/default.php).
+ * ACCENT HISTORY — read this before "fixing" the accent again. Orange
+ * #ff6a00, violet #8b5cf6 and warm gold #D9A93F were each tried and
+ * each REJECTED. The accent is cyan #4FD6E8 and it is fixed brand
+ * identity, not a preference (see `colors.accent` below for the rule).
+ *
+ * This header previously announced the opposite ("cyan is RETIRED, new
+ * accent: warm gold") while the code five lines below it defined
+ * #4FD6E8 — a stale comment contradicting live code, which had already
+ * misled one 3D scene into hardcoding a gold palette. Corrected here.
  */
 
 export const colors = {
