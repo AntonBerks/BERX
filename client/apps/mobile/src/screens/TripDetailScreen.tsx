@@ -14,6 +14,17 @@
  * that a full-screen editor would be overkill; the edit form lives
  * inline here instead of as a separate route, same principle as not
  * building empty screens just to hit a number.
+ *
+ * BERX SPATIAL ENGINE — real 3D, composed from the shared engine, not
+ * a new one (master directive §27/§30). `BerxTripStop.day_number` is a
+ * real, server-assigned field — which day of the trip each stop
+ * belongs to — so BerxTripScene renders it as real depth: Day 1
+ * nearest, later days receding, stops sharing a day at the same depth.
+ * No intra-day ranking is invented — there is no real field for it, so
+ * same-day stops sit in a plain row, not a fabricated order. Opt-in,
+ * off by default, same pattern every other spatial view in the app
+ * uses. The stop rows were also the old generic-list pattern (a flat
+ * colors.surface box) — converted to real BerxGlassSurface cards.
  */
 import {useCallback, useEffect, useState, useMemo} from 'react';
 import {View, Text, FlatList, Image, Pressable, Alert, RefreshControl, StyleSheet} from 'react-native';
@@ -24,7 +35,9 @@ import {BerxHeader} from '../../../../packages/design-system/src/components/Berx
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
+import {BerxGlassSurface} from '../../../../packages/design-system/src/components/BerxGlassSurface';
 import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
+import BerxTripScene from '../three/BerxTripScene';
 
 import {useBerxColors} from '../../../../packages/design-system/src/theme';
 import type {BerxColorTokens} from '@berx/design-system/tokens';
@@ -66,6 +79,8 @@ export default function TripDetailScreen({api, id, onOpenPlace, onOpenEvent, onD
 	const [saving, setSaving] = useState(false);
 	const [deleting, setDeleting] = useState(false);
 	const [editError, setEditError] = useState<string | null>(null);
+	/** Off by default, same as every other spatial view: the day-by-day list stays the dependable read. */
+	const [spatial, setSpatial] = useState(false);
 
 	const load = useCallback(async () => {
 		setLoading(true);
@@ -206,6 +221,14 @@ export default function TripDetailScreen({api, id, onOpenPlace, onOpenEvent, onD
 				</View>
 			) : null}
 
+			{!editing && days.length > 0 ? (
+				<View style={styles.toolbar}>
+					<Pressable onPress={() => setSpatial((v: boolean) => !v)}>
+						<Text style={styles.toggleBtnText}>{spatial ? 'Показать списком' : 'Показать маршрут в глубине'}</Text>
+					</Pressable>
+				</View>
+			) : null}
+
 			{editing ? (
 				<View style={styles.editForm}>
 					<BerxInput placeholder="Название поездки" value={editTitle} onChangeText={setEditTitle} />
@@ -268,6 +291,10 @@ export default function TripDetailScreen({api, id, onOpenPlace, onOpenEvent, onD
 
 			{editing ? null : days.length === 0 ? (
 				<BerxEmptyState title="Маршрут пока пуст" subtitle="Добавляйте места и события со страниц Places/Events." />
+			) : spatial ? (
+				<View style={styles.spatialWrap}>
+					<BerxTripScene days={days} />
+				</View>
 			) : (
 				<BerxFadeIn style={styles.fadeFlex}>
 					<FlatList
@@ -290,18 +317,19 @@ export default function TripDetailScreen({api, id, onOpenPlace, onOpenEvent, onD
 								{stops.map((s: BerxTripStop) => (
 									<Pressable
 										key={s.stop_id}
-										style={styles.stopRow}
 										onPress={() => (s.item_type === 'place' ? onOpenPlace(s.item_guid) : onOpenEvent(s.item_guid))}>
-										{s.image_url ? <Image source={{uri: s.image_url}} style={styles.thumb} /> : <View style={styles.thumbFallback} />}
-										<View style={styles.stopBody}>
-											<Text style={styles.stopTitle} numberOfLines={1}>{s.title}</Text>
-											<Text style={styles.stopType}>{s.item_type === 'place' ? 'Место' : 'Событие'}</Text>
-										</View>
-										{trip.is_own ? (
-											<Pressable onPress={() => removeStop(s.stop_id)} hitSlop={8}>
-												<Text style={styles.remove}>✕</Text>
-											</Pressable>
-										) : null}
+										<BerxGlassSurface padding="sm" style={styles.stopRow}>
+											{s.image_url ? <Image source={{uri: s.image_url}} style={styles.thumb} /> : <View style={styles.thumbFallback} />}
+											<View style={styles.stopBody}>
+												<Text style={styles.stopTitle} numberOfLines={1}>{s.title}</Text>
+												<Text style={styles.stopType}>{s.item_type === 'place' ? 'Место' : 'Событие'}</Text>
+											</View>
+											{trip.is_own ? (
+												<Pressable onPress={() => removeStop(s.stop_id)} hitSlop={8}>
+													<Text style={styles.remove}>✕</Text>
+												</Pressable>
+											) : null}
+										</BerxGlassSurface>
 									</Pressable>
 								))}
 							</View>
@@ -335,9 +363,10 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	participantAvatar: {width: 32, height: 32, borderRadius: radius.pill, backgroundColor: colors.graphite, borderWidth: 2, borderColor: colors.bg, marginRight: -8},
 	list: {padding: spacing.md, gap: spacing.md},
 	fadeFlex: {flex: 1},
+	spatialWrap: {padding: spacing.md},
 	dayBlock: {gap: spacing.sm, marginBottom: spacing.md},
 	dayLabel: {fontSize: typography.sizeXs, color: colors.textFaint, fontWeight: typography.weightBold, textTransform: 'uppercase'},
-	stopRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.surface, borderRadius: radius.md, padding: spacing.sm},
+	stopRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm},
 	thumb: {width: 48, height: 48, borderRadius: radius.sm},
 	thumbFallback: {width: 48, height: 48, borderRadius: radius.sm, backgroundColor: colors.graphite},
 	stopBody: {flex: 1, gap: 2},
