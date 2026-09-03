@@ -9,17 +9,23 @@
  * Future UI pass: summary stats and history rows now sit on
  * BerxGlassSurface with a staggered BerxFadeIn entrance (stats first,
  * then the timeline), matching the rest of the Future Layer screens.
+ *
+ * BERX WORLD REBUILD — the plain BerxHeader title bar was the one
+ * piece of this screen still off the editorial-header language
+ * PeopleScreen/MyMomentsScreen/CirclesScreen already use for personal-
+ * history surfaces; brought in line so BERX's real history reads as
+ * one product across screens.
  */
 import {useCallback, useEffect, useState, useMemo} from 'react';
 import {View, Text, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxLifeGraphEdge, BerxLifeGraphResponse} from '@berx/api/types';
-import {relativeTimeLabel} from '@berx/domain';
+import {relativeTimeLabel, ruPlural} from '@berx/domain';
 import {spacing, typography} from '@berx/design-system/tokens';
-import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxGlassSurface} from '../../../../packages/design-system/src/components/BerxGlassSurface';
 import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
+import {BerxEditorialTitle, BerxCircleButton} from '../../../../packages/design-system/src/components/BerxGreetingHeader';
 
 import {useBerxColors} from '../../../../packages/design-system/src/theme';
 import type {BerxColorTokens} from '@berx/design-system/tokens';
@@ -89,9 +95,23 @@ export default function LifeGraphScreen({api, onBack}: Props) {
 	if (loading) return <BerxLoadingState />;
 	if (error || !data) return <BerxErrorState message={error ?? 'Не удалось загрузить'} onRetry={load} />;
 
+	const edgeCountLabel = `${data.edges.length} ${ruPlural(data.edges.length, 'запись', 'записи', 'записей')} реальной истории`;
+
 	return (
 		<View style={styles.screen}>
-			<BerxHeader title="Ваш путь в BERX" onBack={onBack} />
+			<View style={styles.head}>
+				<BerxEditorialTitle
+					topInset={!onBack}
+					style={styles.headline}
+					accentIndex={1}
+					lines={['Ваш путь', edgeCountLabel]}
+				/>
+				{onBack ? (
+					<View style={styles.headActions}>
+						<BerxCircleButton icon="chevron-left" onPress={onBack} />
+					</View>
+				) : null}
+			</View>
 			<BerxFadeIn style={styles.summaryGrid}>
 				{SUMMARY_ROWS.map((row) => {
 					const value = data.summary[row.key];
@@ -127,6 +147,9 @@ export default function LifeGraphScreen({api, onBack}: Props) {
 
 const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.bg},
+	head: {flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', paddingHorizontal: spacing.lg, paddingTop: spacing.lg, gap: spacing.md},
+	headline: {flex: 1, paddingHorizontal: 0, paddingTop: 0},
+	headActions: {flexDirection: 'row', gap: spacing.sm},
 	summaryGrid: {flexDirection: 'row', flexWrap: 'wrap', padding: spacing.md, gap: spacing.sm},
 	summaryCard: {minWidth: '30%', flexGrow: 1},
 	summaryValue: {fontSize: typography.sizeLg, color: colors.white, fontWeight: typography.weightBold},
