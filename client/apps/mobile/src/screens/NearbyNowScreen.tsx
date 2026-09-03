@@ -6,6 +6,13 @@
  * "Открыто сейчас" is now a real filter, backed by structured
  * ossn_place_hours server-side. Places with no structured hours are
  * never hidden by it — "unknown" is not treated as "closed".
+ *
+ * BERX WORLD REBUILD — same treatment as PlacesNearbyScreen: a real
+ * World-reactive BerxAura ground behind the whole screen instead of a
+ * flat opaque background, the coordinate/filter form promoted onto
+ * real glass instead of sitting bare in the layout flow. The result
+ * list was already on BerxGlassSurface rows from an earlier pass —
+ * left as-is.
  */
 import {useState, useMemo} from 'react';
 import {View, Text, FlatList, Image, Pressable, StyleSheet} from 'react-native';
@@ -18,8 +25,9 @@ import {BerxButton} from '../../../../packages/design-system/src/components/Berx
 import {BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxGlassSurface} from '../../../../packages/design-system/src/components/BerxGlassSurface';
 import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
+import {BerxAura} from '../../../../packages/design-system/src/components/BerxAura';
 
-import {useBerxColors} from '../../../../packages/design-system/src/theme';
+import {useBerxColors, useBerxScene} from '../../../../packages/design-system/src/theme';
 import type {BerxColorTokens} from '@berx/design-system/tokens';
 
 interface Props {
@@ -37,6 +45,7 @@ function fmtWhen(unix: number): string {
 
 export default function NearbyNowScreen({api, onOpenPlace, onOpenEvent, onBack}: Props) {
 	const colors = useBerxColors();
+	const scene = useBerxScene();
 	const styles = useMemo(() => makeStyles(colors), [colors]);
 	const [lat, setLat] = useState('');
 	const [lng, setLng] = useState('');
@@ -74,8 +83,9 @@ export default function NearbyNowScreen({api, onOpenPlace, onOpenEvent, onBack}:
 
 	return (
 		<View style={styles.screen}>
+			<BerxAura ground={scene.ground} glow={scene.glow} counter={scene.counter} intensity={0.55} at={0.1} />
 			<BerxHeader title="Рядом сейчас" onBack={onBack} />
-			<View style={styles.form}>
+			<BerxGlassSurface level={3} padding="md" style={styles.form}>
 				<View style={styles.row}>
 					<View style={styles.half}><BerxInput placeholder="Широта" value={lat} onChangeText={setLat} keyboardType="decimal-pad" /></View>
 					<View style={styles.half}><BerxInput placeholder="Долгота" value={lng} onChangeText={setLng} keyboardType="decimal-pad" /></View>
@@ -94,7 +104,7 @@ export default function NearbyNowScreen({api, onOpenPlace, onOpenEvent, onBack}:
 				</View>
 				{error ? <Text style={styles.error}>{error}</Text> : null}
 				<BerxButton label="Найти рядом" onPress={search} loading={loading} fullWidth />
-			</View>
+			</BerxGlassSurface>
 
 			{places !== null && rows.length === 0 ? (
 				<BerxEmptyState title="Рядом ничего не найдено" subtitle="Попробуйте увеличить радиус или другие координаты." />
@@ -137,7 +147,7 @@ export default function NearbyNowScreen({api, onOpenPlace, onOpenEvent, onBack}:
 
 const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.bg},
-	form: {padding: spacing.md, gap: spacing.sm},
+	form: {margin: spacing.md, gap: spacing.sm},
 	row: {flexDirection: 'row', gap: spacing.sm},
 	half: {flex: 1},
 	filterRow: {flexDirection: 'row', gap: 16},

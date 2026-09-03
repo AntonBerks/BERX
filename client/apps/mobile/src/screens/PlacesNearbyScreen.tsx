@@ -8,6 +8,17 @@
  * page's own "no silent geolocation" principle rather than faking a
  * device location. A real build should add a Geolocation permission
  * flow here later; this does not pretend that already exists.
+ *
+ * BERX WORLD REBUILD — this was a plain search-form-over-flat-list
+ * utility screen: opaque background, plain `colors.surface` boxes for
+ * both the form and the result cards. There is no photo to build a
+ * cinematic hero from here (it's a coordinate search, not a place),
+ * so the spatial treatment is the ambient one instead: a real
+ * World-reactive BerxAura ground behind the whole screen (the same
+ * scene primitive BerxStage itself draws from, at a restrained
+ * intensity so it stays a felt light, not a wallpaper), the locator
+ * form promoted onto real glass, and each result a BerxGlassSurface
+ * card instead of a flat colored box.
  */
 import {useState, useMemo} from 'react';
 import {View, Text, FlatList, Image, Pressable, StyleSheet} from 'react-native';
@@ -19,8 +30,10 @@ import {BerxInput} from '../../../../packages/design-system/src/components/BerxI
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
+import {BerxAura} from '../../../../packages/design-system/src/components/BerxAura';
+import {BerxGlassSurface} from '../../../../packages/design-system/src/components/BerxGlassSurface';
 
-import {useBerxColors} from '../../../../packages/design-system/src/theme';
+import {useBerxColors, useBerxScene} from '../../../../packages/design-system/src/theme';
 import type {BerxColorTokens} from '@berx/design-system/tokens';
 
 interface Props {
@@ -33,6 +46,7 @@ const RADII = [1, 3, 5, 10, 25, 50];
 
 export default function PlacesNearbyScreen({api, onOpenPlace, onBack}: Props) {
 	const colors = useBerxColors();
+	const scene = useBerxScene();
 	const styles = useMemo(() => makeStyles(colors), [colors]);
 	const [lat, setLat] = useState('');
 	const [lng, setLng] = useState('');
@@ -64,8 +78,9 @@ export default function PlacesNearbyScreen({api, onOpenPlace, onBack}: Props) {
 
 	return (
 		<View style={styles.screen}>
+			<BerxAura ground={scene.ground} glow={scene.glow} counter={scene.counter} intensity={0.55} at={0.1} />
 			<BerxHeader title="Рядом" onBack={onBack} />
-			<View style={styles.form}>
+			<BerxGlassSurface level={3} padding="md" style={styles.form}>
 				<View style={styles.row}>
 					<View style={styles.half}><BerxInput placeholder="Широта" value={lat} onChangeText={setLat} keyboardType="decimal-pad" /></View>
 					<View style={styles.half}><BerxInput placeholder="Долгота" value={lng} onChangeText={setLng} keyboardType="decimal-pad" /></View>
@@ -78,7 +93,7 @@ export default function PlacesNearbyScreen({api, onOpenPlace, onBack}: Props) {
 					))}
 				</View>
 				<BerxButton label="Искать" loading={loading} onPress={search} fullWidth />
-			</View>
+			</BerxGlassSurface>
 
 			{loading ? (
 				<BerxLoadingState />
@@ -95,12 +110,14 @@ export default function PlacesNearbyScreen({api, onOpenPlace, onBack}: Props) {
 						keyExtractor={(p: BerxNearbyPlace) => String(p.guid)}
 						contentContainerStyle={styles.list}
 						renderItem={({item}: {item: BerxNearbyPlace}) => (
-							<Pressable style={styles.card} onPress={() => onOpenPlace(item.guid)}>
-								{item.cover_url ? <Image source={{uri: item.cover_url}} style={styles.cardImage} /> : <View style={styles.cardImageFallback} />}
-								<View style={styles.cardBody}>
-									<Text style={styles.cardTitle} numberOfLines={1}>{item.title}</Text>
-									<Text style={styles.cardDistance}>{item.distance_km} км</Text>
-								</View>
+							<Pressable onPress={() => onOpenPlace(item.guid)}>
+								<BerxGlassSurface padding="sm" style={styles.card}>
+									{item.cover_url ? <Image source={{uri: item.cover_url}} style={styles.cardImage} /> : <View style={styles.cardImageFallback} />}
+									<View style={styles.cardBody}>
+										<Text style={styles.cardTitle} numberOfLines={1}>{item.title}</Text>
+										<Text style={styles.cardDistance}>{item.distance_km} км</Text>
+									</View>
+								</BerxGlassSurface>
 							</Pressable>
 						)}
 					/>
@@ -112,17 +129,17 @@ export default function PlacesNearbyScreen({api, onOpenPlace, onBack}: Props) {
 
 const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.bg},
-	form: {padding: spacing.md, gap: spacing.sm},
+	form: {margin: spacing.md, gap: spacing.sm},
 	row: {flexDirection: 'row', gap: spacing.sm},
 	half: {flex: 1},
 	chipRow: {flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs},
-	chip: {paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: radius.pill, backgroundColor: colors.surface},
+	chip: {paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: radius.pill, backgroundColor: 'rgba(255,255,255,0.08)'},
 	chipActive: {backgroundColor: colors.accentSoft, borderWidth: 1, borderColor: colors.accent},
 	chipText: {fontSize: typography.sizeSm, color: colors.textDim},
 	chipTextActive: {color: colors.accent, fontWeight: typography.weightMedium},
 	list: {padding: spacing.md, gap: spacing.sm},
 	fadeFlex: {flex: 1},
-	card: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.surface, borderRadius: radius.md, padding: spacing.sm, marginBottom: spacing.sm},
+	card: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.sm},
 	cardImage: {width: 56, height: 56, borderRadius: radius.sm},
 	cardImageFallback: {width: 56, height: 56, borderRadius: radius.sm, backgroundColor: colors.graphite},
 	cardBody: {flex: 1},
