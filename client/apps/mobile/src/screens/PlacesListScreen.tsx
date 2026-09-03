@@ -5,7 +5,7 @@
  * (components/OssnApi/v1/places.php). Category filter uses the real
  * server whitelist via api.placeCategories(), not a hardcoded list.
  *
- * MAX BUILD — real "🔥 В тренде" rail. api.trendingPlaces() wires
+ * MAX BUILD — real "В тренде" rail. api.trendingPlaces() wires
  * OssnSignals (BERX Future Core) into a live 7-day engagement
  * ranking. Best-effort, never blocks the list itself; hidden entirely
  * when nothing has real signals yet (never shown as a fake all-zero
@@ -37,6 +37,8 @@ import {BerxEditorialTitle, BerxCircleButton} from '../../../../packages/design-
 
 import {useBerxColors} from '../../../../packages/design-system/src/theme';
 import type {BerxColorTokens} from '@berx/design-system/tokens';
+import {BerxIcon} from '../../../../packages/design-system/src/icons/BerxIcon';
+import {BerxEdgeFade} from '../../../../packages/design-system/src/components/BerxEdgeFade';
 
 // Reference lead plate: one dominant card, nearly the full width.
 const LEAD_W = Math.round(Dimensions.get('window').width - 32);
@@ -127,8 +129,15 @@ export default function PlacesListScreen({api, onOpenPlace, onCreate, onOpenNear
 				</View>
 			</View>
 			{trending.length > 0 ? (
-				<View>
-					<Text style={styles.trendingLabel}>В тренде</Text>
+			<View>
+					{/* Marked with the family's `flame`, the same glyph NearbyNow
+					    uses for a live moment — one mark for "happening now"
+					    across the product rather than a word here and a glyph
+					    there. */}
+					<View style={styles.trendingHead}>
+						<BerxIcon name="flame" size={14} color={colors.accent} />
+						<Text style={styles.trendingLabel}>В тренде</Text>
+					</View>
 					<FlatList
 						horizontal
 						showsHorizontalScrollIndicator={false}
@@ -148,7 +157,10 @@ export default function PlacesListScreen({api, onOpenPlace, onCreate, onOpenNear
 								/>
 							</View>
 						)}
-					/>
+				/>
+					{/* The rail keeps going past the screen edge; without this it
+					    just stopped mid-tile with no sign there was more. */}
+					<BerxEdgeFade color={colors.bg} width={36} />
 				</View>
 			) : null}
 			<ScrollView
@@ -215,7 +227,10 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	searchFlex: {flex: 1},
 	toolbar: {flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing.lg, paddingTop: spacing.sm, gap: spacing.sm},
 	toolbarRow: {flexDirection: 'row', gap: spacing.sm},
-	trendingLabel: {color: colors.text, fontSize: typography.sizeLg, fontWeight: typography.weightBold, letterSpacing: -0.4, paddingHorizontal: spacing.lg, paddingTop: spacing.sm},
+	trendingHead: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.lg, paddingTop: spacing.sm},
+	// Padding moved to trendingHead, which is now the row that owns it —
+	// leaving it here as well double-indented the label past the glyph.
+	trendingLabel: {color: colors.text, fontSize: typography.sizeLg, fontWeight: typography.weightBold, letterSpacing: -0.4},
 	trendingRow: {paddingHorizontal: spacing.lg, paddingVertical: spacing.md, gap: spacing.md},
 	trendingTile: {width: LEAD_W, marginRight: spacing.md},
 	chipRow: {paddingHorizontal: spacing.lg, paddingVertical: spacing.sm, gap: spacing.sm, alignItems: 'center'},

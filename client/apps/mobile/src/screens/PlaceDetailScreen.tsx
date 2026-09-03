@@ -46,7 +46,7 @@
 import {useCallback, useEffect, useRef, useState, useMemo} from 'react';
 import {View, Text, Animated, Image, Pressable, Linking, Dimensions, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
-import type {BerxPlace, BerxPlaceReview, BerxExperienceGraphFriend, BerxExperienceGraphWorldFriend, BerxBusinessOffer} from '@berx/api/types';
+import type {BerxPlace, BerxPlaceReview, BerxExperienceGraphFriend, BerxExperienceGraphWorldFriend, BerxBusinessOffer, BerxPlaceCategory} from '@berx/api/types';
 import {BerxApiError} from '@berx/core';
 import {spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
@@ -62,6 +62,8 @@ import {BerxAvatarStack} from '../../../../packages/design-system/src/components
 
 import {useBerxColors} from '../../../../packages/design-system/src/theme';
 import type {BerxColorTokens} from '@berx/design-system/tokens';
+import {BerxIcon} from '../../../../packages/design-system/src/icons/BerxIcon';
+import {ruPlural} from '@berx/domain';
 
 // Cinematic but not overwhelming — Place has a long real body (offers,
 // reviews, discussion) below it, unlike Profile's shorter hero-first page.
@@ -107,6 +109,16 @@ export default function PlaceDetailScreen({api, guid, myGuid, isAdmin, onAddToCo
 	const [replyDrafts, setReplyDrafts] = useState<Record<number, string>>({});
 	const [replyBusy, setReplyBusy] = useState<number | null>(null);
 	const [friendsHere, setFriendsHere] = useState<BerxExperienceGraphFriend[]>([]);
+	/**
+	 * BerxPlace.category is a SLUG ('cafe'), not a label, and this screen
+	 * rendered it raw — putting an internal database identifier in the
+	 * badge next to the place's own name, in English, on a Russian
+	 * screen. PlacesList and Onboarding both already hit this and both
+	 * resolved it the same way: fetch the real labels from the server,
+	 * never keep a client-side copy of the taxonomy, because a local copy
+	 * drifts the first time the server's list changes. Same fix here.
+	 */
+	const [categoryLabels, setCategoryLabels] = useState<Record<string, string>>({});
 	const [friendsWorlds, setFriendsWorlds] = useState<BerxExperienceGraphWorldFriend[]>([]);
 	const [offers, setOffers] = useState<BerxBusinessOffer[]>([]);
 	const [claimingOfferId, setClaimingOfferId] = useState<number | null>(null);
@@ -135,6 +147,11 @@ export default function PlaceDetailScreen({api, guid, myGuid, isAdmin, onAddToCo
 				.catch(() => undefined);
 			// Best-effort — a place with no offers module reachable still loads normally.
 			api.placeOffers(guid).then((res) => setOffers(res.offers)).catch(() => undefined);
+			// Same: the badge falls back to showing nothing rather than the
+			// slug if this never arrives.
+			api.placeCategories()
+				.then((res) => setCategoryLabels(Object.fromEntries(res.categories.map((c: BerxPlaceCategory) => [c.slug, c.label]))))
+				.catch(() => undefined);
 		} catch (e) {
 			setError(e instanceof Error ? e.message : 'Не удалось загрузить место');
 		} finally {
@@ -376,15 +393,26 @@ export default function PlaceDetailScreen({api, guid, myGuid, isAdmin, onAddToCo
 							total={friendsHere.length}
 							size={26}
 						/>
-						<Text style={styles.presenceLabel}>{friendsHere.length === 1 ? '1 друг был здесь' : `${friendsHere.length} друзей были здесь`}</Text>
+						{/* Was "2 друзей были здесь" — the genitive plural, correct only
+						    for 5+. Both the noun AND the verb change for 2-4. */}
+						<Text style={styles.presenceLabel}>
+							{friendsHere.length} {ruPlural(friendsHere.length, 'друг был здесь', 'друга были здесь', 'друзей были здесь')}
+						</Text>
 					</BerxGlassSurface>
 				) : null}
 
 				<BerxFadeIn riseFrom={0} style={styles.heroContent}>
 					<View style={styles.metaRow}>
-						{place.category ? <View style={styles.chip}><Text style={styles.chipText}>{place.category}</Text></View> : null}
+						{place.category && categoryLabels[place.category] ? (
+							<View style={styles.chip}><Text style={styles.chipText}>{categoryLabels[place.category]}</Text></View>
+						) : null}
 						{place.price ? <Text style={styles.priceText}>{'$'.repeat(place.price)}</Text> : null}
-						{place.rating_count > 0 ? <Text style={styles.ratingText}>★ {place.rating} ({place.rating_count})</Text> : null}
+						{place.rating_count > 0 ? (
+						<View style={styles.infoRow}>
+							<BerxIcon name="star" size={14} filled color={colors.accent} />
+							<Text style={styles.ratingText}>{place.rating} ({place.rating_count})</Text>
+						</View>
+					) : null}
 						{place.is_business && place.verified ? <Text style={styles.verifiedBadge}>✓ Верифицированный бизнес</Text> : null}
 					</View>
 					<Text style={styles.heroTitle}>{place.title}</Text>
@@ -393,27 +421,49 @@ export default function PlaceDetailScreen({api, guid, myGuid, isAdmin, onAddToCo
 			</View>
 
 			<BerxFadeIn style={styles.body}>
+				{/* WAS SEVEN BUTTONS AT ONE WEIGHT. Every action on this screen
+				    was a secondary pill in one wrapping row, so nothing was the
+				    thing to do here and the eye had to read all seven to find
+				    out. Three jobs are actually different:
+
+				      DO — checking in is the one action that records you were
+				      actually AT this place, and the points, experience graph and
+				      presence rails downstream are all built on it. It is the
+				      primary verb and now looks like one.
+				      KEEP — save and route: frequent, direct, secondary.
+				      FILE — the four "add this place to a thing" actions are one
+				      coherent group and now sit under their own quiet label
+				      instead of being interleaved with the other two. */}
 				<BerxGlassSurface padding="sm" style={styles.actionBar}>
 					<View style={styles.actions}>
+						{place.lat !== null && place.lng !== null ? (
+							<BerxButton label="Отметиться" variant="primary" onPress={() => { setCheckinOpen(!checkinOpen); setCheckinMessage(null); }} />
+						) : null}
 						<BerxButton
 							label={place.is_saved ? 'Сохранено' : 'Сохранить'}
-							variant={place.is_saved ? 'primary' : 'secondary'}
+							variant="secondary"
 							loading={saving}
 							onPress={toggleSave}
 						/>
-						{onAddToCollection ? <BerxButton label="В подборку" variant="secondary" onPress={onAddToCollection} /> : null}
-						{onAddToTrip ? <BerxButton label="В поездку" variant="secondary" onPress={onAddToTrip} /> : null}
-						{onAddToWorld ? <BerxButton label="В мир" variant="secondary" onPress={onAddToWorld} /> : null}
 						{place.lat !== null && place.lng !== null ? <BerxButton label="Маршрут" variant="secondary" onPress={buildRoute} /> : null}
-						{place.lat !== null && place.lng !== null ? <BerxButton label="Отметиться" variant="secondary" onPress={() => { setCheckinOpen(!checkinOpen); setCheckinMessage(null); }} /> : null}
-						{onCreateExperience ? (
-							<BerxButton
-								label="Впечатление"
-								variant="secondary"
-								onPress={() => onCreateExperience({type: 'place', guid: place.guid, title: place.title})}
-							/>
-						) : null}
 					</View>
+					{onAddToCollection || onAddToTrip || onAddToWorld || onCreateExperience ? (
+						<View style={styles.fileGroup}>
+							<Text style={styles.fileLabel}>Добавить</Text>
+							<View style={styles.actions}>
+								{onAddToCollection ? <BerxButton label="В подборку" variant="secondary" onPress={onAddToCollection} /> : null}
+								{onAddToTrip ? <BerxButton label="В поездку" variant="secondary" onPress={onAddToTrip} /> : null}
+								{onAddToWorld ? <BerxButton label="В мир" variant="secondary" onPress={onAddToWorld} /> : null}
+								{onCreateExperience ? (
+									<BerxButton
+										label="Впечатление"
+										variant="secondary"
+										onPress={() => onCreateExperience({type: 'place', guid: place.guid, title: place.title})}
+									/>
+								) : null}
+							</View>
+						</View>
+					) : null}
 				</BerxGlassSurface>
 
 				{checkinOpen ? (
@@ -474,9 +524,29 @@ export default function PlaceDetailScreen({api, guid, myGuid, isAdmin, onAddToCo
 				{place.description ? <Text style={styles.description}>{place.description}</Text> : null}
 
 				<View style={styles.infoBlock}>
-					{place.hours ? <Text style={styles.infoLine}>🕐 {place.hours}</Text> : null}
-					{place.phone ? <Text style={styles.infoLine}>📞 {place.phone}</Text> : null}
-					{place.website ? <Text style={styles.infoLine}>🔗 {place.website}</Text> : null}
+					{/* Was 🕐 📞 🔗 — three OS emoji stacked in a column, in full
+					    colour, in a font BERX cannot theme, on a detail screen that
+					    is otherwise entirely drawn. The worst offender in the
+					    product because they sit together and read as a row of
+					    stickers. */}
+					{place.hours ? (
+						<View style={styles.infoRow}>
+							<BerxIcon name="clock" size={15} color={colors.textFaint} />
+							<Text style={styles.infoLine}>{place.hours}</Text>
+						</View>
+					) : null}
+					{place.phone ? (
+						<View style={styles.infoRow}>
+							<BerxIcon name="phone" size={15} color={colors.textFaint} />
+							<Text style={styles.infoLine}>{place.phone}</Text>
+						</View>
+					) : null}
+					{place.website ? (
+						<View style={styles.infoRow}>
+							<BerxIcon name="link-2" size={15} color={colors.textFaint} />
+							<Text style={styles.infoLine}>{place.website}</Text>
+						</View>
+					) : null}
 				</View>
 
 				{friendsWorlds.length > 0 ? (
@@ -516,7 +586,7 @@ export default function PlaceDetailScreen({api, guid, myGuid, isAdmin, onAddToCo
 						<View style={styles.starRow}>
 							{[1, 2, 3, 4, 5].map((n) => (
 								<Pressable key={n} onPress={() => setReviewRating(n)}>
-									<Text style={[styles.star, n <= reviewRating && styles.starActive]}>★</Text>
+									<BerxIcon name="star" size={22} filled={n <= reviewRating} color={n <= reviewRating ? colors.accent : colors.textFaint} />
 								</Pressable>
 							))}
 						</View>
@@ -532,7 +602,14 @@ export default function PlaceDetailScreen({api, guid, myGuid, isAdmin, onAddToCo
 				{reviews.map((r) => (
 					<BerxGlassSurface key={r.guid} padding="sm" style={styles.reviewRow}>
 						<Text style={styles.reviewAuthor}>{r.author?.fullname ?? 'Пользователь'}</Text>
-						<Text style={styles.reviewStars}>{'★'.repeat(r.rating)}{'☆'.repeat(5 - r.rating)}</Text>
+						{/* Was '★'.repeat(n) + '☆'.repeat(5-n) — a rating bar built from
+					    text characters, whose weight and spacing came from the font
+					    rather than from BERX. Five real glyphs, filled to the score. */}
+					<View style={styles.reviewStars}>
+							{[1, 2, 3, 4, 5].map((n) => (
+								<BerxIcon key={n} name="star" size={12} filled={n <= r.rating} color={n <= r.rating ? colors.accent : colors.textFaint} />
+							))}
+						</View>
 						{r.text ? <Text style={styles.reviewText}>{r.text}</Text> : null}
 						<Pressable onPress={() => toggleReviewHelpful(r)} hitSlop={8}>
 							<Text style={[styles.reviewHelpful, r.is_helpful && styles.reviewHelpfulActive]}>
@@ -610,7 +687,10 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	claimLink: {fontSize: typography.sizeSm, color: colors.accent, fontWeight: typography.weightMedium},
 	description: {fontSize: typography.sizeBase, color: colors.text, lineHeight: typography.sizeBase * typography.lineHeightBase},
 	infoBlock: {gap: spacing.xs},
-	infoLine: {fontSize: typography.sizeSm, color: colors.textDim},
+	infoRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm},
+	fileGroup: {marginTop: spacing.md, gap: spacing.sm},
+	fileLabel: {color: colors.textFaint, fontSize: typography.sizeXs, textTransform: 'uppercase', letterSpacing: 0.5},
+	infoLine: {fontSize: typography.sizeSm, color: colors.textDim, flex: 1},
 	sectionTitle: {fontSize: typography.sizeXs, color: colors.textFaint, fontWeight: typography.weightBold, textTransform: 'uppercase', marginTop: spacing.sm},
 	offerRow: {gap: 4, marginBottom: spacing.xs},
 	offerTitle: {fontSize: typography.sizeSm, color: colors.white, fontWeight: typography.weightMedium},
@@ -626,7 +706,7 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	note: {fontSize: typography.sizeSm, color: colors.textFaint},
 	reviewRow: {gap: 4},
 	reviewAuthor: {fontSize: typography.sizeSm, color: colors.white, fontWeight: typography.weightMedium},
-	reviewStars: {fontSize: typography.sizeXs, color: colors.accent},
+	reviewStars: {flexDirection: 'row', gap: 2},
 	reviewText: {fontSize: typography.sizeSm, color: colors.textDim},
 	reviewHelpful: {fontSize: typography.sizeXs, color: colors.textFaint, marginTop: 4},
 	reviewHelpfulActive: {color: colors.accent, fontWeight: typography.weightMedium},

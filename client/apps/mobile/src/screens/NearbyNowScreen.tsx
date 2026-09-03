@@ -30,6 +30,7 @@ import {BerxAura} from '../../../../packages/design-system/src/components/BerxAu
 
 import {useBerxColors, useBerxScene} from '../../../../packages/design-system/src/theme';
 import type {BerxColorTokens} from '@berx/design-system/tokens';
+import {BerxIcon} from '../../../../packages/design-system/src/icons/BerxIcon';
 
 interface Props {
 	api: BerxApiClient;
@@ -136,8 +137,23 @@ export default function NearbyNowScreen({api, onOpenPlace, onOpenEvent, onBack}:
 										{row.item.cover_url ? <Image source={{uri: row.item.cover_url}} style={styles.thumb} /> : <View style={styles.thumbFallback} />}
 										<View style={styles.rowBody}>
 											<Text style={styles.title} numberOfLines={1}>{row.item.title}</Text>
-											<Text style={styles.meta}>Место · {row.item.distance_km} км{row.item.is_open_now === true ? ' · Открыто' : row.item.is_open_now === false ? ' · Закрыто' : ''}{row.item.friends_count > 0 ? ` · 👥 ${row.item.friends_count}` : ''}</Text>
-											{row.item.moments.length > 0 ? <Text style={styles.momentText} numberOfLines={1}>🔥 {row.item.moments[0].text}</Text> : null}
+											<View style={styles.metaRow}>
+											<Text style={styles.meta}>Место · {row.item.distance_km} км{row.item.is_open_now === true ? ' · Открыто' : row.item.is_open_now === false ? ' · Закрыто' : ''}</Text>
+											{row.item.friends_count > 0 ? (
+												<View style={styles.metaChip}>
+													<BerxIcon name="users" size={12} color={colors.textFaint} />
+													<Text style={styles.meta}>{row.item.friends_count}</Text>
+												</View>
+											) : null}
+										</View>
+										{/* A live "moment" at a place. Was marked with 🔥 — the OS
+									    emoji, in full colour, next to a place name. */}
+									{row.item.moments.length > 0 ? (
+										<View style={styles.metaChip}>
+											<BerxIcon name="flame" size={12} color={colors.accent} />
+											<Text style={styles.momentText} numberOfLines={1}>{row.item.moments[0].text}</Text>
+										</View>
+									) : null}
 										</View>
 									</BerxGlassSurface>
 								</Pressable>
@@ -147,7 +163,15 @@ export default function NearbyNowScreen({api, onOpenPlace, onOpenEvent, onBack}:
 										<View style={styles.thumbFallback} />
 										<View style={styles.rowBody}>
 											<Text style={styles.title} numberOfLines={1}>{row.item.title}</Text>
-											<Text style={styles.meta}>Событие · {fmtWhen(row.item.starts)} · {row.item.distance_km} км{row.item.friends_count > 0 ? ` · 👥 ${row.item.friends_count}` : ''}</Text>
+											<View style={styles.metaRow}>
+											<Text style={styles.meta}>Событие · {fmtWhen(row.item.starts)} · {row.item.distance_km} км</Text>
+											{row.item.friends_count > 0 ? (
+												<View style={styles.metaChip}>
+													<BerxIcon name="users" size={12} color={colors.textFaint} />
+													<Text style={styles.meta}>{row.item.friends_count}</Text>
+												</View>
+											) : null}
+										</View>
 										</View>
 									</BerxGlassSurface>
 								</Pressable>
@@ -179,6 +203,8 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	thumbFallback: {width: 48, height: 48, borderRadius: radius.sm, backgroundColor: colors.graphite},
 	rowBody: {flex: 1, gap: 2},
 	title: {fontSize: typography.sizeBase, color: colors.white, fontWeight: typography.weightMedium},
+	metaRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flexWrap: 'wrap'},
+	metaChip: {flexDirection: 'row', alignItems: 'center', gap: 4},
 	meta: {fontSize: typography.sizeXs, color: colors.textFaint},
 	momentText: {fontSize: typography.sizeXs, color: colors.accent, marginTop: 2},
 });
