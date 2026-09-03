@@ -423,7 +423,15 @@ export default function ProfileScreen({api, authState, username, onBack, onMessa
 			style={styles.screen}
 			scrollEventThrottle={16}
 			onScroll={Animated.event([{nativeEvent: {contentOffset: {y: scrollY}}}], {useNativeDriver: true})}>
-			{onBack ? <BerxHeader onBack={onBack} title={profile.username} /> : null}
+			{/*
+			 * `floating`: real glass chrome sitting ON the cover photo, the
+			 * same overlay language NOW's own stage already established for
+			 * chrome-over-media — not a flat opaque bar pushing the photo
+			 * down and stealing its own height for a redundant black strip.
+			 * The back chip now genuinely floats over the portrait the way
+			 * the reference composition always implied it should.
+			 */}
+			{onBack ? <BerxHeader onBack={onBack} title={profile.username} floating /> : null}
 
 			<BerxFadeIn riseFrom={0}>
 				<View style={styles.hero}>
@@ -441,17 +449,37 @@ export default function ProfileScreen({api, authState, username, onBack, onMessa
 						)}
 					</BerxSpatialLayer>
 					<BerxScrim coverage={0.74} strength={0.9} />
-
-					{!isOwn && typeof profile.is_online === 'boolean' ? (
-						<View style={styles.onlineBadgeWrap}>
-							<View style={[styles.onlineDot, profile.is_online ? styles.onlineDotActive : styles.onlineDotOffline]} />
-						</View>
-					) : null}
+					{/* A light scrim from the top, same convention NOW's own stage
+					    uses for the same reason: the floating header sits on
+					    whatever this photo happens to be, and BerxHeader itself
+					    cannot know in advance whether that is dark or bright — the
+					    SCREEN is the one that knows what it put behind its own
+					    chrome, so the screen is what protects it. */}
+					{onBack ? <BerxScrim coverage={0.3} strength={0.55} from="top" /> : null}
 
 					<View style={styles.heroContent}>
 						{profile.cover_url ? (
+							/*
+							 * A CIRCLE, with a plain white ring — the single most
+							 * generic avatar mount that exists (Facebook's own shape
+							 * since ~2010), on the highest-stakes identity moment in
+							 * the whole app, in a product whose OWN design system
+							 * explicitly rejected circles everywhere else it draws a
+							 * person (the feed byline mark, the story rail tiles —
+							 * both call it out by name as "Instagram's own shape").
+							 * Squared to match what BERX already decided its own
+							 * identity language is, with the real presence status as
+							 * a corner mark on the frame itself rather than a second,
+							 * separately-floating badge that would have sat under the
+							 * new floating header on a short screen. The real photo
+							 * stays exactly what it was — never fabricated, never
+							 * replaced by an abstract mark; only the MOUNT changed.
+							 */
 							<Berx3DTilt style={styles.heroAvatarRing} maxAngle={12}>
 								<Image source={{uri: profile.icon_url}} style={styles.heroAvatar} />
+								{!isOwn && typeof profile.is_online === 'boolean' ? (
+									<View style={[styles.onlineDot, profile.is_online ? styles.onlineDotActive : styles.onlineDotOffline]} />
+								) : null}
 							</Berx3DTilt>
 						) : null}
 						<Text style={styles.heroWordmark}>{profile.fullname || profile.username}</Text>
@@ -874,15 +902,30 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	hero: {height: HERO_H, backgroundColor: colors.mediaScrim, justifyContent: 'flex-end', overflow: 'hidden'},
 	heroFallback: {alignItems: 'center', justifyContent: 'center', backgroundColor: colors.graphite},
 	heroFallbackGlyph: {fontSize: typography.sizeHero, color: colors.textFaint, fontWeight: typography.weightBold},
-	onlineBadgeWrap: {position: 'absolute', top: spacing.xl, right: spacing.lg},
-	onlineDot: {width: 12, height: 12, borderRadius: 6, borderWidth: 2, borderColor: colors.bg},
+	// A corner mark on the frame itself now, not a second badge floating
+	// separately on the photo — sits just outside the mount's own edge,
+	// the way a real enamel pin sits on a lapel rather than beside it.
+	onlineDot: {
+		position: 'absolute',
+		bottom: -2,
+		right: -2,
+		width: 14,
+		height: 14,
+		borderRadius: 7,
+		borderWidth: 2,
+		borderColor: colors.bg,
+	},
 	onlineDotActive: {backgroundColor: colors.success},
 	onlineDotOffline: {backgroundColor: colors.textFaint},
 	heroContent: {padding: spacing.xl, gap: spacing.xs},
+	// Squared, not circled — matching the mount every OTHER real person
+	// in this app is already shown in (the feed byline mark, the story
+	// rail tiles), rather than the one Facebook-shaped exception this
+	// screen was still carrying on its own most prominent identity photo.
 	heroAvatarRing: {
 		width: 72,
 		height: 72,
-		borderRadius: 36,
+		borderRadius: radius.lg,
 		borderWidth: 2,
 		borderColor: colors.white,
 		alignItems: 'center',
@@ -890,7 +933,7 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 		marginBottom: spacing.sm,
 		backgroundColor: colors.bg,
 	},
-	heroAvatar: {width: 64, height: 64, borderRadius: 32, backgroundColor: colors.graphite},
+	heroAvatar: {width: 64, height: 64, borderRadius: radius.md, backgroundColor: colors.graphite},
 	heroWordmark: {
 		color: colors.white,
 		fontSize: typography.sizeHero,

@@ -64,11 +64,11 @@ import {BerxRichText} from '../../../../packages/design-system/src/components/Be
 import {BerxStoryRail} from '../../../../packages/design-system/src/components/BerxStoryRail';
 import {BerxPollView} from '../../../../packages/design-system/src/components/BerxPollView';
 import {BerxGlassSurface} from '../../../../packages/design-system/src/components/BerxGlassSurface';
+import {BerxGlassBar} from '../../../../packages/design-system/src/components/BerxGlassBar';
 import {BerxActionRail} from '../../../../packages/design-system/src/components/BerxActionRail';
 import type {BerxRailAction} from '../../../../packages/design-system/src/components/BerxActionRail';
-import {BlurView} from 'expo-blur';
 
-import {useBerxColors, useBerxGlass} from '../../../../packages/design-system/src/theme';
+import {useBerxColors} from '../../../../packages/design-system/src/theme';
 import {useBerxInsets} from '../../../../packages/design-system/src/insets';
 import type {BerxColorTokens} from '@berx/design-system/tokens';
 import {BerxIcon} from '../../../../packages/design-system/src/icons/BerxIcon';
@@ -115,7 +115,6 @@ interface Props {
 
 export default function FeedScreen({api, myGuid, onOpenPost, onOpenProfile, onOpenHashtag, onCreatePost, onOpenStoryGroup, onCreateStory}: Props) {
 	const colors = useBerxColors();
-	const glass = useBerxGlass();
 	const insets = useBerxInsets();
 	const styles = useMemo(() => makeStyles(colors), [colors]);
 	const headerH = HEADER_CONTENT_H + insets.top;
@@ -194,25 +193,17 @@ export default function FeedScreen({api, myGuid, onOpenPost, onOpenProfile, onOp
 	 * It now floats ABOVE the scrolling feed on real glass — a genuine
 	 * BlurView backdrop (see BerxGlassSurface's own header for what that
 	 * means), so content visibly softens as it passes underneath rather
-	 * than vanishing behind a flat panel. The bar composes the SAME
-	 * level-2 recipe BerxGlassSurface uses (blur + fill + hairline) but
-	 * by hand rather than through that component: BerxGlassSurface
-	 * draws a border on all four edges, which is correct for a floating
-	 * panel and wrong for a full-bleed bar — it would draw a visible
-	 * hairline down the screen's own left/right edges. A bar gets a
-	 * hairline on its bottom edge only, the edge that actually separates
-	 * it from the content sliding underneath.
+	 * than vanishing behind a flat panel. BerxGlassBar composes that
+	 * same recipe for a full-bleed bar shape (a bottom hairline only,
+	 * not a border on all four edges the way BerxGlassSurface's own
+	 * panel shape correctly does).
 	 *
 	 * The compose control IS a floating panel — a real glass capsule,
 	 * not a bare glyph adrift on the background. That one legitimately
 	 * uses BerxGlassSurface as designed.
 	 */
-	const barGlass = glass[2];
 	const header = (
-		<View style={[styles.header, {height: headerH}]}>
-			<BlurView pointerEvents="none" style={StyleSheet.absoluteFillObject} intensity={barGlass.blurRadius} tint="dark" />
-			<View pointerEvents="none" style={[StyleSheet.absoluteFillObject, {backgroundColor: barGlass.fill}]} />
-			<View pointerEvents="none" style={[styles.headerHairline, {backgroundColor: barGlass.border}]} />
+		<BerxGlassBar level={2} style={[styles.header, {height: headerH}]}>
 			<View style={[styles.headerRow, {paddingTop: insets.top}]}>
 				<Text style={styles.headerTitle}>
 					BER<Text style={styles.headerTitleAccent}>X</Text>
@@ -223,7 +214,7 @@ export default function FeedScreen({api, myGuid, onOpenPost, onOpenProfile, onOp
 					</BerxGlassSurface>
 				</Pressable>
 			</View>
-		</View>
+		</BerxGlassBar>
 	);
 
 	/*
@@ -504,7 +495,6 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	// sliding underneath it — not a border on all four sides, which is
 	// what BerxGlassSurface draws and why this bar composes the same
 	// blur+fill recipe by hand instead of reusing that component.
-	headerHairline: {position: 'absolute', left: 0, right: 0, bottom: 0, height: 1},
 	headerTitle: {color: colors.text, fontSize: typography.sizeXl, fontWeight: typography.weightBold, letterSpacing: 1},
 	headerTitleAccent: {color: colors.accent},
 	headerCreate: {width: 36, height: 36, alignItems: 'center', justifyContent: 'center'},
