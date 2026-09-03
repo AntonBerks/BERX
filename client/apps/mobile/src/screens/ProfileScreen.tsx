@@ -68,11 +68,13 @@ import {BerxGradientCTA} from '../../../../packages/design-system/src/components
 import {BerxLoadingState, BerxErrorState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {IconHeart, IconLock, IconBell, IconStar, IconUsers, IconChevronRight, IconEdit} from '../../../../packages/design-system/src/components/BerxIcons';
+import {ruPlural} from '@berx/domain';
 import {BerxGlassSurface} from '../../../../packages/design-system/src/components/BerxGlassSurface';
 import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
 import {Berx3DTilt} from '../../../../packages/design-system/src/components/Berx3DTilt';
 import {BerxSpatialLayer} from '../../../../packages/design-system/src/components/BerxSpatialLayer';
 import {BerxScrim} from '../../../../packages/design-system/src/components/BerxScrim';
+import {BerxEdgeFade} from '../../../../packages/design-system/src/components/BerxEdgeFade';
 import {BerxAvatarStack} from '../../../../packages/design-system/src/components/BerxAvatarStack';
 import {BerxSegmentedTabs} from '../../../../packages/design-system/src/components/BerxSegmentedTabs';
 import {BerxPhotoGrid} from '../../../../packages/design-system/src/components/BerxPhotoGrid';
@@ -547,6 +549,7 @@ export default function ProfileScreen({api, authState, username, onBack, onMessa
 						) : null}
 
 						{profile.reputation ? (
+						<View style={styles.reputationBand}>
 							<ScrollView
 								horizontal
 								showsHorizontalScrollIndicator={false}
@@ -559,6 +562,24 @@ export default function ProfileScreen({api, authState, username, onBack, onMessa
 								{profile.reputation.worlds_created > 0 ? <View style={styles.reputationStat}><Text style={styles.reputationValue}>{profile.reputation.worlds_created}</Text><Text style={styles.reputationLabel}>миров</Text></View> : null}
 								{profile.reputation.polls_created > 0 ? <View style={styles.reputationStat}><Text style={styles.reputationValue}>{profile.reputation.polls_created}</Text><Text style={styles.reputationLabel}>опросов</Text></View> : null}
 							</ScrollView>
+							{/* This rail scrolls, and gave no sign of it: it cut off at the
+							    screen edge mid-word ("9 отметок  2 ог"), which reads as
+							    broken text rather than as more content.
+
+							    The rail sits on its own SOLID band, and that is what makes
+							    the fade work. Fading straight over the cover photo painted
+							    a visible dark rectangle wherever the photo behind it was
+							    bright — the exact failure BerxEdgeFade's own doc warns
+							    about, and softening it only produced a softer rectangle. A
+							    gradient can only disappear into a colour it knows, so the
+							    rail was given one.
+
+							    The band earns its place independently: these are seven
+							    small numbers, and they were set directly on a photograph
+							    with nothing behind them — the least legible surface in the
+							    whole hero. Data gets a ground. */}
+							<BerxEdgeFade color={colors.graphite} width={56} />
+						</View>
 						) : null}
 
 						{!isOwn && profile.guid && onMessage ? (
@@ -599,7 +620,21 @@ export default function ProfileScreen({api, authState, username, onBack, onMessa
 					{identity.current_streak > 0 || identity.level > 1 ? (
 						<BerxGlassSurface elevated padding="sm" style={styles.levelRow}>
 							<Text style={styles.levelText}>Уровень {identity.level}</Text>
-							{identity.current_streak > 0 ? <Text style={styles.streakText}>🔥 {identity.current_streak} {identity.current_streak === 1 ? 'день' : 'дней'} подряд</Text> : null}
+							{/* Was "🔥 3 дней подряд" — an OS emoji (full-colour, in a font
+						    BERX does not control, inside a product with its own drawn
+						    icon set) and a broken plural that only handled 1 vs
+						    everything else, so every streak from 2 to 4 read "3 дней"
+						    instead of "3 дня". ruPlural has been in @berx/domain the
+						    whole time. The flame is now an accent bar — the same "one
+						    line of light" mark the spatial system uses. */}
+						{identity.current_streak > 0 ? (
+							<View style={styles.streakRow}>
+								<View style={styles.streakMark} />
+								<Text style={styles.streakText}>
+									{identity.current_streak} {ruPlural(identity.current_streak, 'день', 'дня', 'дней')} подряд
+								</Text>
+							</View>
+						) : null}
 						</BerxGlassSurface>
 					) : null}
 
@@ -659,51 +694,38 @@ export default function ProfileScreen({api, authState, username, onBack, onMessa
 				</View>
 			) : null}
 
-			{profile.guid && onOpenAlbums ? (
-				<View style={styles.actionRow}>
-					<BerxButton label="Альбомы" variant="secondary" onPress={() => onOpenAlbums(profile.guid!, isOwn)} fullWidth />
+			{/* WAS SEVEN IDENTICAL FULL-WIDTH PILLS, stacked. Each was a 60px
+			    secondary BerxButton with nothing but a word in it, and together
+			    they filled most of a screen with no hierarchy, no grouping and
+			    no way to scan them — while the sections directly BELOW them
+			    (Аккаунт, Знакомства, BERX World) used a completely different,
+			    much better pattern: compact grouped rows with a chevron. Two
+			    competing navigation grammars on one screen, and the worse one
+			    was carrying the larger group. Now one grammar. */}
+			{profile.guid && (onOpenAlbums || onOpenCollections || onOpenTrips || onOpenExperiences || onOpenMyVideos || onOpenMyTracks) ? (
+				<View style={styles.menuList}>
+					<Text style={styles.sectionLabel}>Коллекции</Text>
+					<View style={styles.menuGroup}>
+						{onOpenAlbums ? <MenuRow label="Альбомы" onPress={() => onOpenAlbums(profile.guid!, isOwn)} isFirst /> : null}
+						{onOpenCollections ? <MenuRow label="Подборки" onPress={() => onOpenCollections(profile.guid!, isOwn)} /> : null}
+						{onOpenTrips ? <MenuRow label="Поездки" onPress={() => onOpenTrips(profile.guid!, isOwn)} /> : null}
+						{onOpenExperiences ? <MenuRow label="Впечатления" onPress={() => onOpenExperiences(profile.guid!, isOwn)} /> : null}
+						{onOpenMyVideos ? <MenuRow label={isOwn ? 'Мои видео' : 'Видео'} onPress={() => onOpenMyVideos(profile.guid!, isOwn)} /> : null}
+						{onOpenMyTracks ? <MenuRow label={isOwn ? 'Мои треки' : 'Треки'} onPress={() => onOpenMyTracks(profile.guid!, isOwn)} isLast /> : null}
+					</View>
 				</View>
 			) : null}
 
-			{profile.guid && onOpenCollections ? (
-				<View style={styles.actionRow}>
-					<BerxButton label="Подборки" variant="secondary" onPress={() => onOpenCollections(profile.guid!, isOwn)} fullWidth />
-				</View>
-			) : null}
-
-			{profile.guid && onOpenTrips ? (
-				<View style={styles.actionRow}>
-					<BerxButton label="Поездки" variant="secondary" onPress={() => onOpenTrips(profile.guid!, isOwn)} fullWidth />
-				</View>
-			) : null}
-
-			{profile.guid && onOpenExperiences ? (
-				<View style={styles.actionRow}>
-					<BerxButton label="Впечатления" variant="secondary" onPress={() => onOpenExperiences(profile.guid!, isOwn)} fullWidth />
-				</View>
-			) : null}
-
-			{isOwn && onOpenCreatorSettings ? (
-				<View style={styles.actionRow}>
-					<BerxButton label="Режим автора" variant="secondary" onPress={onOpenCreatorSettings} fullWidth />
-				</View>
-			) : null}
-
-			{!isOwn && profile.is_creator && onOpenCreatorProfile ? (
-				<View style={styles.actionRow}>
-					<BerxButton label="Профиль автора" variant="secondary" onPress={onOpenCreatorProfile} fullWidth />
-				</View>
-			) : null}
-
-			{profile.guid && onOpenMyVideos ? (
-				<View style={styles.actionRow}>
-					<BerxButton label={isOwn ? 'Мои видео' : 'Видео'} variant="secondary" onPress={() => onOpenMyVideos(profile.guid!, isOwn)} fullWidth />
-				</View>
-			) : null}
-
-			{profile.guid && onOpenMyTracks ? (
-				<View style={styles.actionRow}>
-					<BerxButton label={isOwn ? 'Мои треки' : 'Треки'} variant="secondary" onPress={() => onOpenMyTracks(profile.guid!, isOwn)} fullWidth />
+			{/* Creator lives in its own group: it is a MODE you enter, not a
+			    collection you browse, and filing it with Albums flattened that
+			    distinction. */}
+			{(isOwn && onOpenCreatorSettings) || (!isOwn && profile.is_creator && onOpenCreatorProfile) ? (
+				<View style={styles.menuList}>
+					<Text style={styles.sectionLabel}>Автор</Text>
+					<View style={styles.menuGroup}>
+						{isOwn && onOpenCreatorSettings ? <MenuRow label="Режим автора" icon={<IconStar size={18} color={colors.text} />} onPress={onOpenCreatorSettings} isFirst isLast /> : null}
+						{!isOwn && profile.is_creator && onOpenCreatorProfile ? <MenuRow label="Профиль автора" icon={<IconStar size={18} color={colors.text} />} onPress={onOpenCreatorProfile} isFirst isLast /> : null}
+					</View>
 				</View>
 			) : null}
 
@@ -808,7 +830,15 @@ function MenuRow({
 	badge,
 }: {
 	label: string;
-	icon: React.ReactNode;
+	/**
+	 * Optional. The drawn icon set has no honest glyph for "Albums",
+	 * "Collections", "Trips" or "Tracks", and the sections that DO use
+	 * icons are already stretching it (two hearts, two locks). Repeating
+	 * an unrelated glyph to fill the slot is worse than a clean text row,
+	 * so a section may omit icons entirely — as long as it omits them
+	 * consistently, which is why this is per-row rather than per-list.
+	 */
+	icon?: React.ReactNode;
 	onPress: () => void;
 	isFirst?: boolean;
 	isLast?: boolean;
@@ -827,7 +857,7 @@ function MenuRow({
 				isLast && styles.menuRowLast,
 			]}
 		>
-			<View style={styles.menuRowIcon}>{icon}</View>
+			{icon ? <View style={styles.menuRowIcon}>{icon}</View> : null}
 			<Text style={styles.menuRowLabel}>{label}</Text>
 			{badge ? (
 				<View style={styles.menuRowBadge}>
@@ -867,7 +897,11 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 		fontWeight: typography.weightBold,
 		letterSpacing: -0.5,
 	},
-	heroUsername: {color: colors.textDim, fontSize: typography.sizeBase, marginTop: 2},
+	// onMediaDim, not textDim: this sits on a photograph, and the onMedia
+	// scale exists for exactly that (0.72 vs 0.64 alpha). Same role
+	// correction WelcomeScreen already applies to its own copy over a
+	// drawn scene — a token role fix, not a new colour.
+	heroUsername: {color: colors.onMediaDim, fontSize: typography.sizeBase, marginTop: 2},
 	highlightsRail: {paddingHorizontal: spacing.lg, marginBottom: spacing.md},
 	highlightItem: {alignItems: 'center', width: 68, marginRight: spacing.md},
 	highlightRing: {width: 60, height: 60, borderRadius: 30, borderWidth: 2, borderColor: colors.accent, alignItems: 'center', justifyContent: 'center', overflow: 'hidden'},
@@ -895,7 +929,7 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	interestRow: {flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, marginTop: spacing.sm},
 	interestPill: {paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: radius.pill, backgroundColor: colors.accentSoft, borderWidth: 1, borderColor: colors.accent},
 	interestPillText: {color: colors.accent, fontSize: typography.sizeXs, fontWeight: typography.weightMedium},
-	joined: {color: colors.textFaint, fontSize: typography.sizeXs, marginTop: spacing.sm},
+	joined: {color: colors.onMediaFaint, fontSize: typography.sizeXs, marginTop: spacing.sm},
 	mutualFriends: {color: colors.accent, fontSize: typography.sizeSm, marginTop: spacing.xs, fontWeight: typography.weightMedium},
 	pokeStatus: {color: colors.textDim, fontSize: typography.sizeXs, textAlign: 'center', marginTop: spacing.xs},
 	bannedBanner: {color: colors.danger, fontSize: typography.sizeSm, fontWeight: typography.weightMedium, textAlign: 'center'},
@@ -906,7 +940,19 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	statColumnLabel: {color: colors.textDim, fontSize: typography.sizeXs},
 	gallery: {paddingHorizontal: spacing.lg, marginTop: spacing.lg, gap: spacing.md},
 	gallerySegments: {marginBottom: spacing.xs},
-	reputationRow: {flexDirection: 'row', gap: spacing.lg, marginTop: spacing.sm, marginBottom: spacing.sm, paddingRight: spacing.lg},
+	// A real surface for the secondary stats: solid (so the edge fade has
+	// an exact colour to resolve into) and full-bleed to the screen edges,
+	// so it reads as a band the numbers sit ON rather than a card floating
+	// over the portrait.
+	reputationBand: {
+		backgroundColor: colors.graphite,
+		marginTop: spacing.md,
+		marginHorizontal: -spacing.xl,
+		paddingHorizontal: spacing.xl,
+		borderTopWidth: 1,
+		borderTopColor: colors.borderSoft,
+	},
+	reputationRow: {flexDirection: 'row', gap: spacing.lg, marginTop: spacing.md, marginBottom: spacing.md, paddingRight: spacing.xxl},
 	reputationStat: {alignItems: 'flex-start'},
 	reputationValue: {color: colors.white, fontSize: typography.sizeBase, fontWeight: typography.weightBold},
 	reputationLabel: {color: colors.textDim, fontSize: typography.sizeXs},
@@ -915,6 +961,8 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	blockLink: {color: colors.danger, fontSize: typography.sizeXs, textDecorationLine: 'underline', textAlign: 'center'},
 	muteStatus: {color: colors.textFaint, fontSize: typography.sizeXs, textAlign: 'center', marginTop: 2},
 	menuList: {paddingHorizontal: spacing.xl, paddingTop: spacing.lg, gap: spacing.md},
+	streakRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm},
+	streakMark: {width: 2, height: 12, borderRadius: 1, backgroundColor: colors.accent},
 	sectionLabel: {color: colors.textFaint, fontSize: typography.sizeXs, marginBottom: spacing.xs, marginLeft: spacing.xs, textTransform: 'uppercase' as const, letterSpacing: 0.5},
 	menuGroup: {
 		backgroundColor: colors.graphite,

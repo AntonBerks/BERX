@@ -220,12 +220,17 @@ export function IconBell({size = 20, color}: IconProps) {
 }
 
 /** A rotated-square diamond, not a true 5-point star — kept consistent with this file's own rule (pure View shapes, no font-glyph reliance) rather than reaching for a Unicode "★" whose rendering isn't guaranteed the same way a View-drawn shape is. */
+/**
+ * A real five-point star. This was a square rotated 45° — a DIAMOND,
+ * under the name Star, which is not a simplification of a star but a
+ * different shape wearing its name. Found the same way IconHeart's
+ * diamond was: by looking at the rendered screen rather than the code.
+ */
 export function IconStar({size = 20, color}: IconProps) {
-	const s = size * 0.62;
 	return (
-		<View style={{width: size, height: size, alignItems: 'center', justifyContent: 'center'}}>
-			<View style={{width: s, height: s, backgroundColor: color, transform: [{rotate: '45deg'}]}} />
-		</View>
+		<Svg width={size} height={size} viewBox="0 0 24 24">
+			<Path d="M12 2.6l2.9 5.9 6.5.95-4.7 4.6 1.1 6.45L12 17.45 6.2 20.5l1.1-6.45-4.7-4.6 6.5-.95L12 2.6z" fill={color} />
+		</Svg>
 	);
 }
 

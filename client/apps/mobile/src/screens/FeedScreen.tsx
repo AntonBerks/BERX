@@ -47,6 +47,7 @@ import {BerxFadeIn} from '../../../../packages/design-system/src/components/Berx
 import {BerxErrorState, BerxEmptyState, BerxSkeleton} from '../../../../packages/design-system/src/components/BerxStates';
 import {IconPlus, IconHeart, IconMessage} from '../../../../packages/design-system/src/components/BerxIcons';
 import {BerxRichText} from '../../../../packages/design-system/src/components/BerxRichText';
+import {BerxEdgeFade} from '../../../../packages/design-system/src/components/BerxEdgeFade';
 import {BerxPollView} from '../../../../packages/design-system/src/components/BerxPollView';
 
 import {useBerxColors} from '../../../../packages/design-system/src/theme';
@@ -202,6 +203,9 @@ export default function FeedScreen({api, myGuid, onOpenPost, onOpenProfile, onOp
 					</Pressable>
 				)}
 			/>
+			{/* The rail keeps scrolling past the edge; without this it just
+			    stopped mid-tile with no sign there was more. */}
+			<BerxEdgeFade color={colors.bg} width={36} />
 		</View>
 	);
 
