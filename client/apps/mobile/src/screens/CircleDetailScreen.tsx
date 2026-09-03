@@ -12,6 +12,10 @@
  * re-checked server-side) with zero UI callers — a circle owner
  * could create a circle and manage members, but never rename it or
  * delete it again from the app.
+ *
+ * BERX WORLD REBUILD — the member list was the same hairline-divided
+ * plain row pattern CirclesScreen's own list just moved past; each
+ * member is now a real BerxGlassSurface card instead.
  */
 import {useCallback, useEffect, useState, useMemo} from 'react';
 import {View, Text, FlatList, Image, Pressable, Alert, RefreshControl, StyleSheet} from 'react-native';
@@ -23,6 +27,7 @@ import {BerxInput} from '../../../../packages/design-system/src/components/BerxI
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
+import {BerxGlassSurface} from '../../../../packages/design-system/src/components/BerxGlassSurface';
 
 import {useBerxColors} from '../../../../packages/design-system/src/theme';
 import type {BerxColorTokens} from '@berx/design-system/tokens';
@@ -227,13 +232,13 @@ export default function CircleDetailScreen({api, id, onDeleted, onOpenGroupChat,
 							/>
 						}
 						renderItem={({item}: {item: BerxCircleMember}) => (
-							<View style={styles.row}>
+							<BerxGlassSurface padding="sm" style={styles.row}>
 								<Image source={{uri: item.icon}} style={styles.avatar} />
 								<Text style={styles.name} numberOfLines={1}>{item.fullname}</Text>
 								<Pressable onPress={() => removeMember(item.guid)} hitSlop={8} disabled={busyGuid === item.guid}>
 									<Text style={styles.remove}>✕</Text>
 								</Pressable>
-							</View>
+							</BerxGlassSurface>
 						)}
 					/>
 				</BerxFadeIn>
@@ -257,7 +262,7 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	pickerName: {fontSize: typography.sizeXs, color: colors.textDim, marginTop: 4},
 	list: {padding: spacing.md, gap: spacing.sm},
 	fadeFlex: {flex: 1},
-	row: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.borderSoft},
+	row: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm},
 	avatar: {width: 40, height: 40, borderRadius: radius.pill, backgroundColor: colors.graphite},
 	name: {flex: 1, fontSize: typography.sizeBase, color: colors.white, fontWeight: typography.weightMedium},
 	remove: {fontSize: typography.sizeSm, color: colors.textFaint, padding: 4},

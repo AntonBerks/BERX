@@ -29,6 +29,7 @@ import {BerxFadeIn} from '../../../../packages/design-system/src/components/Berx
 import {BerxLoadingState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxPersonCard, BerxLiveDot} from '../../../../packages/design-system/src/components/BerxSpatialCards';
 import {BerxAvatarStack} from '../../../../packages/design-system/src/components/BerxAvatarStack';
+import {BerxGlassSurface} from '../../../../packages/design-system/src/components/BerxGlassSurface';
 
 import {useBerxColors} from '../../../../packages/design-system/src/theme';
 import type {BerxColorTokens} from '@berx/design-system/tokens';
@@ -151,15 +152,19 @@ export default function PeopleScreen({api, onOpenProfile, onOpenConversation, on
 							{results.length === 0 ? (
 								<Text style={styles.quiet}>Никого не найдено.</Text>
 							) : (
-								results.map((u: SearchRow) => (
-									<Pressable key={u.guid} style={styles.row} onPress={() => onOpenProfile(u.username)}>
-										<BerxAvatarStack people={[{guid: u.guid, initial: (u.fullname || u.username).charAt(0)}]} size={36} />
-										<View style={styles.rowBody}>
-											<Text style={styles.rowName} numberOfLines={1}>{u.fullname || u.username}</Text>
-											<Text style={styles.rowMeta} numberOfLines={1}>@{u.username}</Text>
-										</View>
-									</Pressable>
-								))
+								<View style={styles.resultsList}>
+									{results.map((u: SearchRow) => (
+										<Pressable key={u.guid} onPress={() => onOpenProfile(u.username)}>
+											<BerxGlassSurface padding="sm" style={styles.row}>
+												<BerxAvatarStack people={[{guid: u.guid, initial: (u.fullname || u.username).charAt(0)}]} size={36} />
+												<View style={styles.rowBody}>
+													<Text style={styles.rowName} numberOfLines={1}>{u.fullname || u.username}</Text>
+													<Text style={styles.rowMeta} numberOfLines={1}>@{u.username}</Text>
+												</View>
+											</BerxGlassSurface>
+										</Pressable>
+									))}
+								</View>
 							)}
 						</View>
 					) : (
@@ -291,14 +296,11 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	},
 	rail: {paddingHorizontal: spacing.lg, gap: spacing.sm},
 	railItem: {marginRight: spacing.sm},
+	resultsList: {paddingHorizontal: spacing.lg, gap: spacing.sm},
 	row: {
 		flexDirection: 'row',
 		alignItems: 'center',
 		gap: spacing.sm,
-		paddingHorizontal: spacing.lg,
-		paddingVertical: spacing.md,
-		borderTopWidth: 1,
-		borderTopColor: colors.borderSoft,
 	},
 	rowBody: {flex: 1},
 	rowName: {color: colors.text, fontSize: typography.sizeBase, fontWeight: typography.weightMedium},
