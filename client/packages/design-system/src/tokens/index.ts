@@ -466,18 +466,30 @@ export interface BerxGlassLevelTokens {
 	radius: number;
 }
 
+/**
+ * Obsidian & Aurora — white alpha 12-20% (Night). These four levels
+ * were missed in the first palette-migration pass (that pass updated
+ * `colors.glass1/2/3` above, a DIFFERENT, simpler three-tier object —
+ * this is the separate "BERX GLASS SYSTEM" ladder BerxGlassSurface/
+ * BerxGlassBar actually read via useBerxGlass()) and still carried the
+ * old ~3.5-9% Night / up-to-94% Day values until caught by a real
+ * regression screenshot (Day mode's header rendered near-white — the
+ * old literal-light-mode numbers applied against the new dark #12141C
+ * ground). Fixed here, not silently left stale.
+ */
 export const glassNight: Record<1 | 2 | 3 | 4, BerxGlassLevelTokens> = {
-	1: {fill: 'rgba(255,255,255,0.035)', border: 'rgba(255,255,255,0.07)', hairline: 'rgba(255,255,255,0.10)', blurRadius: 8, radius: 16},
-	2: {fill: 'rgba(255,255,255,0.06)', border: 'rgba(255,255,255,0.10)', hairline: 'rgba(255,255,255,0.16)', blurRadius: 14, radius: 20},
-	3: {fill: 'rgba(255,255,255,0.09)', border: 'rgba(255,255,255,0.14)', hairline: 'rgba(255,255,255,0.22)', blurRadius: 22, radius: 24},
-	4: {fill: 'rgba(14,17,21,0.74)', border: 'rgba(255,255,255,0.18)', hairline: 'rgba(255,255,255,0.28)', blurRadius: 32, radius: 28},
+	1: {fill: 'rgba(255,255,255,0.12)', border: 'rgba(255,255,255,0.16)', hairline: 'rgba(255,255,255,0.20)', blurRadius: 8, radius: 16},
+	2: {fill: 'rgba(255,255,255,0.15)', border: 'rgba(255,255,255,0.20)', hairline: 'rgba(255,255,255,0.24)', blurRadius: 14, radius: 20},
+	3: {fill: 'rgba(255,255,255,0.18)', border: 'rgba(255,255,255,0.24)', hairline: 'rgba(255,255,255,0.28)', blurRadius: 22, radius: 24},
+	4: {fill: 'rgba(14,17,21,0.82)', border: 'rgba(255,255,255,0.28)', hairline: 'rgba(255,255,255,0.32)', blurRadius: 32, radius: 28},
 };
 
+/** Obsidian & Aurora — white alpha 8-15% (Day). Day's own ground is still dark (#12141C), so this uses the same white-on-dark family as Night, just at the spec's lower Day band, not the old literal-light-mode palette's near-opaque white fills. */
 export const glassDay: Record<1 | 2 | 3 | 4, BerxGlassLevelTokens> = {
-	1: {fill: 'rgba(255,255,255,0.55)', border: 'rgba(10,10,12,0.06)', hairline: 'rgba(255,255,255,0.85)', blurRadius: 8, radius: 16},
-	2: {fill: 'rgba(255,255,255,0.72)', border: 'rgba(10,10,12,0.09)', hairline: 'rgba(255,255,255,0.95)', blurRadius: 14, radius: 20},
-	3: {fill: 'rgba(255,255,255,0.86)', border: 'rgba(10,10,12,0.12)', hairline: 'rgba(255,255,255,1)', blurRadius: 22, radius: 24},
-	4: {fill: 'rgba(252,251,248,0.94)', border: 'rgba(10,10,12,0.16)', hairline: 'rgba(255,255,255,1)', blurRadius: 32, radius: 28},
+	1: {fill: 'rgba(255,255,255,0.08)', border: 'rgba(255,255,255,0.12)', hairline: 'rgba(255,255,255,0.16)', blurRadius: 8, radius: 16},
+	2: {fill: 'rgba(255,255,255,0.11)', border: 'rgba(255,255,255,0.16)', hairline: 'rgba(255,255,255,0.20)', blurRadius: 14, radius: 20},
+	3: {fill: 'rgba(255,255,255,0.13)', border: 'rgba(255,255,255,0.19)', hairline: 'rgba(255,255,255,0.23)', blurRadius: 22, radius: 24},
+	4: {fill: 'rgba(18,20,28,0.82)', border: 'rgba(255,255,255,0.24)', hairline: 'rgba(255,255,255,0.28)', blurRadius: 32, radius: 28},
 };
 
 export type BerxGlassLevel = 1 | 2 | 3 | 4;

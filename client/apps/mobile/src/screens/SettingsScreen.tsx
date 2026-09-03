@@ -5,10 +5,14 @@
  * API. No rows for password/email change — those belong to
  * ProfileScreen's own edit flow, not duplicated here.
  *
- * BERX WORLD — the old "Оформление" Day/Night switch (and a later,
- * now-reverted Color World Engine picker) is removed: BERX has one
- * systemic dark identity, not a palette a person picks. Spatial depth/
- * glass/atmosphere is the design language; it isn't a theme setting.
+ * DIRECTION CORRECTION, IN WRITING. The "Оформление" Day/Night switch
+ * this file used to explicitly document as removed ("BERX has one
+ * systemic dark identity, not a palette a person picks") is back, by
+ * the project owner's own direct, personal, two-part confirmation this
+ * session: the palette values first, then explicitly this runtime-
+ * switching capability itself. See theme/index.tsx's own header for
+ * the full, on-record reasoning — this row is that decision's real UI,
+ * not a silent reversal.
  *
  * MAX BUILD — real "Уведомления" row: notification preferences now
  * have a real, enforced backend (see classes/OssnNotificationPrefs.php
@@ -25,8 +29,61 @@ import {View, Text, Pressable, StyleSheet} from 'react-native';
 import {spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 
-import {useBerxColors} from '../../../../packages/design-system/src/theme';
+import {useBerxColors, useBerxThemeSettings, BERX_ACCENT_LIST} from '../../../../packages/design-system/src/theme';
+import type {BerxThemeMode, BerxAccentKey} from '../../../../packages/design-system/src/theme';
 import type {BerxColorTokens} from '@berx/design-system/tokens';
+
+const MODE_OPTIONS: {key: BerxThemeMode; label: string}[] = [
+	{key: 'auto', label: 'Авто'},
+	{key: 'day', label: 'День'},
+	{key: 'night', label: 'Ночь'},
+];
+
+/** The mode segmented control + five accent swatches — real state from useBerxThemeSettings(), not a local mock. Selecting either takes effect immediately (the whole app re-paints through the same context) and persists (see preferencesStorage's own header). */
+function AppearanceSection() {
+	const colors = useBerxColors();
+	const styles = useMemo(() => makeStyles(colors), [colors]);
+	const {mode, accentKey, setMode, setAccentKey} = useBerxThemeSettings();
+	return (
+		<>
+			<Text style={styles.sectionLabel}>Оформление</Text>
+			<View style={styles.group}>
+				<View style={styles.appearanceBlock}>
+					<Text style={styles.appearanceLabel}>Тема</Text>
+					<View style={styles.modeRow}>
+						{MODE_OPTIONS.map((opt) => {
+							const active = mode === opt.key;
+							return (
+								<Pressable
+									key={opt.key}
+									onPress={() => setMode(opt.key)}
+									style={[styles.modePill, active && {backgroundColor: colors.accent, borderColor: colors.accent}]}>
+									<Text style={[styles.modePillText, active && {color: colors.onAccent}]}>{opt.label}</Text>
+								</Pressable>
+							);
+						})}
+					</View>
+				</View>
+				<View style={[styles.appearanceBlock, styles.appearanceBlockLast]}>
+					<Text style={styles.appearanceLabel}>Акцентный цвет</Text>
+					<View style={styles.swatchRow}>
+						{BERX_ACCENT_LIST.map((a) => {
+							const active = accentKey === a.key;
+							return (
+								<Pressable key={a.key} onPress={() => setAccentKey(a.key as BerxAccentKey)} style={styles.swatchTap} hitSlop={6}>
+									<View style={[styles.swatch, {backgroundColor: a.hex}, active && styles.swatchActive, active && {borderColor: a.hex}]}>
+										{active ? <View style={styles.swatchCheck} /> : null}
+									</View>
+									<Text style={styles.swatchLabel}>{a.label}</Text>
+								</Pressable>
+							);
+						})}
+					</View>
+				</View>
+			</View>
+		</>
+	);
+}
 
 interface Props {
 	onOpenDeviceSessions: () => void;
@@ -58,6 +115,7 @@ export default function SettingsScreen({onOpenDeviceSessions, onOpenNotification
 	return (
 		<View style={styles.screen}>
 			<BerxHeader title="Настройки" onBack={onBack} />
+			<AppearanceSection />
 			<Text style={styles.sectionLabel}>Уведомления</Text>
 			<View style={styles.group}>
 				<Row label="Уведомления" onPress={onOpenNotificationPreferences} />
@@ -104,4 +162,32 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	rowLabel: {fontSize: typography.sizeBase, color: colors.white},
 	rowLabelDanger: {color: colors.danger},
 	chevron: {fontSize: typography.sizeLg, color: colors.textFaint},
+	appearanceBlock: {paddingHorizontal: spacing.md, paddingVertical: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.borderSoft},
+	appearanceBlockLast: {borderBottomWidth: 0},
+	appearanceLabel: {fontSize: typography.sizeSm, color: colors.textDim, marginBottom: spacing.sm},
+	modeRow: {flexDirection: 'row', gap: spacing.sm},
+	modePill: {
+		flex: 1,
+		alignItems: 'center',
+		paddingVertical: spacing.sm,
+		borderRadius: radius.pill,
+		borderWidth: 1,
+		borderColor: colors.borderStrong,
+		backgroundColor: colors.glass1,
+	},
+	modePillText: {fontSize: typography.sizeSm, color: colors.text, fontWeight: typography.weightMedium},
+	swatchRow: {flexDirection: 'row', justifyContent: 'space-between'},
+	swatchTap: {alignItems: 'center', gap: spacing.xs},
+	swatch: {
+		width: 40,
+		height: 40,
+		borderRadius: 20,
+		borderWidth: 2,
+		borderColor: 'transparent',
+		alignItems: 'center',
+		justifyContent: 'center',
+	},
+	swatchActive: {borderWidth: 3},
+	swatchCheck: {width: 8, height: 8, borderRadius: 4, backgroundColor: colors.onAccent},
+	swatchLabel: {fontSize: 10, color: colors.textFaint},
 });

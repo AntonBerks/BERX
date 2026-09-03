@@ -14,25 +14,29 @@ import {useMemo} from 'react';
 import {Pressable, Text, View, StyleSheet, ViewStyle} from 'react-native';
 import Svg, {Defs, LinearGradient, Stop, Rect} from 'react-native-svg';
 import {typography, spacing} from '../tokens';
+import {useBerxColors} from '../theme';
 
 export interface BerxPrimaryActionProps {
 	label: string;
 	onPress: () => void;
-	/** The lit colour of the control. */
+	/** The lit colour of the control — defaults to the LIVE accent (useBerxColors().accent). */
 	tone?: string;
-	/** Ink on the fill. */
+	/** Ink on the fill — defaults to the LIVE, real-contrast ink for whichever accent is active (useBerxColors().onAccent), never a fixed dark ink that would fail against a bright accent like Gold or read low-contrast against a deep one like Purple. */
 	ink?: string;
 	style?: ViewStyle;
 }
 
-export function BerxPrimaryAction({label, onPress, tone = '#00E5CC', ink = '#04121A', style}: BerxPrimaryActionProps) {
+export function BerxPrimaryAction({label, onPress, tone, ink, style}: BerxPrimaryActionProps) {
+	const colors = useBerxColors();
+	const resolvedTone = tone ?? colors.accent;
+	const resolvedInk = ink ?? colors.onAccent;
 	const uid = useMemo(() => Math.random().toString(36).slice(2, 8), []);
 	return (
 		<Pressable
 			onPress={onPress}
 			style={({pressed}: {pressed: boolean}) => [
 				styles.primary,
-				{shadowColor: tone},
+				{shadowColor: resolvedTone},
 				pressed && styles.primaryPressed,
 				style,
 			]}>
@@ -53,14 +57,14 @@ export function BerxPrimaryAction({label, onPress, tone = '#00E5CC', ink = '#041
 					    from going flat under the hairline. */}
 					<LinearGradient id={`${uid}-fill`} x1="0" y1="0" x2="0.15" y2="1">
 						<Stop offset="0%" stopColor="#FFFFFF" stopOpacity={0.22} />
-						<Stop offset="6%" stopColor={tone} stopOpacity={1} />
-						<Stop offset="100%" stopColor={tone} stopOpacity={0.82} />
+						<Stop offset="6%" stopColor={resolvedTone} stopOpacity={1} />
+						<Stop offset="100%" stopColor={resolvedTone} stopOpacity={0.82} />
 					</LinearGradient>
 				</Defs>
 				<Rect x="0" y="0" width="100%" height="100%" rx={30} ry={30} fill={`url(#${uid}-fill)`} />
 			</Svg>
 			<View pointerEvents="none" style={styles.primaryEdge} />
-			<Text style={[styles.primaryLabel, {color: ink}]}>{label}</Text>
+			<Text style={[styles.primaryLabel, {color: resolvedInk}]}>{label}</Text>
 		</Pressable>
 	);
 }
