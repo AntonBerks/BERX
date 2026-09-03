@@ -17,7 +17,7 @@
  * one product across screens.
  */
 import {useCallback, useEffect, useState, useMemo} from 'react';
-import {View, Text, StyleSheet} from 'react-native';
+import {View, Text, Pressable, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxLifeGraphEdge, BerxLifeGraphResponse} from '@berx/api/types';
 import {relativeTimeLabel, ruPlural} from '@berx/domain';
@@ -26,6 +26,7 @@ import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../pack
 import {BerxGlassSurface} from '../../../../packages/design-system/src/components/BerxGlassSurface';
 import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
 import {BerxEditorialTitle, BerxCircleButton} from '../../../../packages/design-system/src/components/BerxGreetingHeader';
+import BerxTimelineScene from '../three/BerxTimelineScene';
 
 import {useBerxColors} from '../../../../packages/design-system/src/theme';
 import type {BerxColorTokens} from '@berx/design-system/tokens';
@@ -75,6 +76,13 @@ export default function LifeGraphScreen({api, onBack}: Props) {
 	const [data, setData] = useState<BerxLifeGraphResponse | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
+	/**
+	 * Off by default, same as WorldDetailScreen's own depth scene: the
+	 * list is the dependable read of your history and stays the default;
+	 * the spatial view is the one you opt into when you want its SHAPE
+	 * rather than its order.
+	 */
+	const [spatial, setSpatial] = useState(false);
 
 	const load = useCallback(async () => {
 		setLoading(true);
@@ -126,9 +134,13 @@ export default function LifeGraphScreen({api, onBack}: Props) {
 					);
 				})}
 			</BerxFadeIn>
+			<Pressable style={styles.viewToggle} onPress={() => setSpatial((v: boolean) => !v)}>
+				<Text style={styles.viewToggleText}>{spatial ? 'Показать списком' : 'Показать во времени'}</Text>
+			</Pressable>
+			{spatial && data.edges.length > 0 ? <BerxTimelineScene edges={data.edges} /> : null}
 			{data.edges.length === 0 ? (
 				<BerxEmptyState title="Пока пусто" subtitle="Сохраняйте места, ходите на события — здесь появится ваша реальная история." />
-			) : (
+			) : spatial ? null : (
 				<BerxFadeIn style={styles.list} delayMs={90}>
 					{data.edges.map((edge: BerxLifeGraphEdge, i: number) => (
 						<View key={`${edge.type}-${edge.target_guid ?? i}-${edge.time}`}>
@@ -150,6 +162,8 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	head: {flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', paddingHorizontal: spacing.lg, paddingTop: spacing.lg, gap: spacing.md},
 	headline: {flex: 1, paddingHorizontal: 0, paddingTop: 0},
 	headActions: {flexDirection: 'row', gap: spacing.sm},
+	viewToggle: {alignSelf: 'flex-start', paddingHorizontal: spacing.md, paddingVertical: spacing.xs, marginHorizontal: spacing.md, marginTop: spacing.sm, borderRadius: 999, backgroundColor: colors.accentSoft},
+	viewToggleText: {color: colors.accent, fontSize: typography.sizeSm, fontWeight: typography.weightMedium},
 	summaryGrid: {flexDirection: 'row', flexWrap: 'wrap', padding: spacing.md, gap: spacing.sm},
 	summaryCard: {minWidth: '30%', flexGrow: 1},
 	summaryValue: {fontSize: typography.sizeLg, color: colors.white, fontWeight: typography.weightBold},
