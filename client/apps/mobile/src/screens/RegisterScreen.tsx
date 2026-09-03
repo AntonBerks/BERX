@@ -170,7 +170,7 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 		fontWeight: typography.weightBold,
 		color: colors.accent,
 		letterSpacing: 4,
-		textShadowColor: 'rgba(79,214,232,0.45)',
+		textShadowColor: 'rgba(0,229,204,0.45)',
 		textShadowOffset: {width: 0, height: 0},
 		textShadowRadius: 24,
 	},

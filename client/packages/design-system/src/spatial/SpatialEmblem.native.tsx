@@ -64,7 +64,7 @@ function PlaneStack({light, tilt}: {light: string; tilt: number}) {
 	);
 }
 
-export function SpatialEmblem({size = 120, tilt = 0, light = '#4FD6E8', style}: SpatialEmblemProps) {
+export function SpatialEmblem({size = 120, tilt = 0, light = '#00E5CC', style}: SpatialEmblemProps) {
 	return (
 		// Camera and lights come from the one shared BERX rig — this
 		// object's previous private camera/lights were already identical to

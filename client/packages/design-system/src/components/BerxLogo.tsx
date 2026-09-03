@@ -130,7 +130,7 @@ export interface BerxMarkProps {
 	style?: ViewStyle;
 }
 
-export function BerxMark({size = 96, light = '#4FD6E8', body = '#0E141C', spill = true, style}: BerxMarkProps) {
+export function BerxMark({size = 96, light = '#00E5CC', body = '#0E141C', spill = true, style}: BerxMarkProps) {
 	const uid = useMemo(() => Math.random().toString(36).slice(2, 8), []);
 	// DIAGONALS, not axes. Rotating a vertical blade by 0/90/180/270
 	// makes a plus sign; BERX's mark is an X, so the blades sit at 45°.
@@ -182,7 +182,7 @@ export function BerxMark({size = 96, light = '#4FD6E8', body = '#0E141C', spill 
 
 export function BerxLockup({
 	width = 200,
-	light = '#4FD6E8',
+	light = '#00E5CC',
 	color = '#FFFFFF',
 	body = '#0E141C',
 	style,

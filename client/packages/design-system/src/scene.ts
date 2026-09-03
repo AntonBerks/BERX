@@ -15,7 +15,9 @@
  * building a new one on an unused contract would just be a second dead
  * surface. This one drives real, live components.
  *
- * No purple/violet/magenta anywhere in this file.
+ * Obsidian & Aurora — `light` is Aquamarine #00E5CC, the live BERX
+ * accent (see tokens/index.ts's own header for the palette-override
+ * history that replaced the old #4FD6E8 cyan / #07080A ground here).
  */
 export interface BerxScene {
 	/** BerxAura.ground — the near-solid ground the light sits on. */
@@ -33,10 +35,10 @@ export interface BerxScene {
 }
 
 export const BERX_SCENE: BerxScene = {
-	ground: '#080A0F',
-	glow: '#2E7C8C',
+	ground: '#05060A',
+	glow: '#1FA893',
 	counter: '#3B3F7A',
-	light: '#4FD6E8',
-	object: '#101620',
+	light: '#00E5CC',
+	object: '#0E1015',
 	fill: '#3E8FD9',
 };

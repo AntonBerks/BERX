@@ -75,7 +75,7 @@ function buildEnvironmentScene(): ThreeScene {
 	const scene = new Scene();
 	const box = new BoxGeometry(SPATIAL_ENV.roomSize, SPATIAL_ENV.roomSize, SPATIAL_ENV.roomSize);
 	// BackSide so we are standing INSIDE the room looking out at its walls.
-	const room = new Mesh(box, new MeshLambertMaterial({color: '#07080A', side: BackSide}));
+	const room = new Mesh(box, new MeshLambertMaterial({color: '#05060A', side: BackSide}));
 	scene.add(room);
 
 	for (const panel of SPATIAL_ENV.panels) {

@@ -29,10 +29,10 @@ import {radius, spacing, typography} from '../tokens';
 import {useBerxColors} from '../theme';
 import type {BerxColorTokens} from '../tokens';
 
-// Single-hue cyan sheen — the systemic accent deepening into a dark
-// teal, never a second, unrelated hue.
-const GRADIENT_FROM = {r: 0x4f, g: 0xd6, b: 0xe8}; // accent cyan #4FD6E8
-const GRADIENT_TO = {r: 0x0b, g: 0x5f, b: 0x70}; // deep teal, same hue family
+// Single-hue aquamarine sheen — the systemic accent deepening into a
+// dark teal, never a second, unrelated hue.
+const GRADIENT_FROM = {r: 0x00, g: 0xe5, b: 0xcc}; // accent aquamarine #00E5CC
+const GRADIENT_TO = {r: 0x0a, g: 0x4d, b: 0x44}; // deep teal, same hue family
 const STRIPS = 18;
 
 function lerp(a: number, b: number, t: number): number {

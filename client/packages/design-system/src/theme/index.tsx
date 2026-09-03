@@ -5,8 +5,12 @@
  *
  * This used to run a Color World Engine (four selectable palettes
  * behind a WorldSelectScreen) — retired: BERX has one visual identity
- * (colors.bg #07080A, colors.accent #4FD6E8), not a palette a person
- * chooses. Every screen still resolves its palette through this
+ * (colors.bg / colors.accent, currently Obsidian & Aurora's
+ * #05060A / #00E5CC — see tokens/index.ts's own header for the
+ * palette-override history), not a palette a person chooses. That
+ * retirement decision is separate from and unaffected by which exact
+ * hex values colors.bg/accent hold — every screen still resolves its
+ * palette through this
  * context (`useBerxColors()`/`useBerxGlass()`/`useBerxScene()`)
  * instead of importing tokens directly, so this remains the one place
  * that could change the whole app's paint — it just always resolves

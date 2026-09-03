@@ -37,7 +37,7 @@ export interface BerxScenePalette {
 export const BERX_DUSK: BerxScenePalette = {
 	sky: ['#080B1C', '#111A3A', '#1D3260', '#2F5C86', '#5A9BAE', '#8FD3DC'],
 	bloom: '#D6F7FA',
-	light: '#4FD6E8',
+	light: '#00E5CC',
 	bounce: '#6E8CFF',
 	ink: '#060A14',
 	orbBody: '#080D18',
@@ -50,7 +50,7 @@ export const BERX_DUSK: BerxScenePalette = {
 export const BERX_NIGHT: BerxScenePalette = {
 	sky: ['#04060F', '#0A1026', '#121F45', '#1C3A5E', '#2C6478', '#4A9AAA'],
 	bloom: '#A8E8F2',
-	light: '#4FD6E8',
+	light: '#00E5CC',
 	bounce: '#6E8CFF',
 	ink: '#04070E',
 	orbBody: '#060A12',
@@ -63,7 +63,7 @@ export const BERX_NIGHT: BerxScenePalette = {
 export const BERX_DAWN: BerxScenePalette = {
 	sky: ['#0B1030', '#1B2450', '#3A3F76', '#6B5C90', '#B2809A', '#F0BFA8'],
 	bloom: '#FFE3CC',
-	light: '#4FD6E8',
+	light: '#00E5CC',
 	bounce: '#FF9E7A',
 	ink: '#0A0912',
 	orbBody: '#0B0F1A',
@@ -90,7 +90,7 @@ export const BERX_SCENE = {
 	 *  lit by one colour alone. */
 	counter: '#3B3F7A',
 	/** BERX cyan, spent only where it is worth spending. */
-	light: '#4FD6E8',
+	light: '#00E5CC',
 	/** Body of the glass object: a hair above the ground, never below. */
 	object: '#101620',
 } as const;

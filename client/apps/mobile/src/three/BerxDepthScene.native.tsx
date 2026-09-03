@@ -14,7 +14,7 @@
  *      (that's the entry that wires expo-gl's GL context). The old
  *      import would not have produced a working native canvas.
  *   2. It hardcoded a warm-gold palette (#D9A93F) from the retired
- *      gold-accent era. BERX has one accent, cyan #4FD6E8, and this
+ *      gold-accent era. BERX has one accent, cyan #00E5CC, and this
  *      scene is now lit by it like everything else.
  *   3. It was a single .tsx, so the web harness bundled it against the
  *      three/expo-gl stubs and rendered a dead canvas. It is now a

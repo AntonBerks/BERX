@@ -24,7 +24,7 @@
  *
  * This reads `useBerxScene()`/`useBerxColors()` rather than a
  * hardcoded standalone constant — the single systemic cyan identity
- * (colors.bg #07080A, colors.accent #4FD6E8), not a private copy of
+ * (colors.bg #05060A, colors.accent #00E5CC), not a private copy of
  * it. There is one BERX Spatial identity, not a palette a user picks;
  * this file just avoids owning its own duplicate of it. The object
  * itself (SpatialLens) is the real True3D/2D renderer split — see

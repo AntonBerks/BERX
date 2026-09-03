@@ -36,7 +36,7 @@ export interface BerxOrbProps {
 
 export function BerxOrb({
 	size = 200,
-	light = '#4FD6E8',
+	light = '#00E5CC',
 	// Cool cyan-blue bounce, not violet — BERX carries no purple/violet
 	// in its identity, including a secondary scene light (see tokens/
 	// index.ts's own comment on `colors.accent`).

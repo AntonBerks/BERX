@@ -99,7 +99,7 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 		paddingVertical: spacing.md,
 		paddingHorizontal: 6,
 		borderRadius: radius.pill,
-		backgroundColor: 'rgba(7,8,10,0.28)',
+		backgroundColor: 'rgba(5,6,10,0.28)',
 		borderWidth: 1,
 		borderColor: 'rgba(255,255,255,0.14)',
 	},

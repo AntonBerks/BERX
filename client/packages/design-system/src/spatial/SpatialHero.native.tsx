@@ -102,7 +102,7 @@ function OrbMesh({light, fill, body, ring}: {light: string; fill: string; body: 
 
 export function SpatialHero({
 	size = 200,
-	light = '#4FD6E8',
+	light = '#00E5CC',
 	fill = '#3E8FD9',
 	body = '#0B1016',
 	ring = true,

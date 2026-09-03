@@ -25,7 +25,7 @@ export interface BerxPrimaryActionProps {
 	style?: ViewStyle;
 }
 
-export function BerxPrimaryAction({label, onPress, tone = '#4FD6E8', ink = '#04121A', style}: BerxPrimaryActionProps) {
+export function BerxPrimaryAction({label, onPress, tone = '#00E5CC', ink = '#04121A', style}: BerxPrimaryActionProps) {
 	const uid = useMemo(() => Math.random().toString(36).slice(2, 8), []);
 	return (
 		<Pressable

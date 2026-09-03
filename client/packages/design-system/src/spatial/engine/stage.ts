@@ -13,17 +13,18 @@
  * without pulling the native GL stack in, and so the values are
  * reviewable as a palette rather than buried in JSX.
  *
- * BERX DNA: the key light IS the brand accent (#4FD6E8). The fill is a
- * cooler blue that reads as bounce, never a second brand colour. No
- * purple/violet/magenta anywhere, in any light or material.
+ * BERX DNA: the key light IS the brand accent (Aquamarine #00E5CC,
+ * Obsidian & Aurora's live accent — see tokens/index.ts's own header
+ * for the palette-override history). The fill is a cooler blue that
+ * reads as bounce, never a second brand colour.
  */
 
 /** The one BERX key light — the brand accent, used as an actual light colour. */
-export const SPATIAL_KEY_LIGHT = '#4FD6E8';
+export const SPATIAL_KEY_LIGHT = '#00E5CC';
 /** Cool bounce/fill. Reads as reflected sky, not as a second accent. */
 export const SPATIAL_FILL_LIGHT = '#3E8FD9';
 /** The near-black ground objects sit against (matches colors.bg / BERX_SCENE.ground). */
-export const SPATIAL_GROUND = '#07080A';
+export const SPATIAL_GROUND = '#05060A';
 /** Object body colour — dark, so the rim light does the describing. */
 export const SPATIAL_OBJECT_BODY = '#101620';
 

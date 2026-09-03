@@ -13,61 +13,89 @@
  * new Day environment's tokens, defined but not yet wired to a
  * runtime switch across every screen — honestly scoped, not faked).
  *
- * ACCENT HISTORY — read this before "fixing" the accent again. Orange
- * #ff6a00, violet #8b5cf6 and warm gold #D9A93F were each tried and
- * each REJECTED. The accent is cyan #4FD6E8 and it is fixed brand
- * identity, not a preference (see `colors.accent` below for the rule).
- *
- * This header previously announced the opposite ("cyan is RETIRED, new
- * accent: warm gold") while the code five lines below it defined
- * #4FD6E8 — a stale comment contradicting live code, which had already
- * misled one 3D scene into hardcoding a gold palette. Corrected here.
+ * PALETTE HISTORY — read this before "fixing" the colours again.
+ * Orange #ff6a00, violet #8b5cf6 and warm gold #D9A93F were each tried
+ * as the brand accent against the ORIGINAL "BERX Cyan" ground
+ * (#07080A / #4FD6E8) and each REJECTED at the time. That ground was
+ * later itself superseded, in writing, by the project owner: the
+ * current, live, final palette is "Obsidian & Aurora" (confirmed
+ * directly by the owner this session — the earlier "no purple/violet"
+ * constraint was an explicit part of that same override, not left
+ * standing). Aquamarine #00E5CC is the one LIVE accent (`colors.accent`
+ * below) — same role BERX Cyan held, not a switchable choice: the
+ * runtime is still Night-only/hardcoded, see theme/index.tsx's own
+ * header, that architectural decision was NOT part of the palette
+ * override and stands unchanged. Purple/Pink/Gold/Emerald exist as
+ * real, named tokens (see ACCENT PALETTE below) because the spec
+ * requires them present, not because any screen switches to them.
  */
 
+/**
+ * ACCENT PALETTE — Obsidian & Aurora's five named accents. Aquamarine
+ * is the one this app actually paints with (`colors.accent`); the
+ * other four are real, defined tokens available to a future
+ * caller/feature (e.g. a premium badge reading `colors.accentGold`)
+ * without resurrecting a user-facing palette switcher.
+ */
+export const ACCENT_AQUAMARINE = '#00E5CC';
+export const ACCENT_PURPLE = '#8B5CF6';
+export const ACCENT_PINK = '#FF4D8D';
+export const ACCENT_GOLD = '#E6B800';
+export const ACCENT_EMERALD = '#00C896';
+
 export const colors = {
-	black: '#07080A',
-	bg: '#07080A',
-	graphite: '#101317',
+	black: '#05060A',
+	bg: '#05060A',
+	graphite: '#0E1015',
 
-	glass1: 'rgba(255,255,255,0.04)',
-	glass2: 'rgba(255,255,255,0.07)',
-	glass3: 'rgba(255,255,255,0.10)',
-	surface: 'rgba(255,255,255,0.07)', // = glass2
-	surface2: 'rgba(255,255,255,0.10)', // = glass3
+	// Glass surface: white alpha 12–20% (Night) per Obsidian & Aurora —
+	// four ordered strengths within that band, same role the previous
+	// four glass1-3/surface tokens held.
+	glass1: 'rgba(255,255,255,0.12)',
+	glass2: 'rgba(255,255,255,0.15)',
+	glass3: 'rgba(255,255,255,0.18)',
+	surface: 'rgba(255,255,255,0.15)', // = glass2
+	surface2: 'rgba(255,255,255,0.18)', // = glass3
 
-	border: 'rgba(255,255,255,0.10)',
-	borderSoft: 'rgba(255,255,255,0.08)',
-	borderStrong: 'rgba(255,255,255,0.16)',
+	// Border: white alpha 20%, per spec — one flat value where the old
+	// system graded soft/base/strong; soft/strong keep a real, ordered
+	// relationship either side of that one specified value rather than
+	// collapsing to three identical borders.
+	border: 'rgba(255,255,255,0.20)',
+	borderSoft: 'rgba(255,255,255,0.14)',
+	borderStrong: 'rgba(255,255,255,0.28)',
 
 	white: '#ffffff',
-	text: '#f5f5f7',
-	textDim: 'rgba(245,245,247,0.64)',
-	textFaint: 'rgba(245,245,247,0.38)',
+	text: '#F5F7FA',
+	textDim: 'rgba(245,247,250,0.64)',
+	textFaint: 'rgba(245,247,250,0.38)',
+	/** Obsidian & Aurora's own named secondary-text token, alongside the textDim/textFaint ladder every existing screen already reads. */
+	textSecondary: '#A8B0C0',
 
 	/**
-	 * BERX BRAND ACCENT — cyan #4FD6E8. This is brand identity and is
-	 * fixed: the reference sheets define composition, depth, glass,
-	 * photography, hierarchy, spatial behaviour, interaction and density,
-	 * NOT the palette. A violet/magenta repaint derived from them was
-	 * reverted here on that basis. No purple or pink as a primary brand
-	 * colour, no gold.
-	 *
-	 * Every screen reads colors.accent rather than a hex, so this single
-	 * value is the systemic paint.
+	 * BERX BRAND ACCENT — Aquamarine #00E5CC, Obsidian & Aurora's live
+	 * accent (see this file's own header for the palette-override
+	 * history). Every screen reads colors.accent rather than a hex, so
+	 * this single value is the systemic paint.
 	 */
-	accent: '#4FD6E8',
-	accentHover: '#7FE3F0',
-	accentSoft: 'rgba(79,214,232,0.16)',
-	accentSecondary: '#4FD6E8',
-	accentSecondarySoft: 'rgba(79,214,232,0.16)',
+	accent: ACCENT_AQUAMARINE,
+	accentHover: '#4DF0DC',
+	accentSoft: 'rgba(0,229,204,0.16)',
+	accentSecondary: ACCENT_AQUAMARINE,
+	accentSecondarySoft: 'rgba(0,229,204,0.16)',
+	/** The four other Obsidian & Aurora accents, as real tokens — see ACCENT PALETTE above. */
+	accentPurple: ACCENT_PURPLE,
+	accentPink: ACCENT_PINK,
+	accentGold: ACCENT_GOLD,
+	accentEmerald: ACCENT_EMERALD,
 	/**
 	 * Ink that sits ON an accent fill (an active nav orb, a primary
 	 * button, a badge). It is NOT `black`: Night's accent is a bright
-	 * cyan so dark ink reads, but Day's accent is a deep teal where the
-	 * same dark ink fails contrast. A browser run of the Day palette
-	 * showed exactly that, which is why this is its own role.
+	 * aquamarine so dark ink reads, but Day's accent is a deepened
+	 * teal where the same dark ink fails contrast. A browser run of the
+	 * Day palette showed exactly that, which is why this is its own role.
 	 */
-	onAccent: '#07080A',
+	onAccent: '#05060A',
 	/**
 	 * The darkening layer laid over real photography, and the ground a
 	 * photo that fails to load falls back to. Deliberately IDENTICAL in
@@ -76,14 +104,14 @@ export const colors = {
 	 * into a white veil and make them invisible. A browser run of the
 	 * Day palette showed exactly that (contrast ratio 1.2).
 	 */
-	mediaScrim: '#07080A',
+	mediaScrim: '#05060A',
 
 	/** Ink that sits ON media (over mediaScrim). Constant in both environments, for the same reason mediaScrim is: a Day-flipped ink would turn dark on a dark photo. */
-	onMedia: '#F5F5F7',
-	onMediaDim: 'rgba(245,245,247,0.72)',
-	onMediaFaint: 'rgba(245,245,247,0.45)',
-	/** The accent as it appears ON media. Always the bright Night cyan: Day's deepened teal is tuned for a light ground and only reaches ~4.25:1 over mediaScrim. */
-	accentOnMedia: '#4FD6E8',
+	onMedia: '#F5F7FA',
+	onMediaDim: 'rgba(245,247,250,0.72)',
+	onMediaFaint: 'rgba(245,247,250,0.45)',
+	/** The accent as it appears ON media. Always the bright Night aquamarine: Day's deepened teal is tuned for a light ground and would undershoot contrast over mediaScrim. */
+	accentOnMedia: ACCENT_AQUAMARINE,
 
 	danger: '#ff4d4f',
 	success: '#3ddc84',
@@ -93,11 +121,11 @@ export const colors = {
 	 * the Business design language. Nothing above this line is
 	 * changed; existing screens are unaffected.
 	 */
-	glassBusiness: 'rgba(255,255,255,0.045)',
-	glassBusinessBorder: 'rgba(255,255,255,0.09)',
-	glassBusinessHairline: 'rgba(255,255,255,0.14)',
-	scrimTop: 'rgba(7,8,10,0)',
-	scrimBottom: 'rgba(7,8,10,0.92)',
+	glassBusiness: 'rgba(255,255,255,0.12)',
+	glassBusinessBorder: 'rgba(255,255,255,0.18)',
+	glassBusinessHairline: 'rgba(255,255,255,0.22)',
+	scrimTop: 'rgba(5,6,10,0)',
+	scrimBottom: 'rgba(5,6,10,0.92)',
 } as const;
 
 /**
@@ -115,50 +143,55 @@ export const colors = {
  * object is live, not aspirational.
  */
 export const colorsDay = {
-	black: '#17161A', // "black" here means the darkest ink on this environment, not a literal near-black surface
-	bg: '#F6F4EF',
-	graphite: '#EDEAE2',
+	black: '#12141C', // Obsidian & Aurora's own Day background — still a dark ground, not a literal light surface (see this file's header on what the new "Day" means)
+	bg: '#12141C',
+	graphite: '#1A1D28',
 
-	glass1: 'rgba(10,10,12,0.035)',
-	glass2: 'rgba(10,10,12,0.06)',
-	glass3: 'rgba(10,10,12,0.09)',
-	surface: 'rgba(10,10,12,0.06)',
-	surface2: 'rgba(10,10,12,0.09)',
+	// Glass surface: white alpha 8–15% (Day) per Obsidian & Aurora.
+	glass1: 'rgba(255,255,255,0.08)',
+	glass2: 'rgba(255,255,255,0.11)',
+	glass3: 'rgba(255,255,255,0.15)',
+	surface: 'rgba(255,255,255,0.11)',
+	surface2: 'rgba(255,255,255,0.15)',
 
-	border: 'rgba(10,10,12,0.10)',
-	borderSoft: 'rgba(10,10,12,0.07)',
-	borderStrong: 'rgba(10,10,12,0.16)',
+	border: 'rgba(255,255,255,0.20)',
+	borderSoft: 'rgba(255,255,255,0.14)',
+	borderStrong: 'rgba(255,255,255,0.28)',
 
-	white: '#17161A', // inverted role: the "on-surface ink" color, matching how `colors.white` is Night's brightest ink
-	text: '#17161A',
-	textDim: 'rgba(23,22,26,0.62)',
-	textFaint: 'rgba(23,22,26,0.36)',
+	white: '#ffffff',
+	text: '#F5F7FA',
+	textDim: 'rgba(245,247,250,0.64)',
+	textFaint: 'rgba(245,247,250,0.38)',
+	textSecondary: '#A8B0C0',
 
-	/** Same BERX cyan hue, deepened for real contrast against a light surface — not a second color. */
-	accent: '#0B7F91',
-	accentHover: '#0F97AC',
-	accentSoft: 'rgba(11,127,145,0.13)',
-	accentSecondary: '#0B7F91',
-	accentSecondarySoft: 'rgba(11,127,145,0.13)',
-	onAccent: '#F6F4EF',
+	/** Same Aquamarine hue as Night — Obsidian & Aurora's Day ground is still dark, so unlike the old light-mode Day palette this needs no separate deepened accent for contrast. */
+	accent: ACCENT_AQUAMARINE,
+	accentHover: '#4DF0DC',
+	accentSoft: 'rgba(0,229,204,0.16)',
+	accentSecondary: ACCENT_AQUAMARINE,
+	accentSecondarySoft: 'rgba(0,229,204,0.16)',
+	accentPurple: ACCENT_PURPLE,
+	accentPink: ACCENT_PINK,
+	accentGold: ACCENT_GOLD,
+	accentEmerald: ACCENT_EMERALD,
+	onAccent: '#12141C',
 	/** Identical to Night on purpose — see the Night token's comment. */
-	mediaScrim: '#07080A',
+	mediaScrim: '#05060A',
 
 	/** Ink that sits ON media (over mediaScrim). Constant in both environments, for the same reason mediaScrim is: a Day-flipped ink would turn dark on a dark photo. */
-	onMedia: '#F5F5F7',
-	onMediaDim: 'rgba(245,245,247,0.72)',
-	onMediaFaint: 'rgba(245,245,247,0.45)',
-	/** The accent as it appears ON media. Always the bright Night cyan: Day's deepened teal is tuned for a light ground and only reaches ~4.25:1 over mediaScrim. */
-	accentOnMedia: '#4FD6E8',
+	onMedia: '#F5F7FA',
+	onMediaDim: 'rgba(245,247,250,0.72)',
+	onMediaFaint: 'rgba(245,247,250,0.45)',
+	accentOnMedia: ACCENT_AQUAMARINE,
 
-	danger: '#d43d3f',
-	success: '#2fa968',
+	danger: '#ff4d4f',
+	success: '#3ddc84',
 
-	glassBusiness: 'rgba(10,10,12,0.035)',
-	glassBusinessBorder: 'rgba(10,10,12,0.08)',
-	glassBusinessHairline: 'rgba(10,10,12,0.12)',
-	scrimTop: 'rgba(246,244,239,0)',
-	scrimBottom: 'rgba(246,244,239,0.92)',
+	glassBusiness: 'rgba(255,255,255,0.08)',
+	glassBusinessBorder: 'rgba(255,255,255,0.15)',
+	glassBusinessHairline: 'rgba(255,255,255,0.20)',
+	scrimTop: 'rgba(18,20,28,0)',
+	scrimBottom: 'rgba(18,20,28,0.92)',
 } as const;
 
 /** The exact palette contract both environments satisfy — the type every theme-aware StyleSheet factory takes. */
@@ -172,7 +205,7 @@ export function getBerxEnvironmentColors(env: BerxEnvironment) {
 }
 
 /** Real gradient pair for the new gold accent — see the comment on colors.accent above. Used only by the Business/Spatial-Glass layer for now. */
-export const gradientAccent = ['#4FD6E8', '#12707F'] as const;
+export const gradientAccent = [ACCENT_AQUAMARINE, '#0E7A6A'] as const;
 
 export const blur = {
 	sm: 8,
@@ -193,6 +226,19 @@ export const radius = {
 	xl: 32,
 	xxl: 40,
 	pill: 999,
+	/** Obsidian & Aurora's own named radii — additive: `md` above already equals 16 and remains what every existing button actually reads, `button`/`card` exist as the spec's own explicit names for a caller that wants them directly. */
+	button: 16,
+	card: 20,
+} as const;
+
+/** Obsidian & Aurora's font tokens. Every font NAME lives here, never hardcoded at a call site. */
+export const fonts = {
+	/** Headings — a wide grotesque with Cyrillic support (this is a Russian-language app). */
+	heading: 'Space Grotesk',
+	/** Data/numbers — a monospace built for tabular figures. */
+	data: 'JetBrains Mono',
+	/** Body copy. */
+	body: 'Inter',
 } as const;
 
 /**
@@ -219,6 +265,18 @@ export const motion = {
 	 * can never be mistaken for one and reused as a transition.
 	 */
 	durationBreath: 1400,
+	/**
+	 * Obsidian & Aurora's own named duration/spring tokens — additive,
+	 * alongside durationFast/Base/Slow above (which every existing
+	 * screen already reads by those names). `spring` is a real
+	 * response/damping pair rather than a duration: a caller driving a
+	 * spring-based animation (Reanimated's withSpring, or an
+	 * equivalent) reads its two fields directly instead of a duration.
+	 */
+	durationMicro: 200,
+	durationNormal: 400,
+	durationSlowest: 800,
+	spring: {response: 0.4, damping: 0.7},
 };
 
 /**
@@ -262,11 +320,34 @@ export const shadow = {
 		elevation: 12, // Android has no shadow blur/spread — elevation is the nearest equivalent
 	},
 	glow: {
-		shadowColor: colors.accent, // #4FD6E8 — BERX CYAN
+		shadowColor: colors.accent, // Obsidian & Aurora's live accent — Aquamarine #00E5CC
 		shadowOpacity: 0.16,
 		shadowRadius: 32,
 		shadowOffset: { width: 0, height: 0 },
 		elevation: 6,
+	},
+	/**
+	 * Obsidian & Aurora's own named two-layer shadow — additive,
+	 * alongside base/glow above. A real two-pass shadow (a tight
+	 * near shadow plus a soft far one) reads as more physically lifted
+	 * than either alone; RN only composites one shadow per view, so a
+	 * caller that wants both applies `layer1` to an outer wrapper and
+	 * `layer2` to an inner one (or vice versa) rather than expecting a
+	 * single style object to carry two shadows at once.
+	 */
+	layer1: {
+		shadowColor: '#000000',
+		shadowOpacity: 0.3,
+		shadowRadius: 12,
+		shadowOffset: {width: 0, height: 4},
+		elevation: 4,
+	},
+	layer2: {
+		shadowColor: '#000000',
+		shadowOpacity: 0.5,
+		shadowRadius: 32,
+		shadowOffset: {width: 0, height: 12},
+		elevation: 12,
 	},
 } as const;
 

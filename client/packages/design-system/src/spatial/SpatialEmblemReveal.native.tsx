@@ -108,7 +108,7 @@ function RevealStack({light, tilt, delayMsSeconds}: {light: string; tilt: number
 	);
 }
 
-export function SpatialEmblemReveal({size = 120, tilt = 0, light = '#4FD6E8', delayMs = 0, onSettled, style}: SpatialEmblemRevealProps) {
+export function SpatialEmblemReveal({size = 120, tilt = 0, light = '#00E5CC', delayMs = 0, onSettled, style}: SpatialEmblemRevealProps) {
 	const settledRef = useRef(false);
 
 	useEffect(() => {
