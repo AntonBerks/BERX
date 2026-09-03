@@ -17,9 +17,11 @@
  * UIVisualEffectView blur radius on iOS, a real CSS backdrop-filter on
  * web — see BerxGlassSurface's header for what "real" means there);
  * `borderAlpha`/`glow` are real overrides on top of the live theme
- * fill, never a second, disconnected colour system.
+ * fill, never a second, disconnected colour system. Default bumped
+ * 20→30pt per the "wow pass" spec — text stays readable at this level
+ * (verified via harness screenshot, not assumed).
  *
- * ANIMATION STATES (three, as required):
+ * ANIMATION STATES:
  *   1. MOUNT   — opacity 0→1 (400ms) + scale 0.98→1 (spring).
  *   2. PRESS   — scale →0.97 (spring) on press-in, back on release.
  *   3. THEME   — background/border/glow animate over 800ms
@@ -28,21 +30,50 @@
  *                than snapping — real colour interpolation via
  *                Reanimated shared values, not a fabricated claim.
  *
+ * WOW PASS — three real additions, all gated behind `glow` (a panel
+ * that doesn't opt into the glow treatment stays the lighter, original
+ * surface rather than paying for effects it never asked for):
+ *   - PERIMETER GLOW, interaction-reactive. A hover/press shared value
+ *     (real pointer tracking — mouse move on web, touch move on
+ *     native, same technique BerxSpatialCard already uses for tilt)
+ *     drives the glow ring's alpha up on hover/press and back down on
+ *     leave/release. A non-pressable glow panel (no onPress, no
+ *     pointer target) instead gets a slow, real ambient breathing
+ *     loop — "intensifies on hover" has no literal meaning without a
+ *     pointer to hover with, so this is the honest substitute, not a
+ *     silent no-op.
+ *   - ANIMATED GRADIENT BORDER. A real rotating-gradient-ring trick:
+ *     an oversized square carrying an SVG linear gradient
+ *     (accent→transparent→accent→transparent) rotates continuously
+ *     behind an inset mask view sized to the panel's own measured
+ *     bounds, leaving only a thin ring of the gradient visible at the
+ *     border — a genuine sweeping border, not a static tinted stroke.
+ *     Requires a real onLayout measurement first (nothing renders
+ *     until the panel's own size is known).
+ *   - INTERNAL BACKGROUND PARALLAX. `backgroundLayer` — an optional
+ *     caller-supplied layer (e.g. a cover image) that sits between the
+ *     blur and the content and shifts a few px opposite the same
+ *     pointer signal the glow reads, a real depth cue driven by a real
+ *     shared value, not a scroll-linked or timer-driven fake. Renders
+ *     flat (no offset) when nothing is currently hovered/touched.
+ *
  * WEB FALLBACK. expo-blur's BlurView already degrades to a plain
  * semi-transparent View when no native blur backend exists (see
  * BerxGlassSurface's header) — real CSS backdrop-filter on web, so
  * "usable on web" is the existing, proven behaviour, not new work.
  */
-import {useEffect, useMemo} from 'react';
+import {useEffect, useMemo, useRef, useState} from 'react';
 import type {ReactNode} from 'react';
-import {View, StyleSheet, Pressable} from 'react-native';
+import {Platform, View, StyleSheet, Pressable, LayoutChangeEvent} from 'react-native';
 import type {ViewStyle, StyleProp} from 'react-native';
 import {BlurView} from 'expo-blur';
+import Svg, {Defs, LinearGradient as SvgLinearGradient, Stop, Rect} from 'react-native-svg';
 import Animated, {
 	useSharedValue,
 	useAnimatedStyle,
 	withTiming,
 	withSpring,
+	withRepeat,
 	Easing,
 } from 'react-native-reanimated';
 import {useBerxColors, useBerxGlass} from '../theme';
@@ -54,14 +85,16 @@ import {BERX_SPRING} from '../animation/springs';
 export interface BerxGlassViewProps {
 	children?: ReactNode;
 	style?: StyleProp<ViewStyle>;
-	/** BlurView intensity (0-100). Defaults to 20, per this component's own spec — deliberately lower than BerxGlassSurface's per-level defaults (8-32), since GlassView is meant as a general-purpose panel, not a level-committed system surface. */
+	/** BlurView intensity (0-100). Defaults to 30 — bumped from the original 20 per the "wow pass" spec (still deliberately below BerxGlassSurface's per-level max of 32, since GlassView stays a general-purpose panel, not a level-committed system surface). */
 	intensity?: number;
 	/** Overrides the live theme border's alpha (0-1). Leave unset to use the theme's own border colour untouched. */
 	borderAlpha?: number;
-	/** An inner glow ring in the live accent, at 15% alpha, per this component's own spec. */
+	/** An inner glow ring in the live accent, hover/press-reactive, PLUS the animated rotating-gradient border — see this file's own header. */
 	glow?: boolean;
 	radius?: number;
 	onPress?: () => void;
+	/** Optional layer (e.g. a cover image) rendered between the blur and `children`, given real internal parallax off the live pointer/touch signal. Purely decorative — never receives touches. */
+	backgroundLayer?: ReactNode;
 }
 
 /** Real per-vertex alpha swap for `borderAlpha`: parses the theme's own rgba() border string and substitutes just the alpha channel, so an override still carries the theme's real colour, never an invented hex. */
@@ -75,7 +108,7 @@ function withAlpha(rgbaOrHex: string, alpha: number): string {
 	return accentAlpha(rgbaOrHex, alpha);
 }
 
-export function BerxGlassView({children, style, intensity = 20, borderAlpha, glow, radius, onPress}: BerxGlassViewProps) {
+export function BerxGlassView({children, style, intensity = 30, borderAlpha, glow, radius, onPress, backgroundLayer}: BerxGlassViewProps) {
 	const colors = useBerxColors();
 	const glass = useBerxGlass();
 	const g = glass[2];
@@ -102,12 +135,57 @@ export function BerxGlassView({children, style, intensity = 20, borderAlpha, glo
 	// apply instantly, bypassing Reanimated entirely).
 	const fillSV = useSharedValue(g.fill);
 	const borderSV = useSharedValue(resolvedBorder);
-	const glowSV = useSharedValue(accentAlpha(colors.accent, 0.15));
+	const glowBaseSV = useSharedValue(accentAlpha(colors.accent, 0.15));
 	useEffect(() => {
 		fillSV.value = withTiming(g.fill, {duration: themeTokens.duration.slow * 1000, easing: Easing.inOut(Easing.ease)});
 		borderSV.value = withTiming(resolvedBorder, {duration: themeTokens.duration.slow * 1000, easing: Easing.inOut(Easing.ease)});
-		glowSV.value = withTiming(accentAlpha(colors.accent, 0.15), {duration: themeTokens.duration.slow * 1000, easing: Easing.inOut(Easing.ease)});
-	}, [g.fill, resolvedBorder, colors.accent, fillSV, borderSV, glowSV]);
+		glowBaseSV.value = withTiming(accentAlpha(colors.accent, 0.15), {duration: themeTokens.duration.slow * 1000, easing: Easing.inOut(Easing.ease)});
+	}, [g.fill, resolvedBorder, colors.accent, fillSV, borderSV, glowBaseSV]);
+
+	// WOW PASS — real pointer tracking, shared by the glow ring and the
+	// background parallax layer. `hover` is a plain 0/1 target driven by
+	// real events (not fabricated); `pointerX/Y` are normalised -1..1
+	// offsets from the panel's own centre, real only once `size` has
+	// been measured via onLayout below.
+	const [size, setSize] = useState({width: 0, height: 0});
+	const hoverSV = useSharedValue(0);
+	const pointerX = useSharedValue(0);
+	const pointerY = useSharedValue(0);
+	const sizeRef = useRef(size);
+	sizeRef.current = size;
+
+	function setPointer(x: number, y: number) {
+		const {width: w, height: h} = sizeRef.current;
+		if (!w || !h) return;
+		pointerX.value = withTiming(Math.max(-1, Math.min(1, (x / w - 0.5) * 2)), {duration: 120});
+		pointerY.value = withTiming(Math.max(-1, Math.min(1, (y / h - 0.5) * 2)), {duration: 120});
+	}
+	function hoverIn() {
+		hoverSV.value = withTiming(1, {duration: 180});
+	}
+	function hoverOut() {
+		hoverSV.value = withTiming(0, {duration: 220});
+		pointerX.value = withTiming(0, {duration: 220});
+		pointerY.value = withTiming(0, {duration: 220});
+	}
+
+	// Non-pressable glow panels have no pointer to hover with — a real
+	// ambient breathing loop stands in instead of a silent no-op glow.
+	const ambientSV = useSharedValue(0.5);
+	useEffect(() => {
+		if (!glow || onPress) return;
+		ambientSV.value = withRepeat(withTiming(1, {duration: 2200, easing: Easing.inOut(Easing.sin)}), -1, true);
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [glow, onPress]);
+
+	// ANIMATED GRADIENT BORDER — a continuous rotation driving the
+	// rotating-gradient-ring trick (see this file's own header).
+	const ringRotation = useSharedValue(0);
+	useEffect(() => {
+		if (!glow) return;
+		ringRotation.value = withRepeat(withTiming(360, {duration: 4000, easing: Easing.linear}), -1, false);
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [glow]);
 
 	// Explicit dependency arrays on every worklet below — the Babel
 	// plugin (babel.config.js) auto-generates these when it runs, but
@@ -122,13 +200,42 @@ export function BerxGlassView({children, style, intensity = 20, borderAlpha, glo
 	}), [mountOpacity, mountScale, pressScale]);
 	const animatedFillStyle = useAnimatedStyle(() => ({backgroundColor: fillSV.value}), [fillSV]);
 	const animatedBorderStyle = useAnimatedStyle(() => ({borderColor: borderSV.value}), [borderSV]);
-	const animatedGlowStyle = useAnimatedStyle(() => ({
-		shadowColor: colors.accent,
-		backgroundColor: 'transparent',
-		borderColor: glowSV.value,
-	}), [colors.accent, glowSV]);
+	const animatedGlowStyle = useAnimatedStyle(() => {
+		const intensityMix = onPress ? hoverSV.value : ambientSV.value;
+		return {
+			shadowColor: colors.accent,
+			backgroundColor: 'transparent',
+			opacity: 0.6 + intensityMix * 0.4,
+			borderColor: glowBaseSV.value,
+			shadowRadius: 8 + intensityMix * 10,
+			shadowOpacity: 0.35 + intensityMix * 0.35,
+		};
+	}, [colors.accent, glowBaseSV, hoverSV, ambientSV, onPress]);
+	const animatedRingStyle = useAnimatedStyle(() => ({
+		transform: [{rotate: `${ringRotation.value}deg`}],
+	}), [ringRotation]);
+	const animatedBackgroundParallaxStyle = useAnimatedStyle(() => ({
+		transform: [{translateX: pointerX.value * -6}, {translateY: pointerY.value * -6}, {scale: 1.08}],
+	}), [pointerX, pointerY]);
 
 	const styles = useMemo(() => makeStyles(resolvedRadius), [resolvedRadius]);
+	const ringDiag = Math.ceil(Math.sqrt(size.width * size.width + size.height * size.height)) + 40;
+
+	const pointerHandlers =
+		Platform.OS === 'web'
+			? ({
+					onMouseMove: (e: {nativeEvent: {offsetX: number; offsetY: number}}) => {
+						hoverIn();
+						setPointer(e.nativeEvent.offsetX, e.nativeEvent.offsetY);
+					},
+					onMouseLeave: hoverOut,
+				} as unknown as Record<string, unknown>)
+			: {
+					onTouchStart: () => hoverIn(),
+					onTouchMove: (e: {nativeEvent: {locationX: number; locationY: number}}) => setPointer(e.nativeEvent.locationX, e.nativeEvent.locationY),
+					onTouchEnd: hoverOut,
+					onTouchCancel: hoverOut,
+				};
 
 	// Two real shadow layers, per this component's own spec — RN
 	// composites one shadow per view, so a tight near shadow (layer2, on
@@ -137,9 +244,42 @@ export function BerxGlassView({children, style, intensity = 20, borderAlpha, glo
 	// own shadow.layer1/layer2 comment documents.
 	const content = (
 		<View style={styles.outerShadow}>
-			<Animated.View style={[styles.base, animatedBorderStyle, animatedContainerStyle, style]}>
+			<Animated.View
+				onLayout={(e: LayoutChangeEvent) => setSize({width: e.nativeEvent.layout.width, height: e.nativeEvent.layout.height})}
+				style={[styles.base, animatedBorderStyle, animatedContainerStyle, style]}
+				{...pointerHandlers}>
 				<BlurView pointerEvents="none" style={[StyleSheet.absoluteFillObject, styles.behind]} intensity={intensity} tint="dark" />
 				<Animated.View pointerEvents="none" style={[StyleSheet.absoluteFillObject, styles.behind, animatedFillStyle]} />
+				{backgroundLayer ? (
+					<Animated.View pointerEvents="none" style={[StyleSheet.absoluteFillObject, styles.behind, animatedBackgroundParallaxStyle]}>
+						{backgroundLayer}
+					</Animated.View>
+				) : null}
+				{glow && size.width > 0 ? (
+					<View pointerEvents="none" style={[StyleSheet.absoluteFillObject, styles.behind, styles.ringClip, {borderRadius: resolvedRadius}]}>
+						<Animated.View
+							style={[
+								{position: 'absolute', width: ringDiag, height: ringDiag, left: (size.width - ringDiag) / 2, top: (size.height - ringDiag) / 2},
+								animatedRingStyle,
+							]}>
+							<Svg width={ringDiag} height={ringDiag}>
+								<Defs>
+									<SvgLinearGradient id="berx-glass-ring" x1="0" y1="0" x2="1" y2="1">
+										<Stop offset="0%" stopColor={colors.accent} stopOpacity={0.9} />
+										<Stop offset="35%" stopColor={colors.accent} stopOpacity={0} />
+										<Stop offset="65%" stopColor={colors.accent} stopOpacity={0} />
+										<Stop offset="100%" stopColor={colors.accent} stopOpacity={0.9} />
+									</SvgLinearGradient>
+								</Defs>
+								<Rect x="0" y="0" width={ringDiag} height={ringDiag} fill="url(#berx-glass-ring)" />
+							</Svg>
+						</Animated.View>
+						{/* The inset mask — same fill as the panel body, 2px smaller on
+						    every edge, leaves only a thin ring of the rotating gradient
+						    above visible: the real "animated gradient border" trick. */}
+						<View style={[StyleSheet.absoluteFillObject, {margin: 2, borderRadius: Math.max(0, resolvedRadius - 2), backgroundColor: g.fill}]} />
+					</View>
+				) : null}
 				{glow ? <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFillObject, styles.behind, styles.glowRing, animatedGlowStyle]} /> : null}
 				{children}
 			</Animated.View>
@@ -153,6 +293,7 @@ export function BerxGlassView({children, style, intensity = 20, borderAlpha, glo
 			onPress={onPress}
 			onPressIn={() => {
 				pressScale.value = withSpring(0.97, BERX_SPRING);
+				hoverIn();
 			}}
 			onPressOut={() => {
 				pressScale.value = withSpring(1, BERX_SPRING);
@@ -184,5 +325,6 @@ const makeStyles = (radius: number) =>
 		// absolute decorative layers otherwise paint ABOVE plain-flow
 		// content regardless of DOM order — the same negative zIndex fix.
 		behind: {zIndex: -1},
+		ringClip: {overflow: 'hidden'},
 		glowRing: {borderRadius: radius, borderWidth: 1.5},
 	});

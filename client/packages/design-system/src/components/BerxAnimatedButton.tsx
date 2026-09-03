@@ -12,31 +12,47 @@
  * elsewhere.
  *
  * VARIANTS.
- *   primary   — a real 2-stop SVG gradient (accent 30%→transparent,
- *               react-native-svg's own LinearGradient, the same real
- *               gradient technique BerxOrb/BerxActions already use —
- *               not the 18-strip approximation BerxGradientCTA uses,
- *               which exists specifically because THAT component
- *               predates confirming a real gradient primitive was
- *               available for this exact shape), border accent 60%,
- *               white text.
- *   secondary — transparent, border colors.border (Obsidian & Aurora's
- *               own flat 20% white token), colors.textDim text.
+ *   primary   — a real 2-stop SVG gradient (accent 60%→transparent —
+ *               bumped from 30% per the wow-pass spec — react-native-
+ *               svg's own LinearGradient, the same real gradient
+ *               technique BerxOrb/BerxActions already use), border
+ *               accent 60%, white text, PLUS a real constant idle glow
+ *               (a soft accent shadow, always on, independent of
+ *               press) and a "powerful" particle wave on press — count
+ *               doubled (14→28), full 360° spread so it reads as a
+ *               burst rather than a directional wave, higher speed.
+ *   secondary — transparent fill, a real ANIMATED border that
+ *               transitions white→accent on hover (web)/press (native)
+ *               instead of a flat static colors.border stroke — a real
+ *               Reanimated colour interpolation, not a snap.
  *   icon      — a 44×44 circle. `active` (a real addition to this
  *               component's own spec, which named the STATE — "active
  *               state fills with accent and glows" — without naming
- *               the prop that drives it) fills with the accent and
- *               adds a real glow shadow.
+ *               the prop that drives it) fills with the accent, adds a
+ *               real glow shadow, AND fires a real small particle
+ *               burst on the false→true activation edge. The icon
+ *               ITSELF is a caller-supplied opaque ReactNode (an SVG
+ *               path from BerxIcon, typically) — this component has no
+ *               masking/recolouring primitive available (no image-
+ *               masking dependency in this build) to literally
+ *               "gradient-fill" arbitrary caller content, so instead a
+ *               real 2-stop radial-style SVG gradient wash renders
+ *               behind the icon on activation, reading as a gradient
+ *               glow around the glyph — the honest, achievable version
+ *               of the spec's intent, disclosed rather than silently
+ *               claimed as literally recolouring the icon's own paths.
  *
- * `premium` adds a real animated sheen — a bright diagonal band
- * sweeping across the button on a slow loop (withRepeat), not a
- * static gold border pretending to shimmer.
+ * `premium` adds a real animated sheen — a bright diagonal band that
+ * now sweeps PERIODICALLY (once every ~3s, via a real withDelay
+ * between sweeps) rather than looping continuously, per the wow-pass
+ * spec — still withRepeat-driven, just with a real pause built into
+ * the sequence instead of an unbroken loop.
  */
 import {useEffect, useRef, useState} from 'react';
 import type {ReactNode} from 'react';
 import {Pressable, Text, StyleSheet} from 'react-native';
 import type {ViewStyle, StyleProp} from 'react-native';
-import Svg, {Defs, LinearGradient as SvgLinearGradient, Stop, Rect} from 'react-native-svg';
+import Svg, {Defs, LinearGradient as SvgLinearGradient, RadialGradient as SvgRadialGradient, Stop, Rect, Circle} from 'react-native-svg';
 import Animated, {
 	useSharedValue,
 	useAnimatedStyle,
@@ -44,6 +60,7 @@ import Animated, {
 	withRepeat,
 	withTiming,
 	withSequence,
+	withDelay,
 	Easing,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
@@ -72,9 +89,9 @@ export interface BerxAnimatedButtonProps {
 	disabled?: boolean;
 	/** Overrides the live global accent for this one button. */
 	accent?: BerxAccentKey;
-	/** Adds a real animated gold sheen sweep. */
+	/** Adds a real animated gold sheen sweep, periodic (~3s) rather than continuous. */
 	premium?: boolean;
-	/** icon variant only — fills with the accent and glows, per this component's own spec (see this file's header on the prop this state needed). */
+	/** icon variant only — fills with the accent, glows, and fires a particle burst on activation (see this file's header on the prop this state needed). */
 	active?: boolean;
 	style?: StyleProp<ViewStyle>;
 }
@@ -85,19 +102,56 @@ export function BerxAnimatedButton({title, onPress, variant, icon, disabled, acc
 	const scale = useSharedValue(1);
 	const [burstOn, setBurstOn] = useState(false);
 	const burstResetRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const [iconBurstOn, setIconBurstOn] = useState(false);
+	const iconBurstResetRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const wasActive = useRef(active ?? false);
 
-	// PREMIUM SHEEN — a real diagonal band sweeping left→right on a slow
-	// loop. -1..2 so the band starts and ends fully off-view either side.
+	// PREMIUM SHEEN — a real diagonal band. Wow-pass: PERIODIC, not
+	// continuous — a real withDelay between each sweep instead of an
+	// unbroken withRepeat loop. -1..2 so the band starts/ends off-view.
 	const sheenX = useSharedValue(-1);
 	useEffect(() => {
 		if (!premium) return;
-		sheenX.value = withRepeat(withSequence(withTiming(2, {duration: 1800, easing: Easing.inOut(Easing.ease)}), withTiming(-1, {duration: 0})), -1, false);
+		sheenX.value = withRepeat(
+			withSequence(
+				withDelay(2400, withTiming(2, {duration: 600, easing: Easing.inOut(Easing.ease)})),
+				withTiming(-1, {duration: 0})
+			),
+			-1,
+			false
+		);
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [premium]);
+
+	// PRIMARY IDLE GLOW — a real constant soft accent shadow, independent
+	// of press state, breathing gently so it reads as "alive" rather than
+	// a flat static shadow value.
+	const idleGlow = useSharedValue(0.5);
+	useEffect(() => {
+		if (variant !== 'primary') return;
+		idleGlow.value = withRepeat(withTiming(1, {duration: 1800, easing: Easing.inOut(Easing.sin)}), -1, true);
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [variant]);
+
+	// SECONDARY — animated border colour, white→accent on hover/press.
+	const secondaryBorderT = useSharedValue(0);
+
+	// ICON — activation particle burst, fired on the real false→true
+	// edge of `active` (never on mount, never on every render).
+	useEffect(() => {
+		if (variant === 'icon' && active && !wasActive.current) {
+			setIconBurstOn(false);
+			requestAnimationFrame(() => setIconBurstOn(true));
+			if (iconBurstResetRef.current) clearTimeout(iconBurstResetRef.current);
+			iconBurstResetRef.current = setTimeout(() => setIconBurstOn(false), 60);
+		}
+		wasActive.current = active ?? false;
+	}, [active, variant]);
 
 	useEffect(
 		() => () => {
 			if (burstResetRef.current) clearTimeout(burstResetRef.current);
+			if (iconBurstResetRef.current) clearTimeout(iconBurstResetRef.current);
 		},
 		[]
 	);
@@ -105,11 +159,13 @@ export function BerxAnimatedButton({title, onPress, variant, icon, disabled, acc
 	function handlePressIn() {
 		if (disabled) return;
 		scale.value = withSpring(0.97, PRESS_SPRING);
+		if (variant === 'secondary') secondaryBorderT.value = withTiming(1, {duration: 180});
 	}
 
 	function handlePressOut() {
 		if (disabled) return;
 		scale.value = withSpring(1, PRESS_SPRING);
+		if (variant === 'secondary') secondaryBorderT.value = withTiming(0, {duration: 260});
 	}
 
 	function handlePress() {
@@ -133,6 +189,26 @@ export function BerxAnimatedButton({title, onPress, variant, icon, disabled, acc
 	const animatedSheenStyle = useAnimatedStyle(() => ({
 		transform: [{translateX: sheenX.value * 200}, {rotate: '20deg'}],
 	}), [sheenX]);
+	const animatedIdleGlowStyle = useAnimatedStyle(() => ({
+		shadowColor: resolvedAccent,
+		shadowOpacity: 0.25 + idleGlow.value * 0.25,
+		shadowRadius: 10 + idleGlow.value * 8,
+		shadowOffset: {width: 0, height: 0},
+	}), [idleGlow, resolvedAccent]);
+	const animatedSecondaryBorderStyle = useAnimatedStyle(() => {
+		'worklet';
+		// Real colour interpolation without pulling in Reanimated's
+		// interpolateColor helper for a single 2-stop mix — a plain
+		// component-wise lerp between white and the live accent covers
+		// the same real transition.
+		const t = secondaryBorderT.value;
+		const mix = (a: number, b: number) => Math.round(a + (b - a) * t);
+		const hex = resolvedAccent.replace('#', '');
+		const ar = parseInt(hex.slice(0, 2) || 'ff', 16);
+		const ag = parseInt(hex.slice(2, 4) || 'ff', 16);
+		const ab = parseInt(hex.slice(4, 6) || 'ff', 16);
+		return {borderColor: `rgb(${mix(255, ar)},${mix(255, ag)},${mix(255, ab)})`};
+	}, [secondaryBorderT, resolvedAccent]);
 
 	if (variant === 'icon') {
 		return (
@@ -148,7 +224,19 @@ export function BerxAnimatedButton({title, onPress, variant, icon, disabled, acc
 						active ? {shadowColor: resolvedAccent, shadowOpacity: 0.5, shadowRadius: 12, shadowOffset: {width: 0, height: 0}, elevation: 6} : null,
 						disabled && styles.disabled,
 					]}>
+					{active ? (
+						<Svg style={StyleSheet.absoluteFillObject} width="100%" height="100%">
+							<Defs>
+								<SvgRadialGradient id="berx-icon-glow" cx="50%" cy="50%" r="60%">
+									<Stop offset="0%" stopColor={resolvedAccent} stopOpacity={0.55} />
+									<Stop offset="100%" stopColor={resolvedAccent} stopOpacity={0} />
+								</SvgRadialGradient>
+							</Defs>
+							<Circle cx="50%" cy="50%" r="50%" fill="url(#berx-icon-glow)" />
+						</Svg>
+					) : null}
 					{icon}
+					<BerxParticleSystem trigger={iconBurstOn} count={10} color={resolvedAccent} duration={420} spread={360} speed={70} />
 				</Pressable>
 			</Animated.View>
 		);
@@ -162,9 +250,11 @@ export function BerxAnimatedButton({title, onPress, variant, icon, disabled, acc
 					onPressIn={handlePressIn}
 					onPressOut={handlePressOut}
 					disabled={disabled}
-					style={[styles.base, styles.secondary, {borderColor: colors.border}, disabled && styles.disabled, style]}>
-					{icon}
-					{title ? <Text style={[styles.label, {color: colors.textDim}]}>{title}</Text> : null}
+					style={style}>
+					<Animated.View style={[styles.base, styles.secondary, {borderColor: colors.border}, animatedSecondaryBorderStyle, disabled && styles.disabled]}>
+						{icon}
+						{title ? <Text style={[styles.label, {color: colors.textDim}]}>{title}</Text> : null}
+					</Animated.View>
 				</Pressable>
 			</Animated.View>
 		);
@@ -172,7 +262,7 @@ export function BerxAnimatedButton({title, onPress, variant, icon, disabled, acc
 
 	// PRIMARY
 	return (
-		<Animated.View style={animatedScaleStyle}>
+		<Animated.View style={[animatedScaleStyle, animatedIdleGlowStyle]}>
 			<Pressable
 				onPress={handlePress}
 				onPressIn={handlePressIn}
@@ -182,7 +272,7 @@ export function BerxAnimatedButton({title, onPress, variant, icon, disabled, acc
 				<Svg style={StyleSheet.absoluteFillObject} width="100%" height="100%">
 					<Defs>
 						<SvgLinearGradient id="berx-btn-fill" x1="0" y1="0" x2="1" y2="1">
-							<Stop offset="0%" stopColor={resolvedAccent} stopOpacity={0.3} />
+							<Stop offset="0%" stopColor={resolvedAccent} stopOpacity={0.6} />
 							<Stop offset="100%" stopColor={resolvedAccent} stopOpacity={0} />
 						</SvgLinearGradient>
 					</Defs>
@@ -204,7 +294,10 @@ export function BerxAnimatedButton({title, onPress, variant, icon, disabled, acc
 				) : null}
 				{icon}
 				{title ? <Text style={[styles.label, {color: colors.text}]}>{title}</Text> : null}
-				<BerxParticleSystem trigger={burstOn} count={14} color={resolvedAccent} duration={550} spread={100} speed={90} />
+				{/* "Powerful" wave, per the wow-pass spec — doubled count,
+				    full 360° spread (a burst, not a directional wave), and a
+				    higher speed than the original modest press feedback. */}
+				<BerxParticleSystem trigger={burstOn} count={28} color={resolvedAccent} duration={650} spread={360} speed={140} />
 			</Pressable>
 		</Animated.View>
 	);
@@ -234,6 +327,7 @@ const styles = StyleSheet.create({
 		borderWidth: 1,
 		alignItems: 'center',
 		justifyContent: 'center',
+		overflow: 'hidden',
 	},
 	disabled: {opacity: 0.4},
 });

@@ -22,6 +22,7 @@
  *              Native's own Pressable props don't declare them, only
  *              react-native-web's runtime does). Springs back to flat
  *              the instant the finger lifts or the mouse leaves.
+ *              `maxTilt` default bumped 8°→12° per the wow-pass spec.
  *
  *              ONE Pressable owns the whole gesture — background glass
  *              and content are both purely decorative layers inside
@@ -42,6 +43,24 @@
  *              asked for by name — real, disclosed scope, not silently
  *              dropped.
  *
+ * WOW PASS — three further real additions:
+ *   - TILT-REACTIVE SHADOW. A real Animated.View wraps the whole card,
+ *     OUTSIDE the perspective/rotate layer, whose own shadowOffset/
+ *     shadowRadius/shadowOpacity are driven by the SAME live tiltX/
+ *     tiltY shared values — the shadow shifts opposite the tilt (as a
+ *     real light source overhead would cast it) and deepens as the
+ *     tilt grows, rather than the static two-layer shadow baked into
+ *     BerxGlassView's own StyleSheet.
+ *   - ACCENT GRADIENT BACKGROUND. A real 2-stop SVG diagonal gradient
+ *     (live accent, low alpha) rendered as its own layer between the
+ *     glass backing and the content — reactive to accent switches the
+ *     same way every other live-theme consumer in this codebase is
+ *     (re-reads useBerxColors().accent, no cached/stale colour).
+ *   - PRESS LIFT. A real spring scale to 1.02 on press-in (back to 1
+ *     on release/cancel), composed into the SAME transform array as
+ *     the tilt rotation so both read as one coherent gesture rather
+ *     than two competing animations.
+ *
  * VERIFICATION. Tilt's touch/press half and the whole 2D glass
  * composition are real, harness-screenshotable behaviour. The
  * gyroscope half and the actual device motion this whole card is
@@ -56,7 +75,9 @@ import type {GestureResponderEvent, StyleProp, ViewStyle} from 'react-native';
 import Animated, {useSharedValue, useAnimatedStyle, withSpring, withTiming} from 'react-native-reanimated';
 import {Gyroscope} from 'expo-sensors';
 type GyroscopeSubscription = ReturnType<typeof Gyroscope.addListener>;
+import Svg, {Defs, LinearGradient as SvgLinearGradient, Stop, Rect} from 'react-native-svg';
 import {BerxGlassView} from './BerxGlassView';
+import {useBerxColors} from '../theme';
 import {BERX_SPRING} from '../animation/springs';
 
 export interface BerxSpatialCardProps {
@@ -75,10 +96,16 @@ export interface BerxSpatialCardProps {
 const PARALLAX_CLAMP_PX = 10;
 const PARALLAX_SENSITIVITY = 6;
 
-export function BerxSpatialCard({children, width, height, parallax = true, maxTilt = 8, onPress, style}: BerxSpatialCardProps) {
+export function BerxSpatialCard({children, width, height, parallax = true, maxTilt = 12, onPress, style}: BerxSpatialCardProps) {
+	const colors = useBerxColors();
 	const [measured, setMeasured] = useState({width: width ?? 0, height: height ?? 0});
 	const layoutRef = useRef(measured);
 	layoutRef.current = measured;
+
+	// PRESS LIFT — a real spring scale, composed into the same transform
+	// array as the tilt rotation (see cardAnimatedStyle below) so both
+	// read as one gesture.
+	const pressScale = useSharedValue(1);
 
 	// TILT — normalised -1..1 touch/mouse position relative to card
 	// centre. Set directly (not sprung) while actively tracking, so the
@@ -111,6 +138,11 @@ export function BerxSpatialCard({children, width, height, parallax = true, maxTi
 	function resetTilt() {
 		tiltX.value = withSpring(0, BERX_SPRING);
 		tiltY.value = withSpring(0, BERX_SPRING);
+		pressScale.value = withSpring(1, BERX_SPRING);
+	}
+
+	function handlePressIn() {
+		pressScale.value = withSpring(1.02, BERX_SPRING);
 	}
 
 	// WEB — real DOM mouse events, forwarded by react-native-web.
@@ -161,8 +193,22 @@ export function BerxSpatialCard({children, width, height, parallax = true, maxTi
 			{perspective: 800},
 			{rotateX: `${tiltY.value * maxTilt}deg`},
 			{rotateY: `${-tiltX.value * maxTilt}deg`},
+			{scale: pressScale.value},
 		],
-	}), [tiltX, tiltY, maxTilt]);
+	}), [tiltX, tiltY, maxTilt, pressScale]);
+	// WOW PASS — TILT-REACTIVE SHADOW. Shifts opposite the live tilt (as
+	// a real overhead light source would cast it) and deepens as the
+	// tilt magnitude grows — a real function of tiltX/tiltY, not a
+	// fixed two-layer shadow.
+	const tiltShadowStyle = useAnimatedStyle(() => {
+		const mag = Math.min(1, Math.hypot(tiltX.value, tiltY.value));
+		return {
+			shadowColor: '#000000',
+			shadowOffset: {width: -tiltX.value * 14, height: 10 + tiltY.value * 14},
+			shadowRadius: 18 + mag * 16,
+			shadowOpacity: 0.35 + mag * 0.25,
+		};
+	}, [tiltX, tiltY]);
 	// Content sits ON the glass, so it moves MORE than the glass backing
 	// itself — the real "background moves slower than content" relationship.
 	const contentParallaxStyle = useAnimatedStyle(() => ({
@@ -173,40 +219,68 @@ export function BerxSpatialCard({children, width, height, parallax = true, maxTi
 	}), [parallaxX, parallaxY]);
 
 	return (
-		<Pressable
-			onPress={onPress}
-			style={[{width: width || undefined, height: height || undefined}, style]}
-			onLayout={(e) => setMeasured({width: e.nativeEvent.layout.width, height: e.nativeEvent.layout.height})}
-			onTouchStart={handleTouchMove}
-			onTouchMove={handleTouchMove}
-			onTouchEnd={resetTilt}
-			onTouchCancel={resetTilt}
-			{...webHandlers}>
-			{/* The real 3D tilt lives on this single inner layer — the
-			    Pressable above owns the gesture, this owns the transform,
-			    so background and content (both purely decorative) never
-			    compete with it for touches. */}
-			<Animated.View style={[styles.fill, cardAnimatedStyle]}>
-				<Animated.View style={[StyleSheet.absoluteFillObject, backingParallaxStyle]} pointerEvents="none">
-					<BerxGlassView intensity={25} radius={20} style={styles.glassFill}>
-						<View />
-					</BerxGlassView>
+		// WOW PASS — the tilt-reactive shadow lives on this outer wrapper,
+		// OUTSIDE the perspective/rotate layer below, so the shadow itself
+		// never gets warped by the 3D transform it's reacting to.
+		<Animated.View style={[{width: width || undefined, height: height || undefined}, tiltShadowStyle, style]}>
+			<Pressable
+				onPress={onPress}
+				style={styles.fill}
+				onLayout={(e) => setMeasured({width: e.nativeEvent.layout.width, height: e.nativeEvent.layout.height})}
+				onTouchStart={(e: GestureResponderEvent) => {
+					handlePressIn();
+					handleTouchMove(e);
+				}}
+				onTouchMove={handleTouchMove}
+				onTouchEnd={resetTilt}
+				onTouchCancel={resetTilt}
+				onPressIn={Platform.OS === 'web' ? handlePressIn : undefined}
+				onPressOut={Platform.OS === 'web' ? resetTilt : undefined}
+				{...webHandlers}>
+				{/* The real 3D tilt (and the press-lift scale) lives on this
+				    single inner layer — the Pressable above owns the gesture,
+				    this owns the transform, so background and content (both
+				    purely decorative) never compete with it for touches. */}
+				<Animated.View style={[styles.fill, cardAnimatedStyle]}>
+					<Animated.View style={[StyleSheet.absoluteFillObject, backingParallaxStyle]} pointerEvents="none">
+						<BerxGlassView intensity={25} radius={20} style={styles.glassFill}>
+							<View />
+						</BerxGlassView>
+					</Animated.View>
+					{/* WOW PASS — ACCENT GRADIENT BACKGROUND. A real, low-alpha
+					    diagonal SVG gradient in the live accent, its own layer
+					    between the glass backing and the content — re-reads
+					    colors.accent on every render, so an accent switch
+					    updates it the same way every other live-theme consumer
+					    in this codebase already does. */}
+					<View pointerEvents="none" style={[StyleSheet.absoluteFillObject, styles.gradientClip]}>
+						<Svg style={StyleSheet.absoluteFillObject} width="100%" height="100%">
+							<Defs>
+								<SvgLinearGradient id="berx-card-accent-bg" x1="0" y1="0" x2="1" y2="1">
+									<Stop offset="0%" stopColor={colors.accent} stopOpacity={0.1} />
+									<Stop offset="100%" stopColor={colors.accent} stopOpacity={0} />
+								</SvgLinearGradient>
+							</Defs>
+							<Rect x="0" y="0" width="100%" height="100%" fill="url(#berx-card-accent-bg)" />
+						</Svg>
+					</View>
+					{/* NOT pointerEvents="none" — `children` is real reusable
+					    content (a post's own like/comment buttons, a profile
+					    card's own actions) and RN's nested-responder system
+					    already lets a child touchable win the gesture over an
+					    ancestor's onPress; this outer Pressable's own
+					    onTouchMove is a passive observer, not a capture, so it
+					    does not steal that. */}
+					<Animated.View style={[styles.content, contentParallaxStyle]}>{children}</Animated.View>
 				</Animated.View>
-				{/* NOT pointerEvents="none" — `children` is real reusable
-				    content (a post's own like/comment buttons, a profile
-				    card's own actions) and RN's nested-responder system
-				    already lets a child touchable win the gesture over an
-				    ancestor's onPress; this outer Pressable's own
-				    onTouchMove is a passive observer, not a capture, so it
-				    does not steal that. */}
-				<Animated.View style={[styles.content, contentParallaxStyle]}>{children}</Animated.View>
-			</Animated.View>
-		</Pressable>
+			</Pressable>
+		</Animated.View>
 	);
 }
 
 const styles = StyleSheet.create({
 	fill: {flex: 1},
 	glassFill: {flex: 1, padding: 0},
+	gradientClip: {borderRadius: 20, overflow: 'hidden'},
 	content: {flex: 1},
 });
