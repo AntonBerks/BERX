@@ -30,6 +30,7 @@ import {BerxLoadingState} from '../../../../packages/design-system/src/component
 import {BerxPersonCard, BerxLiveDot} from '../../../../packages/design-system/src/components/BerxSpatialCards';
 import {BerxAvatarStack} from '../../../../packages/design-system/src/components/BerxAvatarStack';
 import {BerxGlassSurface} from '../../../../packages/design-system/src/components/BerxGlassSurface';
+import BerxSocialScene from '../three/BerxSocialScene';
 
 import {useBerxColors} from '../../../../packages/design-system/src/theme';
 import type {BerxColorTokens} from '@berx/design-system/tokens';
@@ -65,6 +66,12 @@ export default function PeopleScreen({api, onOpenProfile, onOpenConversation, on
 	const [query, setQuery] = useState('');
 	const [results, setResults] = useState<SearchRow[] | null>(null);
 	const [loading, setLoading] = useState(true);
+	/**
+	 * Off by default, same as the other spatial views: the rails are the
+	 * dependable way to FIND a person; the graph is what you open when
+	 * you want the shape of your social world rather than a list of it.
+	 */
+	const [graph, setGraph] = useState(false);
 	const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
 	const load = useCallback(async () => {
@@ -144,9 +151,19 @@ export default function PeopleScreen({api, onOpenProfile, onOpenConversation, on
 				<BerxInput placeholder="Найти человека" value={query} onChangeText={handleQuery} autoCapitalize="none" autoCorrect={false} />
 			</View>
 
+			{/* Only offered when there is a real graph to draw — no friends and
+			    no suggestions means there is nothing true to show. */}
+			{friends.length > 0 || suggestions.length > 0 ? (
+				<Pressable style={styles.graphToggle} onPress={() => setGraph((v: boolean) => !v)}>
+					<Text style={styles.graphToggleText}>{graph ? 'Показать списком' : 'Показать граф'}</Text>
+				</Pressable>
+			) : null}
+
 			<ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
 				<BerxFadeIn>
-					{results !== null ? (
+					{graph && results === null ? (
+						<BerxSocialScene friends={friends} online={online} suggestions={suggestions} />
+					) : results !== null ? (
 						<View style={styles.section}>
 							<Text style={styles.sectionTitle}>Результаты</Text>
 							{results.length === 0 ? (
@@ -283,6 +300,8 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	title: {color: colors.text, fontSize: typography.sizeTitle, fontWeight: typography.weightBold, letterSpacing: -0.4},
 	headActions: {flexDirection: 'row', gap: spacing.md},
 	searchWrap: {paddingHorizontal: spacing.lg, paddingTop: spacing.sm, paddingBottom: spacing.xs},
+	graphToggle: {alignSelf: 'flex-start', marginHorizontal: spacing.lg, marginTop: spacing.xs, paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: 999, backgroundColor: colors.accentSoft},
+	graphToggleText: {color: colors.accent, fontSize: typography.sizeSm, fontWeight: typography.weightMedium},
 	scroll: {paddingBottom: spacing.xxl},
 	section: {marginTop: spacing.xl},
 	sectionHead: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.lg, gap: spacing.sm},

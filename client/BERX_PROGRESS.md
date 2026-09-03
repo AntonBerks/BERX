@@ -226,5 +226,20 @@ Real, honest extensions built in economical single-pass batches: Business Moment
 
 **Also caught:** a first attempt at Nearby Impressions tried adding a POST action-recording branch directly inside `nearby.php`, whose own top-level method/lat-lng guards would have rejected it before ever reaching the new code — caught by reading the real control flow, moved to a dedicated `impressions.php` instead.
 
+## BERX Spatial Engine + real 3D (engine COMPLETE, 3 scenes live, native UNVERIFIED)
+
+Built the shared native 3D foundation (`spatial/engine/`): semantic 3D tokens (camera lenses, three-point rig where the key light IS the `#4FD6E8` accent, glass material, emissive scale, motion rates, quality tiers) and `SpatialStage` — the one Canvas+camera+lighting shell every real 3D surface composes from. Objects now own only geometry, material and motion; previously each declared its own fov and light intensities, so objects on adjacent screens were lit by different suns. `SpatialHero`/`SpatialEmblem`/`SpatialLens` migrated onto it.
+
+**Three scenes, each because depth is genuinely the information — not decoration:**
+- `BerxDepthScene` (Worlds) — z = how committed an item is in time. Also *fixed*: it imported the WEB fiber entry in native code, hardcoded a retired gold palette, and was a single `.tsx` so the harness bundled it against GL stubs into a dead canvas.
+- `BerxTimelineScene` (Life Graph) — z = time; dragging dollies the camera through real history, clamped to its real extent.
+- `BerxSocialScene` (People) — one ring for friends, suggestions placed outside by real `mutual_count`.
+
+**What `BerxSocialScene` deliberately refuses to encode** is the more useful record: BERX has no friendship-strength data (`BerxFriend` is just identity fields), so every friend sits at ONE radius. Spreading them by depth would look richer and be an invented closeness ranking. Edges are drawn only where a real relationship exists — suggestions get none, because you are not connected to them.
+
+**Removed artificial limitations:** `Berx3DTilt` and `BerxDepthScene` both claimed three.js/R3F/expo-gl "are not installable, npm is blocked" — false; all installed, every R3F peer range satisfied. `tokens/index.ts` announced "cyan is RETIRED, accent is warm gold" while defining `#4FD6E8` below it — the exact stale claim that had already misled one 3D scene into gold.
+
+**Verification, four levels, never conflated:** tsc clean with all `.native.tsx` confirmed in the program via `--listFiles`, and the check proven real by renaming `<pointLight>`→`<pointLightBOGUS>` (TS2339) and reverting. Harness renders all 2D fallbacks with zero page/console errors. **NATIVE: NOT VERIFIED — blocked.** No `ios/`/`android/` project exists in this repo and the container has no Xcode (Linux), Android SDK, emulator or `/dev/kvm`. No GL context has ever been created for this code. Unblock steps in `BERX_DECISIONS.md`.
+
 ## Next task
 Restaurant PRO / Coffee-Café and Wallet/Tickets/Delivery/Calls remain blocked on real infrastructure this sandbox doesn't have — each needs an honest scoping pass, not a build attempt, until that's resolved. All items from the standing priority list are now closed.
