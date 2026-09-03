@@ -41,6 +41,7 @@ import {BerxRichText} from '../../../../packages/design-system/src/components/Be
 
 import {useBerxColors} from '../../../../packages/design-system/src/theme';
 import type {BerxColorTokens} from '@berx/design-system/tokens';
+import {BerxIcon} from '../../../../packages/design-system/src/icons/BerxIcon';
 
 interface Props {
 	api: BerxApiClient;
@@ -114,8 +115,14 @@ export default function PostDetailScreen({api, postGuid, myGuid, onOpenProfile, 
 
 	const loadMedia = useCallback(async () => {
 		try {
-			const res = await api.mediaByContext('post', postGuid);
-			setMedia(res.media);
+		const res = await api.mediaByContext('post', postGuid);
+			// `?? []` because the catch below only covers a FAILED fetch. A
+			// successful response that omits the field sails past it and
+			// leaves `media` undefined, and the next render does
+			// media.length — which white-screens the entire post rather than
+			// hiding a gallery. That contradicts this handler's own stated
+			// intent that attachments are optional.
+			setMedia(res.media ?? []);
 		} catch {
 			// real media attachments are optional — a failed fetch just means no gallery shows, not an error state for the whole post
 		}
@@ -544,17 +551,22 @@ export default function PostDetailScreen({api, postGuid, myGuid, onOpenProfile, 
 								) : (
 									<View style={styles.commentAvatar} />
 								)}
-								<View style={styles.commentBody}>
-									<Text style={styles.commentAuthor}>
-										{c.is_pinned ? '📌 ' : ''}{c.author?.fullname ?? 'Пользователь'}
-									</Text>
+							<View style={styles.commentBody}>
+									{/* Was a 📌 character prefixed into the author's own name
+									    string. A pinned comment is a state of the comment, not
+									    part of who wrote it. */}
+									<View style={styles.commentAuthorRow}>
+										{c.is_pinned ? <BerxIcon name="pin" size={12} color={colors.accent} /> : null}
+										<Text style={styles.commentAuthor}>{c.author?.fullname ?? 'Пользователь'}</Text>
+									</View>
 									<BerxRichText text={c.text} onOpenProfile={onOpenProfile} onOpenHashtag={onOpenHashtag} style={styles.commentText} />
 									<View style={styles.commentMetaRow}>
 										<Text style={styles.commentTime}>{relativeTimeLabel(c.time)}</Text>
-										<Pressable onPress={() => toggleCommentLike(c)} hitSlop={8}>
-											<Text style={[styles.commentLike, c.is_liked && styles.commentLikeActive]}>
-												{c.is_liked ? '♥' : '♡'}{c.like_count > 0 ? ` ${c.like_count}` : ''}
-											</Text>
+									<Pressable onPress={() => toggleCommentLike(c)} hitSlop={8} style={styles.commentLikeBtn}>
+											<BerxIcon name="heart" size={13} filled={c.is_liked} color={c.is_liked ? colors.accent : colors.textFaint} />
+											{c.like_count > 0 ? (
+												<Text style={[styles.commentLike, c.is_liked && styles.commentLikeActive]}>{c.like_count}</Text>
+											) : null}
 										</Pressable>
 										<Pressable onPress={() => setReplyTo(c)} hitSlop={8}>
 											<Text style={styles.commentLike}>Ответить</Text>
@@ -573,7 +585,7 @@ export default function PostDetailScreen({api, postGuid, myGuid, onOpenProfile, 
 									</Pressable>
 								) : myGuid && c.author?.guid !== myGuid ? (
 									<Pressable onPress={() => onReport('comment', c.id)} hitSlop={8}>
-										<Text style={styles.commentDelete}>⚑</Text>
+									<BerxIcon name="flag" size={13} color={colors.textFaint} />
 									</Pressable>
 								) : null}
 							</View>
@@ -664,11 +676,18 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	commentRow: {flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, paddingVertical: spacing.sm, borderTopWidth: 1, borderTopColor: colors.borderSoft},
 	commentAvatar: {width: 32, height: 32, borderRadius: radius.pill, backgroundColor: colors.glass2},
 	commentBody: {flex: 1, gap: 2},
+	commentAuthorRow: {flexDirection: 'row', alignItems: 'center', gap: 5},
+	commentLikeBtn: {flexDirection: 'row', alignItems: 'center', gap: 4},
 	commentAuthor: {color: colors.text, fontSize: typography.sizeSm, fontWeight: typography.weightMedium},
 	commentText: {color: colors.textDim, fontSize: typography.sizeSm},
 	commentTime: {color: colors.textFaint, fontSize: typography.sizeXs},
 	commentMetaRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: 2},
 	commentLike: {color: colors.textFaint, fontSize: typography.sizeXs},
-	commentLikeActive: {color: colors.danger},
+	// Was colors.danger — the DESTRUCTIVE role, the same red this screen
+	// uses for delete. Liking something is not an error or a warning, and
+	// every other like state in the product (feed, NOW, the action rail)
+	// is the accent. The heart beside it was already cyan, so the glyph
+	// and its own count disagreed.
+	commentLikeActive: {color: colors.accent},
 	commentDelete: {color: colors.textFaint, fontSize: typography.sizeSm, padding: 4},
 });

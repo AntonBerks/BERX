@@ -47,6 +47,7 @@ import {BerxGlassSurface} from '../../../../packages/design-system/src/component
 
 import {useBerxColors} from '../../../../packages/design-system/src/theme';
 import type {BerxColorTokens} from '@berx/design-system/tokens';
+import {BerxIcon} from '../../../../packages/design-system/src/icons/BerxIcon';
 
 interface Props {
 	api: BerxApiClient;
@@ -251,15 +252,27 @@ export default function StoryViewerScreen({api, group, myGuid, onClose}: Props) 
 			<View style={styles.footer}>
 				{current.caption ? <Text style={styles.caption}>{current.caption}</Text> : null}
 				<View style={styles.footerRow}>
-					<Text style={styles.owner}>{group.owner_username ?? `#${group.owner_guid}`}</Text>
+				{/* group.owner_icon is on every BerxStoryFeedGroup and was unused
+					    here — the one screen in the product showing a single person's
+					    content in full-bleed, and it named them without showing
+					    them. Same gap the feed byline and the story rail had. */}
+					<View style={styles.ownerRow}>
+						{group.owner_icon ? <Image source={{uri: group.owner_icon}} style={styles.ownerAvatar} /> : null}
+						<Text style={styles.owner}>{group.owner_username ?? `#${group.owner_guid}`}</Text>
+					</View>
 					{isOwn ? (
 						<View style={styles.ownActions}>
-							<Pressable onPress={toggleViewers} hitSlop={8}>
-								<Text style={styles.viewersText}>👁 {current.viewer_count ?? 0}</Text>
+						<Pressable onPress={toggleViewers} hitSlop={8} style={styles.ownAction}>
+								<BerxIcon name="eye" size={13} color={colors.onMedia} />
+								<Text style={styles.viewersText}>{current.viewer_count ?? 0}</Text>
 							</Pressable>
-							<Pressable onPress={toggleHighlight} disabled={highlighting} hitSlop={8}>
+							{/* Was ★ / ☆ prefixed into the label. The highlight state is
+							    exactly what `filled` is for, and it keeps this toggle
+							    reading the same as every other star in the product. */}
+							<Pressable onPress={toggleHighlight} disabled={highlighting} hitSlop={8} style={styles.ownAction}>
+								<BerxIcon name="star" size={13} filled={isHighlighted} color={isHighlighted ? colors.accent : colors.onMediaDim} />
 								<Text style={[styles.highlightText, isHighlighted && styles.highlightTextActive]}>
-									{highlighting ? '...' : isHighlighted ? '★ В актуальном' : '☆ В актуальное'}
+									{highlighting ? '...' : isHighlighted ? 'В актуальном' : 'В актуальное'}
 								</Text>
 							</Pressable>
 							<Pressable onPress={handleDelete} disabled={deleting} hitSlop={8}>
@@ -332,11 +345,14 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	// etc.) flip dark in Day and would go invisible here. The dedicated
 	// onMedia* tokens are deliberately World-invariant for exactly this.
 	caption: {color: colors.onMedia, fontSize: typography.sizeBase, marginBottom: spacing.sm},
+	ownerRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm},
+	ownerAvatar: {width: 22, height: 22, borderRadius: 11},
 	owner: {color: colors.onMediaDim, fontSize: typography.sizeSm},
 	ownActions: {flexDirection: 'row', alignItems: 'center', gap: spacing.md},
 	highlightText: {color: colors.onMediaDim, fontSize: typography.sizeSm},
 	highlightTextActive: {color: colors.accentOnMedia, fontWeight: typography.weightMedium},
 	deleteText: {color: colors.danger, fontSize: typography.sizeSm},
+	ownAction: {flexDirection: 'row', alignItems: 'center', gap: 5},
 	viewersText: {color: colors.onMediaDim, fontSize: typography.sizeSm},
 	viewersPanel: {marginTop: spacing.sm, maxHeight: 160, gap: 4},
 	viewersPanelTitle: {color: colors.onMediaFaint, fontSize: typography.sizeXs, fontWeight: typography.weightBold, textTransform: 'uppercase', marginBottom: 4},

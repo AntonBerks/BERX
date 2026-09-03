@@ -31,6 +31,7 @@ import {BerxFadeIn} from '../../../../packages/design-system/src/components/Berx
 
 import {useBerxColors} from '../../../../packages/design-system/src/theme';
 import type {BerxColorTokens} from '@berx/design-system/tokens';
+import {BerxIcon} from '../../../../packages/design-system/src/icons/BerxIcon';
 
 interface Props {
 	api: BerxApiClient;
@@ -187,7 +188,7 @@ export default function MemoriesScreen({api, onOpenPost, onOpenAlbum, onOpenPlac
 											<Image source={{uri: m.url}} style={styles.thumb} />
 										) : (
 											<View style={styles.thumbFallback}>
-												<Text style={styles.thumbFallbackText}>{m.type === 'checkin' ? '📍' : '✎'}</Text>
+											<BerxIcon name={m.type === 'checkin' ? 'map-pin' : 'edit-3'} size={20} color={colors.textFaint} />
 											</View>
 										)}
 										<View style={styles.rowBody}>
