@@ -1,26 +1,43 @@
 /**
- * !!! VERIFICATION STATUS: UNVERIFIED — see LoginScreen.tsx header.
+ * BERX-003 — Create Account.
  *
- * Real, honest gap this closes: POST /auth/register existed since the
- * earliest API-foundation phase, with a matching client.register()
- * just added, but no screen ever called either — the auth flow only
- * ever had a way in for people who already had an account.
+ * Registration is honest about what actually happens next: the real
+ * API requires email activation before login() will accept the new
+ * credentials (see auth.php's register action), so the success state
+ * shows the server's own message rather than a friendlier invention
+ * that might not match what the user has to do. Field-level errors
+ * are mapped from the API's real error codes.
+ *
+ * v9 puts the form on the structure plane of the AUTH hero scene,
+ * makes the error and the success announcement real live regions, and
+ * disables submit until every required field is filled instead of
+ * failing after the tap.
  */
-import React, {useState} from 'react';
+import {useState} from 'react';
 import {View, Text, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import {BerxApiError} from '@berx/core';
 import {colors, spacing, typography} from '@berx/design-system/tokens';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
+import {BerxSpatialCard} from '../../../../packages/design-system/src/spatial/BerxSpatialCard';
+import {BerxScreenScene} from '../spatial/BerxScreenScene';
 
-interface Props {
+export interface RegisterScreenProps {
 	api: BerxApiClient;
 	onRegistered: () => void;
 	onBack: () => void;
 }
 
-export default function RegisterScreen({api, onRegistered, onBack}: Props) {
+export default function RegisterScreen(props: RegisterScreenProps) {
+	return (
+		<BerxScreenScene screenId="BERX-003" testID="berx-003">
+			<RegisterSceneBody {...props} />
+		</BerxScreenScene>
+	);
+}
+
+function RegisterSceneBody({api, onRegistered, onBack}: RegisterScreenProps) {
 	const [username, setUsername] = useState('');
 	const [firstname, setFirstname] = useState('');
 	const [lastname, setLastname] = useState('');
@@ -67,35 +84,65 @@ export default function RegisterScreen({api, onRegistered, onBack}: Props) {
 		}
 	}
 
+	/* every field is required by the server, so submit says so up front */
+	const canSubmit =
+		username.trim().length > 0 &&
+		firstname.trim().length > 0 &&
+		lastname.trim().length > 0 &&
+		email.trim().length > 0 &&
+		password.length > 0;
+
 	if (done) {
 		return (
 			<View style={styles.screen}>
-				<Text style={styles.title}>Почти готово</Text>
-				<Text style={styles.doneText}>{done}</Text>
-				<BerxButton label="К входу" onPress={onRegistered} fullWidth />
+				<Text style={styles.title} accessibilityRole="header">
+					Почти готово
+				</Text>
+				<BerxSpatialCard depth="D2" padding={spacing.xl}>
+					{/* the server's own instruction, announced, not just drawn */}
+					<Text accessibilityLiveRegion="polite" style={styles.doneText}>
+						{done}
+					</Text>
+					<BerxButton label="К входу" onPress={onRegistered} fullWidth />
+				</BerxSpatialCard>
 			</View>
 		);
 	}
 
 	return (
 		<View style={styles.screen}>
-			<Text style={styles.title}>Создать аккаунт</Text>
-			<BerxInput placeholder="Имя" value={firstname} onChangeText={setFirstname} style={styles.input} />
-			<BerxInput placeholder="Фамилия" value={lastname} onChangeText={setLastname} style={styles.input} />
-			<BerxInput placeholder="Логин" autoCapitalize="none" value={username} onChangeText={setUsername} style={styles.input} />
-			<BerxInput placeholder="Email" autoCapitalize="none" keyboardType="email-address" value={email} onChangeText={setEmail} style={styles.input} />
-			<BerxInput placeholder="Пароль" secureTextEntry value={password} onChangeText={setPassword} style={styles.input} />
-			{error ? <Text style={styles.error}>{error}</Text> : null}
-			<BerxButton label="Зарегистрироваться" onPress={handleSubmit} loading={submitting} fullWidth />
-			<BerxButton label="Назад" variant="secondary" onPress={onBack} fullWidth />
+			<Text style={styles.title} accessibilityRole="header">
+				Создать аккаунт
+			</Text>
+			<BerxSpatialCard depth="D2" padding={spacing.xl}>
+				<BerxInput placeholder="Имя" value={firstname} onChangeText={setFirstname} style={styles.input} />
+				<BerxInput placeholder="Фамилия" value={lastname} onChangeText={setLastname} style={styles.input} />
+				<BerxInput placeholder="Логин" autoCapitalize="none" value={username} onChangeText={setUsername} style={styles.input} />
+				<BerxInput placeholder="Email" autoCapitalize="none" keyboardType="email-address" value={email} onChangeText={setEmail} style={styles.input} />
+				<BerxInput placeholder="Пароль" secureTextEntry value={password} onChangeText={setPassword} style={styles.input} />
+				{error ? (
+					<Text accessibilityLiveRegion="assertive" accessibilityRole="alert" style={styles.error}>
+						{error}
+					</Text>
+				) : null}
+				<BerxButton
+					label="Зарегистрироваться"
+					onPress={handleSubmit}
+					loading={submitting}
+					disabled={!canSubmit}
+					fullWidth
+				/>
+				<BerxButton label="Назад" variant="secondary" onPress={onBack} fullWidth />
+			</BerxSpatialCard>
 		</View>
 	);
 }
 
 const styles = StyleSheet.create({
-	screen: {flex: 1, backgroundColor: colors.black, padding: spacing.xl, justifyContent: 'center', gap: spacing.md},
+	screen: {flex: 1, padding: spacing.xl, justifyContent: 'center', gap: spacing.md},
 	title: {fontSize: typography.sizeXl, fontWeight: typography.weightBold, color: colors.text, textAlign: 'center', marginBottom: spacing.md},
-	input: {marginBottom: 0},
+	/* the inputs sit inside one glass pane now, so they need their own rhythm */
+	input: {marginBottom: spacing.md},
 	error: {color: colors.danger, fontSize: typography.sizeSm, textAlign: 'center'},
 	doneText: {color: colors.textDim, fontSize: typography.sizeBase, textAlign: 'center', marginBottom: spacing.lg},
 });

@@ -1,90 +1,172 @@
 /**
- * !!! VERIFICATION STATUS: UNVERIFIED — see LoginScreen.tsx header.
+ * BERX-266 — Communities. The COMMUNITY family's v9 scene.
+ *
+ * Real data: api.communities() and api.myCommunities() from the real
+ * groups endpoints. Membership drives the action, and all three
+ * states are real: a member sees "Выйти", a non-member "Вступить",
+ * and someone whose request the server has recorded sees that it is
+ * pending — no button that assumes the answer.
  */
-import React, {useCallback, useEffect, useState} from 'react';
-import {View, Text, FlatList, Pressable, StyleSheet} from 'react-native';
+import {useCallback, useEffect, useState} from 'react';
+import {FlatList, StyleSheet, View} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxCommunity} from '@berx/api/types';
-import {colors, spacing, typography} from '@berx/design-system/tokens';
+import type {BerxScreenState} from '@berx/spatial';
+import {spacing} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
-import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
-import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
+import {BerxCommunityCard} from '../../../../packages/design-system/src/spatial/BerxCommunityCard';
+import type {BerxMembership} from '../../../../packages/design-system/src/spatial/BerxCommunityCard';
+import {BerxFilterBar} from '../../../../packages/design-system/src/spatial/BerxFilterBar';
+import {BerxDataBoundary} from '../../../../packages/design-system/src/spatial/BerxDataBoundary';
+import {useBerxSceneScroll} from '../../../../packages/design-system/src/spatial/BerxSpatialScene';
+import {BerxScreenScene, useBerxScreen} from '../spatial/BerxScreenScene';
+import {berxAnalytics} from '../spatial/analytics';
 
-interface Props {
+export interface CommunitiesListScreenProps {
 	api: BerxApiClient;
 	onOpenCommunity: (guid: number) => void;
 	onCreate: () => void;
 	onBack?: () => void;
 }
 
-export default function CommunitiesListScreen({api, onOpenCommunity, onCreate, onBack}: Props) {
-	const [q, setQ] = useState('');
+export default function CommunitiesListScreen(props: CommunitiesListScreenProps) {
+	return (
+		<BerxScreenScene screenId="BERX-266" testID="berx-266">
+			<CommunitiesSceneBody {...props} />
+		</BerxScreenScene>
+	);
+}
+
+function CommunitiesSceneBody({api, onOpenCommunity, onCreate, onBack}: CommunitiesListScreenProps) {
+	const screen = useBerxScreen();
+	const {onScroll, scrollEventThrottle} = useBerxSceneScroll();
+
+	const [scope, setScope] = useState<'all' | 'mine'>('all');
 	const [items, setItems] = useState<BerxCommunity[]>([]);
-	const [loading, setLoading] = useState(true);
+	const [state, setState] = useState<BerxScreenState>('loading');
 	const [error, setError] = useState<string | null>(null);
+	const [busy, setBusy] = useState<number | null>(null);
 
 	const load = useCallback(async () => {
-		setLoading(true);
+		setState('loading');
+		setError(null);
 		try {
-			const res = await api.communities(q || undefined);
+			const res = scope === 'mine' ? await api.myCommunities() : await api.communities();
 			setItems(res.communities);
-			setError(null);
-		} catch {
-			setError('Не удалось загрузить сообщества');
-		} finally {
-			setLoading(false);
+			setState(res.communities.length === 0 ? 'empty' : 'default');
+		} catch (e) {
+			setError(e instanceof Error ? e.message : 'Не удалось загрузить сообщества');
+			setState('error');
+			berxAnalytics.error(screen, 'communities');
 		}
-	}, [api, q]);
+	}, [api, scope, screen]);
 
 	useEffect(() => {
 		load();
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, []);
+	}, [load]);
+
+	const toggleMembership = useCallback(
+		async (community: BerxCommunity) => {
+			setBusy(community.guid);
+			berxAnalytics.mutationStart(screen, community.guid);
+			const started = Date.now();
+			try {
+				if (community.is_member) await api.leaveCommunity(community.guid);
+				else await api.joinCommunity(community.guid);
+				/**
+				 * Re-read rather than flipping locally: a closed community
+				 * turns a join into a pending request, and only the server
+				 * knows which of the two just happened.
+				 */
+				await load();
+				berxAnalytics.mutationSuccess(screen, Date.now() - started, community.guid);
+			} catch {
+				berxAnalytics.mutationError(screen, 'membership');
+			} finally {
+				setBusy(null);
+			}
+		},
+		[api, load, screen],
+	);
 
 	return (
 		<View style={styles.screen}>
-			<BerxHeader onBack={onBack} title="Сообщества" />
-			<View style={styles.searchRow}>
-				<View style={styles.searchInput}>
-					<BerxInput placeholder="Поиск сообществ..." value={q} onChangeText={setQ} onSubmitEditing={load} />
+			<BerxHeader title="Сообщества" onBack={onBack} />
+
+			<View style={styles.toolbar}>
+				<BerxFilterBar
+					options={[
+						{key: 'all', label: 'Все'},
+						{key: 'mine', label: 'Мои'},
+					]}
+					selected={[scope]}
+					onToggle={(key) => setScope(key as 'all' | 'mine')}
+					multiple={false}
+					accessibilityLabel="Какие сообщества показать"
+				/>
+				<View style={styles.actions}>
+					<BerxButton label="Создать сообщество" onPress={onCreate} />
 				</View>
-				<BerxButton label="+" onPress={onCreate} />
 			</View>
 
-			{loading ? (
-				<BerxLoadingState label="Загрузка..." />
-			) : error ? (
-				<BerxErrorState message={error} onRetry={load} />
-			) : items.length === 0 ? (
-				<BerxEmptyState title="Сообщества не найдены" subtitle="Попробуйте другой запрос или создайте своё." />
-			) : (
+			<BerxDataBoundary
+				state={state}
+				onRetry={load}
+				errorMessage={error ?? undefined}
+				emptyTitle={scope === 'mine' ? 'Вы пока никуда не вступили' : 'Сообществ пока нет'}
+				emptyBody={
+					scope === 'mine'
+						? 'Найдите сообщество во вкладке «Все» — или создайте своё.'
+						: 'Создайте первое сообщество вокруг того, что вам важно.'
+				}
+				emptyAction={{label: 'Создать сообщество', onPress: onCreate}}
+				style={styles.body}>
 				<FlatList
 					data={items}
 					keyExtractor={(c: BerxCommunity) => String(c.guid)}
-					renderItem={({item}: {item: BerxCommunity}) => (
-						<Pressable style={styles.row} onPress={() => onOpenCommunity(item.guid)}>
-							<Text style={styles.name}>{item.name}</Text>
-							{item.description ? (
-								<Text style={styles.description} numberOfLines={2}>
-									{item.description}
-								</Text>
-							) : null}
-							{item.is_member ? <Text style={styles.memberBadge}>Вы участник</Text> : null}
-						</Pressable>
-					)}
+					onScroll={onScroll}
+					scrollEventThrottle={scrollEventThrottle}
+					contentContainerStyle={styles.list}
+					removeClippedSubviews
+					windowSize={Math.max(3, Math.round(screen.scene.budget.listWindowSize / 3))}
+					renderItem={({item}: {item: BerxCommunity}) => {
+						const membership: BerxMembership = item.is_member ? 'member' : 'none';
+						return (
+							<BerxCommunityCard
+								communityGuid={item.guid}
+								name={item.name}
+								description={item.description}
+								/**
+								 * No cover and no member count: the communities
+								 * endpoint returns guid, name, description,
+								 * owner_guid, privacy and is_member, and nothing
+								 * else. A grey placeholder image and a "0
+								 * участников" would both be inventions.
+								 */
+								membership={membership}
+								onPress={() => onOpenCommunity(item.guid)}
+								actions={
+									<BerxButton
+										label={item.is_member ? 'Выйти' : 'Вступить'}
+										variant={item.is_member ? 'secondary' : 'primary'}
+										loading={busy === item.guid}
+										onPress={() => toggleMembership(item)}
+									/>
+								}
+							/>
+						);
+					}}
 				/>
-			)}
+			</BerxDataBoundary>
 		</View>
 	);
 }
 
 const styles = StyleSheet.create({
-	screen: {flex: 1, backgroundColor: colors.black},
-	searchRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.lg, paddingBottom: spacing.md},
-	searchInput: {flex: 1},
-	row: {padding: spacing.lg, borderBottomWidth: 1, borderBottomColor: colors.borderSoft},
-	name: {color: colors.text, fontSize: typography.sizeBase, fontWeight: typography.weightMedium},
-	description: {color: colors.textDim, fontSize: typography.sizeSm, marginTop: spacing.xs},
-	memberBadge: {color: colors.accent, fontSize: typography.sizeXs, marginTop: spacing.xs},
+	screen: {flex: 1},
+	toolbar: {paddingTop: spacing.sm, gap: spacing.sm},
+	actions: {flexDirection: 'row', gap: spacing.sm, paddingHorizontal: spacing.lg},
+	body: {flex: 1},
+	list: {padding: spacing.lg, gap: spacing.md},
 });
