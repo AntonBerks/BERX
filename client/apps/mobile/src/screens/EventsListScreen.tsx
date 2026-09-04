@@ -1,19 +1,34 @@
 /**
- * !!! VERIFICATION STATUS: UNVERIFIED — see LoginScreen.tsx header.
- * Real data: api.events(), api.eventCategories() (components/OssnApi/
- * v1/events.php). No ticket/payment UI anywhere — that backend does
- * not exist (see BERX_DECISIONS.md).
+ * BERX-226 — Events Discovery. The EVENTS family's v9 scene.
+ *
+ * Real data: api.events() and api.eventCategories() from
+ * components/OssnApi/v1/events.php. RSVP and capacity are real, so
+ * the card shows the viewer's real is_going state and the real
+ * seats_left, and the RSVP toggle only reflects a change the server
+ * has already accepted.
+ *
+ * There is no ticket anywhere on this screen. Events have RSVP and
+ * capacity but no payment, ticket issuance or barcode resource, so
+ * BerxTicket and BerxWalletCard stay BLOCKED — a ticket that cannot
+ * be redeemed is the fake functionality the constitution forbids.
  */
-import React, {useCallback, useEffect, useState} from 'react';
-import {View, Text, FlatList, Pressable, StyleSheet, Image} from 'react-native';
+import {useCallback, useEffect, useState} from 'react';
+import {FlatList, StyleSheet, View} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxEvent, BerxPlaceCategory} from '@berx/api/types';
-import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
+import type {BerxScreenState} from '@berx/spatial';
+import {spacing} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
-import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
+import {BerxFilterBar} from '../../../../packages/design-system/src/spatial/BerxFilterBar';
+import {BerxObjectCard} from '../../../../packages/design-system/src/spatial/BerxObjectCard';
+import {BerxCountdown} from '../../../../packages/design-system/src/spatial/BerxCountdown';
+import {BerxDataBoundary} from '../../../../packages/design-system/src/spatial/BerxDataBoundary';
+import {useBerxSceneScroll} from '../../../../packages/design-system/src/spatial/BerxSpatialScene';
+import {BerxScreenScene, useBerxScreen} from '../spatial/BerxScreenScene';
+import {berxAnalytics} from '../spatial/analytics';
 
-interface Props {
+export interface EventsListScreenProps {
 	api: BerxApiClient;
 	onOpenEvent: (guid: number) => void;
 	onCreate: () => void;
@@ -21,121 +36,159 @@ interface Props {
 	onBack?: () => void;
 }
 
-export default function EventsListScreen({api, onOpenEvent, onCreate, onOpenMine, onBack}: Props) {
+export default function EventsListScreen(props: EventsListScreenProps) {
+	return (
+		<BerxScreenScene screenId="BERX-226" testID="berx-226">
+			<EventsSceneBody {...props} />
+		</BerxScreenScene>
+	);
+}
+
+function EventsSceneBody({api, onOpenEvent, onCreate, onOpenMine, onBack}: EventsListScreenProps) {
+	const screen = useBerxScreen();
+	const {onScroll, scrollEventThrottle} = useBerxSceneScroll();
+
 	const [tab, setTab] = useState<'upcoming' | 'past'>('upcoming');
 	const [category, setCategory] = useState<string | undefined>(undefined);
 	const [categories, setCategories] = useState<BerxPlaceCategory[]>([]);
 	const [items, setItems] = useState<BerxEvent[]>([]);
-	const [loading, setLoading] = useState(true);
+	const [state, setState] = useState<BerxScreenState>('loading');
 	const [error, setError] = useState<string | null>(null);
+	const [rsvpBusy, setRsvpBusy] = useState<number | null>(null);
 
 	useEffect(() => {
-		api.eventCategories().then((r) => setCategories(r.categories)).catch(() => undefined);
+		api
+			.eventCategories()
+			.then((r) => setCategories(r.categories))
+			.catch(() => undefined);
 	}, [api]);
 
 	const load = useCallback(async () => {
-		setLoading(true);
+		setState('loading');
 		setError(null);
 		try {
 			const res = await api.events({category, past: tab === 'past'});
 			setItems(res.events);
+			setState(res.events.length === 0 ? 'empty' : 'default');
 		} catch (e) {
 			setError(e instanceof Error ? e.message : 'Не удалось загрузить события');
-		} finally {
-			setLoading(false);
+			setState('error');
+			berxAnalytics.error(screen, 'events');
 		}
-	}, [api, category, tab]);
+	}, [api, category, tab, screen]);
 
 	useEffect(() => {
 		load();
 	}, [load]);
 
-	if (loading && items.length === 0) return <BerxLoadingState />;
+	const toggleRsvp = useCallback(
+		async (event: BerxEvent) => {
+			setRsvpBusy(event.guid);
+			berxAnalytics.mutationStart(screen, event.guid);
+			const started = Date.now();
+			try {
+				if (event.is_going) await api.cancelRsvp(event.guid);
+				else await api.rsvpEvent(event.guid);
+				/**
+				 * Re-fetch rather than flipping the flag locally: capacity
+				 * means an RSVP can be accepted or refused, and seats_left
+				 * has to come back from the server either way.
+				 */
+				await load();
+				berxAnalytics.mutationSuccess(screen, Date.now() - started, event.guid);
+			} catch {
+				berxAnalytics.mutationError(screen, 'rsvp');
+			} finally {
+				setRsvpBusy(null);
+			}
+		},
+		[api, load, screen],
+	);
 
 	return (
 		<View style={styles.screen}>
 			<BerxHeader title="События" onBack={onBack} />
+
 			<View style={styles.toolbar}>
-				<View style={styles.tabRow}>
-					<Pressable style={[styles.tab, tab === 'upcoming' && styles.tabActive]} onPress={() => setTab('upcoming')}>
-						<Text style={[styles.tabText, tab === 'upcoming' && styles.tabTextActive]}>Предстоящие</Text>
-					</Pressable>
-					<Pressable style={[styles.tab, tab === 'past' && styles.tabActive]} onPress={() => setTab('past')}>
-						<Text style={[styles.tabText, tab === 'past' && styles.tabTextActive]}>Прошедшие</Text>
-					</Pressable>
-					<Pressable style={styles.tab} onPress={onOpenMine}>
-						<Text style={styles.tabText}>Я иду</Text>
-					</Pressable>
+				<BerxFilterBar
+					options={[
+						{key: 'upcoming', label: 'Предстоящие'},
+						{key: 'past', label: 'Прошедшие'},
+					]}
+					selected={[tab]}
+					onToggle={(key) => setTab(key as 'upcoming' | 'past')}
+					multiple={false}
+					accessibilityLabel="Когда"
+				/>
+				<View style={styles.actions}>
+					<BerxButton label="Мои события" variant="secondary" onPress={onOpenMine} />
+					<BerxButton label="Создать" onPress={onCreate} />
 				</View>
-				<BerxButton label="Создать событие" onPress={onCreate} fullWidth />
+				<BerxFilterBar
+					options={categories.map((c) => ({key: c.slug, label: c.label}))}
+					selected={category ? [category] : []}
+					onToggle={(key) => setCategory(category === key ? undefined : key)}
+					multiple={false}
+					accessibilityLabel="Категории событий"
+				/>
 			</View>
-			<FlatList
-				horizontal
-				showsHorizontalScrollIndicator={false}
-				data={categories}
-				keyExtractor={(c: BerxPlaceCategory) => c.slug}
-				contentContainerStyle={styles.chipRow}
-				renderItem={({item}: {item: BerxPlaceCategory}) => (
-					<Pressable
-						style={[styles.chip, category === item.slug && styles.chipActive]}
-						onPress={() => setCategory(category === item.slug ? undefined : item.slug)}>
-						<Text style={[styles.chipText, category === item.slug && styles.chipTextActive]}>{item.label}</Text>
-					</Pressable>
-				)}
-			/>
-			{error ? (
-				<BerxErrorState message={error} onRetry={load} />
-			) : items.length === 0 ? (
-				<BerxEmptyState title={tab === 'upcoming' ? 'Событий пока нет' : 'Прошедших событий нет'} subtitle="Создайте первое — оно появится здесь." />
-			) : (
+
+			<BerxDataBoundary
+				state={state}
+				onRetry={load}
+				errorMessage={error ?? undefined}
+				emptyTitle={tab === 'past' ? 'Прошедших событий нет' : 'Событий пока нет'}
+				emptyBody={tab === 'past' ? 'Здесь появятся события, которые уже закончились.' : 'Создайте первое событие рядом с вами.'}
+				emptyAction={tab === 'past' ? undefined : {label: 'Создать событие', onPress: onCreate}}
+				style={styles.body}>
 				<FlatList
 					data={items}
 					keyExtractor={(e: BerxEvent) => String(e.guid)}
+					onScroll={onScroll}
+					scrollEventThrottle={scrollEventThrottle}
 					contentContainerStyle={styles.list}
-					renderItem={({item}: {item: BerxEvent}) => {
-						const date = new Date(item.starts * 1000);
-						return (
-							<Pressable style={styles.card} onPress={() => onOpenEvent(item.guid)}>
-								<View style={styles.dateBadge}>
-									<Text style={styles.dateDay}>{date.getDate()}</Text>
-									<Text style={styles.dateMonth}>{date.toLocaleDateString('ru-RU', {month: 'short'}).toUpperCase()}</Text>
-								</View>
-								{item.cover_url ? <Image source={{uri: item.cover_url}} style={styles.cardImage} /> : null}
-								<View style={styles.cardBody}>
-									<Text style={styles.cardTitle} numberOfLines={1}>{item.title}</Text>
-									{item.location ? <Text style={styles.cardMeta} numberOfLines={1}>{item.location}</Text> : null}
-									<Text style={styles.cardGoing}>{item.attendee_count} идут{item.is_going ? ' · вы идёте' : ''}</Text>
-								</View>
-							</Pressable>
-						);
-					}}
+					removeClippedSubviews
+					windowSize={Math.max(3, Math.round(screen.scene.budget.listWindowSize / 3))}
+					renderItem={({item}: {item: BerxEvent}) => (
+						<BerxObjectCard
+							title={item.title}
+							subtitle={[item.place?.title ?? item.location ?? undefined, item.category ?? undefined]
+								.filter(Boolean)
+								.join(' · ')}
+							body={item.description}
+							media={item.cover_url ? {uri: item.cover_url} : undefined}
+							mediaAlt={item.cover_url ? `Афиша события ${item.title}` : undefined}
+							onPress={() => onOpenEvent(item.guid)}
+							/* only counts the server actually returns */
+							facts={[
+								{label: 'идут', value: item.attendee_count},
+								...(item.seats_left !== null ? [{label: 'мест осталось', value: item.seats_left}] : []),
+							]}
+							badges={item.has_ended ? undefined : <BerxCountdown startsAtUnix={item.starts} />}
+							actions={
+								item.has_ended ? undefined : (
+									<BerxButton
+										label={item.is_going ? 'Не пойду' : 'Пойду'}
+										variant={item.is_going ? 'secondary' : 'primary'}
+										loading={rsvpBusy === item.guid}
+										/* a full event the viewer is not already in cannot be joined */
+										disabled={!item.is_going && item.seats_left === 0}
+										onPress={() => toggleRsvp(item)}
+									/>
+								)
+							}
+						/>
+					)}
 				/>
-			)}
+			</BerxDataBoundary>
 		</View>
 	);
 }
 
 const styles = StyleSheet.create({
-	screen: {flex: 1, backgroundColor: colors.bg},
-	toolbar: {paddingHorizontal: spacing.md, paddingTop: spacing.sm, gap: spacing.sm},
-	tabRow: {flexDirection: 'row', gap: spacing.xs},
-	tab: {flex: 1, paddingVertical: spacing.sm, borderRadius: radius.pill, alignItems: 'center', backgroundColor: colors.surface},
-	tabActive: {backgroundColor: colors.accentSoft},
-	tabText: {fontSize: typography.sizeSm, color: colors.textDim, fontWeight: typography.weightMedium},
-	tabTextActive: {color: colors.accent},
-	chipRow: {paddingHorizontal: spacing.md, paddingVertical: spacing.sm, gap: spacing.xs},
-	chip: {paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: radius.pill, backgroundColor: colors.surface, marginRight: spacing.xs},
-	chipActive: {backgroundColor: colors.accentSoft, borderWidth: 1, borderColor: colors.accent},
-	chipText: {fontSize: typography.sizeSm, color: colors.textDim},
-	chipTextActive: {color: colors.accent, fontWeight: typography.weightMedium},
-	list: {padding: spacing.md, gap: spacing.sm},
-	card: {flexDirection: 'row', backgroundColor: colors.surface, borderRadius: radius.md, overflow: 'hidden', marginBottom: spacing.sm},
-	dateBadge: {width: 56, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.graphite},
-	dateDay: {fontSize: typography.sizeXl, color: colors.white, fontWeight: typography.weightBold},
-	dateMonth: {fontSize: typography.sizeXs, color: colors.accent, fontWeight: typography.weightBold},
-	cardImage: {width: 64, height: 64},
-	cardBody: {flex: 1, padding: spacing.sm, justifyContent: 'center', gap: 2},
-	cardTitle: {fontSize: typography.sizeBase, color: colors.white, fontWeight: typography.weightMedium},
-	cardMeta: {fontSize: typography.sizeXs, color: colors.textFaint},
-	cardGoing: {fontSize: typography.sizeXs, color: colors.textDim},
+	screen: {flex: 1},
+	toolbar: {paddingTop: spacing.sm, gap: spacing.sm},
+	actions: {flexDirection: 'row', gap: spacing.sm, paddingHorizontal: spacing.lg},
+	body: {flex: 1},
+	list: {padding: spacing.lg, gap: spacing.md},
 });

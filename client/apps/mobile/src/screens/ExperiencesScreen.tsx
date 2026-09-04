@@ -1,19 +1,29 @@
 /**
- * !!! VERIFICATION STATUS: UNVERIFIED — see LoginScreen.tsx header.
- * Real data: api.experiences() (components/OssnApi/v1/experiences.php,
- * new domain this session). Includes both owned experiences and ones
- * you've been invited to, with your real invite status shown.
+ * BERX-246 — Experiences. The EXPERIENCE family's v9 scene.
+ *
+ * Real data: api.experiences(userGuid) from
+ * components/OssnApi/v1/experiences.php. The list includes both
+ * experiences the viewer owns and ones they were invited to, and
+ * my_status is the viewer's real, server-held answer — so a card says
+ * "вы идёте" only because the server records that, and the respond
+ * buttons appear only on an invitation that is genuinely pending.
  */
-import React, {useCallback, useEffect, useState} from 'react';
-import {View, Text, FlatList, Image, Pressable, StyleSheet} from 'react-native';
+import {useCallback, useEffect, useState} from 'react';
+import {FlatList, StyleSheet, View} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxExperience} from '@berx/api/types';
-import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
+import type {BerxScreenState} from '@berx/spatial';
+import {spacing} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
-import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
+import {BerxExperienceCard} from '../../../../packages/design-system/src/spatial/BerxExperienceCard';
+import type {BerxExperienceResponse} from '../../../../packages/design-system/src/spatial/BerxExperienceCard';
+import {BerxDataBoundary} from '../../../../packages/design-system/src/spatial/BerxDataBoundary';
+import {useBerxSceneScroll} from '../../../../packages/design-system/src/spatial/BerxSpatialScene';
+import {BerxScreenScene, useBerxScreen} from '../spatial/BerxScreenScene';
+import {berxAnalytics} from '../spatial/analytics';
 
-interface Props {
+export interface ExperiencesScreenProps {
 	api: BerxApiClient;
 	userGuid?: number;
 	isOwn: boolean;
@@ -22,81 +32,135 @@ interface Props {
 	onBack?: () => void;
 }
 
-const STATUS_LABEL: Record<string, string> = {
-	invited: 'Приглашение',
-	accepted: 'Вы идёте',
-	declined: 'Отклонено',
-};
-
-function fmtWhen(unix: number): string {
+function whenLabel(unix: number): string {
 	return new Date(unix * 1000).toLocaleString('ru-RU', {day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'});
 }
 
-export default function ExperiencesScreen({api, userGuid, isOwn, onOpenExperience, onCreate, onBack}: Props) {
+/** The server's participant status, mapped to what the card shows. */
+function toResponse(status: BerxExperience['my_status']): BerxExperienceResponse {
+	if (status === 'accepted') return 'going';
+	if (status === 'declined') return 'declined';
+	if (status === 'invited') return 'maybe';
+	return 'none';
+}
+
+export default function ExperiencesScreen(props: ExperiencesScreenProps) {
+	return (
+		<BerxScreenScene screenId="BERX-246" testID="berx-246">
+			<ExperiencesSceneBody {...props} />
+		</BerxScreenScene>
+	);
+}
+
+function ExperiencesSceneBody({api, userGuid, isOwn, onOpenExperience, onCreate, onBack}: ExperiencesScreenProps) {
+	const screen = useBerxScreen();
+	const {onScroll, scrollEventThrottle} = useBerxSceneScroll();
+
 	const [items, setItems] = useState<BerxExperience[]>([]);
-	const [loading, setLoading] = useState(true);
+	const [state, setState] = useState<BerxScreenState>('loading');
 	const [error, setError] = useState<string | null>(null);
+	const [busy, setBusy] = useState<number | null>(null);
 
 	const load = useCallback(async () => {
-		setLoading(true);
+		setState('loading');
 		setError(null);
 		try {
 			const res = await api.experiences(userGuid);
 			setItems(res.experiences);
+			setState(res.experiences.length === 0 ? 'empty' : 'default');
 		} catch (e) {
 			setError(e instanceof Error ? e.message : 'Не удалось загрузить впечатления');
-		} finally {
-			setLoading(false);
+			setState('error');
+			berxAnalytics.error(screen, 'experiences');
 		}
-	}, [api, userGuid]);
+	}, [api, userGuid, screen]);
 
 	useEffect(() => {
 		load();
 	}, [load]);
 
-	if (loading) return <BerxLoadingState />;
-	if (error) return <BerxErrorState message={error} onRetry={load} />;
+	const respond = useCallback(
+		async (id: number, accept: boolean) => {
+			setBusy(id);
+			berxAnalytics.mutationStart(screen, id);
+			const started = Date.now();
+			try {
+				await api.respondToExperience(id, accept);
+				/* the status shown is the server's, so re-read it */
+				await load();
+				berxAnalytics.mutationSuccess(screen, Date.now() - started, id);
+			} catch {
+				berxAnalytics.mutationError(screen, 'experience-respond');
+			} finally {
+				setBusy(null);
+			}
+		},
+		[api, load, screen],
+	);
 
 	return (
 		<View style={styles.screen}>
 			<BerxHeader title="Впечатления" onBack={onBack} />
+
 			{isOwn ? (
-				<View style={styles.toolbar}>
-					<BerxButton label="Создать впечатление" onPress={onCreate} fullWidth />
+				<View style={styles.actions}>
+					<BerxButton label="Создать впечатление" onPress={onCreate} />
 				</View>
 			) : null}
-			{items.length === 0 ? (
-				<BerxEmptyState title="Впечатлений пока нет" subtitle={isOwn ? 'Соберите место или событие в план с друзьями.' : undefined} />
-			) : (
+
+			<BerxDataBoundary
+				state={state}
+				onRetry={load}
+				errorMessage={error ?? undefined}
+				emptyTitle="Впечатлений пока нет"
+				emptyBody={
+					isOwn
+						? 'Соберите людей вокруг чего-то настоящего — места, события, поездки.'
+						: 'У этого человека пока нет открытых впечатлений.'
+				}
+				emptyAction={isOwn ? {label: 'Создать впечатление', onPress: onCreate} : undefined}
+				style={styles.body}>
 				<FlatList
 					data={items}
 					keyExtractor={(e: BerxExperience) => String(e.id)}
+					onScroll={onScroll}
+					scrollEventThrottle={scrollEventThrottle}
 					contentContainerStyle={styles.list}
+					removeClippedSubviews
+					windowSize={Math.max(3, Math.round(screen.scene.budget.listWindowSize / 3))}
 					renderItem={({item}: {item: BerxExperience}) => (
-						<Pressable style={styles.row} onPress={() => onOpenExperience(item.id)}>
-							{item.anchor?.image_url ? <Image source={{uri: item.anchor.image_url}} style={styles.thumb} /> : <View style={styles.thumbFallback} />}
-							<View style={styles.rowBody}>
-								<Text style={styles.title} numberOfLines={1}>{item.title}</Text>
-								<Text style={styles.meta}>{fmtWhen(item.scheduled_start)}{item.anchor ? ` · ${item.anchor.title}` : ''}</Text>
-								{item.my_status && !item.is_own ? <Text style={styles.status}>{STATUS_LABEL[item.my_status]}</Text> : null}
-							</View>
-						</Pressable>
+						<BerxExperienceCard
+							experienceGuid={item.id}
+							title={item.title}
+							description={item.description}
+							whenLabel={whenLabel(item.scheduled_start)}
+							response={toResponse(item.my_status)}
+							onPress={() => onOpenExperience(item.id)}
+							actions={
+								/* only a genuinely pending invitation gets a decision to make */
+								item.my_status === 'invited' ? (
+									<>
+										<BerxButton label="Иду" loading={busy === item.id} onPress={() => respond(item.id, true)} />
+										<BerxButton
+											label="Не смогу"
+											variant="secondary"
+											loading={busy === item.id}
+											onPress={() => respond(item.id, false)}
+										/>
+									</>
+								) : undefined
+							}
+						/>
 					)}
 				/>
-			)}
+			</BerxDataBoundary>
 		</View>
 	);
 }
 
 const styles = StyleSheet.create({
-	screen: {flex: 1, backgroundColor: colors.bg},
-	toolbar: {padding: spacing.md},
-	list: {padding: spacing.md, gap: spacing.sm},
-	row: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.surface, borderRadius: radius.md, padding: spacing.sm, marginBottom: spacing.sm},
-	thumb: {width: 56, height: 56, borderRadius: radius.sm},
-	thumbFallback: {width: 56, height: 56, borderRadius: radius.sm, backgroundColor: colors.graphite},
-	rowBody: {flex: 1, gap: 2},
-	title: {fontSize: typography.sizeBase, color: colors.white, fontWeight: typography.weightMedium},
-	meta: {fontSize: typography.sizeXs, color: colors.textFaint},
-	status: {fontSize: typography.sizeXs, color: colors.accent, fontWeight: typography.weightMedium},
+	screen: {flex: 1},
+	actions: {paddingHorizontal: spacing.lg, paddingTop: spacing.sm, flexDirection: 'row'},
+	body: {flex: 1},
+	list: {padding: spacing.lg, gap: spacing.md},
 });

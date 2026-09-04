@@ -1,21 +1,38 @@
 /**
- * !!! VERIFICATION STATUS: UNVERIFIED — see LoginScreen.tsx header.
+ * BERX-201 — Places Discovery. The PLACES family's v9 scene.
  *
- * Real data only: api.places(q, category) -> BerxPlace[]
- * (components/OssnApi/v1/places.php). Category filter uses the real
- * server whitelist via api.placeCategories(), not a hardcoded list.
+ * Real data only: api.places(q, category) from
+ * components/OssnApi/v1/places.php, with the category filter driven
+ * by the real server whitelist (api.placeCategories()) rather than a
+ * hardcoded list — a filter the backend would not honour is a filter
+ * that lies.
+ *
+ * Save state is real too: /places/saved is the caller's own list, so
+ * a place shows as saved only when the server says it is, and the
+ * toggle updates only after the server confirms.
+ *
+ * No map. react-native-maps is not installed and no tile provider is
+ * configured; BerxMap and BerxMapPin are recorded BLOCKED with that
+ * reason, and "Рядом" opens the real distance-ranked nearby scene
+ * instead of an empty map frame.
  */
-import React, {useCallback, useEffect, useState} from 'react';
-import {View, Text, FlatList, Pressable, StyleSheet, Image} from 'react-native';
+import {useCallback, useEffect, useState} from 'react';
+import {FlatList, StyleSheet, View} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxPlace, BerxPlaceCategory} from '@berx/api/types';
-import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
+import type {BerxScreenState} from '@berx/spatial';
+import {spacing} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
-import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
-import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
+import {BerxSearchField} from '../../../../packages/design-system/src/spatial/BerxSearchField';
+import {BerxFilterBar} from '../../../../packages/design-system/src/spatial/BerxFilterBar';
+import {BerxPlaceCard} from '../../../../packages/design-system/src/spatial/BerxPlaceCard';
+import {BerxDataBoundary} from '../../../../packages/design-system/src/spatial/BerxDataBoundary';
+import {useBerxSceneScroll} from '../../../../packages/design-system/src/spatial/BerxSpatialScene';
+import {BerxScreenScene, useBerxScreen} from '../spatial/BerxScreenScene';
+import {berxAnalytics} from '../spatial/analytics';
 
-interface Props {
+export interface PlacesListScreenProps {
 	api: BerxApiClient;
 	onOpenPlace: (guid: number) => void;
 	onCreate: () => void;
@@ -24,115 +41,151 @@ interface Props {
 	onBack?: () => void;
 }
 
-export default function PlacesListScreen({api, onOpenPlace, onCreate, onOpenNearby, onOpenSaved, onBack}: Props) {
+export default function PlacesListScreen(props: PlacesListScreenProps) {
+	return (
+		<BerxScreenScene screenId="BERX-201" testID="berx-201">
+			<PlacesSceneBody {...props} />
+		</BerxScreenScene>
+	);
+}
+
+function PlacesSceneBody({api, onOpenPlace, onCreate, onOpenNearby, onOpenSaved, onBack}: PlacesListScreenProps) {
+	const screen = useBerxScreen();
+	const {onScroll, scrollEventThrottle} = useBerxSceneScroll();
+
 	const [query, setQuery] = useState('');
 	const [category, setCategory] = useState<string | undefined>(undefined);
 	const [categories, setCategories] = useState<BerxPlaceCategory[]>([]);
 	const [items, setItems] = useState<BerxPlace[]>([]);
-	const [loading, setLoading] = useState(true);
+	const [savedGuids, setSavedGuids] = useState<ReadonlySet<number>>(new Set());
+	const [state, setState] = useState<BerxScreenState>('loading');
 	const [error, setError] = useState<string | null>(null);
 
 	useEffect(() => {
-		api.placeCategories().then((r) => setCategories(r.categories)).catch(() => undefined);
+		/* the real server whitelist; a failure just means no filter bar */
+		api
+			.placeCategories()
+			.then((r) => setCategories(r.categories))
+			.catch(() => undefined);
+		/* the caller's real saved list, so the heart reflects the server */
+		api
+			.savedPlaces()
+			.then((r) => setSavedGuids(new Set(r.places.map((p) => p.guid))))
+			.catch(() => undefined);
 	}, [api]);
 
 	const load = useCallback(async () => {
-		setLoading(true);
+		setState('loading');
 		setError(null);
 		try {
 			const res = await api.places(query || undefined, category);
 			setItems(res.places);
+			setState(res.places.length === 0 ? 'empty' : 'default');
 		} catch (e) {
 			setError(e instanceof Error ? e.message : 'Не удалось загрузить места');
-		} finally {
-			setLoading(false);
+			setState('error');
+			berxAnalytics.error(screen, 'places');
 		}
-	}, [api, query, category]);
+	}, [api, query, category, screen]);
 
 	useEffect(() => {
 		load();
 	}, [load]);
 
-	if (loading && items.length === 0) return <BerxLoadingState />;
+	const toggleSaved = useCallback(
+		async (guid: number) => {
+			const wasSaved = savedGuids.has(guid);
+			berxAnalytics.mutationStart(screen, guid);
+			const started = Date.now();
+			try {
+				if (wasSaved) await api.unsavePlace(guid);
+				else await api.savePlace(guid);
+				/* only now — the set follows the server, never precedes it */
+				setSavedGuids((prev) => {
+					const next = new Set(prev);
+					if (wasSaved) next.delete(guid);
+					else next.add(guid);
+					return next;
+				});
+				berxAnalytics.mutationSuccess(screen, Date.now() - started, guid);
+			} catch {
+				berxAnalytics.mutationError(screen, 'save-place');
+			}
+		},
+		[api, savedGuids, screen],
+	);
 
 	return (
 		<View style={styles.screen}>
 			<BerxHeader title="Места" onBack={onBack} />
+
 			<View style={styles.toolbar}>
-				<BerxInput placeholder="Поиск мест" value={query} onChangeText={setQuery} onSubmitEditing={load} />
-				<View style={styles.toolbarRow}>
+				<BerxSearchField
+					value={query}
+					onChangeText={setQuery}
+					onSubmit={load}
+					placeholder="Поиск мест"
+					accessibilityLabel="Поиск мест"
+					resultCount={state === 'default' ? items.length : undefined}
+				/>
+				<View style={styles.actions}>
 					<BerxButton label="Рядом" variant="secondary" onPress={onOpenNearby} />
 					<BerxButton label="Сохранённые" variant="secondary" onPress={onOpenSaved} />
 					<BerxButton label="Добавить" onPress={onCreate} />
 				</View>
+				<BerxFilterBar
+					options={categories.map((c) => ({key: c.slug, label: c.label}))}
+					selected={category ? [category] : []}
+					onToggle={(key) => setCategory(category === key ? undefined : key)}
+					multiple={false}
+					accessibilityLabel="Категории мест"
+				/>
 			</View>
-			<FlatList
-				horizontal
-				showsHorizontalScrollIndicator={false}
-				data={categories}
-				keyExtractor={(c: BerxPlaceCategory) => c.slug}
-				contentContainerStyle={styles.chipRow}
-				renderItem={({item}: {item: BerxPlaceCategory}) => (
-					<Pressable
-						style={[styles.chip, category === item.slug && styles.chipActive]}
-						onPress={() => setCategory(category === item.slug ? undefined : item.slug)}>
-						<Text style={[styles.chipText, category === item.slug && styles.chipTextActive]}>{item.label}</Text>
-					</Pressable>
-				)}
-			/>
-			{error ? (
-				<BerxErrorState message={error} onRetry={load} />
-			) : items.length === 0 ? (
-				<BerxEmptyState title="Мест не найдено" subtitle="Попробуйте другой запрос или добавьте первое место." />
-			) : (
+
+			<BerxDataBoundary
+				state={state}
+				onRetry={load}
+				errorMessage={error ?? undefined}
+				emptyTitle="Мест не найдено"
+				emptyBody="Попробуйте другой запрос или добавьте первое место."
+				emptyAction={{label: 'Добавить место', onPress: onCreate}}
+				style={styles.body}>
 				<FlatList
 					data={items}
 					keyExtractor={(p: BerxPlace) => String(p.guid)}
-					numColumns={2}
-					contentContainerStyle={styles.grid}
+					onScroll={onScroll}
+					scrollEventThrottle={scrollEventThrottle}
+					contentContainerStyle={styles.list}
+					removeClippedSubviews
+					windowSize={Math.max(3, Math.round(screen.scene.budget.listWindowSize / 3))}
 					renderItem={({item}: {item: BerxPlace}) => (
-						<Pressable style={styles.card} onPress={() => onOpenPlace(item.guid)}>
-							<View style={styles.cardMedia}>
-								{item.cover_url ? (
-									<Image source={{uri: item.cover_url}} style={styles.cardImage} />
-								) : (
-									<View style={styles.cardMediaFallback}>
-										<Text style={styles.cardMediaInitial}>{item.title.charAt(0).toUpperCase()}</Text>
-									</View>
-								)}
-								{item.rating_count > 0 ? (
-									<View style={styles.ratingBadge}>
-										<Text style={styles.ratingText}>★ {item.rating}</Text>
-									</View>
-								) : null}
-							</View>
-							<Text style={styles.cardTitle} numberOfLines={1}>{item.title}</Text>
-							{item.address ? <Text style={styles.cardAddress} numberOfLines={1}>{item.address}</Text> : null}
-						</Pressable>
+						<BerxPlaceCard
+							placeGuid={item.guid}
+							name={item.title}
+							category={item.address ?? undefined}
+							cover={item.cover_url ? {uri: item.cover_url} : undefined}
+							rating={item.rating_count > 0 ? item.rating : undefined}
+							ratingCount={item.rating_count}
+							onPress={() => onOpenPlace(item.guid)}
+							trailing={
+								<BerxButton
+									label={savedGuids.has(item.guid) ? 'Сохранено' : 'Сохранить'}
+									variant="secondary"
+									onPress={() => toggleSaved(item.guid)}
+								/>
+							}
+						/>
 					)}
 				/>
-			)}
+			</BerxDataBoundary>
 		</View>
 	);
 }
 
 const styles = StyleSheet.create({
-	screen: {flex: 1, backgroundColor: colors.bg},
-	toolbar: {paddingHorizontal: spacing.md, paddingTop: spacing.sm, gap: spacing.sm},
-	toolbarRow: {flexDirection: 'row', gap: spacing.sm},
-	chipRow: {paddingHorizontal: spacing.md, paddingVertical: spacing.sm, gap: spacing.xs},
-	chip: {paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: radius.pill, backgroundColor: colors.surface, marginRight: spacing.xs},
-	chipActive: {backgroundColor: colors.accentSoft, borderWidth: 1, borderColor: colors.accent},
-	chipText: {fontSize: typography.sizeSm, color: colors.textDim},
-	chipTextActive: {color: colors.accent, fontWeight: typography.weightMedium},
-	grid: {paddingHorizontal: spacing.sm, paddingBottom: spacing.xxl},
-	card: {flex: 1, margin: spacing.xs, borderRadius: radius.md, overflow: 'hidden', backgroundColor: colors.surface},
-	cardMedia: {aspectRatio: 1.3, backgroundColor: colors.graphite},
-	cardImage: {width: '100%', height: '100%'},
-	cardMediaFallback: {flex: 1, alignItems: 'center', justifyContent: 'center'},
-	cardMediaInitial: {fontSize: typography.sizeTitle, color: colors.textFaint},
-	ratingBadge: {position: 'absolute', right: 6, top: 6, backgroundColor: 'rgba(5,5,5,0.7)', paddingHorizontal: 8, paddingVertical: 2, borderRadius: radius.pill},
-	ratingText: {fontSize: typography.sizeXs, color: colors.white},
-	cardTitle: {fontSize: typography.sizeBase, color: colors.white, fontWeight: typography.weightMedium, paddingHorizontal: spacing.sm, paddingTop: spacing.xs},
-	cardAddress: {fontSize: typography.sizeXs, color: colors.textFaint, paddingHorizontal: spacing.sm, paddingBottom: spacing.sm},
+	screen: {flex: 1},
+	toolbar: {paddingHorizontal: spacing.lg, paddingTop: spacing.sm, gap: spacing.sm},
+	actions: {flexDirection: 'row', gap: spacing.sm, flexWrap: 'wrap'},
+	body: {flex: 1},
+	list: {padding: spacing.lg, gap: spacing.md},
 });
