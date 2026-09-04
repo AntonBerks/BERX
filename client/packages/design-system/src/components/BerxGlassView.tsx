@@ -42,14 +42,25 @@
  *     loop — "intensifies on hover" has no literal meaning without a
  *     pointer to hover with, so this is the honest substitute, not a
  *     silent no-op.
- *   - ANIMATED GRADIENT BORDER. A real rotating-gradient-ring trick:
- *     an oversized square carrying an SVG linear gradient
- *     (accent→transparent→accent→transparent) rotates continuously
- *     behind an inset mask view sized to the panel's own measured
- *     bounds, leaving only a thin ring of the gradient visible at the
- *     border — a genuine sweeping border, not a static tinted stroke.
+ *   - ANIMATED GRADIENT BORDER. A real STROKED rounded rect whose
+ *     gradient sweeps around it (accent→transparent→accent), drawn with
+ *     react-native-svg and driven by animated gradient endpoints.
  *     Requires a real onLayout measurement first (nothing renders
  *     until the panel's own size is known).
+ *
+ *     REAL BUG THIS REPLACED, caught by the Day-environment rebuild:
+ *     this used to be an oversized rotating gradient square hidden
+ *     behind an INSET MASK VIEW filled with the panel's own glass
+ *     colour. That mask paints after (above) the panel's
+ *     `backgroundLayer`, so it repainted the glass fill over the
+ *     panel's own media. At Night's white-alpha-15% fill that read as
+ *     a faint haze nobody flagged; at Day's white-alpha-68% fill the
+ *     same layer became an opaque veil that visibly drained every feed
+ *     photo. A stroked rect has a genuinely transparent interior, so
+ *     there is nothing to paint over content — and it is fewer views.
+ *     (It also fixes a second latent bug: the old gradient used one
+ *     hardcoded SVG id, so several glass panels on one screen all
+ *     resolved to whichever painted first.)
  *   - INTERNAL BACKGROUND PARALLAX. `backgroundLayer` — an optional
  *     caller-supplied layer (e.g. a cover image) that sits between the
  *     blur and the content and shifts a few px opposite the same
@@ -71,6 +82,7 @@ import Svg, {Defs, LinearGradient as SvgLinearGradient, Stop, Rect} from 'react-
 import Animated, {
 	useSharedValue,
 	useAnimatedStyle,
+	useAnimatedProps,
 	withTiming,
 	withSpring,
 	withRepeat,
@@ -81,6 +93,16 @@ import {accentAlpha} from '../theme/accentMath';
 import {theme as themeTokens} from '../tokens/theme';
 import {shadow} from '../tokens';
 import {BERX_SPRING} from '../animation/springs';
+
+/**
+ * Created once at module scope, never inside render:
+ * createAnimatedComponent returns a NEW component type on every call,
+ * so building it per render would remount the gradient every frame.
+ */
+const AnimatedSvgLinearGradient = Animated.createAnimatedComponent(SvgLinearGradient);
+
+/** The gradient ring's stroke width. One constant, used by both the rect geometry and its inset. */
+const RING_STROKE = 1.5;
 
 export interface BerxGlassViewProps {
 	children?: ReactNode;
@@ -178,14 +200,19 @@ export function BerxGlassView({children, style, intensity = 30, borderAlpha, glo
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [glow, onPress]);
 
-	// ANIMATED GRADIENT BORDER — a continuous rotation driving the
-	// rotating-gradient-ring trick (see this file's own header).
+	// ANIMATED GRADIENT BORDER — a continuous sweep (see this file's own
+	// header). The ring itself is a stroked rect; rotating the LAYER it
+	// lives in sweeps the gradient around the panel while the stroke
+	// geometry stays put, because the rect is redrawn to the panel's own
+	// measured bounds either way.
 	const ringRotation = useSharedValue(0);
 	useEffect(() => {
 		if (!glow) return;
 		ringRotation.value = withRepeat(withTiming(360, {duration: 4000, easing: Easing.linear}), -1, false);
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [glow]);
+	/** Unique per instance — a fixed SVG id made several glass panels on one screen share whichever gradient painted first. */
+	const ringId = useMemo(() => `berx-ring-${Math.random().toString(36).slice(2, 9)}`, []);
 
 	// Explicit dependency arrays on every worklet below — the Babel
 	// plugin (babel.config.js) auto-generates these when it runs, but
@@ -211,15 +238,28 @@ export function BerxGlassView({children, style, intensity = 30, borderAlpha, glo
 			shadowOpacity: 0.35 + intensityMix * 0.35,
 		};
 	}, [colors.accent, glowBaseSV, hoverSV, ambientSV, onPress]);
-	const animatedRingStyle = useAnimatedStyle(() => ({
-		transform: [{rotate: `${ringRotation.value}deg`}],
-	}), [ringRotation]);
+	/**
+	 * The sweep, done on the GRADIENT rather than on the shape.
+	 *
+	 * Rotating the stroked rect itself would tilt the border off the
+	 * panel's own edges, so instead the gradient's two endpoints orbit
+	 * the panel's bounding box: the bright section of the
+	 * accent→transparent→accent ramp travels around the perimeter while
+	 * the ring geometry stays exactly on the edge. Fractions (not
+	 * percentages) because react-native-svg's default gradientUnits is
+	 * objectBoundingBox, where 0..1 spans the shape.
+	 */
+	const ringGradientProps = useAnimatedProps(() => {
+		const rad = (ringRotation.value * Math.PI) / 180;
+		const dx = Math.cos(rad) * 0.5;
+		const dy = Math.sin(rad) * 0.5;
+		return {x1: 0.5 + dx, y1: 0.5 + dy, x2: 0.5 - dx, y2: 0.5 - dy};
+	}, [ringRotation]);
 	const animatedBackgroundParallaxStyle = useAnimatedStyle(() => ({
 		transform: [{translateX: pointerX.value * -6}, {translateY: pointerY.value * -6}, {scale: 1.08}],
 	}), [pointerX, pointerY]);
 
 	const styles = useMemo(() => makeStyles(resolvedRadius), [resolvedRadius]);
-	const ringDiag = Math.ceil(Math.sqrt(size.width * size.width + size.height * size.height)) + 40;
 
 	const pointerHandlers =
 		Platform.OS === 'web'
@@ -256,28 +296,34 @@ export function BerxGlassView({children, style, intensity = 30, borderAlpha, glo
 					</Animated.View>
 				) : null}
 				{glow && size.width > 0 ? (
-					<View pointerEvents="none" style={[StyleSheet.absoluteFillObject, styles.behind, styles.ringClip, {borderRadius: resolvedRadius}]}>
-						<Animated.View
-							style={[
-								{position: 'absolute', width: ringDiag, height: ringDiag, left: (size.width - ringDiag) / 2, top: (size.height - ringDiag) / 2},
-								animatedRingStyle,
-							]}>
-							<Svg width={ringDiag} height={ringDiag}>
-								<Defs>
-									<SvgLinearGradient id="berx-glass-ring" x1="0" y1="0" x2="1" y2="1">
-										<Stop offset="0%" stopColor={colors.accent} stopOpacity={0.9} />
-										<Stop offset="35%" stopColor={colors.accent} stopOpacity={0} />
-										<Stop offset="65%" stopColor={colors.accent} stopOpacity={0} />
-										<Stop offset="100%" stopColor={colors.accent} stopOpacity={0.9} />
-									</SvgLinearGradient>
-								</Defs>
-								<Rect x="0" y="0" width={ringDiag} height={ringDiag} fill="url(#berx-glass-ring)" />
-							</Svg>
-						</Animated.View>
-						{/* The inset mask — same fill as the panel body, 2px smaller on
-						    every edge, leaves only a thin ring of the rotating gradient
-						    above visible: the real "animated gradient border" trick. */}
-						<View style={[StyleSheet.absoluteFillObject, {margin: 2, borderRadius: Math.max(0, resolvedRadius - 2), backgroundColor: g.fill}]} />
+					// A REAL RING: a stroked rounded rect with a transparent
+					// interior, so nothing is painted over the panel's own
+					// content or backgroundLayer (see this file's header for the
+					// veil bug the previous masked-square version caused). The
+					// sweep comes from animating the gradient's own endpoints
+					// around the panel rather than rotating a covering square.
+					<View pointerEvents="none" style={StyleSheet.absoluteFillObject}>
+						<Svg width={size.width} height={size.height}>
+							<Defs>
+								<AnimatedSvgLinearGradient id={ringId} animatedProps={ringGradientProps} x1={0} y1={0} x2={1} y2={1}>
+									<Stop offset="0%" stopColor={colors.accent} stopOpacity={0.9} />
+									<Stop offset="35%" stopColor={colors.accent} stopOpacity={0} />
+									<Stop offset="65%" stopColor={colors.accent} stopOpacity={0} />
+									<Stop offset="100%" stopColor={colors.accent} stopOpacity={0.9} />
+								</AnimatedSvgLinearGradient>
+							</Defs>
+							<Rect
+								x={RING_STROKE / 2}
+								y={RING_STROKE / 2}
+								width={Math.max(0, size.width - RING_STROKE)}
+								height={Math.max(0, size.height - RING_STROKE)}
+								rx={Math.max(0, resolvedRadius - RING_STROKE / 2)}
+								ry={Math.max(0, resolvedRadius - RING_STROKE / 2)}
+								fill="none"
+								stroke={`url(#${ringId})`}
+								strokeWidth={RING_STROKE}
+							/>
+						</Svg>
 					</View>
 				) : null}
 				{glow ? <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFillObject, styles.behind, styles.glowRing, animatedGlowStyle]} /> : null}

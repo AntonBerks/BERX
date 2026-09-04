@@ -62,7 +62,7 @@ import type {BerxApiClient} from '@berx/api/client';
 import type {BerxAuthState} from '@berx/auth';
 import type {BerxLastPlace, BerxIdentity, BerxIdentityAchievement, BerxIdentityInterest, BerxStorySummary, BerxFriend, BerxStoryFeedGroup, BerxPostDetail, BerxReputation} from '@berx/api/types';
 import {BerxApiError} from '@berx/core';
-import {spacing, typography, radius} from '@berx/design-system/tokens';
+import {spacing, typography, radius, parallax} from '@berx/design-system/tokens';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxGradientCTA} from '../../../../packages/design-system/src/components/BerxGradientCTA';
 import {BerxLoadingState, BerxErrorState} from '../../../../packages/design-system/src/components/BerxStates';
@@ -85,6 +85,16 @@ import {BerxIcon} from '../../../../packages/design-system/src/icons/BerxIcon';
 
 // Reference proportion: the portrait owns the screen on open.
 const HERO_H = Math.round(Dimensions.get('window').height * 0.78);
+/** The scroll window the hero's cover parallax is driven across. */
+const HERO_PARALLAX_RANGE = 320;
+/**
+ * How far past the hero the cover must extend so its own parallax
+ * travel can never uncover the hero's base. Derived from the same two
+ * numbers the travel itself is (the background plane's real factor x
+ * the range above), plus a small margin, so it cannot drift out of
+ * sync with them.
+ */
+const HERO_COVER_OVERSCAN = Math.ceil(HERO_PARALLAX_RANGE * parallax.background) + 8;
 
 interface ProfileData {
 	guid?: number;
@@ -439,11 +449,18 @@ export default function ProfileScreen({api, authState, username, onBack, onMessa
 					    drifts slower than the content above it, driven by this
 					    screen's own real scroll offset. Real parallax depth, not
 					    an ambient animation the user didn't cause. */}
-					<BerxSpatialLayer plane="background" driver={scrollY} range={320} style={StyleSheet.absoluteFillObject}>
+					<BerxSpatialLayer plane="background" driver={scrollY} range={HERO_PARALLAX_RANGE} style={StyleSheet.absoluteFillObject}>
+						{/* OVERSCAN, not absoluteFill: this layer really does travel
+						    (background plane × range, see HERO_COVER_OVERSCAN), so a
+						    cover sized exactly to the hero uncovers a strip of the
+						    hero's own base at the bottom of that travel. Invisible
+						    while every environment was dark — a real, visible dark
+						    band the moment Day became a white room. Extending the
+						    cover by its own travel distance fixes the cause. */}
 						{profile.cover_url || profile.icon_url ? (
-							<Image source={{uri: profile.cover_url ?? profile.icon_url}} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
+							<Image source={{uri: profile.cover_url ?? profile.icon_url}} style={styles.heroCover} resizeMode="cover" />
 						) : (
-							<View style={[StyleSheet.absoluteFillObject, styles.heroFallback]}>
+							<View style={[styles.heroCover, styles.heroFallback]}>
 								<Text style={styles.heroFallbackGlyph}>{profile.username.charAt(0).toUpperCase()}</Text>
 							</View>
 						)}
@@ -900,6 +917,8 @@ function MenuRow({
 const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.bg},
 	hero: {height: HERO_H, backgroundColor: colors.mediaScrim, justifyContent: 'flex-end', overflow: 'hidden'},
+	/** The cover, extended past the hero by exactly the parallax travel it will do — see the render site's own note. */
+	heroCover: {position: 'absolute', top: 0, left: 0, right: 0, bottom: -HERO_COVER_OVERSCAN},
 	heroFallback: {alignItems: 'center', justifyContent: 'center', backgroundColor: colors.graphite},
 	heroFallbackGlyph: {fontSize: typography.sizeHero, color: colors.textFaint, fontWeight: typography.weightBold},
 	// A corner mark on the frame itself now, not a second badge floating
@@ -967,8 +986,12 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	achievementTitle: {color: colors.accent, fontSize: typography.sizeXs, fontWeight: typography.weightBold},
 	achievementSubtitle: {color: colors.textFaint, fontSize: 10},
 	locationRow: {flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 4},
-	locationGlyph: {color: colors.accent, fontSize: 12},
-	locationText: {color: colors.text, fontSize: typography.sizeSm, fontWeight: typography.weightMedium},
+	locationGlyph: {color: colors.accentOnMedia, fontSize: 12},
+	// onMedia, not colors.text: this row sits INSIDE the hero, on the
+	// cover photograph. Real Day-mode bug — the environment's own ink is
+	// dark on a white ground, which put dark text on a photo. See
+	// theme/index.tsx's useBerxInk for the rule this follows.
+	locationText: {color: colors.onMedia, fontSize: typography.sizeSm, fontWeight: typography.weightMedium},
 	interestRow: {flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, marginTop: spacing.sm},
 	interestPill: {paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: radius.pill, backgroundColor: colors.accentSoft, borderWidth: 1, borderColor: colors.accent},
 	interestPillText: {color: colors.accent, fontSize: typography.sizeXs, fontWeight: typography.weightMedium},
@@ -979,8 +1002,10 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	statColumns: {flexDirection: 'row', gap: spacing.xl, marginTop: spacing.lg},
 	statColumn: {alignItems: 'flex-start', gap: 2, minHeight: 46, justifyContent: 'flex-end'},
 	statColumnStack: {marginBottom: 2},
-	statColumnValue: {color: colors.text, fontSize: typography.sizeTitle, fontWeight: typography.weightBold, letterSpacing: -0.6},
-	statColumnLabel: {color: colors.textDim, fontSize: typography.sizeXs},
+	// Same hero/on-media correction as locationText above — this stat row
+	// is inside the cover photo, not on the page.
+	statColumnValue: {color: colors.onMedia, fontSize: typography.sizeTitle, fontWeight: typography.weightBold, letterSpacing: -0.6},
+	statColumnLabel: {color: colors.onMediaDim, fontSize: typography.sizeXs},
 	gallery: {paddingHorizontal: spacing.lg, marginTop: spacing.lg, gap: spacing.md},
 	gallerySegments: {marginBottom: spacing.xs},
 	// A real surface for the secondary stats: solid (so the edge fade has

@@ -74,7 +74,7 @@ import {BERX_SCENE} from '../scene';
 import type {BerxScene} from '../scene';
 import type {BerxColorTokens, BerxGlassLevelTokens, BerxEnvironment} from '../tokens';
 import {loadThemePrefs, saveThemeMode, saveAccent} from './preferencesStorage';
-import {accentAlpha, accentHover, accentInk, mixHex} from './accentMath';
+import {accentAlpha, accentHover, accentInk, ensureContrast, mixHex} from './accentMath';
 
 export type {BerxScene} from '../scene';
 
@@ -141,7 +141,21 @@ function resolveEnvironment(mode: BerxThemeMode): BerxEnvironment {
  */
 function buildColors(env: BerxEnvironment, accentKey: BerxAccentKey): BerxColorTokens {
 	const base = getBerxEnvironmentColors(env);
-	const accent = BERX_ACCENT_COLORS[accentKey];
+	/**
+	 * The accent, corrected for the ground it will actually sit on.
+	 *
+	 * REAL BUG THIS FIXES: this function previously took the raw
+	 * BERX_ACCENT_COLORS entry for BOTH environments, which silently
+	 * overrode whatever `accent` the environment's own palette
+	 * declared. Harmless while Day was a second dark theme — but Day is
+	 * now a real white room (see tokens/index.ts), and bright
+	 * Aquamarine #00E5CC on #F2F3F6 measures about 1.6:1, i.e. unreadable
+	 * as text or an icon. `ensureContrast` walks the SAME hue toward the
+	 * ground's opposite pole only as far as measurement requires, so
+	 * every accent — including any added later — gets a correct form per
+	 * environment instead of five hand-maintained "day variants".
+	 */
+	const accent = ensureContrast(BERX_ACCENT_COLORS[accentKey], base.bg, 4.5);
 	return {
 		...base,
 		accent,
@@ -154,18 +168,48 @@ function buildColors(env: BerxEnvironment, accentKey: BerxAccentKey): BerxColorT
 	} as BerxColorTokens;
 }
 
+/**
+ * The real atmosphere for one environment.
+ *
+ * TWO REAL CHANGES over the previous version, both from the
+ * transformation directive:
+ *
+ * 1. NEUTRAL, NOT ACCENT-TINTED. The old build derived `glow` from the
+ *    selected accent (`mixHex(accent, bg, 0.62)`), which is why picking
+ *    Purple repainted the whole sky violet — precisely the "random
+ *    multicolor theme" the directive rules out. Atmosphere is now
+ *    luminance: the neutral pools in scene.ts, mixed toward this
+ *    environment's own ground. The accent survives in exactly one
+ *    atmospheric role, `light` — the key light on a brand object.
+ *
+ * 2. DAY IS A REAL WHITE ROOM. On a white ground, "atmosphere" cannot
+ *    be a brighter pool — there is nothing brighter than the room. So
+ *    Day inverts the relationship the way a physical white space
+ *    actually behaves: the pools become soft DARKER haze (shadow and
+ *    depth fog gathering in the distance) rather than glow, which is
+ *    what gives a white environment any depth at all. `mixToward` is
+ *    that one decision, applied consistently to all three pools.
+ */
 function buildScene(env: BerxEnvironment, accentKey: BerxAccentKey): BerxScene {
 	const base = getBerxEnvironmentColors(env);
 	const accent = BERX_ACCENT_COLORS[accentKey];
+	const isDay = env === 'day';
+	// Night: pools sit ABOVE the ground in luminance (light in a dark
+	// room). Day: pools sit BELOW it (haze in a bright room).
+	const mixToward = (pool: string, t: number) => (isDay ? mixHex(base.bg, mixHex(pool, '#5A6070', 0.55), t) : mixHex(pool, base.bg, t));
 	return {
 		...BERX_SCENE,
 		ground: base.bg,
-		light: accent,
-		// A real desaturated pool derived from the chosen accent (mixed
-		// toward the ground, same "spend the accent, don't dilute it"
-		// relationship BERX_SCENE's own base values already held for
-		// Aquamarine) rather than a fixed glow that ignores the choice.
-		glow: mixHex(accent, base.bg, 0.62),
+		// The one place the brand accent is spent in the atmosphere, and
+		// on Day it is the contrast-corrected form (see colorsDay's own
+		// note) rather than the bright Night aquamarine on white.
+		light: isDay ? base.accent : accent,
+		glow: mixToward(BERX_SCENE.glow, isDay ? 0.5 : 0.55),
+		counter: mixToward(BERX_SCENE.counter, isDay ? 0.42 : 0.68),
+		fill: mixToward(BERX_SCENE.fill, isDay ? 0.36 : 0.72),
+		// Particles: near-white motes in a dark room, soft grey motes in
+		// a bright one. Same "controlled luminance" idea, both ways up.
+		dust: isDay ? mixHex(base.bg, '#3A4050', 0.42) : BERX_SCENE.dust,
 	};
 }
 
@@ -282,6 +326,43 @@ export function BerxThemeProvider({children}: {children: React.ReactNode}) {
 /** The live palette — reacts to both mode and accent. Outside a provider this is still a real, correct default (Night/Aquamarine), so an un-wrapped tree renders correctly. */
 export function useBerxColors(): BerxColorTokens {
 	return useContext(BerxThemeContext).colors;
+}
+
+/**
+ * THE INK RULE, in one place.
+ *
+ * Text sitting ON PHOTOGRAPHY is a different problem from text sitting
+ * on the environment, and the palette has always carried two families
+ * for it — but every screen picked by hand, so nothing enforced the
+ * rule. That was invisible while Day was a second dark theme (both
+ * families were light ink); the moment Day became a real white room,
+ * every hand-picked `colors.text` over a photo turned dark-on-dark.
+ * Real bug, caught by a Day screenshot of the feed and of the profile
+ * hero — see BerxFeedScene.tsx's own note.
+ *
+ * `overMedia` decides between:
+ *   - the ON-MEDIA family, deliberately IDENTICAL in both environments
+ *     because media is dark-scrimmed either way, and
+ *   - the environment's own ink, which really does flip.
+ *
+ * Any surface that lays content over a photo, cover, or video should
+ * take its colours from here rather than from useBerxColors() directly.
+ */
+export interface BerxInk {
+	strong: string;
+	dim: string;
+	faint: string;
+	accent: string;
+}
+export function useBerxInk(overMedia: boolean): BerxInk {
+	const colors = useContext(BerxThemeContext).colors;
+	return useMemo(
+		() =>
+			overMedia
+				? {strong: colors.onMedia, dim: colors.onMediaDim, faint: colors.onMediaFaint, accent: colors.accentOnMedia}
+				: {strong: colors.text, dim: colors.textDim, faint: colors.textFaint, accent: colors.accent},
+		[overMedia, colors]
+	);
 }
 
 /** The live glass ladder — reacts to mode (day/night), not accent (glass is neutral white/dark alpha, not accent-tinted). */

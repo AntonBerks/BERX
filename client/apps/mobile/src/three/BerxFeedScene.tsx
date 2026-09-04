@@ -340,6 +340,32 @@ function FeedCard({
 	const styles2 = useMemo(() => makeCardStyles(colors), [colors]);
 	const {move, pressIn, reset, tiltStyle, shadowStyle, mediaParallaxStyle} = useCardTilt(14);
 
+	/**
+	 * REAL BUG THIS FIXES, exposed by the Day-environment rebuild: this
+	 * card's byline/caption/track/counts all read `colors.text`-family
+	 * ink, but on a card WITH media they sit on top of the photo and its
+	 * real dark `mediaScrim`, not on the panel. That was invisible while
+	 * both environments had light ink on dark grounds; the moment Day
+	 * became a real white room, `colors.text` turned dark and every one
+	 * of those labels went dark-on-dark over the photo.
+	 *
+	 * The palette already carries the right answer for exactly this
+	 * situation — the `onMedia*` family, which is deliberately IDENTICAL
+	 * in both environments (see tokens/index.ts's own note) because
+	 * media is dark-scrimmed either way. So a media card uses on-media
+	 * ink and a text-only card keeps the environment's own ink.
+	 */
+	const overMedia = !!item.media_url;
+	const ink = useMemo(
+		() => ({
+			strong: overMedia ? colors.onMedia : colors.text,
+			dim: overMedia ? colors.onMediaDim : colors.textDim,
+			faint: overMedia ? colors.onMediaFaint : colors.textFaint,
+			accent: overMedia ? colors.accentOnMedia : colors.accent,
+		}),
+		[overMedia, colors]
+	);
+
 	// BREATHE — a real, continuous, independent-phase idle scale
 	// (1.0 -> 1.01), per this pass's own "карточки могут слегка
 	// «дышать»" ask. A per-card random phase (via a stable useRef, not
@@ -447,25 +473,25 @@ function FeedCard({
 						}}
 						hitSlop={8}>
 						<View style={styles2.avatar}>
-							{item.poster_icon ? <Image source={{uri: item.poster_icon}} style={styles2.avatarImage} /> : <Text style={styles2.avatarInitial}>{(author ?? 'B').charAt(0).toUpperCase()}</Text>}
+							{item.poster_icon ? <Image source={{uri: item.poster_icon}} style={styles2.avatarImage} /> : <Text style={[styles2.avatarInitial, {color: ink.accent}]}>{(author ?? 'B').charAt(0).toUpperCase()}</Text>}
 						</View>
 						{item.poster_is_creator ? <View style={styles2.creatorDot} /> : null}
-						<Text style={styles2.byline} numberOfLines={1}>
+						<Text style={[styles2.byline, {color: ink.faint}]} numberOfLines={1}>
 							{(author ?? 'BERX').toUpperCase()} · {relativeTimeLabel(item.time_created)}
 						</Text>
 					</Pressable>
 				</View>
 				<View style={styles2.captionClip}>
 					{focused ? (
-						<BerxRichText text={item.text} onOpenProfile={actions.onOpenProfile} onOpenHashtag={actions.onOpenHashtag} style={styles2.captionFull} />
+						<BerxRichText text={item.text} onOpenProfile={actions.onOpenProfile} onOpenHashtag={actions.onOpenHashtag} style={[styles2.captionFull, {color: ink.strong}]} />
 					) : (
-						<Text style={styles2.captionPreview} numberOfLines={2}>{item.text}</Text>
+						<Text style={[styles2.captionPreview, {color: ink.dim}]} numberOfLines={2}>{item.text}</Text>
 					)}
 				</View>
 				{focused && item.track_title ? (
 					<View style={styles2.trackRow}>
-						<BerxIcon name="music" size={13} color={colors.accent} />
-						<Text style={styles2.trackTitle} numberOfLines={1}>{item.track_title}</Text>
+						<BerxIcon name="music" size={13} color={ink.accent} />
+						<Text style={[styles2.trackTitle, {color: ink.dim}]} numberOfLines={1}>{item.track_title}</Text>
 					</View>
 				) : null}
 				{focused && item.poll ? (
@@ -482,20 +508,20 @@ function FeedCard({
 				{focused ? (
 					<Pressable onPress={(e: GestureResponderEvent) => e.stopPropagation()} style={styles2.actionsRow}>
 						<View style={styles2.actionItem}>
-							<LikeWave liked={!!item.is_liked} color={colors.accent}>
+							<LikeWave liked={!!item.is_liked} color={ink.accent}>
 								<BerxAnimatedButton
 									variant="icon"
 									onPress={() => actions.onToggleLike(item)}
 									disabled={likeBusy}
 									active={!!item.is_liked}
-									icon={<BerxIcon name="heart" size={16} color={item.is_liked ? colors.accent : colors.textDim} filled={item.is_liked} />}
+									icon={<BerxIcon name="heart" size={16} color={item.is_liked ? ink.accent : ink.dim} filled={item.is_liked} />}
 								/>
 							</LikeWave>
-							{(item.like_count ?? 0) > 0 ? <Text style={[styles2.actionCount, item.is_liked && styles2.actionCountActive]}>{item.like_count}</Text> : null}
+							{(item.like_count ?? 0) > 0 ? <Text style={[styles2.actionCount, {color: item.is_liked ? ink.accent : ink.faint}]}>{item.like_count}</Text> : null}
 						</View>
 						<View style={styles2.actionItem}>
-							<BerxAnimatedButton variant="icon" onPress={() => actions.onOpenComments(item)} icon={<BerxIcon name="message-circle" size={15} color={colors.textDim} />} />
-							{(item.comment_count ?? 0) > 0 ? <Text style={styles2.actionCount}>{item.comment_count}</Text> : null}
+							<BerxAnimatedButton variant="icon" onPress={() => actions.onOpenComments(item)} icon={<BerxIcon name="message-circle" size={15} color={ink.dim} />} />
+							{(item.comment_count ?? 0) > 0 ? <Text style={[styles2.actionCount, {color: ink.faint}]}>{item.comment_count}</Text> : null}
 						</View>
 						{actions.onShareToMessage ? (
 							<BerxAnimatedButton variant="icon" onPress={() => actions.onShareToMessage?.(item.guid)} icon={<BerxIcon name="share-2" size={15} color={colors.textDim} />} />

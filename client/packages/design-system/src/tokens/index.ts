@@ -143,38 +143,75 @@ export const colors = {
  * object is live, not aspirational.
  */
 export const colorsDay = {
-	black: '#12141C', // Obsidian & Aurora's own Day background — still a dark ground, not a literal light surface (see this file's header on what the new "Day" means)
-	bg: '#12141C',
-	graphite: '#1A1D28',
+	/**
+	 * DAY IS NOW A REAL WHITE ENVIRONMENT.
+	 *
+	 * It previously was not: this palette shipped a #12141C ground with
+	 * white text — a second dark theme wearing the name "Day", which is
+	 * why the app had no genuine light mode at all. The transformation
+	 * directive is explicit ("DAY MODE: predominantly WHITE environment,
+	 * white glass, dark text, soft neutral shadows... controlled
+	 * luminance"), so this is a real rebuild, not a tint.
+	 *
+	 * Not pure #FFFFFF: an architectural white with a trace of cool grey
+	 * gives white glass something to actually sit ON. Glass that is
+	 * lighter than its ground is what makes a light-mode surface read as
+	 * a surface rather than as a hole, and pure white leaves no headroom
+	 * above it.
+	 */
+	black: '#F2F3F6',
+	bg: '#F2F3F6',
+	/** The paper one step up from the ground — cards, sheets, list surfaces. */
+	graphite: '#FFFFFF',
 
-	// Glass surface: white alpha 8–15% (Day) per Obsidian & Aurora.
-	glass1: 'rgba(255,255,255,0.08)',
-	glass2: 'rgba(255,255,255,0.11)',
-	glass3: 'rgba(255,255,255,0.15)',
-	surface: 'rgba(255,255,255,0.11)',
-	surface2: 'rgba(255,255,255,0.15)',
+	// White glass on a white ground: the fill lifts TOWARD white (the
+	// opposite direction from Night's white-on-black), so each level is
+	// brighter than the ground rather than dimmer. Separation then comes
+	// from the border + shadow, not from the fill alone — see the
+	// borders just below, which are neutral DARK alpha here.
+	glass1: 'rgba(255,255,255,0.62)',
+	glass2: 'rgba(255,255,255,0.74)',
+	glass3: 'rgba(255,255,255,0.86)',
+	surface: 'rgba(255,255,255,0.74)',
+	surface2: 'rgba(255,255,255,0.86)',
 
-	border: 'rgba(255,255,255,0.20)',
-	borderSoft: 'rgba(255,255,255,0.14)',
-	borderStrong: 'rgba(255,255,255,0.28)',
+	// Neutral dark alpha — a white border on a white ground is invisible.
+	// Kept genuinely soft (the directive asks for "soft neutral shadows",
+	// not hard outlines): these read as an edge, never as a stroke.
+	border: 'rgba(16,18,24,0.14)',
+	borderSoft: 'rgba(16,18,24,0.09)',
+	borderStrong: 'rgba(16,18,24,0.22)',
 
 	white: '#ffffff',
-	text: '#F5F7FA',
-	textDim: 'rgba(245,247,250,0.64)',
-	textFaint: 'rgba(245,247,250,0.38)',
-	textSecondary: '#A8B0C0',
+	/** Dark ink. Not pure black — #10121A against #F2F3F6 is ~17:1, far past AA, without the harshness of #000 on a bright field. */
+	text: '#10121A',
+	textDim: 'rgba(16,18,26,0.64)',
+	textFaint: 'rgba(16,18,26,0.40)',
+	textSecondary: '#4A5060',
 
-	/** Same Aquamarine hue as Night — Obsidian & Aurora's Day ground is still dark, so unlike the old light-mode Day palette this needs no separate deepened accent for contrast. */
-	accent: ACCENT_AQUAMARINE,
-	accentHover: '#4DF0DC',
-	accentSoft: 'rgba(0,229,204,0.16)',
-	accentSecondary: ACCENT_AQUAMARINE,
-	accentSecondarySoft: 'rgba(0,229,204,0.16)',
+	/**
+	 * The SAME brand aquamarine, deepened only as far as measurement
+	 * requires. #00E5CC against this white ground is a contrast ratio of
+	 * roughly 1.6 — genuinely unreadable, not a matter of taste — so Day
+	 * carries the accent walked toward black until it passes WCAG AA
+	 * (see theme/accentMath.ts's own `ensureContrast`, which is what
+	 * computes this at runtime for whichever accent is selected; the
+	 * literal below is that same function's result for Aquamarine, kept
+	 * here so this static object stays self-consistent).
+	 * "The brand must remain recognizable in both modes" — same hue,
+	 * same family, legible.
+	 */
+	accent: '#00786B',
+	accentHover: '#00655A',
+	accentSoft: 'rgba(0,120,107,0.12)',
+	accentSecondary: '#00786B',
+	accentSecondarySoft: 'rgba(0,120,107,0.12)',
 	accentPurple: ACCENT_PURPLE,
 	accentPink: ACCENT_PINK,
 	accentGold: ACCENT_GOLD,
 	accentEmerald: ACCENT_EMERALD,
-	onAccent: '#12141C',
+	/** Ink on a solid fill of the deepened Day accent — white, since that accent is now dark enough to carry it. */
+	onAccent: '#FFFFFF',
 	/** Identical to Night on purpose — see the Night token's comment. */
 	mediaScrim: '#05060A',
 
@@ -187,11 +224,17 @@ export const colorsDay = {
 	danger: '#ff4d4f',
 	success: '#3ddc84',
 
-	glassBusiness: 'rgba(255,255,255,0.08)',
-	glassBusinessBorder: 'rgba(255,255,255,0.15)',
-	glassBusinessHairline: 'rgba(255,255,255,0.20)',
-	scrimTop: 'rgba(18,20,28,0)',
-	scrimBottom: 'rgba(18,20,28,0.92)',
+	glassBusiness: 'rgba(255,255,255,0.72)',
+	glassBusinessBorder: 'rgba(16,18,24,0.12)',
+	glassBusinessHairline: 'rgba(255,255,255,0.90)',
+	/**
+	 * Day's own page scrim — a WHITE fade, not the dark one this palette
+	 * used to inherit. (mediaScrim above stays dark on purpose: that one
+	 * sits over photography, where the ink is white in both
+	 * environments. This one sits over the page.)
+	 */
+	scrimTop: 'rgba(242,243,246,0)',
+	scrimBottom: 'rgba(242,243,246,0.92)',
 } as const;
 
 /** The exact palette contract both environments satisfy — the type every theme-aware StyleSheet factory takes. */
@@ -484,12 +527,30 @@ export const glassNight: Record<1 | 2 | 3 | 4, BerxGlassLevelTokens> = {
 	4: {fill: 'rgba(14,17,21,0.82)', border: 'rgba(255,255,255,0.28)', hairline: 'rgba(255,255,255,0.32)', blurRadius: 32, radius: 28},
 };
 
-/** Obsidian & Aurora — white alpha 8-15% (Day). Day's own ground is still dark (#12141C), so this uses the same white-on-dark family as Night, just at the spec's lower Day band, not the old literal-light-mode palette's near-opaque white fills. */
+/**
+ * DAY GLASS — real WHITE glass on a real white ground.
+ *
+ * Rebuilt alongside colorsDay (see its own header for why Day is no
+ * longer a second dark theme). The inversion matters physically, not
+ * just numerically:
+ *   - `fill` lifts TOWARD white as the level rises, so a level-3 sheet
+ *     is brighter than the ground it floats over. On Night the same
+ *     ladder lifts white alpha over black, which is the same idea
+ *     pointed the other way: each level is more separated from its
+ *     environment than the last.
+ *   - `border` is neutral DARK alpha here. A white hairline on a white
+ *     ground is invisible, so Day's edge is a shadow-side line...
+ *   - ...and `hairline` is the LIGHT one — the top edge highlight where
+ *     the environment's light catches the glass. On Night these two
+ *     roles are both white; on Day they genuinely split into a dark
+ *     lower edge and a bright upper one, which is what makes white
+ *     glass read as a physical pane rather than a white rectangle.
+ */
 export const glassDay: Record<1 | 2 | 3 | 4, BerxGlassLevelTokens> = {
-	1: {fill: 'rgba(255,255,255,0.08)', border: 'rgba(255,255,255,0.12)', hairline: 'rgba(255,255,255,0.16)', blurRadius: 8, radius: 16},
-	2: {fill: 'rgba(255,255,255,0.11)', border: 'rgba(255,255,255,0.16)', hairline: 'rgba(255,255,255,0.20)', blurRadius: 14, radius: 20},
-	3: {fill: 'rgba(255,255,255,0.13)', border: 'rgba(255,255,255,0.19)', hairline: 'rgba(255,255,255,0.23)', blurRadius: 22, radius: 24},
-	4: {fill: 'rgba(18,20,28,0.82)', border: 'rgba(255,255,255,0.24)', hairline: 'rgba(255,255,255,0.28)', blurRadius: 32, radius: 28},
+	1: {fill: 'rgba(255,255,255,0.55)', border: 'rgba(16,18,24,0.08)', hairline: 'rgba(255,255,255,0.85)', blurRadius: 8, radius: 16},
+	2: {fill: 'rgba(255,255,255,0.68)', border: 'rgba(16,18,24,0.10)', hairline: 'rgba(255,255,255,0.92)', blurRadius: 14, radius: 20},
+	3: {fill: 'rgba(255,255,255,0.80)', border: 'rgba(16,18,24,0.13)', hairline: 'rgba(255,255,255,0.96)', blurRadius: 22, radius: 24},
+	4: {fill: 'rgba(255,255,255,0.92)', border: 'rgba(16,18,24,0.16)', hairline: 'rgba(255,255,255,1)', blurRadius: 32, radius: 28},
 };
 
 export type BerxGlassLevel = 1 | 2 | 3 | 4;

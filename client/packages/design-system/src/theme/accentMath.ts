@@ -71,3 +71,40 @@ export function accentHover(hex: string, t = 0.2): string {
 export function accentInk(hex: string, darkInk: string, lightInk: string): string {
 	return relativeLuminance(hexToRgb(hex)) > 0.42 ? darkInk : lightInk;
 }
+
+/** Real WCAG contrast ratio between two hex colours (1 = identical, 21 = black on white). */
+export function contrastRatio(a: string, b: string): number {
+	const la = relativeLuminance(hexToRgb(a));
+	const lb = relativeLuminance(hexToRgb(b));
+	const [hi, lo] = la > lb ? [la, lb] : [lb, la];
+	return (hi + 0.05) / (lo + 0.05);
+}
+
+/**
+ * The same accent, deepened (or lifted) just far enough to actually
+ * read against a given surface.
+ *
+ * Why this is a function and not a second hand-picked hex per accent:
+ * BERX's Day environment is now a real WHITE ground (see tokens/
+ * index.ts), and Aquamarine #00E5CC against white is a contrast ratio
+ * of about 1.6 — genuinely unreadable as text or an icon, not a
+ * stylistic preference. Hand-tuning five "day variants" would be five
+ * numbers to keep in sync with any future accent; this walks the real
+ * colour toward the surface's opposite in small steps and stops at the
+ * first one that MEASURES as passing, so every accent — including one
+ * added later — gets a correct Day form for free.
+ *
+ * `target` defaults to 4.5 (WCAG AA for normal text). Callers styling
+ * large display type may pass 3.
+ */
+export function ensureContrast(hex: string, against: string, target = 4.5): string {
+	if (contrastRatio(hex, against) >= target) return hex;
+	// Walk toward whichever pole the surface is NOT, so an accent on a
+	// white ground darkens and the same accent on black lightens.
+	const pole = relativeLuminance(hexToRgb(against)) > 0.5 ? '#000000' : '#FFFFFF';
+	for (let t = 0.05; t <= 1; t += 0.05) {
+		const candidate = mixHex(hex, pole, t);
+		if (contrastRatio(candidate, against) >= target) return candidate;
+	}
+	return pole;
+}

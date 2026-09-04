@@ -146,12 +146,18 @@ export function BerxAuroraField({width, height, particleCount, style, parallax}:
 			<GlowPool color={scene.glow} size={width * 1.5} top={height * 0.2} left={width * 0.26} opacity={0.17} driftX={44} driftY={28} duration={18000} parallax={parallax} parallaxMul={4} />
 			<GlowPool color={scene.counter} size={width * 1.25} top={height * 0.6} left={width * 0.8} opacity={0.13} driftX={-38} driftY={32} duration={24000} parallax={parallax} parallaxMul={3} />
 			<GlowPool color={scene.fill} size={width * 1.1} top={height * 0.85} left={width * 0.24} opacity={0.11} driftX={30} driftY={-24} duration={32000} parallax={parallax} parallaxMul={2} />
-			{/* The drifting ORB — a moving light source, distinct from the three aurora pools above. */}
-			<GlowPool color={scene.light} size={Math.max(width, height) * 0.72} top={height * 0.42} left={width * 0.5} opacity={0.19} driftX={64} driftY={48} duration={21000} parallax={parallax} parallaxMul={5} />
+			{/* The drifting ORB — a moving light source, distinct from the
+			    three pools above. This is the one place the atmosphere
+			    spends the brand accent (scene.light), and it is deliberately
+			    the faintest thing in the field: "restrained highlights". */}
+			<GlowPool color={scene.light} size={Math.max(width, height) * 0.72} top={height * 0.42} left={width * 0.5} opacity={0.1} driftX={64} driftY={48} duration={21000} parallax={parallax} parallaxMul={5} />
 			{fields.map(({layer, items}, layerIdx) => (
 				<View key={layer.name} pointerEvents="none" style={StyleSheet.absoluteFillObject}>
 					{items.map((d, i) => (
-						<DustMote key={i} d={d} w={width} h={height} size={layer.minSize + d.sizeRand * (layer.maxSize - layer.minSize)} color={scene.light} floatDuration={layer.floatBase} parallax={parallax} parallaxMul={[26, 15, 7][layerIdx]} />
+						// scene.dust, not scene.light — particles are a
+						// LUMINANCE effect, not a hue one (see scene.ts's own
+						// note on why this role was split out).
+						<DustMote key={i} d={d} w={width} h={height} size={layer.minSize + d.sizeRand * (layer.maxSize - layer.minSize)} color={scene.dust} floatDuration={layer.floatBase} parallax={parallax} parallaxMul={[26, 15, 7][layerIdx]} />
 					))}
 				</View>
 			))}
