@@ -7,7 +7,14 @@
  * the scene it renders is probe-specific, which is what makes the
  * measurements in v9-web-probe.mjs meaningful.
  */
-import {mountBerxScene, type BerxWebScene} from '@berx/spatial-web';
+import {
+	createBerxCard,
+	createBerxControl,
+	createBerxEnergy,
+	createBerxLayer,
+	mountBerxScene,
+	type BerxWebScene,
+} from '@berx/spatial-web';
 import {BERX_DEPTH_KEYS, type BerxDepthKey} from '@berx/spatial';
 import {findContract, resolveScreen, BERX_V9_CONTRACTS} from '@berx/scenes';
 
@@ -29,16 +36,10 @@ function el(tag: string, className?: string, attrs?: Record<string, string>): HT
 	return node;
 }
 
+/* the shipped primitives, not a copy of them — so the probe measures
+   what a real web client would actually render */
 function layer(depth: BerxDepthKey, withSurface: boolean): HTMLElement {
-	const node = el('div', 'berx-layer', {'data-berx-depth': depth});
-	/* D0/D1 are the room: decorative, and hidden from assistive technology */
-	if (depth === 'D0' || depth === 'D1') node.setAttribute('aria-hidden', 'true');
-	if (withSurface) {
-		const surface = el('div', 'berx-surface', {'data-berx-depth': depth});
-		node.appendChild(surface);
-		return node;
-	}
-	return node;
+	return createBerxLayer(depth, {surface: withSurface});
 }
 
 function build(screenId: string, highContrast: boolean, sampleFrames: boolean) {
@@ -56,7 +57,8 @@ function build(screenId: string, highContrast: boolean, sampleFrames: boolean) {
 			continue;
 		}
 		const wrapper = layer(depth, false);
-		const surface = el('div', 'berx-surface berx-enter', {'data-berx-depth': depth});
+		const surface = createBerxCard({depth});
+		surface.classList.add('berx-enter');
 
 		const heading = el('h2');
 		heading.textContent = `${depth} — ${contract.title}`;
@@ -68,15 +70,10 @@ function build(screenId: string, highContrast: boolean, sampleFrames: boolean) {
 		surface.appendChild(copy);
 
 		if (depth === 'D4') {
-			const button = el('button', 'berx-focusable berx-control', {type: 'button'});
-			button.textContent = 'Основное действие';
-			surface.appendChild(button);
+			surface.appendChild(createBerxControl('Основное действие', () => undefined));
 		}
 		if (depth === 'D5') {
-			const halo = el('div', 'berx-energy', {'aria-hidden': 'true'});
-			halo.style.width = '64px';
-			halo.style.height = '64px';
-			surface.appendChild(halo);
+			surface.appendChild(createBerxEnergy(64));
 		}
 
 		wrapper.appendChild(surface);

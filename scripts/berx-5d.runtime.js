@@ -841,9 +841,74 @@ function mountBerxScene(root, contract, options = {}) {
     }
   };
 }
+function createBerxLayer(depth, options = {}) {
+  const layer = document.createElement("div");
+  layer.className = ["berx-layer", options.className].filter(Boolean).join(" ");
+  layer.dataset.berxDepth = depth;
+  const decorative = options.decorative ?? (depth === "D0" || depth === "D1");
+  if (decorative) {
+    layer.setAttribute("aria-hidden", "true");
+    layer.style.pointerEvents = "none";
+  }
+  if (options.surface === false) return layer;
+  const surface = document.createElement("div");
+  surface.className = "berx-surface";
+  surface.dataset.berxDepth = depth;
+  layer.appendChild(surface);
+  return layer;
+}
+function berxLayerContent(layer) {
+  return layer.querySelector(".berx-surface") ?? layer;
+}
+function createBerxCard(options = {}) {
+  const depth = options.depth ?? "D3";
+  const interactive = typeof options.onPress === "function";
+  const el = document.createElement(interactive ? "button" : "div");
+  el.className = ["berx-surface", interactive ? "berx-focusable" : "", options.className].filter(Boolean).join(" ");
+  el.dataset.berxDepth = depth;
+  if (interactive) {
+    el.type = "button";
+    if (options.accessibleName) el.setAttribute("aria-label", options.accessibleName);
+    el.addEventListener("click", () => options.onPress?.());
+  }
+  return el;
+}
+function createBerxControl(label, onPress) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "berx-focusable berx-control";
+  button.textContent = label;
+  button.addEventListener("click", onPress);
+  return button;
+}
+function createBerxEnergy(sizePx = 64) {
+  const el = document.createElement("div");
+  el.className = "berx-energy";
+  el.setAttribute("aria-hidden", "true");
+  el.style.width = `${sizePx}px`;
+  el.style.height = `${sizePx}px`;
+  return el;
+}
+function createBerxSceneRoot(root) {
+  root.className = "berx-scene";
+  root.innerHTML = "";
+  const layers = {};
+  for (const depth of BERX_DEPTH_KEYS) {
+    const layer = createBerxLayer(depth, { surface: depth !== "D3" });
+    layers[depth] = layer;
+    root.appendChild(layer);
+  }
+  return layers;
+}
 export {
   BERX_DEPTH_KEYS,
   BERX_MAX_TILT_DEG,
+  berxLayerContent,
+  createBerxCard,
+  createBerxControl,
+  createBerxEnergy,
+  createBerxLayer,
+  createBerxSceneRoot,
   detectPlatform,
   mountBerxScene,
   readDeviceSignals,

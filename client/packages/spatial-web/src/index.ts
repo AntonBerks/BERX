@@ -362,3 +362,126 @@ export function mountBerxScene(
 /** Re-exported so the bundle is a complete, self-sufficient runtime for the web. */
 export {BERX_DEPTH_KEYS, BERX_MAX_TILT_DEG, resolveScene};
 export type {BerxSceneRuntime, BerxSceneContract, BerxDepthKey};
+
+/* ------------------------------------------------------------------ */
+/* DOM primitives                                                      */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The same component grammar the React Native adapter has, as plain
+ * DOM builders.
+ *
+ * BERX's web client is not React, so these are functions that return
+ * elements rather than components — but they produce exactly the
+ * markup styles/berx-5d.css expects, with the same depth semantics,
+ * the same decorative-layer accessibility rules and the same control
+ * minimums. A web surface built with these is the same BERX surface
+ * a phone renders, not a lookalike.
+ */
+
+export interface BerxLayerOptions {
+	/** Renders the layer's material. Off for pure positioning layers. */
+	surface?: boolean;
+	/** Overrides the default decorative treatment (D0/D1 are decorative). */
+	decorative?: boolean;
+	className?: string;
+}
+
+export function createBerxLayer(depth: BerxDepthKey, options: BerxLayerOptions = {}): HTMLElement {
+	const layer = document.createElement('div');
+	layer.className = ['berx-layer', options.className].filter(Boolean).join(' ');
+	layer.dataset.berxDepth = depth;
+
+	/* D0 and D1 are the room: they carry no semantic content, so they
+	   are hidden from assistive technology unless told otherwise */
+	const decorative = options.decorative ?? (depth === 'D0' || depth === 'D1');
+	if (decorative) {
+		layer.setAttribute('aria-hidden', 'true');
+		layer.style.pointerEvents = 'none';
+	}
+
+	if (options.surface === false) return layer;
+
+	const surface = document.createElement('div');
+	surface.className = 'berx-surface';
+	surface.dataset.berxDepth = depth;
+	layer.appendChild(surface);
+	return layer;
+}
+
+/** The content element of a layer built with `createBerxLayer`. */
+export function berxLayerContent(layer: HTMLElement): HTMLElement {
+	return (layer.querySelector('.berx-surface') as HTMLElement | null) ?? layer;
+}
+
+export interface BerxCardOptions {
+	depth?: BerxDepthKey;
+	/** Makes the card a real button, with the name assistive technology needs. */
+	onPress?: () => void;
+	accessibleName?: string;
+	className?: string;
+}
+
+/**
+ * A card on a depth plane. When it acts, it is a `<button>` — a card
+ * that navigates is a control whatever it looks like, and only a real
+ * button is reachable by keyboard and announced correctly.
+ */
+export function createBerxCard(options: BerxCardOptions = {}): HTMLElement {
+	const depth = options.depth ?? 'D3';
+	const interactive = typeof options.onPress === 'function';
+
+	const el = document.createElement(interactive ? 'button' : 'div');
+	el.className = ['berx-surface', interactive ? 'berx-focusable' : '', options.className].filter(Boolean).join(' ');
+	el.dataset.berxDepth = depth;
+
+	if (interactive) {
+		(el as HTMLButtonElement).type = 'button';
+		if (options.accessibleName) el.setAttribute('aria-label', options.accessibleName);
+		el.addEventListener('click', () => options.onPress?.());
+	}
+	return el;
+}
+
+/**
+ * A control that meets the archive's touch minimum.
+ *
+ * The runtime writes `--berx-touch-min` from the control plane's own
+ * projection, so the painted target is never under 44 CSS px even
+ * though the scene's camera scales it.
+ */
+export function createBerxControl(label: string, onPress: () => void): HTMLButtonElement {
+	const button = document.createElement('button');
+	button.type = 'button';
+	button.className = 'berx-focusable berx-control';
+	button.textContent = label;
+	button.addEventListener('click', onPress);
+	return button;
+}
+
+/** The D5 energy marker. Decorative by contract — meaning lives in text beside it. */
+export function createBerxEnergy(sizePx = 64): HTMLElement {
+	const el = document.createElement('div');
+	el.className = 'berx-energy';
+	el.setAttribute('aria-hidden', 'true');
+	el.style.width = `${sizePx}px`;
+	el.style.height = `${sizePx}px`;
+	return el;
+}
+
+/**
+ * Builds a complete scene root with all six planes in order, ready
+ * for content. The layers are returned so a caller can fill D2–D5
+ * without querying the DOM back out.
+ */
+export function createBerxSceneRoot(root: HTMLElement): Record<BerxDepthKey, HTMLElement> {
+	root.className = 'berx-scene';
+	root.innerHTML = '';
+	const layers = {} as Record<BerxDepthKey, HTMLElement>;
+	for (const depth of BERX_DEPTH_KEYS) {
+		const layer = createBerxLayer(depth, {surface: depth !== 'D3'});
+		layers[depth] = layer;
+		root.appendChild(layer);
+	}
+	return layers;
+}
