@@ -61,10 +61,10 @@
  * approximation of the spec's literal translateZ(20px).
  *
  * BACKGROUND — real depth on top of the card system, independent of it:
- *   - AURORA: FOUR live-scene colour pools (was two), each on its own
- *     independent slow loop (18s/24s/30s/21s, per this pass's own
- *     numbers), a real radial-gradient falloff (a flat-opacity circle
- *     was an earlier, caught mistake — see git history).
+ *     THREE live-scene colour pools, per this pass's own explicit
+ *     spec (18s/24s/32s, the literal durations named), a real radial-
+ *     gradient falloff (a flat-opacity circle was an earlier, caught
+ *     mistake — see git history).
  *   - ORB: one larger, brighter pool standing in for "a moving light
  *     source", sized relative to the viewport (the spec's literal
  *     600–800px reads as desktop-scale; scaling it directly onto a
@@ -82,6 +82,7 @@
  */
 import {useEffect, useMemo, useRef, useState} from 'react';
 import {View, Text, Image, StyleSheet, LayoutChangeEvent, Pressable, Platform, GestureResponderEvent} from 'react-native';
+import type {ReactNode} from 'react';
 import type {BerxFeedItem} from '@berx/api/types';
 import {relativeTimeLabel} from '@berx/domain';
 import {spacing, radius, typography} from '@berx/design-system/tokens';
@@ -115,7 +116,7 @@ function authorOf(item: BerxFeedItem): string | null {
 }
 
 /** A seeded pseudo-random field, stable across re-renders (not Math.random() on every render, which would make the dust jump on any parent re-render). */
-function seededField(count: number, seed: number): {x: number; y: number; size: number; phase: number; drift: number}[] {
+function seededField(count: number, seed: number): {x: number; y: number; sizeRand: number; phase: number; drift: number}[] {
 	let s = seed;
 	const rand = () => {
 		s = (s * 9301 + 49297) % 233280;
@@ -124,27 +125,42 @@ function seededField(count: number, seed: number): {x: number; y: number; size: 
 	return Array.from({length: count}, () => ({
 		x: rand(),
 		y: rand(),
-		size: 1 + rand() * 2, // 1-3px, per this pass's own spec
+		sizeRand: rand(),
 		phase: rand() * 1000,
 		drift: 6 + rand() * 12,
 	}));
 }
-// 110, not the spec's literal 150-250 — see this file's own header on
-// why (real per-mote Reanimated View cost in a 2D fallback, not a GPU
-// point sprite). Reduced further (55) on Android, a real coarse
-// perf-tier signal (no on-device benchmarking system exists in this
-// codebase to do better — disclosed, not fabricated precision).
-const DUST_COUNT = Platform.OS === 'android' ? 55 : 110;
-const DUST = seededField(DUST_COUNT, 7);
 
-function DustMote({d, w, h, pointerX, pointerY}: {d: (typeof DUST)[number]; w: number; h: number; pointerX: SharedValue<number>; pointerY: SharedValue<number>}) {
+/** One depth layer of the dust field, per this pass's own "три слоя частиц" spec: nearer motes are bigger, faster-floating, and move MORE under pointer/drag parallax than farther ones — a real depth cue, not a uniform field. */
+interface DustLayerConfig {
+	name: 'near' | 'mid' | 'far';
+	count: number;
+	minSize: number;
+	maxSize: number;
+	parallaxMult: number;
+	floatBase: number;
+	seed: number;
+}
+// Total budget kept the same as the previous single-layer pass (110,
+// 55 on Android — see this file's own header on why not the spec's
+// literal 150-250) — split three ways instead of one.
+const DUST_TOTAL = Platform.OS === 'android' ? 55 : 110;
+const DUST_LAYERS: DustLayerConfig[] = [
+	{name: 'near', count: Math.round(DUST_TOTAL * 0.22), minSize: 3, maxSize: 4.5, parallaxMult: 1, floatBase: 2000, seed: 7},
+	{name: 'mid', count: Math.round(DUST_TOTAL * 0.35), minSize: 1.8, maxSize: 2.8, parallaxMult: 0.5, floatBase: 2900, seed: 19},
+	{name: 'far', count: Math.round(DUST_TOTAL * 0.43), minSize: 0.8, maxSize: 1.5, parallaxMult: 0.22, floatBase: 3800, seed: 31},
+];
+/** Each layer's seeded positions, resolved once at module scope (stable across re-renders — the same reasoning `seededField` itself already documents). */
+const DUST_FIELDS = DUST_LAYERS.map((layer) => ({layer, items: seededField(layer.count, layer.seed)}));
+
+function DustMote({d, w, h, size, parallaxMult, floatDuration, pointerX, pointerY}: {d: {x: number; y: number; phase: number; drift: number}; w: number; h: number; size: number; parallaxMult: number; floatDuration: number; pointerX: SharedValue<number>; pointerY: SharedValue<number>}) {
 	const colors = useBerxColors();
 	const float = useSharedValue(0);
 	useEffect(() => {
 		float.value = withRepeat(
 			withSequence(
-				withTiming(1, {duration: 3200 + d.phase, easing: Easing.inOut(Easing.sin)}),
-				withTiming(0, {duration: 3200 + d.phase, easing: Easing.inOut(Easing.sin)})
+				withTiming(1, {duration: floatDuration + d.phase, easing: Easing.inOut(Easing.sin)}),
+				withTiming(0, {duration: floatDuration + d.phase, easing: Easing.inOut(Easing.sin)})
 			),
 			-1,
 			false
@@ -154,11 +170,11 @@ function DustMote({d, w, h, pointerX, pointerY}: {d: (typeof DUST)[number]; w: n
 	const style = useAnimatedStyle(() => ({
 		opacity: 0.25 + float.value * 0.45,
 		transform: [
-			{translateX: d.x * w + pointerX.value * (0.3 + d.size / 8) - d.drift / 2},
-			{translateY: d.y * h + pointerY.value * (0.3 + d.size / 8) + float.value * -d.drift},
+			{translateX: d.x * w + pointerX.value * parallaxMult - d.drift / 2},
+			{translateY: d.y * h + pointerY.value * parallaxMult + float.value * -d.drift},
 		],
-	}), [d, w, h, pointerX, pointerY]);
-	return <Animated.View pointerEvents="none" style={[styles.dust, {width: d.size, height: d.size, borderRadius: d.size / 2, backgroundColor: colors.accent}, style]} />;
+	}), [d, w, h, pointerX, pointerY, parallaxMult]);
+	return <Animated.View pointerEvents="none" style={[styles.dust, {width: size, height: size, borderRadius: size / 2, backgroundColor: colors.accent}, style]} />;
 }
 
 /** One soft drifting colour pool — the aurora/orb building block. A REAL radial-gradient falloff (same technique BerxAura already uses), not a flat-opacity disc. */
@@ -248,6 +264,37 @@ interface CardActions {
 	onShareToMessage?: (postGuid: number) => void;
 }
 
+/**
+ * LIKE — "масштабная волна" (a scale wave), per this pass's own spec.
+ * BerxAnimatedButton's icon variant already fires a real particle
+ * burst + radial glow on its own `active` false→true edge (see that
+ * component's own header) — this adds the other real half: a ring that
+ * expands (scale 1→2.4) and fades out from behind the heart on the
+ * SAME edge, a real, cheap, transform-only Reanimated flourish, not
+ * dependent on that component's own internals.
+ */
+function LikeWave({liked, color, children}: {liked: boolean; color: string; children: ReactNode}) {
+	const wave = useSharedValue(0);
+	const wasLiked = useRef(liked);
+	useEffect(() => {
+		if (liked && !wasLiked.current) {
+			wave.value = 0;
+			wave.value = withTiming(1, {duration: 520, easing: Easing.out(Easing.ease)});
+		}
+		wasLiked.current = liked;
+	}, [liked, wave]);
+	const ringStyle = useAnimatedStyle(() => ({
+		opacity: (1 - wave.value) * 0.6,
+		transform: [{scale: 1 + wave.value * 1.4}],
+	}), [wave]);
+	return (
+		<View style={styles.likeWaveWrap}>
+			<Animated.View pointerEvents="none" style={[styles.likeWaveRing, {borderColor: color}, ringStyle]} />
+			{children}
+		</View>
+	);
+}
+
 /** One real post card. `focused` decides EVERYTHING interactive: only the front card gets tilt tracking, real action buttons, and full-size/full-detail content — background cards are real but simplified, non-interactive preview context, per this pass's own "focused card is centred and clearly readable" spec. */
 function FeedCard({
 	item,
@@ -259,6 +306,7 @@ function FeedCard({
 	panX,
 	rotateYStatic,
 	opacity,
+	scale,
 	cardW,
 	cardH,
 	colors,
@@ -278,6 +326,7 @@ function FeedCard({
 	panX: SharedValue<number>;
 	rotateYStatic: number;
 	opacity: number;
+	scale: number;
 	cardW: number;
 	cardH: number;
 	colors: BerxColorTokens;
@@ -290,7 +339,18 @@ function FeedCard({
 }) {
 	const styles2 = useMemo(() => makeCardStyles(colors), [colors]);
 	const {move, pressIn, reset, tiltStyle, shadowStyle, mediaParallaxStyle} = useCardTilt(14);
-	const scale = 1 - depthFrac * 0.38;
+
+	// BREATHE — a real, continuous, independent-phase idle scale
+	// (1.0 -> 1.01), per this pass's own "карточки могут слегка
+	// «дышать»" ask. A per-card random phase (via a stable useRef, not
+	// re-rolled every render) so a whole row of cards doesn't visibly
+	// pulse in lockstep.
+	const breathe = useSharedValue(0);
+	const breathePhase = useRef(Math.random() * 1400).current;
+	useEffect(() => {
+		breathe.value = withRepeat(withTiming(1, {duration: 2600 + breathePhase, easing: Easing.inOut(Easing.sin)}), -1, true);
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, []);
 
 	// REAL BUG, CAUGHT VIA HARNESS DOM INSPECTION (not assumed away): a
 	// plain style object's own `transform` array and a SEPARATE
@@ -309,10 +369,10 @@ function FeedCard({
 		transform: [
 			{translateX: offsetX + panX.value * (1 - depthFrac * 0.7)},
 			{translateY},
-			{scale},
+			{scale: scale * (1 + breathe.value * 0.01)},
 			{rotateY: `${rotateYStatic}deg`},
 		],
-	}), [offsetX, translateY, scale, rotateYStatic, panX, depthFrac]);
+	}), [offsetX, translateY, scale, rotateYStatic, panX, depthFrac, breathe]);
 
 	const positionStyle = {
 		position: 'absolute' as const,
@@ -422,13 +482,15 @@ function FeedCard({
 				{focused ? (
 					<Pressable onPress={(e: GestureResponderEvent) => e.stopPropagation()} style={styles2.actionsRow}>
 						<View style={styles2.actionItem}>
-							<BerxAnimatedButton
-								variant="icon"
-								onPress={() => actions.onToggleLike(item)}
-								disabled={likeBusy}
-								active={!!item.is_liked}
-								icon={<BerxIcon name="heart" size={16} color={item.is_liked ? colors.accent : colors.textDim} filled={item.is_liked} />}
-							/>
+							<LikeWave liked={!!item.is_liked} color={colors.accent}>
+								<BerxAnimatedButton
+									variant="icon"
+									onPress={() => actions.onToggleLike(item)}
+									disabled={likeBusy}
+									active={!!item.is_liked}
+									icon={<BerxIcon name="heart" size={16} color={item.is_liked ? colors.accent : colors.textDim} filled={item.is_liked} />}
+								/>
+							</LikeWave>
 							{(item.like_count ?? 0) > 0 ? <Text style={[styles2.actionCount, item.is_liked && styles2.actionCountActive]}>{item.like_count}</Text> : null}
 						</View>
 						<View style={styles2.actionItem}>
@@ -454,8 +516,19 @@ function FeedCard({
 
 	return (
 		<Animated.View style={[positionStyle, positionAnimatedStyle]} pointerEvents={focused ? 'auto' : 'none'}>
-			<Animated.View style={[styles2.fill, focused ? shadowStyle : undefined]}>
-				<Animated.View style={[styles2.fill, focused ? tiltStyle : undefined]}>{content}</Animated.View>
+			{/* PREMIUM VOLUME — a real two-layer shadow on the focused card,
+			    per this pass's own literal numbers (0 4px 12px rgba(0,0,0,.3)
+			    near / 0 20px 60px rgba(0,0,0,.6) far). RN composites exactly
+			    ONE shadow per view (same real constraint BerxGlassView's own
+			    layer1/layer2 tokens already work around), so this is two
+			    NESTED views: the outer static "far" shadow, the inner
+			    dynamic `shadowStyle` (already tilt/lift-reactive, and its own
+			    resting values already land close to the spec's "near" shadow
+			    — see useCardTilt's own header) as the "near" one. */}
+			<Animated.View style={[styles2.fill, focused ? styles2.farShadow : undefined]}>
+				<Animated.View style={[styles2.fill, focused ? shadowStyle : undefined]}>
+					<Animated.View style={[styles2.fill, focused ? tiltStyle : undefined]}>{content}</Animated.View>
+				</Animated.View>
 			</Animated.View>
 		</Animated.View>
 	);
@@ -578,25 +651,52 @@ export default function BerxFeedScene({items, myGuid, onFocusChange, onOpenPost,
 	const cardW = Math.min(size.width * 0.86, 360);
 	const cardH = Math.min(size.height * 0.5, 420);
 
+	// DEPTH IS ONE CONTINUOUS FUNCTION OF `rel`, per this pass's own
+	// "выраженная 3D-глубина и динамика" ask — see this file's own
+	// header for the real bug this replaced: branching the geometry on
+	// the DISCRETE `focused` boolean made the card that just became
+	// focused SNAP straight to centre/scale-1/rotateY-0 the instant
+	// `focusedIndex` flipped, instead of smoothly arriving there. `rel`
+	// itself already changes continuously every frame (real momentum
+	// physics — see useSpatialDrag's own header), so a geometry that is
+	// a continuous function of `rel` alone arrives at centre naturally,
+	// with no separate "spring transition" needed to fake — the real
+	// physics already produces it once nothing forces a discontinuity.
 	const cards = shown
 		.map((item, i) => {
 			const rel = i * SPACING_Z - dollyValue;
 			if (rel < BEHIND_CULL || rel > VISIBLE_RANGE) return null;
-			const passing = rel < 0;
-			const depthFrac = passing ? 0 : Math.min(1, rel / VISIBLE_RANGE);
-			const passFade = passing ? Math.max(0, 1 + rel / Math.abs(BEHIND_CULL)) : 1;
+			const absRel = Math.min(Math.abs(rel), VISIBLE_RANGE);
+			// Smoothstep, not linear — eases in/out near both the centre
+			// and the culling edge instead of moving at a constant rate,
+			// which is what actually reads as "depth" rather than "a
+			// slider".
+			const lin = absRel / VISIBLE_RANGE;
+			const depthT = lin * lin * (3 - 2 * lin);
+			const side = rel === 0 ? 0 : rel > 0 ? 1 : -1;
 			const focused = i === focusedIndex;
-			const side = focused ? 0 : i % 2 === 0 ? 1 : -1;
-			const offsetX = focused ? 0 : side * size.width * (0.42 + depthFrac * 0.12);
-			const translateY = focused ? 0 : depthFrac * size.height * 0.05;
-			const rotateYStatic = focused ? 0 : side * -(5 + depthFrac * 3);
-			const t = maxResonance > 0 ? resonance(item) / maxResonance : 0;
-			const opacity = focused ? 1 : Math.max(0.35, (0.6 + t * 0.25) * (1 - depthFrac * 0.35)) * passFade;
-			return {item, i, focused, depthFrac, offsetX, translateY, rotateYStatic, opacity};
+			// Per this pass's own numbers: scale down to 0.6 at full
+			// depth (was a 0.62-0.84 range that never read as "receding
+			// into the distance"), rotateY out to 15° (was capped ~8°).
+			const scale = 1 - depthT * 0.4;
+			const offsetX = side * size.width * 0.52 * depthT;
+			const translateY = depthT * size.height * 0.035;
+			const rotateYStatic = -side * depthT * 15;
+			const passFade = rel < 0 ? Math.max(0, 1 + rel / Math.abs(BEHIND_CULL)) : 1;
+			// Dims to 40% at full depth (was a 0.35-1 range that barely
+			// separated focus from context) — with a real, small boost for
+			// a post's own real engagement (like_count+comment_count),
+			// same resonance signal the old node-based scene always used,
+			// not dropped just because the depth formula changed shape.
+			const resonanceT = maxResonance > 0 ? resonance(item) / maxResonance : 0;
+			const opacity = Math.min(1, Math.max(0.4, 1 - depthT * 0.6 + resonanceT * 0.08)) * passFade;
+			return {item, i, focused, depthFrac: depthT, offsetX, translateY, rotateYStatic, opacity, scale};
 		})
 		.filter((c): c is NonNullable<typeof c> => c !== null)
-		// Focused card painted LAST — always on top of its neighbours.
-		.sort((a, b) => Number(a.focused) - Number(b.focused));
+		// Painted by depth, nearest-last — a real painter's-algorithm
+		// order (not just "focused on top"), so a card mid-transition
+		// between depths still occludes correctly against its neighbours.
+		.sort((a, b) => b.depthFrac - a.depthFrac);
 
 	const bgParallaxX = -dollyValue * 8;
 	const dustParallaxX = -dollyValue * 20;
@@ -606,22 +706,42 @@ export default function BerxFeedScene({items, myGuid, onFocusChange, onOpenPost,
 	return (
 		<View style={styles2.wrap} onLayout={onLayout} {...rawHandlers} {...drag.panHandlers}>
 			<BerxAura ground={colors.bg} glow={colors.accent} intensity={0.5} at={0.38} style={StyleSheet.absoluteFillObject} />
-			{/* AURORA — FOUR live-scene pools, independently drifting (was two). */}
+			{/* AURORA — exactly THREE live-scene pools per this pass's own
+			    spec, each on its own real independent loop at the spec's own
+			    literal durations (18s/24s/32s), plus ONE separate travelling
+			    ORB (below) standing in for "a moving light source" — kept
+			    distinct from the three aurora pools, not a fourth one. */}
 			<View pointerEvents="none" style={[StyleSheet.absoluteFillObject, {transform: [{translateX: bgParallaxX}]}]}>
-				<GlowPool color={scene.glow} size={size.width * 1.3} top={size.height * 0.2} left={size.width * 0.26} opacity={0.16} driftX={40} driftY={26} duration={18000} />
-				<GlowPool color={scene.counter} size={size.width * 1.05} top={size.height * 0.6} left={size.width * 0.8} opacity={0.12} driftX={-34} driftY={30} duration={24000} />
-				<GlowPool color={scene.fill} size={size.width * 0.9} top={size.height * 0.82} left={size.width * 0.22} opacity={0.1} driftX={26} driftY={-22} duration={30000} />
-				{/* ORB — the moving light source. */}
-				<GlowPool color={scene.light} size={Math.max(size.width, size.height) * 0.7} top={size.height * 0.42} left={size.width * 0.5} opacity={0.18} driftX={60} driftY={44} duration={21000} />
+				<GlowPool color={scene.glow} size={size.width * 1.5} top={size.height * 0.2} left={size.width * 0.26} opacity={0.17} driftX={44} driftY={28} duration={18000} />
+				<GlowPool color={scene.counter} size={size.width * 1.25} top={size.height * 0.6} left={size.width * 0.8} opacity={0.13} driftX={-38} driftY={32} duration={24000} />
+				<GlowPool color={scene.fill} size={size.width * 1.1} top={size.height * 0.85} left={size.width * 0.24} opacity={0.11} driftX={30} driftY={-24} duration={32000} />
+				{/* ORB — the moving light source, on its own real slow travel. */}
+				<GlowPool color={scene.light} size={Math.max(size.width, size.height) * 0.72} top={size.height * 0.42} left={size.width * 0.5} opacity={0.19} driftX={64} driftY={48} duration={21000} />
 			</View>
-			{/* DUST — a real seeded field, floating + pointer/drag parallax. */}
-			<View pointerEvents="none" style={[StyleSheet.absoluteFillObject, {transform: [{translateX: dustParallaxX}]}]}>
-				{DUST.map((d, i) => (
-					<DustMote key={i} d={d} w={size.width} h={size.height} pointerX={pointerX} pointerY={pointerY} />
-				))}
-			</View>
+			{/* DUST — THREE real depth layers, per this pass's own spec: near
+			    (bigger, more pointer/drag parallax), mid, far (smaller,
+			    barely moves) — real depth via real differential parallax,
+			    not a uniform field. Each layer also gets its own fraction of
+			    the real drag-driven `dustParallaxX` below, same idea. */}
+			{DUST_FIELDS.map(({layer, items}) => (
+				<View key={layer.name} pointerEvents="none" style={[StyleSheet.absoluteFillObject, {transform: [{translateX: dustParallaxX * layer.parallaxMult}]}]}>
+					{items.map((d, i) => (
+						<DustMote
+							key={i}
+							d={d}
+							w={size.width}
+							h={size.height}
+							size={layer.minSize + d.sizeRand * (layer.maxSize - layer.minSize)}
+							parallaxMult={layer.parallaxMult}
+							floatDuration={layer.floatBase}
+							pointerX={pointerX}
+							pointerY={pointerY}
+						/>
+					))}
+				</View>
+			))}
 			{/* CARDS — the real reading surface(s). */}
-			{cards.map(({item, focused, depthFrac, offsetX, translateY, rotateYStatic, opacity}) => (
+			{cards.map(({item, focused, depthFrac, offsetX, translateY, rotateYStatic, opacity, scale}) => (
 				<FeedCard
 					key={item.guid}
 					item={item}
@@ -633,6 +753,7 @@ export default function BerxFeedScene({items, myGuid, onFocusChange, onOpenPost,
 					panX={panX}
 					rotateYStatic={rotateYStatic}
 					opacity={opacity}
+					scale={scale}
 					cardW={cardW}
 					cardH={cardH}
 					colors={colors}
@@ -656,6 +777,8 @@ export default function BerxFeedScene({items, myGuid, onFocusChange, onOpenPost,
 const styles = StyleSheet.create({
 	dust: {position: 'absolute'},
 	glowPool: {position: 'absolute'},
+	likeWaveWrap: {width: 44, height: 44, alignItems: 'center', justifyContent: 'center'},
+	likeWaveRing: {position: 'absolute', width: 44, height: 44, borderRadius: 22, borderWidth: 1.5},
 });
 
 const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
@@ -667,6 +790,9 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 const makeCardStyles = (colors: BerxColorTokens) =>
 	StyleSheet.create({
 		fill: {flex: 1},
+		// The static "far" half of the focused card's real two-layer
+		// shadow — see this file's own render-site comment.
+		farShadow: {shadowColor: '#000000', shadowOffset: {width: 0, height: 20}, shadowRadius: 30, shadowOpacity: 0.6, elevation: 18},
 		card: {flex: 1, padding: spacing.lg, overflow: 'hidden'},
 		media: {...StyleSheet.absoluteFillObject, resizeMode: 'cover'},
 		mediaScrim: {...StyleSheet.absoluteFillObject, backgroundColor: '#000000', opacity: 0.35},
