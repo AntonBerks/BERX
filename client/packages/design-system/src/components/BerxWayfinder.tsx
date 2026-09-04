@@ -56,6 +56,7 @@
 import {Fragment, useCallback, useEffect, useRef, useState, useMemo} from 'react';
 import {Animated, LayoutChangeEvent, Pressable, StyleSheet, Text, View} from 'react-native';
 import {radius, spacing, typography} from '../tokens';
+import {BERX_DEPTH} from '../tokens/depth';
 
 import {useBerxColors} from '../theme';
 import type {BerxColorTokens} from '../tokens';
@@ -107,6 +108,25 @@ export function BerxWayfinder({activeTab, onSelect, unreadNotifications}: Props)
 	// independent per-icon feedback without extracting a separate
 	// child component (see file header for why that trips this
 	// sandbox's tsc/JSX setup on the `key` prop).
+	/**
+	 * NAVIGATION SYSTEM PASS — "Active item moves slightly forward."
+	 *
+	 * The bar already moved ONE light between destinations; what it could
+	 * not express was DEPTH. The active destination now genuinely sits
+	 * forward on the Experience System's own depth scale — DEPTH_5
+	 * ("active interactive element") against DEPTH_4 for its neighbours —
+	 * so its scale is the real projected scale at that Z, not a scale
+	 * picked to look about right. One value per tab, so a switch animates
+	 * the outgoing item back as the incoming one comes forward.
+	 */
+	const depthScales = useRef<Record<BerxWayfinderTab, Animated.Value>>({
+		Home: new Animated.Value(1),
+		People: new Animated.Value(1),
+		Create: new Animated.Value(1),
+		Places: new Animated.Value(1),
+		Profile: new Animated.Value(1),
+	}).current;
+
 	const pressScales = useRef<Record<BerxWayfinderTab, Animated.Value>>({
 		Home: new Animated.Value(1),
 		People: new Animated.Value(1),
@@ -135,7 +155,13 @@ export function BerxWayfinder({activeTab, onSelect, unreadNotifications}: Props)
 			}
 		}
 		Animated.spring(orbScale, {toValue: isOrb ? 1.08 : 1, useNativeDriver: true, speed: 14, bounciness: 8}).start();
-	}, [activeTab, positions, indicatorOpacity, indicatorX, indicatorWidth, orbScale]);
+		// Depth: the active destination travels to DEPTH_5's real projected
+		// scale, every other one settles back to DEPTH_4 (the focal plane).
+		(Object.keys(depthScales) as BerxWayfinderTab[]).forEach((tab) => {
+			const target = tab === activeTab ? BERX_DEPTH[5].scale / BERX_DEPTH[4].scale : 1;
+			Animated.spring(depthScales[tab], {toValue: target, useNativeDriver: true, speed: 14, bounciness: 6}).start();
+		});
+	}, [activeTab, positions, indicatorOpacity, indicatorX, indicatorWidth, orbScale, depthScales]);
 
 	const orbPressIn = useCallback(() => {
 		Animated.spring(orbPressScale, {toValue: 0.92, useNativeDriver: true, speed: 30, bounciness: 6}).start();
@@ -183,7 +209,11 @@ export function BerxWayfinder({activeTab, onSelect, unreadNotifications}: Props)
 							style={styles.flatItem}
 							hitSlop={8}
 						>
-							<Animated.View style={{transform: [{scale}]}}>
+							{/* Press compression and depth compose in ONE transform —
+							    two style objects each carrying their own `transform`
+							    would silently overwrite each other rather than
+							    multiply, a real bug class this codebase has hit before. */}
+							<Animated.View style={{transform: [{scale: Animated.multiply(scale, depthScales[tab])}]}}>
 								{tabIcon(tab, 20, iconColor)}
 								{badge > 0 ? (
 									<View style={styles.badge}>

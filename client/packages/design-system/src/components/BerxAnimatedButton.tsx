@@ -48,11 +48,11 @@
  * spec — still withRepeat-driven, just with a real pause built into
  * the sequence instead of an unbroken loop.
  */
-import {useEffect, useRef, useState} from 'react';
+import {useEffect, useMemo, useRef, useState} from 'react';
 import type {ReactNode} from 'react';
 import {Pressable, Text, StyleSheet} from 'react-native';
 import type {ViewStyle, StyleProp} from 'react-native';
-import Svg, {Defs, LinearGradient as SvgLinearGradient, RadialGradient as SvgRadialGradient, Stop, Rect, Circle} from 'react-native-svg';
+import Svg, {Defs, LinearGradient as SvgLinearGradient, Stop, Rect} from 'react-native-svg';
 import Animated, {
 	useSharedValue,
 	useAnimatedStyle,
@@ -71,8 +71,24 @@ import {BERX_ACCENT_COLORS} from '../theme';
 import {accentAlpha} from '../theme/accentMath';
 import {BerxParticleSystem} from './BerxParticleSystem';
 import {BERX_SPRING} from '../animation/springs';
+import {BERX_MOTION} from '../animation/motion';
+import {BerxIconButton} from './BerxIconButton';
 
 const PRESS_SPRING = BERX_SPRING;
+
+/**
+ * BUTTON SYSTEM PASS. The spec's own press physics: "surface
+ * compresses, internal reflection shifts, shadow becomes tighter, icon
+ * moves fractionally, release creates subtle rebound." Those are four
+ * things happening together, so they are driven by ONE 0..1 `press`
+ * signal below rather than by a `scale` shared value alone — which is
+ * all this component used to have, and which is why it could compress
+ * but could not do the other three.
+ *
+ * The MICRO motion tier owns the timing (see animation/motion.ts): a
+ * touch response is the one place in the system allowed to overshoot,
+ * which is what gives the release its rebound.
+ */
 
 /** Real, silent-by-design haptic call — never throws past the press handler. */
 function tryHaptic(style: Haptics.ImpactFeedbackStyle) {
@@ -100,11 +116,12 @@ export function BerxAnimatedButton({title, onPress, variant, icon, disabled, acc
 	const colors = useBerxColors();
 	const resolvedAccent = accent ? BERX_ACCENT_COLORS[accent] : colors.accent;
 	const scale = useSharedValue(1);
+	/** 0 = at rest, 1 = fully pressed. Drives compression + reflection + shadow together. */
+	const press = useSharedValue(0);
+	/** Unique per instance — a shared SVG id makes every button on a screen resolve to whichever gradient painted first. */
+	const reflectionId = useMemo(() => `berx-btn-refl-${Math.random().toString(36).slice(2, 9)}`, []);
 	const [burstOn, setBurstOn] = useState(false);
 	const burstResetRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-	const [iconBurstOn, setIconBurstOn] = useState(false);
-	const iconBurstResetRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-	const wasActive = useRef(active ?? false);
 
 	// PREMIUM SHEEN — a real diagonal band. Wow-pass: PERIODIC, not
 	// continuous — a real withDelay between each sweep instead of an
@@ -136,22 +153,11 @@ export function BerxAnimatedButton({title, onPress, variant, icon, disabled, acc
 	// SECONDARY — animated border colour, white→accent on hover/press.
 	const secondaryBorderT = useSharedValue(0);
 
-	// ICON — activation particle burst, fired on the real false→true
-	// edge of `active` (never on mount, never on every render).
-	useEffect(() => {
-		if (variant === 'icon' && active && !wasActive.current) {
-			setIconBurstOn(false);
-			requestAnimationFrame(() => setIconBurstOn(true));
-			if (iconBurstResetRef.current) clearTimeout(iconBurstResetRef.current);
-			iconBurstResetRef.current = setTimeout(() => setIconBurstOn(false), 60);
-		}
-		wasActive.current = active ?? false;
-	}, [active, variant]);
-
+	// The icon variant's own activation burst used to live here; it now
+	// belongs to BerxIconButton along with the rest of the icon states.
 	useEffect(
 		() => () => {
 			if (burstResetRef.current) clearTimeout(burstResetRef.current);
-			if (iconBurstResetRef.current) clearTimeout(iconBurstResetRef.current);
 		},
 		[]
 	);
@@ -159,12 +165,17 @@ export function BerxAnimatedButton({title, onPress, variant, icon, disabled, acc
 	function handlePressIn() {
 		if (disabled) return;
 		scale.value = withSpring(0.97, PRESS_SPRING);
+		press.value = withSpring(1, BERX_MOTION.micro.spring);
 		if (variant === 'secondary') secondaryBorderT.value = withTiming(1, {duration: 180});
 	}
 
 	function handlePressOut() {
 		if (disabled) return;
-		scale.value = withSpring(1, PRESS_SPRING);
+		// The rebound is real, not decorative: the MICRO tier's spring is
+		// the least damped in the system, so releasing genuinely overshoots
+		// back past 1 before settling.
+		scale.value = withSpring(1, BERX_MOTION.micro.spring);
+		press.value = withSpring(0, BERX_MOTION.micro.spring);
 		if (variant === 'secondary') secondaryBorderT.value = withTiming(0, {duration: 260});
 	}
 
@@ -192,9 +203,26 @@ export function BerxAnimatedButton({title, onPress, variant, icon, disabled, acc
 	const animatedIdleGlowStyle = useAnimatedStyle(() => ({
 		shadowColor: resolvedAccent,
 		shadowOpacity: 0.25 + idleGlow.value * 0.25,
-		shadowRadius: 10 + idleGlow.value * 8,
+		// TIGHTENS on press: a pressed surface is closer to its ground, so
+		// its shadow contracts. The spec's own "shadow becomes tighter".
+		shadowRadius: (10 + idleGlow.value * 8) * (1 - press.value * 0.55),
 		shadowOffset: {width: 0, height: 0},
-	}), [idleGlow, resolvedAccent]);
+	}), [idleGlow, resolvedAccent, press]);
+
+	/**
+	 * INTERNAL REFLECTION — a real highlight band inside the button body
+	 * that SHIFTS as the surface is pressed, the way light moves across a
+	 * physical object that tilts under a finger. Distinct from the
+	 * `premium` sheen (a periodic sweep that runs on its own clock); this
+	 * one exists only in response to touch.
+	 */
+	const animatedReflectionStyle = useAnimatedStyle(() => ({
+		opacity: 0.07 + press.value * 0.14,
+		transform: [{translateY: -press.value * 6}, {scaleY: 1 + press.value * 0.15}],
+	}), [press]);
+
+	/** "icon moves fractionally" — the glyph travels a sub-pixel amount into the surface. */
+	const animatedGlyphStyle = useAnimatedStyle(() => ({transform: [{translateY: press.value * 0.9}]}), [press]);
 	const animatedSecondaryBorderStyle = useAnimatedStyle(() => {
 		'worklet';
 		// Real colour interpolation without pulling in Reanimated's
@@ -211,35 +239,12 @@ export function BerxAnimatedButton({title, onPress, variant, icon, disabled, acc
 	}, [secondaryBorderT, resolvedAccent]);
 
 	if (variant === 'icon') {
-		return (
-			<Animated.View style={[styles.iconWrap, animatedScaleStyle, style]}>
-				<Pressable
-					onPress={handlePress}
-					onPressIn={handlePressIn}
-					onPressOut={handlePressOut}
-					disabled={disabled}
-					style={[
-						styles.iconCircle,
-						{borderColor: active ? resolvedAccent : colors.border, backgroundColor: active ? accentAlpha(resolvedAccent, 0.22) : colors.glass1},
-						active ? {shadowColor: resolvedAccent, shadowOpacity: 0.5, shadowRadius: 12, shadowOffset: {width: 0, height: 0}, elevation: 6} : null,
-						disabled && styles.disabled,
-					]}>
-					{active ? (
-						<Svg style={StyleSheet.absoluteFillObject} width="100%" height="100%">
-							<Defs>
-								<SvgRadialGradient id="berx-icon-glow" cx="50%" cy="50%" r="60%">
-									<Stop offset="0%" stopColor={resolvedAccent} stopOpacity={0.55} />
-									<Stop offset="100%" stopColor={resolvedAccent} stopOpacity={0} />
-								</SvgRadialGradient>
-							</Defs>
-							<Circle cx="50%" cy="50%" r="50%" fill="url(#berx-icon-glow)" />
-						</Svg>
-					) : null}
-					{icon}
-					<BerxParticleSystem trigger={iconBurstOn} count={10} color={resolvedAccent} duration={420} spread={360} speed={70} />
-				</Pressable>
-			</Animated.View>
-		);
+		// DELEGATED, not reimplemented. BerxIconButton owns the six real
+		// icon states (DEFAULT/HOVER/PRESSED/ACTIVE/DISABLED/SELECTED) and
+		// the like choreography; a second, thinner copy of that here is
+		// exactly how the two would drift apart. This branch stays so every
+		// existing `variant="icon"` call site keeps working unchanged.
+		return <BerxIconButton icon={icon} onPress={onPress} active={active} disabled={disabled} reaction style={style} accessibilityLabel={title} />;
 	}
 
 	if (variant === 'secondary') {
@@ -252,8 +257,21 @@ export function BerxAnimatedButton({title, onPress, variant, icon, disabled, acc
 					disabled={disabled}
 					style={style}>
 					<Animated.View style={[styles.base, styles.secondary, {borderColor: colors.border}, animatedSecondaryBorderStyle, disabled && styles.disabled]}>
-						{icon}
-						{title ? <Text style={[styles.label, {color: colors.textDim}]}>{title}</Text> : null}
+						<Animated.View pointerEvents="none" style={[styles.reflection, styles.reflectionSoft, animatedReflectionStyle]}>
+							<Svg width="100%" height="100%">
+								<Defs>
+									<SvgLinearGradient id={`${reflectionId}-s`} x1="0" y1="0" x2="0" y2="1">
+										<Stop offset="0%" stopColor="#FFFFFF" stopOpacity={0.7} />
+										<Stop offset="100%" stopColor="#FFFFFF" stopOpacity={0} />
+									</SvgLinearGradient>
+								</Defs>
+								<Rect x="0" y="0" width="100%" height="100%" fill={`url(#${reflectionId}-s)`} />
+							</Svg>
+						</Animated.View>
+						<Animated.View style={[styles.glyphRow, animatedGlyphStyle]}>
+							{icon}
+							{title ? <Text style={[styles.label, {color: colors.textDim}]}>{title}</Text> : null}
+						</Animated.View>
 					</Animated.View>
 				</Pressable>
 			</Animated.View>
@@ -292,8 +310,25 @@ export function BerxAnimatedButton({title, onPress, variant, icon, disabled, acc
 						</Svg>
 					</Animated.View>
 				) : null}
-				{icon}
-				{title ? <Text style={[styles.label, {color: colors.text}]}>{title}</Text> : null}
+				{/* INTERNAL REFLECTION — see this file's own press-physics note.
+				    A real white→transparent gradient, not a solid band: a flat
+				    block leaves a hard horizontal edge across the button, which
+				    reads as a mistake rather than as light. */}
+				<Animated.View pointerEvents="none" style={[styles.reflection, animatedReflectionStyle]}>
+					<Svg width="100%" height="100%">
+						<Defs>
+							<SvgLinearGradient id={reflectionId} x1="0" y1="0" x2="0" y2="1">
+								<Stop offset="0%" stopColor="#FFFFFF" stopOpacity={0.9} />
+								<Stop offset="100%" stopColor="#FFFFFF" stopOpacity={0} />
+							</SvgLinearGradient>
+						</Defs>
+						<Rect x="0" y="0" width="100%" height="100%" fill={`url(#${reflectionId})`} />
+					</Svg>
+				</Animated.View>
+				<Animated.View style={[styles.glyphRow, animatedGlyphStyle]}>
+					{icon}
+					{title ? <Text style={[styles.label, {color: colors.text}]}>{title}</Text> : null}
+				</Animated.View>
 				{/* "Powerful" wave, per the wow-pass spec — doubled count,
 				    full 360° spread (a burst, not a directional wave), and a
 				    higher speed than the original modest press feedback. */}
@@ -318,6 +353,10 @@ const styles = StyleSheet.create({
 	primary: {},
 	secondary: {backgroundColor: 'transparent'},
 	sheen: {position: 'absolute', top: -20, left: '50%'},
+	/** The touch-reactive highlight: a soft band across the upper half of the body. */
+	reflection: {position: 'absolute', left: 0, right: 0, top: 0, height: '58%', overflow: 'hidden', borderTopLeftRadius: 16, borderTopRightRadius: 16},
+	reflectionSoft: {height: '46%'},
+	glyphRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm},
 	label: {fontSize: typography.sizeBase, fontWeight: typography.weightBold, letterSpacing: 0.2},
 	iconWrap: {width: 44, height: 44},
 	iconCircle: {
