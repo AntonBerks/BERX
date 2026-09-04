@@ -39,6 +39,7 @@ import {BerxHeader} from '../../../../packages/design-system/src/components/Berx
 import {BerxAvatar} from '../../../../packages/design-system/src/components/BerxAvatar';
 import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
 
+import {accentAlpha} from '../../../../packages/design-system/src/theme/accentMath';
 import {useBerxColors} from '../../../../packages/design-system/src/theme';
 import type {BerxColorTokens} from '@berx/design-system/tokens';
 import {BerxIcon} from '../../../../packages/design-system/src/icons/BerxIcon';
@@ -313,16 +314,25 @@ export default function GroupChatScreen({api, myGuid, groupId, onOpenInfo, onOpe
 										<Text style={styles.replyPreviewText} numberOfLines={2}>{item.reply_to.text}</Text>
 									</View>
 								) : null}
-								<Text style={styles.bubbleText}>{item.text}</Text>
+								{/* Ink on MY bubble sits on a solid accent fill, so it takes onAccent; a partner's bubble is on glass and keeps the environment's ink. */}
+								<Text style={[styles.bubbleText, isMine && styles.bubbleTextMine]}>{item.text}</Text>
 								<View style={styles.bubbleMetaRow}>
-									<Text style={styles.bubbleTime}>
+									{/* Same rule as the bubble text: my bubble's meta sits on the
+									    accent fill, so it takes ink derived from onAccent rather
+									    than the environment's own faint ink. */}
+									<Text style={[styles.bubbleTime, isMine && styles.bubbleTimeMine]}>
 										{relativeTimeLabel(item.time_created)}
 										{item.time_edited ? ' · изменено' : ''}
 									</Text>
 								<Pressable onPress={() => handleToggleReaction(item.id)} hitSlop={8} style={styles.reactionBtn}>
-										<BerxIcon name="heart" size={12} filled={item.reacted_by_me} color={item.reacted_by_me ? colors.accent : colors.textFaint} />
+										<BerxIcon
+											name="heart"
+											size={12}
+											filled={item.reacted_by_me}
+											color={isMine ? colors.onAccent : item.reacted_by_me ? colors.accent : colors.textFaint}
+										/>
 										{item.reaction_count > 0 ? (
-											<Text style={[styles.reaction, item.reacted_by_me && styles.reactionActive]}>{item.reaction_count}</Text>
+											<Text style={[styles.reaction, item.reacted_by_me && styles.reactionActive, isMine && styles.bubbleTimeMine]}>{item.reaction_count}</Text>
 										) : null}
 									</Pressable>
 								</View>
@@ -394,8 +404,10 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	editingHint: {flex: 1, color: colors.accent, fontSize: typography.sizeXs, fontWeight: typography.weightMedium},
 	editingCancel: {color: colors.textFaint, fontSize: typography.sizeXs, textDecorationLine: 'underline'},
 	bubbleText: {color: colors.text, fontSize: typography.sizeBase},
+	bubbleTextMine: {color: colors.onAccent},
 	bubbleMetaRow: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 4, marginTop: spacing.xs},
 	bubbleTime: {color: colors.textFaint, fontSize: typography.sizeXs},
+	bubbleTimeMine: {color: accentAlpha(colors.onAccent, 0.75)},
 	reactionBtn: {flexDirection: 'row', alignItems: 'center', gap: 4},
 	reaction: {color: colors.textFaint, fontSize: typography.sizeXs},
 	// Was colors.danger — same mismatch just fixed in PostDetail's comment

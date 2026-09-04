@@ -341,12 +341,12 @@ export default function EventDetailScreen({api, guid, myGuid, onOpenPlace, onOpe
 					</Text>
 					{event.place ? (
 						<Pressable style={styles.placeRow} onPress={() => onOpenPlace?.(event.place!.guid)}>
-							<BerxIcon name="map-pin" size={14} color={colors.textDim} />
+							<BerxIcon name="map-pin" size={14} color={colors.onMediaDim} />
 							<Text style={styles.place}>{event.place.title}</Text>
 						</Pressable>
 					) : event.location ? (
 						<View style={styles.placeRow}>
-							<BerxIcon name="map-pin" size={14} color={colors.textDim} />
+							<BerxIcon name="map-pin" size={14} color={colors.onMediaDim} />
 							<Text style={styles.place}>{event.location}</Text>
 						</View>
 					) : null}

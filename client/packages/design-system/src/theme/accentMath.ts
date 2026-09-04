@@ -61,15 +61,25 @@ export function accentHover(hex: string, t = 0.2): string {
 }
 
 /**
- * The real ink that reads on top of a solid fill of this accent —
- * WCAG luminance decides light vs dark ink per accent, rather than one
- * hardcoded ink that only happened to work for Aquamarine. `darkInk`/
- * `lightInk` are the environment's own real bg/text tokens, passed in
- * rather than assumed, so Day and Night each get their own correct
- * pair.
+ * The real ink that reads on top of a solid fill of this accent.
+ *
+ * The two candidates are the environment's own real tokens, passed in
+ * rather than assumed, so Day and Night each choose from their own
+ * pair — and the choice between them is measured, never inferred from
+ * which one is nominally "the dark one" (see the note inside).
  */
-export function accentInk(hex: string, darkInk: string, lightInk: string): string {
-	return relativeLuminance(hexToRgb(hex)) > 0.42 ? darkInk : lightInk;
+export function accentInk(hex: string, inkA: string, inkB: string): string {
+	// Chosen by MEASURED contrast, not by which argument is named "dark".
+	//
+	// REAL BUG THIS FIXES: the previous version returned `darkInk` when
+	// the fill was bright and `lightInk` otherwise — correct only while
+	// the two candidates really were the environment's dark bg and light
+	// text. In the rebuilt Day environment those poles swap (bg is white,
+	// text is near-black), so a dark Day accent fill picked the DARK ink
+	// and every solid primary button and outgoing chat bubble rendered
+	// dark-on-dark. Comparing the real ratios cannot invert like that: it
+	// simply returns whichever available ink actually reads on this fill.
+	return contrastRatio(hex, inkA) >= contrastRatio(hex, inkB) ? inkA : inkB;
 }
 
 /** Real WCAG contrast ratio between two hex colours (1 = identical, 21 = black on white). */

@@ -164,7 +164,22 @@ function buildColors(env: BerxEnvironment, accentKey: BerxAccentKey): BerxColorT
 		accentSecondary: accent,
 		accentSecondarySoft: accentAlpha(accent, 0.16),
 		onAccent: accentInk(accent, base.bg, base.text),
-		accentOnMedia: accent,
+		/**
+		 * Corrected against the MEDIA SCRIM, not against the environment.
+		 *
+		 * REAL BUG, caught in a Day sweep of People/Events/Places: this
+		 * line used to be `accentOnMedia: accent`, i.e. the accent already
+		 * darkened to read on the Day environment's white ground. But this
+		 * token exists precisely for things that DO NOT sit on that ground
+		 * — a "сейчас" pill on a portrait, a venue name over a cover — and
+		 * those sit on `mediaScrim`, which is deliberately dark in BOTH
+		 * environments (see tokens/index.ts's own note). So Day was
+		 * putting its dark-ground accent on a dark photo. Correcting
+		 * against the surface it actually lands on keeps it bright in Day
+		 * and unchanged in Night, and fixes every over-media accent in the
+		 * app from one place instead of screen by screen.
+		 */
+		accentOnMedia: ensureContrast(BERX_ACCENT_COLORS[accentKey], base.mediaScrim, 4.5),
 	} as BerxColorTokens;
 }
 

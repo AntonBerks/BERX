@@ -327,7 +327,8 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 		borderWidth: 1,
 		borderColor: colors.accentSoft,
 	},
-	liveDot: {width: 6, height: 6, borderRadius: 3, backgroundColor: colors.accent},
+	// accentOnMedia, not accent: this dot sits inside a pill on a photo.
+	liveDot: {width: 6, height: 6, borderRadius: 3, backgroundColor: colors.accentOnMedia},
 	liveText: {color: colors.accentOnMedia, fontSize: 11, fontWeight: typography.weightBold, letterSpacing: 0.4, textTransform: 'uppercase'},
 	metaPill: {
 		paddingHorizontal: spacing.sm,
