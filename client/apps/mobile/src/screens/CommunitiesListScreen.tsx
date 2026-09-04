@@ -20,6 +20,7 @@ import type {BerxMembership} from '../../../../packages/design-system/src/spatia
 import {BerxFilterBar} from '../../../../packages/design-system/src/spatial/BerxFilterBar';
 import {BerxDataBoundary} from '../../../../packages/design-system/src/spatial/BerxDataBoundary';
 import {useBerxSceneScroll} from '../../../../packages/design-system/src/spatial/BerxSpatialScene';
+import {BerxActionShelf} from '../../../../packages/design-system/src/spatial/BerxActionShelf';
 import {BerxScreenScene, useBerxScreen} from '../spatial/BerxScreenScene';
 import {berxAnalytics} from '../spatial/analytics';
 
@@ -105,9 +106,9 @@ function CommunitiesSceneBody({api, onOpenCommunity, onCreate, onBack}: Communit
 					multiple={false}
 					accessibilityLabel="Какие сообщества показать"
 				/>
-				<View style={styles.actions}>
+				<BerxActionShelf variant="anchored">
 					<BerxButton label="Создать сообщество" onPress={onCreate} />
-				</View>
+				</BerxActionShelf>
 			</View>
 
 			<BerxDataBoundary

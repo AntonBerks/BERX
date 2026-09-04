@@ -18,6 +18,7 @@ import {BerxHeader} from '../../../../../packages/design-system/src/components/B
 import {BerxButton} from '../../../../../packages/design-system/src/components/BerxButton';
 import {BerxSpatialCard} from '../../../../../packages/design-system/src/spatial/BerxSpatialCard';
 import {BerxIcon, type BerxIconName} from '../../../../../packages/design-system/src/icons';
+import {BerxActionShelf} from '../../../../../packages/design-system/src/spatial/BerxActionShelf';
 import {BerxScreenScene} from '../../spatial/BerxScreenScene';
 
 export interface SafetySetupScreenProps {
@@ -87,7 +88,7 @@ function SafetySetupSceneBody({onOpenBlockedUsers, onOpenDatingPrivacy, onDone, 
 					поста, а приватность анкеты знакомств настраивается отдельно.
 				</Text>
 
-				<View style={styles.actions}>
+				<BerxActionShelf variant="anchored">
 					{onOpenBlockedUsers ? (
 						<BerxButton label="Заблокированные" variant="secondary" onPress={onOpenBlockedUsers} fullWidth />
 					) : null}
@@ -95,7 +96,7 @@ function SafetySetupSceneBody({onOpenBlockedUsers, onOpenDatingPrivacy, onDone, 
 						<BerxButton label="Приватность знакомств" variant="secondary" onPress={onOpenDatingPrivacy} fullWidth />
 					) : null}
 					<BerxButton label="Понятно" onPress={onDone} fullWidth />
-				</View>
+				</BerxActionShelf>
 			</ScrollView>
 		</View>
 	);

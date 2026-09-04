@@ -40,6 +40,7 @@ import {BerxSpatialCard} from '../../../../packages/design-system/src/spatial/Be
 import {BerxDepthLayer} from '../../../../packages/design-system/src/spatial/BerxDepthLayer';
 import {BerxEnergyHalo} from '../../../../packages/design-system/src/spatial/BerxEnergyHalo';
 import {BerxDataBoundary} from '../../../../packages/design-system/src/spatial/BerxDataBoundary';
+import {BerxActionShelf} from '../../../../packages/design-system/src/spatial/BerxActionShelf';
 import {useBerxScene} from '../../../../packages/design-system/src/spatial/BerxSpatialScene';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 
@@ -236,11 +237,11 @@ function DatingDiscoverSceneBody({api, onMatch, onOpenMatches, onOpenPrivacy}: D
 						) : null}
 
 						{/* the always-available path: the gesture is an enhancement, never the only way */}
-						<View style={styles.actions}>
+						<BerxActionShelf variant="anchored">
 							<BerxButton label="Пропустить" variant="secondary" onPress={() => resolveCard('pass')} disabled={acting} />
 							<BerxButton label="Вернуть" variant="secondary" onPress={undo} disabled={!canUndo || acting} />
 							<BerxButton label="Нравится" onPress={() => resolveCard('like')} disabled={acting} />
-						</View>
+						</BerxActionShelf>
 					</>
 				) : null}
 			</BerxDataBoundary>

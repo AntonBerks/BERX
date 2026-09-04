@@ -12,6 +12,7 @@ import type {BerxApiClient} from '@berx/api/client';
 import type {BerxEvent, BerxEventAttendee} from '@berx/api/types';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxEventHero} from '../../../../packages/design-system/src/spatial/BerxEventHero';
+import {BerxActionShelf} from '../../../../packages/design-system/src/spatial/BerxActionShelf';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
@@ -152,7 +153,7 @@ function EventDetailSceneBody({api, guid, myGuid, onOpenPlace, onOpenInvite, onA
 					<Text style={styles.place}>📍 {event.location}</Text>
 				) : null}
 
-				<View style={styles.actions}>
+				<BerxActionShelf variant="anchored">
 					<BerxButton
 						label={rsvpLabel}
 						variant={event.is_going ? 'primary' : 'secondary'}
@@ -163,7 +164,7 @@ function EventDetailSceneBody({api, guid, myGuid, onOpenPlace, onOpenInvite, onA
 					{!event.has_ended ? <BerxButton label="Пригласить" variant="secondary" onPress={() => onOpenInvite(event.guid)} /> : null}
 					{onAddToCollection ? <BerxButton label="В подборку" variant="secondary" onPress={onAddToCollection} /> : null}
 					{event.is_going && onAddEventStory ? <BerxButton label="Добавить историю" variant="secondary" onPress={() => onAddEventStory(event.guid)} /> : null}
-				</View>
+				</BerxActionShelf>
 				{rsvpError ? <Text style={styles.error}>{rsvpError}</Text> : null}
 
 				{event.description ? <Text style={styles.description}>{event.description}</Text> : null}

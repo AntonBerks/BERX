@@ -19,6 +19,7 @@ import {BerxButton} from '../../../../packages/design-system/src/components/Berx
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {BerxVideoPlayer} from '../../../../packages/design-system/src/components/BerxVideoPlayer';
 import {BerxLoadingState, BerxErrorState} from '../../../../packages/design-system/src/components/BerxStates';
+import {BerxActionShelf} from '../../../../packages/design-system/src/spatial/BerxActionShelf';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 
 export interface VideoDetailScreenProps {
@@ -133,10 +134,10 @@ function VideoDetailScreenBody({api, postGuid, myGuid, onOpenProfile, onDeleted,
 				{video.text ? <Text style={styles.text}>{video.text}</Text> : null}
 				<Text style={styles.time}>{relativeTimeLabel(video.time_created)}</Text>
 
-				<View style={styles.actions}>
+				<BerxActionShelf variant="anchored">
 					<BerxButton label={liked ? 'Понравилось ✓' : 'Нравится'} variant={liked ? 'secondary' : 'primary'} onPress={handleLike} loading={liking} disabled={liked} />
 					{isOwn ? <BerxButton label="Удалить" variant="danger" onPress={handleDelete} loading={deleting} /> : null}
-				</View>
+				</BerxActionShelf>
 
 				<View style={styles.commentBox}>
 					<BerxInput placeholder="Комментарий..." value={commentText} onChangeText={setCommentText} multiline />

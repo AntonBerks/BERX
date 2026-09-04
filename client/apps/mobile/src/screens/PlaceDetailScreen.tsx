@@ -12,6 +12,7 @@ import type {BerxApiClient} from '@berx/api/client';
 import type {BerxPlaceHours, BerxPlace, BerxPlaceReview} from '@berx/api/types';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxPlaceHero} from '../../../../packages/design-system/src/spatial/BerxPlaceHero';
+import {BerxActionShelf} from '../../../../packages/design-system/src/spatial/BerxActionShelf';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
@@ -246,7 +247,7 @@ function PlaceDetailSceneBody({api, guid, myGuid, onAddToCollection, onOpenBusin
 
 				{place.phone ? <Text style={styles.address}>{place.phone}</Text> : null}
 
-				<View style={styles.actions}>
+				<BerxActionShelf variant="anchored">
 					<BerxButton
 						label={place.is_saved ? 'Сохранено' : 'Сохранить'}
 						variant={place.is_saved ? 'primary' : 'secondary'}
@@ -255,10 +256,10 @@ function PlaceDetailSceneBody({api, guid, myGuid, onAddToCollection, onOpenBusin
 					/>
 					{onAddToCollection ? <BerxButton label="В подборку" variant="secondary" onPress={onAddToCollection} /> : null}
 					{place.lat !== null && place.lng !== null ? <BerxButton label="Маршрут" variant="secondary" onPress={buildRoute} /> : null}
-				</View>
+				</BerxActionShelf>
 
 				{myGuid === place.owner_guid ? (
-					<View style={styles.actions}>
+					<BerxActionShelf variant="anchored">
 						<BerxButton
 							label={place.is_business ? 'Отключить бизнес-статус' : 'Стать бизнесом'}
 							variant="secondary"
@@ -268,7 +269,7 @@ function PlaceDetailSceneBody({api, guid, myGuid, onAddToCollection, onOpenBusin
 						{place.is_business && onOpenBusinessDashboard ? (
 							<BerxButton label="Панель бизнеса" variant="secondary" onPress={() => onOpenBusinessDashboard(place.guid)} />
 						) : null}
-					</View>
+					</BerxActionShelf>
 				) : null}
 
 				{place.description ? <Text style={styles.description}>{place.description}</Text> : null}

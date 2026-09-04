@@ -25,6 +25,7 @@ import {BerxSpatialCard} from '../../../../packages/design-system/src/spatial/Be
 import {BerxDataBoundary} from '../../../../packages/design-system/src/spatial/BerxDataBoundary';
 import {BerxEnergyHalo} from '../../../../packages/design-system/src/spatial/BerxEnergyHalo';
 import {useBerxScene, useBerxSceneScroll} from '../../../../packages/design-system/src/spatial/BerxSpatialScene';
+import {BerxActionShelf} from '../../../../packages/design-system/src/spatial/BerxActionShelf';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 
 export interface NotificationsScreenProps {
@@ -134,10 +135,10 @@ function NotificationsScreenBody({api, onOpenConversation, onOpenDating, onOpenP
 			<BerxHeader onBack={onBack} title="Уведомления" />
 
 			{items.length > 0 ? (
-				<View style={styles.actionsRow}>
+				<BerxActionShelf variant="anchored">
 					<BerxButton label="Прочитать всё" variant="secondary" onPress={markAllRead} disabled={busy || unreadCount === 0} />
 					<BerxButton label="Удалить всё" variant="secondary" onPress={deleteAll} disabled={busy} />
-				</View>
+				</BerxActionShelf>
 			) : null}
 
 			<BerxDataBoundary

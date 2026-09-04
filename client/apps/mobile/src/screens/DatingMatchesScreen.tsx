@@ -21,6 +21,7 @@ import {BerxIdentity} from '../../../../packages/design-system/src/spatial/BerxI
 import {BerxSpatialCard} from '../../../../packages/design-system/src/spatial/BerxSpatialCard';
 import {BerxDataBoundary} from '../../../../packages/design-system/src/spatial/BerxDataBoundary';
 import {useBerxSceneScroll} from '../../../../packages/design-system/src/spatial/BerxSpatialScene';
+import {BerxActionShelf} from '../../../../packages/design-system/src/spatial/BerxActionShelf';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 
 export interface DatingMatchesScreenProps {
@@ -102,7 +103,7 @@ function DatingMatchesSceneBody({api, onOpenConversation, onBack}: DatingMatches
 								handle={item.username}
 								onPress={() => onOpenConversation(item.guid, item.username)}
 								trailing={
-									<View style={styles.actions}>
+									<BerxActionShelf variant="anchored">
 										<BerxButton
 											label="Написать"
 											onPress={() => onOpenConversation(item.guid, item.username)}
@@ -113,7 +114,7 @@ function DatingMatchesSceneBody({api, onOpenConversation, onBack}: DatingMatches
 											loading={busy === item.guid}
 											onPress={() => unmatch(item.guid)}
 										/>
-									</View>
+									</BerxActionShelf>
 								}
 							/>
 						</BerxSpatialCard>

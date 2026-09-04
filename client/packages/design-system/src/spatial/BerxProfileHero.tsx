@@ -11,6 +11,7 @@
 import {Image, StyleSheet, Text, View, type ImageSourcePropType} from 'react-native';
 import {rgba, sharedElementTag} from '@berx/spatial';
 import {useBerxScene} from './BerxSpatialScene';
+import {BerxActionShelf} from './BerxActionShelf';
 import {BerxAvatar} from '../components/BerxAvatar';
 import {BerxStatRail, type BerxStat} from './BerxStatRail';
 import {colors, spacing, typography} from '../tokens';
@@ -80,7 +81,8 @@ export function BerxProfileHero({
 				<BerxStatRail stats={stats} />
 
 				{/* D4 — controls */}
-				{actions ? <View style={styles.actions}>{actions}</View> : null}
+				{/* promoted to the control plane and anchored to the hero above it */}
+				{actions ? <BerxActionShelf variant="anchored">{actions}</BerxActionShelf> : null}
 			</View>
 		</View>
 	);

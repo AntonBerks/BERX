@@ -21,6 +21,7 @@ import {BerxDepthLayer} from '../../../../../packages/design-system/src/spatial/
 import {BerxEnergyHalo} from '../../../../../packages/design-system/src/spatial/BerxEnergyHalo';
 import {BerxIcon} from '../../../../../packages/design-system/src/icons/BerxIcon';
 import {useBerxScene} from '../../../../../packages/design-system/src/spatial/BerxSpatialScene';
+import {BerxActionShelf} from '../../../../../packages/design-system/src/spatial/BerxActionShelf';
 import {BerxScreenScene} from '../../spatial/BerxScreenScene';
 
 export interface ProfilePhotoScreenProps {
@@ -118,7 +119,7 @@ function ProfilePhotoSceneBody({api, pickImage, currentIconUrl, displayName, onD
 						</Text>
 					) : null}
 
-					<View style={styles.actions}>
+					<BerxActionShelf variant="anchored">
 						<BerxButton label={iconUrl ? 'Выбрать другое' : 'Выбрать фото'} onPress={choose} loading={busy} fullWidth />
 						<BerxButton
 							label={iconUrl ? 'Готово' : 'Пропустить'}
@@ -127,7 +128,7 @@ function ProfilePhotoSceneBody({api, pickImage, currentIconUrl, displayName, onD
 							disabled={busy}
 							fullWidth
 						/>
-					</View>
+					</BerxActionShelf>
 
 					<View style={styles.hintRow}>
 						<BerxIcon name="info" size={16} decorative />

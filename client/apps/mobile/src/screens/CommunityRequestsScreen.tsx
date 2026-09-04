@@ -15,6 +15,7 @@ import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
+import {BerxActionShelf} from '../../../../packages/design-system/src/spatial/BerxActionShelf';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 
 export interface CommunityRequestsScreenProps {
@@ -87,10 +88,10 @@ function CommunityRequestsScreenBody({api, guid, onBack}: CommunityRequestsScree
 						<View style={styles.row}>
 							<Image source={{uri: item.icon}} style={styles.avatar} />
 							<Text style={styles.name} numberOfLines={1}>{item.fullname}</Text>
-							<View style={styles.actions}>
+							<BerxActionShelf variant="anchored">
 								<BerxButton label="Принять" loading={busyGuid === item.guid} onPress={() => respond(item.guid, true)} />
 								<BerxButton label="Отклонить" variant="secondary" loading={busyGuid === item.guid} onPress={() => respond(item.guid, false)} />
-							</View>
+							</BerxActionShelf>
 						</View>
 					)}
 				/>

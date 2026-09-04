@@ -20,6 +20,7 @@ import {BerxExperienceCard} from '../../../../packages/design-system/src/spatial
 import type {BerxExperienceResponse} from '../../../../packages/design-system/src/spatial/BerxExperienceCard';
 import {BerxDataBoundary} from '../../../../packages/design-system/src/spatial/BerxDataBoundary';
 import {useBerxSceneScroll} from '../../../../packages/design-system/src/spatial/BerxSpatialScene';
+import {BerxActionShelf} from '../../../../packages/design-system/src/spatial/BerxActionShelf';
 import {BerxScreenScene, useBerxScreen} from '../spatial/BerxScreenScene';
 import {berxAnalytics} from '../spatial/analytics';
 
@@ -103,9 +104,9 @@ function ExperiencesSceneBody({api, userGuid, isOwn, onOpenExperience, onCreate,
 			<BerxHeader title="Впечатления" onBack={onBack} />
 
 			{isOwn ? (
-				<View style={styles.actions}>
+				<BerxActionShelf variant="anchored">
 					<BerxButton label="Создать впечатление" onPress={onCreate} />
-				</View>
+				</BerxActionShelf>
 			) : null}
 
 			<BerxDataBoundary

@@ -43,6 +43,7 @@ export * from './BerxPlaceHours';
 export * from './BerxEventHero';
 export * from './BerxCountdown';
 
+export * from './BerxActionShelf';
 export * from './BerxObjectCard';
 export * from './BerxExperienceCard';
 export * from './BerxTripCard';

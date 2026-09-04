@@ -20,6 +20,7 @@ import {BerxButton} from '../../../../packages/design-system/src/components/Berx
 import {BerxDepthLayer} from '../../../../packages/design-system/src/spatial/BerxDepthLayer';
 import {BerxEnergyHalo} from '../../../../packages/design-system/src/spatial/BerxEnergyHalo';
 import {useBerxSceneEnter} from '../../../../packages/design-system/src/spatial/BerxSpatialScene';
+import {BerxActionShelf} from '../../../../packages/design-system/src/spatial/BerxActionShelf';
 import {BerxScreenScene} from '../spatial/BerxScreenScene';
 
 export interface WelcomeScreenProps {
@@ -53,10 +54,10 @@ function WelcomeSceneBody({onLogin, onRegister}: WelcomeScreenProps) {
 				<Text style={styles.tagline}>Место, где люди находят впечатления</Text>
 			</Animated.View>
 
-			<View style={styles.actions}>
+			<BerxActionShelf variant="anchored">
 				<BerxButton label="Войти" onPress={onLogin} fullWidth />
 				<BerxButton label="Регистрация" variant="secondary" onPress={onRegister} fullWidth />
-			</View>
+			</BerxActionShelf>
 		</View>
 	);
 }

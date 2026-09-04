@@ -11,6 +11,7 @@ import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState} from '../../../../packages/design-system/src/components/BerxStates';
+import {BerxActionShelf} from '../../../../packages/design-system/src/spatial/BerxActionShelf';
 import {BerxFamilyScene, useBerxSceneAtmosphere} from '../spatial/BerxScreenScene';
 
 export interface ExperienceDetailScreenProps {
@@ -121,10 +122,10 @@ function ExperienceDetailScreenBody({api, id, onOpenPlace, onOpenEvent, onBack}:
 				{experience.description ? <Text style={styles.description}>{experience.description}</Text> : null}
 
 				{!experience.is_own && experience.my_status === 'invited' ? (
-					<View style={styles.actions}>
+					<BerxActionShelf variant="anchored">
 						<BerxButton label="Пойду" loading={busy} onPress={() => respond(true)} />
 						<BerxButton label="Не пойду" variant="secondary" loading={busy} onPress={() => respond(false)} />
-					</View>
+					</BerxActionShelf>
 				) : null}
 
 				{experience.is_own ? (

@@ -17,6 +17,7 @@ import {Animated, StyleSheet, Text, View} from 'react-native';
 import {colors, spacing, typography} from '@berx/design-system/tokens';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxDepthLayer} from '../../../../packages/design-system/src/spatial/BerxDepthLayer';
+import {BerxActionShelf} from '../../../../packages/design-system/src/spatial/BerxActionShelf';
 import {BerxEnergyHalo} from '../../../../packages/design-system/src/spatial/BerxEnergyHalo';
 import {useBerxScene, useBerxSceneEnter} from '../../../../packages/design-system/src/spatial/BerxSpatialScene';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
@@ -55,10 +56,10 @@ function DatingMatchSceneBody({otherUsername, onMessage, onContinueBrowsing}: Da
 				<Text style={styles.subtitle}>Вы понравились друг другу с {otherUsername}</Text>
 			</Animated.View>
 
-			<View style={styles.actions}>
+			<BerxActionShelf variant="anchored">
 				<BerxButton label="Написать" onPress={onMessage} fullWidth />
 				<BerxButton label="Продолжить просмотр" variant="secondary" onPress={onContinueBrowsing} fullWidth />
-			</View>
+			</BerxActionShelf>
 		</View>
 	);
 }

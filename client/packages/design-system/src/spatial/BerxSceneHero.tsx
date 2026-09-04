@@ -10,6 +10,7 @@
 import {Image, StyleSheet, Text, View, type ImageSourcePropType} from 'react-native';
 import {rgba} from '@berx/spatial';
 import {useBerxScene} from './BerxSpatialScene';
+import {BerxActionShelf} from './BerxActionShelf';
 import {colors, spacing, typography} from '../tokens';
 
 export interface BerxSceneHeroProps {
@@ -62,7 +63,8 @@ export function BerxSceneHero({
 				</Text>
 				{meta ? <Text style={styles.meta}>{meta}</Text> : null}
 				{/* D4 — controls */}
-				{actions ? <View style={styles.actions}>{actions}</View> : null}
+				{/* promoted to the control plane and anchored to the hero above it */}
+				{actions ? <BerxActionShelf variant="anchored">{actions}</BerxActionShelf> : null}
 			</View>
 		</View>
 	);

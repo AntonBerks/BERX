@@ -25,6 +25,7 @@ import {BerxObjectCard} from '../../../../packages/design-system/src/spatial/Ber
 import {BerxCountdown} from '../../../../packages/design-system/src/spatial/BerxCountdown';
 import {BerxDataBoundary} from '../../../../packages/design-system/src/spatial/BerxDataBoundary';
 import {useBerxSceneScroll} from '../../../../packages/design-system/src/spatial/BerxSpatialScene';
+import {BerxActionShelf} from '../../../../packages/design-system/src/spatial/BerxActionShelf';
 import {BerxScreenScene, useBerxScreen, useBerxSceneAtmosphere} from '../spatial/BerxScreenScene';
 import {berxAnalytics} from '../spatial/analytics';
 
@@ -129,10 +130,10 @@ function EventsSceneBody({api, onOpenEvent, onCreate, onOpenMine, onBack}: Event
 					multiple={false}
 					accessibilityLabel="Когда"
 				/>
-				<View style={styles.actions}>
+				<BerxActionShelf variant="anchored">
 					<BerxButton label="Мои события" variant="secondary" onPress={onOpenMine} />
 					<BerxButton label="Создать" onPress={onCreate} />
-				</View>
+				</BerxActionShelf>
 				<BerxFilterBar
 					options={categories.map((c) => ({key: c.slug, label: c.label}))}
 					selected={category ? [category] : []}

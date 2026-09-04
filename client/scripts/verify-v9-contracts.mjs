@@ -218,6 +218,26 @@ gate(
 	atmoSignatures.size === atmoValues.length && familiesCovered.size === 13,
 	`${atmoSignatures.size}/${atmoValues.length} distinct environments across ${familiesCovered.size}/13 families`,
 );
+/* --- D4 actions must be promoted, not printed on the content plane ---
+   The archive gives controls their own depth, and a row of buttons
+   inside a <View> on D3 is the exact way that gets lost: the layout is
+   right and the depth is gone. Every action row in a screen goes
+   through BerxActionShelf, which takes D4's material, its lit leading
+   edge and its upward shadow — and stays attached to the object it
+   acts on, because a scene of floating controls is not depth either. */
+const flatActionRows = walkTsx(screensDir)
+	.map((file) => ({
+		file: path.relative(clientRoot, file),
+		hits: (fs.readFileSync(file, 'utf8').match(/<View style=\{styles\.actions[A-Za-z]*\}>/g) ?? []).length,
+	}))
+	.filter((f) => f.hits > 0);
+gate(
+	'D4 actions are promoted to a control shelf, never printed on the content plane',
+	flatActionRows.length === 0,
+	flatActionRows.length === 0
+		? `${walkTsx(screensDir).length} screens, every action row on the control plane`
+		: flatActionRows.map((f) => `${f.file} (${f.hits})`).join(', '),
+);
 gate('no probe findings', report.findings.length === 0, report.findings.slice(0, 8).map((f) => `${f.scope}: ${f.message}`).join(' | ') || 'clean');
 
 const failed = gates.filter((g) => !g.pass);

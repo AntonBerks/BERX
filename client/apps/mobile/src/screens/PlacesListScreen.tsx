@@ -29,6 +29,7 @@ import {BerxFilterBar} from '../../../../packages/design-system/src/spatial/Berx
 import {BerxPlaceCard} from '../../../../packages/design-system/src/spatial/BerxPlaceCard';
 import {BerxDataBoundary} from '../../../../packages/design-system/src/spatial/BerxDataBoundary';
 import {useBerxSceneScroll} from '../../../../packages/design-system/src/spatial/BerxSpatialScene';
+import {BerxActionShelf} from '../../../../packages/design-system/src/spatial/BerxActionShelf';
 import {BerxScreenScene, useBerxScreen, useBerxSceneAtmosphere} from '../spatial/BerxScreenScene';
 import {berxAnalytics} from '../spatial/analytics';
 
@@ -137,11 +138,11 @@ function PlacesSceneBody({api, onOpenPlace, onCreate, onOpenNearby, onOpenSaved,
 					accessibilityLabel="Поиск мест"
 					resultCount={state === 'default' ? items.length : undefined}
 				/>
-				<View style={styles.actions}>
+				<BerxActionShelf variant="anchored">
 					<BerxButton label="Рядом" variant="secondary" onPress={onOpenNearby} />
 					<BerxButton label="Сохранённые" variant="secondary" onPress={onOpenSaved} />
 					<BerxButton label="Добавить" onPress={onCreate} />
-				</View>
+				</BerxActionShelf>
 				<BerxFilterBar
 					options={categories.map((c) => ({key: c.slug, label: c.label}))}
 					selected={category ? [category] : []}

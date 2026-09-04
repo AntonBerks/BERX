@@ -22,6 +22,7 @@ import {BerxEnergyHalo} from '../../../../../packages/design-system/src/spatial/
 import {BerxStatRail, type BerxStat} from '../../../../../packages/design-system/src/spatial/BerxStatRail';
 import {BerxSpatialCard} from '../../../../../packages/design-system/src/spatial/BerxSpatialCard';
 import {useBerxScene, useBerxSceneEnter} from '../../../../../packages/design-system/src/spatial/BerxSpatialScene';
+import {BerxActionShelf} from '../../../../../packages/design-system/src/spatial/BerxActionShelf';
 import {BerxScreenScene} from '../../spatial/BerxScreenScene';
 
 export interface OnboardingCompleteScreenProps {
@@ -89,9 +90,9 @@ function OnboardingCompleteSceneBody({api, onEnter}: OnboardingCompleteScreenPro
 				) : null}
 			</Animated.View>
 
-			<View style={styles.actions}>
+			<BerxActionShelf variant="anchored">
 				<BerxButton label="Войти в BERX" onPress={onEnter} fullWidth />
-			</View>
+			</BerxActionShelf>
 		</View>
 	);
 }
