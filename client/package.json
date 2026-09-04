@@ -11,7 +11,9 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "verify:static": "bash ./scripts/verify-static.sh",
     "verify:v9": "node ./scripts/verify-v9-contracts.mjs",
-    "generate:v9": "node ./scripts/generate-v9-scenes.mjs"
+    "generate:v9": "node ./scripts/generate-v9-scenes.mjs",
+    "verify:v9:web": "node ./scripts/v9-web-probe.mjs",
+    "build:spatial-web": "node ./scripts/build-spatial-web.mjs"
   },
   "engines": {
     "node": ">=20"
