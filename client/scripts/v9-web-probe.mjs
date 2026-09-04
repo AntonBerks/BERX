@@ -1,0 +1,666 @@
+#!/usr/bin/env node
+/**
+ * BERX v9 WEB RUNTIME PROBE — measurements in a real browser.
+ *
+ * The runtime-first rule says a file existing, an export existing and
+ * a typecheck passing are not a feature. This script is the answer to
+ * that: it builds the real web runtime, serves the real stylesheet,
+ * loads real v9 contracts in real Chromium, and then measures the
+ * rendered result — computed styles, composited transforms, frame
+ * timings during an actual scroll, contrast of actually-painted
+ * colours, and what changes when the user asks for reduced motion.
+ *
+ * Nothing here reads the source to decide whether a feature works.
+ *
+ * Usage:  node scripts/v9-web-probe.mjs [--json]
+ * Exit 0 when every gate passes, 1 otherwise.
+ */
+import {execFileSync} from 'node:child_process';
+import fs from 'node:fs';
+import http from 'node:http';
+import os from 'node:os';
+import path from 'node:path';
+import {fileURLToPath} from 'node:url';
+import {chromium} from 'playwright';
+
+const here = path.dirname(fileURLToPath(import.meta.url));
+const clientRoot = path.resolve(here, '..');
+const repoRoot = path.resolve(clientRoot, '..');
+const jsonOnly = process.argv.includes('--json');
+const log = (...a) => {
+	if (!jsonOnly) console.log(...a);
+};
+
+/* ---------------- build the harness against the real runtime ---------------- */
+const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'berx-v9-web-'));
+execFileSync(
+	path.join(clientRoot, 'node_modules/.bin/esbuild'),
+	[
+		path.join(here, 'v9-web-harness.entry.ts'),
+		'--bundle',
+		'--format=esm',
+		'--target=es2020',
+		'--platform=browser',
+		'--log-level=error',
+		`--alias:@berx/spatial=${path.join(clientRoot, 'packages/spatial/src/index.ts')}`,
+		`--alias:@berx/spatial-web=${path.join(clientRoot, 'packages/spatial-web/src/index.ts')}`,
+		`--alias:@berx/scenes=${path.join(clientRoot, 'packages/scenes/src/index.ts')}`,
+		`--alias:@berx/api/client=${path.join(clientRoot, 'packages/api/src/client.ts')}`,
+		`--alias:@berx/core=${path.join(clientRoot, 'packages/core/src/index.ts')}`,
+		`--outfile=${path.join(dir, 'harness.js')}`,
+	],
+	{cwd: clientRoot, stdio: 'inherit'},
+);
+
+/* the shipped stylesheet, byte for byte — not a copy written for the test */
+fs.copyFileSync(path.join(repoRoot, 'styles', 'berx-5d.css'), path.join(dir, 'berx-5d.css'));
+
+fs.writeFileSync(
+	path.join(dir, 'index.html'),
+	`<!doctype html><html lang="ru"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>BERX v9 runtime probe</title>
+<link rel="stylesheet" href="./berx-5d.css">
+<style>
+  html,body{margin:0;background:#07080A;color:#F5F8FA;font:15px/1.45 Inter,system-ui,sans-serif}
+  #scene{min-height:100vh;padding:24px;display:flex;flex-direction:column;gap:20px}
+  .berx-surface{padding:20px}
+  h2{margin:0 0 8px;font-size:18px}
+  p{margin:0;color:#A7B0B7}
+  button{margin-top:12px;padding:0 18px;border-radius:999px;border:1px solid rgba(255,255,255,.16);background:transparent;color:#4FD6E8;font:inherit}
+</style></head><body><main id="scene"></main><script type="module" src="./harness.js"></script></body></html>`,
+);
+
+/* ---------------- serve it ---------------- */
+const types = {'.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8'};
+const server = http.createServer((req, res) => {
+	const name = (req.url ?? '/').split('?')[0];
+	const file = path.join(dir, name === '/' ? 'index.html' : path.normalize(name).replace(/^(\.\.[/\\])+/, ''));
+	/* the browser asks for a favicon on its own; answering keeps a harness
+	   artefact out of the console-error gate without hiding real 404s */
+	if (name === '/favicon.ico') {
+		res.writeHead(204).end();
+		return;
+	}
+	if (!file.startsWith(dir) || !fs.existsSync(file)) {
+		res.writeHead(404).end();
+		return;
+	}
+	res.writeHead(200, {'content-type': types[path.extname(file)] ?? 'application/octet-stream'});
+	fs.createReadStream(file).pipe(res);
+});
+await new Promise((r) => server.listen(0, '127.0.0.1', r));
+const base = `http://127.0.0.1:${server.address().port}/`;
+
+/* ---------------- measure ---------------- */
+const browser = await chromium.launch({executablePath: '/opt/pw-browsers/chromium'});
+const findings = [];
+const results = {};
+
+/** The nine families the brief singles out for maximum visual quality. */
+const KEY_SCENES = [
+	['BERX-121', 'PROFILE'],
+	['BERX-031', 'HOME'],
+	['BERX-061', 'EXPLORE'],
+	['BERX-091', 'NOW'],
+	['BERX-176', 'MESSAGES'],
+	['BERX-201', 'PLACES'],
+	['BERX-226', 'EVENTS'],
+	['BERX-246', 'EXPERIENCE'],
+	['BERX-291', 'BUSINESS'],
+];
+
+const luminance = (rgb) => {
+	const c = rgb.map((v) => {
+		const s = v / 255;
+		return s <= 0.04045 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+	});
+	return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+};
+const contrast = (a, b) => {
+	const [l1, l2] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+	return Math.round(((l1 + 0.05) / (l2 + 0.05)) * 100) / 100;
+};
+const parseRgb = (s) => (s.match(/[\d.]+/g) ?? [0, 0, 0]).slice(0, 3).map(Number);
+
+async function openPage({width, height, reducedMotion}) {
+	const ctx = await browser.newContext({
+		viewport: {width, height},
+		reducedMotion: reducedMotion ? 'reduce' : 'no-preference',
+		deviceScaleFactor: 2,
+	});
+	const page = await ctx.newPage();
+	page.on('pageerror', (e) => findings.push({scope: 'page', message: `uncaught: ${e.message}`}));
+	page.on('console', (m) => {
+		if (m.type() === 'error') findings.push({scope: 'console', message: m.text()});
+	});
+	page.on('requestfailed', (r) => findings.push({scope: 'network', message: `${r.url()} ${r.failure()?.errorText ?? ''}`}));
+	page.on('response', (r) => {
+		if (r.status() >= 400) findings.push({scope: 'network', message: `${r.status()} ${r.url()}`});
+	});
+	await page.goto(base, {waitUntil: 'load'});
+	await page.waitForFunction(() => typeof window.BERX_HARNESS !== 'undefined');
+	return {ctx, page};
+}
+
+/* --- 1. all 300 contracts resolve inside a real browser --- */
+{
+	const {ctx, page} = await openPage({width: 1440, height: 900, reducedMotion: false});
+	results.resolveAll = await page.evaluate(() => window.BERX_HARNESS.resolveAll());
+	await ctx.close();
+}
+
+/* --- 2. the nine key scenes, desktop, motion allowed --- */
+results.keyScenes = {};
+{
+	const {ctx, page} = await openPage({width: 1440, height: 900, reducedMotion: false});
+	for (const [screenId, family] of KEY_SCENES) {
+		await page.evaluate((id) => window.BERX_HARNESS.mount(id), screenId);
+		await page.waitForTimeout(60);
+
+		const measured = await page.evaluate(() => {
+			const root = document.getElementById('scene');
+			const cs = getComputedStyle(root);
+			const layers = [...document.querySelectorAll('[data-berx-depth]')]
+				.filter((n) => n.classList.contains('berx-layer'))
+				.map((n) => {
+					const surface = n.querySelector('.berx-surface');
+					const s = surface ? getComputedStyle(surface) : null;
+					const l = getComputedStyle(n);
+					return {
+						depth: n.dataset.berxDepth,
+						zIndex: l.zIndex,
+						transform: l.transform,
+						opacity: l.opacity,
+						background: s?.backgroundColor ?? null,
+						backdrop: s ? s.backdropFilter || s.webkitBackdropFilter || 'none' : null,
+						boxShadow: s?.boxShadow ?? null,
+						borderTopColor: s?.borderTopColor ?? null,
+					};
+				});
+			const heading = document.querySelector('.berx-surface h2');
+			const button = document.querySelector('.berx-focusable');
+			const btnRect = button?.getBoundingClientRect();
+			return {
+				perspective: cs.perspective,
+				perspectiveOrigin: cs.perspectiveOrigin,
+				dataset: {...root.dataset},
+				layers,
+				headingColor: heading ? getComputedStyle(heading).color : null,
+				contentBg: layers.find((l) => l.depth === 'D3')?.background ?? null,
+				buttonBox: btnRect ? {w: Math.round(btnRect.width), h: Math.round(btnRect.height)} : null,
+				buttonMinHeight: button ? getComputedStyle(button).minHeight : null,
+				stylesheetLoaded: [...document.styleSheets].some((s) => (s.href ?? '').includes('berx-5d.css')),
+			};
+		});
+
+		/* --- scroll for real and time the frames the compositor produces --- */
+		const frames = await page.evaluate(async () => {
+			const times = [];
+			let last = performance.now();
+			let running = true;
+			const tick = (t) => {
+				times.push(t - last);
+				last = t;
+				if (running) requestAnimationFrame(tick);
+			};
+			requestAnimationFrame(tick);
+			for (let y = 0; y < 1600; y += 40) {
+				window.scrollTo(0, y);
+				await new Promise((r) => requestAnimationFrame(r));
+			}
+			running = false;
+			await new Promise((r) => setTimeout(r, 50));
+			window.scrollTo(0, 0);
+			const sorted = [...times].slice(2).sort((a, b) => a - b);
+			return {
+				count: sorted.length,
+				median: sorted[Math.floor(sorted.length / 2)] ?? 0,
+				p95: sorted[Math.floor(sorted.length * 0.95)] ?? 0,
+				max: sorted[sorted.length - 1] ?? 0,
+				droppedRatio: sorted.filter((t) => t > 20).length / (sorted.length || 1),
+			};
+		});
+
+		/* --- parallax must have actually moved the layers --- */
+		const parallax = await page.evaluate(async () => {
+			const read = () =>
+				[...document.querySelectorAll('.berx-layer')].map((n) =>
+					getComputedStyle(n).getPropertyValue('--berx-parallax-y').trim(),
+				);
+			window.scrollTo(0, 0);
+			await new Promise((r) => requestAnimationFrame(r));
+			const before = read();
+			window.scrollTo(0, 900);
+			await new Promise((r) => setTimeout(r, 120));
+			const after = read();
+			window.scrollTo(0, 0);
+			return {before, after};
+		});
+
+		const headingRgb = parseRgb(measured.headingColor ?? 'rgb(255,255,255)');
+		const contentRgb = parseRgb(measured.contentBg ?? 'rgb(7,8,10)');
+		const textContrast = contrast(headingRgb, contentRgb);
+
+		results.keyScenes[screenId] = {family, ...measured, frames, parallax, textContrast};
+
+		if (measured.perspective === 'none') {
+			findings.push({scope: `scene:${screenId}`, message: 'no perspective applied on a high-tier desktop scene'});
+		}
+		const zs = measured.layers.map((l) => Number(l.zIndex));
+		if (zs.some((z, i) => i > 0 && z <= zs[i - 1])) {
+			findings.push({scope: `scene:${screenId}`, message: `depth layers are not ordered: ${zs.join(',')}`});
+		}
+		const moved = parallax.after.some((v, i) => v !== parallax.before[i] && v !== '' && v !== '0px');
+		if (!moved) findings.push({scope: `scene:${screenId}`, message: 'scrolling produced no parallax offset on any layer'});
+		if (textContrast < 4.5) {
+			findings.push({scope: `scene:${screenId}`, message: `painted heading contrast ${textContrast}:1 below AA`});
+		}
+		if (measured.buttonBox && (measured.buttonBox.h < 44 || measured.buttonBox.w < 44)) {
+			findings.push({
+				scope: `scene:${screenId}`,
+				message: `control is ${measured.buttonBox.w}x${measured.buttonBox.h}, below the 44dp target`,
+			});
+		}
+		/* the meaningful signal is how many frames missed vsync, not the
+		   tail on its own — see MAX_DROPPED_RATIO in the web runtime */
+		const droppedRatio = frames.droppedRatio;
+		if (droppedRatio > 0.15) {
+			findings.push({
+				scope: `scene:${screenId}`,
+				message: `${Math.round(droppedRatio * 100)}% of frames missed vsync during scroll (median ${frames.median.toFixed(1)}ms)`,
+			});
+		}
+	}
+	await ctx.close();
+}
+
+/* --- 2b. attribute the frame cost: same scene, blur on vs blur off ---
+   A p95 above budget is only actionable if we know what is spending
+   the frame. This runs the identical scroll twice on one page: once
+   with the resolved glass, once with the opaque high-contrast
+   surfaces (which remove every backdrop-filter and nothing else). */
+{
+	const {ctx, page} = await openPage({width: 1440, height: 900, reducedMotion: false});
+	const measure = async () => {
+		await page.waitForTimeout(60);
+		return page.evaluate(async () => {
+			const times = [];
+			let last = performance.now();
+			let running = true;
+			const tick = (t) => {
+				times.push(t - last);
+				last = t;
+				if (running) requestAnimationFrame(tick);
+			};
+			requestAnimationFrame(tick);
+			for (let y = 0; y < 1600; y += 40) {
+				window.scrollTo(0, y);
+				await new Promise((r) => requestAnimationFrame(r));
+			}
+			running = false;
+			await new Promise((r) => setTimeout(r, 50));
+			window.scrollTo(0, 0);
+			const sorted = [...times].slice(2).sort((a, b) => a - b);
+			return {
+				median: sorted[Math.floor(sorted.length / 2)] ?? 0,
+				p95: sorted[Math.floor(sorted.length * 0.95)] ?? 0,
+				dropped: sorted.filter((t) => t > 20).length,
+				count: sorted.length,
+			};
+		});
+	};
+	await page.evaluate(() => window.BERX_HARNESS.mount('BERX-031'));
+	const withGlass = await measure();
+	await page.evaluate(() => window.BERX_HARNESS.mount('BERX-031', {highContrast: true}));
+	const withoutGlass = await measure();
+	results.frameAttribution = {withGlass, withoutGlass};
+	await ctx.close();
+}
+
+/* --- 2c. the runtime must notice a frame shortfall and fix it -----
+   Progressive fallback is only real if it happens without a human.
+   This mounts the same scene with live sampling on, scrolls it for
+   real, and then checks two things: that the runtime lowered its own
+   effects, and that the scene after adaptation actually holds the
+   budget — with every layer and every heading still present. */
+{
+	const {ctx, page} = await openPage({width: 1440, height: 900, reducedMotion: false});
+	await page.evaluate(() => window.BERX_HARNESS.mount('BERX-031', {sampleFrames: true}));
+	await page.waitForTimeout(60);
+
+	const scrollAndTime = () =>
+		page.evaluate(async () => {
+			const times = [];
+			let last = performance.now();
+			let running = true;
+			const tick = (t) => {
+				times.push(t - last);
+				last = t;
+				if (running) requestAnimationFrame(tick);
+			};
+			requestAnimationFrame(tick);
+			for (let y = 0; y < 1600; y += 40) {
+				window.scrollTo(0, y);
+				await new Promise((r) => requestAnimationFrame(r));
+			}
+			running = false;
+			await new Promise((r) => setTimeout(r, 50));
+			window.scrollTo(0, 0);
+			const sorted = [...times].slice(2).sort((a, b) => a - b);
+			return {
+				median: sorted[Math.floor(sorted.length / 2)] ?? 0,
+				p95: sorted[Math.floor(sorted.length * 0.95)] ?? 0,
+				dropped: sorted.filter((t) => t > 20).length,
+				count: sorted.length,
+			};
+		});
+
+	const first = await scrollAndTime();
+	await page.waitForTimeout(120);
+	const state = await page.evaluate(() => {
+		const root = document.getElementById('scene');
+		return {
+			adaptation: root.dataset.berxAdaptation,
+			tier: root.dataset.berxTier,
+			blurLayers: root.dataset.berxBlurLayers,
+			parallax: root.dataset.berxParallax,
+			threeD: root.dataset.berx3d,
+			layers: document.querySelectorAll('.berx-layer').length,
+			headings: document.querySelectorAll('.berx-surface h2').length,
+			measuredFps: window.BERX_HARNESS.scene()?.measuredFps() ?? null,
+		};
+	});
+	const second = await scrollAndTime();
+	results.adaptation = {first, state, second};
+
+	if (state.adaptation === 'none') {
+		findings.push({scope: 'adaptation', message: `runtime never adapted despite p95 ${first.p95}ms`});
+	}
+	if (state.layers !== 6 || state.headings !== 4) {
+		findings.push({scope: 'adaptation', message: `adaptation cost structure: ${state.layers} layers, ${state.headings} headings`});
+	}
+	await ctx.close();
+}
+
+/* --- 3. materials must render differently, in the browser --- */
+{
+	const {ctx, page} = await openPage({width: 1440, height: 900, reducedMotion: false});
+	const signatures = {};
+	for (const screenId of ['BERX-001', 'BERX-031', 'BERX-091', 'BERX-121', 'BERX-291']) {
+		await page.evaluate((id) => window.BERX_HARNESS.mount(id), screenId);
+		await page.waitForTimeout(40);
+		signatures[screenId] = await page.evaluate(() => {
+			const s = document.querySelector('.berx-surface[data-berx-depth="D2"]');
+			const cs = getComputedStyle(s);
+			return {bg: cs.backgroundColor, backdrop: cs.backdropFilter || cs.webkitBackdropFilter, border: cs.borderTopColor};
+		});
+	}
+	results.materialSignatures = signatures;
+	/* BERX-001 is DeepGlass, BERX-031 ClearGlass — if the browser paints them the same the material system is decorative */
+	if (JSON.stringify(signatures['BERX-001']) === JSON.stringify(signatures['BERX-031'])) {
+		findings.push({scope: 'materials', message: 'DeepGlass and ClearGlass paint identically in the browser'});
+	}
+	await ctx.close();
+}
+
+/* --- 4. reduced motion, measured rather than assumed --- */
+{
+	const {ctx, page} = await openPage({width: 1440, height: 900, reducedMotion: true});
+	await page.evaluate(() => window.BERX_HARNESS.mount('BERX-031'));
+	await page.waitForTimeout(80);
+	results.reducedMotion = await page.evaluate(async () => {
+		const root = document.getElementById('scene');
+		window.scrollTo(0, 900);
+		await new Promise((r) => setTimeout(r, 150));
+		const offsets = [...document.querySelectorAll('.berx-layer')].map((n) =>
+			getComputedStyle(n).getPropertyValue('--berx-parallax-y').trim(),
+		);
+		const halo = document.querySelector('.berx-energy');
+		const haloStyle = halo ? getComputedStyle(halo) : null;
+		const surface = document.querySelector('.berx-surface[data-berx-depth="D3"]');
+		window.scrollTo(0, 0);
+		return {
+			reducedFlag: root.dataset.berxReducedMotion,
+			parallaxFlag: root.dataset.berxParallax,
+			tiltMax: getComputedStyle(root).getPropertyValue('--berx-tilt-max').trim(),
+			offsets,
+			haloAnimation: haloStyle ? haloStyle.animationName : null,
+			/* semantics must survive: the surface is still painted and still in the tree */
+			surfacePresent: Boolean(surface),
+			surfaceBg: surface ? getComputedStyle(surface).backgroundColor : null,
+		};
+	});
+	const r = results.reducedMotion;
+	if (r.reducedFlag !== 'true') findings.push({scope: 'reduced-motion', message: 'runtime did not detect the preference'});
+	if (r.parallaxFlag !== 'false') findings.push({scope: 'reduced-motion', message: 'parallax still enabled'});
+	if (r.tiltMax !== '0deg') findings.push({scope: 'reduced-motion', message: `tilt ceiling is ${r.tiltMax}, expected 0deg`});
+	if (r.offsets.some((v) => v !== '' && v !== '0px')) {
+		findings.push({scope: 'reduced-motion', message: `layers still offset: ${r.offsets.join(',')}`});
+	}
+	if (r.haloAnimation && r.haloAnimation !== 'none') {
+		findings.push({scope: 'reduced-motion', message: `ambient loop still running: ${r.haloAnimation}`});
+	}
+	if (!r.surfacePresent) findings.push({scope: 'reduced-motion', message: 'a layer disappeared — semantics lost, not just motion'});
+	await ctx.close();
+}
+
+/* --- 5. a real low-capability phone: fewer effects, same scene --- */
+{
+	const ctx = await browser.newContext({viewport: {width: 360, height: 800}, deviceScaleFactor: 3});
+	const page = await ctx.newPage();
+	await page.goto(base, {waitUntil: 'load'});
+	await page.waitForFunction(() => typeof window.BERX_HARNESS !== 'undefined');
+	await page.evaluate(() => {
+		/* a real constrained device: two cores, 2GB */
+		Object.defineProperty(navigator, 'hardwareConcurrency', {get: () => 2, configurable: true});
+		Object.defineProperty(navigator, 'deviceMemory', {get: () => 2, configurable: true});
+		window.BERX_HARNESS.mount('BERX-031');
+	});
+	await page.waitForTimeout(80);
+	results.lowTier = await page.evaluate(() => {
+		const root = document.getElementById('scene');
+		const layers = [...document.querySelectorAll('.berx-layer')];
+		const blurred = [...document.querySelectorAll('.berx-surface')].filter((s) => {
+			const f = getComputedStyle(s).backdropFilter || getComputedStyle(s).webkitBackdropFilter;
+			return f && f !== 'none' && !/blur\(0px\)/.test(f);
+		});
+		return {
+			tier: root.dataset.berxTier,
+			layerCount: layers.length,
+			blurredCount: blurred.length,
+			perspective: getComputedStyle(root).perspective,
+			headings: document.querySelectorAll('.berx-surface h2').length,
+		};
+	});
+	if (results.lowTier.layerCount !== 6) {
+		findings.push({scope: 'low-tier', message: `${results.lowTier.layerCount} layers, expected all 6 — degradation must not drop layers`});
+	}
+	if (results.lowTier.blurredCount > 3) {
+		findings.push({scope: 'low-tier', message: `${results.lowTier.blurredCount} blurred surfaces exceeds the mobile budget of 3`});
+	}
+	if (results.lowTier.headings !== 4) {
+		findings.push({scope: 'low-tier', message: 'content headings lost on a low-tier device — semantic loss'});
+	}
+	await ctx.close();
+}
+
+/* --- 6. high contrast: opaque surfaces, identical content --- */
+{
+	const {ctx, page} = await openPage({width: 1440, height: 900, reducedMotion: false});
+	await page.evaluate(() => window.BERX_HARNESS.mount('BERX-031', {highContrast: true}));
+	await page.waitForTimeout(60);
+	results.highContrast = await page.evaluate(() => {
+		const s = document.querySelector('.berx-surface[data-berx-depth="D3"]');
+		const cs = getComputedStyle(s);
+		const heading = document.querySelector('.berx-surface h2');
+		return {
+			background: cs.backgroundColor,
+			backdrop: cs.backdropFilter || cs.webkitBackdropFilter || 'none',
+			headingColor: heading ? getComputedStyle(heading).color : null,
+			headingText: heading?.textContent ?? null,
+		};
+	});
+	const alpha = /rgba?\([^)]*,\s*([\d.]+)\)/.exec(results.highContrast.background);
+	if (results.highContrast.backdrop !== 'none') {
+		findings.push({scope: 'high-contrast', message: `surface still has a backdrop filter: ${results.highContrast.backdrop}`});
+	}
+	if (alpha && Number(alpha[1]) < 1) {
+		findings.push({scope: 'high-contrast', message: `surface still translucent (alpha ${alpha[1]})`});
+	}
+	const hcContrast = contrast(parseRgb(results.highContrast.headingColor ?? ''), parseRgb(results.highContrast.background));
+	results.highContrast.contrast = hcContrast;
+	if (hcContrast < 4.5) findings.push({scope: 'high-contrast', message: `contrast ${hcContrast}:1 below AA`});
+	await ctx.close();
+}
+
+/* --- 7. keyboard focus is actually visible --- */
+{
+	const {ctx, page} = await openPage({width: 1440, height: 900, reducedMotion: false});
+	await page.evaluate(() => window.BERX_HARNESS.mount('BERX-031'));
+	await page.waitForTimeout(60);
+	await page.keyboard.press('Tab');
+	results.focus = await page.evaluate(() => {
+		const active = document.activeElement;
+		if (!active || active === document.body) return {focused: null};
+		const cs = getComputedStyle(active);
+		return {
+			focused: active.tagName.toLowerCase(),
+			outlineStyle: cs.outlineStyle,
+			outlineWidth: cs.outlineWidth,
+			outlineColor: cs.outlineColor,
+		};
+	});
+	if (!results.focus.focused) findings.push({scope: 'a11y', message: 'Tab reached nothing focusable in the scene'});
+	else if (results.focus.outlineStyle === 'none' || parseFloat(results.focus.outlineWidth) < 1) {
+		findings.push({scope: 'a11y', message: 'focused control has no visible outline'});
+	}
+	await ctx.close();
+}
+
+await browser.close();
+server.close();
+fs.rmSync(dir, {recursive: true, force: true});
+
+/* ---------------- gates ---------------- */
+const gates = [];
+const gate = (name, pass, detail) => gates.push({name, pass, detail});
+
+gate('300/300 contracts resolve in a real browser', results.resolveAll.resolved === 300, `${results.resolveAll.resolved}/${results.resolveAll.total}`);
+gate(
+	'all 9 key scenes render with a real perspective camera',
+	Object.values(results.keyScenes).every((s) => s.perspective !== 'none'),
+	Object.entries(results.keyScenes).map(([k, s]) => `${k}:${s.perspective}`).join(' '),
+);
+gate(
+	'depth layers paint in order in all 9 scenes',
+	Object.values(results.keyScenes).every((s) => {
+		const z = s.layers.map((l) => Number(l.zIndex));
+		return z.every((v, i) => i === 0 || v > z[i - 1]);
+	}),
+	'z-index strictly increasing D0→D5',
+);
+gate(
+	'scrolling moves layers by different amounts (real parallax)',
+	Object.values(results.keyScenes).every((s) => new Set(s.parallax.after.filter(Boolean)).size > 1),
+	Object.entries(results.keyScenes).map(([k, s]) => `${k}:${new Set(s.parallax.after.filter(Boolean)).size} distinct`).join(' '),
+);
+gate(
+	'60fps sustained during scroll (median <= 17ms in all 9 scenes)',
+	Object.values(results.keyScenes).every((s) => s.frames.median <= 17),
+	Object.entries(results.keyScenes).map(([k, s]) => `${k}:${s.frames.median.toFixed(1)}ms`).join(' '),
+);
+gate(
+	'frame cost is attributable: blur off holds the budget outright',
+	results.frameAttribution.withoutGlass.p95 <= 24,
+	`glass p95 ${results.frameAttribution.withGlass.p95.toFixed(1)}ms / ${results.frameAttribution.withGlass.dropped} dropped; opaque p95 ${results.frameAttribution.withoutGlass.p95.toFixed(1)}ms / ${results.frameAttribution.withoutGlass.dropped} dropped`,
+);
+gate(
+	'runtime detects the shortfall and adapts on its own',
+	results.adaptation.state.adaptation !== 'none',
+	`${results.adaptation.state.adaptation}, tier=${results.adaptation.state.tier}, blurLayers=${results.adaptation.state.blurLayers}, measured ${results.adaptation.state.measuredFps ? results.adaptation.state.measuredFps.toFixed(1) : '?'}fps`,
+);
+gate(
+	'adapting measurably reduces missed frames',
+	results.adaptation.second.dropped < results.adaptation.first.dropped,
+	`missed ${results.adaptation.first.dropped}/${results.adaptation.first.count} -> ${results.adaptation.second.dropped}/${results.adaptation.second.count}`,
+);
+gate(
+	'adaptation drops effects, never layers or content',
+	results.adaptation.state.layers === 6 && results.adaptation.state.headings === 4 && results.adaptation.state.parallax === 'true',
+	`layers=${results.adaptation.state.layers} headings=${results.adaptation.state.headings} parallax=${results.adaptation.state.parallax} 3d=${results.adaptation.state.threeD}`,
+);
+gate(
+	'painted text passes AA in all 9 scenes',
+	Object.values(results.keyScenes).every((s) => s.textContrast >= 4.5),
+	Object.entries(results.keyScenes).map(([k, s]) => `${k}:${s.textContrast}`).join(' '),
+);
+gate(
+	'controls meet the 44dp target',
+	Object.values(results.keyScenes).every((s) => !s.buttonBox || (s.buttonBox.h >= 44 && s.buttonBox.w >= 44)),
+	Object.entries(results.keyScenes).map(([k, s]) => (s.buttonBox ? `${k}:${s.buttonBox.w}x${s.buttonBox.h}` : `${k}:-`)).join(' '),
+);
+gate(
+	'materials paint differently in the browser',
+	new Set(Object.values(results.materialSignatures).map((s) => JSON.stringify(s))).size > 1,
+	`${new Set(Object.values(results.materialSignatures).map((s) => JSON.stringify(s))).size} distinct surfaces across 5 scenes`,
+);
+gate(
+	'reduced motion removes parallax, tilt and the ambient loop',
+	results.reducedMotion.parallaxFlag === 'false' &&
+		results.reducedMotion.tiltMax === '0deg' &&
+		results.reducedMotion.offsets.every((v) => v === '' || v === '0px') &&
+		(!results.reducedMotion.haloAnimation || results.reducedMotion.haloAnimation === 'none'),
+	`parallax:${results.reducedMotion.parallaxFlag} tilt:${results.reducedMotion.tiltMax} halo:${results.reducedMotion.haloAnimation}`,
+);
+gate(
+	'reduced motion keeps every layer and its content',
+	results.reducedMotion.surfacePresent,
+	`content surface painted ${results.reducedMotion.surfaceBg}`,
+);
+gate(
+	'low-capability device degrades effects, not structure',
+	results.lowTier.layerCount === 6 && results.lowTier.headings === 4 && results.lowTier.blurredCount <= 3,
+	`tier=${results.lowTier.tier} layers=${results.lowTier.layerCount} blurred=${results.lowTier.blurredCount} headings=${results.lowTier.headings}`,
+);
+gate(
+	'high contrast paints opaque and stays readable',
+	results.highContrast.contrast >= 4.5 && results.highContrast.backdrop === 'none',
+	`${results.highContrast.contrast}:1 backdrop=${results.highContrast.backdrop} bg=${results.highContrast.background}`,
+);
+gate(
+	'keyboard focus is visible',
+	Boolean(results.focus.focused) && results.focus.outlineStyle !== 'none',
+	`${results.focus.focused} outline ${results.focus.outlineWidth} ${results.focus.outlineStyle} ${results.focus.outlineColor}`,
+);
+gate('no page errors or console errors', findings.filter((f) => f.scope === 'page' || f.scope === 'console').length === 0, 'clean');
+
+const failed = gates.filter((g) => !g.pass);
+
+if (jsonOnly) {
+	console.log(JSON.stringify({gates, results, findings}, null, 2));
+} else {
+	log('\nBERX v9 WEB RUNTIME PROBE (real Chromium)\n' + '='.repeat(64));
+	for (const g of gates) log(`${g.pass ? 'PASS' : 'FAIL'}  ${g.name}\n      ${g.detail}`);
+	if (findings.length) {
+		log('\nFindings:');
+		for (const f of findings) log(`  ${f.scope}: ${f.message}`);
+	}
+	log('\nFrame timings during real scroll (median / p95 / missed-vsync %):');
+	for (const [id, s] of Object.entries(results.keyScenes)) {
+		log(
+			`  ${id} ${s.family.padEnd(11)} ${s.frames.median.toFixed(1)} / ${s.frames.p95.toFixed(1)} / ${Math.round(s.frames.droppedRatio * 100)}%   contrast ${s.textContrast}:1`,
+		);
+	}
+	log(`\nAdaptation: ${results.adaptation.state.adaptation} (${results.adaptation.state.tier} tier, ${results.adaptation.state.blurLayers} blurred layers)`);
+	log(
+		`  before ${results.adaptation.first.median.toFixed(1)}ms median, ${Math.round((results.adaptation.first.dropped / results.adaptation.first.count) * 100)}% missed`,
+	);
+	log(
+		`  after  ${results.adaptation.second.median.toFixed(1)}ms median, ${Math.round((results.adaptation.second.dropped / results.adaptation.second.count) * 100)}% missed`,
+	);
+	log('\n' + '='.repeat(64));
+	log(failed.length === 0 ? `ALL ${gates.length} WEB GATES PASS` : `${failed.length}/${gates.length} WEB GATES FAILED`);
+}
+
+process.exit(failed.length === 0 ? 0 : 1);

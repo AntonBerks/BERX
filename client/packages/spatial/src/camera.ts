@@ -41,15 +41,23 @@ export interface BerxCameraRuntime {
 }
 
 /**
- * Depth spacing. A wider field of view means the same z travel reads
- * as a larger on-screen change, so the per-step unit shrinks to keep
- * the six layers occupying a comparable visual depth range at any
- * fov. Derived from the half-angle tangent rather than a table.
+ * Depth spacing — px of z travel per depth step.
+ *
+ * A wider field of view makes the same z travel read as a larger
+ * on-screen change, so the per-step unit shrinks with the half-angle
+ * tangent rather than coming from a table.
+ *
+ * The constant is chosen so one step is roughly a 4-5% projected size
+ * change at the default 1200px perspective. That is enough for the
+ * eye to read the order of the planes and small enough that a control
+ * one step in front of the content plane does not balloon, or one
+ * step behind it shrink below its minimum touch target — a real
+ * failure the browser probe caught when the spacing was wider.
  */
 export function depthUnitPx(perspectivePx: number, fovDeg: number): number {
 	const halfAngle = (clamp(fovDeg, 10, 120) / 2) * (Math.PI / 180);
 	const spread = Math.tan(halfAngle);
-	return round(clamp((perspectivePx * 0.05) / Math.max(spread, 0.09), 8, 96), 2);
+	return round(clamp((perspectivePx * 0.04) / (0.5 + Math.max(spread, 0.09)), 6, 72), 2);
 }
 
 export function resolveCamera(input: BerxCameraInput): BerxCameraRuntime {

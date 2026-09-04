@@ -1,0 +1,157 @@
+/* ═══════════════════════════════════════════════════════════════
+   BERX 5D ULTIMATE v9 — web spatial layer.
+
+   This stylesheet hardcodes no depth, no blur radius, no duration and
+   no colour. Every value arrives as a custom property written by
+   scripts/berx-5d.runtime.js, which gets them from the same
+   @berx/spatial resolver React Native uses. Change a material in the
+   runtime and this file follows; edit a number here and you have
+   forked the design system, which is why there are none to edit.
+
+   Load order: after styles/berx.css.
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── scene root ──────────────────────────────────────────────── */
+.berx-scene{
+  position:relative;
+  background:var(--berx-bg,#07080A);
+  /* one camera for the whole scene — layers cannot opt into their own */
+  perspective:var(--berx-perspective,1200px);
+  perspective-origin:var(--berx-perspective-origin,50% 42%);
+  transform-style:preserve-3d;
+  isolation:isolate;
+}
+/* a flattened scene (low tier, watch) keeps every layer and drops only the projection */
+.berx-scene[data-berx-3d="false"]{perspective:none}
+
+/* ── depth layers ────────────────────────────────────────────── */
+.berx-layer{
+  position:relative;
+  z-index:var(--berx-layer-z,0);
+  opacity:var(--berx-layer-opacity,1);
+  transform:
+    translate3d(0,var(--berx-parallax-y,0px),var(--berx-layer-translate-z,0px))
+    rotateX(var(--berx-tilt-x,0deg))
+    rotateY(var(--berx-tilt-y,0deg));
+  transform-style:preserve-3d;
+  /* transform and opacity only — nothing here can trigger layout */
+  will-change:transform;
+  transition:transform var(--berx-focus-ms,220ms) var(--berx-enter-ease,cubic-bezier(.16,1,.3,1));
+}
+
+.berx-layer[data-berx-depth="D0"]{--berx-layer-z:var(--berx-d0-z);--berx-layer-translate-z:var(--berx-d0-translate-z);--berx-layer-opacity:var(--berx-d0-opacity)}
+.berx-layer[data-berx-depth="D1"]{--berx-layer-z:var(--berx-d1-z);--berx-layer-translate-z:var(--berx-d1-translate-z);--berx-layer-opacity:var(--berx-d1-opacity)}
+.berx-layer[data-berx-depth="D2"]{--berx-layer-z:var(--berx-d2-z);--berx-layer-translate-z:var(--berx-d2-translate-z);--berx-layer-opacity:var(--berx-d2-opacity)}
+.berx-layer[data-berx-depth="D3"]{--berx-layer-z:var(--berx-d3-z);--berx-layer-translate-z:var(--berx-d3-translate-z);--berx-layer-opacity:var(--berx-d3-opacity)}
+.berx-layer[data-berx-depth="D4"]{--berx-layer-z:var(--berx-d4-z);--berx-layer-translate-z:var(--berx-d4-translate-z);--berx-layer-opacity:var(--berx-d4-opacity)}
+.berx-layer[data-berx-depth="D5"]{--berx-layer-z:var(--berx-d5-z);--berx-layer-translate-z:var(--berx-d5-translate-z);--berx-layer-opacity:var(--berx-d5-opacity)}
+
+/* D0 and D1 are the room, not the content: they fill the scene and are
+   invisible to assistive technology (aria-hidden is set in markup). */
+.berx-layer[data-berx-depth="D0"],
+.berx-layer[data-berx-depth="D1"]{position:absolute;inset:0;pointer-events:none}
+
+/* ── surfaces ────────────────────────────────────────────────── */
+.berx-surface{
+  position:relative;
+  border-radius:22px;
+  background:var(--berx-surface-bg);
+  border:1px solid var(--berx-surface-border);
+  box-shadow:var(--berx-surface-shadow);
+  /* a full filter value, so "no blur" is `none` and never `blur(0px)` —
+     the latter still creates a backdrop root and still costs the compositor */
+  backdrop-filter:var(--berx-surface-blur,none);
+  -webkit-backdrop-filter:var(--berx-surface-blur,none);
+  overflow:hidden;
+  isolation:isolate;
+}
+
+.berx-surface[data-berx-depth="D2"]{--berx-surface-bg:var(--berx-d2-bg);--berx-surface-border:var(--berx-d2-border);--berx-surface-blur:var(--berx-d2-blur);--berx-surface-shadow:var(--berx-d2-shadow);--berx-surface-edge:var(--berx-d2-edge);--berx-surface-rim:var(--berx-d2-rim);--berx-surface-rim-width:var(--berx-d2-rim-width);--berx-surface-key-0:var(--berx-d2-key-0);--berx-surface-key-1:var(--berx-d2-key-1);--berx-surface-key-angle:var(--berx-d2-key-angle);--berx-surface-ambient:var(--berx-d2-ambient);--berx-surface-light-rim:var(--berx-d2-light-rim)}
+.berx-surface[data-berx-depth="D3"]{--berx-surface-bg:var(--berx-d3-bg);--berx-surface-border:var(--berx-d3-border);--berx-surface-blur:var(--berx-d3-blur);--berx-surface-shadow:var(--berx-d3-shadow);--berx-surface-edge:var(--berx-d3-edge);--berx-surface-rim:var(--berx-d3-rim);--berx-surface-rim-width:var(--berx-d3-rim-width);--berx-surface-key-0:var(--berx-d3-key-0);--berx-surface-key-1:var(--berx-d3-key-1);--berx-surface-key-angle:var(--berx-d3-key-angle);--berx-surface-ambient:var(--berx-d3-ambient);--berx-surface-light-rim:var(--berx-d3-light-rim)}
+.berx-surface[data-berx-depth="D4"]{--berx-surface-bg:var(--berx-d4-bg);--berx-surface-border:var(--berx-d4-border);--berx-surface-blur:var(--berx-d4-blur);--berx-surface-shadow:var(--berx-d4-shadow);--berx-surface-edge:var(--berx-d4-edge);--berx-surface-rim:var(--berx-d4-rim);--berx-surface-rim-width:var(--berx-d4-rim-width);--berx-surface-key-0:var(--berx-d4-key-0);--berx-surface-key-1:var(--berx-d4-key-1);--berx-surface-key-angle:var(--berx-d4-key-angle);--berx-surface-ambient:var(--berx-d4-ambient);--berx-surface-light-rim:var(--berx-d4-light-rim)}
+.berx-surface[data-berx-depth="D5"]{--berx-surface-bg:var(--berx-d5-bg);--berx-surface-border:var(--berx-d5-border);--berx-surface-blur:var(--berx-d5-blur);--berx-surface-shadow:var(--berx-d5-shadow);--berx-surface-edge:var(--berx-d5-edge);--berx-surface-rim:var(--berx-d5-rim);--berx-surface-rim-width:var(--berx-d5-rim-width);--berx-surface-key-0:var(--berx-d5-key-0);--berx-surface-key-1:var(--berx-d5-key-1);--berx-surface-key-angle:var(--berx-d5-key-angle);--berx-surface-ambient:var(--berx-d5-ambient);--berx-surface-light-rim:var(--berx-d5-light-rim)}
+.berx-surface[data-berx-depth="D0"]{--berx-surface-bg:var(--berx-d0-bg);--berx-surface-border:var(--berx-d0-border);--berx-surface-blur:var(--berx-d0-blur);--berx-surface-shadow:none;--berx-surface-edge:transparent;--berx-surface-rim:transparent;--berx-surface-rim-width:0px;--berx-surface-key-0:var(--berx-d0-key-0);--berx-surface-key-1:var(--berx-d0-key-1);--berx-surface-key-angle:var(--berx-d0-key-angle);--berx-surface-ambient:var(--berx-d0-ambient);--berx-surface-light-rim:transparent}
+.berx-surface[data-berx-depth="D1"]{--berx-surface-bg:var(--berx-d1-bg);--berx-surface-border:var(--berx-d1-border);--berx-surface-blur:var(--berx-d1-blur);--berx-surface-shadow:none;--berx-surface-edge:transparent;--berx-surface-rim:transparent;--berx-surface-rim-width:0px;--berx-surface-key-0:var(--berx-d1-key-0);--berx-surface-key-1:var(--berx-d1-key-1);--berx-surface-key-angle:var(--berx-d1-key-angle);--berx-surface-ambient:var(--berx-d1-ambient);--berx-surface-light-rim:transparent}
+
+/* ambient wash + key light, from the resolved recipe */
+.berx-surface::before{
+  content:"";position:absolute;inset:0;pointer-events:none;
+  background:
+    linear-gradient(var(--berx-surface-key-angle,165deg),
+      var(--berx-surface-key-0,transparent) 0%,
+      var(--berx-surface-key-1,transparent) 55%,
+      rgba(255,255,255,0) 100%),
+    var(--berx-surface-ambient,transparent);
+}
+/* specular top edge and refractive rim — a lit pane, not a border */
+.berx-surface::after{
+  content:"";position:absolute;inset:0;pointer-events:none;
+  border-top:1px solid var(--berx-surface-edge,transparent);
+  border-left:var(--berx-surface-rim-width,0px) solid var(--berx-surface-rim,transparent);
+  border-radius:inherit;
+}
+
+/* ── energy (D5 only) ────────────────────────────────────────── */
+.berx-energy{
+  border-radius:999px;
+  background:var(--berx-d5-glow,transparent);
+  box-shadow:0 0 var(--berx-d5-glow-radius,0px) var(--berx-d5-glow,transparent);
+  animation:berx-breathe var(--berx-ambient-ms,4000ms) ease-in-out infinite;
+}
+@keyframes berx-breathe{
+  0%,100%{opacity:.42;transform:scale(.96)}
+  50%{opacity:.82;transform:scale(1.05)}
+}
+
+/* ── entrance ────────────────────────────────────────────────── */
+.berx-enter{animation:berx-spatial-enter var(--berx-enter-ms,650ms) var(--berx-enter-ease,cubic-bezier(.16,1,.3,1)) both}
+@keyframes berx-spatial-enter{
+  from{opacity:0;transform:translate3d(0,0,-24px) scale(.96)}
+  to{opacity:1;transform:translate3d(0,0,0) scale(1)}
+}
+
+/* ── focus ───────────────────────────────────────────────────── */
+.berx-focusable:focus-visible{
+  outline:2px solid var(--berx-accent,#4FD6E8);
+  outline-offset:3px;
+  border-radius:inherit;
+}
+.berx-focusable:hover,
+.berx-focusable:focus-visible{transform:scale(var(--berx-focus-scale,1))}
+
+/* every control is at least the v9 preferred target */
+.berx-control{min-height:var(--berx-touch-min,44px);min-width:var(--berx-touch-min,44px)}
+
+/* ── reduced motion ──────────────────────────────────────────────
+   Not a softening: parallax offset, tilt and the ambient loop are
+   removed outright, and entrances become the cross-fade the motion
+   graph specifies. The runtime also zeroes the values it writes, so
+   this rule and the runtime agree rather than one covering for the
+   other. */
+.berx-scene[data-berx-reduced-motion="true"] .berx-layer{
+  --berx-parallax-y:0px;
+  --berx-tilt-x:0deg;
+  --berx-tilt-y:0deg;
+  transition:none;
+}
+.berx-scene[data-berx-reduced-motion="true"] .berx-energy{animation:none;opacity:.62}
+.berx-scene[data-berx-reduced-motion="true"] .berx-enter{animation:berx-cross-fade 220ms ease-out both}
+.berx-scene[data-berx-reduced-motion="true"] .berx-focusable:hover{transform:none}
+@keyframes berx-cross-fade{from{opacity:0}to{opacity:1}}
+
+@media (prefers-reduced-motion: reduce){
+  .berx-layer{--berx-parallax-y:0px;--berx-tilt-x:0deg;--berx-tilt-y:0deg;transition:none}
+  .berx-energy{animation:none;opacity:.62}
+  .berx-enter{animation:berx-cross-fade 220ms ease-out both}
+}
+
+/* ── low tier: fewer effects, never fewer layers ─────────────── */
+.berx-scene[data-berx-tier="low"] .berx-surface{backdrop-filter:none;-webkit-backdrop-filter:none}
+.berx-scene[data-berx-tier="low"] .berx-energy{animation:none;opacity:.6}
+
+/* ── forced colours / high contrast ──────────────────────────── */
+@media (forced-colors: active){
+  .berx-surface{backdrop-filter:none;-webkit-backdrop-filter:none;background:Canvas;border-color:CanvasText}
+  .berx-surface::before,.berx-surface::after{display:none}
+  .berx-focusable:focus-visible{outline:3px solid Highlight}
+}

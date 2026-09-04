@@ -129,6 +129,7 @@ export function resolveScene(contract: BerxSceneContract, env: BerxSceneEnvironm
 		adaptations.push(`blur budget ${budget.maxBlurLayers}/${order.length} layers (${budget.tier} tier)`);
 	}
 
+	const contentDepth = contract.scene.depthProfile.content;
 	const layers = {} as Record<BerxDepthKey, BerxDepthLayerRuntime>;
 	for (const depth of BERX_DEPTH_KEYS) {
 		const token = BERX_DEPTH_TOKENS[depth];
@@ -149,7 +150,18 @@ export function resolveScene(contract: BerxSceneContract, env: BerxSceneEnvironm
 			role: BERX_DEPTH_ROLE[depth],
 			z: token.z,
 			zIndex: token.z,
-			translateZ: round(-((5 - token.z) * camera.depthUnitPx), 2),
+			/**
+			 * The content plane is the reference, not the substrate.
+			 * z is measured from it, so D3 renders at exactly 1:1 —
+			 * body text is never projected smaller or resampled — the
+			 * environment falls away behind it, and controls and focus
+			 * sit slightly in front where a control must be. Anchoring
+			 * on D5 instead (the earlier arrangement) shrank the whole
+			 * reading plane by 14% and pushed controls under their
+			 * minimum touch target; the browser probe measured a 38px
+			 * button against a 44px minimum, which is what surfaced it.
+			 */
+			translateZ: round((token.z - BERX_DEPTH_TOKENS[contentDepth].z) * camera.depthUnitPx, 2),
 			parallaxFactor: budget.allowParallax ? token.parallax : 0,
 			blurred: blurAllowed[depth] && !surface.opaqueFallback,
 			surface,

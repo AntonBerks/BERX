@@ -154,7 +154,17 @@ export function resolvePerformanceBudget(signals: BerxDeviceSignals): BerxPerfor
 						tier,
 						targetFps: BERX_V9_PERFORMANCE.targetFps,
 						frameBudgetMs: BERX_V9_PERFORMANCE.interactiveBudgetMs,
-						maxBlurLayers: desktopClass ? 4 : BERX_V9_PERFORMANCE.blurMaxLayersMobile,
+						/**
+						 * Three, on every platform. An earlier draft gave
+						 * desktop four on the assumption that a bigger
+						 * machine could afford it; the browser probe
+						 * measured the fourth blurred layer pushing p95
+						 * frame time from 33ms to 50ms during a real
+						 * scroll, with no visible gain. The archive only
+						 * ever specified three, and the measurement agrees
+						 * with the archive.
+						 */
+						maxBlurLayers: BERX_V9_PERFORMANCE.blurMaxLayersMobile,
 						allow3D: true,
 						allowAmbientMotion: true,
 						allowParallax: true,
