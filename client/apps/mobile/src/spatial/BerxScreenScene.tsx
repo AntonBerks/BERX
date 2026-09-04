@@ -24,6 +24,7 @@ import {BerxSceneBackdrop} from '../../../../packages/design-system/src/spatial/
 import {BerxContentFrame} from '../../../../packages/design-system/src/spatial/BerxResponsive';
 import {berxAnalytics} from './analytics';
 import {useBerxColorWorld} from './BerxColorWorld';
+import {useBerxAccessibility} from './useBerxAccessibility';
 
 const ScreenContext = createContext<BerxResolvedScreen | null>(null);
 
@@ -81,11 +82,19 @@ export function BerxScreenScene({
 	scrim,
 	colorWorld,
 	highContrast,
-	reducedMotion = false,
+	reducedMotion,
 	trackView = true,
 	testID,
 }: BerxScreenSceneProps) {
 	const {width, height} = useWindowDimensions();
+	/**
+	 * The device's real settings. Until this landed, the runtime
+	 * honoured reduced motion perfectly and nothing on mobile ever
+	 * told it the user had asked for it.
+	 */
+	const preferences = useBerxAccessibility();
+	const wantsReducedMotion = reducedMotion ?? preferences.reducedMotion;
+	const wantsHighContrast = highContrast ?? preferences.highContrast;
 	const isTablet = Math.min(width, height) >= 600;
 	/**
 	 * The chosen colour world applies to every scene, so personalising
@@ -96,7 +105,10 @@ export function BerxScreenScene({
 	const {world} = useBerxColorWorld();
 	const activeWorld = colorWorld ?? world;
 
-	const device = useMemo(() => reactNativeDeviceSignals(reducedMotion, isTablet), [reducedMotion, isTablet]);
+	const device = useMemo(
+		() => reactNativeDeviceSignals(wantsReducedMotion, isTablet),
+		[wantsReducedMotion, isTablet],
+	);
 
 	const screen = useMemo(
 		() =>
@@ -106,9 +118,9 @@ export function BerxScreenScene({
 				viewportWidth: width,
 				viewportHeight: height,
 				colorWorld: activeWorld,
-				highContrast,
+				highContrast: wantsHighContrast,
 			}),
-		[screenId, device, width, height, activeWorld, highContrast],
+		[screenId, device, width, height, activeWorld, wantsHighContrast],
 	);
 
 	useEffect(() => {
@@ -131,7 +143,7 @@ export function BerxScreenScene({
 				contract={screen.contract}
 				device={device}
 				colorWorld={activeWorld}
-				highContrast={highContrast}>
+				highContrast={wantsHighContrast}>
 				<BerxSceneBackdrop media={atmosphere} scrim={scrim} />
 				{/**
 				 * The layout contract every scene carries, applied once
