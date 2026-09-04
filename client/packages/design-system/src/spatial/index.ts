@@ -10,6 +10,7 @@
  */
 export * from './BerxSpatialScene';
 export * from './BerxSurface';
+export * from './useBerxLayer';
 export * from './BerxDepthLayer';
 export * from './BerxSceneBackdrop';
 export * from './BerxSpatialCard';
@@ -17,6 +18,8 @@ export * from './BerxFocusRing';
 export * from './BerxEnergyHalo';
 export * from './BerxProgressRing';
 export * from './BerxDataBoundary';
+export * from './BerxResponsive';
+export * from './BerxSceneInspector';
 
 export * from './BerxIdentity';
 export * from './BerxAvatarCluster';
@@ -25,6 +28,7 @@ export * from './BerxSearchField';
 export * from './BerxFilterBar';
 export * from './BerxHorizontalRail';
 export * from './BerxBottomNav';
+export * from './BerxNavRail';
 
 export * from './BerxStoryTray';
 export * from './BerxReactionPicker';

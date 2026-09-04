@@ -18,7 +18,7 @@
  * BERX_PATCH_CHANGELOG.md for this change.
  */
 import React, {useEffect, useState} from 'react';
-import {View, Text, Pressable, StyleSheet} from 'react-native';
+import {View, Text, Pressable, StyleSheet, Platform, useWindowDimensions} from 'react-native';
 import {BerxApiClient} from '@berx/api/client';
 import {BERX_PRODUCTION_ENV} from '@berx/core';
 import {BerxSecureTokenStorage} from './platform/secureTokenStorage';
@@ -29,6 +29,8 @@ import {colors, spacing, typography} from '@berx/design-system/tokens';
 import {BerxLoadingState, BerxErrorState} from '../../../packages/design-system/src/components/BerxStates';
 import {IconHome, IconSearch, IconPlus, IconMessage, IconMenu} from '../../../packages/design-system/src/components/BerxIcons';
 import {BerxBottomNav, type BerxNavTab} from '../../../packages/design-system/src/spatial/BerxBottomNav';
+import {BerxNavRail} from '../../../packages/design-system/src/spatial/BerxNavRail';
+import {resolveNavShell} from '@berx/scenes';
 import {BerxColorWorldProvider} from './spatial/BerxColorWorld';
 import {BerxNavigator, useBerxNavigation} from './navigation/BerxNavigator';
 import {BERX_BOTTOM_TABS, BerxRouteName} from './navigation/routes';
@@ -984,6 +986,24 @@ function AuthenticatedApp() {
 	const currentIconUrl = me?.icon_url;
 
 	/**
+	 * The archive's platform matrix decides the navigation shape:
+	 * bottom tabs on phones, a rail on tablets, a sidebar on desktop.
+	 * Same tabs and same real counts either way — one navigation model,
+	 * not a second product for wide screens.
+	 */
+	const {width: shellWidth, height: shellHeight} = useWindowDimensions();
+	const shellPlatform =
+		Math.min(shellWidth, shellHeight) >= 600
+			? 'tablet'
+			: Platform.OS === 'ios'
+				? 'ios'
+				: Platform.OS === 'android'
+					? 'android'
+					: 'web';
+	const navShell = resolveNavShell(shellPlatform, shellWidth);
+	const sideNav = navShell === 'rail' || navShell === 'sidebar';
+
+	/**
 	 * Real unread badge. Re-read on every tab change rather than
 	 * polled: the count only matters when the user is looking at the
 	 * bar, and a timer would spend battery to tell them something they
@@ -1033,7 +1053,16 @@ function AuthenticatedApp() {
 			pickImage={pickImage}
 			displayName={displayName}
 			currentIconUrl={currentIconUrl}>
-		<View style={styles.shell}>
+		<View style={[styles.shell, sideNav ? styles.shellWide : null]}>
+			{sideNav ? (
+				<BerxNavRail
+					tabs={tabs}
+					active={activeTab}
+					onSelect={setActiveTab}
+					variant={navShell === 'sidebar' ? 'sidebar' : 'rail'}
+					testID="berx-nav-rail"
+				/>
+			) : null}
 			<View style={styles.content}>
 				<TabPane visible={activeTab === 'Home'}>
 					<BerxNavigator initialRoute="Home" initialParams={undefined}>
@@ -1064,14 +1093,16 @@ function AuthenticatedApp() {
 			{/* extracted from this file into a real component: control-layer
 			    material, announced tab names, selected state and a real
 			    unread badge, none of which the inline bar had */}
-			<BerxBottomNav
-				tabs={tabs}
-				active={activeTab}
-				onSelect={setActiveTab}
-				/* icon-only, per the design decision documented on TabIcon below */
-				showLabels={false}
-				testID="berx-bottom-nav"
-			/>
+			{sideNav ? null : (
+				<BerxBottomNav
+					tabs={tabs}
+					active={activeTab}
+					onSelect={setActiveTab}
+					/* icon-only, per the design decision documented on TabIcon below */
+					showLabels={false}
+					testID="berx-bottom-nav"
+				/>
+			)}
 		</View>
 		</BerxFirstRun>
 	);
@@ -1167,6 +1198,8 @@ function UnauthenticatedFlow() {
 
 const styles = StyleSheet.create({
 	shell: {flex: 1, backgroundColor: colors.black},
+	/* rail and sidebar sit beside the content, not above it */
+	shellWide: {flexDirection: 'row'},
 	content: {flex: 1},
 	tabPane: {flex: 1},
 	tabPaneHidden: {display: 'none'},
