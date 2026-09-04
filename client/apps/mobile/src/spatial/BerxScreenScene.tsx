@@ -22,6 +22,7 @@ import type {BerxColorWorldName, BerxDeviceSignals, BerxPlatform} from '@berx/sp
 import {BerxSpatialScene} from '../../../../packages/design-system/src/spatial/BerxSpatialScene';
 import {BerxSceneBackdrop} from '../../../../packages/design-system/src/spatial/BerxSceneBackdrop';
 import {berxAnalytics} from './analytics';
+import {useBerxColorWorld} from './BerxColorWorld';
 
 const ScreenContext = createContext<BerxResolvedScreen | null>(null);
 
@@ -85,12 +86,28 @@ export function BerxScreenScene({
 }: BerxScreenSceneProps) {
 	const {width, height} = useWindowDimensions();
 	const isTablet = Math.min(width, height) >= 600;
+	/**
+	 * The chosen colour world applies to every scene, so personalising
+	 * it shifts the whole app's atmosphere rather than one screen's.
+	 * An explicit `colorWorld` prop still wins, for previewing a world
+	 * before committing to it.
+	 */
+	const {world} = useBerxColorWorld();
+	const activeWorld = colorWorld ?? world;
 
 	const device = useMemo(() => reactNativeDeviceSignals(reducedMotion, isTablet), [reducedMotion, isTablet]);
 
 	const screen = useMemo(
-		() => resolveScreen({screen: screenId, device, viewportWidth: width, viewportHeight: height, colorWorld, highContrast}),
-		[screenId, device, width, height, colorWorld, highContrast],
+		() =>
+			resolveScreen({
+				screen: screenId,
+				device,
+				viewportWidth: width,
+				viewportHeight: height,
+				colorWorld: activeWorld,
+				highContrast,
+			}),
+		[screenId, device, width, height, activeWorld, highContrast],
 	);
 
 	useEffect(() => {
@@ -112,7 +129,7 @@ export function BerxScreenScene({
 				testID={testID}
 				contract={screen.contract}
 				device={device}
-				colorWorld={colorWorld}
+				colorWorld={activeWorld}
 				highContrast={highContrast}>
 				<BerxSceneBackdrop media={atmosphere} scrim={scrim} />
 				<View style={styles.content}>{children}</View>

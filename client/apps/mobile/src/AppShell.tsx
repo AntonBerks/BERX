@@ -29,6 +29,7 @@ import {colors, spacing, typography} from '@berx/design-system/tokens';
 import {BerxLoadingState, BerxErrorState} from '../../../packages/design-system/src/components/BerxStates';
 import {IconHome, IconSearch, IconPlus, IconMessage, IconMenu} from '../../../packages/design-system/src/components/BerxIcons';
 import {BerxBottomNav, type BerxNavTab} from '../../../packages/design-system/src/spatial/BerxBottomNav';
+import {BerxColorWorldProvider} from './spatial/BerxColorWorld';
 import {BerxNavigator, useBerxNavigation} from './navigation/BerxNavigator';
 import {BERX_BOTTOM_TABS, BerxRouteName} from './navigation/routes';
 import LoginScreen from './screens/LoginScreen';
@@ -83,6 +84,7 @@ import CreateCollectionScreen from './screens/CreateCollectionScreen';
 import AddToCollectionScreen from './screens/AddToCollectionScreen';
 import CirclesScreen from './screens/CirclesScreen';
 import ConnectionsScreen from './screens/ConnectionsScreen';
+import ColorWorldScreen from './screens/ColorWorldScreen';
 import CircleDetailScreen from './screens/CircleDetailScreen';
 import CreateCircleScreen from './screens/CreateCircleScreen';
 import TripsScreen from './screens/TripsScreen';
@@ -185,6 +187,7 @@ function RouteRenderer({name, params}: {name: BerxRouteName; params: unknown}) {
 					onOpenDatingPrivacy={!nav.canGoBack ? () => nav.push('DatingPrivacy', undefined) : undefined}
 					onOpenCommunities={!nav.canGoBack ? () => nav.push('Communities', undefined) : undefined}
 					onOpenConnections={!nav.canGoBack ? () => nav.push('Connections', undefined) : undefined}
+					onOpenColorWorld={!nav.canGoBack ? () => nav.push('ColorWorld', undefined) : undefined}
 					onOpenDating={!nav.canGoBack ? () => nav.push('Dating', undefined) : undefined}
 					onOpenPlaces={!nav.canGoBack ? () => nav.push('Places', undefined) : undefined}
 					onOpenEvents={!nav.canGoBack ? () => nav.push('Events', undefined) : undefined}
@@ -597,6 +600,8 @@ function RouteRenderer({name, params}: {name: BerxRouteName; params: unknown}) {
 				/>
 			);
 		}
+		case 'ColorWorld':
+			return <ColorWorldScreen onBack={nav.pop} />;
 		case 'Connections':
 			return (
 				<ConnectionsScreen
@@ -1058,6 +1063,16 @@ function TabPane({visible, children}: {visible: boolean; children: React.ReactNo
 }
 
 export default function AppShell() {
+	return (
+		/* the chosen colour world wraps the whole app, so every scene —
+		   authenticated or not — resolves in the same atmosphere */
+		<BerxColorWorldProvider>
+			<BerxAppRoot />
+		</BerxColorWorldProvider>
+	);
+}
+
+function BerxAppRoot() {
 	const snapshot = useAuthSnapshot();
 
 	if (snapshot.status === 'booting') {

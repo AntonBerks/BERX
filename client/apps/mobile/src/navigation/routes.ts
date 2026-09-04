@@ -56,6 +56,7 @@ export type BerxRouteName =
 	| 'AddToCollection'
 	| 'Circles'
 	| 'Connections'
+	| 'ColorWorld'
 	| 'CircleDetail'
 	| 'CreateCircle'
 	| 'Trips'
@@ -140,6 +141,7 @@ export interface BerxRouteParams {
 	AddToCollection: { itemType: 'place' | 'event' | 'post'; itemGuid: number };
 	Circles: undefined;
 	Connections: undefined;
+	ColorWorld: undefined;
 	CircleDetail: { id: number };
 	CreateCircle: undefined;
 	Trips: { userGuid?: number; isOwn: boolean };
@@ -247,6 +249,13 @@ export const BERX_ROUTES: BerxRouteMeta[] = [
 	{ name: 'AddToCollection', connected: true },
 	{ name: 'Circles', connected: true },
 	{ name: 'Connections', connected: true },
+	/**
+	 * Connected, with one honest caveat recorded on the screen itself:
+	 * the chosen world persists on the device, not in the account —
+	 * POST /api/v1/me takes four fields and BERX has no
+	 * profile-preference resource.
+	 */
+	{ name: 'ColorWorld', connected: true },
 	{ name: 'CircleDetail', connected: true },
 	{ name: 'CreateCircle', connected: true },
 	{ name: 'Trips', connected: true },

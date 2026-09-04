@@ -69,6 +69,8 @@ export interface ProfileScreenProps {
 	onOpenCommunities?: () => void;
 	/** BERX-151 Connections — friends and people search in one place. */
 	onOpenConnections?: () => void;
+	/** BERX-004 Choose Color Vibe — the app-wide atmosphere. */
+	onOpenColorWorld?: () => void;
 	onOpenDating?: () => void;
 	onOpenPlaces?: () => void;
 	onOpenEvents?: () => void;
@@ -349,6 +351,7 @@ function ProfileSections(props: ProfileScreenProps & {profile: ProfileData; isOw
 		if (props.onOpenPoints) activity.push({key: 'points', label: 'Баллы и уровень', icon: <IconStar size={18} color={colors.text} />, onPress: props.onOpenPoints});
 		if (props.onOpenMemories) activity.push({key: 'memories', label: 'Воспоминания', icon: <IconStar size={18} color={colors.text} />, onPress: props.onOpenMemories});
 		if (props.onOpenWrapped) activity.push({key: 'wrapped', label: 'BERX Wrapped', icon: <IconStar size={18} color={colors.text} />, onPress: props.onOpenWrapped});
+		if (props.onOpenColorWorld) activity.push({key: 'color-world', label: 'Цветовой мир', icon: <IconStar size={18} color={colors.text} />, onPress: props.onOpenColorWorld});
 		if (props.onOpenSettings) activity.push({key: 'settings', label: 'Настройки', icon: <IconLock size={18} color={colors.text} />, onPress: props.onOpenSettings});
 	}
 

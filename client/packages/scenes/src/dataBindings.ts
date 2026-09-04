@@ -75,6 +75,13 @@ export const BERX_SCENE_DATA_BINDINGS: Record<string, BerxSceneDataBinding> = {
 		domains: ['Profile'],
 		reads: [],
 		mutations: [],
+		/**
+		 * Implemented and device-local. The six archive worlds are real
+		 * and selecting one re-resolves every scene in the app; only the
+		 * account-level persistence below is missing, and the screen
+		 * says so rather than implying the choice follows the user.
+		 */
+		dataless: true,
 		blocked: [
 			{
 				capability: 'persist the chosen color world to the account',
