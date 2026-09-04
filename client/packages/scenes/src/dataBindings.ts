@@ -134,6 +134,12 @@ export const BERX_SCENE_DATA_BINDINGS: Record<string, BerxSceneDataBinding> = {
 	'BERX-009': {
 		screenId: 'BERX-009',
 		domains: ['User'],
+		/**
+		 * The onboarding step itself configures nothing — BERX has no
+		 * account-wide safety settings resource — so it introduces the
+		 * three real, server-enforced capabilities and opens the real
+		 * screens that use them. Those screens carry the calls.
+		 */
 		reads: ['blockedUsers'],
 		mutations: ['blockUser', 'unblockUser', 'submitReport'],
 	},

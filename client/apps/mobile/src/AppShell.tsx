@@ -32,9 +32,6 @@ import {BerxBottomNav, type BerxNavTab} from '../../../packages/design-system/sr
 import {BerxColorWorldProvider} from './spatial/BerxColorWorld';
 import {BerxNavigator, useBerxNavigation} from './navigation/BerxNavigator';
 import {BERX_BOTTOM_TABS, BerxRouteName} from './navigation/routes';
-import LoginScreen from './screens/LoginScreen';
-import WelcomeScreen from './screens/WelcomeScreen';
-import RegisterScreen from './screens/RegisterScreen';
 import FeedScreen from './screens/FeedScreen';
 import PostDetailScreen from './screens/PostDetailScreen';
 import ProfileScreen from './screens/ProfileScreen';
@@ -85,6 +82,7 @@ import AddToCollectionScreen from './screens/AddToCollectionScreen';
 import CirclesScreen from './screens/CirclesScreen';
 import ConnectionsScreen from './screens/ConnectionsScreen';
 import ColorWorldScreen from './screens/ColorWorldScreen';
+import {BerxAuthFlow, BerxFirstRun} from './screens/onboarding/BerxOnboarding';
 import CircleDetailScreen from './screens/CircleDetailScreen';
 import CreateCircleScreen from './screens/CreateCircleScreen';
 import TripsScreen from './screens/TripsScreen';
@@ -936,6 +934,8 @@ function AuthenticatedApp() {
 	const [activeTab, setActiveTab] = useState<BerxRouteName>('Home');
 	/** Real unread counts from the real endpoints; absent until they load. */
 	const [unreadMessages, setUnreadMessages] = useState<number | undefined>(undefined);
+	/** The signed-in account, for the first-run steps that name the person. */
+	const [me, setMe] = useState<{fullname?: string; username?: string; icon_url?: string} | null>(null);
 
 	// Real, server-authoritative streak check-in — fires exactly once
 	// per real mount of the authenticated app (i.e. once per real app
@@ -946,6 +946,23 @@ function AuthenticatedApp() {
 	useEffect(() => {
 		api.streakCheckIn().catch(() => undefined); // best-effort — a failed check-in must never block the app from loading
 	}, []);
+
+	/* the account itself, so the first-run steps can name and picture the person */
+	useEffect(() => {
+		let cancelled = false;
+		api
+			.me()
+			.then((user) => {
+				if (!cancelled) setMe(user);
+			})
+			.catch(() => undefined);
+		return () => {
+			cancelled = true;
+		};
+	}, []);
+
+	const displayName = me?.fullname || me?.username || 'BERX';
+	const currentIconUrl = me?.icon_url;
 
 	/**
 	 * Real unread badge. Re-read on every tab change rather than
@@ -987,6 +1004,16 @@ function AuthenticatedApp() {
 	// conditionally-rendering one navigator to always-rendering five
 	// and hiding the inactive ones.
 	return (
+		/**
+		 * First authenticated run gets the remaining archive steps —
+		 * photo, safety, entry — once, before the app itself. The flag
+		 * is device-local; BERX has no "has onboarded" field.
+		 */
+		<BerxFirstRun
+			api={api}
+			pickImage={pickImage}
+			displayName={displayName}
+			currentIconUrl={currentIconUrl}>
 		<View style={styles.shell}>
 			<View style={styles.content}>
 				<TabPane visible={activeTab === 'Home'}>
@@ -1027,6 +1054,7 @@ function AuthenticatedApp() {
 				testID="berx-bottom-nav"
 			/>
 		</View>
+		</BerxFirstRun>
 	);
 }
 
@@ -1109,21 +1137,13 @@ function BerxAppRoot() {
  * not a stack a user would "go back" through in a meaningful way).
  */
 function UnauthenticatedFlow() {
-	const [screen, setScreen] = useState<'welcome' | 'login' | 'register'>('welcome');
-
-	if (screen === 'login') {
-		return <LoginScreen authState={authState} onGoToRegister={() => setScreen('register')} />;
-	}
-	if (screen === 'register') {
-		return (
-			<RegisterScreen
-				api={api}
-				onRegistered={() => setScreen('login')}
-				onBack={() => setScreen('welcome')}
-			/>
-		);
-	}
-	return <WelcomeScreen onLogin={() => setScreen('login')} onRegister={() => setScreen('register')} />;
+	/**
+	 * The archive's AUTH sequence, not three loose screens: reveal →
+	 * colour world → account → sign in. See BerxOnboarding for why the
+	 * world is chosen before the account exists, and which archive
+	 * steps are deliberately absent.
+	 */
+	return <BerxAuthFlow authState={authState} api={api} />;
 }
 
 const styles = StyleSheet.create({
