@@ -45,8 +45,37 @@ export interface PostDetailScreenProps {
 }
 
 export default function PostDetailScreen(props: PostDetailScreenProps) {
+	/**
+	 * A post's own first image becomes the scene's atmosphere.
+	 *
+	 * Media is BERX's primary visual element and the glass supports it
+	 * (BERX_DECISIONS.md), so on a post that has media the whole scene
+	 * sits inside it — dimmed, parallaxed behind the content, scrimmed
+	 * hard enough that reading never depends on the picture. A text
+	 * post gets no atmosphere rather than a decorative stand-in.
+	 */
+	const [atmosphere, setAtmosphere] = useState<string | null>(null);
+
+	useEffect(() => {
+		let cancelled = false;
+		props.api
+			.mediaByContext('post', props.postGuid)
+			.then((res) => {
+				const first = res.media.find((m) => m.media_type === 'image');
+				if (!cancelled) setAtmosphere(first?.url ?? null);
+			})
+			.catch(() => undefined);
+		return () => {
+			cancelled = true;
+		};
+	}, [props.api, props.postGuid]);
+
 	return (
-		<BerxFamilyScene family="HOME" testID="post-detail">
+		<BerxFamilyScene
+			family="HOME"
+			atmosphere={atmosphere ? {uri: atmosphere} : undefined}
+			scrim={atmosphere ? 0.68 : 0}
+			testID="post-detail">
 			<PostDetailSceneBody {...props} />
 		</BerxFamilyScene>
 	);

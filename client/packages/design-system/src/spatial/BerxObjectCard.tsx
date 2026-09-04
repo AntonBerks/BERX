@@ -12,6 +12,7 @@
  */
 import {Image, StyleSheet, Text, View, type ImageSourcePropType} from 'react-native';
 import {BerxSpatialCard} from './BerxSpatialCard';
+import {useBerxScene} from './BerxSpatialScene';
 import {colors, spacing, typography} from '../tokens';
 
 export interface BerxObjectCardFact {
@@ -50,6 +51,9 @@ export function BerxObjectCard({
 	accessibilityLabel,
 	testID,
 }: BerxObjectCardProps) {
+	const {scene} = useBerxScene();
+	const controls = scene.layers.D4;
+
 	const label =
 		accessibilityLabel ??
 		[title, subtitle, ...(facts ?? []).map((f) => `${f.label}: ${f.value}`)].filter(Boolean).join(', ');
@@ -80,7 +84,36 @@ export function BerxObjectCard({
 						))}
 					</View>
 				) : null}
-				{actions ? <View style={styles.actions}>{actions}</View> : null}
+				{/**
+				 * Actions sit on the control plane, not on the content
+				 * plane with everything else. The shelf takes D4's own
+				 * material, its lit top edge and its separation rim, so a
+				 * card has real depth inside it — controls in front of
+				 * content — rather than being one flat pane with buttons
+				 * printed on it. This is the difference the archive means
+				 * by D3 and D4 being different layers.
+				 */}
+				{actions ? (
+					<View
+						style={[
+							styles.actions,
+							{
+								backgroundColor: controls.surface.backgroundColor,
+								borderColor: controls.surface.borderColor,
+								shadowColor: controls.lighting.shadow.color,
+								shadowOpacity: 1,
+								shadowRadius: controls.lighting.shadow.radius,
+								shadowOffset: {width: 0, height: -controls.lighting.shadow.offsetY},
+								elevation: controls.lighting.shadow.elevation,
+							},
+						]}>
+						<View
+							pointerEvents="none"
+							style={[styles.actionsEdge, {backgroundColor: controls.surface.edgeHighlightColor}]}
+						/>
+						{actions}
+					</View>
+				) : null}
 			</View>
 		</BerxSpatialCard>
 	);
@@ -97,5 +130,16 @@ const styles = StyleSheet.create({
 	fact: {gap: 1},
 	factValue: {color: colors.text, fontSize: typography.sizeLg, fontWeight: typography.weightBold},
 	factLabel: {color: colors.textFaint, fontSize: typography.sizeXs},
-	actions: {flexDirection: 'row', gap: spacing.sm, paddingTop: spacing.md, flexWrap: 'wrap'},
+	actions: {
+		flexDirection: 'row',
+		gap: spacing.sm,
+		flexWrap: 'wrap',
+		marginTop: spacing.md,
+		marginHorizontal: -spacing.lg,
+		marginBottom: -spacing.lg,
+		paddingHorizontal: spacing.lg,
+		paddingVertical: spacing.md,
+		borderTopWidth: 1,
+	},
+	actionsEdge: {position: 'absolute', top: 0, left: 0, right: 0, height: 1},
 });
