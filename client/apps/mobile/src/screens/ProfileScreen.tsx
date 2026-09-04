@@ -71,6 +71,8 @@ export interface ProfileScreenProps {
 	onOpenConnections?: () => void;
 	/** BERX-004 Choose Color Vibe — the app-wide atmosphere. */
 	onOpenColorWorld?: () => void;
+	/** The v9 archive, browsable: all 300 contracts and the scene each resolves to. */
+	onOpenScenes?: () => void;
 	onOpenDating?: () => void;
 	onOpenPlaces?: () => void;
 	onOpenEvents?: () => void;
@@ -353,6 +355,7 @@ function ProfileSections(props: ProfileScreenProps & {profile: ProfileData; isOw
 		if (props.onOpenWrapped) activity.push({key: 'wrapped', label: 'BERX Wrapped', icon: <IconStar size={18} color={colors.text} />, onPress: props.onOpenWrapped});
 		if (props.onOpenColorWorld) activity.push({key: 'color-world', label: 'Цветовой мир', icon: <IconStar size={18} color={colors.text} />, onPress: props.onOpenColorWorld});
 		if (props.onOpenSettings) activity.push({key: 'settings', label: 'Настройки', icon: <IconLock size={18} color={colors.text} />, onPress: props.onOpenSettings});
+		if (props.onOpenScenes) activity.push({key: 'scenes', label: 'Сцены BERX', icon: <IconStar size={18} color={colors.text} />, onPress: props.onOpenScenes});
 	}
 
 	return (

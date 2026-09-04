@@ -57,6 +57,8 @@ export type BerxRouteName =
 	| 'Circles'
 	| 'Connections'
 	| 'ColorWorld'
+	| 'Scenes'
+	| 'Scene'
 	| 'CircleDetail'
 	| 'CreateCircle'
 	| 'Trips'
@@ -142,6 +144,8 @@ export interface BerxRouteParams {
 	Circles: undefined;
 	Connections: undefined;
 	ColorWorld: undefined;
+	Scenes: undefined;
+	Scene: { screenId: string };
 	CircleDetail: { id: number };
 	CreateCircle: undefined;
 	Trips: { userGuid?: number; isOwn: boolean };
@@ -256,6 +260,13 @@ export const BERX_ROUTES: BerxRouteMeta[] = [
 	 * profile-preference resource.
 	 */
 	{ name: 'ColorWorld', connected: true },
+	/**
+	 * The archive itself, browsable and renderable. Every one of the
+	 * 300 v9 contracts resolves through here to its real scene — which
+	 * is what makes coverage a runtime fact rather than a probe result.
+	 */
+	{ name: 'Scenes', connected: true },
+	{ name: 'Scene', connected: true },
 	{ name: 'CircleDetail', connected: true },
 	{ name: 'CreateCircle', connected: true },
 	{ name: 'Trips', connected: true },

@@ -82,6 +82,8 @@ import AddToCollectionScreen from './screens/AddToCollectionScreen';
 import CirclesScreen from './screens/CirclesScreen';
 import ConnectionsScreen from './screens/ConnectionsScreen';
 import ColorWorldScreen from './screens/ColorWorldScreen';
+import SceneIndexScreen from './screens/SceneIndexScreen';
+import SceneScreen, {BERX_ROUTED_CONTRACTS} from './screens/SceneScreen';
 import {BerxAuthFlow, BerxFirstRun} from './screens/onboarding/BerxOnboarding';
 import CircleDetailScreen from './screens/CircleDetailScreen';
 import CreateCircleScreen from './screens/CreateCircleScreen';
@@ -186,6 +188,7 @@ function RouteRenderer({name, params}: {name: BerxRouteName; params: unknown}) {
 					onOpenCommunities={!nav.canGoBack ? () => nav.push('Communities', undefined) : undefined}
 					onOpenConnections={!nav.canGoBack ? () => nav.push('Connections', undefined) : undefined}
 					onOpenColorWorld={!nav.canGoBack ? () => nav.push('ColorWorld', undefined) : undefined}
+					onOpenScenes={!nav.canGoBack ? () => nav.push('Scenes', undefined) : undefined}
 					onOpenDating={!nav.canGoBack ? () => nav.push('Dating', undefined) : undefined}
 					onOpenPlaces={!nav.canGoBack ? () => nav.push('Places', undefined) : undefined}
 					onOpenEvents={!nav.canGoBack ? () => nav.push('Events', undefined) : undefined}
@@ -600,6 +603,22 @@ function RouteRenderer({name, params}: {name: BerxRouteName; params: unknown}) {
 		}
 		case 'ColorWorld':
 			return <ColorWorldScreen onBack={nav.pop} />;
+		case 'Scenes':
+			return <SceneIndexScreen onOpenScene={(screenId) => nav.push('Scene', {screenId})} onBack={nav.pop} />;
+		case 'Scene': {
+			const p = params as {screenId: string};
+			return (
+				<SceneScreen
+					screenId={p.screenId}
+					/* a contract with a real screen opens that screen, not a copy of it */
+					onOpenReal={(screenId) => {
+						const route = BERX_ROUTED_CONTRACTS[screenId];
+						if (route) nav.push(route as BerxRouteName, undefined as never);
+					}}
+					onBack={nav.pop}
+				/>
+			);
+		}
 		case 'Connections':
 			return (
 				<ConnectionsScreen
