@@ -13,14 +13,23 @@ import type {BerxCircleDetail, BerxCircleMember, BerxFriend} from '@berx/api/typ
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
+import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 
-interface Props {
+export interface CircleDetailScreenProps {
 	api: BerxApiClient;
 	id: number;
 	onBack?: () => void;
 }
 
-export default function CircleDetailScreen({api, id, onBack}: Props) {
+export default function CircleDetailScreen(props: CircleDetailScreenProps) {
+	return (
+		<BerxFamilyScene family="SOCIAL" testID="circle-detail">
+			<CircleDetailScreenBody {...props} />
+		</BerxFamilyScene>
+	);
+}
+
+function CircleDetailScreenBody({api, id, onBack}: CircleDetailScreenProps) {
 	const [circle, setCircle] = useState<BerxCircleDetail | null>(null);
 	const [friends, setFriends] = useState<BerxFriend[]>([]);
 	const [loading, setLoading] = useState(true);

@@ -14,8 +14,9 @@ import {colors, spacing, typography} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState} from '../../../../packages/design-system/src/components/BerxStates';
+import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 
-interface Props {
+export interface CommunityDetailScreenProps {
 	api: BerxApiClient;
 	guid: number;
 	myGuid?: number;
@@ -26,7 +27,15 @@ interface Props {
 	onReport?: (guid: number) => void;
 }
 
-export default function CommunityDetailScreen({api, guid, myGuid, onBack, onOpenRequests, onOpenModerators, onOpenMembers, onReport}: Props) {
+export default function CommunityDetailScreen(props: CommunityDetailScreenProps) {
+	return (
+		<BerxFamilyScene family="COMMUNITY" testID="community-detail">
+			<CommunityDetailScreenBody {...props} />
+		</BerxFamilyScene>
+	);
+}
+
+function CommunityDetailScreenBody({api, guid, myGuid, onBack, onOpenRequests, onOpenModerators, onOpenMembers, onReport}: CommunityDetailScreenProps) {
 	const [community, setCommunity] = useState<BerxCommunity | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);

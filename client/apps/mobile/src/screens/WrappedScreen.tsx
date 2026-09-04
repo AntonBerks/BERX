@@ -13,8 +13,9 @@ import type {BerxWrapped, BerxWrappedPeriod} from '@berx/api/types';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
+import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 
-interface Props {
+export interface WrappedScreenProps {
 	api: BerxApiClient;
 	onBack?: () => void;
 }
@@ -27,7 +28,15 @@ const ROWS: {key: keyof BerxWrapped; label: string}[] = [
 	{key: 'places_saved', label: 'Мест сохранено'},
 ];
 
-export default function WrappedScreen({api, onBack}: Props) {
+export default function WrappedScreen(props: WrappedScreenProps) {
+	return (
+		<BerxFamilyScene family="PROFILE" testID="wrapped">
+			<WrappedScreenBody {...props} />
+		</BerxFamilyScene>
+	);
+}
+
+function WrappedScreenBody({api, onBack}: WrappedScreenProps) {
 	const [period, setPeriod] = useState<BerxWrappedPeriod>('month');
 	const [data, setData] = useState<BerxWrapped | null>(null);
 	const [loading, setLoading] = useState(true);

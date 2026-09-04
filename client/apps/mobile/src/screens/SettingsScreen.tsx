@@ -11,8 +11,9 @@ import React from 'react';
 import {View, Text, Pressable, StyleSheet} from 'react-native';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
+import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 
-interface Props {
+export interface SettingsScreenProps {
 	onOpenDeviceSessions: () => void;
 	onOpenBlockedUsers: () => void;
 	onOpenDeleteAccount: () => void;
@@ -30,7 +31,15 @@ function Row({label, onPress, danger}: {label: string; onPress: () => void; dang
 	);
 }
 
-export default function SettingsScreen({onOpenDeviceSessions, onOpenBlockedUsers, onOpenDeleteAccount, onOpenDatingPrivacy, onOpenCircles, onBack}: Props) {
+export default function SettingsScreen(props: SettingsScreenProps) {
+	return (
+		<BerxFamilyScene family="PROFILE" testID="settings">
+			<SettingsScreenBody {...props} />
+		</BerxFamilyScene>
+	);
+}
+
+function SettingsScreenBody({onOpenDeviceSessions, onOpenBlockedUsers, onOpenDeleteAccount, onOpenDatingPrivacy, onOpenCircles, onBack}: SettingsScreenProps) {
 	return (
 		<View style={styles.screen}>
 			<BerxHeader title="Настройки" onBack={onBack} />

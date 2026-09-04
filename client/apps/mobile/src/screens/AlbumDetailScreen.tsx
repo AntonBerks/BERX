@@ -20,8 +20,9 @@ import {colors, spacing, typography} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
+import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 
-interface Props {
+export interface AlbumDetailScreenProps {
 	api: BerxApiClient;
 	guid: number;
 	authState: BerxAuthState;
@@ -31,7 +32,15 @@ interface Props {
 
 const TILE = Dimensions.get('window').width / 3;
 
-export default function AlbumDetailScreen({api, guid, authState, pickImage, onBack}: Props) {
+export default function AlbumDetailScreen(props: AlbumDetailScreenProps) {
+	return (
+		<BerxFamilyScene family="PROFILE" testID="album-detail">
+			<AlbumDetailScreenBody {...props} />
+		</BerxFamilyScene>
+	);
+}
+
+function AlbumDetailScreenBody({api, guid, authState, pickImage, onBack}: AlbumDetailScreenProps) {
 	const [album, setAlbum] = useState<BerxAlbumDetail | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);

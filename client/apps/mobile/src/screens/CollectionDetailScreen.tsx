@@ -13,8 +13,9 @@ import type {BerxCollectionDetail, BerxCollectionItem} from '@berx/api/types';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
+import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 
-interface Props {
+export interface CollectionDetailScreenProps {
 	api: BerxApiClient;
 	id: number;
 	onOpenPlace: (guid: number) => void;
@@ -23,7 +24,15 @@ interface Props {
 	onBack?: () => void;
 }
 
-export default function CollectionDetailScreen({api, id, onOpenPlace, onOpenEvent, onOpenPost, onBack}: Props) {
+export default function CollectionDetailScreen(props: CollectionDetailScreenProps) {
+	return (
+		<BerxFamilyScene family="EXPERIENCE" testID="collection-detail">
+			<CollectionDetailScreenBody {...props} />
+		</BerxFamilyScene>
+	);
+}
+
+function CollectionDetailScreenBody({api, id, onOpenPlace, onOpenEvent, onOpenPost, onBack}: CollectionDetailScreenProps) {
 	const [collection, setCollection] = useState<BerxCollectionDetail | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);

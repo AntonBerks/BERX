@@ -3,16 +3,18 @@
  * Real data: api.userAlbums() (components/OssnApi/v1/albums.php,
  * wraps OssnAlbums::GetAlbums() verbatim).
  */
-import React, {useCallback, useEffect, useState} from 'react';
-import {View, Text, FlatList, Pressable, StyleSheet} from 'react-native';
+import {useCallback, useEffect, useState} from 'react';
+import {View, FlatList, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxAlbum} from '@berx/api/types';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
+import {BerxFamilyScene} from '../spatial/BerxScreenScene';
+import {BerxObjectCard} from '../../../../packages/design-system/src/spatial/BerxObjectCard';
 
-interface Props {
+export interface AlbumsScreenProps {
 	api: BerxApiClient;
 	userGuid: number;
 	isOwn: boolean;
@@ -21,7 +23,15 @@ interface Props {
 	onBack?: () => void;
 }
 
-export default function AlbumsScreen({api, userGuid, isOwn, onOpenAlbum, onCreate, onBack}: Props) {
+export default function AlbumsScreen(props: AlbumsScreenProps) {
+	return (
+		<BerxFamilyScene family="PROFILE" testID="albums">
+			<AlbumsScreenBody {...props} />
+		</BerxFamilyScene>
+	);
+}
+
+function AlbumsScreenBody({api, userGuid, isOwn, onOpenAlbum, onCreate, onBack}: AlbumsScreenProps) {
 	const [items, setItems] = useState<BerxAlbum[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
@@ -60,15 +70,10 @@ export default function AlbumsScreen({api, userGuid, isOwn, onOpenAlbum, onCreat
 				<FlatList
 					data={items}
 					keyExtractor={(a: BerxAlbum) => String(a.guid)}
-					numColumns={2}
-					contentContainerStyle={styles.grid}
+					contentContainerStyle={styles.list}
+					removeClippedSubviews
 					renderItem={({item}: {item: BerxAlbum}) => (
-						<Pressable style={styles.card} onPress={() => onOpenAlbum(item.guid)}>
-							<View style={styles.cardMedia}>
-								<Text style={styles.cardInitial}>{item.title.charAt(0).toUpperCase()}</Text>
-							</View>
-							<Text style={styles.cardTitle} numberOfLines={1}>{item.title}</Text>
-						</Pressable>
+						<BerxObjectCard title={item.title} onPress={() => onOpenAlbum(item.guid)} />
 					)}
 				/>
 			)}
@@ -79,7 +84,7 @@ export default function AlbumsScreen({api, userGuid, isOwn, onOpenAlbum, onCreat
 const styles = StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.bg},
 	toolbar: {padding: spacing.md},
-	grid: {padding: spacing.sm},
+	list: {padding: spacing.lg, gap: spacing.md},
 	card: {flex: 1, margin: spacing.xs, borderRadius: radius.md, overflow: 'hidden', backgroundColor: colors.surface},
 	cardMedia: {width: '100%', aspectRatio: 1, backgroundColor: colors.graphite, alignItems: 'center', justifyContent: 'center'},
 	cardInitial: {fontSize: typography.sizeXl, color: colors.textFaint},

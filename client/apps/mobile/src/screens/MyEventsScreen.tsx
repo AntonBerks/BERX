@@ -2,21 +2,32 @@
  * !!! VERIFICATION STATUS: UNVERIFIED — see LoginScreen.tsx header.
  * Real data: api.myGoingEvents() (components/OssnApi/v1/events.php).
  */
-import React, {useCallback, useEffect, useState} from 'react';
-import {View, Text, FlatList, Image, Pressable, StyleSheet} from 'react-native';
+import {useCallback, useEffect, useState} from 'react';
+import {View, FlatList, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxEvent} from '@berx/api/types';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
+import {BerxFamilyScene} from '../spatial/BerxScreenScene';
+import {BerxObjectCard} from '../../../../packages/design-system/src/spatial/BerxObjectCard';
+import {BerxCountdown} from '../../../../packages/design-system/src/spatial/BerxCountdown';
 
-interface Props {
+export interface MyEventsScreenProps {
 	api: BerxApiClient;
 	onOpenEvent: (guid: number) => void;
 	onBack?: () => void;
 }
 
-export default function MyEventsScreen({api, onOpenEvent, onBack}: Props) {
+export default function MyEventsScreen(props: MyEventsScreenProps) {
+	return (
+		<BerxFamilyScene family="EVENTS" testID="my-events">
+			<MyEventsScreenBody {...props} />
+		</BerxFamilyScene>
+	);
+}
+
+function MyEventsScreenBody({api, onOpenEvent, onBack}: MyEventsScreenProps) {
 	const [items, setItems] = useState<BerxEvent[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
@@ -54,13 +65,16 @@ export default function MyEventsScreen({api, onOpenEvent, onBack}: Props) {
 					renderItem={({item}: {item: BerxEvent}) => {
 						const date = new Date(item.starts * 1000);
 						return (
-							<Pressable style={styles.card} onPress={() => onOpenEvent(item.guid)}>
-								{item.cover_url ? <Image source={{uri: item.cover_url}} style={styles.cardImage} /> : <View style={styles.cardImageFallback} />}
-								<View style={styles.cardBody}>
-									<Text style={styles.cardTitle} numberOfLines={1}>{item.title}</Text>
-									<Text style={styles.cardMeta}>{date.toLocaleDateString('ru-RU', {day: 'numeric', month: 'long'})}</Text>
-								</View>
-							</Pressable>
+							<BerxObjectCard
+								title={item.title}
+								subtitle={date.toLocaleDateString('ru-RU', {day: 'numeric', month: 'long'})}
+								media={item.cover_url ? {uri: item.cover_url} : undefined}
+								mediaAlt={item.cover_url ? `Афиша события ${item.title}` : undefined}
+								/* only counts the server returns */
+								facts={[{label: 'идут', value: item.attendee_count}]}
+								badges={item.has_ended ? undefined : <BerxCountdown startsAtUnix={item.starts} />}
+								onPress={() => onOpenEvent(item.guid)}
+							/>
 						);
 					}}
 				/>

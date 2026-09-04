@@ -18,8 +18,9 @@ import {BerxHeader} from '../../../../packages/design-system/src/components/Berx
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
+import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 
-interface Props {
+export interface PlacesNearbyScreenProps {
 	api: BerxApiClient;
 	onOpenPlace: (guid: number) => void;
 	onBack?: () => void;
@@ -27,7 +28,15 @@ interface Props {
 
 const RADII = [1, 3, 5, 10, 25, 50];
 
-export default function PlacesNearbyScreen({api, onOpenPlace, onBack}: Props) {
+export default function PlacesNearbyScreen(props: PlacesNearbyScreenProps) {
+	return (
+		<BerxFamilyScene family="PLACES" testID="places-nearby">
+			<PlacesNearbyScreenBody {...props} />
+		</BerxFamilyScene>
+	);
+}
+
+function PlacesNearbyScreenBody({api, onOpenPlace, onBack}: PlacesNearbyScreenProps) {
 	const [lat, setLat] = useState('');
 	const [lng, setLng] = useState('');
 	const [radiusKm, setRadiusKm] = useState(5);

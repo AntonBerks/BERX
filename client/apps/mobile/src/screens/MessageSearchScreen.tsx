@@ -14,8 +14,9 @@ import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
+import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 
-interface Props {
+export interface MessageSearchScreenProps {
 	api: BerxApiClient;
 	onOpenConversation: (otherGuid: number) => void;
 	onBack?: () => void;
@@ -25,7 +26,15 @@ function fmtTime(unix: number): string {
 	return new Date(unix * 1000).toLocaleString('ru-RU');
 }
 
-export default function MessageSearchScreen({api, onOpenConversation, onBack}: Props) {
+export default function MessageSearchScreen(props: MessageSearchScreenProps) {
+	return (
+		<BerxFamilyScene family="MESSAGES" testID="message-search">
+			<MessageSearchScreenBody {...props} />
+		</BerxFamilyScene>
+	);
+}
+
+function MessageSearchScreenBody({api, onOpenConversation, onBack}: MessageSearchScreenProps) {
 	const [query, setQuery] = useState('');
 	const [results, setResults] = useState<BerxMessageSearchResult[]>([]);
 	const [loading, setLoading] = useState(false);

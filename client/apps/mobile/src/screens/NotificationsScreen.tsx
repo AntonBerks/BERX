@@ -12,16 +12,22 @@
  * destination. Any other/unrecognized type just marks read without
  * navigating — never silently pretends to go somewhere.
  */
-import React, {useCallback, useEffect, useState} from 'react';
-import {View, Text, FlatList, Pressable, RefreshControl, StyleSheet} from 'react-native';
+import {useCallback, useEffect, useState} from 'react';
+import {View, Text, FlatList, RefreshControl, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxNotification} from '@berx/api/types';
 import {relativeTimeLabel} from '@berx/domain';
+import type {BerxScreenState} from '@berx/spatial';
 import {colors, spacing, typography} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
-import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
+import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
+import {BerxSpatialCard} from '../../../../packages/design-system/src/spatial/BerxSpatialCard';
+import {BerxDataBoundary} from '../../../../packages/design-system/src/spatial/BerxDataBoundary';
+import {BerxEnergyHalo} from '../../../../packages/design-system/src/spatial/BerxEnergyHalo';
+import {useBerxScene, useBerxSceneScroll} from '../../../../packages/design-system/src/spatial/BerxSpatialScene';
+import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 
-interface Props {
+export interface NotificationsScreenProps {
 	api: BerxApiClient;
 	onOpenConversation: (otherGuid: number) => void;
 	onOpenDating: () => void;
@@ -44,9 +50,19 @@ const NOTIFICATION_LABELS: Record<string, string> = {
 	'berx:event:invite': 'Приглашение на событие',
 };
 
-export default function NotificationsScreen({api, onOpenConversation, onOpenDating, onOpenPlace, onOpenEvent, onBack}: Props) {
+export default function NotificationsScreen(props: NotificationsScreenProps) {
+	return (
+		<BerxFamilyScene family="PROFILE" testID="notifications">
+			<NotificationsScreenBody {...props} />
+		</BerxFamilyScene>
+	);
+}
+
+function NotificationsScreenBody({api, onOpenConversation, onOpenDating, onOpenPlace, onOpenEvent, onBack}: NotificationsScreenProps) {
+	const {scene} = useBerxScene();
+	const {onScroll, scrollEventThrottle} = useBerxSceneScroll();
 	const [items, setItems] = useState<BerxNotification[]>([]);
-	const [loading, setLoading] = useState(true);
+	const [state, setState] = useState<BerxScreenState>('loading');
 	const [refreshing, setRefreshing] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [busy, setBusy] = useState(false);
@@ -56,10 +72,11 @@ export default function NotificationsScreen({api, onOpenConversation, onOpenDati
 			const res = await api.notifications(false, 30, 1);
 			setItems(res.notifications);
 			setError(null);
-		} catch {
-			setError('Не удалось загрузить уведомления');
+			setState(res.notifications.length === 0 ? 'empty' : 'default');
+		} catch (e) {
+			setError(e instanceof Error ? e.message : 'Не удалось загрузить уведомления');
+			setState('error');
 		} finally {
-			setLoading(false);
 			setRefreshing(false);
 		}
 	}, [api]);
@@ -102,6 +119,7 @@ export default function NotificationsScreen({api, onOpenConversation, onOpenDati
 		try {
 			await api.deleteAllNotifications();
 			setItems([]);
+			setState('empty');
 		} catch {
 			// list stays as-is on failure — never optimistically cleared before the server confirms
 		} finally {
@@ -109,29 +127,34 @@ export default function NotificationsScreen({api, onOpenConversation, onOpenDati
 		}
 	}
 
+	const unreadCount = items.filter((n) => !n.viewed).length;
+
 	return (
 		<View style={styles.screen}>
 			<BerxHeader onBack={onBack} title="Уведомления" />
+
 			{items.length > 0 ? (
 				<View style={styles.actionsRow}>
-					<Pressable onPress={markAllRead} disabled={busy} hitSlop={8}>
-						<Text style={styles.actionLink}>Прочитать всё</Text>
-					</Pressable>
-					<Pressable onPress={deleteAll} disabled={busy} hitSlop={8}>
-						<Text style={[styles.actionLink, styles.actionLinkDanger]}>Удалить всё</Text>
-					</Pressable>
+					<BerxButton label="Прочитать всё" variant="secondary" onPress={markAllRead} disabled={busy || unreadCount === 0} />
+					<BerxButton label="Удалить всё" variant="secondary" onPress={deleteAll} disabled={busy} />
 				</View>
 			) : null}
-			{loading ? (
-				<BerxLoadingState label="Загрузка..." />
-			) : error ? (
-				<BerxErrorState message={error} onRetry={load} />
-			) : items.length === 0 ? (
-				<BerxEmptyState title="Пока нет уведомлений" />
-			) : (
+
+			<BerxDataBoundary
+				state={state}
+				onRetry={load}
+				errorMessage={error ?? undefined}
+				emptyTitle="Пока нет уведомлений"
+				emptyBody="Здесь появятся отклики на ваши места, события, знакомства и сообщения."
+				style={styles.body}>
 				<FlatList
 					data={items}
 					keyExtractor={(n: BerxNotification) => String(n.guid)}
+					onScroll={onScroll}
+					scrollEventThrottle={scrollEventThrottle}
+					contentContainerStyle={styles.list}
+					removeClippedSubviews
+					windowSize={Math.max(3, Math.round(scene.budget.listWindowSize / 3))}
 					refreshControl={
 						<RefreshControl
 							refreshing={refreshing}
@@ -139,29 +162,46 @@ export default function NotificationsScreen({api, onOpenConversation, onOpenDati
 								setRefreshing(true);
 								load();
 							}}
-							tintColor={colors.accent}
+							tintColor={scene.accent}
 						/>
 					}
-					renderItem={({item}: {item: BerxNotification}) => (
-						<Pressable style={[styles.row, !item.viewed && styles.rowUnread]} onPress={() => handlePress(item)}>
-							{!item.viewed ? <View style={styles.dot} /> : null}
-							<View style={styles.rowText}>
-								<Text style={styles.label}>{NOTIFICATION_LABELS[item.type] ?? item.type}</Text>
-								<Text style={styles.time}>{relativeTimeLabel(item.time_created)}</Text>
-							</View>
-						</Pressable>
-					)}
+					renderItem={({item}: {item: BerxNotification}) => {
+						const label = NOTIFICATION_LABELS[item.type] ?? item.type;
+						return (
+							<BerxSpatialCard
+								depth="D3"
+								padding={spacing.md}
+								radius={18}
+								onPress={() => handlePress(item)}
+								accessibilityLabel={`${label}, ${relativeTimeLabel(item.time_created)}${item.viewed ? '' : ', непрочитано'}`}>
+								<View style={styles.row}>
+									{/* unread carries the scene's energy; read is a neutral spacer of the same size */}
+									<View style={styles.marker}>
+										{item.viewed ? null : <BerxEnergyHalo size={14} intensity={0.9} />}
+									</View>
+									<View style={styles.rowText}>
+										<Text style={[styles.label, item.viewed ? styles.labelRead : null]}>{label}</Text>
+										<Text style={styles.time}>{relativeTimeLabel(item.time_created)}</Text>
+									</View>
+								</View>
+							</BerxSpatialCard>
+						);
+					}}
 				/>
-			)}
+			</BerxDataBoundary>
 		</View>
 	);
 }
 
 const styles = StyleSheet.create({
-	screen: {flex: 1, backgroundColor: colors.black},
-	actionsRow: {flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: spacing.lg, paddingVertical: spacing.sm},
-	actionLink: {color: colors.accent, fontSize: typography.sizeSm, fontWeight: typography.weightMedium},
-	actionLinkDanger: {color: colors.danger},
+	/* the scene paints the ground now */
+	screen: {flex: 1},
+	body: {flex: 1},
+	list: {padding: spacing.lg, gap: spacing.sm},
+	/* were 8px hit-slop links; now real 44dp controls */
+	actionsRow: {flexDirection: 'row', gap: spacing.sm, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm},
+	marker: {width: 16, alignItems: 'center'},
+	labelRead: {color: colors.textDim, fontWeight: typography.weightRegular},
 	row: {
 		flexDirection: 'row',
 		alignItems: 'center',

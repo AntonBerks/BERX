@@ -16,8 +16,9 @@ import {BerxButton} from '../../../../packages/design-system/src/components/Berx
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {BerxAudioPlayer} from '../../../../packages/design-system/src/components/BerxAudioPlayer';
 import {BerxLoadingState, BerxErrorState} from '../../../../packages/design-system/src/components/BerxStates';
+import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 
-interface Props {
+export interface TrackDetailScreenProps {
 	api: BerxApiClient;
 	postGuid: number;
 	myGuid?: number;
@@ -26,7 +27,15 @@ interface Props {
 	onBack?: () => void;
 }
 
-export default function TrackDetailScreen({api, postGuid, myGuid, onOpenProfile, onDeleted, onBack}: Props) {
+export default function TrackDetailScreen(props: TrackDetailScreenProps) {
+	return (
+		<BerxFamilyScene family="HOME" testID="track-detail">
+			<TrackDetailScreenBody {...props} />
+		</BerxFamilyScene>
+	);
+}
+
+function TrackDetailScreenBody({api, postGuid, myGuid, onOpenProfile, onDeleted, onBack}: TrackDetailScreenProps) {
 	const [track, setTrack] = useState<BerxTrackPost | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);

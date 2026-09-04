@@ -2,21 +2,33 @@
  * !!! VERIFICATION STATUS: UNVERIFIED — see LoginScreen.tsx header.
  * Real data: api.savedPlaces() (components/OssnApi/v1/places.php).
  */
-import React, {useCallback, useEffect, useState} from 'react';
-import {View, Text, FlatList, Image, Pressable, StyleSheet} from 'react-native';
+import {useCallback, useEffect, useState} from 'react';
+import {View, FlatList, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxPlace} from '@berx/api/types';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
+import {BerxFamilyScene} from '../spatial/BerxScreenScene';
+import {BerxPlaceCard} from '../../../../packages/design-system/src/spatial/BerxPlaceCard';
+import {useBerxSceneScroll} from '../../../../packages/design-system/src/spatial/BerxSpatialScene';
 
-interface Props {
+export interface SavedPlacesScreenProps {
 	api: BerxApiClient;
 	onOpenPlace: (guid: number) => void;
 	onBack?: () => void;
 }
 
-export default function SavedPlacesScreen({api, onOpenPlace, onBack}: Props) {
+export default function SavedPlacesScreen(props: SavedPlacesScreenProps) {
+	return (
+		<BerxFamilyScene family="PLACES" testID="saved-places">
+			<SavedPlacesScreenBody {...props} />
+		</BerxFamilyScene>
+	);
+}
+
+function SavedPlacesScreenBody({api, onOpenPlace, onBack}: SavedPlacesScreenProps) {
+	const {onScroll, scrollEventThrottle} = useBerxSceneScroll();
 	const [items, setItems] = useState<BerxPlace[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
@@ -50,13 +62,20 @@ export default function SavedPlacesScreen({api, onOpenPlace, onBack}: Props) {
 				<FlatList
 					data={items}
 					keyExtractor={(p: BerxPlace) => String(p.guid)}
-					numColumns={2}
-					contentContainerStyle={styles.grid}
+					onScroll={onScroll}
+					scrollEventThrottle={scrollEventThrottle}
+					contentContainerStyle={styles.list}
+					removeClippedSubviews
 					renderItem={({item}: {item: BerxPlace}) => (
-						<Pressable style={styles.card} onPress={() => onOpenPlace(item.guid)}>
-							{item.cover_url ? <Image source={{uri: item.cover_url}} style={styles.cardImage} /> : <View style={styles.cardImageFallback} />}
-							<Text style={styles.cardTitle} numberOfLines={1}>{item.title}</Text>
-						</Pressable>
+						<BerxPlaceCard
+							placeGuid={item.guid}
+							name={item.title}
+							category={item.address ?? undefined}
+							cover={item.cover_url ? {uri: item.cover_url} : undefined}
+							rating={item.rating_count > 0 ? item.rating : undefined}
+							ratingCount={item.rating_count}
+							onPress={() => onOpenPlace(item.guid)}
+						/>
 					)}
 				/>
 			)}
@@ -66,7 +85,7 @@ export default function SavedPlacesScreen({api, onOpenPlace, onBack}: Props) {
 
 const styles = StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.bg},
-	grid: {padding: spacing.sm},
+	list: {padding: spacing.lg, gap: spacing.md},
 	card: {flex: 1, margin: spacing.xs, borderRadius: radius.md, overflow: 'hidden', backgroundColor: colors.surface},
 	cardImage: {width: '100%', aspectRatio: 1.3},
 	cardImageFallback: {width: '100%', aspectRatio: 1.3, backgroundColor: colors.graphite},

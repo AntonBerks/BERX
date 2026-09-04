@@ -11,8 +11,9 @@ import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState} from '../../../../packages/design-system/src/components/BerxStates';
+import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 
-interface Props {
+export interface ExperienceDetailScreenProps {
 	api: BerxApiClient;
 	id: number;
 	onOpenPlace: (guid: number) => void;
@@ -30,7 +31,15 @@ function fmtWhen(unix: number): string {
 	return new Date(unix * 1000).toLocaleString('ru-RU', {day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit'});
 }
 
-export default function ExperienceDetailScreen({api, id, onOpenPlace, onOpenEvent, onBack}: Props) {
+export default function ExperienceDetailScreen(props: ExperienceDetailScreenProps) {
+	return (
+		<BerxFamilyScene family="EXPERIENCE" testID="experience-detail">
+			<ExperienceDetailScreenBody {...props} />
+		</BerxFamilyScene>
+	);
+}
+
+function ExperienceDetailScreenBody({api, id, onOpenPlace, onOpenEvent, onBack}: ExperienceDetailScreenProps) {
 	const [experience, setExperience] = useState<BerxExperienceDetail | null>(null);
 	const [friends, setFriends] = useState<BerxFriend[]>([]);
 	const [loading, setLoading] = useState(true);

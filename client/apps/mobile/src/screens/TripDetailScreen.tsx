@@ -12,8 +12,9 @@ import type {BerxTripDetail, BerxTripStop, BerxTripParticipant, BerxFriend} from
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
+import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 
-interface Props {
+export interface TripDetailScreenProps {
 	api: BerxApiClient;
 	id: number;
 	onOpenPlace: (guid: number) => void;
@@ -30,7 +31,15 @@ function groupByDay(stops: BerxTripStop[]): [number, BerxTripStop[]][] {
 	return Array.from(map.entries()).sort((a, b) => a[0] - b[0]);
 }
 
-export default function TripDetailScreen({api, id, onOpenPlace, onOpenEvent, onBack}: Props) {
+export default function TripDetailScreen(props: TripDetailScreenProps) {
+	return (
+		<BerxFamilyScene family="EXPERIENCE" testID="trip-detail">
+			<TripDetailScreenBody {...props} />
+		</BerxFamilyScene>
+	);
+}
+
+function TripDetailScreenBody({api, id, onOpenPlace, onOpenEvent, onBack}: TripDetailScreenProps) {
 	const [trip, setTrip] = useState<BerxTripDetail | null>(null);
 	const [friends, setFriends] = useState<BerxFriend[]>([]);
 	const [loading, setLoading] = useState(true);

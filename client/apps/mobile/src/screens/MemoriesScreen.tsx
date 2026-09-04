@@ -11,8 +11,9 @@ import type {BerxMemory} from '@berx/api/types';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
+import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 
-interface Props {
+export interface MemoriesScreenProps {
 	api: BerxApiClient;
 	onOpenPost: (guid: number) => void;
 	onOpenAlbum: (guid: number) => void;
@@ -45,7 +46,15 @@ function groupByYearsAgo(memories: BerxMemory[]): Section[] {
 		.map(([yearsAgo, items]) => ({yearsAgo, items}));
 }
 
-export default function MemoriesScreen({api, onOpenPost, onOpenAlbum, onBack}: Props) {
+export default function MemoriesScreen(props: MemoriesScreenProps) {
+	return (
+		<BerxFamilyScene family="PROFILE" testID="memories">
+			<MemoriesScreenBody {...props} />
+		</BerxFamilyScene>
+	);
+}
+
+function MemoriesScreenBody({api, onOpenPost, onOpenAlbum, onBack}: MemoriesScreenProps) {
 	const [memories, setMemories] = useState<BerxMemory[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);

@@ -17,8 +17,9 @@ import React from 'react';
 import {View, Text, Pressable, StyleSheet} from 'react-native';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
+import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 
-interface Props {
+export interface BERXWorldScreenProps {
 	onOpenPlaces: () => void;
 	onOpenEvents: () => void;
 	onOpenNearby: () => void;
@@ -38,7 +39,15 @@ function WorldCard({label, subtitle, onPress}: {label: string; subtitle: string;
 	);
 }
 
-export default function BERXWorldScreen({onOpenPlaces, onOpenEvents, onOpenNearby, onOpenCommunities, onOpenVideo, onOpenMusic, onOpenNearbyNow, onBack}: Props) {
+export default function BERXWorldScreen(props: BERXWorldScreenProps) {
+	return (
+		<BerxFamilyScene family="EXPLORE" testID="berx-world">
+			<BERXWorldScreenBody {...props} />
+		</BerxFamilyScene>
+	);
+}
+
+function BERXWorldScreenBody({onOpenPlaces, onOpenEvents, onOpenNearby, onOpenCommunities, onOpenVideo, onOpenMusic, onOpenNearbyNow, onBack}: BERXWorldScreenProps) {
 	return (
 		<View style={styles.screen}>
 			<BerxHeader title="BERX World" onBack={onBack} />

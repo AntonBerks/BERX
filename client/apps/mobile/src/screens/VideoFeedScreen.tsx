@@ -16,8 +16,9 @@ import {BerxHeader} from '../../../../packages/design-system/src/components/Berx
 import {BerxVideoCard} from '../../../../packages/design-system/src/components/BerxVideoCard';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
+import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 
-interface Props {
+export interface VideoFeedScreenProps {
 	api: BerxApiClient;
 	userGuid?: number;
 	isOwn?: boolean;
@@ -28,7 +29,15 @@ interface Props {
 	onBack?: () => void;
 }
 
-export default function VideoFeedScreen({api, userGuid, isOwn, title, onOpenVideo, onOpenProfile, onCreate, onBack}: Props) {
+export default function VideoFeedScreen(props: VideoFeedScreenProps) {
+	return (
+		<BerxFamilyScene family="HOME" testID="video-feed">
+			<VideoFeedScreenBody {...props} />
+		</BerxFamilyScene>
+	);
+}
+
+function VideoFeedScreenBody({api, userGuid, isOwn, title, onOpenVideo, onOpenProfile, onCreate, onBack}: VideoFeedScreenProps) {
 	const [items, setItems] = useState<BerxVideoPost[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);

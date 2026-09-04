@@ -13,8 +13,9 @@ import {BerxHeader} from '../../../../packages/design-system/src/components/Berx
 import {BerxTrackCard} from '../../../../packages/design-system/src/components/BerxTrackCard';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
+import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 
-interface Props {
+export interface TrackFeedScreenProps {
 	api: BerxApiClient;
 	userGuid?: number;
 	isOwn?: boolean;
@@ -25,7 +26,15 @@ interface Props {
 	onBack?: () => void;
 }
 
-export default function TrackFeedScreen({api, userGuid, isOwn, title, onOpenTrack, onOpenProfile, onCreate, onBack}: Props) {
+export default function TrackFeedScreen(props: TrackFeedScreenProps) {
+	return (
+		<BerxFamilyScene family="HOME" testID="track-feed">
+			<TrackFeedScreenBody {...props} />
+		</BerxFamilyScene>
+	);
+}
+
+function TrackFeedScreenBody({api, userGuid, isOwn, title, onOpenTrack, onOpenProfile, onCreate, onBack}: TrackFeedScreenProps) {
 	const [items, setItems] = useState<BerxTrackPost[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);

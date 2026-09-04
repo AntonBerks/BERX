@@ -26,8 +26,9 @@ import {View, Text, Image, Pressable, Animated, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxStoryFeedGroup} from '@berx/api/types';
 import {colors, spacing, typography} from '@berx/design-system/tokens';
+import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 
-interface Props {
+export interface StoryViewerScreenProps {
 	api: BerxApiClient;
 	group: BerxStoryFeedGroup;
 	myGuid: number;
@@ -36,7 +37,15 @@ interface Props {
 
 const STORY_DURATION_MS = 5000;
 
-export default function StoryViewerScreen({api, group, myGuid, onClose}: Props) {
+export default function StoryViewerScreen(props: StoryViewerScreenProps) {
+	return (
+		<BerxFamilyScene family="HOME" testID="story-viewer">
+			<StoryViewerScreenBody {...props} />
+		</BerxFamilyScene>
+	);
+}
+
+function StoryViewerScreenBody({api, group, myGuid, onClose}: StoryViewerScreenProps) {
 	const [index, setIndex] = useState(0);
 	const [paused, setPaused] = useState(false);
 	const [authHeaders, setAuthHeaders] = useState<Record<string, string>>({});

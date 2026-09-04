@@ -4,16 +4,18 @@
  * domain this session). Always the caller's own — circles have no
  * public tier at all.
  */
-import React, {useCallback, useEffect, useState} from 'react';
-import {View, Text, FlatList, Pressable, StyleSheet} from 'react-native';
+import {useCallback, useEffect, useState} from 'react';
+import {View, FlatList, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxCircle} from '@berx/api/types';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
+import {BerxFamilyScene} from '../spatial/BerxScreenScene';
+import {BerxObjectCard} from '../../../../packages/design-system/src/spatial/BerxObjectCard';
 
-interface Props {
+export interface CirclesScreenProps {
 	api: BerxApiClient;
 	onOpenCircle: (id: number) => void;
 	onCreate: () => void;
@@ -27,7 +29,15 @@ const KIND_LABEL: Record<string, string> = {
 	close_friends: 'Близкие друзья',
 };
 
-export default function CirclesScreen({api, onOpenCircle, onCreate, onBack}: Props) {
+export default function CirclesScreen(props: CirclesScreenProps) {
+	return (
+		<BerxFamilyScene family="SOCIAL" testID="circles">
+			<CirclesScreenBody {...props} />
+		</BerxFamilyScene>
+	);
+}
+
+function CirclesScreenBody({api, onOpenCircle, onCreate, onBack}: CirclesScreenProps) {
 	const [items, setItems] = useState<BerxCircle[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
@@ -66,15 +76,12 @@ export default function CirclesScreen({api, onOpenCircle, onCreate, onBack}: Pro
 					keyExtractor={(c: BerxCircle) => String(c.id)}
 					contentContainerStyle={styles.list}
 					renderItem={({item}: {item: BerxCircle}) => (
-						<Pressable style={styles.row} onPress={() => onOpenCircle(item.id)}>
-							<View style={styles.rowBody}>
-								<Text style={styles.title}>{item.name}</Text>
-								<Text style={styles.meta}>
-									{item.member_count} {item.member_count === 1 ? 'человек' : 'человек'}
-									{item.kind ? ` · ${KIND_LABEL[item.kind] ?? item.kind}` : ''}
-								</Text>
-							</View>
-						</Pressable>
+						<BerxObjectCard
+							title={item.name}
+							subtitle={item.kind ? (KIND_LABEL[item.kind] ?? item.kind) : undefined}
+							facts={[{label: 'участников', value: item.member_count}]}
+							onPress={() => onOpenCircle(item.id)}
+						/>
 					)}
 				/>
 			)}
