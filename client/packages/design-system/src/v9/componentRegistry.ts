@@ -93,6 +93,13 @@ const ALIASES: Record<string, {implementation: string; note?: string}> = {
 
 /** Exact-name matches that already exist as their own module or export. */
 const REAL = new Set([
+	// Built for V9 in this repo (v9/BerxV9Primitives.tsx, v9/BerxV9Live.tsx,
+	// v9/BerxBoundaries.tsx) — chosen by how many of the 300 contracts
+	// actually demand them, not by which were easiest.
+	'BerxProgressRing', 'BerxSearchField', 'BerxFilterBar', 'BerxCountdown', 'BerxMapPin',
+	'BerxNowPulse', 'BerxEnergyHalo', 'BerxTypingIndicator', 'BerxMessageBubble', 'BerxChatRow',
+	'BerxOfflineState', 'BerxErrorBoundary', 'BerxAnalyticsBoundary', 'BerxDataBoundary',
+	'BerxPerformanceGate', 'BerxReducedMotionGate',
 	'BerxGlassSurface', 'BerxScrimHero', 'BerxSpatialCard', 'BerxMediaCard', 'BerxVideoCard',
 	'BerxTrackCard', 'BerxAvatar', 'BerxIconButton', 'BerxInput', 'BerxMediaViewer',
 	'BerxProfileHero', 'BerxSpatialLayer', 'BerxStoryRing', 'BerxMediaGrid', 'BerxAudioPlayer',
