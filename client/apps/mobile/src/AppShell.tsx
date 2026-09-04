@@ -31,10 +31,7 @@ import {BerxWayfinder, BerxWayfinderTab} from '../../../packages/design-system/s
 import {BerxNavigator, useBerxNavigation} from './navigation/BerxNavigator';
 import {BerxRouteName} from './navigation/routes';
 import LoginScreen from './screens/LoginScreen';
-import WelcomeScreen from './screens/WelcomeScreen';
-import SplashScreen from './screens/SplashScreen';
-import DiscoverScreen from './screens/DiscoverScreen';
-import RegisterScreen from './screens/RegisterScreen';
+import CinematicOnboarding from './screens/onboarding/CinematicOnboarding';
 import OnboardingScreen from './screens/OnboardingScreen';
 import FeedScreen from './screens/FeedScreen';
 import NowScreen from './screens/NowScreen';
@@ -1599,44 +1596,38 @@ function AppShellInner() {
 }
 
 /**
- * Splash → Welcome → (Discover →) Register / Login. Plain local state,
- * not BerxNavigator — this flow has no need for push/pop history:
- * Welcome is the root, and Discover/Login/Register are lateral choices
- * from it, not a stack a user would "go back" through in a meaningful
- * way. The one back edge that matters (Register → Discover) is passed
- * explicitly.
+ * CINEMATIC ONBOARDING → Login. Plain local state, not BerxNavigator —
+ * the ten-screen cinematic journey (Splash through Final Welcome — see
+ * CinematicOnboarding.tsx's own header) is now ONE persistent-
+ * background component instead of five separate screen-swap states, so
+ * this only needs to choose between it and Login: the one lateral exit
+ * ("Уже есть аккаунт? Войти" on the flow's own Welcome panel, or its
+ * honest activation-pending fallback on Final Welcome) and back again
+ * ("Регистрация" on LoginScreen restarts the cinematic flow from
+ * Welcome, not Splash — a returning user doesn't need the mark reveal
+ * replayed).
  */
 function UnauthenticatedFlow() {
-	const [screen, setScreen] = useState<'splash' | 'welcome' | 'discover' | 'login' | 'register'>('splash');
+	const [screen, setScreen] = useState<'onboarding' | 'login'>('onboarding');
 
-	if (screen === 'splash') {
-		// The reveal runs on its own clock and then hands over. It is not a
-		// progress bar for the real boot — that is AppShell's own 'booting'
-		// state, which has already finished by the time this renders.
-		return <SplashScreen onDone={() => setScreen('welcome')} />;
-	}
-	if (screen === 'discover') {
-		return <DiscoverScreen onFinish={() => setScreen('register')} onSkip={() => setScreen('register')} />;
-	}
 	if (screen === 'login') {
-		return <LoginScreen authState={authState} onGoToRegister={() => setScreen('register')} />;
+		return <LoginScreen authState={authState} onGoToRegister={() => setScreen('onboarding')} />;
 	}
-	if (screen === 'register') {
-		return (
-			<RegisterScreen
-				api={api}
-				onRegistered={() => {
-					pendingOnboarding = true;
-					setScreen('login');
-				}}
-				onBack={() => setScreen('discover')}
-			/>
-		);
-	}
-	// "Создать аккаунт" goes to Discover first — a new account sees what
-	// BERX is before it sees a form. "У меня уже есть BERX" goes straight
-	// to Login — an existing user does not need the pitch.
-	return <WelcomeScreen onLogin={() => setScreen('login')} onRegister={() => setScreen('discover')} />;
+	return (
+		<CinematicOnboarding
+			api={api}
+			authState={authState}
+			pickImage={pickImage}
+			// Set ONLY on a real successful api.register() (see
+			// CinematicOnboarding.tsx's own submitAccount) — not on every
+			// "go to Login" exit, several of which (Welcome's own "Уже есть
+			// аккаунт?") happen before any account exists.
+			onRegistered={() => {
+				pendingOnboarding = true;
+			}}
+			onLogin={() => setScreen('login')}
+		/>
+	);
 }
 
 const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({

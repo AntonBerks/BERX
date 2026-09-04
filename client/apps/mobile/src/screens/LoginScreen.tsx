@@ -7,7 +7,7 @@
  * snapshot says, it does not call api.login()/api.me() itself and
  * does not track its own "loading"/"error" booleans. That's the
  * architectural point of Phase-4's "LoginScreen should be a UI layer"
- * requirement.
+ * requirement — UNCHANGED by this pass.
  *
  * MAX BUILD — real ban enforcement (OssnUser::ban(), see report.php's
  * user-report action and admin.php's /admin/ban route). A banned
@@ -16,25 +16,36 @@
  * пароль" that would have misled a suspended user into thinking they
  * mistyped their password.
  *
- * MAX BUILD — real visual pass, same reasoning as RegisterScreen.tsx's
- * own header: the previous version was a bare title + two inputs with
- * no relationship to the redesigned RegisterScreen right next to it
- * in the same flow. No auth logic touched — still reads only from
+ * PREMIUM ONBOARDING PASS — visual only, same as the MAX BUILD visual
+ * pass before it: no auth logic touched, still reads only from
  * BerxAuthState's snapshot, still calls authState.login() the same
- * way. Berx3DTilt/BerxFadeIn/BerxGlassSurface are the same real,
- * already-shipped primitives RegisterScreen now uses, kept identical
- * across both screens on purpose.
+ * way. The card is now BerxGlassView (this component set's own real
+ * glass, `glow` on), the submit is BerxAnimatedButton (real spring
+ * press, real haptic, real particle burst on success-bound presses).
+ *
+ * APPLE/GOOGLE — real glass buttons, per this pass's own explicit ask,
+ * but HONESTLY NOT WIRED: no Apple/Google OAuth endpoint exists
+ * anywhere in this codebase's real API client or auth module (checked
+ * before adding these, not assumed). Rendering a functional-looking
+ * button that silently does nothing — or worse, pretends to sign
+ * someone in — would be exactly the fabricated-functionality this
+ * codebase's own standing rule forbids. Tapping either shows a real,
+ * honest "not connected yet" message instead, the same "coming soon"
+ * discipline this app already uses for every not-yet-connected section
+ * (see API_SECURITY_MATRIX.md's own connected:false convention) —
+ * never a fake success path.
  */
 import {useState, useMemo} from 'react';
 import {View, Text, ScrollView, KeyboardAvoidingView, Platform, Pressable, StyleSheet} from 'react-native';
 import type {BerxAuthState} from '@berx/auth';
 import {spacing, typography} from '@berx/design-system/tokens';
-import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
-import {BerxGlassSurface} from '../../../../packages/design-system/src/components/BerxGlassSurface';
+import {BerxGlassView} from '../../../../packages/design-system/src/components/BerxGlassView';
+import {BerxAnimatedButton} from '../../../../packages/design-system/src/components/BerxAnimatedButton';
 import {BerxStage} from '../../../../packages/design-system/src/components/BerxStage';
 import {SpatialEmblem} from '../../../../packages/design-system/src/spatial/SpatialEmblem';
 import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
+import {BerxIcon} from '../../../../packages/design-system/src/icons/BerxIcon';
 
 import {useBerxColors} from '../../../../packages/design-system/src/theme';
 import type {BerxColorTokens} from '@berx/design-system/tokens';
@@ -50,6 +61,7 @@ export default function LoginScreen({authState, onGoToRegister}: Props) {
 	const styles = useMemo(() => makeStyles(colors), [colors]);
 	const [identifier, setIdentifier] = useState('');
 	const [password, setPassword] = useState('');
+	const [notConnected, setNotConnected] = useState<'apple' | 'google' | null>(null);
 	const snapshot = authState.getSnapshot();
 	const isSubmitting = snapshot.status === 'authenticating';
 
@@ -80,16 +92,9 @@ export default function LoginScreen({authState, onGoToRegister}: Props) {
 
 	return (
 		<KeyboardAvoidingView style={styles.screen} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-			{/* THE SAME STAGE, not a similar one. Welcome, Discover, Splash
-			    and onboarding all stand on BerxStage; hand-copying its light
-			    placement here is how the entry flow drifts apart one edit at
-			    a time. Rendered as an absolute background layer because this
-			    screen's root has to be the KeyboardAvoidingView.
-			    depth=1: Login is a LAST-STEP screen the same way Register is
-			    (see RegisterScreen's own comment on this) — reached either
-			    directly from Welcome or after Register, but either way it's
-			    the final screen before crossing into the authenticated app,
-			    so the camera belongs at its highest point here too. */}
+			{/* THE SAME STAGE, not a similar one — see this file's own header
+			    on why. depth=1: Login is a LAST-STEP screen the same way
+			    Register is. */}
 			<BerxStage depth={1} seed={19} scrim={0.5} style={StyleSheet.absoluteFillObject as never} />
 			<ScrollView contentContainerStyle={styles.scrollBody} keyboardShouldPersistTaps="handled">
 				<BerxFadeIn riseFrom={8}>
@@ -101,7 +106,7 @@ export default function LoginScreen({authState, onGoToRegister}: Props) {
 				</BerxFadeIn>
 
 				<BerxFadeIn delayMs={90} riseFrom={16}>
-					<BerxGlassSurface style={styles.card}>
+					<BerxGlassView glow radius={24} style={styles.card}>
 						<BerxInput
 							placeholder="Логин или email"
 							autoCapitalize="none"
@@ -121,8 +126,36 @@ export default function LoginScreen({authState, onGoToRegister}: Props) {
 						{snapshot.status === 'banned' ? (
 							<Text style={styles.error}>{snapshot.error ?? 'Этот аккаунт заблокирован.'}</Text>
 						) : null}
-						<BerxButton label="Войти" onPress={handleSubmit} loading={isSubmitting} fullWidth />
-					</BerxGlassSurface>
+						<BerxAnimatedButton variant="primary" premium title="Войти" onPress={handleSubmit} disabled={isSubmitting} style={styles.submitBtn} />
+
+						<View style={styles.dividerRow}>
+							<View style={styles.dividerLine} />
+							<Text style={styles.dividerText}>или</Text>
+							<View style={styles.dividerLine} />
+						</View>
+
+						<View style={styles.oauthRow}>
+							<BerxAnimatedButton
+								variant="secondary"
+								title="Apple"
+								icon={<BerxIcon name="lock" size={16} color={colors.textDim} />}
+								onPress={() => setNotConnected('apple')}
+								style={styles.oauthBtn}
+							/>
+							<BerxAnimatedButton
+								variant="secondary"
+								title="Google"
+								icon={<BerxIcon name="globe" size={16} color={colors.textDim} />}
+								onPress={() => setNotConnected('google')}
+								style={styles.oauthBtn}
+							/>
+						</View>
+						{notConnected ? (
+							<Text style={styles.notConnected}>
+								{notConnected === 'apple' ? 'Вход через Apple' : 'Вход через Google'} пока не подключён — используйте логин и пароль.
+							</Text>
+						) : null}
+					</BerxGlassView>
 				</BerxFadeIn>
 
 				{onGoToRegister ? (
@@ -141,23 +174,20 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	heroEmblem: {alignSelf: 'center', marginBottom: spacing.md},
 	heroTitle: {color: colors.text, fontSize: 34, lineHeight: 38, fontWeight: typography.weightBold, letterSpacing: -1, textAlign: 'center'},
 	hero: {alignItems: 'center', gap: spacing.sm},
-	wordmarkTilt: {alignSelf: 'center'},
-	wordmark: {
-		fontSize: typography.sizeHero,
-		fontWeight: typography.weightBold,
-		color: colors.accent,
-		letterSpacing: 4,
-		textShadowColor: 'rgba(0,229,204,0.45)',
-		textShadowOffset: {width: 0, height: 0},
-		textShadowRadius: 24,
-	},
 	tagline: {color: colors.textDim, fontSize: typography.sizeSm},
 	card: {gap: spacing.md},
+	submitBtn: {width: '100%', marginTop: spacing.xs},
 	error: {
 		color: colors.danger,
 		fontSize: typography.sizeSm,
 		textAlign: 'center',
 	},
+	dividerRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.xs},
+	dividerLine: {flex: 1, height: 1, backgroundColor: colors.borderSoft},
+	dividerText: {color: colors.textFaint, fontSize: typography.sizeXs},
+	oauthRow: {flexDirection: 'row', gap: spacing.sm},
+	oauthBtn: {flex: 1},
+	notConnected: {color: colors.textFaint, fontSize: typography.sizeXs, textAlign: 'center'},
 	registerLink: {alignSelf: 'center', paddingVertical: spacing.sm},
 	registerLinkText: {color: colors.accent, fontSize: typography.sizeSm},
 });
