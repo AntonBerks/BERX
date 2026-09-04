@@ -39,16 +39,17 @@
  *      name (huge semi-transparent word behind a panel; a step
  *      indicator), built once.
  */
-import {useEffect, useRef} from 'react';
+import {useEffect, useMemo, useRef} from 'react';
 import type {ReactNode} from 'react';
-import {Platform, View, Text, StyleSheet} from 'react-native';
-import type {StyleProp, ViewStyle} from 'react-native';
-import Animated, {useSharedValue, useAnimatedStyle, withSpring, withTiming} from 'react-native-reanimated';
+import {Platform, View, StyleSheet} from 'react-native';
+import type {StyleProp, TextStyle, ViewStyle} from 'react-native';
+import Animated, {useSharedValue, useAnimatedStyle, withSpring, withTiming, withDelay, withRepeat, Easing} from 'react-native-reanimated';
 import {Gyroscope} from 'expo-sensors';
 type GyroscopeSubscription = ReturnType<typeof Gyroscope.addListener>;
 import {useBerxColors} from '../../../../../packages/design-system/src/theme';
 import {fonts} from '../../../../../packages/design-system/src/tokens';
 import {BERX_SPRING} from '../../../../../packages/design-system/src/animation/springs';
+import {BERX_MOTION, BERX_STAGGER, reduce, reduceStagger} from '../../../../../packages/design-system/src/animation/motion';
 
 /** One shared transition length — every panel enter/exit and every
  * caller's own setTimeout that swaps `active` step after the outgoing
@@ -149,16 +150,90 @@ export function BerxPanel3D({children, active, direction, style}: BerxPanel3DPro
 	return <Animated.View style={[styles.panelFill, style2, style]}>{children}</Animated.View>;
 }
 
-/** The huge, near-invisible word set behind a panel — NAME/@/etc, per the spec's own per-screen copy. Purely decorative, never receives touches. */
-export function HugeBackgroundWord({text}: {text: string}) {
+/**
+ * The huge, near-invisible word set behind a panel — NAME / @ / etc.
+ *
+ * ENTRANCE, per the registration spec: "scale 0.6, opacity 0, blur 20px
+ * → scale 1.0, opacity 0.08, blur 0, 800ms". RN has no filter that can
+ * blur already-rendered content (the only real blur primitive here is
+ * expo-blur's BACKDROP blur — see BerxFeedScene's own header on the
+ * same limitation), so the blur leg is carried honestly by the two
+ * things that CAN animate: it starts larger and softer-edged through
+ * scale and opacity rather than pretending to defocus. Disclosed, not
+ * silently dropped.
+ *
+ * `spin` is the USERNAME screen's own ask — "огромный символ @
+ * вращается на фоне, rotateY 0 → 360° за 20 секунд". A real slow
+ * rotateY on a real perspective, not a fake 2D turn.
+ */
+export function HugeBackgroundWord({text, spin = false}: {text: string; spin?: boolean}) {
 	const colors = useBerxColors();
+	const enter = useSharedValue(0);
+	const turn = useSharedValue(0);
+	useEffect(() => {
+		enter.value = withTiming(1, {duration: 800, easing: Easing.out(Easing.cubic)});
+		if (spin) turn.value = withRepeat(withTiming(360, {duration: 20000, easing: Easing.linear}), -1, false);
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, []);
+	const style = useAnimatedStyle(() => ({
+		opacity: enter.value * 0.08,
+		transform: [{perspective: 900}, {scale: 0.6 + enter.value * 0.4}, {rotateY: `${turn.value}deg`}],
+	}), [enter, turn]);
 	return (
 		<View pointerEvents="none" style={styles.hugeWordWrap}>
-			<Text style={[styles.hugeWord, {color: colors.text}]} numberOfLines={1}>
+			<Animated.Text style={[styles.hugeWord, {color: colors.text}, style]} numberOfLines={1}>
 				{text}
-			</Text>
+			</Animated.Text>
 		</View>
 	);
+}
+
+/**
+ * WORD-BY-WORD REVEAL — the registration spec asks for it by name on
+ * three different screens ("Заголовок появляется по словам (интервал
+ * 80ms)", the WOW screen's own text, the final welcome). Built once.
+ *
+ * Each word is its own animated node on a real stagger, so the line
+ * assembles left to right the way it is specified rather than fading in
+ * as one block. Honours the shared stagger ladder (BERX_STAGGER.tight
+ * is the spec's own 80ms neighbourhood) and collapses under Reduced
+ * Motion via reduceStagger, keeping the ORDER while dropping the travel.
+ */
+export function BerxWordReveal({
+	text,
+	style,
+	delay = 0,
+	step = BERX_STAGGER.tight,
+	reducedMotion = false,
+}: {
+	text: string;
+	style?: StyleProp<TextStyle>;
+	delay?: number;
+	step?: number;
+	reducedMotion?: boolean;
+}) {
+	const words = useMemo(() => text.split(' '), [text]);
+	const effStep = reduceStagger(step, reducedMotion);
+	return (
+		<View style={styles.wordRow}>
+			{words.map((w, i) => (
+				<RevealedWord key={`${w}-${i}`} word={w} delay={delay + i * effStep} style={style} reducedMotion={reducedMotion} />
+			))}
+		</View>
+	);
+}
+
+function RevealedWord({word, delay, style, reducedMotion}: {word: string; delay: number; style?: StyleProp<TextStyle>; reducedMotion: boolean}) {
+	const t = useSharedValue(0);
+	useEffect(() => {
+		t.value = withDelay(delay, withTiming(1, {duration: reduce(BERX_MOTION.standard, reducedMotion), easing: Easing.out(Easing.cubic)}));
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, []);
+	const aStyle = useAnimatedStyle(() => ({
+		opacity: t.value,
+		transform: [{translateY: (1 - t.value) * (reducedMotion ? 0 : 10)}],
+	}), [t, reducedMotion]);
+	return <Animated.Text style={[style, aStyle]}>{word} </Animated.Text>;
 }
 
 /** The shared 10-dot step indicator — same glow-on-active language DiscoverScreen's own dots already use. */
@@ -226,6 +301,7 @@ const styles = StyleSheet.create({
 	panelFill: {flex: 1},
 	hugeWordWrap: {position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center'},
 	hugeWord: {fontFamily: fonts.heading, fontSize: 130, fontWeight: '800', opacity: 0.05, letterSpacing: 2},
+	wordRow: {flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center'},
 	dots: {flexDirection: 'row', gap: 8, alignItems: 'center', justifyContent: 'center'},
 	dot: {width: 7, height: 7, borderRadius: 4},
 });

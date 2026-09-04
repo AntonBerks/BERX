@@ -20,10 +20,12 @@
  *     own AvatarMapVisual already uses), not a literal roads/buildings
  *     renderer this codebase has no mapping library for.
  */
-import {useEffect, useMemo, useState} from 'react';
+import {useEffect, useMemo, useRef, useState} from 'react';
 import {View, Text, Image, StyleSheet, Pressable} from 'react-native';
-import Animated, {useSharedValue, useAnimatedStyle, withTiming, withSequence, withRepeat, Easing} from 'react-native-reanimated';
+import Animated, {useSharedValue, useAnimatedStyle, withTiming, withSequence, withRepeat, withSpring, withDelay, Easing} from 'react-native-reanimated';
+import type {StyleProp, TextStyle} from 'react-native';
 import type {BerxFilePart} from '@berx/api/client';
+import {BERX_MOTION, BERX_STAGGER} from '../../../../../packages/design-system/src/animation/motion';
 import {spacing} from '../../../../../packages/design-system/src/tokens';
 import {BerxGlassView} from '../../../../../packages/design-system/src/components/BerxGlassView';
 import {BerxAnimatedButton} from '../../../../../packages/design-system/src/components/BerxAnimatedButton';
@@ -114,12 +116,19 @@ export function CinematicPhotoPanel({
 // "depth effect"), driven by real +/- taps (no wheel-picker/scroll-snap
 // dependency exists in this build — an honest, still-real substitute).
 // ————————————————————————————————————————————————————————————————
-function DateColumn({value, min, max, format, onChange, colors}: {value: number; min: number; max: number; format: (n: number) => string; onChange: (n: number) => void; colors: BerxColorTokens}) {
+function DateColumn({value, min, max, format, onChange, colors, index = 0}: {value: number; min: number; max: number; format: (n: number) => string; onChange: (n: number) => void; colors: BerxColorTokens; index?: number}) {
 	const styles = useMemo(() => makeStyles(colors), [colors]);
+	// "Три колонки (день, месяц, год) выезжают по очереди (stagger 100ms)".
+	const enter = useSharedValue(0);
+	useEffect(() => {
+		enter.value = withDelay(index * BERX_STAGGER.base, withSpring(1, BERX_MOTION.spatial.spring));
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, []);
+	const enterStyle = useAnimatedStyle(() => ({opacity: enter.value, transform: [{translateY: (1 - enter.value) * 24}]}), [enter]);
 	const prev = value > min ? value - 1 : max;
 	const next = value < max ? value + 1 : min;
 	return (
-		<View style={styles.dateCol}>
+		<Animated.View style={[styles.dateCol, enterStyle]}>
 			<Pressable onPress={() => onChange(prev)}>
 				<Text style={[styles.dateNeighbor, {color: colors.textFaint}]}>{format(prev)}</Text>
 			</Pressable>
@@ -127,7 +136,7 @@ function DateColumn({value, min, max, format, onChange, colors}: {value: number;
 			<Pressable onPress={() => onChange(next)}>
 				<Text style={[styles.dateNeighbor, {color: colors.textFaint}]}>{format(next)}</Text>
 			</Pressable>
-		</View>
+		</Animated.View>
 	);
 }
 
@@ -158,8 +167,8 @@ export function CinematicBirthdayPanel({
 				<BerxGlassView glow radius={28} style={styles.calendarCard}>
 					<View style={styles.dateRow}>
 						<DateColumn value={day} min={1} max={31} format={(n) => String(n).padStart(2, '0')} onChange={(n) => onChange({birthDay: n})} colors={colors} />
-						<DateColumn value={month} min={1} max={12} format={(n) => String(n).padStart(2, '0')} onChange={(n) => onChange({birthMonth: n})} colors={colors} />
-						<DateColumn value={year} min={thisYear - 90} max={thisYear - 13} format={(n) => String(n)} onChange={(n) => onChange({birthYear: n})} colors={colors} />
+						<DateColumn value={month} min={1} max={12} format={(n) => String(n).padStart(2, '0')} onChange={(n) => onChange({birthMonth: n})} colors={colors} index={1} />
+						<DateColumn value={year} min={thisYear - 90} max={thisYear - 13} format={(n) => String(n)} onChange={(n) => onChange({birthYear: n})} colors={colors} index={2} />
 					</View>
 				</BerxGlassView>
 			</View>
@@ -178,10 +187,24 @@ export function CinematicBirthdayPanel({
 // ————————————————————————————————————————————————————————————————
 const INTEREST_TAGS = ['MUSIC', 'TRAVEL', 'FOOD', 'NIGHTLIFE', 'SPORT', 'ART', 'FASHION', 'TECH', 'COFFEE', 'NATURE', 'CINEMA', 'PEOPLE'];
 
-function Chip({tag, selected, depth, onPress, colors}: {tag: string; selected: boolean; depth: number; onPress: () => void; colors: BerxColorTokens}) {
+function Chip({tag, selected, depth, index, onPress, colors}: {tag: string; selected: boolean; depth: number; index: number; onPress: () => void; colors: BerxColorTokens}) {
 	const styles = useMemo(() => makeStyles(colors), [colors]);
 	const [burst, setBurst] = useState(false);
 	const pop = useSharedValue(1);
+	/**
+	 * ENTRANCE — "карточки появляются из разных точек экрана (stagger
+	 * 50-80ms, случайное направление)". The direction is derived from the
+	 * chip's own index rather than Math.random() at render: a random
+	 * value re-rolled on every re-render would make chips jump whenever
+	 * the parent updates (selecting one re-renders them all), which is a
+	 * real bug this codebase has hit before with seeded fields.
+	 */
+	const enter = useSharedValue(0);
+	const angle = ((index * 137.5) % 360) * (Math.PI / 180); // golden-angle spread, stable per chip
+	useEffect(() => {
+		enter.value = withDelay(index * BERX_STAGGER.tight, withSpring(1, BERX_MOTION.spatial.spring));
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, []);
 	function press() {
 		onPress();
 		if (!selected) {
@@ -190,9 +213,22 @@ function Chip({tag, selected, depth, onPress, colors}: {tag: string; selected: b
 			requestAnimationFrame(() => setBurst(true));
 		}
 	}
-	const popStyle = useAnimatedStyle(() => ({transform: [{scale: pop.value}]}), [pop]);
+	const popStyle = useAnimatedStyle(() => {
+		const e = enter.value;
+		return {
+			opacity: e,
+			transform: [
+				{translateX: (1 - e) * Math.cos(angle) * 60},
+				{translateY: (1 - e) * Math.sin(angle) * 60},
+				{scale: pop.value * (0.7 + e * 0.3)},
+			],
+		};
+	}, [pop, enter, angle]);
+	// Depth, selection and entrance all live in ONE animated style: a
+	// second style object carrying its own `transform` would replace this
+	// one outright rather than compose with it.
 	return (
-		<Animated.View style={[{opacity: selected ? 1 : 0.68 - depth * 0.08, transform: [{scale: selected ? 1.05 : 0.94 - depth * 0.04}]}, popStyle, styles.chipWrap]}>
+		<Animated.View style={[{opacity: selected ? 1 : 0.68 - depth * 0.08}, popStyle, styles.chipWrap]}>
 			<Pressable onPress={press}>
 				<BerxGlassView
 					radius={999}
@@ -213,16 +249,31 @@ export function CinematicInterestsPanel({colors, selected, onToggle, onBack, onN
 			<Text style={[cine.heading, styles.title, {color: colors.text}]}>Что тебе близко?</Text>
 			<View style={styles.chipsWrap}>
 				{INTEREST_TAGS.map((tag, i) => (
-					<Chip key={tag} tag={tag} selected={selected.includes(tag)} depth={i % 3} onPress={() => onToggle(tag)} colors={colors} />
+					<Chip key={tag} tag={tag} selected={selected.includes(tag)} depth={i % 3} index={i} onPress={() => onToggle(tag)} colors={colors} />
 				))}
 			</View>
-			<Text style={[styles.selectedCount, {color: colors.textDim}]}>Выбрано {selected.length}</Text>
+			<SelectedCounter count={selected.length} style={[styles.selectedCount, {color: colors.textDim}]} />
 			<View style={styles.stepActions}>
 				<BerxAnimatedButton variant="secondary" title="Назад" onPress={onBack} style={styles.stepBtn} />
-				<BerxAnimatedButton variant="primary" title="Продолжить →" onPress={onNext} style={styles.stepBtn} />
+				{/* "Кнопка появляется, когда выбрано минимум 3 интереса" — a
+				    real gate, not a disabled button that looks tappable. */}
+				<BerxAnimatedButton variant="primary" title="Продолжить →" onPress={onNext} disabled={selected.length < 3} style={styles.stepBtn} />
 			</View>
 		</View>
 	);
+}
+
+/** "Счётчик обновляется с эффектом pop (scale 1.0 → 1.15 → 1.0)" — on the real value change, not on every render. */
+function SelectedCounter({count, style}: {count: number; style?: StyleProp<TextStyle>}) {
+	const pop = useSharedValue(1);
+	const prev = useRef(count);
+	useEffect(() => {
+		if (prev.current === count) return;
+		prev.current = count;
+		pop.value = withSequence(withTiming(1.15, {duration: 130, easing: Easing.out(Easing.back(2))}), withTiming(1, {duration: 140}));
+	}, [count, pop]);
+	const st = useAnimatedStyle(() => ({transform: [{scale: pop.value}]}), [pop]);
+	return <Animated.Text style={[style, st]}>Выбрано {count}</Animated.Text>;
 }
 
 // ————————————————————————————————————————————————————————————————

@@ -56,14 +56,15 @@
  * LoginScreen as the way back in once the user has activated — not a
  * fabricated "you're in" state.
  */
-import {useEffect, useMemo, useState} from 'react';
+import {useEffect, useMemo, useRef, useState} from 'react';
 import {View, Text, StyleSheet} from 'react-native';
-import type {ViewStyle} from 'react-native';
-import Animated, {useSharedValue, useAnimatedStyle, withRepeat, withTiming, Easing} from 'react-native-reanimated';
+import type {StyleProp, TextStyle, ViewStyle} from 'react-native';
+import Animated, {useSharedValue, useAnimatedStyle, withRepeat, withTiming, withDelay, withSpring, withSequence, Easing} from 'react-native-reanimated';
 import type {BerxApiClient, BerxFilePart} from '@berx/api/client';
 import {BerxApiError} from '@berx/core';
 import type {BerxAuthState} from '@berx/auth';
-import {spacing} from '../../../../../packages/design-system/src/tokens';
+import {spacing, fonts} from '../../../../../packages/design-system/src/tokens';
+import {BERX_MOTION, BERX_STAGGER} from '../../../../../packages/design-system/src/animation/motion';
 import {BerxAuroraField} from '../../../../../packages/design-system/src/components/BerxAuroraField';
 import {BerxGlassView} from '../../../../../packages/design-system/src/components/BerxGlassView';
 import {BerxAnimatedButton} from '../../../../../packages/design-system/src/components/BerxAnimatedButton';
@@ -78,6 +79,7 @@ import {
 	useAmbientParallax,
 	BerxPanel3D,
 	HugeBackgroundWord,
+	BerxWordReveal,
 	StepDots,
 	cine,
 	type CinematicStepId,
@@ -317,40 +319,175 @@ export default function CinematicOnboarding({api, authState, pickImage, onLogin,
 // the spec asks for by name. Non-interactive here (the spec's own
 // Welcome screen owns the buttons) — pure 3s auto-advance.
 // ————————————————————————————————————————————————————————————————
-function SplashPanel({colors}: {colors: BerxColorTokens}) {
-	const styles = useMemo(() => makeStyles(colors), [colors]);
-	const [settleBurst, setSettleBurst] = useState(false);
-	const haloRotation = useSharedValue(0);
-	const lines = useSharedValue(0);
+/**
+ * THE SPEC'S OWN TIMELINE, beat for beat:
+ *   0.3s  a single light point springs in
+ *   0.5s  a few particles are born around it
+ *   0.8s  they orbit it
+ *   1.0s  the point bursts
+ *   1.2s  the field begins to gather back
+ *   1.8s  the mark resolves; the wordmark's letters land left to right
+ *   2.2s  the mark takes its glow and its slow rotation
+ *   2.5s  "REAL LIFE. CONNECTED."
+ *   2.8s  "Твоя жизнь начинается здесь."
+ *   3.2s  the whole screen leaves (the orchestrator's own auto-advance)
+ *
+ * TWO HONEST SUBSTITUTIONS, disclosed rather than glossed:
+ *  - "explodes into 200 particles that then CONTRACT back into the
+ *    logo". BerxParticleSystem's physics are closed-form OUTWARD
+ *    kinematics (see its own header) — there is no inbound-converge
+ *    mode, and 200 per-frame Reanimated views on a phone is not a cost
+ *    this screen should pay. What is real: a genuine burst at 1.0s,
+ *    and the mark RESOLVING as the burst decays, so the light does
+ *    become the logo — just not by literally reversing 200 vectors.
+ *  - "blur" on the letters is carried by scale + opacity, since RN
+ *    cannot blur already-rendered content (same limitation this
+ *    codebase documents elsewhere).
+ */
+const SPLASH_BEATS = {point: 300, seed: 500, orbit: 800, burst: 1000, gather: 1200, mark: 1800, glow: 2200, line1: 2500, line2: 2800};
+
+/** One letter of the wordmark, landing on its own beat. */
+function SplashLetter({char, delay}: {char: string; delay: number}) {
+	const t = useSharedValue(0);
 	useEffect(() => {
-		const t = setTimeout(() => {
-			setSettleBurst(true);
-			haloRotation.value = withRepeat(withTiming(360, {duration: 14000, easing: Easing.linear}), -1, false);
-			lines.value = withTiming(1, {duration: 600, easing: Easing.out(Easing.ease)});
-		}, 1200);
-		return () => clearTimeout(t);
+		t.value = withDelay(delay, withTiming(1, {duration: 420, easing: Easing.out(Easing.cubic)}));
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
-	const haloStyle = useAnimatedStyle(() => ({transform: [{rotate: `${haloRotation.value}deg`}]}), [haloRotation]);
-	const linesStyle = useAnimatedStyle(() => ({opacity: lines.value, transform: [{translateY: (1 - lines.value) * 14}]}), [lines]);
+	const st = useAnimatedStyle(() => ({
+		opacity: t.value,
+		// The "blur" leg, honestly: it arrives oversized and settles.
+		transform: [{scale: 1.6 - t.value * 0.6}, {translateY: (1 - t.value) * 6}],
+	}), [t]);
+	return <Animated.Text style={[splashStyles.letter, st]}>{char}</Animated.Text>;
+}
+
+/** One of the few particles born around the point before the burst, on a real orbit. */
+function SeedParticle({index, color}: {index: number; color: string}) {
+	const orbit = useSharedValue(0);
+	const born = useSharedValue(0);
+	const angle = (index / 5) * Math.PI * 2;
+	useEffect(() => {
+		// ONE sequence, not two assignments. A second `born.value = ...` in
+		// this same body would not queue behind the first — it replaces it
+		// immediately, which is exactly the bug that made the point and
+		// these particles never appear at all (caught on a 900ms frame:
+		// empty screen where the orbit should have been).
+		born.value = withDelay(
+			SPLASH_BEATS.seed,
+			withSequence(
+				withTiming(1, {duration: 260}),
+				withDelay(SPLASH_BEATS.burst - SPLASH_BEATS.seed - 260, withTiming(0, {duration: 220}))
+			)
+		);
+		orbit.value = withDelay(SPLASH_BEATS.orbit, withTiming(1, {duration: SPLASH_BEATS.burst - SPLASH_BEATS.orbit + 400, easing: Easing.linear}));
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, []);
+	const st = useAnimatedStyle(() => {
+		const a = angle + orbit.value * Math.PI * 2;
+		const r = 16 + orbit.value * 10;
+		return {opacity: born.value, transform: [{translateX: Math.cos(a) * r}, {translateY: Math.sin(a) * r}, {scale: 0.6 + born.value * 0.4}]};
+	}, [orbit, born, angle]);
+	return <Animated.View pointerEvents="none" style={[splashStyles.seed, {backgroundColor: color}, st]} />;
+}
+
+function SplashPanel({colors}: {colors: BerxColorTokens}) {
+	const styles = useMemo(() => makeStyles(colors), [colors]);
+	const point = useSharedValue(0);
+	const markIn = useSharedValue(0);
+	const haloRotation = useSharedValue(0);
+	const haloIn = useSharedValue(0);
+	const [burst, setBurst] = useState(false);
+	const [line1, setLine1] = useState(false);
+	const [line2, setLine2] = useState(false);
+
+	useEffect(() => {
+		// 0.3s the point appears, 1.0s the burst spends it — ONE sequence,
+		// for the same reason SeedParticle's own effect uses one.
+		point.value = withDelay(
+			SPLASH_BEATS.point,
+			withSequence(
+				withSpring(1, BERX_MOTION.standard.spring),
+				withDelay(SPLASH_BEATS.burst - SPLASH_BEATS.point - BERX_MOTION.standard.duration, withTiming(0, {duration: 240}))
+			)
+		);
+		const tBurst = setTimeout(() => setBurst(true), SPLASH_BEATS.burst);
+		// 1.2s — the field gathers and the mark resolves out of it.
+		markIn.value = withDelay(SPLASH_BEATS.gather, withSpring(1, BERX_MOTION.spatial.spring));
+		// 2.2s — the mark takes its glow and its slow rotation.
+		haloIn.value = withDelay(SPLASH_BEATS.glow, withTiming(1, {duration: BERX_MOTION.standard.duration}));
+		const tGlow = setTimeout(() => {
+			haloRotation.value = withRepeat(withTiming(360, {duration: 14000, easing: Easing.linear}), -1, false);
+		}, SPLASH_BEATS.glow);
+		const t1 = setTimeout(() => setLine1(true), SPLASH_BEATS.line1);
+		const t2 = setTimeout(() => setLine2(true), SPLASH_BEATS.line2);
+		return () => {
+			clearTimeout(tBurst);
+			clearTimeout(tGlow);
+			clearTimeout(t1);
+			clearTimeout(t2);
+		};
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, []);
+
+	const pointStyle = useAnimatedStyle(() => ({
+		opacity: point.value,
+		transform: [{scale: point.value}],
+	}), [point]);
+	const markStyle = useAnimatedStyle(() => ({
+		opacity: markIn.value,
+		transform: [{scale: 0.7 + markIn.value * 0.3}],
+	}), [markIn]);
+	const haloStyle = useAnimatedStyle(() => ({
+		opacity: haloIn.value,
+		transform: [{rotate: `${haloRotation.value}deg`}],
+	}), [haloRotation, haloIn]);
+
 	return (
 		<View style={styles.center}>
 			<View style={styles.emblemSlot}>
+				{/* 0.3s → 1.0s: the point, its seed particles, and their orbit. */}
+				<Animated.View pointerEvents="none" style={[styles.point, {backgroundColor: colors.accent, shadowColor: colors.accent}, pointStyle]} />
+				{[0, 1, 2, 3, 4].map((i) => (
+					<SeedParticle key={i} index={i} color={colors.accent} />
+				))}
+
+				{/* 2.2s: the halo. */}
 				<Animated.View pointerEvents="none" style={[styles.halo, haloStyle]}>
 					<BerxGlassView glow radius={999} style={styles.haloGlass}>
 						<View />
 					</BerxGlassView>
 				</Animated.View>
-				<SpatialEmblemReveal size={160} light={colors.accent} />
-				<BerxParticleSystem trigger={settleBurst} count={30} color={colors.accent} duration={950} spread={360} speed={120} gravity={30} />
+
+				{/* 1.2s: the mark resolves as the burst decays. */}
+				<Animated.View style={markStyle}>
+					<SpatialEmblemReveal size={160} light={colors.accent} />
+				</Animated.View>
+
+				{/* 1.0s: the real burst. */}
+				<BerxParticleSystem trigger={burst} count={46} color={colors.accent} duration={1100} spread={360} speed={150} gravity={20} />
 			</View>
-			<Animated.View style={[styles.splashLines, linesStyle]}>
-				<Text style={[cine.heading, styles.splashLine1, {color: colors.text}]}>REAL LIFE. CONNECTED.</Text>
-				<Text style={[cine.body, styles.splashLine2, {color: colors.textDim}]}>Твоя жизнь начинается здесь.</Text>
-			</Animated.View>
+
+			{/* 1.8s: the wordmark's letters land left to right. */}
+			<View style={splashStyles.wordmarkRow}>
+				{'BERX'.split('').map((c, i) => (
+					<SplashLetter key={i} char={c} delay={SPLASH_BEATS.mark + i * BERX_STAGGER.tight} />
+				))}
+			</View>
+
+			{/* 2.5s / 2.8s: the two lines, each on its own beat. */}
+			<View style={styles.splashLines}>
+				{line1 ? <BerxWordReveal text="REAL LIFE. CONNECTED." style={[cine.heading, styles.splashLine1, {color: colors.text}] as never} /> : null}
+				{line2 ? <BerxWordReveal text="Твоя жизнь начинается здесь." style={[cine.body, styles.splashLine2, {color: colors.textDim}] as never} /> : null}
+			</View>
 		</View>
 	);
 }
+
+const splashStyles = StyleSheet.create({
+	letter: {fontFamily: fonts.heading, fontSize: 34, fontWeight: '800', letterSpacing: 8, color: '#FFFFFF'},
+	wordmarkRow: {flexDirection: 'row', marginTop: spacing.xl},
+	seed: {position: 'absolute', width: 4, height: 4, borderRadius: 2},
+});
 
 // ————————————————————————————————————————————————————————————————
 // SCREEN 2 — WELCOME. A glass panel over the live background; Apple/
@@ -420,7 +557,7 @@ function NamePanel({colors, firstname, lastname, onChange, onBack, onNext}: {col
 					<Text style={[cine.heading, styles.title, {color: colors.text}]}>Как тебя зовут?</Text>
 					<BerxInput placeholder="Имя" value={firstname} onChangeText={(v) => onChange({firstname: v})} style={styles.input} />
 					<BerxInput placeholder="Фамилия" value={lastname} onChangeText={(v) => onChange({lastname: v})} style={styles.input} />
-					{firstname.trim() ? <Text style={[styles.reactivePhrase, {color: colors.accent}]}>Приятно познакомиться, {firstname.trim()}.</Text> : null}
+						{firstname.trim() ? <ReactivePhrase text={`Приятно познакомиться, ${firstname.trim()}.`} style={[styles.reactivePhrase, {color: colors.accent}]} /> : null}
 					<View style={styles.stepActions}>
 						<BerxAnimatedButton variant="secondary" title="Назад" onPress={onBack} style={styles.stepBtn} />
 						<BerxAnimatedButton variant="primary" title="Продолжить →" onPress={onNext} disabled={!canNext} style={styles.stepBtn} />
@@ -440,7 +577,7 @@ function AccountPanel({colors, wizard, onChange, busy, error, onBack, onNext}: {
 	const usernameFormatOk = /^[a-zA-Z0-9_]{3,20}$/.test(wizard.username.trim());
 	return (
 		<View style={styles.center}>
-			<HugeBackgroundWord text="@" />
+			<HugeBackgroundWord text="@" spin />
 			{/* Non-flex shell — see WelcomePanel's own comment on the real BerxGlassView stretch bug this avoids. */}
 			<View style={styles.cardShell}>
 				<BerxGlassView glow radius={28} style={styles.card}>
@@ -453,9 +590,11 @@ function AccountPanel({colors, wizard, onChange, busy, error, onBack, onNext}: {
 						style={styles.input}
 					/>
 					{wizard.username.trim() ? (
-						<Text style={[styles.availability, {color: usernameFormatOk ? '#00C896' : '#E0555A'}]}>
-							{usernameFormatOk ? '✓ Похоже на действительное имя' : 'Только буквы, цифры и _, от 3 символов'}
-						</Text>
+						<UsernameFeedback
+							ok={usernameFormatOk}
+							style={[styles.availability, {color: usernameFormatOk ? '#00C896' : '#E0555A'}]}
+							text={usernameFormatOk ? '✓ Похоже на действительное имя' : 'Только буквы, цифры и _, от 3 символов'}
+						/>
 					) : null}
 					<Text style={[styles.sectionLabel, {color: colors.textFaint}]}>Почта и пароль для входа</Text>
 					<BerxInput placeholder="Email" autoCapitalize="none" keyboardType="email-address" value={wizard.email} onChangeText={(v) => onChange({email: v})} style={styles.input} />
@@ -469,6 +608,55 @@ function AccountPanel({colors, wizard, onChange, busy, error, onBack, onNext}: {
 			</View>
 		</View>
 	);
+}
+
+/**
+ * "После окончания ввода 'Приятно познакомиться, Антон.' появляется с
+ * fade + scale 0.9 → 1.0" — the spec's own numbers. Keyed on the text
+ * by its caller, so re-typing a name replays it rather than leaving a
+ * phrase that silently changed underneath.
+ */
+function ReactivePhrase({text, style}: {text: string; style?: StyleProp<TextStyle>}) {
+	const t = useSharedValue(0);
+	useEffect(() => {
+		t.value = 0;
+		t.value = withTiming(1, {duration: BERX_MOTION.standard.duration, easing: Easing.out(Easing.cubic)});
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [text]);
+	const st = useAnimatedStyle(() => ({opacity: t.value, transform: [{scale: 0.9 + t.value * 0.1}]}), [t]);
+	return <Animated.Text style={[style, st]}>{text}</Animated.Text>;
+}
+
+/**
+ * The username line. Valid format POPS (scale 0 → 1.2 → 1.0, the spec's
+ * own 300ms); invalid SHAKES (0 → -6 → 6 → 0). Both fire on the real
+ * transition between those two states, never on every keystroke — a
+ * line that shook on each character would be noise, not feedback.
+ *
+ * NOTE, and it matters: this reports FORMAT, not availability. There is
+ * no pre-auth availability endpoint (see this file's own header), so
+ * the copy says "похоже на действительное имя" rather than "свободно".
+ */
+function UsernameFeedback({ok, text, style}: {ok: boolean; text: string; style?: StyleProp<TextStyle>}) {
+	const pop = useSharedValue(1);
+	const shake = useSharedValue(0);
+	const prevOk = useRef<boolean | null>(null);
+	useEffect(() => {
+		if (prevOk.current === ok) return;
+		if (ok) {
+			pop.value = 0;
+			pop.value = withSequence(withTiming(1.2, {duration: 160, easing: Easing.out(Easing.back(2))}), withTiming(1, {duration: 140}));
+		} else if (prevOk.current !== null) {
+			shake.value = withSequence(
+				withTiming(-6, {duration: 60}),
+				withTiming(6, {duration: 80}),
+				withTiming(0, {duration: 80})
+			);
+		}
+		prevOk.current = ok;
+	}, [ok, pop, shake]);
+	const st = useAnimatedStyle(() => ({transform: [{scale: pop.value}, {translateX: shake.value}]}), [pop, shake]);
+	return <Animated.Text style={[style, st]}>{text}</Animated.Text>;
 }
 
 const makeStyles = (colors: BerxColorTokens) =>
@@ -499,6 +687,8 @@ const makeStyles = (colors: BerxColorTokens) =>
 		emblemSlot: {width: 200, height: 200, alignItems: 'center', justifyContent: 'center'},
 		halo: {position: 'absolute', width: 190, height: 190},
 		haloGlass: {flex: 1, padding: 0, borderWidth: 1},
+		/** The single light point the whole sequence starts from. */
+		point: {position: 'absolute', width: 10, height: 10, borderRadius: 5, shadowOpacity: 0.9, shadowRadius: 14, shadowOffset: {width: 0, height: 0}},
 		splashLines: {alignItems: 'center', marginTop: spacing.xl, gap: spacing.xs},
 		splashLine1: {fontSize: 15, letterSpacing: 2, textAlign: 'center'},
 		splashLine2: {fontSize: 15, textAlign: 'center'},
