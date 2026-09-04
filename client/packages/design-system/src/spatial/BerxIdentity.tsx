@@ -8,7 +8,7 @@
  * keeps its identity across scenes.
  */
 import React from 'react';
-import {StyleSheet, Text, View} from 'react-native';
+import {Pressable, StyleSheet, Text, View} from 'react-native';
 import {rgba, sharedElementTag} from '@berx/spatial';
 import {useBerxScene} from './BerxSpatialScene';
 import {BerxAvatar} from '../components/BerxAvatar';
@@ -27,6 +27,13 @@ export interface BerxIdentityProps {
 	size?: number;
 	subtitle?: string;
 	trailing?: React.ReactNode;
+	/**
+	 * Opens this person. When set the whole identity becomes one
+	 * button — a name that navigates is a control, and splitting it
+	 * into a tappable avatar and untappable text gives a screen-reader
+	 * user two nodes where there is one action.
+	 */
+	onPress?: () => void;
 	testID?: string;
 }
 
@@ -47,6 +54,7 @@ export function BerxIdentity({
 	size = 44,
 	subtitle,
 	trailing,
+	onPress,
 	testID,
 }: BerxIdentityProps) {
 	const {scene} = useBerxScene();
@@ -56,8 +64,8 @@ export function BerxIdentity({
 		.filter(Boolean)
 		.join(', ');
 
-	return (
-		<View testID={testID} accessible accessibilityRole="text" accessibilityLabel={label} style={styles.root}>
+	const body = (
+		<>
 			<View nativeID={sharedElementTag('avatar', userGuid)}>
 				<BerxAvatar iconUrl={avatarUrl} fallbackInitial={name.slice(0, 1)} size={size} />
 			</View>
@@ -79,11 +87,33 @@ export function BerxIdentity({
 				) : null}
 			</View>
 			{trailing}
+		</>
+	);
+
+	if (onPress) {
+		return (
+			<Pressable
+				testID={testID}
+				accessibilityRole="button"
+				accessibilityLabel={label}
+				accessibilityHint="Открыть профиль"
+				onPress={onPress}
+				style={({pressed}) => [styles.root, styles.pressable, {opacity: pressed ? 0.7 : 1}]}>
+				{body}
+			</Pressable>
+		);
+	}
+
+	return (
+		<View testID={testID} accessible accessibilityRole="text" accessibilityLabel={label} style={styles.root}>
+			{body}
 		</View>
 	);
 }
 const styles = StyleSheet.create({
 	root: {flexDirection: 'row', alignItems: 'center', gap: spacing.md},
+	/* 44dp, because an identity that navigates is a control */
+	pressable: {minHeight: 44},
 	text: {flex: 1, gap: 2},
 	nameRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.xs},
 	name: {color: colors.text, fontSize: typography.sizeBase, fontWeight: typography.weightMedium, flexShrink: 1},

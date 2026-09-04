@@ -1,35 +1,58 @@
 /**
- * !!! VERIFICATION STATUS: UNVERIFIED — see LoginScreen.tsx header.
- * Every field rendered here (with_username, last_message, time)
- * traces to conversations.php's real JSON response — no mock data.
- * Two distinct search surfaces, both real: the inline field below is
- * a client-side quick filter over the already-loaded list; "Поиск по
- * всем сообщениям" opens MessageSearchScreen, backed by the real
- * /api/v1/messagesearch endpoint (searches message CONTENT across all
- * conversations, not just usernames in this list). An honest
- * "Личные" tab only, no "Групповые" tab: the real API has no group
- * messaging, so a second tab would have nothing behind it.
+ * BERX-176 — Messages. The MESSAGES family's v9 scene.
+ *
+ * Every field traces to conversations.php's real response:
+ * with_username, last_message, time, plus the real unread count from
+ * /conversations/unread-count.
+ *
+ * Two search surfaces, both real and deliberately distinct: the field
+ * here is a client-side filter over the already-loaded list, while
+ * "Поиск по всем сообщениям" opens the real /api/v1/messagesearch
+ * endpoint, which searches message content across every conversation.
+ *
+ * One tab, "Личные", because that is all the API has. There is no
+ * group messaging resource, so a "Групповые" tab would have nothing
+ * behind it. There is also no call surface: BERX has no signalling,
+ * media server or call-session resource anywhere under /api/v1/, so
+ * BerxCallSurface stays BLOCKED rather than shipping a call button
+ * that cannot place a call.
  */
-import React, {useCallback, useEffect, useMemo, useState} from 'react';
-import {FlatList, Pressable, Text, View, RefreshControl, StyleSheet} from 'react-native';
+import {useCallback, useEffect, useMemo, useState} from 'react';
+import {FlatList, Pressable, RefreshControl, StyleSheet, Text, View} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxConversationSummary} from '@berx/api/types';
 import {relativeTimeLabel} from '@berx/domain';
+import type {BerxScreenState} from '@berx/spatial';
 import {colors, spacing, typography} from '@berx/design-system/tokens';
-import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
-import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
+import {BerxSearchField} from '../../../../packages/design-system/src/spatial/BerxSearchField';
+import {BerxChatRow} from '../../../../packages/design-system/src/spatial/BerxChatRow';
+import {BerxDataBoundary} from '../../../../packages/design-system/src/spatial/BerxDataBoundary';
+import {useBerxSceneScroll} from '../../../../packages/design-system/src/spatial/BerxSpatialScene';
+import {BerxScreenScene, useBerxScreen} from '../spatial/BerxScreenScene';
+import {berxAnalytics} from '../spatial/analytics';
 
-interface Props {
+export interface ConversationListScreenProps {
 	api: BerxApiClient;
 	onOpenConversation: (otherGuid: number, otherUsername?: string) => void;
-	/** Real endpoint (components/OssnApi/v1/messagesearch.php) — distinct from this screen's own client-side quick filter below, which only filters the already-loaded list by username. */
+	/** The real content search (components/OssnApi/v1/messagesearch.php), not this screen's local filter. */
 	onOpenMessageSearch?: () => void;
 }
 
-export default function ConversationListScreen({api, onOpenConversation, onOpenMessageSearch}: Props) {
+export default function ConversationListScreen(props: ConversationListScreenProps) {
+	return (
+		<BerxScreenScene screenId="BERX-176" testID="berx-176">
+			<ConversationListSceneBody {...props} />
+		</BerxScreenScene>
+	);
+}
+
+function ConversationListSceneBody({api, onOpenConversation, onOpenMessageSearch}: ConversationListScreenProps) {
+	const screen = useBerxScreen();
+	const {onScroll, scrollEventThrottle} = useBerxSceneScroll();
+
 	const [items, setItems] = useState<BerxConversationSummary[]>([]);
 	const [query, setQuery] = useState('');
-	const [loading, setLoading] = useState(true);
+	const [state, setState] = useState<BerxScreenState>('loading');
 	const [refreshing, setRefreshing] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [unread, setUnread] = useState(0);
@@ -38,57 +61,90 @@ export default function ConversationListScreen({api, onOpenConversation, onOpenM
 		try {
 			const [res, unreadRes] = await Promise.all([
 				api.conversations(),
-				// Real badge count — best-effort: a failed count must
-				// never prevent the conversation list itself loading.
+				/* best-effort: a failed count must never stop the list loading */
 				api.unreadMessageCount().catch(() => ({unread_count: 0})),
 			]);
 			setItems(res.conversations);
 			setUnread(unreadRes.unread_count);
 			setError(null);
-		} catch {
-			setError('Не удалось загрузить диалоги');
+			setState(res.conversations.length === 0 ? 'empty' : 'default');
+		} catch (e) {
+			setError(e instanceof Error ? e.message : 'Не удалось загрузить диалоги');
+			setState('error');
+			berxAnalytics.error(screen, 'conversations');
 		} finally {
-			setLoading(false);
 			setRefreshing(false);
 		}
-	}, [api]);
+	}, [api, screen]);
 
 	useEffect(() => {
 		load();
 	}, [load]);
 
 	const filtered = useMemo(() => {
-		if (!query.trim()) return items;
 		const q = query.trim().toLowerCase();
+		if (!q) return items;
 		return items.filter((it) => (it.with_username ?? '').toLowerCase().includes(q));
 	}, [items, query]);
 
-	if (loading) return <BerxLoadingState label="Загрузка диалогов..." />;
-	if (error) return <BerxErrorState message={error} onRetry={load} />;
+	/**
+	 * A filter that matches nothing is a different state from having no
+	 * conversations, and the two need different words — "никого не
+	 * нашлось" is useless advice to someone who has never written to
+	 * anyone.
+	 */
+	const listState: BerxScreenState = state === 'default' && filtered.length === 0 ? 'empty' : state;
+	const filteredToNothing = state === 'default' && filtered.length === 0;
 
 	return (
 		<View style={styles.screen}>
-			<View style={styles.titleRow}>
-				<Text style={styles.title}>Сообщения{unread > 0 ? ` (${unread})` : ''}</Text>
+			<View style={styles.header}>
+				<Text style={styles.title} accessibilityRole="header">
+					Сообщения
+					{unread > 0 ? <Text style={styles.unread}> · {unread} непрочитанных</Text> : null}
+				</Text>
 				{onOpenMessageSearch ? (
-					<Pressable onPress={onOpenMessageSearch} hitSlop={12}>
-						<Text style={styles.searchAllLink}>Поиск по всем сообщениям</Text>
+					<Pressable
+						accessibilityRole="button"
+						accessibilityLabel="Поиск по всем сообщениям"
+						accessibilityHint="Ищет по тексту сообщений во всех диалогах"
+						onPress={onOpenMessageSearch}
+						style={styles.searchAll}>
+						<Text style={styles.searchAllLabel}>Поиск по сообщениям</Text>
 					</Pressable>
 				) : null}
 			</View>
-			<View style={styles.searchBar}>
-				<BerxInput placeholder="Фильтр по списку" value={query} onChangeText={setQuery} autoCapitalize="none" />
+
+			<View style={styles.filter}>
+				<BerxSearchField
+					value={query}
+					onChangeText={setQuery}
+					placeholder="Фильтр по списку"
+					accessibilityLabel="Фильтр списка диалогов по имени"
+					resultCount={query.trim() ? filtered.length : undefined}
+				/>
 			</View>
 
-			{items.length === 0 ? (
-				<BerxEmptyState title="Пока нет диалогов" subtitle="Начните переписку через профиль пользователя." />
-			) : filtered.length === 0 ? (
-				<BerxEmptyState title="Никого не нашлось" />
-			) : (
+			<BerxDataBoundary
+				state={listState}
+				onRetry={load}
+				errorMessage={error ?? undefined}
+				emptyTitle={filteredToNothing ? 'Никого не нашлось' : 'Пока нет диалогов'}
+				emptyBody={
+					filteredToNothing
+						? 'Попробуйте другое имя, или поищите по тексту сообщений.'
+						: 'Начните переписку из профиля пользователя.'
+				}
+				emptyAction={filteredToNothing ? {label: 'Сбросить фильтр', onPress: () => setQuery('')} : undefined}
+				style={styles.body}>
 				<FlatList
-					style={styles.list}
 					data={filtered}
 					keyExtractor={(item: BerxConversationSummary) => String(item.with_guid)}
+					onScroll={onScroll}
+					scrollEventThrottle={scrollEventThrottle}
+					contentContainerStyle={styles.list}
+					removeClippedSubviews
+					windowSize={Math.max(3, Math.round(screen.scene.budget.listWindowSize / 3))}
 					refreshControl={
 						<RefreshControl
 							refreshing={refreshing}
@@ -100,55 +156,36 @@ export default function ConversationListScreen({api, onOpenConversation, onOpenM
 						/>
 					}
 					renderItem={({item}: {item: BerxConversationSummary}) => (
-						<Pressable
-							style={styles.row}
+						<BerxChatRow
+							conversationGuid={item.with_guid}
+							name={item.with_username ?? `Пользователь #${item.with_guid}`}
+							preview={item.last_message}
+							timeLabel={relativeTimeLabel(item.time)}
 							onPress={() => onOpenConversation(item.with_guid, item.with_username ?? undefined)}
-						>
-							<View style={styles.avatar}>
-								<Text style={styles.avatarInitial}>{(item.with_username ?? '#').charAt(0).toUpperCase()}</Text>
-							</View>
-							<View style={styles.rowText}>
-								<Text style={styles.username}>{item.with_username ?? `Пользователь #${item.with_guid}`}</Text>
-								<Text style={styles.lastMessage} numberOfLines={1}>
-									{item.last_message}
-								</Text>
-							</View>
-							<Text style={styles.time}>{relativeTimeLabel(item.time)}</Text>
-						</Pressable>
+						/>
 					)}
 				/>
-			)}
+			</BerxDataBoundary>
 		</View>
 	);
 }
 
 const styles = StyleSheet.create({
-	screen: {flex: 1, backgroundColor: colors.black},
-	titleRow: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.lg, paddingTop: spacing.md},
-	title: {color: colors.text, fontSize: typography.sizeXl, fontWeight: typography.weightBold},
-	searchAllLink: {color: colors.accent, fontSize: typography.sizeXs, fontWeight: typography.weightMedium},
-	searchBar: {padding: spacing.lg, paddingBottom: spacing.sm},
-	list: {backgroundColor: colors.black, flex: 1},
-	row: {
+	screen: {flex: 1},
+	header: {
 		flexDirection: 'row',
 		alignItems: 'center',
-		gap: spacing.md,
+		justifyContent: 'space-between',
 		paddingHorizontal: spacing.lg,
-		paddingVertical: spacing.md,
-		borderBottomWidth: 1,
-		borderBottomColor: colors.borderSoft,
+		paddingTop: spacing.md,
+		gap: spacing.md,
 	},
-	avatar: {
-		width: 48,
-		height: 48,
-		borderRadius: 24,
-		backgroundColor: colors.glass2,
-		alignItems: 'center',
-		justifyContent: 'center',
-	},
-	avatarInitial: {color: colors.accent, fontSize: typography.sizeBase, fontWeight: typography.weightBold},
-	rowText: {flex: 1},
-	username: {color: colors.text, fontWeight: typography.weightMedium},
-	lastMessage: {color: colors.textDim, fontSize: typography.sizeSm, marginTop: 2},
-	time: {color: colors.textFaint, fontSize: typography.sizeXs},
+	title: {color: colors.text, fontSize: typography.sizeXl, fontWeight: typography.weightBold, flexShrink: 1},
+	unread: {color: colors.accent, fontSize: typography.sizeSm, fontWeight: typography.weightMedium},
+	/* was an 8px hit-slop link; now a real 44dp control */
+	searchAll: {minHeight: 44, justifyContent: 'center'},
+	searchAllLabel: {color: colors.accent, fontSize: typography.sizeXs, fontWeight: typography.weightMedium},
+	filter: {paddingHorizontal: spacing.lg, paddingTop: spacing.sm},
+	body: {flex: 1},
+	list: {padding: spacing.lg, gap: spacing.sm},
 });

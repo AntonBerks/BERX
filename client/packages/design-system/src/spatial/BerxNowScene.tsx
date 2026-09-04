@@ -24,18 +24,21 @@ export interface BerxNowSceneProps {
 	/** Real count of things happening now, from the server. */
 	liveCount: number;
 	/**
-	 * The server tells us whether it could decide "open now" at all
-	 * (/api/v1/nearby returns open_now_available). Passed through so
-	 * the scene can say "не знаем" instead of implying "закрыто".
+	 * How many of the returned places have structured opening hours.
+	 * /api/v1/nearby answers is_open_now per place from
+	 * ossn_place_hours, and returns null for a place that has none —
+	 * "unknown" and "closed" are different facts, and a place with
+	 * unknown hours is never hidden by the open-now filter. The scene
+	 * says so out loud when some places cannot answer.
 	 */
-	openNowAvailable: boolean;
+	placesWithoutHours: number;
 	/** Set when the viewer has supplied real coordinates. */
 	hasLocation: boolean;
 	header?: React.ReactNode;
 	testID?: string;
 }
 
-export function BerxNowScene({items, liveCount, openNowAvailable, hasLocation, header, testID}: BerxNowSceneProps) {
+export function BerxNowScene({items, liveCount, placesWithoutHours, hasLocation, header, testID}: BerxNowSceneProps) {
 	const {scene} = useBerxScene();
 
 	return (
@@ -63,10 +66,10 @@ export function BerxNowScene({items, liveCount, openNowAvailable, hasLocation, h
 			)}
 
 			{/* the honest limit, stated rather than hidden */}
-			{!openNowAvailable ? (
+			{placesWithoutHours > 0 ? (
 				<Text style={styles.note}>
-					Часы работы у части мест записаны текстом — «открыто сейчас» по ним определить нельзя, поэтому статус не
-					показывается.
+					У {placesWithoutHours} мест не указаны часы работы — для них статус «открыто сейчас» неизвестен, и фильтр их
+					не скрывает.
 				</Text>
 			) : null}
 		</View>

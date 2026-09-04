@@ -1,10 +1,14 @@
 /**
  * BerxStoryTray — the D4 rail of live moments at the top of HOME.
  *
- * Story rings encode two real, server-known facts: whether a user has
- * an unseen story, and whether the viewer has already seen it. Both
- * come from the stories feed; neither is guessed locally, so a ring
- * never claims something new when there is nothing new.
+ * A ring's state must come from real knowledge. BERX's stories feed
+ * returns each group's stories but no per-viewer seen flag — only
+ * POST /stories/{id}/view, which writes one. So `seen` is optional
+ * here: pass it when the caller genuinely knows (its own session, or
+ * a server field once one exists) and leave it undefined otherwise.
+ * An undefined ring is drawn as "not known to be seen" and says
+ * nothing about it out loud, rather than claiming "просмотрено" from
+ * a fact nobody has.
  */
 import {StyleSheet, Pressable, Text, View} from 'react-native';
 import {rgba, sharedElementTag} from '@berx/spatial';
@@ -16,8 +20,11 @@ export interface BerxStoryTrayItem {
 	ownerGuid: number;
 	name: string;
 	avatarUrl?: string;
-	/** Real: the viewer has seen every story in this group. */
-	seen: boolean;
+	/**
+	 * True when the viewer is known to have seen every story in the
+	 * group. Undefined when nothing knows — not false.
+	 */
+	seen?: boolean;
 	count: number;
 }
 
@@ -53,7 +60,7 @@ export function BerxStoryTray({items, onOpen, onCreate, testID}: BerxStoryTrayPr
 				<Pressable
 					key={item.ownerGuid}
 					accessibilityRole="button"
-					accessibilityLabel={`Истории: ${item.name}, ${item.count}${item.seen ? ', просмотрено' : ', новые'}`}
+					accessibilityLabel={`Истории: ${item.name}, ${item.count}${item.seen === undefined ? '' : item.seen ? ', просмотрено' : ', новые'}`}
 					onPress={() => onOpen(item.ownerGuid)}
 					style={styles.item}
 					nativeID={sharedElementTag('avatar', item.ownerGuid)}>
@@ -61,9 +68,11 @@ export function BerxStoryTray({items, onOpen, onCreate, testID}: BerxStoryTrayPr
 						style={[
 							styles.ring,
 							{
-								/* unseen rings carry the scene's energy; seen ones fall back to a neutral hairline */
-								borderColor: item.seen ? scene.layers.D4.surface.borderColor : scene.accent,
-								borderWidth: item.seen ? 1 : 2,
+								/* known-seen rings fall back to a neutral hairline; unseen and
+								   unknown both carry the scene's energy, because dimming a ring
+								   the viewer may not have opened would be a claim we cannot make */
+								borderColor: item.seen === true ? scene.layers.D4.surface.borderColor : scene.accent,
+								borderWidth: item.seen === true ? 1 : 2,
 							},
 						]}>
 						<BerxAvatar iconUrl={item.avatarUrl} fallbackInitial={item.name.slice(0, 1)} size={52} />

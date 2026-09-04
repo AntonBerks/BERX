@@ -1,22 +1,40 @@
 /**
- * !!! VERIFICATION STATUS: UNVERIFIED — see LoginScreen.tsx header.
+ * BERX-031 — Home Feed. A v9 HOME scene over the real feed endpoint.
  *
- * Story rail added on top: real data from api.storiesFeed() (built in
- * the Stories phase), not a static mock — tapping a ring opens the
- * real StoryViewer via onOpenStoryGroup. The reference images showed
- * a "Для вас / Подписки / Рядом" tab row above the feed — deliberately
- * NOT copied: feed.php only returns the caller's own wall (see the
- * honest note further down), so tabs implying different underlying
- * feeds would be fake UI with no real data behind two of the three.
+ * What changed for v9: the screen is now a resolved scene rather than
+ * a flat list on a black background. Depth, material, lighting and
+ * motion come from the BERX-031 contract via <BerxScreenScene>, the
+ * seven states come from <BerxDataBoundary>, and the rows are real
+ * spatial cards on the content plane with the story tray on the
+ * control plane above them.
+ *
+ * What did NOT change: the data. `api.feed()` and `api.storiesFeed()`
+ * are the same real calls, and two honest limits are carried forward
+ * rather than papered over now that the UI looks richer:
+ *
+ *  - This is the caller's own wall (their posts plus friends' posts on
+ *    it), not an aggregated following feed. The empty state says so.
+ *  - Feed items deliberately carry no like_count or liked flag —
+ *    feed.php avoids an N+1 count per item. So there is no reaction
+ *    control here: a heart with no state behind it would be exactly
+ *    the fake functionality v9 forbids. Reactions live on the post
+ *    detail scene, where like_count is real.
  */
-import React, {useCallback, useEffect, useState} from 'react';
-import {View, Text, FlatList, RefreshControl, StyleSheet, Pressable} from 'react-native';
+import {useCallback, useEffect, useState} from 'react';
+import {FlatList, RefreshControl, StyleSheet, Text, View, Pressable} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxFeedItem, BerxStoryFeedGroup} from '@berx/api/types';
 import {relativeTimeLabel} from '@berx/domain';
-import {colors, spacing, radius, typography} from '@berx/design-system/tokens';
-import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
+import type {BerxScreenState} from '@berx/spatial';
+import {colors, spacing, typography} from '@berx/design-system/tokens';
 import {IconPlus} from '../../../../packages/design-system/src/components/BerxIcons';
+import {BerxDataBoundary} from '../../../../packages/design-system/src/spatial/BerxDataBoundary';
+import {BerxSpatialCard} from '../../../../packages/design-system/src/spatial/BerxSpatialCard';
+import {BerxIdentity} from '../../../../packages/design-system/src/spatial/BerxIdentity';
+import {BerxStoryTray} from '../../../../packages/design-system/src/spatial/BerxStoryTray';
+import {useBerxSceneScroll} from '../../../../packages/design-system/src/spatial/BerxSpatialScene';
+import {BerxScreenScene, useBerxScreen} from '../spatial/BerxScreenScene';
+import {berxAnalytics} from '../spatial/analytics';
 
 interface Props {
 	api: BerxApiClient;
@@ -27,220 +45,165 @@ interface Props {
 	onCreateStory: () => void;
 }
 
-export default function FeedScreen({api, onOpenPost, onOpenProfile, onCreatePost, onOpenStoryGroup, onCreateStory}: Props) {
+export default function FeedScreen(props: Props) {
+	return (
+		<BerxScreenScene screenId="BERX-031" testID="berx-031">
+			<FeedSceneBody {...props} />
+		</BerxScreenScene>
+	);
+}
+
+function FeedSceneBody({api, onOpenPost, onOpenProfile, onCreatePost, onOpenStoryGroup, onCreateStory}: Props) {
+	const screen = useBerxScreen();
+	const {onScroll, scrollEventThrottle} = useBerxSceneScroll();
+
 	const [items, setItems] = useState<BerxFeedItem[]>([]);
 	const [storyGroups, setStoryGroups] = useState<BerxStoryFeedGroup[]>([]);
-	const [loading, setLoading] = useState(true);
+	const [state, setState] = useState<BerxScreenState>('loading');
 	const [refreshing, setRefreshing] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+	/**
+	 * Session-local, and labelled as such: the stories feed has no
+	 * per-viewer seen flag, so this is only "opened in this run of the
+	 * app" — never presented as server truth.
+	 */
+	const [openedThisSession, setOpenedThisSession] = useState<ReadonlySet<number>>(new Set());
 
 	const load = useCallback(async () => {
 		try {
 			const [feedRes, storiesRes] = await Promise.all([
 				api.feed(20, 0),
-				api.storiesFeed().catch(() => ({feed: []})), // stories failing shouldn't block the feed itself from showing
+				/* stories failing must not take the feed down with it */
+				api.storiesFeed().catch(() => ({feed: []})),
 			]);
 			setItems(feedRes.items);
 			setStoryGroups(storiesRes.feed);
 			setError(null);
-		} catch {
-			setError('Не удалось загрузить ленту');
+			setState(feedRes.items.length === 0 ? 'empty' : 'default');
+		} catch (e) {
+			setError(e instanceof Error ? e.message : 'Не удалось загрузить ленту');
+			setState('error');
+			berxAnalytics.error(screen, 'feed');
 		} finally {
-			setLoading(false);
 			setRefreshing(false);
 		}
-	}, [api]);
+	}, [api, screen]);
 
 	useEffect(() => {
 		load();
 	}, [load]);
 
-	function onRefresh() {
+	const refresh = useCallback(() => {
 		setRefreshing(true);
 		load();
-	}
+	}, [load]);
+
+	const openStories = useCallback(
+		(ownerGuid: number) => {
+			const group = storyGroups.find((g) => g.owner_guid === ownerGuid);
+			if (!group) return;
+			setOpenedThisSession((prev) => new Set(prev).add(ownerGuid));
+			berxAnalytics.primaryAction(screen, ownerGuid);
+			onOpenStoryGroup(group);
+		},
+		[storyGroups, onOpenStoryGroup, screen],
+	);
 
 	const header = (
 		<View style={styles.header}>
-			<Text style={styles.headerTitle}>
-				BER<Text style={styles.headerTitleAccent}>X</Text>
+			<Text style={styles.headerTitle} accessibilityRole="header">
+				BER<Text style={styles.headerAccent}>X</Text>
 			</Text>
-			<Pressable onPress={onCreatePost} hitSlop={10} style={styles.headerCreate}>
+			<Pressable
+				onPress={onCreatePost}
+				accessibilityRole="button"
+				accessibilityLabel="Создать пост"
+				style={styles.headerAction}>
 				<IconPlus size={20} color={colors.accent} />
 			</Pressable>
 		</View>
 	);
 
-	const storyRail = (
-		<View style={styles.storyRailWrap}>
-			<FlatList
-				horizontal
-				showsHorizontalScrollIndicator={false}
-				data={storyGroups}
-				keyExtractor={(g: BerxStoryFeedGroup) => String(g.owner_guid)}
-				contentContainerStyle={styles.storyRail}
-				ListHeaderComponent={
-					<Pressable style={styles.storyItem} onPress={onCreateStory}>
-						<View style={styles.addStoryRing}>
-							<IconPlus size={18} color={colors.accent} />
-						</View>
-						<Text style={styles.storyLabel} numberOfLines={1}>
-							Ваша история
-						</Text>
-					</Pressable>
-				}
-				renderItem={({item}: {item: BerxStoryFeedGroup}) => (
-					<Pressable style={styles.storyItem} onPress={() => onOpenStoryGroup(item)}>
-						<View style={styles.storyRing}>
-							<Text style={styles.storyRingInitial}>{(item.owner_username ?? '?').charAt(0).toUpperCase()}</Text>
-						</View>
-						<Text style={styles.storyLabel} numberOfLines={1}>
-							{item.owner_username ?? `#${item.owner_guid}`}
-						</Text>
-					</Pressable>
-				)}
-			/>
-		</View>
+	const tray = (
+		<BerxStoryTray
+			onCreate={onCreateStory}
+			onOpen={openStories}
+			items={storyGroups.map((g) => ({
+				ownerGuid: g.owner_guid,
+				name: g.owner_username ?? `#${g.owner_guid}`,
+				count: g.stories.length,
+				seen: openedThisSession.has(g.owner_guid) ? true : undefined,
+			}))}
+		/>
 	);
-
-	if (loading) {
-		return (
-			<View style={styles.screen}>
-				{header}
-				<View style={styles.centerState}>
-					<Text style={styles.dimText}>Загрузка...</Text>
-				</View>
-			</View>
-		);
-	}
-
-	if (error) {
-		return (
-			<View style={styles.screen}>
-				{header}
-				<View style={styles.centerState}>
-					<Text style={styles.errorText}>{error}</Text>
-					<BerxButton label="Повторить" variant="secondary" onPress={load} />
-				</View>
-			</View>
-		);
-	}
 
 	return (
 		<View style={styles.screen}>
 			{header}
-			<FlatList
-				style={styles.list}
-				data={items}
-				keyExtractor={(item: BerxFeedItem) => String(item.guid)}
-				refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />}
-				ListHeaderComponent={storyRail}
-				ListEmptyComponent={
-					<View style={styles.centerState}>
-						<Text style={styles.dimText}>Пока нет постов.</Text>
-						<Text style={styles.dimTextSmall}>
-							Честная оговорка: это ваша стена (свои посты + посты друзей на ней), не общая лента всех подписок.
-						</Text>
-					</View>
-				}
-				renderItem={({item}: {item: BerxFeedItem}) => (
-					<Pressable style={styles.card} onPress={() => onOpenPost(item.guid)}>
-						<View style={styles.cardHeader}>
-							<Pressable
-								style={styles.cardAuthorRow}
-								onPress={() => item.owner_username && onOpenProfile(item.owner_username)}
-								disabled={!item.owner_username}
-								hitSlop={8}
-							>
-								<View style={styles.avatarSmall}>
-									<Text style={styles.avatarSmallInitial}>{(item.owner_username ?? 'B').charAt(0).toUpperCase()}</Text>
-								</View>
-								<View>
-									<Text style={styles.author}>{item.owner_username ?? 'BERX'}</Text>
-									<Text style={styles.time}>{relativeTimeLabel(item.time_created)}</Text>
-								</View>
-							</Pressable>
-						</View>
-						<Text style={styles.text}>{item.text}</Text>
-					</Pressable>
-				)}
-			/>
+			<BerxDataBoundary
+				state={state}
+				onRetry={load}
+				errorMessage={error ?? undefined}
+				emptyTitle="Пока нет постов"
+				emptyBody="Это ваша стена — ваши посты и посты друзей на ней, а не общая лента всех подписок."
+				emptyAction={{label: 'Написать пост', onPress: onCreatePost}}
+				style={styles.body}>
+				<FlatList
+					data={items}
+					keyExtractor={(item: BerxFeedItem) => String(item.guid)}
+					onScroll={onScroll}
+					scrollEventThrottle={scrollEventThrottle}
+					refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.accent} />}
+					ListHeaderComponent={tray}
+					/* virtualization window from the resolved performance budget */
+					initialNumToRender={Math.min(items.length, 6)}
+					maxToRenderPerBatch={6}
+					windowSize={Math.max(3, Math.round(screen.scene.budget.listWindowSize / 3))}
+					removeClippedSubviews
+					contentContainerStyle={styles.list}
+					renderItem={({item}: {item: BerxFeedItem}) => (
+						<BerxSpatialCard
+							depth="D3"
+							onPress={() => onOpenPost(item.guid)}
+							accessibilityLabel={`Пост от ${item.owner_username ?? 'BERX'}, ${relativeTimeLabel(item.time_created)}`}
+							accessibilityHint="Открыть пост"
+							testID={`feed-post-${item.guid}`}>
+							<BerxIdentity
+								userGuid={item.owner_guid}
+								name={item.owner_username ?? 'BERX'}
+								subtitle={relativeTimeLabel(item.time_created)}
+								size={38}
+								/* the author was tappable before v9 and still is */
+								onPress={item.owner_username ? () => onOpenProfile(item.owner_username as string) : undefined}
+							/>
+							<Text style={styles.postText}>{item.text}</Text>
+						</BerxSpatialCard>
+					)}
+				/>
+			</BerxDataBoundary>
 		</View>
 	);
 }
 
 const styles = StyleSheet.create({
-	screen: {flex: 1, backgroundColor: colors.black},
+	screen: {flex: 1},
+	body: {flex: 1},
 	header: {
 		flexDirection: 'row',
 		alignItems: 'center',
 		justifyContent: 'space-between',
 		paddingHorizontal: spacing.lg,
 		paddingVertical: spacing.md,
-		borderBottomWidth: 1,
-		borderBottomColor: colors.borderSoft,
 	},
 	headerTitle: {color: colors.text, fontSize: typography.sizeXl, fontWeight: typography.weightBold, letterSpacing: 1},
-	headerTitleAccent: {color: colors.accent},
-	headerCreate: {padding: spacing.xs},
-	list: {backgroundColor: colors.black},
-	storyRailWrap: {borderBottomWidth: 1, borderBottomColor: colors.borderSoft, paddingBottom: spacing.md},
-	storyRail: {paddingHorizontal: spacing.lg, paddingTop: spacing.md, gap: spacing.sm},
-	storyItem: {alignItems: 'center', width: 64, marginRight: spacing.sm},
-	storyRing: {
-		width: 56,
-		height: 56,
-		borderRadius: 28,
-		borderWidth: 2,
-		borderColor: colors.accent,
-		alignItems: 'center',
-		justifyContent: 'center',
-		backgroundColor: colors.graphite,
+	headerAccent: {color: colors.accent},
+	/* 44dp, per the v9 accessibility contract — it was a bare icon before */
+	headerAction: {minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center'},
+	list: {padding: spacing.lg, gap: spacing.md},
+	postText: {
+		color: colors.text,
+		fontSize: typography.sizeBase,
+		lineHeight: typography.sizeBase * typography.lineHeightBase,
+		marginTop: spacing.sm,
 	},
-	storyRingInitial: {color: colors.text, fontSize: typography.sizeBase, fontWeight: typography.weightBold},
-	addStoryRing: {
-		width: 56,
-		height: 56,
-		borderRadius: 28,
-		borderWidth: 1,
-		borderColor: colors.borderStrong,
-		borderStyle: 'dashed',
-		alignItems: 'center',
-		justifyContent: 'center',
-	},
-	storyLabel: {color: colors.textFaint, fontSize: 10, marginTop: spacing.xs, textAlign: 'center'},
-	centerState: {
-		flex: 1,
-		backgroundColor: colors.black,
-		alignItems: 'center',
-		justifyContent: 'center',
-		padding: spacing.xl,
-		gap: spacing.md,
-	},
-	dimText: {color: colors.textDim, fontSize: typography.sizeBase},
-	dimTextSmall: {color: colors.textFaint, fontSize: typography.sizeXs, textAlign: 'center'},
-	errorText: {color: colors.danger, fontSize: typography.sizeBase},
-	card: {
-		backgroundColor: colors.graphite,
-		borderRadius: radius.md,
-		borderWidth: 1,
-		borderColor: colors.borderSoft,
-		padding: spacing.lg,
-		marginHorizontal: spacing.lg,
-		marginTop: spacing.md,
-	},
-	cardHeader: {marginBottom: spacing.sm},
-	cardAuthorRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm},
-	avatarSmall: {
-		width: 36,
-		height: 36,
-		borderRadius: 18,
-		backgroundColor: colors.glass2,
-		alignItems: 'center',
-		justifyContent: 'center',
-	},
-	avatarSmallInitial: {color: colors.accent, fontSize: typography.sizeSm, fontWeight: typography.weightBold},
-	author: {color: colors.text, fontWeight: typography.weightMedium, fontSize: typography.sizeSm},
-	text: {color: colors.text, fontSize: typography.sizeBase, lineHeight: typography.sizeBase * typography.lineHeightBase},
-	time: {color: colors.textFaint, fontSize: 11, marginTop: 1},
 });

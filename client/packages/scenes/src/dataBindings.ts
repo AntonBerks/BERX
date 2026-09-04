@@ -157,13 +157,6 @@ export const BERX_SCENE_DATA_BINDINGS: Record<string, BerxSceneDataBinding> = {
 		domains: ['Place', 'Event'],
 		reads: ['nearbyNow'],
 		mutations: ['recordNearbyAction'],
-		blocked: [
-			{
-				capability: 'open-now filtering on the NOW map',
-				reason:
-					'Place opening hours are stored as free text as well as structured intervals; /api/v1/nearby returns open_now_available:false when it cannot decide, and the scene renders that honestly instead of guessing a state.',
-			},
-		],
 	},
 
 	'BERX-121': {

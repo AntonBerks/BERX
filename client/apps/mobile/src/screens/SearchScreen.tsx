@@ -1,26 +1,38 @@
 /**
- * !!! VERIFICATION STATUS: UNVERIFIED — see LoginScreen.tsx header.
+ * BERX-061 — Explore. The EXPLORE family's v9 scene.
  *
- * Four real tabs, each backed by a real server scope in
- * components/OssnApi/v1/search.php (/search/users existed already;
- * /search/places, /search/events, /search/communities were added
- * this session, reusing OssnPlaces::listPlaces()/OssnEvents::
- * listEvents()/OssnGroup::searchGroups() — the exact same query the
- * dedicated list screens call with a `q` param, not new logic). Place
- * and event results are intentionally a lighter shape than the full
- * records those dedicated screens show — the API dispatcher loads
- * exactly one v1 file per request, so search.php can't reuse places.
- * php's/events.php's full JSON builder functions. Selecting a result
- * here navigates to the real detail screen, which fetches the full
- * record.
+ * Four tabs, each backed by a real server scope in
+ * components/OssnApi/v1/search.php: /search/users existed already,
+ * /search/places, /search/events and /search/communities reuse the
+ * same queries the dedicated list screens call with a `q` param. Place
+ * and event results are deliberately a lighter shape than the full
+ * records — the dispatcher loads one v1 file per request, so
+ * search.php cannot reuse places.php's or events.php's JSON builders.
+ * Selecting a result opens the real detail screen, which fetches the
+ * full record.
+ *
+ * v9 changes the presentation, not the data: the field is the real
+ * search control with a live result count, the tabs are a real filter
+ * bar, results are spatial cards on the content plane, and the
+ * screen's states go through the seven-state boundary instead of four
+ * ad-hoc branches.
  */
-import React, {useCallback, useRef, useState} from 'react';
-import {View, Text, FlatList, Pressable, Image, StyleSheet} from 'react-native';
+import {useCallback, useRef, useState} from 'react';
+import {FlatList, StyleSheet, View} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxPlaceSearchResult, BerxEventSearchResult, BerxCommunitySearchResult} from '@berx/api/types';
-import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
-import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
-import {BerxEmptyState, BerxErrorState} from '../../../../packages/design-system/src/components/BerxStates';
+import type {BerxScreenState} from '@berx/spatial';
+import {spacing} from '@berx/design-system/tokens';
+import {BerxDataBoundary} from '../../../../packages/design-system/src/spatial/BerxDataBoundary';
+import {BerxSearchField} from '../../../../packages/design-system/src/spatial/BerxSearchField';
+import {BerxFilterBar} from '../../../../packages/design-system/src/spatial/BerxFilterBar';
+import {BerxPlaceCard} from '../../../../packages/design-system/src/spatial/BerxPlaceCard';
+import {BerxIdentity} from '../../../../packages/design-system/src/spatial/BerxIdentity';
+import {BerxSpatialCard} from '../../../../packages/design-system/src/spatial/BerxSpatialCard';
+import {BerxObjectCard} from '../../../../packages/design-system/src/spatial/BerxObjectCard';
+import {useBerxSceneScroll} from '../../../../packages/design-system/src/spatial/BerxSpatialScene';
+import {BerxScreenScene, useBerxScreen} from '../spatial/BerxScreenScene';
+import {berxAnalytics} from '../spatial/analytics';
 
 interface SearchResultUser {
 	guid: number;
@@ -30,7 +42,7 @@ interface SearchResultUser {
 
 type Tab = 'users' | 'places' | 'events' | 'communities';
 
-interface Props {
+export interface SearchScreenProps {
 	api: BerxApiClient;
 	onOpenProfile: (username: string) => void;
 	onOpenPlace: (guid: number) => void;
@@ -46,166 +58,208 @@ const TABS: {key: Tab; label: string}[] = [
 	{key: 'communities', label: 'Сообщества'},
 ];
 
-export default function SearchScreen({api, onOpenProfile, onOpenPlace, onOpenEvent, onOpenCommunity}: Props) {
+export default function SearchScreen(props: SearchScreenProps) {
+	return (
+		<BerxScreenScene screenId="BERX-061" testID="berx-061">
+			<SearchSceneBody {...props} />
+		</BerxScreenScene>
+	);
+}
+
+function SearchSceneBody({api, onOpenProfile, onOpenPlace, onOpenEvent, onOpenCommunity}: SearchScreenProps) {
+	const screen = useBerxScreen();
+	const {onScroll, scrollEventThrottle} = useBerxSceneScroll();
+
 	const [tab, setTab] = useState<Tab>('users');
 	const [query, setQuery] = useState('');
 	const [users, setUsers] = useState<SearchResultUser[]>([]);
 	const [places, setPlaces] = useState<BerxPlaceSearchResult[]>([]);
 	const [events, setEvents] = useState<BerxEventSearchResult[]>([]);
 	const [communities, setCommunities] = useState<BerxCommunitySearchResult[]>([]);
-	const [loading, setLoading] = useState(false);
+	const [state, setState] = useState<BerxScreenState>('empty');
 	const [error, setError] = useState<string | null>(null);
 	const [searched, setSearched] = useState(false);
 	const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
 	const runSearch = useCallback(
 		async (q: string, activeTab: Tab) => {
-			if (!q.trim()) {
+			const term = q.trim();
+			if (!term) {
 				setUsers([]);
 				setPlaces([]);
 				setEvents([]);
 				setCommunities([]);
 				setSearched(false);
+				setState('empty');
 				return;
 			}
-			setLoading(true);
+			setState('loading');
 			try {
+				let count = 0;
 				if (activeTab === 'users') {
-					const res = await api.searchUsers(q.trim());
+					const res = await api.searchUsers(term);
 					setUsers(res.users);
+					count = res.users.length;
 				} else if (activeTab === 'places') {
-					const res = await api.searchPlaces(q.trim());
+					const res = await api.searchPlaces(term);
 					setPlaces(res.places);
+					count = res.places.length;
 				} else if (activeTab === 'events') {
-					const res = await api.searchEvents(q.trim());
+					const res = await api.searchEvents(term);
 					setEvents(res.events);
+					count = res.events.length;
 				} else {
-					const res = await api.searchCommunities(q.trim());
+					const res = await api.searchCommunities(term);
 					setCommunities(res.communities);
+					count = res.communities.length;
 				}
 				setError(null);
-			} catch {
-				setError('Не удалось выполнить поиск');
+				setState(count === 0 ? 'empty' : 'default');
+			} catch (e) {
+				setError(e instanceof Error ? e.message : 'Не удалось выполнить поиск');
+				setState('error');
+				berxAnalytics.error(screen, `search:${activeTab}`);
 			} finally {
-				setLoading(false);
 				setSearched(true);
 			}
 		},
-		[api]
+		[api, screen],
 	);
 
-	function handleChange(text: string) {
-		setQuery(text);
-		if (debounceRef.current) clearTimeout(debounceRef.current);
-		debounceRef.current = setTimeout(() => runSearch(text, tab), DEBOUNCE_MS);
-	}
+	const handleChange = useCallback(
+		(text: string) => {
+			setQuery(text);
+			if (debounceRef.current) clearTimeout(debounceRef.current);
+			debounceRef.current = setTimeout(() => runSearch(text, tab), DEBOUNCE_MS);
+		},
+		[runSearch, tab],
+	);
 
-	function switchTab(next: Tab) {
-		setTab(next);
-		if (query.trim()) runSearch(query, next);
-	}
+	const switchTab = useCallback(
+		(next: string) => {
+			const key = next as Tab;
+			setTab(key);
+			if (query.trim()) runSearch(query, key);
+		},
+		[query, runSearch],
+	);
 
-	const currentCount = tab === 'users' ? users.length : tab === 'places' ? places.length : tab === 'events' ? events.length : communities.length;
+	const count =
+		tab === 'users' ? users.length : tab === 'places' ? places.length : tab === 'events' ? events.length : communities.length;
+
+	const listProps = {
+		onScroll,
+		scrollEventThrottle,
+		contentContainerStyle: styles.list,
+		removeClippedSubviews: true,
+		windowSize: Math.max(3, Math.round(screen.scene.budget.listWindowSize / 3)),
+		maxToRenderPerBatch: 8,
+	};
 
 	return (
 		<View style={styles.screen}>
-			<View style={styles.searchBar}>
-				<BerxInput
-					placeholder="Поиск"
+			<View style={styles.controls}>
+				<BerxSearchField
 					value={query}
 					onChangeText={handleChange}
-					autoCapitalize="none"
-					autoCorrect={false}
+					onSubmit={() => runSearch(query, tab)}
+					accessibilityLabel="Поиск по BERX"
+					/* only after a real search — never a count of nothing */
+					resultCount={searched && state !== 'loading' ? count : undefined}
+					testID="explore-search"
+				/>
+				<BerxFilterBar
+					options={TABS.map((t) => ({key: t.key, label: t.label}))}
+					selected={[tab]}
+					onToggle={switchTab}
+					multiple={false}
+					accessibilityLabel="Что искать"
 				/>
 			</View>
 
-			<View style={styles.tabRow}>
-				{TABS.map((t) => (
-					<Pressable key={t.key} style={[styles.tab, tab === t.key && styles.tabActive]} onPress={() => switchTab(t.key)}>
-						<Text style={[styles.tabText, tab === t.key && styles.tabTextActive]}>{t.label}</Text>
-					</Pressable>
-				))}
-			</View>
-
-			{error ? (
-				<BerxErrorState message={error} onRetry={() => runSearch(query, tab)} />
-			) : loading ? (
-				<Text style={styles.hint}>Поиск...</Text>
-			) : searched && currentCount === 0 ? (
-				<BerxEmptyState title="Ничего не найдено" />
-			) : !searched ? (
-				<BerxEmptyState title="Начните вводить запрос" />
-			) : tab === 'users' ? (
-				<FlatList
-					data={users}
-					keyExtractor={(u: SearchResultUser) => String(u.guid)}
-					renderItem={({item}: {item: SearchResultUser}) => (
-						<Pressable style={styles.row} onPress={() => onOpenProfile(item.username)}>
-							<Text style={styles.fullname}>{item.fullname || item.username}</Text>
-							<Text style={styles.username}>@{item.username}</Text>
-						</Pressable>
-					)}
-				/>
-			) : tab === 'places' ? (
-				<FlatList
-					data={places}
-					keyExtractor={(p: BerxPlaceSearchResult) => String(p.guid)}
-					renderItem={({item}: {item: BerxPlaceSearchResult}) => (
-						<Pressable style={styles.mediaRow} onPress={() => onOpenPlace(item.guid)}>
-							{item.cover_url ? <Image source={{uri: item.cover_url}} style={styles.thumb} /> : <View style={styles.thumbFallback} />}
-							<View style={styles.mediaBody}>
-								<Text style={styles.fullname} numberOfLines={1}>{item.title}</Text>
-								{item.category ? <Text style={styles.username}>{item.category}</Text> : null}
-							</View>
-							{item.rating > 0 ? <Text style={styles.rating}>★ {item.rating}</Text> : null}
-						</Pressable>
-					)}
-				/>
-			) : tab === 'events' ? (
-				<FlatList
-					data={events}
-					keyExtractor={(e: BerxEventSearchResult) => String(e.guid)}
-					renderItem={({item}: {item: BerxEventSearchResult}) => (
-						<Pressable style={styles.mediaRow} onPress={() => onOpenEvent(item.guid)}>
-							{item.cover_url ? <Image source={{uri: item.cover_url}} style={styles.thumb} /> : <View style={styles.thumbFallback} />}
-							<View style={styles.mediaBody}>
-								<Text style={styles.fullname} numberOfLines={1}>{item.title}</Text>
-								<Text style={styles.username}>{new Date(item.starts * 1000).toLocaleDateString('ru-RU')}</Text>
-							</View>
-						</Pressable>
-					)}
-				/>
-			) : (
-				<FlatList
-					data={communities}
-					keyExtractor={(c: BerxCommunitySearchResult) => String(c.guid)}
-					renderItem={({item}: {item: BerxCommunitySearchResult}) => (
-						<Pressable style={styles.row} onPress={() => onOpenCommunity(item.guid)}>
-							<Text style={styles.fullname}>{item.title}</Text>
-							<Text style={styles.username}>{item.members} участников{item.owner ? ` · ${item.owner}` : ''}</Text>
-						</Pressable>
-					)}
-				/>
-			)}
+			<BerxDataBoundary
+				state={state}
+				onRetry={() => runSearch(query, tab)}
+				errorMessage={error ?? undefined}
+				emptyTitle={searched ? 'Ничего не найдено' : 'Что вы ищете?'}
+				emptyBody={
+					searched
+						? 'Попробуйте другой запрос или другую вкладку.'
+						: 'Люди, места, события и сообщества — всё, что уже есть в BERX.'
+				}
+				style={styles.body}>
+				{tab === 'users' ? (
+					<FlatList
+						{...listProps}
+						data={users}
+						keyExtractor={(u: SearchResultUser) => String(u.guid)}
+						renderItem={({item}: {item: SearchResultUser}) => (
+							<BerxSpatialCard depth="D3" padding={spacing.md} radius={18}>
+								<BerxIdentity
+									userGuid={item.guid}
+									name={item.fullname || item.username}
+									handle={item.username}
+									onPress={() => onOpenProfile(item.username)}
+								/>
+							</BerxSpatialCard>
+						)}
+					/>
+				) : tab === 'places' ? (
+					<FlatList
+						{...listProps}
+						data={places}
+						keyExtractor={(p: BerxPlaceSearchResult) => String(p.guid)}
+						renderItem={({item}: {item: BerxPlaceSearchResult}) => (
+							<BerxPlaceCard
+								placeGuid={item.guid}
+								name={item.title}
+								category={item.category ?? undefined}
+								cover={item.cover_url ? {uri: item.cover_url} : undefined}
+								/* search.php returns an average with no count — show the star only when there is one */
+								rating={item.rating > 0 ? item.rating : undefined}
+								ratingCount={item.rating > 0 ? 1 : 0}
+								onPress={() => onOpenPlace(item.guid)}
+							/>
+						)}
+					/>
+				) : tab === 'events' ? (
+					<FlatList
+						{...listProps}
+						data={events}
+						keyExtractor={(e: BerxEventSearchResult) => String(e.guid)}
+						renderItem={({item}: {item: BerxEventSearchResult}) => (
+							<BerxObjectCard
+								title={item.title}
+								subtitle={new Date(item.starts * 1000).toLocaleDateString('ru-RU')}
+								media={item.cover_url ? {uri: item.cover_url} : undefined}
+								mediaAlt={item.cover_url ? `Афиша события ${item.title}` : undefined}
+								onPress={() => onOpenEvent(item.guid)}
+							/>
+						)}
+					/>
+				) : (
+					<FlatList
+						{...listProps}
+						data={communities}
+						keyExtractor={(c: BerxCommunitySearchResult) => String(c.guid)}
+						renderItem={({item}: {item: BerxCommunitySearchResult}) => (
+							<BerxObjectCard
+								title={item.title}
+								subtitle={item.owner ? `${item.members} участников · ${item.owner}` : `${item.members} участников`}
+								facts={[{label: 'участников', value: item.members}]}
+								onPress={() => onOpenCommunity(item.guid)}
+							/>
+						)}
+					/>
+				)}
+			</BerxDataBoundary>
 		</View>
 	);
 }
 
 const styles = StyleSheet.create({
-	screen: {flex: 1, backgroundColor: colors.black},
-	searchBar: {padding: spacing.lg, paddingBottom: spacing.sm},
-	tabRow: {flexDirection: 'row', gap: spacing.xs, paddingHorizontal: spacing.lg, paddingBottom: spacing.sm},
-	tab: {paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: radius.pill, backgroundColor: colors.surface},
-	tabActive: {backgroundColor: colors.accentSoft},
-	tabText: {fontSize: typography.sizeSm, color: colors.textDim},
-	tabTextActive: {color: colors.accent, fontWeight: typography.weightMedium},
-	hint: {color: colors.textDim, textAlign: 'center', marginTop: spacing.xl, fontSize: typography.sizeBase},
-	row: {padding: spacing.lg, borderBottomWidth: 1, borderBottomColor: colors.borderSoft},
-	fullname: {color: colors.text, fontSize: typography.sizeBase, fontWeight: typography.weightMedium},
-	username: {color: colors.textDim, fontSize: typography.sizeSm, marginTop: spacing.xs},
-	mediaRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm, padding: spacing.lg, borderBottomWidth: 1, borderBottomColor: colors.borderSoft},
-	thumb: {width: 48, height: 48, borderRadius: radius.sm},
-	thumbFallback: {width: 48, height: 48, borderRadius: radius.sm, backgroundColor: colors.graphite},
-	mediaBody: {flex: 1},
-	rating: {color: colors.accent, fontSize: typography.sizeXs, fontWeight: typography.weightMedium},
+	screen: {flex: 1},
+	controls: {paddingHorizontal: spacing.lg, paddingTop: spacing.md, gap: spacing.sm},
+	body: {flex: 1},
+	list: {padding: spacing.lg, gap: spacing.md},
 });
