@@ -19,7 +19,7 @@ export interface CreateAlbumScreenProps {
 
 export default function CreateAlbumScreen(props: CreateAlbumScreenProps) {
 	return (
-		<BerxFamilyScene family="PROFILE" testID="create-album">
+		<BerxFamilyScene family="PROFILE" atmosphereKind="social" testID="create-album">
 			<CreateAlbumScreenBody {...props} />
 		</BerxFamilyScene>
 	);

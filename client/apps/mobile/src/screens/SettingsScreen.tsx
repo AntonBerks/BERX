@@ -33,7 +33,7 @@ function Row({label, onPress, danger}: {label: string; onPress: () => void; dang
 
 export default function SettingsScreen(props: SettingsScreenProps) {
 	return (
-		<BerxFamilyScene family="PROFILE" testID="settings">
+		<BerxFamilyScene family="PROFILE" atmosphereKind="social" testID="settings">
 			<SettingsScreenBody {...props} />
 		</BerxFamilyScene>
 	);

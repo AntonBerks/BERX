@@ -22,7 +22,7 @@ export interface BlockedUsersScreenProps {
 
 export default function BlockedUsersScreen(props: BlockedUsersScreenProps) {
 	return (
-		<BerxFamilyScene family="PROFILE" testID="blocked-users">
+		<BerxFamilyScene family="PROFILE" atmosphereKind="social" testID="blocked-users">
 			<BlockedUsersScreenBody {...props} />
 		</BerxFamilyScene>
 	);

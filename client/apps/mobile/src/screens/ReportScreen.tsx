@@ -37,7 +37,7 @@ const REASONS: {key: BerxReportReason; label: string}[] = [
 
 export default function ReportScreen(props: ReportScreenProps) {
 	return (
-		<BerxFamilyScene family="PROFILE" testID="report">
+		<BerxFamilyScene family="PROFILE" atmosphereKind="social" testID="report">
 			<ReportScreenBody {...props} />
 		</BerxFamilyScene>
 	);

@@ -74,7 +74,6 @@ export default function PostDetailScreen(props: PostDetailScreenProps) {
 		<BerxFamilyScene
 			family="HOME"
 			atmosphere={atmosphere ? {uri: atmosphere} : undefined}
-			scrim={atmosphere ? 0.68 : 0}
 			testID="post-detail">
 			<PostDetailSceneBody {...props} />
 		</BerxFamilyScene>

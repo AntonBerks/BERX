@@ -29,7 +29,7 @@ import {BerxFilterBar} from '../../../../packages/design-system/src/spatial/Berx
 import {BerxPlaceCard} from '../../../../packages/design-system/src/spatial/BerxPlaceCard';
 import {BerxDataBoundary} from '../../../../packages/design-system/src/spatial/BerxDataBoundary';
 import {useBerxSceneScroll} from '../../../../packages/design-system/src/spatial/BerxSpatialScene';
-import {BerxScreenScene, useBerxScreen} from '../spatial/BerxScreenScene';
+import {BerxScreenScene, useBerxScreen, useBerxSceneAtmosphere} from '../spatial/BerxScreenScene';
 import {berxAnalytics} from '../spatial/analytics';
 
 export interface PlacesListScreenProps {
@@ -47,6 +47,12 @@ export default function PlacesListScreen(props: PlacesListScreenProps) {
 			<PlacesSceneBody {...props} />
 		</BerxScreenScene>
 	);
+}
+
+/** The first item in a list that carries a cover — a real one or none. */
+function firstCover(items: readonly {cover_url: string | null}[]): {uri: string} | undefined {
+	const url = items.find((i) => i.cover_url)?.cover_url;
+	return url ? {uri: url} : undefined;
 }
 
 function PlacesSceneBody({api, onOpenPlace, onCreate, onOpenNearby, onOpenSaved, onBack}: PlacesListScreenProps) {
@@ -73,6 +79,9 @@ function PlacesSceneBody({api, onOpenPlace, onCreate, onOpenNearby, onOpenSaved,
 			.then((r) => setSavedGuids(new Set(r.places.map((p) => p.guid))))
 			.catch(() => undefined);
 	}, [api]);
+
+	/* the list is about these places; the first one with a cover is the room */
+	useBerxSceneAtmosphere(firstCover(items));
 
 	const load = useCallback(async () => {
 		setState('loading');

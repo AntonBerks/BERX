@@ -15,7 +15,7 @@ import type {BerxApiClient} from '@berx/api/client';
 import type {BerxCreatorProfile, BerxCreatorContent, BerxCreatorPostItem, BerxCreatorAlbumItem, BerxCreatorEventItem, BerxCreatorExperienceItem} from '@berx/api/types';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxCreatorCard} from '../../../../packages/design-system/src/spatial/BerxCreatorCard';
-import {BerxScreenScene} from '../spatial/BerxScreenScene';
+import {BerxScreenScene, useBerxSceneAtmosphere} from '../spatial/BerxScreenScene';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
@@ -46,12 +46,30 @@ export default function CreatorProfileScreen(props: CreatorProfileScreenProps) {
 	);
 }
 
+/**
+ * The creator's own content, in the order the archive puts it in:
+ * an event image, else an experience image. Posts and albums carry
+ * no image URL in this response, so a creator whose only work is
+ * text legitimately gets no atmosphere.
+ */
+function creatorMedia(content: BerxCreatorContent | null): {uri: string} | undefined {
+	const url =
+		content?.events.find((e) => e.image_url)?.image_url ??
+		content?.experiences.find((e) => e.image_url)?.image_url ??
+		null;
+	return url ? {uri: url} : undefined;
+}
+
 function CreatorProfileSceneBody({api, username, onOpenPost, onOpenAlbum, onOpenEvent, onOpenExperience, onOpenVideos, onOpenSettings, onBack}: CreatorProfileScreenProps) {
 	const [profile, setProfile] = useState<BerxCreatorProfile | null>(null);
 	const [content, setContent] = useState<BerxCreatorContent | null>(null);
 	const [tab, setTab] = useState<Tab>('posts');
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
+
+	/* the creator's own published work lights the room — their event or
+	   experience imagery, never a stock creative backdrop */
+	useBerxSceneAtmosphere(creatorMedia(content));
 
 	const load = useCallback(async () => {
 		setLoading(true);

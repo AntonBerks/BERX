@@ -15,16 +15,40 @@ import {
 	mountBerxScene,
 	type BerxWebScene,
 } from '@berx/spatial-web';
-import {BERX_DEPTH_KEYS, type BerxDepthKey} from '@berx/spatial';
+import {BERX_DEPTH_KEYS, type BerxAtmosphereKind, type BerxDepthKey} from '@berx/spatial';
 import {findContract, resolveScreen, BERX_V9_CONTRACTS} from '@berx/scenes';
 
 interface BerxHarnessWindow extends Window {
 	BERX_HARNESS: {
-		mount: (screenId: string, opts?: {highContrast?: boolean; sampleFrames?: boolean}) => void;
+		mount: (screenId: string, opts?: BerxHarnessMountOptions) => void;
 		contracts: () => string[];
 		scene: () => BerxWebScene | null;
 		resolveAll: () => {resolved: number; total: number};
 	};
+}
+
+export interface BerxHarnessMountOptions {
+	highContrast?: boolean;
+	sampleFrames?: boolean;
+	/**
+	 * Renders the scene as a device with no backdrop-filter at all.
+	 * This is the condition the v9 visual-acceptance rule names: with
+	 * the glass gone, the scene must still read as a space.
+	 */
+	noBlur?: boolean;
+	/** Overrides the family's environment, for comparing kinds. */
+	atmosphereKind?: BerxAtmosphereKind;
+	/**
+	 * Strips the composed environment and leaves the substrate fill —
+	 * the "one generic background" BERX is not allowed to ship. The
+	 * probe renders this to prove the depth in a real scene comes from
+	 * composition rather than from the glass.
+	 */
+	flatEnvironment?: boolean;
+	/** Hides D2–D5 so the environment can be measured on its own. */
+	environmentOnly?: boolean;
+	/** Real media URL for D1, when a page has one. */
+	atmosphereMediaUrl?: string;
 }
 
 let active: BerxWebScene | null = null;
@@ -42,7 +66,7 @@ function layer(depth: BerxDepthKey, withSurface: boolean): HTMLElement {
 	return createBerxLayer(depth, {surface: withSurface});
 }
 
-function build(screenId: string, highContrast: boolean, sampleFrames: boolean) {
+function build(screenId: string, opts: BerxHarnessMountOptions) {
 	const contract = findContract(screenId);
 	if (!contract) throw new Error(`unknown screen ${screenId}`);
 
@@ -85,12 +109,30 @@ function build(screenId: string, highContrast: boolean, sampleFrames: boolean) {
 	filler.style.height = '2400px';
 	root.appendChild(filler);
 
-	active = mountBerxScene(root, contract, {highContrast, sampleFrames});
+	active = mountBerxScene(root, contract, {
+		highContrast: opts.highContrast === true,
+		sampleFrames: opts.sampleFrames === true,
+		atmosphereKind: opts.atmosphereKind,
+		atmosphereMediaUrl: opts.atmosphereMediaUrl,
+		...(opts.noBlur ? {device: {supportsBackdropBlur: false}} : null),
+	});
+
+	if (opts.flatEnvironment) {
+		root.style.setProperty('--berx-d1-atmosphere', 'none');
+	}
+	if (opts.environmentOnly) {
+		for (const depth of ['D2', 'D3', 'D4', 'D5']) {
+			const el = root.querySelector<HTMLElement>(`.berx-layer[data-berx-depth="${depth}"]`);
+			if (el) el.style.visibility = 'hidden';
+		}
+		const filler = root.querySelector<HTMLElement>('.berx-filler');
+		if (filler) filler.style.visibility = 'hidden';
+	}
 }
 
 const w = window as unknown as BerxHarnessWindow;
 w.BERX_HARNESS = {
-	mount: (screenId, opts) => build(screenId, opts?.highContrast === true, opts?.sampleFrames === true),
+	mount: (screenId, opts) => build(screenId, opts ?? {}),
 	contracts: () => BERX_V9_CONTRACTS.map((c) => c.screenId),
 	scene: () => active,
 	/**

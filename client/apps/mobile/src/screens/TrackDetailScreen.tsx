@@ -29,7 +29,7 @@ export interface TrackDetailScreenProps {
 
 export default function TrackDetailScreen(props: TrackDetailScreenProps) {
 	return (
-		<BerxFamilyScene family="HOME" testID="track-detail">
+		<BerxFamilyScene family="HOME" atmosphereKind="immersive" testID="track-detail">
 			<TrackDetailScreenBody {...props} />
 		</BerxFamilyScene>
 	);

@@ -31,7 +31,7 @@ export interface DatingMatchesScreenProps {
 
 export default function DatingMatchesScreen(props: DatingMatchesScreenProps) {
 	return (
-		<BerxFamilyScene family="SOCIAL" testID="dating-matches">
+		<BerxFamilyScene family="SOCIAL" atmosphereKind="identity" testID="dating-matches">
 			<DatingMatchesSceneBody {...props} />
 		</BerxFamilyScene>
 	);

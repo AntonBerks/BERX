@@ -25,7 +25,7 @@ export interface AlbumsScreenProps {
 
 export default function AlbumsScreen(props: AlbumsScreenProps) {
 	return (
-		<BerxFamilyScene family="PROFILE" testID="albums">
+		<BerxFamilyScene family="PROFILE" atmosphereKind="immersive" testID="albums">
 			<AlbumsScreenBody {...props} />
 		</BerxFamilyScene>
 	);

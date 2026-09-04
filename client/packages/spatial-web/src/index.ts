@@ -19,10 +19,15 @@
 import {
 	BERX_DEPTH_KEYS,
 	BERX_MAX_TILT_DEG,
+	berxAtmosphereForFamily,
+	berxAtmospherePoolBudget,
 	parallaxOffset,
 	perspectiveScale,
+	resolveAtmosphere,
 	resolveScene,
 	tiltFromPointer,
+	type BerxAtmosphere,
+	type BerxAtmosphereKind,
 	type BerxColorWorldName,
 	type BerxDepthKey,
 	type BerxDeviceSignals,
@@ -39,6 +44,14 @@ export interface BerxWebSceneOptions {
 	/** Element that scrolls. Defaults to the window. */
 	scrollTarget?: HTMLElement | Window;
 	/**
+	 * Overrides the family's atmosphere when a page's content is more
+	 * specific than its family — a trip inside PLACES, the wallet
+	 * inside PROFILE. Omit and the family decides.
+	 */
+	atmosphereKind?: BerxAtmosphereKind;
+	/** Real domain media for D1. Omitted when the page has none. */
+	atmosphereMediaUrl?: string;
+	/**
 	 * Live frame sampling. On by default: the scene measures the
 	 * frames it actually produces while the user is scrolling and
 	 * lowers its own tier if it cannot hold the budget. Pass false
@@ -50,6 +63,8 @@ export interface BerxWebSceneOptions {
 
 export interface BerxWebScene {
 	scene: BerxSceneRuntime;
+	/** The resolved environment, for tests and for the QA report. */
+	atmosphere: BerxAtmosphere;
 	/** Re-resolves against current conditions (resize, preference change, tier drop). */
 	refresh: () => void;
 	destroy: () => void;
@@ -98,6 +113,99 @@ export function readDeviceSignals(overrides?: Partial<BerxDeviceSignals>): BerxD
 		prefersReducedMotion: reduced,
 		saveData: nav?.connection?.saveData === true,
 		...overrides,
+	};
+}
+
+/* ------------------------------------------------------------------ */
+/* Atmosphere                                                          */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The resolved atmosphere as one CSS `background-image` value.
+ *
+ * Layer order in CSS is topmost-first, and it is the whole point: the
+ * vignette and the pools of light fall in *front* of the media, the
+ * ground and the sky sit behind it. A photograph painted last would
+ * be a flat rectangle covering the room instead of an object inside
+ * it.
+ *
+ * Every layer here is a real gradient with continuous falloff, which
+ * is what carries the depth when the blur budget takes the glass
+ * away. Removing `backdrop-filter` from this page changes how the
+ * glass reads; it does not flatten the room.
+ */
+export function atmosphereBackground(
+	atmosphere: BerxAtmosphere,
+	viewportWidth: number,
+	viewportHeight: number,
+	mediaUrl?: string,
+): string {
+	const major = Math.max(viewportWidth, viewportHeight);
+	const layers: string[] = [];
+
+	if (atmosphere.vignette > 0) {
+		layers.push(
+			`radial-gradient(ellipse 150% 150% at 50% 45%, rgba(0,0,0,0) 55%, rgba(0,0,0,${atmosphere.vignette}) 100%)`,
+		);
+	}
+
+	for (const pool of atmosphere.pools) {
+		const r = Math.round(pool.radius * major);
+		layers.push(
+			`radial-gradient(circle ${r}px at ${pool.x * 100}% ${pool.y * 100}%, ${pool.color} 0%, ${transparentize(pool.color, 0.45)} 45%, ${transparentize(pool.color, 0)} 100%)`,
+		);
+	}
+
+	if (mediaUrl && atmosphere.mediaRole !== 'none') {
+		/* the scrim rides with the media so the two can never separate */
+		if (atmosphere.mediaScrim > 0) {
+			layers.push(`linear-gradient(rgba(0,0,0,${atmosphere.mediaScrim}), rgba(0,0,0,${atmosphere.mediaScrim}))`);
+		}
+		layers.push(`image-set(url("${encodeURI(mediaUrl)}") 1x)`);
+	}
+
+	if (atmosphere.ground) {
+		const h = atmosphere.ground.horizon * 100;
+		layers.push(
+			`linear-gradient(to bottom, rgba(0,0,0,0) ${h}%, ${transparentize(atmosphere.ground.color, 1 - atmosphere.ground.haze)} ${h}%, ${atmosphere.ground.color} 100%)`,
+		);
+		/* the horizon line itself — the strongest distance cue in the frame */
+		layers.push(
+			`linear-gradient(to bottom, rgba(0,0,0,0) calc(${h}% - 1px), rgba(255,255,255,${atmosphere.ground.edge}) calc(${h}% - 1px), rgba(255,255,255,${atmosphere.ground.edge}) ${h}%, rgba(0,0,0,0) ${h}%)`,
+		);
+	}
+
+	const sky = atmosphere.sky.stops
+		.map((stop) => `${stop.color} ${Math.round(stop.position * 100)}%`)
+		.join(', ');
+	layers.push(`linear-gradient(${atmosphere.sky.angleDeg}deg, ${sky})`);
+
+	return layers.join(', ');
+}
+
+/** Rescales an rgba()'s alpha. Non-rgba colours pass through unchanged. */
+function transparentize(color: string, factor: number): string {
+	const m = /^rgba\(([^,]+),([^,]+),([^,]+),([^)]+)\)$/.exec(color.replace(/\s/g, ''));
+	if (!m) return color;
+	return `rgba(${m[1]}, ${m[2]}, ${m[3]}, ${(Number(m[4]) * factor).toFixed(4)})`;
+}
+
+/**
+ * The atmosphere for a scene, as custom properties. `--berx-d1-*`
+ * because it is D1 that paints it, and the stylesheet reads nothing
+ * else.
+ */
+export function atmosphereCustomProperties(
+	atmosphere: BerxAtmosphere,
+	viewportWidth: number,
+	viewportHeight: number,
+	mediaUrl?: string,
+): Record<string, string> {
+	return {
+		'--berx-d1-atmosphere': atmosphereBackground(atmosphere, viewportWidth, viewportHeight, mediaUrl),
+		'--berx-d1-atmosphere-size': mediaUrl && atmosphere.mediaRole !== 'none' ? 'cover' : 'auto',
+		'--berx-d1-media-opacity': String(atmosphere.mediaOpacity || 1),
+		'--berx-d1-vignette': String(atmosphere.vignette),
 	};
 }
 
@@ -219,6 +327,7 @@ export function mountBerxScene(
 	let tierOverride: number | undefined;
 	let blurDisabled = false;
 	let scene: BerxSceneRuntime;
+	let atmosphere: BerxAtmosphere;
 	let frame = 0;
 
 	const scrollTarget = options.scrollTarget ?? window;
@@ -237,6 +346,31 @@ export function mountBerxScene(
 			highContrast: options.highContrast,
 		});
 		applyProps(root, sceneCustomProperties(scene));
+		/**
+		 * The environment, resolved from the same source the React
+		 * Native adapter uses. D1 is not "a background": a PLACES page
+		 * gets a ground plane and a horizon, a MESSAGES page gets a lit
+		 * corridor, and neither is the other's wash tinted differently.
+		 */
+		atmosphere = resolveAtmosphere({
+			kind: options.atmosphereKind ?? berxAtmosphereForFamily(scene.family),
+			accent: scene.accent,
+			background: scene.background,
+			hasMedia: options.atmosphereMediaUrl !== undefined,
+			intensity: scene.layers.D1.contentOpacity,
+			reducedMotion: scene.reducedMotion,
+			allowParallax: scene.budget.allowParallax,
+			blurred: scene.layers.D1.blurred,
+			maxPools: berxAtmospherePoolBudget(scene.budget.tier),
+		});
+		applyProps(
+			root,
+			atmosphereCustomProperties(atmosphere, window.innerWidth, window.innerHeight, options.atmosphereMediaUrl),
+		);
+		root.dataset.berxAtmosphere = atmosphere.kind;
+		root.dataset.berxAtmosphereDepth = String(
+			atmosphere.sky.stops.length + atmosphere.pools.length + (atmosphere.ground ? 2 : 0),
+		);
 		root.dataset.berxScene = scene.screenId;
 		root.dataset.berxFamily = scene.family;
 		root.dataset.berxTier = scene.budget.tier;
@@ -266,7 +400,21 @@ export function mountBerxScene(
 			if (!depth || !(depth in scene.layers)) continue;
 			const layer = scene.layers[depth];
 			const offset = parallaxOffset(y, layer.parallaxFactor, scene.budget.allowParallax);
-			el.style.setProperty('--berx-parallax-y', `${offset}px`);
+			/**
+			 * D1 — the atmosphere — is anchored to the viewport: it adds
+			 * the scroll back so the room travels with the viewer and
+			 * lags behind by exactly its parallax factor, instead of
+			 * being left at the top of the page.
+			 *
+			 * D0 is deliberately NOT anchored. Its parallax factor is 0,
+			 * so it is a flat substrate fill that covers the document
+			 * and never needs to move — and moving it would cost a
+			 * second full-screen composited layer every frame for no
+			 * visible difference. The browser probe measured exactly
+			 * that cost when both planes were anchored.
+			 */
+			const anchored = depth === 'D1' ? y + offset : offset;
+			el.style.setProperty('--berx-parallax-y', `${anchored}px`);
 		}
 	};
 
@@ -345,6 +493,9 @@ export function mountBerxScene(
 	return {
 		get scene() {
 			return scene;
+		},
+		get atmosphere() {
+			return atmosphere;
 		},
 		refresh: build,
 		measuredFps: () => fps,

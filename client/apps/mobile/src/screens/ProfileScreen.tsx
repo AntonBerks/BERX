@@ -125,7 +125,6 @@ export default function ProfileScreen(props: ProfileScreenProps) {
 		<BerxScreenScene
 			screenId="BERX-121"
 			atmosphere={atmosphere ? {uri: atmosphere} : undefined}
-			scrim={atmosphere ? 0.72 : 0}
 			testID="berx-121">
 			<ProfileSceneBody {...props} />
 		</BerxScreenScene>

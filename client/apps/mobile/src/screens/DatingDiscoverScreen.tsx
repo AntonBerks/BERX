@@ -54,7 +54,7 @@ const SWIPE_THRESHOLD = 120;
 
 export default function DatingDiscoverScreen(props: DatingDiscoverScreenProps) {
 	return (
-		<BerxFamilyScene family="SOCIAL" testID="dating-discover">
+		<BerxFamilyScene family="SOCIAL" atmosphereKind="identity" testID="dating-discover">
 			<DatingDiscoverSceneBody {...props} />
 		</BerxFamilyScene>
 	);

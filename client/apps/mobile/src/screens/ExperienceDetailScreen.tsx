@@ -11,7 +11,7 @@ import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState} from '../../../../packages/design-system/src/components/BerxStates';
-import {BerxFamilyScene} from '../spatial/BerxScreenScene';
+import {BerxFamilyScene, useBerxSceneAtmosphere} from '../spatial/BerxScreenScene';
 
 export interface ExperienceDetailScreenProps {
 	api: BerxApiClient;
@@ -46,6 +46,9 @@ function ExperienceDetailScreenBody({api, id, onOpenPlace, onOpenEvent, onBack}:
 	const [error, setError] = useState<string | null>(null);
 	const [showPicker, setShowPicker] = useState(false);
 	const [busy, setBusy] = useState(false);
+
+	/* an experience is anchored to a real place or event; that anchor is its environment */
+	useBerxSceneAtmosphere(experience?.anchor?.image_url ? {uri: experience.anchor.image_url} : undefined);
 
 	const load = useCallback(async () => {
 		setLoading(true);

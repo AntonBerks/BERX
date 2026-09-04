@@ -31,7 +31,7 @@ export interface VideoFeedScreenProps {
 
 export default function VideoFeedScreen(props: VideoFeedScreenProps) {
 	return (
-		<BerxFamilyScene family="HOME" testID="video-feed">
+		<BerxFamilyScene family="HOME" atmosphereKind="immersive" testID="video-feed">
 			<VideoFeedScreenBody {...props} />
 		</BerxFamilyScene>
 	);

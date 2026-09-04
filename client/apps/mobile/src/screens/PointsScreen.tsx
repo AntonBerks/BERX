@@ -45,7 +45,7 @@ const BOOST_COST_POINTS = 30;
 
 export default function PointsScreen(props: PointsScreenProps) {
 	return (
-		<BerxFamilyScene family="PROFILE" testID="points">
+		<BerxFamilyScene family="PROFILE" atmosphereKind="premium" testID="points">
 			<PointsSceneBody {...props} />
 		</BerxFamilyScene>
 	);

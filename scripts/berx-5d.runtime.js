@@ -216,6 +216,421 @@ function flatten(over, ground) {
   return toCss(composite(top, { ...bottom, a: 1 }));
 }
 
+// packages/spatial/src/atmosphere.ts
+var BERX_FAMILY_ATMOSPHERE = {
+  AUTH: "cinematic",
+  HOME: "social",
+  EXPLORE: "geographic",
+  NOW: "geographic",
+  PROFILE: "identity",
+  SOCIAL: "social",
+  MESSAGES: "conversational",
+  PLACES: "location",
+  EVENTS: "temporal",
+  EXPERIENCE: "journey",
+  COMMUNITY: "community",
+  CREATOR: "immersive",
+  BUSINESS: "location"
+};
+function berxAtmosphereForFamily(family) {
+  return BERX_FAMILY_ATMOSPHERE[family];
+}
+function berxAtmospherePoolBudget(tier) {
+  return tier === "high" ? 3 : tier === "medium" ? 2 : 1;
+}
+function berxTimeOfDay(date = /* @__PURE__ */ new Date()) {
+  const h = date.getHours();
+  if (h >= 5 && h < 8) return "dawn";
+  if (h >= 8 && h < 17) return "day";
+  if (h >= 17 && h < 21) return "dusk";
+  return "night";
+}
+var TIME_LIGHT = {
+  dawn: { warmth: 0.5, lift: 0.1, tint: "#FFC857" },
+  day: { warmth: 0.2, lift: 0.14, tint: "#A7B0B7" },
+  dusk: { warmth: 0.75, lift: 0.09, tint: "#FF5C72" },
+  night: { warmth: 0, lift: 0.05, tint: "#8BA8FF" }
+};
+function pool(x, y, radius, color, depth = 1) {
+  return { x: round(x, 3), y: round(y, 3), radius: round(radius, 3), color, depth: round(depth, 2) };
+}
+function resolveAtmosphere(input) {
+  const accent = input.accent;
+  const bg = input.background || BERX_V9_COLOR.bg;
+  const intensity = clamp(input.intensity ?? 0.72, 0.2, 1);
+  const flat = input.blurred === false;
+  const gain = flat ? 1.45 : 1;
+  const reduced = input.reducedMotion === true;
+  const parallaxOk = input.allowParallax !== false && !reduced;
+  const time = input.timeOfDay ?? berxTimeOfDay();
+  const t = TIME_LIGHT[time];
+  const a = (base) => round(clamp(base * intensity * gain * 1.35, 0, 0.75), 4);
+  const skyTop = mix(bg, BERX_V9_COLOR.surface, 0.85);
+  let sky;
+  let pools;
+  let ground = null;
+  let vignette;
+  let mediaRole;
+  let mediaOpacity;
+  let mediaScrim;
+  let baseScrim;
+  let parallaxScale;
+  let drift;
+  let description;
+  switch (input.kind) {
+    /**
+     * Identity — Profile, Dating, Creator.
+     * One person, one key light. The pool sits high and centred
+     * where a face is, falls off fast, and the room behind is
+     * close: identity scenes are intimate, not architectural.
+     */
+    case "identity":
+      sky = {
+        angleDeg: 180,
+        stops: [
+          { color: rgba(mix(skyTop, accent, 0.18), a(0.3)), position: 0 },
+          { color: rgba(bg, a(0.12)), position: 0.55 },
+          { color: rgba("#000000", a(0.34)), position: 1 }
+        ]
+      };
+      pools = [
+        pool(0.5, 0.22, 0.72, rgba(accent, a(0.2)), 0.8),
+        pool(0.16, 0.08, 0.42, rgba(BERX_V9_COLOR.textPrimary, a(0.06)), 0.5)
+      ];
+      vignette = round(0.42 * gain, 3);
+      mediaRole = "primary";
+      mediaOpacity = round(0.55 * intensity + 0.1, 3);
+      mediaScrim = 0.72;
+      baseScrim = 0;
+      parallaxScale = 0.8;
+      drift = 3;
+      description = "identity \u2014 a single key light on the person, close walls";
+      break;
+    /**
+     * Location — Places, Business.
+     * A room with a floor. The horizon is what makes a place a
+     * place: the ground plane recedes, the far wall hazes, and
+     * the cover photograph sits in that space rather than behind
+     * a pane of glass.
+     */
+    case "location":
+      sky = {
+        angleDeg: 172,
+        stops: [
+          { color: rgba(mix(skyTop, t.tint, 0.22 * t.warmth + 0.08), a(0.32)), position: 0 },
+          { color: rgba(mix(bg, accent, 0.1), a(0.14)), position: 0.5 },
+          { color: rgba("#000000", a(0.3)), position: 1 }
+        ]
+      };
+      pools = [
+        pool(0.24, 0.18, 0.66, rgba(mix(accent, t.tint, t.warmth * 0.5), a(0.18)), 0.6),
+        pool(0.86, 0.42, 0.5, rgba(BERX_V9_COLOR.textPrimary, a(0.05)), 0.9)
+      ];
+      ground = { horizon: 0.62, color: rgba(mix(bg, "#000000", 0.4), a(0.5)), haze: flat ? 0.3 : 0.55, edge: a(0.16) };
+      vignette = round(0.36 * gain, 3);
+      mediaRole = "primary";
+      mediaOpacity = round(0.62 * intensity + 0.12, 3);
+      mediaScrim = 0.66;
+      baseScrim = 0;
+      parallaxScale = 1;
+      drift = 4;
+      description = "location \u2014 ground plane, horizon haze, light from the entrance side";
+      break;
+    /**
+     * Temporal — Events, Memories, Wrapped.
+     * The sky is the clock. Dawn/day/dusk/night are read from
+     * the device, so an evening event is lit like an evening.
+     * A high horizon keeps the sky dominant: time is the
+     * subject.
+     */
+    case "temporal":
+      sky = {
+        angleDeg: 178,
+        stops: [
+          { color: rgba(mix(mix(skyTop, t.tint, 0.34), accent, 0.16), a(0.16 + t.lift * 1.6)), position: 0 },
+          { color: rgba(mix(bg, t.tint, 0.12), a(0.16)), position: 0.42 },
+          { color: rgba("#000000", a(0.36)), position: 1 }
+        ]
+      };
+      pools = [
+        pool(0.72, 0.14, 0.8, rgba(t.tint, a(0.16 + t.warmth * 0.1)), 0.45),
+        pool(0.2, 0.3, 0.46, rgba(accent, a(0.13)), 0.75)
+      ];
+      ground = { horizon: 0.78, color: rgba(mix(bg, "#000000", 0.55), a(0.44)), haze: 0.7, edge: a(0.12) };
+      vignette = round(0.34 * gain, 3);
+      mediaRole = "primary";
+      mediaOpacity = round(0.6 * intensity + 0.1, 3);
+      mediaScrim = 0.68;
+      baseScrim = 0;
+      parallaxScale = 0.9;
+      drift = 5;
+      description = `temporal \u2014 sky lit for ${time}, high horizon, time is the subject`;
+      break;
+    /**
+     * Conversational — Messages.
+     * No photograph. A conversation's environment is attention:
+     * a narrow corridor of light down the middle of the thread,
+     * darker at both edges, so the bubbles sit in a lit column.
+     * Media here would compete with the thing being read.
+     */
+    case "conversational":
+      sky = {
+        angleDeg: 180,
+        stops: [
+          { color: rgba(mix(bg, accent, 0.08), a(0.18)), position: 0 },
+          { color: rgba(mix(skyTop, accent, 0.12), a(0.22)), position: 0.4 },
+          { color: rgba("#000000", a(0.28)), position: 1 }
+        ]
+      };
+      pools = [
+        pool(0.5, 0.46, 0.55, rgba(accent, a(0.15)), 0.35),
+        pool(0.5, 0.02, 0.34, rgba(BERX_V9_COLOR.textPrimary, a(0.05)), 0.2)
+      ];
+      vignette = round(0.5 * gain, 3);
+      mediaRole = "none";
+      mediaOpacity = 0;
+      mediaScrim = 0;
+      baseScrim = 0;
+      parallaxScale = 0.45;
+      drift = 2;
+      description = "conversational \u2014 a lit corridor down the thread, edges held back";
+      break;
+    /**
+     * Immersive — Stories, video, the story viewer, creator work.
+     * The media *is* the room. The lit sky recedes almost to
+     * nothing, the vignette does the framing, and the scrim is
+     * the minimum that keeps overlay text legible.
+     */
+    case "immersive":
+      sky = {
+        angleDeg: 180,
+        stops: [
+          { color: rgba("#000000", a(0.3)), position: 0 },
+          { color: rgba(mix(bg, accent, 0.06), a(0.08)), position: 0.5 },
+          { color: rgba("#000000", a(0.44)), position: 1 }
+        ]
+      };
+      pools = [pool(0.5, 0.5, 0.95, rgba(accent, a(0.1)), 0.25)];
+      vignette = round(0.58 * gain, 3);
+      mediaRole = "primary";
+      mediaOpacity = round(0.82 * intensity + 0.16, 3);
+      mediaScrim = 0.4;
+      baseScrim = 0;
+      parallaxScale = 0.3;
+      drift = 2;
+      description = "immersive \u2014 the media is the room; framing by vignette, not by chrome";
+      break;
+    /**
+     * Geographic — Explore, Nearby, NOW.
+     * A living field: a wide low horizon, two pools at different
+     * apparent distances so the ground moves at a different rate
+     * from the sky, and the time of day colouring the whole
+     * thing. This is the one that must feel *outdoors*.
+     */
+    case "geographic":
+      sky = {
+        angleDeg: 175,
+        stops: [
+          { color: rgba(mix(mix(skyTop, t.tint, 0.28), accent, 0.2), a(0.2 + t.lift)), position: 0 },
+          { color: rgba(mix(bg, accent, 0.12), a(0.15)), position: 0.46 },
+          { color: rgba("#000000", a(0.3)), position: 1 }
+        ]
+      };
+      pools = [
+        pool(0.14, 0.24, 0.6, rgba(accent, a(0.17)), 0.5),
+        pool(0.82, 0.18, 0.54, rgba(t.tint, a(0.12 + t.warmth * 0.06)), 0.35),
+        pool(0.6, 0.76, 0.7, rgba(mix(accent, bg, 0.5), a(0.12)), 1)
+      ];
+      ground = { horizon: 0.5, color: rgba(mix(bg, "#000000", 0.35), a(0.42)), haze: 0.75, edge: a(0.14) };
+      vignette = round(0.3 * gain, 3);
+      mediaRole = "supporting";
+      mediaOpacity = round(0.48 * intensity + 0.08, 3);
+      mediaScrim = 0.62;
+      baseScrim = 0;
+      parallaxScale = 1;
+      drift = 6;
+      description = `geographic \u2014 open field lit for ${time}, ground and sky at different distances`;
+      break;
+    /**
+     * Community — Communities, Circles, Connections.
+     * Several pools of comparable weight, overlapping. A
+     * community is not one person and not one place; the light
+     * has more than one source and they meet in the middle.
+     */
+    case "community":
+      sky = {
+        angleDeg: 180,
+        stops: [
+          { color: rgba(mix(skyTop, accent, 0.16), a(0.24)), position: 0 },
+          { color: rgba(bg, a(0.12)), position: 0.5 },
+          { color: rgba("#000000", a(0.3)), position: 1 }
+        ]
+      };
+      pools = [
+        pool(0.26, 0.2, 0.5, rgba(accent, a(0.15)), 0.65),
+        pool(0.74, 0.3, 0.5, rgba(mix(accent, BERX_V9_COLOR.textPrimary, 0.35), a(0.12)), 0.8),
+        pool(0.5, 0.62, 0.56, rgba(accent, a(0.1)), 1)
+      ];
+      vignette = round(0.38 * gain, 3);
+      mediaRole = "supporting";
+      mediaOpacity = round(0.5 * intensity + 0.1, 3);
+      mediaScrim = 0.68;
+      baseScrim = 0;
+      parallaxScale = 0.85;
+      drift = 4;
+      description = "community \u2014 several light sources of equal weight, meeting";
+      break;
+    /**
+     * Journey — Trips, Experiences.
+     * Perspective is the point. A low vanishing pool, a hard-ish
+     * horizon and the strongest parallax in the system: the
+     * scene should read as somewhere you are going.
+     */
+    case "journey":
+      sky = {
+        angleDeg: 176,
+        stops: [
+          { color: rgba(mix(mix(skyTop, t.tint, 0.2), accent, 0.14), a(0.26)), position: 0 },
+          { color: rgba(mix(bg, accent, 0.08), a(0.12)), position: 0.52 },
+          { color: rgba("#000000", a(0.34)), position: 1 }
+        ]
+      };
+      pools = [
+        pool(0.5, 0.54, 0.34, rgba(mix(accent, t.tint, t.warmth * 0.4), a(0.22)), 0.3),
+        pool(0.5, 0.95, 0.8, rgba(bg, a(0.3)), 1)
+      ];
+      ground = { horizon: 0.54, color: rgba(mix(bg, "#000000", 0.45), a(0.46)), haze: 0.4, edge: a(0.2) };
+      vignette = round(0.4 * gain, 3);
+      mediaRole = "primary";
+      mediaOpacity = round(0.58 * intensity + 0.1, 3);
+      mediaScrim = 0.66;
+      baseScrim = 0;
+      parallaxScale = 1;
+      drift = 5;
+      description = "journey \u2014 vanishing point on the horizon, strongest parallax in the system";
+      break;
+    /**
+     * Premium — Wallet, Points, Rewards, Tickets.
+     * A dark object under a specular sweep. No horizon, no
+     * outdoors: this is a lit display case. The sweep is a
+     * narrow, high-specular band rather than a soft pool, which
+     * is what makes metal read as metal.
+     */
+    case "premium":
+      sky = {
+        angleDeg: 150,
+        stops: [
+          { color: rgba(mix(bg, BERX_V9_COLOR.textPrimary, 0.1), a(0.22)), position: 0 },
+          { color: rgba(mix(accent, BERX_V9_COLOR.textPrimary, 0.4), a(0.16)), position: 0.34 },
+          { color: rgba(bg, a(0.1)), position: 0.62 },
+          { color: rgba("#000000", a(0.4)), position: 1 }
+        ]
+      };
+      pools = [
+        pool(0.82, 0.1, 0.44, rgba(BERX_V9_COLOR.textPrimary, a(0.09)), 0.4),
+        pool(0.3, 0.7, 0.5, rgba(accent, a(0.12)), 0.9)
+      ];
+      vignette = round(0.48 * gain, 3);
+      mediaRole = "none";
+      mediaOpacity = 0;
+      mediaScrim = 0;
+      baseScrim = 0;
+      parallaxScale = 0.6;
+      drift = 3;
+      description = "premium \u2014 specular sweep across a dark object in a lit case";
+      break;
+    /**
+     * Cinematic — Auth, Onboarding, Welcome.
+     * First entry into BERX. Deep vertical falloff, a single
+     * distant key, the widest vignette in the system. Nothing
+     * competes with the first thing the person is asked to do.
+     */
+    case "cinematic":
+      sky = {
+        angleDeg: 180,
+        stops: [
+          { color: rgba(mix(bg, accent, 0.2), a(0.34)), position: 0 },
+          { color: rgba(mix(bg, accent, 0.06), a(0.14)), position: 0.38 },
+          { color: rgba("#000000", a(0.42)), position: 1 }
+        ]
+      };
+      pools = [
+        pool(0.5, 0.12, 0.9, rgba(accent, a(0.22)), 0.3),
+        pool(0.5, 0.88, 0.6, rgba(mix(accent, bg, 0.6), a(0.14)), 0.7)
+      ];
+      vignette = round(0.54 * gain, 3);
+      mediaRole = "none";
+      mediaOpacity = 0;
+      mediaScrim = 0;
+      baseScrim = 0;
+      parallaxScale = 0.5;
+      drift = 4;
+      description = "cinematic \u2014 one distant key, deep falloff, nothing competing with the ask";
+      break;
+    /**
+     * Social — Home, Feed, Search, Settings and everything whose
+     * subject is a list of other things. A calm, evenly lit room
+     * with a soft ceiling: it must recede, because the content
+     * on it is heterogeneous and carries its own media.
+     */
+    case "social":
+    default:
+      sky = {
+        angleDeg: 180,
+        stops: [
+          { color: rgba(mix(skyTop, accent, 0.12), a(0.22)), position: 0 },
+          { color: rgba(bg, a(0.1)), position: 0.52 },
+          { color: rgba("#000000", a(0.26)), position: 1 }
+        ]
+      };
+      pools = [
+        pool(0.2, 0.12, 0.62, rgba(accent, a(0.13)), 0.55),
+        pool(0.88, 0.68, 0.56, rgba(mix(accent, BERX_V9_COLOR.textPrimary, 0.3), a(0.08)), 0.9)
+      ];
+      vignette = round(0.32 * gain, 3);
+      mediaRole = "supporting";
+      mediaOpacity = round(0.46 * intensity + 0.08, 3);
+      mediaScrim = 0.66;
+      baseScrim = 0;
+      parallaxScale = 0.75;
+      drift = 3;
+      description = "social \u2014 an evenly lit room that recedes behind heterogeneous content";
+      break;
+  }
+  const poolBudget = Math.max(1, input.maxPools ?? pools.length);
+  if (pools.length > poolBudget) {
+    pools = [...pools].sort((p1, p2) => alphaOf(p2.color) - alphaOf(p1.color)).slice(0, poolBudget).sort((p1, p2) => p1.depth - p2.depth);
+  }
+  if (input.hasMedia && mediaRole !== "none") {
+    pools = pools.map((p) => ({ ...p, color: fade(p.color, 0.7) }));
+    vignette = round(clamp(vignette * 1.1, 0, 0.7), 3);
+  }
+  return {
+    kind: input.kind,
+    sky,
+    pools,
+    ground,
+    vignette: round(clamp(vignette, 0, 0.7), 3),
+    mediaRole,
+    mediaOpacity: input.hasMedia ? round(clamp(mediaOpacity, 0, 1), 3) : 0,
+    mediaScrim: input.hasMedia ? mediaScrim : 0,
+    baseScrim,
+    parallaxScale: parallaxOk ? parallaxScale : 0,
+    driftPx: reduced ? 0 : drift,
+    description,
+    compensatedForFlatness: flat
+  };
+}
+function fade(color, factor) {
+  const m = /^rgba\(([^,]+),([^,]+),([^,]+),([^)]+)\)$/.exec(color.replace(/\s/g, ""));
+  if (!m) return color;
+  return `rgba(${m[1]}, ${m[2]}, ${m[3]}, ${round(clamp(Number(m[4]) * factor, 0, 1), 4)})`;
+}
+function alphaOf(color) {
+  const m = /rgba\([^,]+,[^,]+,[^,]+,([^)]+)\)/.exec(color.replace(/\s/g, ""));
+  return m ? Number(m[1]) : 1;
+}
+
 // packages/spatial/src/materials.ts
 var BERX_MIN_TEXT_CONTRAST = 4.5;
 function fillAlpha(m) {
@@ -685,6 +1100,52 @@ function readDeviceSignals(overrides) {
     ...overrides
   };
 }
+function atmosphereBackground(atmosphere, viewportWidth, viewportHeight, mediaUrl) {
+  const major = Math.max(viewportWidth, viewportHeight);
+  const layers = [];
+  if (atmosphere.vignette > 0) {
+    layers.push(
+      `radial-gradient(ellipse 150% 150% at 50% 45%, rgba(0,0,0,0) 55%, rgba(0,0,0,${atmosphere.vignette}) 100%)`
+    );
+  }
+  for (const pool2 of atmosphere.pools) {
+    const r = Math.round(pool2.radius * major);
+    layers.push(
+      `radial-gradient(circle ${r}px at ${pool2.x * 100}% ${pool2.y * 100}%, ${pool2.color} 0%, ${transparentize(pool2.color, 0.45)} 45%, ${transparentize(pool2.color, 0)} 100%)`
+    );
+  }
+  if (mediaUrl && atmosphere.mediaRole !== "none") {
+    if (atmosphere.mediaScrim > 0) {
+      layers.push(`linear-gradient(rgba(0,0,0,${atmosphere.mediaScrim}), rgba(0,0,0,${atmosphere.mediaScrim}))`);
+    }
+    layers.push(`image-set(url("${encodeURI(mediaUrl)}") 1x)`);
+  }
+  if (atmosphere.ground) {
+    const h = atmosphere.ground.horizon * 100;
+    layers.push(
+      `linear-gradient(to bottom, rgba(0,0,0,0) ${h}%, ${transparentize(atmosphere.ground.color, 1 - atmosphere.ground.haze)} ${h}%, ${atmosphere.ground.color} 100%)`
+    );
+    layers.push(
+      `linear-gradient(to bottom, rgba(0,0,0,0) calc(${h}% - 1px), rgba(255,255,255,${atmosphere.ground.edge}) calc(${h}% - 1px), rgba(255,255,255,${atmosphere.ground.edge}) ${h}%, rgba(0,0,0,0) ${h}%)`
+    );
+  }
+  const sky = atmosphere.sky.stops.map((stop) => `${stop.color} ${Math.round(stop.position * 100)}%`).join(", ");
+  layers.push(`linear-gradient(${atmosphere.sky.angleDeg}deg, ${sky})`);
+  return layers.join(", ");
+}
+function transparentize(color, factor) {
+  const m = /^rgba\(([^,]+),([^,]+),([^,]+),([^)]+)\)$/.exec(color.replace(/\s/g, ""));
+  if (!m) return color;
+  return `rgba(${m[1]}, ${m[2]}, ${m[3]}, ${(Number(m[4]) * factor).toFixed(4)})`;
+}
+function atmosphereCustomProperties(atmosphere, viewportWidth, viewportHeight, mediaUrl) {
+  return {
+    "--berx-d1-atmosphere": atmosphereBackground(atmosphere, viewportWidth, viewportHeight, mediaUrl),
+    "--berx-d1-atmosphere-size": mediaUrl && atmosphere.mediaRole !== "none" ? "cover" : "auto",
+    "--berx-d1-media-opacity": String(atmosphere.mediaOpacity || 1),
+    "--berx-d1-vignette": String(atmosphere.vignette)
+  };
+}
 function sceneCustomProperties(scene) {
   const controlScale = perspectiveScale(scene.layers.D4.translateZ, scene.camera.perspectivePx);
   const OFF_AXIS_WORST_CASE = 0.94;
@@ -737,6 +1198,7 @@ function mountBerxScene(root, contract, options = {}) {
   let tierOverride;
   let blurDisabled = false;
   let scene;
+  let atmosphere;
   let frame = 0;
   const scrollTarget = options.scrollTarget ?? window;
   const build = () => {
@@ -753,6 +1215,25 @@ function mountBerxScene(root, contract, options = {}) {
       highContrast: options.highContrast
     });
     applyProps(root, sceneCustomProperties(scene));
+    atmosphere = resolveAtmosphere({
+      kind: options.atmosphereKind ?? berxAtmosphereForFamily(scene.family),
+      accent: scene.accent,
+      background: scene.background,
+      hasMedia: options.atmosphereMediaUrl !== void 0,
+      intensity: scene.layers.D1.contentOpacity,
+      reducedMotion: scene.reducedMotion,
+      allowParallax: scene.budget.allowParallax,
+      blurred: scene.layers.D1.blurred,
+      maxPools: berxAtmospherePoolBudget(scene.budget.tier)
+    });
+    applyProps(
+      root,
+      atmosphereCustomProperties(atmosphere, window.innerWidth, window.innerHeight, options.atmosphereMediaUrl)
+    );
+    root.dataset.berxAtmosphere = atmosphere.kind;
+    root.dataset.berxAtmosphereDepth = String(
+      atmosphere.sky.stops.length + atmosphere.pools.length + (atmosphere.ground ? 2 : 0)
+    );
     root.dataset.berxScene = scene.screenId;
     root.dataset.berxFamily = scene.family;
     root.dataset.berxTier = scene.budget.tier;
@@ -778,7 +1259,8 @@ function mountBerxScene(root, contract, options = {}) {
       if (!depth || !(depth in scene.layers)) continue;
       const layer = scene.layers[depth];
       const offset = parallaxOffset(y, layer.parallaxFactor, scene.budget.allowParallax);
-      el.style.setProperty("--berx-parallax-y", `${offset}px`);
+      const anchored = depth === "D1" ? y + offset : offset;
+      el.style.setProperty("--berx-parallax-y", `${anchored}px`);
     }
   };
   const onScroll = () => {
@@ -828,6 +1310,9 @@ function mountBerxScene(root, contract, options = {}) {
   return {
     get scene() {
       return scene;
+    },
+    get atmosphere() {
+      return atmosphere;
     },
     refresh: build,
     measuredFps: () => fps,
@@ -903,6 +1388,8 @@ function createBerxSceneRoot(root) {
 export {
   BERX_DEPTH_KEYS,
   BERX_MAX_TILT_DEG,
+  atmosphereBackground,
+  atmosphereCustomProperties,
   berxLayerContent,
   createBerxCard,
   createBerxControl,

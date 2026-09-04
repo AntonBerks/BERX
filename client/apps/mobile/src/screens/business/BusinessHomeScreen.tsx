@@ -16,7 +16,7 @@ import {BerxScrimHero, scrimBadgeStyles} from '../../../../../packages/design-sy
 import {BerxGlassSurface} from '../../../../../packages/design-system/src/components/BerxGlassSurface';
 import {BerxStatTile, BerxEyebrow} from '../../../../../packages/design-system/src/components/BerxBusinessPrimitives';
 import {BerxLoadingState, BerxErrorState} from '../../../../../packages/design-system/src/components/BerxStates';
-import {BerxFamilyScene} from '../../spatial/BerxScreenScene';
+import {BerxFamilyScene, useBerxSceneAtmosphere} from '../../spatial/BerxScreenScene';
 
 export interface BusinessHomeScreenProps {
 	api: BerxApiClient;
@@ -52,6 +52,9 @@ function BusinessHomeScreenBody({api, placeGuid, onOpenProfile, onOpenDashboard,
 	const [subscription, setSubscription] = useState<BerxBusinessSubscription | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
+
+	/* a business scene is a place scene: the venue's own cover is the room */
+	useBerxSceneAtmosphere(place?.cover_url ? {uri: place.cover_url} : undefined);
 
 	const load = useCallback(async () => {
 		setLoading(true);

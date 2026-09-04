@@ -52,7 +52,7 @@ const NOTIFICATION_LABELS: Record<string, string> = {
 
 export default function NotificationsScreen(props: NotificationsScreenProps) {
 	return (
-		<BerxFamilyScene family="PROFILE" testID="notifications">
+		<BerxFamilyScene family="PROFILE" atmosphereKind="social" testID="notifications">
 			<NotificationsScreenBody {...props} />
 		</BerxFamilyScene>
 	);

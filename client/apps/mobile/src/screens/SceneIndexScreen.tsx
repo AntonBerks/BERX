@@ -40,7 +40,7 @@ const KIND_LABEL: Record<Kind, string> = {
 
 export default function SceneIndexScreen(props: SceneIndexScreenProps) {
 	return (
-		<BerxFamilyScene family="EXPLORE" testID="scene-index">
+		<BerxFamilyScene family="EXPLORE" atmosphereKind="social" testID="scene-index">
 			<SceneIndexBody {...props} />
 		</BerxFamilyScene>
 	);

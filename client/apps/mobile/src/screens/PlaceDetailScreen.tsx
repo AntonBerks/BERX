@@ -61,7 +61,6 @@ export default function PlaceDetailScreen(props: PlaceDetailScreenProps) {
 		<BerxFamilyScene
 			family="PLACES"
 			atmosphere={cover ? {uri: cover} : undefined}
-			scrim={cover ? 0.55 : 0}
 			testID="place-detail">
 			<PlaceDetailSceneBody {...props} />
 		</BerxFamilyScene>

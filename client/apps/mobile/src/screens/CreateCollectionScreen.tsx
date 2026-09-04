@@ -20,7 +20,7 @@ export interface CreateCollectionScreenProps {
 
 export default function CreateCollectionScreen(props: CreateCollectionScreenProps) {
 	return (
-		<BerxFamilyScene family="EXPERIENCE" testID="create-collection">
+		<BerxFamilyScene family="EXPERIENCE" atmosphereKind="location" testID="create-collection">
 			<CreateCollectionScreenBody {...props} />
 		</BerxFamilyScene>
 	);

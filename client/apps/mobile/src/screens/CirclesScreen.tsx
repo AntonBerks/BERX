@@ -31,7 +31,7 @@ const KIND_LABEL: Record<string, string> = {
 
 export default function CirclesScreen(props: CirclesScreenProps) {
 	return (
-		<BerxFamilyScene family="SOCIAL" testID="circles">
+		<BerxFamilyScene family="SOCIAL" atmosphereKind="community" testID="circles">
 			<CirclesScreenBody {...props} />
 		</BerxFamilyScene>
 	);

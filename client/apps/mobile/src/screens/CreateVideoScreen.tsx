@@ -26,7 +26,7 @@ export interface CreateVideoScreenProps {
 
 export default function CreateVideoScreen(props: CreateVideoScreenProps) {
 	return (
-		<BerxFamilyScene family="HOME" testID="create-video">
+		<BerxFamilyScene family="HOME" atmosphereKind="immersive" testID="create-video">
 			<CreateVideoScreenBody {...props} />
 		</BerxFamilyScene>
 	);

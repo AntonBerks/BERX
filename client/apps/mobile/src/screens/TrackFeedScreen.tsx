@@ -28,7 +28,7 @@ export interface TrackFeedScreenProps {
 
 export default function TrackFeedScreen(props: TrackFeedScreenProps) {
 	return (
-		<BerxFamilyScene family="HOME" testID="track-feed">
+		<BerxFamilyScene family="HOME" atmosphereKind="immersive" testID="track-feed">
 			<TrackFeedScreenBody {...props} />
 		</BerxFamilyScene>
 	);

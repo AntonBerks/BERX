@@ -9,7 +9,7 @@ import type {BerxPlace} from '@berx/api/types';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
-import {BerxFamilyScene} from '../spatial/BerxScreenScene';
+import {BerxFamilyScene, useBerxSceneAtmosphere} from '../spatial/BerxScreenScene';
 import {BerxPlaceCard} from '../../../../packages/design-system/src/spatial/BerxPlaceCard';
 import {useBerxSceneScroll} from '../../../../packages/design-system/src/spatial/BerxSpatialScene';
 
@@ -27,11 +27,20 @@ export default function SavedPlacesScreen(props: SavedPlacesScreenProps) {
 	);
 }
 
+/** The first saved place that has a cover. */
+function firstCover(items: readonly {cover_url: string | null}[]): {uri: string} | undefined {
+	const url = items.find((i) => i.cover_url)?.cover_url;
+	return url ? {uri: url} : undefined;
+}
+
 function SavedPlacesScreenBody({api, onOpenPlace, onBack}: SavedPlacesScreenProps) {
 	const {onScroll, scrollEventThrottle} = useBerxSceneScroll();
 	const [items, setItems] = useState<BerxPlace[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
+
+	/* saved places are still places — the first cover lights the room */
+	useBerxSceneAtmosphere(firstCover(items));
 
 	const load = useCallback(async () => {
 		setLoading(true);

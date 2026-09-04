@@ -199,6 +199,25 @@ gate(
 	unrenderedComponents.length === 0,
 	unrenderedComponents.length === 0 ? 'no unrendered components' : unrenderedComponents.join(', '),
 );
+/* --- the environment is content-aware, and survives losing blur --- */
+const atmoValues = Object.values(report.atmospheres);
+const flatKinds = Object.entries(report.atmospheres)
+	.filter(([, a]) => a.flatnessProblems.length > 0)
+	.map(([kind, a]) => `${kind}: ${a.flatnessProblems[0]}`);
+const atmoSignatures = new Set(atmoValues.map((a) => a.signature));
+const familiesCovered = new Set(atmoValues.flatMap((a) => a.families));
+gate(
+	'every atmosphere keeps its depth with blur removed',
+	flatKinds.length === 0,
+	flatKinds.length === 0
+		? `${atmoValues.length} kinds, each with ≥3 sky stops, positioned light at ≥2 distances, and a floor or walls`
+		: flatKinds.join(' | '),
+);
+gate(
+	'no single generic background: every family lands on a distinct environment',
+	atmoSignatures.size === atmoValues.length && familiesCovered.size === 13,
+	`${atmoSignatures.size}/${atmoValues.length} distinct environments across ${familiesCovered.size}/13 families`,
+);
 gate('no probe findings', report.findings.length === 0, report.findings.slice(0, 8).map((f) => `${f.scope}: ${f.message}`).join(' | ') || 'clean');
 
 const failed = gates.filter((g) => !g.pass);
@@ -215,6 +234,12 @@ if (jsonOnly) {
 	log('\nProfiles:');
 	for (const [name, p] of Object.entries(report.profiles)) {
 		log(`  ${name.padEnd(20)} tier=${p.tier.padEnd(6)} blur<=${p.maxBlurLayers} used=${p.blurLayersMax} 3d=${p.allow3D} parallax=${p.allowParallax} minContrast=${p.minContentContrast}`);
+	}
+	log('\nAtmospheres (unblurred — sky stops / light pools at distances / floor / vignette):');
+	for (const [kind, a] of Object.entries(report.atmospheres)) {
+		log(
+			`  ${kind.padEnd(15)} sky ${a.skyStops}  pools ${a.pools}@${a.poolDistances}  ${a.hasGround ? 'floor' : 'walls'}  vig ${String(a.vignette).padEnd(5)} media:${a.mediaRole.padEnd(10)} ${a.families.join(',') || '(named by screens)'}`,
+		);
 	}
 	log(`\nData modes: ${JSON.stringify(report.dataModes)}`);
 	log(`Unrendered spatial components: ${unrenderedComponents.join(', ') || 'none'}`);

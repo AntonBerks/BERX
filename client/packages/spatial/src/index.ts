@@ -10,6 +10,7 @@
 export * from './tokens';
 export * from './color';
 export * from './contract';
+export * from './atmosphere';
 export * from './materials';
 export * from './lighting';
 export * from './camera';

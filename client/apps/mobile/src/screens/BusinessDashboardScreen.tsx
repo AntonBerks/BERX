@@ -43,7 +43,7 @@ import {BerxIdentity} from '../../../../packages/design-system/src/spatial/BerxI
 import {BerxPlaceRating} from '../../../../packages/design-system/src/spatial/BerxPlaceRating';
 import {BerxDataBoundary} from '../../../../packages/design-system/src/spatial/BerxDataBoundary';
 import {useBerxSceneScroll} from '../../../../packages/design-system/src/spatial/BerxSpatialScene';
-import {BerxScreenScene, useBerxScreen} from '../spatial/BerxScreenScene';
+import {BerxScreenScene, useBerxScreen, useBerxSceneAtmosphere} from '../spatial/BerxScreenScene';
 import {berxAnalytics} from '../spatial/analytics';
 
 export interface BusinessDashboardScreenProps {
@@ -79,6 +79,7 @@ function BusinessDashboardSceneBody({api, placeGuid, onBack}: BusinessDashboardS
 	const {onScroll, scrollEventThrottle} = useBerxSceneScroll();
 
 	const [data, setData] = useState<BerxBusinessDashboard | null>(null);
+	const [cover, setCover] = useState<string | null>(null);
 	const [subscription, setSubscription] = useState<BerxBusinessSubscription | null>(null);
 	const [team, setTeam] = useState<BerxBusinessTeamMember[]>([]);
 	const [moments, setMoments] = useState<BerxBusinessMoment[]>([]);
@@ -88,18 +89,26 @@ function BusinessDashboardSceneBody({api, placeGuid, onBack}: BusinessDashboardS
 	const [momentText, setMomentText] = useState('');
 	const [momentBusy, setMomentBusy] = useState(false);
 
+	/* the venue's own cover: a dashboard about a place is still that place */
+	useBerxSceneAtmosphere(cover ? {uri: cover} : undefined);
+
 	const load = useCallback(async () => {
 		setState('loading');
 		setError(null);
 		try {
-			const [dashboard, sub, teamRes, momentsRes] = await Promise.all([
+			const [dashboard, sub, teamRes, momentsRes, place] = await Promise.all([
 				api.businessDashboard(placeGuid),
 				api.getBusinessSubscription(placeGuid),
 				api.businessTeam(placeGuid),
 				/* was missing entirely — live moments never appeared until you posted one */
 				api.placeMoments(placeGuid).catch(() => ({moments: [] as BerxBusinessMoment[]})),
+				/* the venue itself, for the scene's environment: a dashboard
+				   about a place is still that place. Never fatal — a failed
+				   cover fetch leaves the room lit without it. */
+				api.getPlace(placeGuid).catch(() => null),
 			]);
 			setData(dashboard);
+			setCover(place?.cover_url ?? null);
 			setSubscription(sub);
 			setTeam(teamRes.team);
 			setMoments(momentsRes.moments);

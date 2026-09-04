@@ -56,7 +56,6 @@ export default function EventDetailScreen(props: EventDetailScreenProps) {
 		<BerxFamilyScene
 			family="EVENTS"
 			atmosphere={poster ? {uri: poster} : undefined}
-			scrim={poster ? 0.58 : 0}
 			testID="event-detail">
 			<EventDetailSceneBody {...props} />
 		</BerxFamilyScene>

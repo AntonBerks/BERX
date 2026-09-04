@@ -29,7 +29,7 @@ function fmtTime(unix: number | null): string {
 
 export default function DeviceSessionsScreen(props: DeviceSessionsScreenProps) {
 	return (
-		<BerxFamilyScene family="PROFILE" testID="device-sessions">
+		<BerxFamilyScene family="PROFILE" atmosphereKind="social" testID="device-sessions">
 			<DeviceSessionsScreenBody {...props} />
 		</BerxFamilyScene>
 	);

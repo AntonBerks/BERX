@@ -25,7 +25,7 @@ import {BerxObjectCard} from '../../../../packages/design-system/src/spatial/Ber
 import {BerxCountdown} from '../../../../packages/design-system/src/spatial/BerxCountdown';
 import {BerxDataBoundary} from '../../../../packages/design-system/src/spatial/BerxDataBoundary';
 import {useBerxSceneScroll} from '../../../../packages/design-system/src/spatial/BerxSpatialScene';
-import {BerxScreenScene, useBerxScreen} from '../spatial/BerxScreenScene';
+import {BerxScreenScene, useBerxScreen, useBerxSceneAtmosphere} from '../spatial/BerxScreenScene';
 import {berxAnalytics} from '../spatial/analytics';
 
 export interface EventsListScreenProps {
@@ -42,6 +42,12 @@ export default function EventsListScreen(props: EventsListScreenProps) {
 			<EventsSceneBody {...props} />
 		</BerxScreenScene>
 	);
+}
+
+/** The first event in the list that has a poster — a real one or none. */
+function firstCover(items: readonly {cover_url: string | null}[]): {uri: string} | undefined {
+	const url = items.find((i) => i.cover_url)?.cover_url;
+	return url ? {uri: url} : undefined;
 }
 
 function EventsSceneBody({api, onOpenEvent, onCreate, onOpenMine, onBack}: EventsListScreenProps) {
@@ -62,6 +68,9 @@ function EventsSceneBody({api, onOpenEvent, onCreate, onOpenMine, onBack}: Event
 			.then((r) => setCategories(r.categories))
 			.catch(() => undefined);
 	}, [api]);
+
+	/* the first event with a poster lights the temporal room */
+	useBerxSceneAtmosphere(firstCover(items));
 
 	const load = useCallback(async () => {
 		setState('loading');

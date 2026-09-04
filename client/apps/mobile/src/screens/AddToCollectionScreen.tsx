@@ -27,7 +27,7 @@ export interface AddToCollectionScreenProps {
 
 export default function AddToCollectionScreen(props: AddToCollectionScreenProps) {
 	return (
-		<BerxFamilyScene family="EXPERIENCE" testID="add-to-collection">
+		<BerxFamilyScene family="EXPERIENCE" atmosphereKind="location" testID="add-to-collection">
 			<AddToCollectionScreenBody {...props} />
 		</BerxFamilyScene>
 	);

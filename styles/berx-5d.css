@@ -46,10 +46,39 @@
 .berx-layer[data-berx-depth="D4"]{--berx-layer-z:var(--berx-d4-z);--berx-layer-translate-z:var(--berx-d4-translate-z);--berx-layer-opacity:var(--berx-d4-opacity)}
 .berx-layer[data-berx-depth="D5"]{--berx-layer-z:var(--berx-d5-z);--berx-layer-translate-z:var(--berx-d5-translate-z);--berx-layer-opacity:var(--berx-d5-opacity)}
 
-/* D0 and D1 are the room, not the content: they fill the scene and are
-   invisible to assistive technology (aria-hidden is set in markup). */
-.berx-layer[data-berx-depth="D0"],
-.berx-layer[data-berx-depth="D1"]{position:absolute;inset:0;pointer-events:none}
+/* D0 and D1 are the room, not the content: they are invisible to
+   assistive technology (aria-hidden is set in markup) and — this is the
+   part that matters — they are sized to the VIEWPORT, not to the
+   document.
+
+   A room does not scroll away. Sizing them to the scene meant a 2400px
+   tall sky whose gradient the viewer only ever saw a thin slice of, and
+   a full-page gradient raster to repaint on every parallax frame. They
+   are one viewport tall (plus overscan) and the runtime tracks the
+   scroll for them, so the environment stays around the content and
+   drifts behind it at its own rate. */
+/* D0 covers the document and never moves: it is a flat substrate fill
+   at parallax 0, and animating it would cost a full-screen composited
+   layer per frame for no visible change. */
+.berx-layer[data-berx-depth="D0"]{position:absolute;inset:0;pointer-events:none}
+/* D1 is one viewport tall and tracks the scroll, so the room stays
+   around the content and drifts behind it at its own rate. */
+.berx-layer[data-berx-depth="D1"]{
+  position:absolute;
+  top:-140px;
+  left:-140px;
+  right:-140px;
+  height:calc(100vh + 280px);
+  pointer-events:none;
+  /* The room has no 3D children and never needs to be re-rasterised:
+     it is one static gradient stack that only ever translates. Keeping
+     it out of the 3D rendering context and containing its paint lets
+     the compositor rasterise it once and move it for free — without
+     this the browser probe measured the environment costing real
+     dropped frames during scroll. */
+  transform-style:flat;
+  backface-visibility:hidden;
+}
 
 /* ── surfaces ────────────────────────────────────────────────── */
 .berx-surface{
@@ -154,4 +183,49 @@
   .berx-surface{backdrop-filter:none;-webkit-backdrop-filter:none;background:Canvas;border-color:CanvasText}
   .berx-surface::before,.berx-surface::after{display:none}
   .berx-focusable:focus-visible{outline:3px solid Highlight}
+}
+
+/* ------------------------------------------------------------------ *
+ * D1 — the content-aware atmosphere.
+ *
+ * The whole environment arrives as one `background-image` written by
+ * the runtime: sky, ground, horizon, pools of light, vignette, and
+ * the page's own real media composited between them. Every layer is
+ * a real gradient, so the depth here survives with backdrop-filter
+ * switched off — which is the v9 visual-acceptance rule stated as
+ * something a stylesheet can actually be held to.
+ * ------------------------------------------------------------------ */
+
+/* Painted on D1's own surface rather than on the layer behind it: the
+   surface carries the layer's material fill and would otherwise cover
+   the room it is meant to be standing in. `background-image` paints
+   above `background-color` on the same element, so the material stays
+   the ground these gradients are lit against. */
+/* The environment planes' surfaces must FILL their layer.
+   `.berx-surface` is `position:relative` and sized by its content, and
+   D0/D1 have no content — so until this rule existed the substrate and
+   the atmosphere were painted into a ~37px strip sitting above the
+   viewport, which is to say not painted at all. The browser probe's
+   luminance measurement is what surfaced it: the room was there in the
+   custom properties and nowhere on the screen. */
+.berx-layer[data-berx-depth="D0"] > .berx-surface,
+.berx-layer[data-berx-depth="D1"] > .berx-surface{
+  position:absolute;
+  inset:0;
+  border-radius:0;
+  border:0;
+}
+.berx-surface[data-berx-depth="D1"]{
+  /* the gradient stack is static: promoted once, then only translated,
+     so scrolling never re-rasterises it */
+  will-change:transform;
+  transform:translateZ(0);
+  background-image:var(--berx-d1-atmosphere,none);
+  background-size:var(--berx-d1-atmosphere-size,auto);
+  background-position:center;
+  background-repeat:no-repeat;
+}
+/* with no parallax there is nothing to reveal, so the overscan shrinks */
+.berx-scene[data-berx-parallax="false"] .berx-layer[data-berx-depth="D1"]{
+  top:-40px;left:-40px;right:-40px;height:calc(100vh + 80px);
 }

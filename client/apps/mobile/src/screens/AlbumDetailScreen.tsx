@@ -20,7 +20,7 @@ import {colors, spacing, typography} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
-import {BerxFamilyScene} from '../spatial/BerxScreenScene';
+import {BerxFamilyScene, useBerxSceneAtmosphere} from '../spatial/BerxScreenScene';
 
 export interface AlbumDetailScreenProps {
 	api: BerxApiClient;
@@ -34,7 +34,7 @@ const TILE = Dimensions.get('window').width / 3;
 
 export default function AlbumDetailScreen(props: AlbumDetailScreenProps) {
 	return (
-		<BerxFamilyScene family="PROFILE" testID="album-detail">
+		<BerxFamilyScene family="PROFILE" atmosphereKind="immersive" testID="album-detail">
 			<AlbumDetailScreenBody {...props} />
 		</BerxFamilyScene>
 	);
@@ -49,6 +49,9 @@ function AlbumDetailScreenBody({api, guid, authState, pickImage, onBack}: AlbumD
 
 	const myGuid = authState.getSnapshot().user?.guid;
 	const isOwn = !!album && !!myGuid && album.owner_guid === myGuid;
+
+	/* the album's own first photo lights the room it is shown in */
+	useBerxSceneAtmosphere(album?.photos[0]?.url ? {uri: album.photos[0].url} : undefined);
 
 	const load = useCallback(async () => {
 		setLoading(true);

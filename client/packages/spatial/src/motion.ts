@@ -148,6 +148,80 @@ export function planSharedElement(
 }
 
 /* ------------------------------------------------------------------ */
+/* Shared-element geometry                                             */
+/* ------------------------------------------------------------------ */
+
+export interface BerxRect {
+	x: number;
+	y: number;
+	width: number;
+	height: number;
+}
+
+export interface BerxSharedElementFlip {
+	/** Transform that puts the destination element back over the source. */
+	translateX: number;
+	translateY: number;
+	scaleX: number;
+	scaleY: number;
+	durationMs: number;
+	easing: string;
+	bezier: [number, number, number, number];
+	/** False under reduced motion: the element cross-fades in place. */
+	travels: boolean;
+}
+
+/**
+ * The invert half of a first–last–invert–play transition.
+ *
+ * A shared element is one object seen in two places, so the honest way
+ * to move it is not to animate a copy along a guessed path: it is to
+ * put the destination element exactly where the source was and then
+ * release it. That needs both real rectangles, which is why this takes
+ * measurements rather than positions someone estimated.
+ *
+ * Under reduced motion the transform is identity and `travels` is
+ * false — the element is already in its final place and only fades,
+ * which keeps the continuity (the same object, the same identity) and
+ * drops the movement, exactly as the motion graph specifies.
+ *
+ * A zero-sized destination cannot be scaled to, so the transform
+ * degrades to a plain translate rather than dividing by zero.
+ */
+export function planSharedElementFlip(from: BerxRect, to: BerxRect, reducedMotion: boolean): BerxSharedElementFlip {
+	const spatial = BERX_MOTION_PRESETS.spatialEnter;
+	const fade = BERX_MOTION_PRESETS.crossFade;
+
+	if (reducedMotion) {
+		return {
+			translateX: 0,
+			translateY: 0,
+			scaleX: 1,
+			scaleY: 1,
+			durationMs: Math.min(fade.durationMs, BERX_REDUCED_MOTION_RULES.maxDurationMs),
+			easing: fade.easing,
+			bezier: fade.bezier,
+			travels: false,
+		};
+	}
+
+	const scaleX = to.width > 0 ? round(from.width / to.width, 4) : 1;
+	const scaleY = to.height > 0 ? round(from.height / to.height, 4) : 1;
+
+	return {
+		/* centre-to-centre, so the transform is independent of transform-origin */
+		translateX: round(from.x + from.width / 2 - (to.x + to.width / 2), 2),
+		translateY: round(from.y + from.height / 2 - (to.y + to.height / 2), 2),
+		scaleX,
+		scaleY,
+		durationMs: spatial.durationMs,
+		easing: spatial.easing,
+		bezier: spatial.bezier,
+		travels: true,
+	};
+}
+
+/* ------------------------------------------------------------------ */
 /* Parallax                                                            */
 /* ------------------------------------------------------------------ */
 

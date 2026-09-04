@@ -28,7 +28,7 @@ const KINDS: {key: Exclude<BerxCircleKind, null> | null; label: string}[] = [
 
 export default function CreateCircleScreen(props: CreateCircleScreenProps) {
 	return (
-		<BerxFamilyScene family="SOCIAL" testID="create-circle">
+		<BerxFamilyScene family="SOCIAL" atmosphereKind="community" testID="create-circle">
 			<CreateCircleScreenBody {...props} />
 		</BerxFamilyScene>
 	);

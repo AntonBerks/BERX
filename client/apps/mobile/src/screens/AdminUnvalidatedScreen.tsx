@@ -25,7 +25,7 @@ export interface AdminUnvalidatedScreenProps {
 
 export default function AdminUnvalidatedScreen(props: AdminUnvalidatedScreenProps) {
 	return (
-		<BerxFamilyScene family="PROFILE" testID="admin-unvalidated">
+		<BerxFamilyScene family="PROFILE" atmosphereKind="social" testID="admin-unvalidated">
 			<AdminUnvalidatedScreenBody {...props} />
 		</BerxFamilyScene>
 	);

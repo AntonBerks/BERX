@@ -26,7 +26,7 @@ export interface DeleteAccountScreenProps {
 
 export default function DeleteAccountScreen(props: DeleteAccountScreenProps) {
 	return (
-		<BerxFamilyScene family="PROFILE" testID="delete-account">
+		<BerxFamilyScene family="PROFILE" atmosphereKind="social" testID="delete-account">
 			<DeleteAccountScreenBody {...props} />
 		</BerxFamilyScene>
 	);

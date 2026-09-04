@@ -23,7 +23,7 @@ export interface CircleDetailScreenProps {
 
 export default function CircleDetailScreen(props: CircleDetailScreenProps) {
 	return (
-		<BerxFamilyScene family="SOCIAL" testID="circle-detail">
+		<BerxFamilyScene family="SOCIAL" atmosphereKind="community" testID="circle-detail">
 			<CircleDetailScreenBody {...props} />
 		</BerxFamilyScene>
 	);

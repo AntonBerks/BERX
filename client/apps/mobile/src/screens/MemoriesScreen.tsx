@@ -11,7 +11,7 @@ import type {BerxMemory} from '@berx/api/types';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
-import {BerxFamilyScene} from '../spatial/BerxScreenScene';
+import {BerxFamilyScene, useBerxSceneAtmosphere} from '../spatial/BerxScreenScene';
 
 export interface MemoriesScreenProps {
 	api: BerxApiClient;
@@ -48,16 +48,29 @@ function groupByYearsAgo(memories: BerxMemory[]): Section[] {
 
 export default function MemoriesScreen(props: MemoriesScreenProps) {
 	return (
-		<BerxFamilyScene family="PROFILE" testID="memories">
+		<BerxFamilyScene family="PROFILE" atmosphereKind="temporal" testID="memories">
 			<MemoriesScreenBody {...props} />
 		</BerxFamilyScene>
 	);
+}
+
+/**
+ * The first memory that actually has media. A memory of a text post
+ * has none, and that is a real answer — the temporal room is lit
+ * without it rather than with something borrowed.
+ */
+function memoryMedia(memories: BerxMemory[]): {uri: string} | undefined {
+	const withMedia = memories.find((m) => m.url);
+	return withMedia?.url ? {uri: withMedia.url} : undefined;
 }
 
 function MemoriesScreenBody({api, onOpenPost, onOpenAlbum, onBack}: MemoriesScreenProps) {
 	const [memories, setMemories] = useState<BerxMemory[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
+
+	/* a memory's own media is the atmosphere; a text-only memory legitimately has none */
+	useBerxSceneAtmosphere(memoryMedia(memories));
 
 	const load = useCallback(async () => {
 		setLoading(true);

@@ -23,7 +23,7 @@ export interface CreateTrackScreenProps {
 
 export default function CreateTrackScreen(props: CreateTrackScreenProps) {
 	return (
-		<BerxFamilyScene family="HOME" testID="create-track">
+		<BerxFamilyScene family="HOME" atmosphereKind="immersive" testID="create-track">
 			<CreateTrackScreenBody {...props} />
 		</BerxFamilyScene>
 	);

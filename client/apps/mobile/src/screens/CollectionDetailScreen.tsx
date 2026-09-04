@@ -13,7 +13,7 @@ import type {BerxCollectionDetail, BerxCollectionItem} from '@berx/api/types';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
-import {BerxFamilyScene} from '../spatial/BerxScreenScene';
+import {BerxFamilyScene, useBerxSceneAtmosphere} from '../spatial/BerxScreenScene';
 
 export interface CollectionDetailScreenProps {
 	api: BerxApiClient;
@@ -26,16 +26,25 @@ export interface CollectionDetailScreenProps {
 
 export default function CollectionDetailScreen(props: CollectionDetailScreenProps) {
 	return (
-		<BerxFamilyScene family="EXPERIENCE" testID="collection-detail">
+		<BerxFamilyScene family="EXPERIENCE" atmosphereKind="location" testID="collection-detail">
 			<CollectionDetailScreenBody {...props} />
 		</BerxFamilyScene>
 	);
+}
+
+/** The first saved item carrying an image. */
+function collectionMedia(collection: BerxCollectionDetail | null): {uri: string} | undefined {
+	const item = collection?.items.find((i) => i.image_url);
+	return item?.image_url ? {uri: item.image_url} : undefined;
 }
 
 function CollectionDetailScreenBody({api, id, onOpenPlace, onOpenEvent, onOpenPost, onBack}: CollectionDetailScreenProps) {
 	const [collection, setCollection] = useState<BerxCollectionDetail | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
+
+	/* the collection is about places and events — the first one with an image lights it */
+	useBerxSceneAtmosphere(collectionMedia(collection));
 
 	const load = useCallback(async () => {
 		setLoading(true);

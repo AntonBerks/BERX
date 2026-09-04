@@ -37,25 +37,61 @@ export interface StoryViewerScreenProps {
 
 const STORY_DURATION_MS = 5000;
 
+/**
+ * The story is the room.
+ *
+ * An immersive scene puts the media at D1 as well as at D3: the same
+ * frame, dimmed and lit, fills the space around a story whose aspect
+ * ratio does not match the screen — which is every portrait story on
+ * a tall phone and every landscape one on any phone. Before this the
+ * gap was flat black. The media now renders `contain` rather than
+ * `cover`, so nothing is cropped away and the room carries the rest.
+ *
+ * `index` and the auth headers live out here because the atmosphere
+ * has to follow the story being viewed, not the first one in the
+ * group.
+ */
 export default function StoryViewerScreen(props: StoryViewerScreenProps) {
+	const [index, setIndex] = useState(0);
+	const [authHeaders, setAuthHeaders] = useState<Record<string, string>>({});
+
+	useEffect(() => {
+		props.api.getAuthHeaders().then(setAuthHeaders);
+	}, [props.api]);
+
+	const current = props.group.stories[index];
+	/* Video stories cannot be sampled for a still here (see the header
+	   note on the bearer-gated media route), so they get the lit room
+	   without media rather than a frame BERX does not have. */
+	const atmosphere =
+		current && current.mime_type !== 'video/mp4'
+			? {uri: props.api.storyMediaUrl(current.id), headers: authHeaders}
+			: undefined;
+
 	return (
-		<BerxFamilyScene family="HOME" testID="story-viewer">
-			<StoryViewerScreenBody {...props} />
+		<BerxFamilyScene family="HOME" atmosphereKind="immersive" atmosphere={atmosphere} testID="story-viewer">
+			<StoryViewerScreenBody {...props} index={index} setIndex={setIndex} authHeaders={authHeaders} />
 		</BerxFamilyScene>
 	);
 }
 
-function StoryViewerScreenBody({api, group, myGuid, onClose}: StoryViewerScreenProps) {
-	const [index, setIndex] = useState(0);
+function StoryViewerScreenBody({
+	api,
+	group,
+	myGuid,
+	onClose,
+	index,
+	setIndex,
+	authHeaders,
+}: StoryViewerScreenProps & {
+	index: number;
+	setIndex: React.Dispatch<React.SetStateAction<number>>;
+	authHeaders: Record<string, string>;
+}) {
 	const [paused, setPaused] = useState(false);
-	const [authHeaders, setAuthHeaders] = useState<Record<string, string>>({});
 	const [deleting, setDeleting] = useState(false);
 	const progress = useRef(new Animated.Value(0)).current;
 	const isOwn = group.owner_guid === myGuid;
-
-	useEffect(() => {
-		api.getAuthHeaders().then(setAuthHeaders);
-	}, [api]);
 
 	const current = group.stories[index];
 
@@ -146,7 +182,9 @@ function StoryViewerScreenBody({api, group, myGuid, onClose}: StoryViewerScreenP
 				<Image
 					source={{uri: api.storyMediaUrl(current.id), headers: authHeaders}}
 					style={styles.media}
-					resizeMode="cover"
+					/* contain, not cover: the scene's own atmosphere fills
+					   the rest of the frame, so nothing has to be cropped */
+					resizeMode="contain"
 				/>
 			)}
 
@@ -185,12 +223,14 @@ function StoryViewerScreenBody({api, group, myGuid, onClose}: StoryViewerScreenP
 }
 
 const styles = StyleSheet.create({
-	screen: {flex: 1, backgroundColor: colors.black},
+	/* transparent: the scene paints the room, and an opaque black here
+	   would hide the atmosphere the story itself provides */
+	screen: {flex: 1},
 	progressRow: {flexDirection: 'row', gap: spacing.xs, padding: spacing.md, paddingTop: spacing.xl},
 	progressTrack: {flex: 1, height: 3, backgroundColor: colors.glass2, borderRadius: 2, overflow: 'hidden'},
 	progressFill: {height: '100%', backgroundColor: colors.accent},
 	media: {flex: 1, width: '100%'},
-	videoFallback: {flex: 1, width: '100%', alignItems: 'center', justifyContent: 'center', gap: spacing.sm, backgroundColor: colors.graphite},
+	videoFallback: {flex: 1, width: '100%', alignItems: 'center', justifyContent: 'center', gap: spacing.sm},
 	videoFallbackText: {color: colors.white, fontSize: typography.sizeLg, fontWeight: typography.weightBold},
 	videoFallbackHint: {color: colors.textFaint, fontSize: typography.sizeSm, textAlign: 'center', paddingHorizontal: spacing.xl},
 	tapZones: {...StyleSheet.absoluteFillObject, flexDirection: 'row'},

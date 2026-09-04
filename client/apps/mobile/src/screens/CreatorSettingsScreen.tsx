@@ -24,7 +24,7 @@ export interface CreatorSettingsScreenProps {
 
 export default function CreatorSettingsScreen(props: CreatorSettingsScreenProps) {
 	return (
-		<BerxFamilyScene family="CREATOR" testID="creator-settings">
+		<BerxFamilyScene family="CREATOR" atmosphereKind="identity" testID="creator-settings">
 			<CreatorSettingsScreenBody {...props} />
 		</BerxFamilyScene>
 	);

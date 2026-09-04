@@ -39,7 +39,7 @@ export interface CreateStoryScreenProps {
 
 export default function CreateStoryScreen(props: CreateStoryScreenProps) {
 	return (
-		<BerxFamilyScene family="HOME" testID="create-story">
+		<BerxFamilyScene family="HOME" atmosphereKind="immersive" testID="create-story">
 			<CreateStoryScreenBody {...props} />
 		</BerxFamilyScene>
 	);

@@ -54,7 +54,7 @@ const FIELDS: {key: PrivacyField; label: string; description: string}[] = [
 
 export default function DatingPrivacyScreen(props: DatingPrivacyScreenProps) {
 	return (
-		<BerxFamilyScene family="SOCIAL" testID="dating-privacy">
+		<BerxFamilyScene family="SOCIAL" atmosphereKind="identity" testID="dating-privacy">
 			<DatingPrivacySceneBody {...props} />
 		</BerxFamilyScene>
 	);

@@ -30,7 +30,7 @@ const ROWS: {key: keyof BerxWrapped; label: string}[] = [
 
 export default function WrappedScreen(props: WrappedScreenProps) {
 	return (
-		<BerxFamilyScene family="PROFILE" testID="wrapped">
+		<BerxFamilyScene family="PROFILE" atmosphereKind="temporal" testID="wrapped">
 			<WrappedScreenBody {...props} />
 		</BerxFamilyScene>
 	);

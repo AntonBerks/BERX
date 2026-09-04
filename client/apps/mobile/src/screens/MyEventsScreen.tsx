@@ -9,7 +9,7 @@ import type {BerxEvent} from '@berx/api/types';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
-import {BerxFamilyScene} from '../spatial/BerxScreenScene';
+import {BerxFamilyScene, useBerxSceneAtmosphere} from '../spatial/BerxScreenScene';
 import {BerxObjectCard} from '../../../../packages/design-system/src/spatial/BerxObjectCard';
 import {BerxCountdown} from '../../../../packages/design-system/src/spatial/BerxCountdown';
 
@@ -27,10 +27,19 @@ export default function MyEventsScreen(props: MyEventsScreenProps) {
 	);
 }
 
+/** The first of your events that has a poster. */
+function firstCover(items: readonly {cover_url: string | null}[]): {uri: string} | undefined {
+	const url = items.find((i) => i.cover_url)?.cover_url;
+	return url ? {uri: url} : undefined;
+}
+
 function MyEventsScreenBody({api, onOpenEvent, onBack}: MyEventsScreenProps) {
 	const [items, setItems] = useState<BerxEvent[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
+
+	/* the first of your events with a poster lights the room */
+	useBerxSceneAtmosphere(firstCover(items));
 
 	const load = useCallback(async () => {
 		setLoading(true);

@@ -12,7 +12,7 @@ import type {BerxTripDetail, BerxTripStop, BerxTripParticipant, BerxFriend} from
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
-import {BerxFamilyScene} from '../spatial/BerxScreenScene';
+import {BerxFamilyScene, useBerxSceneAtmosphere} from '../spatial/BerxScreenScene';
 
 export interface TripDetailScreenProps {
 	api: BerxApiClient;
@@ -39,6 +39,12 @@ export default function TripDetailScreen(props: TripDetailScreenProps) {
 	);
 }
 
+/** The first stop carrying an image — where the trip is actually going. */
+function tripMedia(trip: BerxTripDetail | null): {uri: string} | undefined {
+	const stop = trip?.stops.find((s) => s.image_url);
+	return stop?.image_url ? {uri: stop.image_url} : undefined;
+}
+
 function TripDetailScreenBody({api, id, onOpenPlace, onOpenEvent, onBack}: TripDetailScreenProps) {
 	const [trip, setTrip] = useState<BerxTripDetail | null>(null);
 	const [friends, setFriends] = useState<BerxFriend[]>([]);
@@ -46,6 +52,9 @@ function TripDetailScreenBody({api, id, onOpenPlace, onOpenEvent, onBack}: TripD
 	const [error, setError] = useState<string | null>(null);
 	const [showPicker, setShowPicker] = useState(false);
 	const [busy, setBusy] = useState(false);
+
+	/* the first stop that has an image is where the journey is going */
+	useBerxSceneAtmosphere(tripMedia(trip));
 
 	const load = useCallback(async () => {
 		setLoading(true);

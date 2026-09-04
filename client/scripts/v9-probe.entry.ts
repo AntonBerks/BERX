@@ -7,9 +7,14 @@
  * measurement rather than a claim.
  */
 import {
+	BERX_ATMOSPHERE_KINDS,
 	BERX_DEPTH_KEYS,
+	BERX_FAMILIES,
 	BERX_MIN_TEXT_CONTRAST,
+	assertAtmosphereDepth,
 	assertContrastHierarchy,
+	berxAtmosphereForFamily,
+	resolveAtmosphere,
 	contrastRatio,
 	perspectiveScale,
 	resolveMaterial,
@@ -127,6 +132,27 @@ export interface ProbeReport {
 	unresolvedComponents: string[];
 	boundScenes: number;
 	materials: Record<string, {blurPx: number; fill: string; contrast: number; opaqueFallback: boolean; glowRadius: number}>;
+	/**
+	 * The environment each atmosphere kind resolves to, measured
+	 * unblurred — the condition the visual-acceptance rule cares
+	 * about. `signature` is what makes "no single generic background"
+	 * checkable: two kinds that resolve to the same environment would
+	 * collide here.
+	 */
+	atmospheres: Record<
+		string,
+		{
+			families: string[];
+			skyStops: number;
+			pools: number;
+			poolDistances: number;
+			hasGround: boolean;
+			vignette: number;
+			mediaRole: string;
+			signature: string;
+			flatnessProblems: string[];
+		}
+	>;
 	transitionSample: unknown;
 	findings: ProbeFinding[];
 }
@@ -345,6 +371,66 @@ export function runProbe(): ProbeReport {
 		};
 	}
 
+	/* --- the environment, measured with blur taken away ---
+	   The v9 acceptance rule is that removing blur must not flatten a
+	   scene, so every kind is resolved in exactly that condition and
+	   checked for the cues that survive it: separated sky stops,
+	   positioned light at more than one distance, and a floor or
+	   walls. A kind that reads flat fails here rather than in
+	   somebody's eyes. */
+	const atmospheres: ProbeReport['atmospheres'] = {};
+	const atmosphereSignatures = new Map<string, string>();
+	for (const kind of BERX_ATMOSPHERE_KINDS) {
+		const a = resolveAtmosphere({
+			kind,
+			accent: BERX_V9_COLOR.accent,
+			background: BERX_V9_COLOR.bg,
+			hasMedia: false,
+			/* fixed clock: the temporal kinds read the real hour at
+			   runtime, and a probe that moved with the wall clock could
+			   not be compared between runs */
+			timeOfDay: 'night',
+			blurred: false,
+		});
+		const problems = assertAtmosphereDepth(a);
+		const signature = JSON.stringify({
+			sky: a.sky.stops.map((st) => [st.color, st.position]),
+			pools: a.pools.map((pl) => [pl.x, pl.y, pl.radius, pl.color, pl.depth]),
+			ground: a.ground,
+			vignette: a.vignette,
+		});
+		atmospheres[kind] = {
+			families: BERX_FAMILIES.filter((f) => berxAtmosphereForFamily(f) === kind),
+			skyStops: a.sky.stops.length,
+			pools: a.pools.length,
+			poolDistances: new Set(a.pools.map((pl) => pl.depth)).size,
+			hasGround: a.ground !== null,
+			vignette: a.vignette,
+			mediaRole: a.mediaRole,
+			signature,
+			flatnessProblems: problems,
+		};
+		for (const problem of problems) {
+			findings.push({severity: 'error', scope: `atmosphere:${kind}`, message: problem});
+		}
+		const clash = atmosphereSignatures.get(signature);
+		if (clash) {
+			findings.push({
+				severity: 'error',
+				scope: `atmosphere:${kind}`,
+				message: `resolves to the same environment as ${clash} — that is one generic background wearing two names`,
+			});
+		}
+		atmosphereSignatures.set(signature, kind);
+	}
+	/* every family must land on a real kind, not fall through */
+	for (const family of BERX_FAMILIES) {
+		const kind = berxAtmosphereForFamily(family);
+		if (!BERX_ATMOSPHERE_KINDS.includes(kind)) {
+			findings.push({severity: 'error', scope: `atmosphere:${family}`, message: `family maps to unknown kind "${kind}"`});
+		}
+	}
+
 	const unresolvedComponents = BERX_V9_REQUESTED_COMPONENTS.filter((c) => !BERX_COMPONENT_BINDINGS[c]);
 	for (const c of unresolvedComponents) {
 		findings.push({severity: 'error', scope: `component:${c}`, message: 'requested by a contract but has no recorded resolution'});
@@ -371,6 +457,7 @@ export function runProbe(): ProbeReport {
 		unresolvedComponents,
 		boundScenes: BERX_BOUND_SCENE_IDS.length,
 		materials,
+		atmospheres,
 		transitionSample: sampleA && sampleB ? planTransition(sampleA, sampleB, 42) : null,
 		findings,
 	};

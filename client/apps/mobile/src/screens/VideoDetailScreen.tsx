@@ -32,7 +32,7 @@ export interface VideoDetailScreenProps {
 
 export default function VideoDetailScreen(props: VideoDetailScreenProps) {
 	return (
-		<BerxFamilyScene family="HOME" testID="video-detail">
+		<BerxFamilyScene family="HOME" atmosphereKind="immersive" testID="video-detail">
 			<VideoDetailScreenBody {...props} />
 		</BerxFamilyScene>
 	);
