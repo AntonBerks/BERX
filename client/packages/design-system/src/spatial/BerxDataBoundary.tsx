@@ -37,6 +37,13 @@ export interface BerxDataBoundaryProps {
 	successMessage?: string;
 	/** True when cached content is being shown without a live connection. */
 	hasCachedContent?: boolean;
+	/**
+	 * Set to false where retrying cannot possibly help — a 403 or a 404
+	 * is not a transient failure, and a Retry button there is a lie.
+	 */
+	retryable?: boolean;
+	/** Offered on an expired session, where signing in is the real fix. */
+	onSignIn?: () => void;
 	/** Skeleton shape for loading. Defaults to three content-height rows. */
 	loadingSkeleton?: React.ReactNode;
 	style?: ViewStyle;
@@ -54,6 +61,8 @@ export function BerxDataBoundary({
 	disabledReason,
 	successMessage,
 	hasCachedContent,
+	retryable = true,
+	onSignIn,
 	loadingSkeleton,
 	style,
 	testID,
@@ -83,7 +92,8 @@ export function BerxDataBoundary({
 				</Text>
 				{/* the real error, not a placeholder — an unexplained failure is unactionable */}
 				<Text style={styles.body}>{errorMessage ?? 'Сервер не вернул ответ.'}</Text>
-				{onRetry ? <BoundaryAction label="Повторить" onPress={onRetry} accent={scene.accent} /> : null}
+				{onSignIn ? <BoundaryAction label="Войти снова" onPress={onSignIn} accent={scene.accent} /> : null}
+				{onRetry && retryable ? <BoundaryAction label="Повторить" onPress={onRetry} accent={scene.accent} /> : null}
 			</BoundaryCard>
 		);
 	}

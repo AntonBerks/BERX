@@ -30,8 +30,34 @@ export interface EventDetailScreenProps {
 }
 
 export default function EventDetailScreen(props: EventDetailScreenProps) {
+	/**
+	 * The event's real poster becomes the atmosphere the whole scene
+	 * sits in — the archive's D1 layer doing its actual job, rather
+	 * than a banner cropped into the top of a scrolling page. Scrimmed
+	 * so contrast never depends on the artwork; absent when the event
+	 * has no poster, because BERX does not invent one.
+	 */
+	const [poster, setPoster] = useState<string | null>(null);
+
+	useEffect(() => {
+		let cancelled = false;
+		props.api
+			.getEvent(props.guid)
+			.then((event) => {
+				if (!cancelled) setPoster(event.cover_url ?? null);
+			})
+			.catch(() => undefined);
+		return () => {
+			cancelled = true;
+		};
+	}, [props.api, props.guid]);
+
 	return (
-		<BerxFamilyScene family="EVENTS" testID="event-detail">
+		<BerxFamilyScene
+			family="EVENTS"
+			atmosphere={poster ? {uri: poster} : undefined}
+			scrim={poster ? 0.58 : 0}
+			testID="event-detail">
 			<EventDetailSceneBody {...props} />
 		</BerxFamilyScene>
 	);

@@ -34,6 +34,8 @@ import {BerxIdentity} from '../../../../packages/design-system/src/spatial/BerxI
 import {BerxStoryTray} from '../../../../packages/design-system/src/spatial/BerxStoryTray';
 import {useBerxSceneScroll} from '../../../../packages/design-system/src/spatial/BerxSpatialScene';
 import {BerxScreenScene, useBerxScreen} from '../spatial/BerxScreenScene';
+import {useBerxConnectivity} from '../spatial/useBerxConnectivity';
+import {classifyFailure, type BerxFailure} from '../spatial/screenState';
 import {berxAnalytics} from '../spatial/analytics';
 
 interface Props {
@@ -59,9 +61,10 @@ function FeedSceneBody({api, onOpenPost, onOpenProfile, onCreatePost, onOpenStor
 
 	const [items, setItems] = useState<BerxFeedItem[]>([]);
 	const [storyGroups, setStoryGroups] = useState<BerxStoryFeedGroup[]>([]);
+	const {offline} = useBerxConnectivity();
 	const [state, setState] = useState<BerxScreenState>('loading');
 	const [refreshing, setRefreshing] = useState(false);
-	const [error, setError] = useState<string | null>(null);
+	const [failure, setFailure] = useState<BerxFailure | null>(null);
 	/**
 	 * Session-local, and labelled as such: the stories feed has no
 	 * per-viewer seen flag, so this is only "opened in this run of the
@@ -78,16 +81,23 @@ function FeedSceneBody({api, onOpenPost, onOpenProfile, onCreatePost, onOpenStor
 			]);
 			setItems(feedRes.items);
 			setStoryGroups(storiesRes.feed);
-			setError(null);
+			setFailure(null);
 			setState(feedRes.items.length === 0 ? 'empty' : 'default');
 		} catch (e) {
-			setError(e instanceof Error ? e.message : 'Не удалось загрузить ленту');
-			setState('error');
-			berxAnalytics.error(screen, 'feed');
+			/**
+			 * A real classification instead of one generic error: an
+			 * expired session, a forbidden feed and a dead server are
+			 * different problems with different answers, and the device
+			 * being offline is a fourth.
+			 */
+			const next = classifyFailure(e, offline);
+			setFailure(next);
+			setState(next.state);
+			berxAnalytics.error(screen, `feed:${next.kind}`);
 		} finally {
 			setRefreshing(false);
 		}
-	}, [api, screen]);
+	}, [api, screen, offline]);
 
 	useEffect(() => {
 		load();
@@ -143,7 +153,10 @@ function FeedSceneBody({api, onOpenPost, onOpenProfile, onCreatePost, onOpenStor
 			<BerxDataBoundary
 				state={state}
 				onRetry={load}
-				errorMessage={error ?? undefined}
+				retryable={failure?.retryable ?? true}
+				errorMessage={failure?.message}
+				/* cached items are shown with the offline indicator rather than hidden */
+				hasCachedContent={items.length > 0}
 				emptyTitle="Пока нет постов"
 				emptyBody="Это ваша стена — ваши посты и посты друзей на ней, а не общая лента всех подписок."
 				emptyAction={{label: 'Написать пост', onPress: onCreatePost}}

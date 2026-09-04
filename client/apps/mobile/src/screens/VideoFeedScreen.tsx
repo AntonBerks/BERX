@@ -7,7 +7,7 @@
  * owner's videos (api.userVideos); omitting it loads the real
  * discovery feed (api.videoFeed). Real data throughout.
  */
-import React, {useCallback, useEffect, useState} from 'react';
+import {useCallback, useEffect, useState} from 'react';
 import {View, FlatList} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxVideoPost} from '@berx/api/types';

@@ -29,8 +29,40 @@ export interface PlaceDetailScreenProps {
 }
 
 export default function PlaceDetailScreen(props: PlaceDetailScreenProps) {
+	/**
+	 * The place's own cover becomes the scene's atmosphere layer.
+	 *
+	 * D1 is where the environment lives, and a place page whose
+	 * atmosphere is that place is the difference between a card about
+	 * somewhere and being somewhere. It is loaded before the scene so
+	 * the whole screen — not just the hero — sits inside it, dimmed and
+	 * parallaxed behind the content plane, and scrimmed hard enough
+	 * that text contrast never depends on the photograph.
+	 *
+	 * No cover means no atmosphere. BERX does not substitute a stock
+	 * image for a place that has none.
+	 */
+	const [cover, setCover] = useState<string | null>(null);
+
+	useEffect(() => {
+		let cancelled = false;
+		props.api
+			.getPlace(props.guid)
+			.then((place) => {
+				if (!cancelled) setCover(place.cover_url ?? null);
+			})
+			.catch(() => undefined);
+		return () => {
+			cancelled = true;
+		};
+	}, [props.api, props.guid]);
+
 	return (
-		<BerxFamilyScene family="PLACES" testID="place-detail">
+		<BerxFamilyScene
+			family="PLACES"
+			atmosphere={cover ? {uri: cover} : undefined}
+			scrim={cover ? 0.55 : 0}
+			testID="place-detail">
 			<PlaceDetailSceneBody {...props} />
 		</BerxFamilyScene>
 	);

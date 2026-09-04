@@ -96,8 +96,37 @@ function joinedYear(unixSeconds?: number): string | null {
 }
 
 export default function ProfileScreen(props: ProfileScreenProps) {
+	/**
+	 * The person's own avatar becomes the scene's atmosphere.
+	 *
+	 * BERX returns no cover field — icon_url is the only real image an
+	 * account has — so rather than leave D1 empty or invent a banner,
+	 * the avatar fills the environment layer behind everything, heavily
+	 * scrimmed and dimmed. The effect is a profile that feels like
+	 * standing in that person's space, built from the one image that
+	 * genuinely exists.
+	 */
+	const [atmosphere, setAtmosphere] = useState<string | null>(null);
+
+	useEffect(() => {
+		let cancelled = false;
+		const load = props.username ? props.api.getProfile(props.username) : props.api.me();
+		load
+			.then((profile) => {
+				if (!cancelled) setAtmosphere(profile.icon_url ?? null);
+			})
+			.catch(() => undefined);
+		return () => {
+			cancelled = true;
+		};
+	}, [props.api, props.username]);
+
 	return (
-		<BerxScreenScene screenId="BERX-121" testID="berx-121">
+		<BerxScreenScene
+			screenId="BERX-121"
+			atmosphere={atmosphere ? {uri: atmosphere} : undefined}
+			scrim={atmosphere ? 0.72 : 0}
+			testID="berx-121">
 			<ProfileSceneBody {...props} />
 		</BerxScreenScene>
 	);

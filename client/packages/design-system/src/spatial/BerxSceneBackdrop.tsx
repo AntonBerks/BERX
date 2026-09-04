@@ -29,10 +29,23 @@ export function BerxSceneBackdrop({media, scrim = 0}: BerxSceneBackdropProps) {
 	const {scene} = useBerxScene();
 	const d1 = scene.layers.D1;
 
+	/**
+	 * Overscan.
+	 *
+	 * The environment layers move under parallax and are projected
+	 * smaller by the camera, so a backdrop sized exactly to the
+	 * viewport shows its own edge the moment either happens. They are
+	 * inset negatively by enough to cover the largest offset parallax
+	 * can produce plus the projection gap — which is why the
+	 * atmosphere reads as a room the content moves through rather than
+	 * a picture sliding behind it.
+	 */
+	const overscan = scene.budget.allowParallax ? 140 : 40;
+
 	return (
 		<>
-			<BerxDepthLayer depth="D0" absoluteFill surface radius={0} />
-			<BerxDepthLayer depth="D1" absoluteFill>
+			<BerxDepthLayer depth="D0" absoluteFill surface radius={0} style={{margin: -overscan}} />
+			<BerxDepthLayer depth="D1" absoluteFill style={{margin: -overscan}}>
 				{media ? (
 					<Image
 						source={media}
