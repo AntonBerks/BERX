@@ -1,10 +1,12 @@
 /**
  * BERX MOTION SYSTEM — four named tiers, one physical language.
  *
- * The transformation directive's own spec: "MICRO 100-180ms, STANDARD
- * 250-400ms, SPATIAL 450-750ms, CINEMATIC 800-1400ms. Cinematic only
- * for major moments." Plus: "Slow, cinematic, elastic, physical" and
- * "Avoid bouncing everywhere."
+ * The directive's own bands (MICRO 100-180, STANDARD 250-400, SPATIAL
+ * 450-750, CINEMATIC 800-1400) plus the BERX_5D_ULTIMATE_V9 archive's
+ * exact durations, which this now uses as each tier's default:
+ * micro 140, fast 220, standard 360, spatial 650, cinematic 900,
+ * ambient 4000 (berx.tokens.v9.json `motion_ms`). `fast` and `ambient`
+ * are the two tiers V9 adds.
  *
  * This exists because durations in BERX were previously chosen per call
  * site (a 180 here, a 420 there, a 900 somewhere else) — each one
@@ -29,7 +31,7 @@
  */
 import {springFromResponse, type BerxSpringConfig} from './springs';
 
-export type BerxMotionTier = 'micro' | 'standard' | 'spatial' | 'cinematic';
+export type BerxMotionTier = 'micro' | 'fast' | 'standard' | 'spatial' | 'cinematic' | 'ambient';
 
 export interface BerxMotionTokens {
 	/** The tier's own duration, ms — the middle of the directive's stated band. */
@@ -42,20 +44,30 @@ export interface BerxMotionTokens {
 	role: string;
 }
 
-function tier(range: readonly [number, number], dampingRatio: number, role: string): BerxMotionTokens {
-	const duration = Math.round((range[0] + range[1]) / 2);
-	return {duration, range, spring: springFromResponse(duration / 1000, dampingRatio), role};
+/**
+ * V9: `duration` is now the archive's own number for the tier
+ * (berx.tokens.v9.json `motion_ms`), not the midpoint of the band. The
+ * band is kept as the range a call site may legitimately move within;
+ * the archive's value is the default every tier actually uses, and the
+ * tier's spring is solved so its perceived settle time IS that value.
+ */
+function tier(range: readonly [number, number], dampingRatio: number, role: string, durationMs: number): BerxMotionTokens {
+	return {duration: durationMs, range, spring: springFromResponse(durationMs / 1000, dampingRatio), role};
 }
 
 export const BERX_MOTION: Record<BerxMotionTier, BerxMotionTokens> = {
 	/** Press compression, icon state, toggle. Lowest damping — this is where "tactile" lives. */
-	micro: tier([100, 180], 0.68, 'touch response, icon state, compression'),
+	micro: tier([100, 180], 0.68, 'touch response, icon state, compression', 140),
+	/** V9 adds this tier: between a touch response and a content change. */
+	fast: tier([180, 260], 0.72, 'immediate feedback, small reveals', 220),
 	/** Panel content, list item, sheet content, value change. */
-	standard: tier([250, 400], 0.76, 'content change, entrance, reveal'),
+	standard: tier([250, 400], 0.76, 'content change, entrance, reveal', 360),
 	/** An object moving through depth: card approach, sheet rise, screen-to-screen. */
-	spatial: tier([450, 750], 0.84, 'objects moving through depth'),
+	spatial: tier([450, 750], 0.84, 'objects moving through depth', 650),
 	/** Camera moves and major moments only — splash, entry into the app, wow beats. */
-	cinematic: tier([800, 1400], 0.92, 'camera moves and major moments only'),
+	cinematic: tier([800, 1400], 0.92, 'camera moves and major moments only', 900),
+	/** V9 adds this tier: continuous environmental movement, never a response to input. */
+	ambient: tier([3000, 5000], 1, 'ambient environmental drift', 4000),
 };
 
 /** Stagger steps that pair with the tiers — a real ladder, so two screens stagger at the same rate. */

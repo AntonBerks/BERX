@@ -1,0 +1,477 @@
+{
+  "count": 118,
+  "components": [
+    {
+      "id": "CMP-001",
+      "name": "BerxGlassSurface"
+    },
+    {
+      "id": "CMP-002",
+      "name": "BerxDeepGlass"
+    },
+    {
+      "id": "CMP-003",
+      "name": "BerxFrostGlass"
+    },
+    {
+      "id": "CMP-004",
+      "name": "BerxLiquidGlass"
+    },
+    {
+      "id": "CMP-005",
+      "name": "BerxScrimHero"
+    },
+    {
+      "id": "CMP-006",
+      "name": "BerxSpatialCard"
+    },
+    {
+      "id": "CMP-007",
+      "name": "BerxMediaCard"
+    },
+    {
+      "id": "CMP-008",
+      "name": "BerxVideoCard"
+    },
+    {
+      "id": "CMP-009",
+      "name": "BerxTrackCard"
+    },
+    {
+      "id": "CMP-010",
+      "name": "BerxAvatar"
+    },
+    {
+      "id": "CMP-011",
+      "name": "BerxAvatarCluster"
+    },
+    {
+      "id": "CMP-012",
+      "name": "BerxIdentity"
+    },
+    {
+      "id": "CMP-013",
+      "name": "BerxMetric"
+    },
+    {
+      "id": "CMP-014",
+      "name": "BerxStatRail"
+    },
+    {
+      "id": "CMP-015",
+      "name": "BerxPill"
+    },
+    {
+      "id": "CMP-016",
+      "name": "BerxChip"
+    },
+    {
+      "id": "CMP-017",
+      "name": "BerxTag"
+    },
+    {
+      "id": "CMP-018",
+      "name": "BerxBadge"
+    },
+    {
+      "id": "CMP-019",
+      "name": "BerxVerifiedBadge"
+    },
+    {
+      "id": "CMP-020",
+      "name": "BerxPrimaryButton"
+    },
+    {
+      "id": "CMP-021",
+      "name": "BerxSecondaryButton"
+    },
+    {
+      "id": "CMP-022",
+      "name": "BerxGhostButton"
+    },
+    {
+      "id": "CMP-023",
+      "name": "BerxIconButton"
+    },
+    {
+      "id": "CMP-024",
+      "name": "BerxFloatingAction"
+    },
+    {
+      "id": "CMP-025",
+      "name": "BerxBottomNav"
+    },
+    {
+      "id": "CMP-026",
+      "name": "BerxTopBar"
+    },
+    {
+      "id": "CMP-027",
+      "name": "BerxSpatialHeader"
+    },
+    {
+      "id": "CMP-028",
+      "name": "BerxSearchField"
+    },
+    {
+      "id": "CMP-029",
+      "name": "BerxCommandBar"
+    },
+    {
+      "id": "CMP-030",
+      "name": "BerxInput"
+    },
+    {
+      "id": "CMP-031",
+      "name": "BerxTextArea"
+    },
+    {
+      "id": "CMP-032",
+      "name": "BerxOtpInput"
+    },
+    {
+      "id": "CMP-033",
+      "name": "BerxSegmentedControl"
+    },
+    {
+      "id": "CMP-034",
+      "name": "BerxTabs"
+    },
+    {
+      "id": "CMP-035",
+      "name": "BerxFilterBar"
+    },
+    {
+      "id": "CMP-036",
+      "name": "BerxSlider"
+    },
+    {
+      "id": "CMP-037",
+      "name": "BerxToggle"
+    },
+    {
+      "id": "CMP-038",
+      "name": "BerxStepper"
+    },
+    {
+      "id": "CMP-039",
+      "name": "BerxDatePicker"
+    },
+    {
+      "id": "CMP-040",
+      "name": "BerxTimePicker"
+    },
+    {
+      "id": "CMP-041",
+      "name": "BerxColorVibePicker"
+    },
+    {
+      "id": "CMP-042",
+      "name": "BerxStoryRing"
+    },
+    {
+      "id": "CMP-043",
+      "name": "BerxStoryTray"
+    },
+    {
+      "id": "CMP-044",
+      "name": "BerxMomentGrid"
+    },
+    {
+      "id": "CMP-045",
+      "name": "BerxMomentViewer"
+    },
+    {
+      "id": "CMP-046",
+      "name": "BerxReel"
+    },
+    {
+      "id": "CMP-047",
+      "name": "BerxReelViewer"
+    },
+    {
+      "id": "CMP-048",
+      "name": "BerxCarousel"
+    },
+    {
+      "id": "CMP-049",
+      "name": "BerxHorizontalRail"
+    },
+    {
+      "id": "CMP-050",
+      "name": "BerxMasonry"
+    },
+    {
+      "id": "CMP-051",
+      "name": "BerxMap"
+    },
+    {
+      "id": "CMP-052",
+      "name": "BerxMapPin"
+    },
+    {
+      "id": "CMP-053",
+      "name": "BerxMapCluster"
+    },
+    {
+      "id": "CMP-054",
+      "name": "BerxPlaceCard"
+    },
+    {
+      "id": "CMP-055",
+      "name": "BerxPlaceHero"
+    },
+    {
+      "id": "CMP-056",
+      "name": "BerxPlaceHours"
+    },
+    {
+      "id": "CMP-057",
+      "name": "BerxPlaceRating"
+    },
+    {
+      "id": "CMP-058",
+      "name": "BerxEventCard"
+    },
+    {
+      "id": "CMP-059",
+      "name": "BerxEventHero"
+    },
+    {
+      "id": "CMP-060",
+      "name": "BerxTicket"
+    },
+    {
+      "id": "CMP-061",
+      "name": "BerxExperienceCard"
+    },
+    {
+      "id": "CMP-062",
+      "name": "BerxTripCard"
+    },
+    {
+      "id": "CMP-063",
+      "name": "BerxCollectionCard"
+    },
+    {
+      "id": "CMP-064",
+      "name": "BerxCommunityCard"
+    },
+    {
+      "id": "CMP-065",
+      "name": "BerxBusinessCard"
+    },
+    {
+      "id": "CMP-066",
+      "name": "BerxBusinessHero"
+    },
+    {
+      "id": "CMP-067",
+      "name": "BerxBusinessMetric"
+    },
+    {
+      "id": "CMP-068",
+      "name": "BerxCreatorCard"
+    },
+    {
+      "id": "CMP-069",
+      "name": "BerxWalletCard"
+    },
+    {
+      "id": "CMP-070",
+      "name": "BerxRewardCard"
+    },
+    {
+      "id": "CMP-071",
+      "name": "BerxLevelBadge"
+    },
+    {
+      "id": "CMP-072",
+      "name": "BerxProgressRing"
+    },
+    {
+      "id": "CMP-073",
+      "name": "BerxChatRow"
+    },
+    {
+      "id": "CMP-074",
+      "name": "BerxMessageBubble"
+    },
+    {
+      "id": "CMP-075",
+      "name": "BerxComposer"
+    },
+    {
+      "id": "CMP-076",
+      "name": "BerxTypingIndicator"
+    },
+    {
+      "id": "CMP-077",
+      "name": "BerxCallSurface"
+    },
+    {
+      "id": "CMP-078",
+      "name": "BerxNotificationRow"
+    },
+    {
+      "id": "CMP-079",
+      "name": "BerxNotificationStack"
+    },
+    {
+      "id": "CMP-080",
+      "name": "BerxSheet"
+    },
+    {
+      "id": "CMP-081",
+      "name": "BerxModal"
+    },
+    {
+      "id": "CMP-082",
+      "name": "BerxPopover"
+    },
+    {
+      "id": "CMP-083",
+      "name": "BerxToast"
+    },
+    {
+      "id": "CMP-084",
+      "name": "BerxSnackbar"
+    },
+    {
+      "id": "CMP-085",
+      "name": "BerxSkeleton"
+    },
+    {
+      "id": "CMP-086",
+      "name": "BerxEmptyState"
+    },
+    {
+      "id": "CMP-087",
+      "name": "BerxErrorState"
+    },
+    {
+      "id": "CMP-088",
+      "name": "BerxOfflineState"
+    },
+    {
+      "id": "CMP-089",
+      "name": "BerxPermissionPrompt"
+    },
+    {
+      "id": "CMP-090",
+      "name": "BerxSafetyBanner"
+    },
+    {
+      "id": "CMP-091",
+      "name": "BerxReportSheet"
+    },
+    {
+      "id": "CMP-092",
+      "name": "BerxBlockSheet"
+    },
+    {
+      "id": "CMP-093",
+      "name": "BerxShareSheet"
+    },
+    {
+      "id": "CMP-094",
+      "name": "BerxReactionPicker"
+    },
+    {
+      "id": "CMP-095",
+      "name": "BerxContextMenu"
+    },
+    {
+      "id": "CMP-096",
+      "name": "BerxMediaViewer"
+    },
+    {
+      "id": "CMP-097",
+      "name": "BerxProfileHero"
+    },
+    {
+      "id": "CMP-098",
+      "name": "BerxProfileTabs"
+    },
+    {
+      "id": "CMP-099",
+      "name": "BerxProfileAbout"
+    },
+    {
+      "id": "CMP-100",
+      "name": "BerxProfilePlaces"
+    },
+    {
+      "id": "CMP-101",
+      "name": "BerxProfileMoments"
+    },
+    {
+      "id": "CMP-102",
+      "name": "BerxProfileExperiences"
+    },
+    {
+      "id": "CMP-103",
+      "name": "BerxProfileConnections"
+    },
+    {
+      "id": "CMP-104",
+      "name": "BerxNowPulse"
+    },
+    {
+      "id": "CMP-105",
+      "name": "BerxNowRail"
+    },
+    {
+      "id": "CMP-106",
+      "name": "BerxNowScene"
+    },
+    {
+      "id": "CMP-107",
+      "name": "BerxEnergyHalo"
+    },
+    {
+      "id": "CMP-108",
+      "name": "BerxDepthLayer"
+    },
+    {
+      "id": "CMP-109",
+      "name": "BerxParallaxGroup"
+    },
+    {
+      "id": "CMP-110",
+      "name": "BerxSpatialTransition"
+    },
+    {
+      "id": "CMP-111",
+      "name": "BerxFocusRing"
+    },
+    {
+      "id": "CMP-112",
+      "name": "BerxPerformanceGate"
+    },
+    {
+      "id": "CMP-113",
+      "name": "BerxReducedMotionGate"
+    },
+    {
+      "id": "CMP-114",
+      "name": "BerxAnalyticsBoundary"
+    },
+    {
+      "id": "CMP-115",
+      "name": "BerxPermissionGate"
+    },
+    {
+      "id": "CMP-116",
+      "name": "BerxDataBoundary"
+    },
+    {
+      "id": "CMP-117",
+      "name": "BerxErrorBoundary"
+    },
+    {
+      "id": "CMP-118",
+      "name": "BerxRouteBoundary"
+    }
+  ]
+}

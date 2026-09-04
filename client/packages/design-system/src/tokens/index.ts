@@ -37,38 +37,58 @@
  * caller/feature (e.g. a premium badge reading `colors.accentGold`)
  * without resurrecting a user-facing palette switcher.
  */
-export const ACCENT_AQUAMARINE = '#00E5CC';
+/**
+ * V9: the archive's Visual DNA accent. The previous Aquamarine
+ * #00E5CC is superseded here by BERX_5D_ULTIMATE_V9's own
+ * `colors.accent` (#4FD6E8) — same role, the archive's number.
+ */
+export const ACCENT_AQUAMARINE = '#4FD6E8';
 export const ACCENT_PURPLE = '#8B5CF6';
 export const ACCENT_PINK = '#FF4D8D';
 export const ACCENT_GOLD = '#E6B800';
 export const ACCENT_EMERALD = '#00C896';
 
 export const colors = {
-	black: '#05060A',
-	bg: '#05060A',
-	graphite: '#0E1015',
+	/**
+	 * V9 ADOPTION. bg/surface/accent below are the BERX_5D_ULTIMATE_V9
+	 * archive's own Visual DNA numbers (02_DESIGN_SYSTEM_V2/tokens/
+	 * berx.tokens.v2.json, vendored verbatim at design-system/src/v9/),
+	 * replacing the previous #05060A / #00E5CC pair. The archive
+	 * specifies exactly one environment - this dark cinematic one - so
+	 * these are Night's values; Day is solved from the same accent by
+	 * measured contrast (see theme/index.tsx).
+	 */
+	black: '#07080A',
+	bg: '#07080A',
+	graphite: '#101216',
 
 	// Glass surface: white alpha 12–20% (Night) per Obsidian & Aurora —
 	// four ordered strengths within that band, same role the previous
 	// four glass1-3/surface tokens held.
-	glass1: 'rgba(255,255,255,0.12)',
-	glass2: 'rgba(255,255,255,0.15)',
-	glass3: 'rgba(255,255,255,0.18)',
-	surface: 'rgba(255,255,255,0.15)', // = glass2
-	surface2: 'rgba(255,255,255,0.18)', // = glass3
+	// V9 glass ladder — the archive's own soft/standard/strong
+	// (.04/.06/.10). Lower than the previous .12/.15/.18: the archive's
+	// glass is a genuinely thinner material sitting on a darker ground.
+	glass1: 'rgba(255,255,255,0.04)',
+	glass2: 'rgba(255,255,255,0.06)',
+	glass3: 'rgba(255,255,255,0.10)',
+	surface: 'rgba(255,255,255,0.06)',
+	surface2: 'rgba(255,255,255,0.10)',
 
 	// Border: white alpha 20%, per spec — one flat value where the old
 	// system graded soft/base/strong; soft/strong keep a real, ordered
 	// relationship either side of that one specified value rather than
 	// collapsing to three identical borders.
-	border: 'rgba(255,255,255,0.20)',
-	borderSoft: 'rgba(255,255,255,0.14)',
-	borderStrong: 'rgba(255,255,255,0.28)',
+	// V9: the archive states one border, rgba(255,255,255,.14). Soft and
+	// strong keep an ordered relationship either side of it.
+	border: 'rgba(255,255,255,0.14)',
+	borderSoft: 'rgba(255,255,255,0.09)',
+	borderStrong: 'rgba(255,255,255,0.22)',
 
 	white: '#ffffff',
-	text: '#F5F7FA',
-	textDim: 'rgba(245,247,250,0.64)',
-	textFaint: 'rgba(245,247,250,0.38)',
+	// V9 text ladder: #FFFFFF / .68 / .42
+	text: '#FFFFFF',
+	textDim: 'rgba(255,255,255,0.68)',
+	textFaint: 'rgba(255,255,255,0.42)',
 	/** Obsidian & Aurora's own named secondary-text token, alongside the textDim/textFaint ladder every existing screen already reads. */
 	textSecondary: '#A8B0C0',
 
@@ -79,10 +99,11 @@ export const colors = {
 	 * this single value is the systemic paint.
 	 */
 	accent: ACCENT_AQUAMARINE,
-	accentHover: '#4DF0DC',
-	accentSoft: 'rgba(0,229,204,0.16)',
+	accentHover: '#7FE3F0',
+	// V9: accentSoft is the archive's own rgba(79,214,232,.12)
+	accentSoft: 'rgba(79,214,232,0.12)',
 	accentSecondary: ACCENT_AQUAMARINE,
-	accentSecondarySoft: 'rgba(0,229,204,0.16)',
+	accentSecondarySoft: 'rgba(79,214,232,0.12)',
 	/** The four other Obsidian & Aurora accents, as real tokens — see ACCENT PALETTE above. */
 	accentPurple: ACCENT_PURPLE,
 	accentPink: ACCENT_PINK,
@@ -95,7 +116,7 @@ export const colors = {
 	 * teal where the same dark ink fails contrast. A browser run of the
 	 * Day palette showed exactly that, which is why this is its own role.
 	 */
-	onAccent: '#05060A',
+	onAccent: '#07080A',
 	/**
 	 * The darkening layer laid over real photography, and the ground a
 	 * photo that fails to load falls back to. Deliberately IDENTICAL in
@@ -104,7 +125,7 @@ export const colors = {
 	 * into a white veil and make them invisible. A browser run of the
 	 * Day palette showed exactly that (contrast ratio 1.2).
 	 */
-	mediaScrim: '#05060A',
+	mediaScrim: '#07080A',
 
 	/** Ink that sits ON media (over mediaScrim). Constant in both environments, for the same reason mediaScrim is: a Day-flipped ink would turn dark on a dark photo. */
 	onMedia: '#F5F7FA',
@@ -113,8 +134,9 @@ export const colors = {
 	/** The accent as it appears ON media. Always the bright Night aquamarine: Day's deepened teal is tuned for a light ground and would undershoot contrast over mediaScrim. */
 	accentOnMedia: ACCENT_AQUAMARINE,
 
-	danger: '#ff4d4f',
-	success: '#3ddc84',
+	// V9 semantic colours, from the archive's own token file.
+	danger: '#FF5F6D',
+	success: '#57E6A6',
 
 	/**
 	 * Spatial Glass / Living Media layer — additive, new tokens for
@@ -124,8 +146,8 @@ export const colors = {
 	glassBusiness: 'rgba(255,255,255,0.12)',
 	glassBusinessBorder: 'rgba(255,255,255,0.18)',
 	glassBusinessHairline: 'rgba(255,255,255,0.22)',
-	scrimTop: 'rgba(5,6,10,0)',
-	scrimBottom: 'rgba(5,6,10,0.92)',
+	scrimTop: 'rgba(7,8,10,0)',
+	scrimBottom: 'rgba(7,8,10,0.92)',
 } as const;
 
 /**
@@ -201,11 +223,11 @@ export const colorsDay = {
 	 * "The brand must remain recognizable in both modes" — same hue,
 	 * same family, legible.
 	 */
-	accent: '#00786B',
-	accentHover: '#00655A',
-	accentSoft: 'rgba(0,120,107,0.12)',
-	accentSecondary: '#00786B',
-	accentSecondarySoft: 'rgba(0,120,107,0.12)',
+	accent: '#116E7B',
+	accentHover: '#0E5C67',
+	accentSoft: 'rgba(17,110,123,0.12)',
+	accentSecondary: '#116E7B',
+	accentSecondarySoft: 'rgba(17,110,123,0.12)',
 	accentPurple: ACCENT_PURPLE,
 	accentPink: ACCENT_PINK,
 	accentGold: ACCENT_GOLD,
@@ -213,7 +235,7 @@ export const colorsDay = {
 	/** Ink on a solid fill of the deepened Day accent — white, since that accent is now dark enough to carry it. */
 	onAccent: '#FFFFFF',
 	/** Identical to Night on purpose — see the Night token's comment. */
-	mediaScrim: '#05060A',
+	mediaScrim: '#07080A',
 
 	/** Ink that sits ON media (over mediaScrim). Constant in both environments, for the same reason mediaScrim is: a Day-flipped ink would turn dark on a dark photo. */
 	onMedia: '#F5F7FA',
