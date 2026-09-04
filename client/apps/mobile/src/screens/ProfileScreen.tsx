@@ -39,6 +39,7 @@ import {BerxDataBoundary} from '../../../../packages/design-system/src/spatial/B
 import {BerxSpatialCard} from '../../../../packages/design-system/src/spatial/BerxSpatialCard';
 import type {BerxStat} from '../../../../packages/design-system/src/spatial/BerxStatRail';
 import {useBerxSceneScroll} from '../../../../packages/design-system/src/spatial/BerxSpatialScene';
+import {BerxTwoZone} from '../../../../packages/design-system/src/spatial/BerxResponsive';
 import {BerxScreenScene, useBerxScreen} from '../spatial/BerxScreenScene';
 import {berxAnalytics} from '../spatial/analytics';
 
@@ -203,6 +204,13 @@ function ProfileSceneBody(props: ProfileScreenProps) {
 						scrollEventThrottle={scrollEventThrottle}
 						contentContainerStyle={styles.scroll}
 						showsVerticalScrollIndicator={false}>
+						{/* on a phone this is the hero above the sections; on a tablet or
+						    desktop the sections sit beside it, which is what the
+						    contract's two-zone and spatial-grid layouts mean */}
+						<BerxTwoZone
+							screen={screen}
+							secondary={<ProfileSections {...props} profile={profile} isOwn={isOwn} />}
+							primary={
 						<BerxProfileHero
 							userGuid={profile.guid ?? 0}
 							name={profile.fullname}
@@ -235,8 +243,14 @@ function ProfileSceneBody(props: ProfileScreenProps) {
 								</>
 							}
 						/>
+							}
+						/>
 
-						<ProfileSections {...props} profile={profile} isOwn={isOwn} />
+						{/* the phone path: the two-zone layout renders only its primary
+						    zone there, so the sections follow underneath */}
+						{screen.layoutMode === 'single-column' ? (
+							<ProfileSections {...props} profile={profile} isOwn={isOwn} />
+						) : null}
 
 						{!isOwn && profile.guid && onReport ? (
 							<Pressable

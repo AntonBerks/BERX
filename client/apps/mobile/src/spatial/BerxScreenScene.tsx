@@ -15,12 +15,13 @@
  * optimistic.
  */
 import React, {createContext, useContext, useEffect, useMemo} from 'react';
-import {Platform, StyleSheet, View, useWindowDimensions, type ImageSourcePropType} from 'react-native';
+import {Platform, StyleSheet, useWindowDimensions, type ImageSourcePropType} from 'react-native';
 import {getFamilyContracts, resolveScreen, type BerxResolvedScreen} from '@berx/scenes';
 import type {BerxFamily} from '@berx/spatial';
 import type {BerxColorWorldName, BerxDeviceSignals, BerxPlatform} from '@berx/spatial';
 import {BerxSpatialScene} from '../../../../packages/design-system/src/spatial/BerxSpatialScene';
 import {BerxSceneBackdrop} from '../../../../packages/design-system/src/spatial/BerxSceneBackdrop';
+import {BerxContentFrame} from '../../../../packages/design-system/src/spatial/BerxResponsive';
 import {berxAnalytics} from './analytics';
 import {useBerxColorWorld} from './BerxColorWorld';
 
@@ -132,7 +133,15 @@ export function BerxScreenScene({
 				colorWorld={activeWorld}
 				highContrast={highContrast}>
 				<BerxSceneBackdrop media={atmosphere} scrim={scrim} />
-				<View style={styles.content}>{children}</View>
+				{/**
+				 * The layout contract every scene carries, applied once
+				 * here: content is held to maxContentWidth and centred. A
+				 * no-op on a phone, and the difference between a BERX
+				 * scene and a stretched mobile app on a desktop.
+				 */}
+				<BerxContentFrame screen={screen} style={styles.content}>
+					{children}
+				</BerxContentFrame>
 			</BerxSpatialScene>
 		</ScreenContext.Provider>
 	);

@@ -62,14 +62,29 @@ const consumerFiles = [
 	...walkTsx(path.join(clientRoot, 'packages/design-system/src/components')),
 ].map((f) => ({file: f, src: fs.readFileSync(f, 'utf8')}));
 
-const unrenderedComponents = fs
+/**
+ * Checked by exported component name, not by filename: a module can
+ * export several components (BerxResponsive exports BerxContentFrame
+ * and BerxTwoZone), and a filename check would call the module used
+ * when only one of them is, or unused when the file name is not a
+ * component name at all.
+ */
+const spatialExports = fs
 	.readdirSync(spatialDir)
 	.filter((f) => f.endsWith('.tsx'))
-	.map((f) => f.replace('.tsx', ''))
+	.flatMap((f) => {
+		const src = fs.readFileSync(path.join(spatialDir, f), 'utf8');
+		return [...src.matchAll(/^export function (Berx[A-Za-z0-9]+)/gm)].map((m) => ({
+			name: m[1],
+			file: path.join(spatialDir, f),
+		}));
+	});
+
+const unrenderedComponents = spatialExports
 	.filter(
-		(name) =>
-			!consumerFiles.some((c) => !c.file.endsWith(`${name}.tsx`) && new RegExp(`<${name}[\\s/>]`).test(c.src)),
-	);
+		({name, file}) => !consumerFiles.some((c) => c.file !== file && new RegExp(`<${name}[\\s/>]`).test(c.src)),
+	)
+	.map(({name}) => name);
 
 /* ---------------- bundle + run the real runtime ---------------- */
 const outDir = fs.mkdtempSync(path.join(os.tmpdir(), 'berx-v9-probe-'));
