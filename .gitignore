@@ -30,4 +30,8 @@ client/harness-token-storage.ts
 client/stub-native.js
 client/stub-three.js
 client/harness-rn.js
+# Disposable Playwright verification scripts — written per pass to take
+# harness screenshots / probe the DOM, kept out of the repo for the same
+# reason as the harness itself: they are not part of the app.
+client/shot*.mjs
 client/stub-codegen.js
