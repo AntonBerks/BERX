@@ -26,6 +26,14 @@ export interface BerxMessageBubbleProps {
 	timeLabel: string;
 	delivery?: BerxMessageDelivery;
 	onRetry?: () => void;
+	/**
+	 * Deleting one's own message. Rendered as a real, labelled control
+	 * rather than only a long-press: a gesture with no visible
+	 * equivalent is unreachable by keyboard, switch control and anyone
+	 * who does not already know it is there.
+	 */
+	onDelete?: () => void;
+	deleting?: boolean;
 	testID?: string;
 }
 
@@ -35,7 +43,17 @@ const DELIVERY_LABEL: Record<BerxMessageDelivery, string> = {
 	failed: 'не отправлено',
 };
 
-export function BerxMessageBubble({text, own, senderName, timeLabel, delivery = 'sent', onRetry, testID}: BerxMessageBubbleProps) {
+export function BerxMessageBubble({
+	text,
+	own,
+	senderName,
+	timeLabel,
+	delivery = 'sent',
+	onRetry,
+	onDelete,
+	deleting,
+	testID,
+}: BerxMessageBubbleProps) {
 	const {scene} = useBerxScene();
 	const layer = own ? scene.layers.D4 : scene.layers.D3;
 
@@ -45,7 +63,11 @@ export function BerxMessageBubble({text, own, senderName, timeLabel, delivery = 
 			accessible
 			accessibilityRole="text"
 			accessibilityLabel={`${own ? 'Вы' : senderName}: ${text}, ${timeLabel}, ${DELIVERY_LABEL[delivery]}`}
-			style={[styles.row, own ? styles.rowOwn : styles.rowOther]}>
+			accessibilityActions={onDelete ? [{name: 'delete', label: 'Удалить сообщение'}] : undefined}
+			onAccessibilityAction={(e) => {
+				if (e.nativeEvent.actionName === 'delete') onDelete?.();
+			}}
+			style={[styles.row, own ? styles.rowOwn : styles.rowOther, deleting ? styles.deleting : null]}>
 			<View style={styles.bubbleWrap}>
 				<BerxSurface
 					surface={layer.surface}
@@ -73,6 +95,16 @@ export function BerxMessageBubble({text, own, senderName, timeLabel, delivery = 
 						Повторить
 					</Text>
 				) : null}
+				{onDelete ? (
+					<Text
+						accessibilityRole="button"
+						accessibilityLabel="Удалить сообщение"
+						accessibilityState={{busy: deleting === true}}
+						onPress={onDelete}
+						style={styles.delete}>
+						{deleting ? 'Удаляется…' : 'Удалить'}
+					</Text>
+				) : null}
 			</View>
 		</View>
 	);
@@ -89,4 +121,6 @@ const styles = StyleSheet.create({
 	time: {color: colors.textFaint, fontSize: 11},
 	delivery: {fontSize: 11, fontWeight: typography.weightMedium},
 	retry: {color: colors.danger, fontSize: typography.sizeXs, textAlign: 'right', minHeight: 44, paddingTop: spacing.md},
+	delete: {color: colors.textFaint, fontSize: typography.sizeXs, textAlign: 'right', minHeight: 44, paddingTop: spacing.md},
+	deleting: {opacity: 0.5},
 });

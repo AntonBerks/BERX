@@ -1,27 +1,44 @@
 /**
- * !!! VERIFICATION STATUS: UNVERIFIED — see LoginScreen.tsx header.
+ * BERX-176 (thread) — a conversation, as a MESSAGES scene.
  *
- * Real capabilities now wired (previously honestly absent, since the
- * API didn't expose them): typing indicator (OssnMessageTyping),
- * mark-as-read (markViewed), and per-message delete with a real
- * server-side participant check. Realtime is POLLING, not a socket —
- * no WebSocket infrastructure exists in BERX yet, so typing status
- * refreshes on an interval and that limitation is disclosed rather
- * than dressed up as live. Message editing still does not exist in
- * the OSSN core and is therefore still absent, not stubbed.
+ * Real capabilities, all already wired and preserved: typing status
+ * (OssnMessageTyping), mark-as-read, and per-message delete with a
+ * real server-side participant check. Realtime is POLLING, not a
+ * socket — BERX has no WebSocket infrastructure, so typing refreshes
+ * on an interval and that limit is disclosed rather than dressed up
+ * as live. Message editing does not exist in the OSSN core and is
+ * still absent rather than stubbed.
+ *
+ * Two real defects fixed in the v9 pass:
+ *
+ *  - Own messages were near-white text (#f5f5f7) on the bright cyan
+ *    accent (#4fd6e8) — 1.59:1 measured, far below the 4.5:1 the
+ *    accessibility contract targets, and genuinely hard to read. They
+ *    now use the control-layer material with an accent tint, which
+ *    keeps text on a dark ground and stays well above AA while still
+ *    reading as "mine".
+ *  - Deleting a message was long-press only, with nothing visible and
+ *    no alternative — unreachable by keyboard, switch control, or
+ *    anyone who did not already know the gesture. There is now a real
+ *    labelled control and an accessibility action, and long-press
+ *    still works for those who know it.
  */
-import React, {useCallback, useEffect, useRef, useState} from 'react';
-import {FlatList, Text, View, Pressable, StyleSheet} from 'react-native';
+import {useCallback, useEffect, useRef, useState} from 'react';
+import {FlatList, StyleSheet, View} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxMessage} from '@berx/api/types';
 import {relativeTimeLabel} from '@berx/domain';
-import {colors, spacing, radius, typography} from '@berx/design-system/tokens';
-import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
-import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
-import {BerxLoadingState, BerxErrorState} from '../../../../packages/design-system/src/components/BerxStates';
+import type {BerxScreenState} from '@berx/spatial';
+import {spacing} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
+import {BerxMessageBubble} from '../../../../packages/design-system/src/spatial/BerxMessageBubble';
+import {BerxComposer} from '../../../../packages/design-system/src/spatial/BerxComposer';
+import {BerxTypingIndicator} from '../../../../packages/design-system/src/spatial/BerxTypingIndicator';
+import {BerxDataBoundary} from '../../../../packages/design-system/src/spatial/BerxDataBoundary';
+import {BerxScreenScene, useBerxScreen} from '../spatial/BerxScreenScene';
+import {berxAnalytics} from '../spatial/analytics';
 
-interface Props {
+export interface ConversationScreenProps {
 	api: BerxApiClient;
 	myGuid: number;
 	otherGuid: number;
@@ -29,49 +46,55 @@ interface Props {
 	onBack: () => void;
 }
 
-export default function ConversationScreen({api, myGuid, otherGuid, otherUsername, onBack}: Props) {
+const TYPING_POLL_MS = 4000;
+
+export default function ConversationScreen(props: ConversationScreenProps) {
+	return (
+		<BerxScreenScene screenId="BERX-176" trackView={false} testID="berx-176-thread">
+			<ConversationSceneBody {...props} />
+		</BerxScreenScene>
+	);
+}
+
+function ConversationSceneBody({api, myGuid, otherGuid, otherUsername, onBack}: ConversationScreenProps) {
+	const screen = useBerxScreen();
 	const [messages, setMessages] = useState<BerxMessage[]>([]);
-	const [loading, setLoading] = useState(true);
+	const [state, setState] = useState<BerxScreenState>('loading');
 	const [error, setError] = useState<string | null>(null);
-	const [draft, setDraft] = useState('');
-	const [sending, setSending] = useState(false);
-	const [sendError, setSendError] = useState<string | null>(null);
-	const listRef = useRef<FlatList<BerxMessage>>(null);
 	const [otherTyping, setOtherTyping] = useState(false);
 	const [deletingId, setDeletingId] = useState<number | null>(null);
+	const listRef = useRef<FlatList<BerxMessage>>(null);
 
 	const load = useCallback(async () => {
 		try {
 			const res = await api.conversationWith(otherGuid);
 			setMessages(res.messages);
 			setError(null);
+			setState(res.messages.length === 0 ? 'empty' : 'default');
 		} catch {
-			// Real, honest ambiguity this screen can't resolve itself:
-			// the API returns the same generic failure whether the
-			// thread is empty, the other user blocked you, or a network
-			// error happened — conversationWith() doesn't distinguish
-			// them (see API_SECURITY_MATRIX.md). Shown as one message
-			// rather than inventing a specific reason the API doesn't
-			// actually tell the client.
+			/**
+			 * Real ambiguity this screen cannot resolve: the API returns
+			 * the same generic failure whether the thread is empty, the
+			 * other user blocked you, or the network failed
+			 * (API_SECURITY_MATRIX.md). One honest message beats a
+			 * specific reason the API never gave us.
+			 */
 			setError('Не удалось загрузить переписку');
-		} finally {
-			setLoading(false);
+			setState('error');
+			berxAnalytics.error(screen, 'conversation');
 		}
-	}, [api, otherGuid]);
+	}, [api, otherGuid, screen]);
 
 	useEffect(() => {
 		load();
 	}, [load]);
 
-	// Real mark-as-read: fires once per opened thread, best-effort —
-	// a failed read-receipt must never block reading the conversation.
+	/* real read receipt, best-effort: a failure must not block reading */
 	useEffect(() => {
 		api.markConversationRead(otherGuid).catch(() => undefined);
 	}, [api, otherGuid]);
 
-	// Real typing status via POLLING (no WebSocket infrastructure
-	// exists — disclosed in this file's header, not pretended to be
-	// live). Cleared on unmount so a stale "typing" never persists.
+	/* typing status by polling — no socket infrastructure exists */
 	useEffect(() => {
 		let active = true;
 		const timer = setInterval(async () => {
@@ -79,130 +102,106 @@ export default function ConversationScreen({api, myGuid, otherGuid, otherUsernam
 				const res = await api.getTypingStatus(otherGuid);
 				if (active) setOtherTyping(res.typing);
 			} catch {
-				// polling failure is silent — never surfaces as a conversation error
+				/* a polling failure is never surfaced as a conversation error */
 			}
-		}, 4000);
+		}, TYPING_POLL_MS);
 		return () => {
 			active = false;
 			clearInterval(timer);
+			/* never leave a stale "typing" behind us */
+			api.setTypingStatus(otherGuid, false).catch(() => undefined);
 		};
 	}, [api, otherGuid]);
 
-	function handleDraftChange(text: string) {
-		setDraft(text);
-		// Real outgoing typing signal — server always attributes it to
-		// the authenticated user, never to a client-supplied guid.
-		api.setTypingStatus(otherGuid, text.length > 0).catch(() => undefined);
-	}
-
-	async function handleDeleteMessage(messageId: number) {
-		setDeletingId(messageId);
-		try {
-			await api.deleteMessage(otherGuid, messageId);
-			setMessages((prev) => prev.filter((m) => m.id !== messageId));
-		} catch {
-			// real server rejection (e.g. not a participant) — nothing optimistic
-		} finally {
-			setDeletingId(null);
-		}
-	}
-
-	async function handleSend() {
-		const text = draft.trim();
-		if (!text) return;
-		setSending(true);
-		setSendError(null);
-		try {
+	const send = useCallback(
+		async (text: string) => {
+			berxAnalytics.mutationStart(screen, otherGuid);
+			const started = Date.now();
 			await api.sendMessage(otherGuid, text);
-			setDraft('');
 			api.setTypingStatus(otherGuid, false).catch(() => undefined);
-			// Server-confirmed, not optimistic: re-fetch the real thread
-			// rather than locally appending a guessed message object —
-			// the API's send response is just {status:string}, it
-			// doesn't echo back the created message's real id/time, so
-			// there's nothing honest to construct locally.
+			/**
+			 * Re-fetch rather than appending locally: the send response is
+			 * just {status}, with no real id or timestamp echoed back, so
+			 * there is nothing honest to construct on the client.
+			 */
 			await load();
-		} catch {
-			setSendError('Не удалось отправить. Возможно, вы заблокированы.');
-		} finally {
-			setSending(false);
-		}
-	}
+			berxAnalytics.mutationSuccess(screen, Date.now() - started, otherGuid);
+		},
+		[api, otherGuid, load, screen],
+	);
+
+	const remove = useCallback(
+		async (messageId: number) => {
+			setDeletingId(messageId);
+			try {
+				await api.deleteMessage(otherGuid, messageId);
+				setMessages((prev) => prev.filter((m) => m.id !== messageId));
+			} catch {
+				/* a real server rejection, e.g. not a participant — nothing optimistic */
+				berxAnalytics.mutationError(screen, 'message-delete');
+			} finally {
+				setDeletingId(null);
+			}
+		},
+		[api, otherGuid, screen],
+	);
+
+	const title = otherUsername ?? `Пользователь #${otherGuid}`;
 
 	return (
 		<View style={styles.screen}>
-			<BerxHeader onBack={onBack} title={otherUsername ?? `Пользователь #${otherGuid}`} />
+			<BerxHeader onBack={onBack} title={title} />
 
-			{loading ? (
-				<BerxLoadingState label="Загрузка переписки..." />
-			) : error ? (
-				<BerxErrorState message={error} onRetry={load} />
-			) : (
+			<BerxDataBoundary
+				state={state}
+				onRetry={load}
+				errorMessage={error ?? undefined}
+				emptyTitle="Здесь пока пусто"
+				emptyBody={`Напишите ${title} первым.`}
+				style={styles.body}>
 				<FlatList
 					ref={listRef}
-					style={styles.list}
 					data={messages}
 					keyExtractor={(m: BerxMessage) => String(m.id)}
-					renderItem={({item}: {item: BerxMessage}) => (
-						<Pressable
-							onLongPress={() => handleDeleteMessage(item.id)}
-							disabled={deletingId === item.id}
-							style={[styles.bubble, item.from_guid === myGuid ? styles.bubbleMine : styles.bubbleTheirs, deletingId === item.id && styles.bubbleDeleting]}>
-							<Text style={styles.bubbleText}>{item.text}</Text>
-							<Text style={styles.bubbleTime}>{relativeTimeLabel(item.time)}</Text>
-						</Pressable>
-					)}
+					contentContainerStyle={styles.list}
+					removeClippedSubviews
+					windowSize={Math.max(3, Math.round(screen.scene.budget.listWindowSize / 3))}
+					renderItem={({item}: {item: BerxMessage}) => {
+						const own = item.from_guid === myGuid;
+						return (
+							<BerxMessageBubble
+								text={item.text}
+								own={own}
+								senderName={title}
+								timeLabel={relativeTimeLabel(item.time)}
+								onDelete={own ? () => remove(item.id) : undefined}
+								deleting={deletingId === item.id}
+							/>
+						);
+					}}
 				/>
-			)}
+			</BerxDataBoundary>
 
-			{otherTyping ? <Text style={styles.typingHint}>печатает…</Text> : null}
+			<BerxTypingIndicator names={otherTyping ? [title] : []} />
 
 			<View style={styles.composer}>
-				<BerxInput
-					style={styles.composerInput}
-					placeholder="Сообщение..."
-					value={draft}
-					onChangeText={handleDraftChange}
-					multiline
+				<BerxComposer
+					onSend={send}
+					/* the real outgoing typing signal; the server attributes it to the authenticated user */
+					onTyping={() => {
+						api.setTypingStatus(otherGuid, true).catch(() => undefined);
+					}}
+					placeholder="Сообщение"
+					accessibilityLabel={`Сообщение для ${title}`}
 				/>
-				<BerxButton label="Отправить" onPress={handleSend} loading={sending} disabled={!draft.trim()} />
 			</View>
-			{sendError ? <Text style={styles.sendError}>{sendError}</Text> : null}
 		</View>
 	);
 }
 
 const styles = StyleSheet.create({
-	screen: {flex: 1, backgroundColor: colors.black},
-	list: {flex: 1, paddingHorizontal: spacing.md},
-	bubble: {
-		maxWidth: '80%',
-		borderRadius: radius.md,
-		padding: spacing.md,
-		marginVertical: spacing.xs,
-	},
-	bubbleMine: {
-		alignSelf: 'flex-end',
-		backgroundColor: colors.accent,
-	},
-	bubbleTheirs: {
-		alignSelf: 'flex-start',
-		backgroundColor: colors.graphite,
-		borderWidth: 1,
-		borderColor: colors.borderSoft,
-	},
-	bubbleDeleting: {opacity: 0.4},
-	typingHint: {color: colors.textFaint, fontSize: typography.sizeXs, paddingHorizontal: spacing.md, paddingBottom: spacing.xs},
-	bubbleText: {color: colors.text, fontSize: typography.sizeBase},
-	bubbleTime: {color: colors.textFaint, fontSize: typography.sizeXs, marginTop: spacing.xs},
-	composer: {
-		flexDirection: 'row',
-		alignItems: 'flex-end',
-		gap: spacing.sm,
-		padding: spacing.md,
-		borderTopWidth: 1,
-		borderTopColor: colors.borderSoft,
-	},
-	composerInput: {flex: 1},
-	sendError: {color: colors.danger, fontSize: typography.sizeXs, paddingHorizontal: spacing.md, paddingBottom: spacing.sm},
+	screen: {flex: 1},
+	body: {flex: 1},
+	list: {padding: spacing.md, gap: 2},
+	composer: {padding: spacing.md},
 });

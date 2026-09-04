@@ -28,6 +28,7 @@ import {pickAudioFromDevice} from '@berx/platform/audioPicker';
 import {colors, spacing, typography} from '@berx/design-system/tokens';
 import {BerxLoadingState, BerxErrorState} from '../../../packages/design-system/src/components/BerxStates';
 import {IconHome, IconSearch, IconPlus, IconMessage, IconMenu} from '../../../packages/design-system/src/components/BerxIcons';
+import {BerxBottomNav, type BerxNavTab} from '../../../packages/design-system/src/spatial/BerxBottomNav';
 import {BerxNavigator, useBerxNavigation} from './navigation/BerxNavigator';
 import {BERX_BOTTOM_TABS, BerxRouteName} from './navigation/routes';
 import LoginScreen from './screens/LoginScreen';
@@ -899,8 +900,26 @@ function FeedScreenRoute({onOpenProfile}: {onOpenProfile: (username: string) => 
 	);
 }
 
+/**
+ * Accessible names for the tab bar.
+ *
+ * The bar is icon-only by explicit design decision, which is fine for
+ * sighted users and useless for everyone else — an icon with no name
+ * is announced as nothing. These labels are what a screen reader
+ * says; they do not appear on screen.
+ */
+const TAB_LABEL: Partial<Record<BerxRouteName, string>> = {
+	Home: 'Лента',
+	Search: 'Поиск',
+	Stories: 'Истории',
+	Messages: 'Сообщения',
+	Profile: 'Меню',
+};
+
 function AuthenticatedApp() {
 	const [activeTab, setActiveTab] = useState<BerxRouteName>('Home');
+	/** Real unread counts from the real endpoints; absent until they load. */
+	const [unreadMessages, setUnreadMessages] = useState<number | undefined>(undefined);
 
 	// Real, server-authoritative streak check-in — fires exactly once
 	// per real mount of the authenticated app (i.e. once per real app
@@ -911,6 +930,35 @@ function AuthenticatedApp() {
 	useEffect(() => {
 		api.streakCheckIn().catch(() => undefined); // best-effort — a failed check-in must never block the app from loading
 	}, []);
+
+	/**
+	 * Real unread badge. Re-read on every tab change rather than
+	 * polled: the count only matters when the user is looking at the
+	 * bar, and a timer would spend battery to tell them something they
+	 * are not reading. A failed count leaves the badge absent rather
+	 * than showing a stale or invented number.
+	 */
+	useEffect(() => {
+		let cancelled = false;
+		api
+			.unreadMessageCount()
+			.then((r) => {
+				if (!cancelled) setUnreadMessages(r.unread_count);
+			})
+			.catch(() => {
+				if (!cancelled) setUnreadMessages(undefined);
+			});
+		return () => {
+			cancelled = true;
+		};
+	}, [activeTab]);
+
+	const tabs: BerxNavTab<BerxRouteName>[] = BERX_BOTTOM_TABS.map((tab) => ({
+		key: tab,
+		label: TAB_LABEL[tab] ?? tab,
+		icon: <TabIcon tab={tab} color={activeTab === tab ? colors.accent : colors.textFaint} />,
+		badge: tab === 'Messages' ? unreadMessages : undefined,
+	}));
 
 	// Real fix for the previously-disclosed limitation: all five tab
 	// navigators mount ONCE and stay mounted for the AuthenticatedApp's
@@ -951,17 +999,17 @@ function AuthenticatedApp() {
 					</BerxNavigator>
 				</TabPane>
 			</View>
-			<View style={styles.tabBar}>
-				{BERX_BOTTOM_TABS.map((tab) => {
-					const active = activeTab === tab;
-					const color = active ? colors.accent : colors.textFaint;
-					return (
-						<Pressable key={tab} onPress={() => setActiveTab(tab)} style={styles.tabItem}>
-							<TabIcon tab={tab} color={color} />
-						</Pressable>
-					);
-				})}
-			</View>
+			{/* extracted from this file into a real component: control-layer
+			    material, announced tab names, selected state and a real
+			    unread badge, none of which the inline bar had */}
+			<BerxBottomNav
+				tabs={tabs}
+				active={activeTab}
+				onSelect={setActiveTab}
+				/* icon-only, per the design decision documented on TabIcon below */
+				showLabels={false}
+				testID="berx-bottom-nav"
+			/>
 		</View>
 	);
 }
@@ -1057,14 +1105,6 @@ const styles = StyleSheet.create({
 	content: {flex: 1},
 	tabPane: {flex: 1},
 	tabPaneHidden: {display: 'none'},
-	tabBar: {
-		flexDirection: 'row',
-		borderTopWidth: 1,
-		borderTopColor: colors.borderSoft,
-		backgroundColor: colors.graphite,
-		paddingVertical: spacing.sm,
-	},
-	tabItem: {flex: 1, alignItems: 'center', paddingVertical: spacing.xs},
 	comingSoon: {flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.xl, gap: spacing.sm},
 	comingSoonTitle: {color: colors.accent, fontSize: typography.sizeXl, fontWeight: typography.weightBold},
 	comingSoonText: {color: colors.textDim, fontSize: typography.sizeBase, textAlign: 'center'},

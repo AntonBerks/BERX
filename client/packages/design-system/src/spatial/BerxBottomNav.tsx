@@ -9,7 +9,7 @@
  */
 import {Pressable, StyleSheet, Text, View} from 'react-native';
 import {rgba} from '@berx/spatial';
-import {useBerxScene} from './BerxSpatialScene';
+import {useBerxLayer} from './useBerxLayer';
 import {BerxSurface} from './BerxSurface';
 import {colors, spacing, typography} from '../tokens';
 
@@ -25,12 +25,26 @@ export interface BerxBottomNavProps<T extends string> {
 	tabs: readonly BerxNavTab<T>[];
 	active: T;
 	onSelect: (key: T) => void;
+	/**
+	 * Visible text under each icon. BERX ships this off, per an
+	 * explicit design decision recorded in the app shell: the bar is
+	 * icon-only. That decision is about what is drawn, not about what
+	 * is announced — `label` is always the accessible name, so the bar
+	 * stays usable by screen reader either way. Left on by default
+	 * because for any new surface a labelled tab is the safer choice.
+	 */
+	showLabels?: boolean;
 	testID?: string;
 }
 
-export function BerxBottomNav<T extends string>({tabs, active, onSelect, testID}: BerxBottomNavProps<T>) {
-	const {scene} = useBerxScene();
-	const layer = scene.layers.D4;
+export function BerxBottomNav<T extends string>({tabs, active, onSelect, showLabels = true, testID}: BerxBottomNavProps<T>) {
+	/**
+	 * The tab bar spans every scene rather than belonging to one, so it
+	 * resolves its control-layer material directly — same material
+	 * system, no scene required.
+	 */
+	const layer = useBerxLayer('D4', 'active');
+	const accent = layer.accent;
 
 	return (
 		<View testID={testID} style={styles.root}>
@@ -51,13 +65,15 @@ export function BerxBottomNav<T extends string>({tabs, active, onSelect, testID}
 								<View style={styles.iconWrap}>
 									{tab.icon}
 									{tab.badge && tab.badge > 0 ? (
-										<View style={[styles.badge, {backgroundColor: scene.accent}]}>
+										<View style={[styles.badge, {backgroundColor: accent}]}>
 											<Text style={styles.badgeText}>{tab.badge > 99 ? '99+' : tab.badge}</Text>
 										</View>
 									) : null}
 								</View>
-								<Text style={[styles.label, {color: selected ? scene.accent : colors.textFaint}]}>{tab.label}</Text>
-								{selected ? <View style={[styles.indicator, {backgroundColor: scene.accent, shadowColor: scene.accent}]} /> : null}
+								{showLabels ? (
+									<Text style={[styles.label, {color: selected ? accent : colors.textFaint}]}>{tab.label}</Text>
+								) : null}
+								{selected ? <View style={[styles.indicator, {backgroundColor: accent, shadowColor: accent}]} /> : null}
 							</Pressable>
 						);
 					})}
@@ -70,7 +86,8 @@ export function BerxBottomNav<T extends string>({tabs, active, onSelect, testID}
 const styles = StyleSheet.create({
 	root: {},
 	row: {flexDirection: 'row'},
-	/* 44dp minimum, and the label is always visible — an icon-only tab bar is a guessing game */
+	/* 44dp minimum. Whether the label is drawn is the caller's call; the
+	   accessible name is not optional either way. */
 	tab: {flex: 1, minHeight: 56, alignItems: 'center', justifyContent: 'center', gap: 2, paddingVertical: spacing.sm},
 	iconWrap: {},
 	label: {fontSize: typography.sizeXs, fontWeight: typography.weightMedium},
