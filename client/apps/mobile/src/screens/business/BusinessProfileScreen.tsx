@@ -5,18 +5,19 @@
  * same real fields PlaceDetailScreen already reads (address/phone/
  * hours/website/category), presented with the Spatial Glass language.
  */
-import React, {useCallback, useEffect, useState} from 'react';
+import {useCallback, useEffect, useState} from 'react';
 import {View, Text, ScrollView, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxPlace} from '@berx/api/types';
 import {colors, spacing, typography} from '@berx/design-system/tokens';
 import {BerxScrimHero, scrimBadgeStyles} from '../../../../../packages/design-system/src/components/BerxScrimHero';
+import {BerxFamilyScene} from '../../spatial/BerxScreenScene';
 import {BerxHeader} from '../../../../../packages/design-system/src/components/BerxHeader';
 import {BerxGlassSurface} from '../../../../../packages/design-system/src/components/BerxGlassSurface';
 import {BerxEyebrow} from '../../../../../packages/design-system/src/components/BerxBusinessPrimitives';
 import {BerxLoadingState, BerxErrorState} from '../../../../../packages/design-system/src/components/BerxStates';
 
-interface Props {
+export interface BusinessProfileScreenProps {
 	api: BerxApiClient;
 	placeGuid: number;
 	onBack?: () => void;
@@ -37,7 +38,15 @@ function InfoRow({icon, label}: {icon: string; label: string}) {
 	);
 }
 
-export default function BusinessProfileScreen({api, placeGuid, onBack}: Props) {
+export default function BusinessProfileScreen(props: BusinessProfileScreenProps) {
+	return (
+		<BerxFamilyScene family="BUSINESS" testID="business-profile">
+			<BusinessProfileScreenBody {...props} />
+		</BerxFamilyScene>
+	);
+}
+
+function BusinessProfileScreenBody({api, placeGuid, onBack}: BusinessProfileScreenProps) {
 	const [place, setPlace] = useState<BerxPlace | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);

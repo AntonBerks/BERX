@@ -6,18 +6,19 @@
  * shown here; price is informational only, matching
  * BusinessDashboardScreen's existing, established honesty.
  */
-import React, {useCallback, useEffect, useState} from 'react';
+import {useCallback, useEffect, useState} from 'react';
 import {View, Text, ScrollView, Pressable, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxPlace, BerxBusinessSubscription, BerxBusinessType, BerxOpeningInterval} from '@berx/api/types';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxGlassSurface} from '../../../../../packages/design-system/src/components/BerxGlassSurface';
 import {BerxEyebrow} from '../../../../../packages/design-system/src/components/BerxBusinessPrimitives';
+import {BerxFamilyScene} from '../../spatial/BerxScreenScene';
 import {BerxHeader} from '../../../../../packages/design-system/src/components/BerxHeader';
 import {BerxButton} from '../../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState} from '../../../../../packages/design-system/src/components/BerxStates';
 
-interface Props {
+export interface BusinessSettingsScreenProps {
 	api: BerxApiClient;
 	placeGuid: number;
 	onBack?: () => void;
@@ -68,7 +69,15 @@ function weekToIntervals(week: DayState[]): BerxOpeningInterval[] {
 	return out;
 }
 
-export default function BusinessSettingsScreen({api, placeGuid, onBack}: Props) {
+export default function BusinessSettingsScreen(props: BusinessSettingsScreenProps) {
+	return (
+		<BerxFamilyScene family="BUSINESS" testID="business-settings">
+			<BusinessSettingsScreenBody {...props} />
+		</BerxFamilyScene>
+	);
+}
+
+function BusinessSettingsScreenBody({api, placeGuid, onBack}: BusinessSettingsScreenProps) {
 	const [place, setPlace] = useState<BerxPlace | null>(null);
 	const [subscription, setSubscription] = useState<BerxBusinessSubscription | null>(null);
 	const [loading, setLoading] = useState(true);

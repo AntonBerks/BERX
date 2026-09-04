@@ -6,15 +6,28 @@
  * state, not a fake populated catalog. It establishes the visual
  * shape (list-card language) a real catalog would later fill.
  */
-import React from 'react';
+
 import {View, Text, StyleSheet} from 'react-native';
 import {colors, spacing, typography} from '@berx/design-system/tokens';
 import {BerxGlassSurface} from '../../../../../packages/design-system/src/components/BerxGlassSurface';
 import {BerxEyebrow} from '../../../../../packages/design-system/src/components/BerxBusinessPrimitives';
+import {BerxFamilyScene} from '../../spatial/BerxScreenScene';
 import {BerxHeader} from '../../../../../packages/design-system/src/components/BerxHeader';
 import {BerxButton} from '../../../../../packages/design-system/src/components/BerxButton';
 
-export default function BusinessProductsScreen({onBack}: {onBack?: () => void} = {}) {
+export interface BusinessProductsScreenProps {
+	onBack?: () => void;
+}
+
+export default function BusinessProductsScreen(props: BusinessProductsScreenProps = {}) {
+	return (
+		<BerxFamilyScene family="BUSINESS" testID="business-products">
+			<BusinessProductsScreenBody {...props} />
+		</BerxFamilyScene>
+	);
+}
+
+function BusinessProductsScreenBody({onBack}: BusinessProductsScreenProps) {
 	return (
 		<View style={styles.screen}>
 			<BerxHeader onBack={onBack} />

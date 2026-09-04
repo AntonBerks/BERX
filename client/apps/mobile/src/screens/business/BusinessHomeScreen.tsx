@@ -7,7 +7,7 @@
  * request; navigation wiring is a following step, not skipped
  * silently.
  */
-import React, {useCallback, useEffect, useState} from 'react';
+import {useCallback, useEffect, useState} from 'react';
 import {View, Text, ScrollView, Pressable, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxPlace, BerxBusinessDashboard, BerxBusinessSubscription} from '@berx/api/types';
@@ -16,8 +16,9 @@ import {BerxScrimHero, scrimBadgeStyles} from '../../../../../packages/design-sy
 import {BerxGlassSurface} from '../../../../../packages/design-system/src/components/BerxGlassSurface';
 import {BerxStatTile, BerxEyebrow} from '../../../../../packages/design-system/src/components/BerxBusinessPrimitives';
 import {BerxLoadingState, BerxErrorState} from '../../../../../packages/design-system/src/components/BerxStates';
+import {BerxFamilyScene} from '../../spatial/BerxScreenScene';
 
-interface Props {
+export interface BusinessHomeScreenProps {
 	api: BerxApiClient;
 	placeGuid: number;
 	onOpenProfile: () => void;
@@ -37,7 +38,15 @@ const NAV_CARDS = [
 	{key: 'settings', title: 'Настройки', subtitle: 'Тип бизнеса, подписка'},
 ] as const;
 
-export default function BusinessHomeScreen({api, placeGuid, onOpenProfile, onOpenDashboard, onOpenProducts, onOpenOffers, onOpenTeam, onOpenSettings}: Props) {
+export default function BusinessHomeScreen(props: BusinessHomeScreenProps) {
+	return (
+		<BerxFamilyScene family="BUSINESS" testID="business-home">
+			<BusinessHomeScreenBody {...props} />
+		</BerxFamilyScene>
+	);
+}
+
+function BusinessHomeScreenBody({api, placeGuid, onOpenProfile, onOpenDashboard, onOpenProducts, onOpenOffers, onOpenTeam, onOpenSettings}: BusinessHomeScreenProps) {
 	const [place, setPlace] = useState<BerxPlace | null>(null);
 	const [dashboard, setDashboard] = useState<BerxBusinessDashboard | null>(null);
 	const [subscription, setSubscription] = useState<BerxBusinessSubscription | null>(null);

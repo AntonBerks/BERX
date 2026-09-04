@@ -4,15 +4,28 @@
  * yet (no ossn_offers table, no /api/v1/offers endpoint) — honest
  * empty state, same reasoning as BusinessProductsScreen.
  */
-import React from 'react';
+
 import {View, Text, StyleSheet} from 'react-native';
 import {colors, spacing, typography} from '@berx/design-system/tokens';
 import {BerxGlassSurface} from '../../../../../packages/design-system/src/components/BerxGlassSurface';
 import {BerxEyebrow} from '../../../../../packages/design-system/src/components/BerxBusinessPrimitives';
+import {BerxFamilyScene} from '../../spatial/BerxScreenScene';
 import {BerxHeader} from '../../../../../packages/design-system/src/components/BerxHeader';
 import {BerxButton} from '../../../../../packages/design-system/src/components/BerxButton';
 
-export default function BusinessOffersScreen({onBack}: {onBack?: () => void} = {}) {
+export interface BusinessOffersScreenProps {
+	onBack?: () => void;
+}
+
+export default function BusinessOffersScreen(props: BusinessOffersScreenProps = {}) {
+	return (
+		<BerxFamilyScene family="BUSINESS" testID="business-offers">
+			<BusinessOffersScreenBody {...props} />
+		</BerxFamilyScene>
+	);
+}
+
+function BusinessOffersScreenBody({onBack}: BusinessOffersScreenProps) {
 	return (
 		<View style={styles.screen}>
 			<BerxHeader onBack={onBack} />
