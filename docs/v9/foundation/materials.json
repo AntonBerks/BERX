@@ -1,0 +1,72 @@
+{
+  "ClearGlass": {
+    "transmission": 0.72,
+    "roughness": 0.18,
+    "specular": 0.7,
+    "ior": 1.2,
+    "emissive": 0
+  },
+  "DeepGlass": {
+    "transmission": 0.32,
+    "roughness": 0.24,
+    "specular": 0.55,
+    "ior": 1.18,
+    "emissive": 0
+  },
+  "FrostGlass": {
+    "transmission": 0.58,
+    "roughness": 0.42,
+    "specular": 0.42,
+    "ior": 1.18,
+    "emissive": 0
+  },
+  "Crystal": {
+    "transmission": 0.82,
+    "roughness": 0.1,
+    "specular": 0.9,
+    "ior": 1.35,
+    "emissive": 0.02
+  },
+  "DarkMetal": {
+    "transmission": 0,
+    "roughness": 0.28,
+    "specular": 0.82,
+    "ior": 1.0,
+    "emissive": 0
+  },
+  "Carbon": {
+    "transmission": 0,
+    "roughness": 0.62,
+    "specular": 0.25,
+    "ior": 1.0,
+    "emissive": 0
+  },
+  "LiquidGlass": {
+    "transmission": 0.76,
+    "roughness": 0.12,
+    "specular": 0.88,
+    "ior": 1.25,
+    "emissive": 0.04
+  },
+  "MediaSurface": {
+    "transmission": 0,
+    "roughness": 0.45,
+    "specular": 0.18,
+    "ior": 1.0,
+    "emissive": 0
+  },
+  "NeonEnergy": {
+    "transmission": 0.05,
+    "roughness": 0.1,
+    "specular": 0.9,
+    "ior": 1.0,
+    "emissive": 0.45
+  },
+  "SoftLight": {
+    "transmission": 0,
+    "roughness": 0.7,
+    "specular": 0.1,
+    "ior": 1.0,
+    "emissive": 0.1
+  }
+}

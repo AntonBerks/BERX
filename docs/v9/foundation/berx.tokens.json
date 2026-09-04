@@ -1,0 +1,117 @@
+{
+  "color": {
+    "bg": "#07080A",
+    "surface": "#101216",
+    "textPrimary": "#F5F8FA",
+    "textSecondary": "#A7B0B7",
+    "textMuted": "#6F7A82",
+    "accent": "#4FD6E8",
+    "accentSoft": "rgba(79,214,232,.14)",
+    "glass04": "rgba(255,255,255,.04)",
+    "glass06": "rgba(255,255,255,.06)",
+    "glass10": "rgba(255,255,255,.10)",
+    "danger": "#FF5C72",
+    "success": "#54E39A",
+    "warning": "#FFC857"
+  },
+  "radius": {
+    "xs": 8,
+    "sm": 12,
+    "md": 16,
+    "lg": 22,
+    "xl": 30,
+    "pill": 999
+  },
+  "spacing": {
+    "1": 4,
+    "2": 8,
+    "3": 12,
+    "4": 16,
+    "5": 20,
+    "6": 24,
+    "7": 28,
+    "8": 32,
+    "9": 36,
+    "10": 40,
+    "11": 44,
+    "12": 48
+  },
+  "blur": {
+    "sm": 8,
+    "md": 16,
+    "lg": 28,
+    "xl": 40
+  },
+  "depth": {
+    "D0": {
+      "z": 0,
+      "parallax": 0.0
+    },
+    "D1": {
+      "z": 1,
+      "parallax": 0.15
+    },
+    "D2": {
+      "z": 2,
+      "parallax": 0.2
+    },
+    "D3": {
+      "z": 3,
+      "parallax": 0.35
+    },
+    "D4": {
+      "z": 4,
+      "parallax": 0.65
+    },
+    "D5": {
+      "z": 5,
+      "parallax": 1.0
+    }
+  },
+  "motion": {
+    "micro": 140,
+    "fast": 220,
+    "standard": 360,
+    "spatial": 650,
+    "cinematic": 900,
+    "ambient": 4000,
+    "maxTiltDeg": 2.5
+  },
+  "type": {
+    "family": "Inter / system sans",
+    "display": [
+      36,
+      32,
+      28,
+      24
+    ],
+    "heading": [
+      22,
+      20,
+      18,
+      16
+    ],
+    "body": [
+      16,
+      15,
+      14
+    ],
+    "caption": [
+      13,
+      12,
+      11
+    ],
+    "lineHeight": 1.2
+  },
+  "touch": {
+    "minCssPx": 24,
+    "preferredDp": 44
+  },
+  "performance": {
+    "targetFps": 60,
+    "interactiveBudgetMs": 16.7,
+    "blurMaxLayersMobile": 3,
+    "simultaneous3DObjectsMobile": 80,
+    "videoAutoplayConcurrentMobile": 1
+  }
+}

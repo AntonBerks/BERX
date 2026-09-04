@@ -1,0 +1,29 @@
+{
+  "environment": {
+    "ambient": 0.18,
+    "directional": 0.62,
+    "accent": 0.2
+  },
+  "recipes": {
+    "hero": {
+      "key": "0.55",
+      "rim": "0.25",
+      "ambient": "0.20"
+    },
+    "card": {
+      "key": "0.35",
+      "rim": "0.12",
+      "ambient": "0.53"
+    },
+    "active": {
+      "key": "0.42",
+      "rim": "0.38",
+      "ambient": "0.20"
+    },
+    "modal": {
+      "key": "0.28",
+      "rim": "0.16",
+      "ambient": "0.56"
+    }
+  }
+}

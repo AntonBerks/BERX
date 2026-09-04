@@ -1,0 +1,9 @@
+{
+  "screens": 300,
+  "blueprints": 300,
+  "components": 118,
+  "icons": 88,
+  "platforms": 7,
+  "has_master_prompt": true,
+  "has_reference": true
+}

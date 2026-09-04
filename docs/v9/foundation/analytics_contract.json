@@ -1,0 +1,22 @@
+{
+  "naming": "{screenId}.{object}.{action}",
+  "required": [
+    "screen_view",
+    "primary_action",
+    "error",
+    "mutation_start",
+    "mutation_success",
+    "mutation_error"
+  ],
+  "properties": [
+    "screenId",
+    "route",
+    "platform",
+    "sessionId",
+    "objectId?",
+    "source?",
+    "latencyMs?",
+    "offline?"
+  ],
+  "privacy": "Never log secrets, raw message bodies, private content or sensitive identifiers."
+}

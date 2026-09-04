@@ -1,0 +1,62 @@
+{
+  "ios": {
+    "input": [
+      "touch",
+      "gesture",
+      "haptics"
+    ],
+    "nav": "bottom tabs / sheets",
+    "3d": "native accelerated where safe"
+  },
+  "android": {
+    "input": [
+      "touch",
+      "gesture",
+      "back"
+    ],
+    "nav": "bottom nav / predictive back",
+    "3d": "native accelerated where safe"
+  },
+  "web": {
+    "input": [
+      "mouse",
+      "keyboard",
+      "touch"
+    ],
+    "nav": "sidebar/topbar depending width",
+    "3d": "CSS transform/WebGL progressive enhancement"
+  },
+  "tablet": {
+    "input": [
+      "touch",
+      "keyboard"
+    ],
+    "nav": "rail + content",
+    "3d": "moderate"
+  },
+  "desktop": {
+    "input": [
+      "mouse",
+      "keyboard"
+    ],
+    "nav": "sidebar + command surface",
+    "3d": "moderate/high on capable hardware"
+  },
+  "watch": {
+    "input": [
+      "touch",
+      "crown/button"
+    ],
+    "nav": "compact task flows",
+    "3d": "none; depth simulated"
+  },
+  "arvr": {
+    "input": [
+      "gaze",
+      "hand",
+      "controller"
+    ],
+    "nav": "spatial anchors",
+    "3d": "native spatial"
+  }
+}

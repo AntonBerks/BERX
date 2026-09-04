@@ -1,0 +1,46 @@
+{
+  "id": "CMP-040",
+  "name": "BerxTimePicker",
+  "purpose": "Reusable BERX spatial component: BerxTimePicker.",
+  "props": {
+    "testID": "string?",
+    "accessibilityLabel": "string?",
+    "disabled": "boolean?",
+    "depth": "D0|D1|D2|D3|D4|D5",
+    "material": "MaterialName?",
+    "motion": "MotionPreset?",
+    "reducedMotionSafe": "boolean"
+  },
+  "states": [
+    "default",
+    "pressed",
+    "focused",
+    "disabled",
+    "loading",
+    "error",
+    "offline"
+  ],
+  "platforms": [
+    "ios",
+    "android",
+    "web",
+    "tablet",
+    "desktop",
+    "watch",
+    "arvr"
+  ],
+  "performance": {
+    "blur": "avoid nested blur",
+    "renders": "memoize stable media"
+  },
+  "a11y": {
+    "role": "explicit",
+    "name": "required for icon-only controls",
+    "focus": "visible"
+  },
+  "doNot": [
+    "hardcode endpoint",
+    "hide semantic content in decorative layer",
+    "require 3D"
+  ]
+}

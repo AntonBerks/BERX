@@ -1,0 +1,30 @@
+{
+  "default": {
+    "render": "real data",
+    "actions": "enabled by permissions"
+  },
+  "loading": {
+    "render": "skeletons preserving layout",
+    "actions": "safe navigation only"
+  },
+  "empty": {
+    "render": "meaningful explanation + next action",
+    "actions": "contextual CTA"
+  },
+  "error": {
+    "render": "recoverable message",
+    "actions": "retry/back"
+  },
+  "success": {
+    "render": "confirmation + resulting state",
+    "actions": "continue"
+  },
+  "disabled": {
+    "render": "reason visible where possible",
+    "actions": "no-op"
+  },
+  "offline": {
+    "render": "cached data + offline indicator",
+    "actions": "queue only supported operations"
+  }
+}

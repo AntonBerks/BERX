@@ -1,0 +1,17 @@
+{
+  "version": "9.0",
+  "screens": 300,
+  "components": 118,
+  "icons": 88,
+  "platforms": [
+    "ios",
+    "android",
+    "web",
+    "tablet",
+    "desktop",
+    "watch",
+    "arvr"
+  ],
+  "files": "generated + inherited from V2",
+  "purpose": "production implementation source-of-truth"
+}

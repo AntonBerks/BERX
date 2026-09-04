@@ -11,6 +11,10 @@
     "skipLibCheck": true,
     "paths": {
       "@berx/core": ["./packages/core/src/index.ts"],
+      "@berx/spatial": ["./packages/spatial/src/index.ts"],
+      "@berx/spatial/*": ["./packages/spatial/src/*"],
+      "@berx/scenes": ["./packages/scenes/src/index.ts"],
+      "@berx/scenes/*": ["./packages/scenes/src/*"],
       "@berx/api/types": ["./packages/api/src/types.ts"],
       "@berx/api/client": ["./packages/api/src/client.ts"],
       "@berx/domain": ["./packages/domain/src/index.ts"],
@@ -24,6 +28,6 @@
     "jsx": "react-jsx",
     "allowJs": true
   },
-  "include": ["packages/**/*.ts", "packages/**/*.tsx", "apps/**/*.ts", "apps/**/*.tsx", "index.js"],
+  "include": ["packages/**/*.ts", "packages/**/*.tsx", "apps/**/*.ts", "apps/**/*.tsx", "scripts/**/*.ts", "index.js"],
   "exclude": ["packages/platform/src/mediaPicker.ts", "packages/platform/src/audioPicker.ts"]
 }

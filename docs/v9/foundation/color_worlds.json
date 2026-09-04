@@ -1,0 +1,32 @@
+{
+  "Turquoise": {
+    "accent": "#4FD6E8",
+    "energy": "cool",
+    "mood": "future / clarity"
+  },
+  "Midnight": {
+    "accent": "#8BA8FF",
+    "energy": "deep",
+    "mood": "night / calm"
+  },
+  "Crimson": {
+    "accent": "#FF5C72",
+    "energy": "warm",
+    "mood": "intense / expressive"
+  },
+  "Orchid": {
+    "accent": "#B38CFF",
+    "energy": "creative",
+    "mood": "art / culture"
+  },
+  "WineAsh": {
+    "accent": "#A56F83",
+    "energy": "muted",
+    "mood": "luxury / intimate"
+  },
+  "Obsidian": {
+    "accent": "#C6D0D8",
+    "energy": "neutral",
+    "mood": "minimal / elite"
+  }
+}

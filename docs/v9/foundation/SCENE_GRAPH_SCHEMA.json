@@ -1,0 +1,30 @@
+{
+  "schemaVersion": "9.0",
+  "coordinateSystem": {
+    "x": "horizontal",
+    "y": "vertical",
+    "z": "depth",
+    "origin": "viewport-center"
+  },
+  "camera": {
+    "perspectivePx": 1200,
+    "fovDeg": 42,
+    "near": 0.1,
+    "far": 100
+  },
+  "layers": [
+    "D0",
+    "D1",
+    "D2",
+    "D3",
+    "D4",
+    "D5"
+  ],
+  "rules": [
+    "Only one primary focal object per scene.",
+    "D0/D1 cannot steal contrast from D3.",
+    "D4 controls must remain legible regardless of background media.",
+    "D5 is reserved for focus, active state or transient energy.",
+    "No continuous camera movement during text-heavy interaction."
+  ]
+}

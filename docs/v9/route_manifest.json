@@ -1,0 +1,1505 @@
+{
+  "count": 300,
+  "routes": [
+    {
+      "screenId": "BERX-001",
+      "route": "/welcome-cinematic-reveal",
+      "family": "AUTH"
+    },
+    {
+      "screenId": "BERX-002",
+      "route": "/sign-in",
+      "family": "AUTH"
+    },
+    {
+      "screenId": "BERX-003",
+      "route": "/create-account",
+      "family": "AUTH"
+    },
+    {
+      "screenId": "BERX-004",
+      "route": "/choose-color-vibe",
+      "family": "AUTH"
+    },
+    {
+      "screenId": "BERX-005",
+      "route": "/interests",
+      "family": "AUTH"
+    },
+    {
+      "screenId": "BERX-006",
+      "route": "/profile-photo",
+      "family": "AUTH"
+    },
+    {
+      "screenId": "BERX-007",
+      "route": "/permissions",
+      "family": "AUTH"
+    },
+    {
+      "screenId": "BERX-008",
+      "route": "/privacy-setup",
+      "family": "AUTH"
+    },
+    {
+      "screenId": "BERX-009",
+      "route": "/safety-setup",
+      "family": "AUTH"
+    },
+    {
+      "screenId": "BERX-010",
+      "route": "/onboarding-complete",
+      "family": "AUTH"
+    },
+    {
+      "screenId": "BERX-011",
+      "route": "/authentication-onboarding-11",
+      "family": "AUTH"
+    },
+    {
+      "screenId": "BERX-012",
+      "route": "/authentication-onboarding-12",
+      "family": "AUTH"
+    },
+    {
+      "screenId": "BERX-013",
+      "route": "/authentication-onboarding-13",
+      "family": "AUTH"
+    },
+    {
+      "screenId": "BERX-014",
+      "route": "/authentication-onboarding-14",
+      "family": "AUTH"
+    },
+    {
+      "screenId": "BERX-015",
+      "route": "/authentication-onboarding-15",
+      "family": "AUTH"
+    },
+    {
+      "screenId": "BERX-016",
+      "route": "/authentication-onboarding-16",
+      "family": "AUTH"
+    },
+    {
+      "screenId": "BERX-017",
+      "route": "/authentication-onboarding-17",
+      "family": "AUTH"
+    },
+    {
+      "screenId": "BERX-018",
+      "route": "/authentication-onboarding-18",
+      "family": "AUTH"
+    },
+    {
+      "screenId": "BERX-019",
+      "route": "/authentication-onboarding-19",
+      "family": "AUTH"
+    },
+    {
+      "screenId": "BERX-020",
+      "route": "/authentication-onboarding-20",
+      "family": "AUTH"
+    },
+    {
+      "screenId": "BERX-021",
+      "route": "/authentication-onboarding-21",
+      "family": "AUTH"
+    },
+    {
+      "screenId": "BERX-022",
+      "route": "/authentication-onboarding-22",
+      "family": "AUTH"
+    },
+    {
+      "screenId": "BERX-023",
+      "route": "/authentication-onboarding-23",
+      "family": "AUTH"
+    },
+    {
+      "screenId": "BERX-024",
+      "route": "/authentication-onboarding-24",
+      "family": "AUTH"
+    },
+    {
+      "screenId": "BERX-025",
+      "route": "/authentication-onboarding-25",
+      "family": "AUTH"
+    },
+    {
+      "screenId": "BERX-026",
+      "route": "/authentication-onboarding-26",
+      "family": "AUTH"
+    },
+    {
+      "screenId": "BERX-027",
+      "route": "/authentication-onboarding-27",
+      "family": "AUTH"
+    },
+    {
+      "screenId": "BERX-028",
+      "route": "/authentication-onboarding-28",
+      "family": "AUTH"
+    },
+    {
+      "screenId": "BERX-029",
+      "route": "/authentication-onboarding-29",
+      "family": "AUTH"
+    },
+    {
+      "screenId": "BERX-030",
+      "route": "/authentication-onboarding-30",
+      "family": "AUTH"
+    },
+    {
+      "screenId": "BERX-031",
+      "route": "/home-feed",
+      "family": "HOME"
+    },
+    {
+      "screenId": "BERX-032",
+      "route": "/stories-tray",
+      "family": "HOME"
+    },
+    {
+      "screenId": "BERX-033",
+      "route": "/home-feed-stories-03",
+      "family": "HOME"
+    },
+    {
+      "screenId": "BERX-034",
+      "route": "/home-feed-stories-04",
+      "family": "HOME"
+    },
+    {
+      "screenId": "BERX-035",
+      "route": "/home-feed-stories-05",
+      "family": "HOME"
+    },
+    {
+      "screenId": "BERX-036",
+      "route": "/home-feed-stories-06",
+      "family": "HOME"
+    },
+    {
+      "screenId": "BERX-037",
+      "route": "/home-feed-stories-07",
+      "family": "HOME"
+    },
+    {
+      "screenId": "BERX-038",
+      "route": "/home-feed-stories-08",
+      "family": "HOME"
+    },
+    {
+      "screenId": "BERX-039",
+      "route": "/home-feed-stories-09",
+      "family": "HOME"
+    },
+    {
+      "screenId": "BERX-040",
+      "route": "/home-feed-stories-10",
+      "family": "HOME"
+    },
+    {
+      "screenId": "BERX-041",
+      "route": "/home-feed-stories-11",
+      "family": "HOME"
+    },
+    {
+      "screenId": "BERX-042",
+      "route": "/home-feed-stories-12",
+      "family": "HOME"
+    },
+    {
+      "screenId": "BERX-043",
+      "route": "/home-feed-stories-13",
+      "family": "HOME"
+    },
+    {
+      "screenId": "BERX-044",
+      "route": "/home-feed-stories-14",
+      "family": "HOME"
+    },
+    {
+      "screenId": "BERX-045",
+      "route": "/home-feed-stories-15",
+      "family": "HOME"
+    },
+    {
+      "screenId": "BERX-046",
+      "route": "/home-feed-stories-16",
+      "family": "HOME"
+    },
+    {
+      "screenId": "BERX-047",
+      "route": "/home-feed-stories-17",
+      "family": "HOME"
+    },
+    {
+      "screenId": "BERX-048",
+      "route": "/home-feed-stories-18",
+      "family": "HOME"
+    },
+    {
+      "screenId": "BERX-049",
+      "route": "/home-feed-stories-19",
+      "family": "HOME"
+    },
+    {
+      "screenId": "BERX-050",
+      "route": "/home-feed-stories-20",
+      "family": "HOME"
+    },
+    {
+      "screenId": "BERX-051",
+      "route": "/home-feed-stories-21",
+      "family": "HOME"
+    },
+    {
+      "screenId": "BERX-052",
+      "route": "/home-feed-stories-22",
+      "family": "HOME"
+    },
+    {
+      "screenId": "BERX-053",
+      "route": "/home-feed-stories-23",
+      "family": "HOME"
+    },
+    {
+      "screenId": "BERX-054",
+      "route": "/home-feed-stories-24",
+      "family": "HOME"
+    },
+    {
+      "screenId": "BERX-055",
+      "route": "/home-feed-stories-25",
+      "family": "HOME"
+    },
+    {
+      "screenId": "BERX-056",
+      "route": "/home-feed-stories-26",
+      "family": "HOME"
+    },
+    {
+      "screenId": "BERX-057",
+      "route": "/home-feed-stories-27",
+      "family": "HOME"
+    },
+    {
+      "screenId": "BERX-058",
+      "route": "/home-feed-stories-28",
+      "family": "HOME"
+    },
+    {
+      "screenId": "BERX-059",
+      "route": "/home-feed-stories-29",
+      "family": "HOME"
+    },
+    {
+      "screenId": "BERX-060",
+      "route": "/home-feed-stories-30",
+      "family": "HOME"
+    },
+    {
+      "screenId": "BERX-061",
+      "route": "/explore",
+      "family": "EXPLORE"
+    },
+    {
+      "screenId": "BERX-062",
+      "route": "/explore-discovery-02",
+      "family": "EXPLORE"
+    },
+    {
+      "screenId": "BERX-063",
+      "route": "/explore-discovery-03",
+      "family": "EXPLORE"
+    },
+    {
+      "screenId": "BERX-064",
+      "route": "/explore-discovery-04",
+      "family": "EXPLORE"
+    },
+    {
+      "screenId": "BERX-065",
+      "route": "/explore-discovery-05",
+      "family": "EXPLORE"
+    },
+    {
+      "screenId": "BERX-066",
+      "route": "/explore-discovery-06",
+      "family": "EXPLORE"
+    },
+    {
+      "screenId": "BERX-067",
+      "route": "/explore-discovery-07",
+      "family": "EXPLORE"
+    },
+    {
+      "screenId": "BERX-068",
+      "route": "/explore-discovery-08",
+      "family": "EXPLORE"
+    },
+    {
+      "screenId": "BERX-069",
+      "route": "/explore-discovery-09",
+      "family": "EXPLORE"
+    },
+    {
+      "screenId": "BERX-070",
+      "route": "/explore-discovery-10",
+      "family": "EXPLORE"
+    },
+    {
+      "screenId": "BERX-071",
+      "route": "/explore-discovery-11",
+      "family": "EXPLORE"
+    },
+    {
+      "screenId": "BERX-072",
+      "route": "/explore-discovery-12",
+      "family": "EXPLORE"
+    },
+    {
+      "screenId": "BERX-073",
+      "route": "/explore-discovery-13",
+      "family": "EXPLORE"
+    },
+    {
+      "screenId": "BERX-074",
+      "route": "/explore-discovery-14",
+      "family": "EXPLORE"
+    },
+    {
+      "screenId": "BERX-075",
+      "route": "/explore-discovery-15",
+      "family": "EXPLORE"
+    },
+    {
+      "screenId": "BERX-076",
+      "route": "/explore-discovery-16",
+      "family": "EXPLORE"
+    },
+    {
+      "screenId": "BERX-077",
+      "route": "/explore-discovery-17",
+      "family": "EXPLORE"
+    },
+    {
+      "screenId": "BERX-078",
+      "route": "/explore-discovery-18",
+      "family": "EXPLORE"
+    },
+    {
+      "screenId": "BERX-079",
+      "route": "/explore-discovery-19",
+      "family": "EXPLORE"
+    },
+    {
+      "screenId": "BERX-080",
+      "route": "/explore-discovery-20",
+      "family": "EXPLORE"
+    },
+    {
+      "screenId": "BERX-081",
+      "route": "/explore-discovery-21",
+      "family": "EXPLORE"
+    },
+    {
+      "screenId": "BERX-082",
+      "route": "/explore-discovery-22",
+      "family": "EXPLORE"
+    },
+    {
+      "screenId": "BERX-083",
+      "route": "/explore-discovery-23",
+      "family": "EXPLORE"
+    },
+    {
+      "screenId": "BERX-084",
+      "route": "/explore-discovery-24",
+      "family": "EXPLORE"
+    },
+    {
+      "screenId": "BERX-085",
+      "route": "/explore-discovery-25",
+      "family": "EXPLORE"
+    },
+    {
+      "screenId": "BERX-086",
+      "route": "/explore-discovery-26",
+      "family": "EXPLORE"
+    },
+    {
+      "screenId": "BERX-087",
+      "route": "/explore-discovery-27",
+      "family": "EXPLORE"
+    },
+    {
+      "screenId": "BERX-088",
+      "route": "/explore-discovery-28",
+      "family": "EXPLORE"
+    },
+    {
+      "screenId": "BERX-089",
+      "route": "/explore-discovery-29",
+      "family": "EXPLORE"
+    },
+    {
+      "screenId": "BERX-090",
+      "route": "/explore-discovery-30",
+      "family": "EXPLORE"
+    },
+    {
+      "screenId": "BERX-091",
+      "route": "/berx-now",
+      "family": "NOW"
+    },
+    {
+      "screenId": "BERX-092",
+      "route": "/berx-now-nearby-live-world-02",
+      "family": "NOW"
+    },
+    {
+      "screenId": "BERX-093",
+      "route": "/berx-now-nearby-live-world-03",
+      "family": "NOW"
+    },
+    {
+      "screenId": "BERX-094",
+      "route": "/berx-now-nearby-live-world-04",
+      "family": "NOW"
+    },
+    {
+      "screenId": "BERX-095",
+      "route": "/berx-now-nearby-live-world-05",
+      "family": "NOW"
+    },
+    {
+      "screenId": "BERX-096",
+      "route": "/berx-now-nearby-live-world-06",
+      "family": "NOW"
+    },
+    {
+      "screenId": "BERX-097",
+      "route": "/berx-now-nearby-live-world-07",
+      "family": "NOW"
+    },
+    {
+      "screenId": "BERX-098",
+      "route": "/berx-now-nearby-live-world-08",
+      "family": "NOW"
+    },
+    {
+      "screenId": "BERX-099",
+      "route": "/berx-now-nearby-live-world-09",
+      "family": "NOW"
+    },
+    {
+      "screenId": "BERX-100",
+      "route": "/berx-now-nearby-live-world-10",
+      "family": "NOW"
+    },
+    {
+      "screenId": "BERX-101",
+      "route": "/berx-now-nearby-live-world-11",
+      "family": "NOW"
+    },
+    {
+      "screenId": "BERX-102",
+      "route": "/berx-now-nearby-live-world-12",
+      "family": "NOW"
+    },
+    {
+      "screenId": "BERX-103",
+      "route": "/berx-now-nearby-live-world-13",
+      "family": "NOW"
+    },
+    {
+      "screenId": "BERX-104",
+      "route": "/berx-now-nearby-live-world-14",
+      "family": "NOW"
+    },
+    {
+      "screenId": "BERX-105",
+      "route": "/berx-now-nearby-live-world-15",
+      "family": "NOW"
+    },
+    {
+      "screenId": "BERX-106",
+      "route": "/berx-now-nearby-live-world-16",
+      "family": "NOW"
+    },
+    {
+      "screenId": "BERX-107",
+      "route": "/berx-now-nearby-live-world-17",
+      "family": "NOW"
+    },
+    {
+      "screenId": "BERX-108",
+      "route": "/berx-now-nearby-live-world-18",
+      "family": "NOW"
+    },
+    {
+      "screenId": "BERX-109",
+      "route": "/berx-now-nearby-live-world-19",
+      "family": "NOW"
+    },
+    {
+      "screenId": "BERX-110",
+      "route": "/berx-now-nearby-live-world-20",
+      "family": "NOW"
+    },
+    {
+      "screenId": "BERX-111",
+      "route": "/berx-now-nearby-live-world-21",
+      "family": "NOW"
+    },
+    {
+      "screenId": "BERX-112",
+      "route": "/berx-now-nearby-live-world-22",
+      "family": "NOW"
+    },
+    {
+      "screenId": "BERX-113",
+      "route": "/berx-now-nearby-live-world-23",
+      "family": "NOW"
+    },
+    {
+      "screenId": "BERX-114",
+      "route": "/berx-now-nearby-live-world-24",
+      "family": "NOW"
+    },
+    {
+      "screenId": "BERX-115",
+      "route": "/berx-now-nearby-live-world-25",
+      "family": "NOW"
+    },
+    {
+      "screenId": "BERX-116",
+      "route": "/berx-now-nearby-live-world-26",
+      "family": "NOW"
+    },
+    {
+      "screenId": "BERX-117",
+      "route": "/berx-now-nearby-live-world-27",
+      "family": "NOW"
+    },
+    {
+      "screenId": "BERX-118",
+      "route": "/berx-now-nearby-live-world-28",
+      "family": "NOW"
+    },
+    {
+      "screenId": "BERX-119",
+      "route": "/berx-now-nearby-live-world-29",
+      "family": "NOW"
+    },
+    {
+      "screenId": "BERX-120",
+      "route": "/berx-now-nearby-live-world-30",
+      "family": "NOW"
+    },
+    {
+      "screenId": "BERX-121",
+      "route": "/profile-overview",
+      "family": "PROFILE"
+    },
+    {
+      "screenId": "BERX-122",
+      "route": "/profile-moments",
+      "family": "PROFILE"
+    },
+    {
+      "screenId": "BERX-123",
+      "route": "/profile-places",
+      "family": "PROFILE"
+    },
+    {
+      "screenId": "BERX-124",
+      "route": "/profile-events",
+      "family": "PROFILE"
+    },
+    {
+      "screenId": "BERX-125",
+      "route": "/profile-experiences",
+      "family": "PROFILE"
+    },
+    {
+      "screenId": "BERX-126",
+      "route": "/profile-about",
+      "family": "PROFILE"
+    },
+    {
+      "screenId": "BERX-127",
+      "route": "/profile-connections",
+      "family": "PROFILE"
+    },
+    {
+      "screenId": "BERX-128",
+      "route": "/people-profiles-08",
+      "family": "PROFILE"
+    },
+    {
+      "screenId": "BERX-129",
+      "route": "/people-profiles-09",
+      "family": "PROFILE"
+    },
+    {
+      "screenId": "BERX-130",
+      "route": "/people-profiles-10",
+      "family": "PROFILE"
+    },
+    {
+      "screenId": "BERX-131",
+      "route": "/people-profiles-11",
+      "family": "PROFILE"
+    },
+    {
+      "screenId": "BERX-132",
+      "route": "/people-profiles-12",
+      "family": "PROFILE"
+    },
+    {
+      "screenId": "BERX-133",
+      "route": "/people-profiles-13",
+      "family": "PROFILE"
+    },
+    {
+      "screenId": "BERX-134",
+      "route": "/people-profiles-14",
+      "family": "PROFILE"
+    },
+    {
+      "screenId": "BERX-135",
+      "route": "/people-profiles-15",
+      "family": "PROFILE"
+    },
+    {
+      "screenId": "BERX-136",
+      "route": "/people-profiles-16",
+      "family": "PROFILE"
+    },
+    {
+      "screenId": "BERX-137",
+      "route": "/people-profiles-17",
+      "family": "PROFILE"
+    },
+    {
+      "screenId": "BERX-138",
+      "route": "/people-profiles-18",
+      "family": "PROFILE"
+    },
+    {
+      "screenId": "BERX-139",
+      "route": "/people-profiles-19",
+      "family": "PROFILE"
+    },
+    {
+      "screenId": "BERX-140",
+      "route": "/people-profiles-20",
+      "family": "PROFILE"
+    },
+    {
+      "screenId": "BERX-141",
+      "route": "/people-profiles-21",
+      "family": "PROFILE"
+    },
+    {
+      "screenId": "BERX-142",
+      "route": "/people-profiles-22",
+      "family": "PROFILE"
+    },
+    {
+      "screenId": "BERX-143",
+      "route": "/people-profiles-23",
+      "family": "PROFILE"
+    },
+    {
+      "screenId": "BERX-144",
+      "route": "/people-profiles-24",
+      "family": "PROFILE"
+    },
+    {
+      "screenId": "BERX-145",
+      "route": "/people-profiles-25",
+      "family": "PROFILE"
+    },
+    {
+      "screenId": "BERX-146",
+      "route": "/people-profiles-26",
+      "family": "PROFILE"
+    },
+    {
+      "screenId": "BERX-147",
+      "route": "/people-profiles-27",
+      "family": "PROFILE"
+    },
+    {
+      "screenId": "BERX-148",
+      "route": "/people-profiles-28",
+      "family": "PROFILE"
+    },
+    {
+      "screenId": "BERX-149",
+      "route": "/people-profiles-29",
+      "family": "PROFILE"
+    },
+    {
+      "screenId": "BERX-150",
+      "route": "/people-profiles-30",
+      "family": "PROFILE"
+    },
+    {
+      "screenId": "BERX-151",
+      "route": "/connections",
+      "family": "SOCIAL"
+    },
+    {
+      "screenId": "BERX-152",
+      "route": "/social-graph-connections-02",
+      "family": "SOCIAL"
+    },
+    {
+      "screenId": "BERX-153",
+      "route": "/social-graph-connections-03",
+      "family": "SOCIAL"
+    },
+    {
+      "screenId": "BERX-154",
+      "route": "/social-graph-connections-04",
+      "family": "SOCIAL"
+    },
+    {
+      "screenId": "BERX-155",
+      "route": "/social-graph-connections-05",
+      "family": "SOCIAL"
+    },
+    {
+      "screenId": "BERX-156",
+      "route": "/social-graph-connections-06",
+      "family": "SOCIAL"
+    },
+    {
+      "screenId": "BERX-157",
+      "route": "/social-graph-connections-07",
+      "family": "SOCIAL"
+    },
+    {
+      "screenId": "BERX-158",
+      "route": "/social-graph-connections-08",
+      "family": "SOCIAL"
+    },
+    {
+      "screenId": "BERX-159",
+      "route": "/social-graph-connections-09",
+      "family": "SOCIAL"
+    },
+    {
+      "screenId": "BERX-160",
+      "route": "/social-graph-connections-10",
+      "family": "SOCIAL"
+    },
+    {
+      "screenId": "BERX-161",
+      "route": "/social-graph-connections-11",
+      "family": "SOCIAL"
+    },
+    {
+      "screenId": "BERX-162",
+      "route": "/social-graph-connections-12",
+      "family": "SOCIAL"
+    },
+    {
+      "screenId": "BERX-163",
+      "route": "/social-graph-connections-13",
+      "family": "SOCIAL"
+    },
+    {
+      "screenId": "BERX-164",
+      "route": "/social-graph-connections-14",
+      "family": "SOCIAL"
+    },
+    {
+      "screenId": "BERX-165",
+      "route": "/social-graph-connections-15",
+      "family": "SOCIAL"
+    },
+    {
+      "screenId": "BERX-166",
+      "route": "/social-graph-connections-16",
+      "family": "SOCIAL"
+    },
+    {
+      "screenId": "BERX-167",
+      "route": "/social-graph-connections-17",
+      "family": "SOCIAL"
+    },
+    {
+      "screenId": "BERX-168",
+      "route": "/social-graph-connections-18",
+      "family": "SOCIAL"
+    },
+    {
+      "screenId": "BERX-169",
+      "route": "/social-graph-connections-19",
+      "family": "SOCIAL"
+    },
+    {
+      "screenId": "BERX-170",
+      "route": "/social-graph-connections-20",
+      "family": "SOCIAL"
+    },
+    {
+      "screenId": "BERX-171",
+      "route": "/social-graph-connections-21",
+      "family": "SOCIAL"
+    },
+    {
+      "screenId": "BERX-172",
+      "route": "/social-graph-connections-22",
+      "family": "SOCIAL"
+    },
+    {
+      "screenId": "BERX-173",
+      "route": "/social-graph-connections-23",
+      "family": "SOCIAL"
+    },
+    {
+      "screenId": "BERX-174",
+      "route": "/social-graph-connections-24",
+      "family": "SOCIAL"
+    },
+    {
+      "screenId": "BERX-175",
+      "route": "/social-graph-connections-25",
+      "family": "SOCIAL"
+    },
+    {
+      "screenId": "BERX-176",
+      "route": "/messages",
+      "family": "MESSAGES"
+    },
+    {
+      "screenId": "BERX-177",
+      "route": "/messaging-calls-02",
+      "family": "MESSAGES"
+    },
+    {
+      "screenId": "BERX-178",
+      "route": "/messaging-calls-03",
+      "family": "MESSAGES"
+    },
+    {
+      "screenId": "BERX-179",
+      "route": "/messaging-calls-04",
+      "family": "MESSAGES"
+    },
+    {
+      "screenId": "BERX-180",
+      "route": "/messaging-calls-05",
+      "family": "MESSAGES"
+    },
+    {
+      "screenId": "BERX-181",
+      "route": "/messaging-calls-06",
+      "family": "MESSAGES"
+    },
+    {
+      "screenId": "BERX-182",
+      "route": "/messaging-calls-07",
+      "family": "MESSAGES"
+    },
+    {
+      "screenId": "BERX-183",
+      "route": "/messaging-calls-08",
+      "family": "MESSAGES"
+    },
+    {
+      "screenId": "BERX-184",
+      "route": "/messaging-calls-09",
+      "family": "MESSAGES"
+    },
+    {
+      "screenId": "BERX-185",
+      "route": "/messaging-calls-10",
+      "family": "MESSAGES"
+    },
+    {
+      "screenId": "BERX-186",
+      "route": "/messaging-calls-11",
+      "family": "MESSAGES"
+    },
+    {
+      "screenId": "BERX-187",
+      "route": "/messaging-calls-12",
+      "family": "MESSAGES"
+    },
+    {
+      "screenId": "BERX-188",
+      "route": "/messaging-calls-13",
+      "family": "MESSAGES"
+    },
+    {
+      "screenId": "BERX-189",
+      "route": "/messaging-calls-14",
+      "family": "MESSAGES"
+    },
+    {
+      "screenId": "BERX-190",
+      "route": "/messaging-calls-15",
+      "family": "MESSAGES"
+    },
+    {
+      "screenId": "BERX-191",
+      "route": "/messaging-calls-16",
+      "family": "MESSAGES"
+    },
+    {
+      "screenId": "BERX-192",
+      "route": "/messaging-calls-17",
+      "family": "MESSAGES"
+    },
+    {
+      "screenId": "BERX-193",
+      "route": "/messaging-calls-18",
+      "family": "MESSAGES"
+    },
+    {
+      "screenId": "BERX-194",
+      "route": "/messaging-calls-19",
+      "family": "MESSAGES"
+    },
+    {
+      "screenId": "BERX-195",
+      "route": "/messaging-calls-20",
+      "family": "MESSAGES"
+    },
+    {
+      "screenId": "BERX-196",
+      "route": "/messaging-calls-21",
+      "family": "MESSAGES"
+    },
+    {
+      "screenId": "BERX-197",
+      "route": "/messaging-calls-22",
+      "family": "MESSAGES"
+    },
+    {
+      "screenId": "BERX-198",
+      "route": "/messaging-calls-23",
+      "family": "MESSAGES"
+    },
+    {
+      "screenId": "BERX-199",
+      "route": "/messaging-calls-24",
+      "family": "MESSAGES"
+    },
+    {
+      "screenId": "BERX-200",
+      "route": "/messaging-calls-25",
+      "family": "MESSAGES"
+    },
+    {
+      "screenId": "BERX-201",
+      "route": "/places-discovery",
+      "family": "PLACES"
+    },
+    {
+      "screenId": "BERX-202",
+      "route": "/places-restaurants-businesses-02",
+      "family": "PLACES"
+    },
+    {
+      "screenId": "BERX-203",
+      "route": "/places-restaurants-businesses-03",
+      "family": "PLACES"
+    },
+    {
+      "screenId": "BERX-204",
+      "route": "/places-restaurants-businesses-04",
+      "family": "PLACES"
+    },
+    {
+      "screenId": "BERX-205",
+      "route": "/places-restaurants-businesses-05",
+      "family": "PLACES"
+    },
+    {
+      "screenId": "BERX-206",
+      "route": "/places-restaurants-businesses-06",
+      "family": "PLACES"
+    },
+    {
+      "screenId": "BERX-207",
+      "route": "/places-restaurants-businesses-07",
+      "family": "PLACES"
+    },
+    {
+      "screenId": "BERX-208",
+      "route": "/places-restaurants-businesses-08",
+      "family": "PLACES"
+    },
+    {
+      "screenId": "BERX-209",
+      "route": "/places-restaurants-businesses-09",
+      "family": "PLACES"
+    },
+    {
+      "screenId": "BERX-210",
+      "route": "/places-restaurants-businesses-10",
+      "family": "PLACES"
+    },
+    {
+      "screenId": "BERX-211",
+      "route": "/places-restaurants-businesses-11",
+      "family": "PLACES"
+    },
+    {
+      "screenId": "BERX-212",
+      "route": "/places-restaurants-businesses-12",
+      "family": "PLACES"
+    },
+    {
+      "screenId": "BERX-213",
+      "route": "/places-restaurants-businesses-13",
+      "family": "PLACES"
+    },
+    {
+      "screenId": "BERX-214",
+      "route": "/places-restaurants-businesses-14",
+      "family": "PLACES"
+    },
+    {
+      "screenId": "BERX-215",
+      "route": "/places-restaurants-businesses-15",
+      "family": "PLACES"
+    },
+    {
+      "screenId": "BERX-216",
+      "route": "/places-restaurants-businesses-16",
+      "family": "PLACES"
+    },
+    {
+      "screenId": "BERX-217",
+      "route": "/places-restaurants-businesses-17",
+      "family": "PLACES"
+    },
+    {
+      "screenId": "BERX-218",
+      "route": "/places-restaurants-businesses-18",
+      "family": "PLACES"
+    },
+    {
+      "screenId": "BERX-219",
+      "route": "/places-restaurants-businesses-19",
+      "family": "PLACES"
+    },
+    {
+      "screenId": "BERX-220",
+      "route": "/places-restaurants-businesses-20",
+      "family": "PLACES"
+    },
+    {
+      "screenId": "BERX-221",
+      "route": "/places-restaurants-businesses-21",
+      "family": "PLACES"
+    },
+    {
+      "screenId": "BERX-222",
+      "route": "/places-restaurants-businesses-22",
+      "family": "PLACES"
+    },
+    {
+      "screenId": "BERX-223",
+      "route": "/places-restaurants-businesses-23",
+      "family": "PLACES"
+    },
+    {
+      "screenId": "BERX-224",
+      "route": "/places-restaurants-businesses-24",
+      "family": "PLACES"
+    },
+    {
+      "screenId": "BERX-225",
+      "route": "/places-restaurants-businesses-25",
+      "family": "PLACES"
+    },
+    {
+      "screenId": "BERX-226",
+      "route": "/events-discovery",
+      "family": "EVENTS"
+    },
+    {
+      "screenId": "BERX-227",
+      "route": "/events-tickets-check-ins-02",
+      "family": "EVENTS"
+    },
+    {
+      "screenId": "BERX-228",
+      "route": "/events-tickets-check-ins-03",
+      "family": "EVENTS"
+    },
+    {
+      "screenId": "BERX-229",
+      "route": "/events-tickets-check-ins-04",
+      "family": "EVENTS"
+    },
+    {
+      "screenId": "BERX-230",
+      "route": "/events-tickets-check-ins-05",
+      "family": "EVENTS"
+    },
+    {
+      "screenId": "BERX-231",
+      "route": "/events-tickets-check-ins-06",
+      "family": "EVENTS"
+    },
+    {
+      "screenId": "BERX-232",
+      "route": "/events-tickets-check-ins-07",
+      "family": "EVENTS"
+    },
+    {
+      "screenId": "BERX-233",
+      "route": "/events-tickets-check-ins-08",
+      "family": "EVENTS"
+    },
+    {
+      "screenId": "BERX-234",
+      "route": "/events-tickets-check-ins-09",
+      "family": "EVENTS"
+    },
+    {
+      "screenId": "BERX-235",
+      "route": "/events-tickets-check-ins-10",
+      "family": "EVENTS"
+    },
+    {
+      "screenId": "BERX-236",
+      "route": "/events-tickets-check-ins-11",
+      "family": "EVENTS"
+    },
+    {
+      "screenId": "BERX-237",
+      "route": "/events-tickets-check-ins-12",
+      "family": "EVENTS"
+    },
+    {
+      "screenId": "BERX-238",
+      "route": "/events-tickets-check-ins-13",
+      "family": "EVENTS"
+    },
+    {
+      "screenId": "BERX-239",
+      "route": "/events-tickets-check-ins-14",
+      "family": "EVENTS"
+    },
+    {
+      "screenId": "BERX-240",
+      "route": "/events-tickets-check-ins-15",
+      "family": "EVENTS"
+    },
+    {
+      "screenId": "BERX-241",
+      "route": "/events-tickets-check-ins-16",
+      "family": "EVENTS"
+    },
+    {
+      "screenId": "BERX-242",
+      "route": "/events-tickets-check-ins-17",
+      "family": "EVENTS"
+    },
+    {
+      "screenId": "BERX-243",
+      "route": "/events-tickets-check-ins-18",
+      "family": "EVENTS"
+    },
+    {
+      "screenId": "BERX-244",
+      "route": "/events-tickets-check-ins-19",
+      "family": "EVENTS"
+    },
+    {
+      "screenId": "BERX-245",
+      "route": "/events-tickets-check-ins-20",
+      "family": "EVENTS"
+    },
+    {
+      "screenId": "BERX-246",
+      "route": "/experiences",
+      "family": "EXPERIENCE"
+    },
+    {
+      "screenId": "BERX-247",
+      "route": "/experiences-trips-collections-02",
+      "family": "EXPERIENCE"
+    },
+    {
+      "screenId": "BERX-248",
+      "route": "/experiences-trips-collections-03",
+      "family": "EXPERIENCE"
+    },
+    {
+      "screenId": "BERX-249",
+      "route": "/experiences-trips-collections-04",
+      "family": "EXPERIENCE"
+    },
+    {
+      "screenId": "BERX-250",
+      "route": "/experiences-trips-collections-05",
+      "family": "EXPERIENCE"
+    },
+    {
+      "screenId": "BERX-251",
+      "route": "/experiences-trips-collections-06",
+      "family": "EXPERIENCE"
+    },
+    {
+      "screenId": "BERX-252",
+      "route": "/experiences-trips-collections-07",
+      "family": "EXPERIENCE"
+    },
+    {
+      "screenId": "BERX-253",
+      "route": "/experiences-trips-collections-08",
+      "family": "EXPERIENCE"
+    },
+    {
+      "screenId": "BERX-254",
+      "route": "/experiences-trips-collections-09",
+      "family": "EXPERIENCE"
+    },
+    {
+      "screenId": "BERX-255",
+      "route": "/experiences-trips-collections-10",
+      "family": "EXPERIENCE"
+    },
+    {
+      "screenId": "BERX-256",
+      "route": "/experiences-trips-collections-11",
+      "family": "EXPERIENCE"
+    },
+    {
+      "screenId": "BERX-257",
+      "route": "/experiences-trips-collections-12",
+      "family": "EXPERIENCE"
+    },
+    {
+      "screenId": "BERX-258",
+      "route": "/experiences-trips-collections-13",
+      "family": "EXPERIENCE"
+    },
+    {
+      "screenId": "BERX-259",
+      "route": "/experiences-trips-collections-14",
+      "family": "EXPERIENCE"
+    },
+    {
+      "screenId": "BERX-260",
+      "route": "/experiences-trips-collections-15",
+      "family": "EXPERIENCE"
+    },
+    {
+      "screenId": "BERX-261",
+      "route": "/experiences-trips-collections-16",
+      "family": "EXPERIENCE"
+    },
+    {
+      "screenId": "BERX-262",
+      "route": "/experiences-trips-collections-17",
+      "family": "EXPERIENCE"
+    },
+    {
+      "screenId": "BERX-263",
+      "route": "/experiences-trips-collections-18",
+      "family": "EXPERIENCE"
+    },
+    {
+      "screenId": "BERX-264",
+      "route": "/experiences-trips-collections-19",
+      "family": "EXPERIENCE"
+    },
+    {
+      "screenId": "BERX-265",
+      "route": "/experiences-trips-collections-20",
+      "family": "EXPERIENCE"
+    },
+    {
+      "screenId": "BERX-266",
+      "route": "/communities",
+      "family": "COMMUNITY"
+    },
+    {
+      "screenId": "BERX-267",
+      "route": "/communities-circles-02",
+      "family": "COMMUNITY"
+    },
+    {
+      "screenId": "BERX-268",
+      "route": "/communities-circles-03",
+      "family": "COMMUNITY"
+    },
+    {
+      "screenId": "BERX-269",
+      "route": "/communities-circles-04",
+      "family": "COMMUNITY"
+    },
+    {
+      "screenId": "BERX-270",
+      "route": "/communities-circles-05",
+      "family": "COMMUNITY"
+    },
+    {
+      "screenId": "BERX-271",
+      "route": "/communities-circles-06",
+      "family": "COMMUNITY"
+    },
+    {
+      "screenId": "BERX-272",
+      "route": "/communities-circles-07",
+      "family": "COMMUNITY"
+    },
+    {
+      "screenId": "BERX-273",
+      "route": "/communities-circles-08",
+      "family": "COMMUNITY"
+    },
+    {
+      "screenId": "BERX-274",
+      "route": "/communities-circles-09",
+      "family": "COMMUNITY"
+    },
+    {
+      "screenId": "BERX-275",
+      "route": "/communities-circles-10",
+      "family": "COMMUNITY"
+    },
+    {
+      "screenId": "BERX-276",
+      "route": "/communities-circles-11",
+      "family": "COMMUNITY"
+    },
+    {
+      "screenId": "BERX-277",
+      "route": "/communities-circles-12",
+      "family": "COMMUNITY"
+    },
+    {
+      "screenId": "BERX-278",
+      "route": "/communities-circles-13",
+      "family": "COMMUNITY"
+    },
+    {
+      "screenId": "BERX-279",
+      "route": "/communities-circles-14",
+      "family": "COMMUNITY"
+    },
+    {
+      "screenId": "BERX-280",
+      "route": "/communities-circles-15",
+      "family": "COMMUNITY"
+    },
+    {
+      "screenId": "BERX-281",
+      "route": "/creator-hub",
+      "family": "CREATOR"
+    },
+    {
+      "screenId": "BERX-282",
+      "route": "/creators-monetization-02",
+      "family": "CREATOR"
+    },
+    {
+      "screenId": "BERX-283",
+      "route": "/creators-monetization-03",
+      "family": "CREATOR"
+    },
+    {
+      "screenId": "BERX-284",
+      "route": "/creators-monetization-04",
+      "family": "CREATOR"
+    },
+    {
+      "screenId": "BERX-285",
+      "route": "/creators-monetization-05",
+      "family": "CREATOR"
+    },
+    {
+      "screenId": "BERX-286",
+      "route": "/creators-monetization-06",
+      "family": "CREATOR"
+    },
+    {
+      "screenId": "BERX-287",
+      "route": "/creators-monetization-07",
+      "family": "CREATOR"
+    },
+    {
+      "screenId": "BERX-288",
+      "route": "/creators-monetization-08",
+      "family": "CREATOR"
+    },
+    {
+      "screenId": "BERX-289",
+      "route": "/creators-monetization-09",
+      "family": "CREATOR"
+    },
+    {
+      "screenId": "BERX-290",
+      "route": "/creators-monetization-10",
+      "family": "CREATOR"
+    },
+    {
+      "screenId": "BERX-291",
+      "route": "/business-dashboard",
+      "family": "BUSINESS"
+    },
+    {
+      "screenId": "BERX-292",
+      "route": "/business-analytics-offers-02",
+      "family": "BUSINESS"
+    },
+    {
+      "screenId": "BERX-293",
+      "route": "/business-analytics-offers-03",
+      "family": "BUSINESS"
+    },
+    {
+      "screenId": "BERX-294",
+      "route": "/business-analytics-offers-04",
+      "family": "BUSINESS"
+    },
+    {
+      "screenId": "BERX-295",
+      "route": "/business-analytics-offers-05",
+      "family": "BUSINESS"
+    },
+    {
+      "screenId": "BERX-296",
+      "route": "/business-analytics-offers-06",
+      "family": "BUSINESS"
+    },
+    {
+      "screenId": "BERX-297",
+      "route": "/business-analytics-offers-07",
+      "family": "BUSINESS"
+    },
+    {
+      "screenId": "BERX-298",
+      "route": "/business-analytics-offers-08",
+      "family": "BUSINESS"
+    },
+    {
+      "screenId": "BERX-299",
+      "route": "/business-analytics-offers-09",
+      "family": "BUSINESS"
+    },
+    {
+      "screenId": "BERX-300",
+      "route": "/business-analytics-offers-10",
+      "family": "BUSINESS"
+    }
+  ]
+}

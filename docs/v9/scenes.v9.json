@@ -1,0 +1,5438 @@
+{
+ "schemaVersion": "9.0",
+ "count": 300,
+ "source": "BERX_5D_ULTIMATE_V9_MAX_TECHNICAL_ARCHIVE/01_SCREENS_V9/contracts + 07_NAVIGATION/route_manifest.json",
+ "note": "Normalized: only the fields that actually vary across the 300 archive contracts are stored. Every invariant field (layout, states, interaction, motion, data, accessibility, performance, qa, camera, layerOrder, focalPoint, background) is a shared default in @berx/scenes and is asserted against this archive by scripts/verify-v9-contracts.mjs.",
+ "screens": [
+  {
+   "screenId": "BERX-001",
+   "title": "Welcome / Cinematic Reveal",
+   "family": "AUTH",
+   "routeName": "welcome-cinematic-reveal",
+   "routePath": "/welcome-cinematic-reveal",
+   "mood": "calm",
+   "material": "DeepGlass",
+   "lightRecipe": "hero",
+   "contentDepth": "D3",
+   "components": [
+    "BerxScrimHero",
+    "BerxGlassSurface",
+    "BerxInput",
+    "BerxPrimaryButton",
+    "BerxProgressRing"
+   ]
+  },
+  {
+   "screenId": "BERX-002",
+   "title": "Sign In",
+   "family": "AUTH",
+   "routeName": "sign-in",
+   "routePath": "/sign-in",
+   "mood": "calm",
+   "material": "DeepGlass",
+   "lightRecipe": "hero",
+   "contentDepth": "D3",
+   "components": [
+    "BerxScrimHero",
+    "BerxGlassSurface",
+    "BerxInput",
+    "BerxPrimaryButton",
+    "BerxProgressRing"
+   ]
+  },
+  {
+   "screenId": "BERX-003",
+   "title": "Create Account",
+   "family": "AUTH",
+   "routeName": "create-account",
+   "routePath": "/create-account",
+   "mood": "calm",
+   "material": "DeepGlass",
+   "lightRecipe": "hero",
+   "contentDepth": "D3",
+   "components": [
+    "BerxScrimHero",
+    "BerxGlassSurface",
+    "BerxInput",
+    "BerxPrimaryButton",
+    "BerxProgressRing"
+   ]
+  },
+  {
+   "screenId": "BERX-004",
+   "title": "Choose Color Vibe",
+   "family": "AUTH",
+   "routeName": "choose-color-vibe",
+   "routePath": "/choose-color-vibe",
+   "mood": "calm",
+   "material": "DeepGlass",
+   "lightRecipe": "hero",
+   "contentDepth": "D3",
+   "components": [
+    "BerxScrimHero",
+    "BerxGlassSurface",
+    "BerxInput",
+    "BerxPrimaryButton",
+    "BerxProgressRing"
+   ]
+  },
+  {
+   "screenId": "BERX-005",
+   "title": "Interests",
+   "family": "AUTH",
+   "routeName": "interests",
+   "routePath": "/interests",
+   "mood": "calm",
+   "material": "DeepGlass",
+   "lightRecipe": "hero",
+   "contentDepth": "D3",
+   "components": [
+    "BerxScrimHero",
+    "BerxGlassSurface",
+    "BerxInput",
+    "BerxPrimaryButton",
+    "BerxProgressRing"
+   ]
+  },
+  {
+   "screenId": "BERX-006",
+   "title": "Profile Photo",
+   "family": "AUTH",
+   "routeName": "profile-photo",
+   "routePath": "/profile-photo",
+   "mood": "calm",
+   "material": "DeepGlass",
+   "lightRecipe": "hero",
+   "contentDepth": "D3",
+   "components": [
+    "BerxScrimHero",
+    "BerxGlassSurface",
+    "BerxInput",
+    "BerxPrimaryButton",
+    "BerxProgressRing"
+   ]
+  },
+  {
+   "screenId": "BERX-007",
+   "title": "Permissions",
+   "family": "AUTH",
+   "routeName": "permissions",
+   "routePath": "/permissions",
+   "mood": "calm",
+   "material": "DeepGlass",
+   "lightRecipe": "hero",
+   "contentDepth": "D3",
+   "components": [
+    "BerxScrimHero",
+    "BerxGlassSurface",
+    "BerxInput",
+    "BerxPrimaryButton",
+    "BerxProgressRing"
+   ]
+  },
+  {
+   "screenId": "BERX-008",
+   "title": "Privacy Setup",
+   "family": "AUTH",
+   "routeName": "privacy-setup",
+   "routePath": "/privacy-setup",
+   "mood": "calm",
+   "material": "DeepGlass",
+   "lightRecipe": "hero",
+   "contentDepth": "D3",
+   "components": [
+    "BerxScrimHero",
+    "BerxGlassSurface",
+    "BerxInput",
+    "BerxPrimaryButton",
+    "BerxProgressRing"
+   ]
+  },
+  {
+   "screenId": "BERX-009",
+   "title": "Safety Setup",
+   "family": "AUTH",
+   "routeName": "safety-setup",
+   "routePath": "/safety-setup",
+   "mood": "calm",
+   "material": "DeepGlass",
+   "lightRecipe": "hero",
+   "contentDepth": "D3",
+   "components": [
+    "BerxScrimHero",
+    "BerxGlassSurface",
+    "BerxInput",
+    "BerxPrimaryButton",
+    "BerxProgressRing"
+   ]
+  },
+  {
+   "screenId": "BERX-010",
+   "title": "Onboarding Complete",
+   "family": "AUTH",
+   "routeName": "onboarding-complete",
+   "routePath": "/onboarding-complete",
+   "mood": "calm",
+   "material": "DeepGlass",
+   "lightRecipe": "hero",
+   "contentDepth": "D3",
+   "components": [
+    "BerxScrimHero",
+    "BerxGlassSurface",
+    "BerxInput",
+    "BerxPrimaryButton",
+    "BerxProgressRing"
+   ]
+  },
+  {
+   "screenId": "BERX-011",
+   "title": "Authentication & onboarding 11",
+   "family": "AUTH",
+   "routeName": "authentication-onboarding-11",
+   "routePath": "/authentication-onboarding-11",
+   "mood": "calm",
+   "material": "DeepGlass",
+   "lightRecipe": "hero",
+   "contentDepth": "D3",
+   "components": [
+    "BerxScrimHero",
+    "BerxGlassSurface",
+    "BerxInput",
+    "BerxPrimaryButton",
+    "BerxProgressRing"
+   ]
+  },
+  {
+   "screenId": "BERX-012",
+   "title": "Authentication & onboarding 12",
+   "family": "AUTH",
+   "routeName": "authentication-onboarding-12",
+   "routePath": "/authentication-onboarding-12",
+   "mood": "calm",
+   "material": "DeepGlass",
+   "lightRecipe": "hero",
+   "contentDepth": "D3",
+   "components": [
+    "BerxScrimHero",
+    "BerxGlassSurface",
+    "BerxInput",
+    "BerxPrimaryButton",
+    "BerxProgressRing"
+   ]
+  },
+  {
+   "screenId": "BERX-013",
+   "title": "Authentication & onboarding 13",
+   "family": "AUTH",
+   "routeName": "authentication-onboarding-13",
+   "routePath": "/authentication-onboarding-13",
+   "mood": "calm",
+   "material": "DeepGlass",
+   "lightRecipe": "hero",
+   "contentDepth": "D3",
+   "components": [
+    "BerxScrimHero",
+    "BerxGlassSurface",
+    "BerxInput",
+    "BerxPrimaryButton",
+    "BerxProgressRing"
+   ]
+  },
+  {
+   "screenId": "BERX-014",
+   "title": "Authentication & onboarding 14",
+   "family": "AUTH",
+   "routeName": "authentication-onboarding-14",
+   "routePath": "/authentication-onboarding-14",
+   "mood": "calm",
+   "material": "DeepGlass",
+   "lightRecipe": "hero",
+   "contentDepth": "D3",
+   "components": [
+    "BerxScrimHero",
+    "BerxGlassSurface",
+    "BerxInput",
+    "BerxPrimaryButton",
+    "BerxProgressRing"
+   ]
+  },
+  {
+   "screenId": "BERX-015",
+   "title": "Authentication & onboarding 15",
+   "family": "AUTH",
+   "routeName": "authentication-onboarding-15",
+   "routePath": "/authentication-onboarding-15",
+   "mood": "calm",
+   "material": "DeepGlass",
+   "lightRecipe": "hero",
+   "contentDepth": "D3",
+   "components": [
+    "BerxScrimHero",
+    "BerxGlassSurface",
+    "BerxInput",
+    "BerxPrimaryButton",
+    "BerxProgressRing"
+   ]
+  },
+  {
+   "screenId": "BERX-016",
+   "title": "Authentication & onboarding 16",
+   "family": "AUTH",
+   "routeName": "authentication-onboarding-16",
+   "routePath": "/authentication-onboarding-16",
+   "mood": "calm",
+   "material": "DeepGlass",
+   "lightRecipe": "hero",
+   "contentDepth": "D3",
+   "components": [
+    "BerxScrimHero",
+    "BerxGlassSurface",
+    "BerxInput",
+    "BerxPrimaryButton",
+    "BerxProgressRing"
+   ]
+  },
+  {
+   "screenId": "BERX-017",
+   "title": "Authentication & onboarding 17",
+   "family": "AUTH",
+   "routeName": "authentication-onboarding-17",
+   "routePath": "/authentication-onboarding-17",
+   "mood": "calm",
+   "material": "DeepGlass",
+   "lightRecipe": "hero",
+   "contentDepth": "D3",
+   "components": [
+    "BerxScrimHero",
+    "BerxGlassSurface",
+    "BerxInput",
+    "BerxPrimaryButton",
+    "BerxProgressRing"
+   ]
+  },
+  {
+   "screenId": "BERX-018",
+   "title": "Authentication & onboarding 18",
+   "family": "AUTH",
+   "routeName": "authentication-onboarding-18",
+   "routePath": "/authentication-onboarding-18",
+   "mood": "calm",
+   "material": "DeepGlass",
+   "lightRecipe": "hero",
+   "contentDepth": "D3",
+   "components": [
+    "BerxScrimHero",
+    "BerxGlassSurface",
+    "BerxInput",
+    "BerxPrimaryButton",
+    "BerxProgressRing"
+   ]
+  },
+  {
+   "screenId": "BERX-019",
+   "title": "Authentication & onboarding 19",
+   "family": "AUTH",
+   "routeName": "authentication-onboarding-19",
+   "routePath": "/authentication-onboarding-19",
+   "mood": "calm",
+   "material": "DeepGlass",
+   "lightRecipe": "hero",
+   "contentDepth": "D3",
+   "components": [
+    "BerxScrimHero",
+    "BerxGlassSurface",
+    "BerxInput",
+    "BerxPrimaryButton",
+    "BerxProgressRing"
+   ]
+  },
+  {
+   "screenId": "BERX-020",
+   "title": "Authentication & onboarding 20",
+   "family": "AUTH",
+   "routeName": "authentication-onboarding-20",
+   "routePath": "/authentication-onboarding-20",
+   "mood": "calm",
+   "material": "DeepGlass",
+   "lightRecipe": "hero",
+   "contentDepth": "D3",
+   "components": [
+    "BerxScrimHero",
+    "BerxGlassSurface",
+    "BerxInput",
+    "BerxPrimaryButton",
+    "BerxProgressRing"
+   ]
+  },
+  {
+   "screenId": "BERX-021",
+   "title": "Authentication & onboarding 21",
+   "family": "AUTH",
+   "routeName": "authentication-onboarding-21",
+   "routePath": "/authentication-onboarding-21",
+   "mood": "calm",
+   "material": "DeepGlass",
+   "lightRecipe": "hero",
+   "contentDepth": "D3",
+   "components": [
+    "BerxScrimHero",
+    "BerxGlassSurface",
+    "BerxInput",
+    "BerxPrimaryButton",
+    "BerxProgressRing"
+   ]
+  },
+  {
+   "screenId": "BERX-022",
+   "title": "Authentication & onboarding 22",
+   "family": "AUTH",
+   "routeName": "authentication-onboarding-22",
+   "routePath": "/authentication-onboarding-22",
+   "mood": "calm",
+   "material": "DeepGlass",
+   "lightRecipe": "hero",
+   "contentDepth": "D3",
+   "components": [
+    "BerxScrimHero",
+    "BerxGlassSurface",
+    "BerxInput",
+    "BerxPrimaryButton",
+    "BerxProgressRing"
+   ]
+  },
+  {
+   "screenId": "BERX-023",
+   "title": "Authentication & onboarding 23",
+   "family": "AUTH",
+   "routeName": "authentication-onboarding-23",
+   "routePath": "/authentication-onboarding-23",
+   "mood": "calm",
+   "material": "DeepGlass",
+   "lightRecipe": "hero",
+   "contentDepth": "D3",
+   "components": [
+    "BerxScrimHero",
+    "BerxGlassSurface",
+    "BerxInput",
+    "BerxPrimaryButton",
+    "BerxProgressRing"
+   ]
+  },
+  {
+   "screenId": "BERX-024",
+   "title": "Authentication & onboarding 24",
+   "family": "AUTH",
+   "routeName": "authentication-onboarding-24",
+   "routePath": "/authentication-onboarding-24",
+   "mood": "calm",
+   "material": "DeepGlass",
+   "lightRecipe": "hero",
+   "contentDepth": "D3",
+   "components": [
+    "BerxScrimHero",
+    "BerxGlassSurface",
+    "BerxInput",
+    "BerxPrimaryButton",
+    "BerxProgressRing"
+   ]
+  },
+  {
+   "screenId": "BERX-025",
+   "title": "Authentication & onboarding 25",
+   "family": "AUTH",
+   "routeName": "authentication-onboarding-25",
+   "routePath": "/authentication-onboarding-25",
+   "mood": "calm",
+   "material": "DeepGlass",
+   "lightRecipe": "hero",
+   "contentDepth": "D3",
+   "components": [
+    "BerxScrimHero",
+    "BerxGlassSurface",
+    "BerxInput",
+    "BerxPrimaryButton",
+    "BerxProgressRing"
+   ]
+  },
+  {
+   "screenId": "BERX-026",
+   "title": "Authentication & onboarding 26",
+   "family": "AUTH",
+   "routeName": "authentication-onboarding-26",
+   "routePath": "/authentication-onboarding-26",
+   "mood": "calm",
+   "material": "DeepGlass",
+   "lightRecipe": "hero",
+   "contentDepth": "D3",
+   "components": [
+    "BerxScrimHero",
+    "BerxGlassSurface",
+    "BerxInput",
+    "BerxPrimaryButton",
+    "BerxProgressRing"
+   ]
+  },
+  {
+   "screenId": "BERX-027",
+   "title": "Authentication & onboarding 27",
+   "family": "AUTH",
+   "routeName": "authentication-onboarding-27",
+   "routePath": "/authentication-onboarding-27",
+   "mood": "calm",
+   "material": "DeepGlass",
+   "lightRecipe": "hero",
+   "contentDepth": "D3",
+   "components": [
+    "BerxScrimHero",
+    "BerxGlassSurface",
+    "BerxInput",
+    "BerxPrimaryButton",
+    "BerxProgressRing"
+   ]
+  },
+  {
+   "screenId": "BERX-028",
+   "title": "Authentication & onboarding 28",
+   "family": "AUTH",
+   "routeName": "authentication-onboarding-28",
+   "routePath": "/authentication-onboarding-28",
+   "mood": "calm",
+   "material": "DeepGlass",
+   "lightRecipe": "hero",
+   "contentDepth": "D3",
+   "components": [
+    "BerxScrimHero",
+    "BerxGlassSurface",
+    "BerxInput",
+    "BerxPrimaryButton",
+    "BerxProgressRing"
+   ]
+  },
+  {
+   "screenId": "BERX-029",
+   "title": "Authentication & onboarding 29",
+   "family": "AUTH",
+   "routeName": "authentication-onboarding-29",
+   "routePath": "/authentication-onboarding-29",
+   "mood": "calm",
+   "material": "DeepGlass",
+   "lightRecipe": "hero",
+   "contentDepth": "D3",
+   "components": [
+    "BerxScrimHero",
+    "BerxGlassSurface",
+    "BerxInput",
+    "BerxPrimaryButton",
+    "BerxProgressRing"
+   ]
+  },
+  {
+   "screenId": "BERX-030",
+   "title": "Authentication & onboarding 30",
+   "family": "AUTH",
+   "routeName": "authentication-onboarding-30",
+   "routePath": "/authentication-onboarding-30",
+   "mood": "calm",
+   "material": "DeepGlass",
+   "lightRecipe": "hero",
+   "contentDepth": "D3",
+   "components": [
+    "BerxScrimHero",
+    "BerxGlassSurface",
+    "BerxInput",
+    "BerxPrimaryButton",
+    "BerxProgressRing"
+   ]
+  },
+  {
+   "screenId": "BERX-031",
+   "title": "Home Feed",
+   "family": "HOME",
+   "routeName": "home-feed",
+   "routePath": "/home-feed",
+   "mood": "alive",
+   "material": "ClearGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxStoryTray",
+    "BerxMediaCard",
+    "BerxReactionPicker",
+    "BerxBottomNav",
+    "BerxNowPulse"
+   ]
+  },
+  {
+   "screenId": "BERX-032",
+   "title": "Stories Tray",
+   "family": "HOME",
+   "routeName": "stories-tray",
+   "routePath": "/stories-tray",
+   "mood": "alive",
+   "material": "ClearGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxStoryTray",
+    "BerxMediaCard",
+    "BerxReactionPicker",
+    "BerxBottomNav",
+    "BerxNowPulse"
+   ]
+  },
+  {
+   "screenId": "BERX-033",
+   "title": "Home / Feed / Stories 03",
+   "family": "HOME",
+   "routeName": "home-feed-stories-03",
+   "routePath": "/home-feed-stories-03",
+   "mood": "alive",
+   "material": "ClearGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxStoryTray",
+    "BerxMediaCard",
+    "BerxReactionPicker",
+    "BerxBottomNav",
+    "BerxNowPulse"
+   ]
+  },
+  {
+   "screenId": "BERX-034",
+   "title": "Home / Feed / Stories 04",
+   "family": "HOME",
+   "routeName": "home-feed-stories-04",
+   "routePath": "/home-feed-stories-04",
+   "mood": "alive",
+   "material": "ClearGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxStoryTray",
+    "BerxMediaCard",
+    "BerxReactionPicker",
+    "BerxBottomNav",
+    "BerxNowPulse"
+   ]
+  },
+  {
+   "screenId": "BERX-035",
+   "title": "Home / Feed / Stories 05",
+   "family": "HOME",
+   "routeName": "home-feed-stories-05",
+   "routePath": "/home-feed-stories-05",
+   "mood": "alive",
+   "material": "ClearGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxStoryTray",
+    "BerxMediaCard",
+    "BerxReactionPicker",
+    "BerxBottomNav",
+    "BerxNowPulse"
+   ]
+  },
+  {
+   "screenId": "BERX-036",
+   "title": "Home / Feed / Stories 06",
+   "family": "HOME",
+   "routeName": "home-feed-stories-06",
+   "routePath": "/home-feed-stories-06",
+   "mood": "alive",
+   "material": "ClearGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxStoryTray",
+    "BerxMediaCard",
+    "BerxReactionPicker",
+    "BerxBottomNav",
+    "BerxNowPulse"
+   ]
+  },
+  {
+   "screenId": "BERX-037",
+   "title": "Home / Feed / Stories 07",
+   "family": "HOME",
+   "routeName": "home-feed-stories-07",
+   "routePath": "/home-feed-stories-07",
+   "mood": "alive",
+   "material": "ClearGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxStoryTray",
+    "BerxMediaCard",
+    "BerxReactionPicker",
+    "BerxBottomNav",
+    "BerxNowPulse"
+   ]
+  },
+  {
+   "screenId": "BERX-038",
+   "title": "Home / Feed / Stories 08",
+   "family": "HOME",
+   "routeName": "home-feed-stories-08",
+   "routePath": "/home-feed-stories-08",
+   "mood": "alive",
+   "material": "ClearGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxStoryTray",
+    "BerxMediaCard",
+    "BerxReactionPicker",
+    "BerxBottomNav",
+    "BerxNowPulse"
+   ]
+  },
+  {
+   "screenId": "BERX-039",
+   "title": "Home / Feed / Stories 09",
+   "family": "HOME",
+   "routeName": "home-feed-stories-09",
+   "routePath": "/home-feed-stories-09",
+   "mood": "alive",
+   "material": "ClearGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxStoryTray",
+    "BerxMediaCard",
+    "BerxReactionPicker",
+    "BerxBottomNav",
+    "BerxNowPulse"
+   ]
+  },
+  {
+   "screenId": "BERX-040",
+   "title": "Home / Feed / Stories 10",
+   "family": "HOME",
+   "routeName": "home-feed-stories-10",
+   "routePath": "/home-feed-stories-10",
+   "mood": "alive",
+   "material": "ClearGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxStoryTray",
+    "BerxMediaCard",
+    "BerxReactionPicker",
+    "BerxBottomNav",
+    "BerxNowPulse"
+   ]
+  },
+  {
+   "screenId": "BERX-041",
+   "title": "Home / Feed / Stories 11",
+   "family": "HOME",
+   "routeName": "home-feed-stories-11",
+   "routePath": "/home-feed-stories-11",
+   "mood": "alive",
+   "material": "ClearGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxStoryTray",
+    "BerxMediaCard",
+    "BerxReactionPicker",
+    "BerxBottomNav",
+    "BerxNowPulse"
+   ]
+  },
+  {
+   "screenId": "BERX-042",
+   "title": "Home / Feed / Stories 12",
+   "family": "HOME",
+   "routeName": "home-feed-stories-12",
+   "routePath": "/home-feed-stories-12",
+   "mood": "alive",
+   "material": "ClearGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxStoryTray",
+    "BerxMediaCard",
+    "BerxReactionPicker",
+    "BerxBottomNav",
+    "BerxNowPulse"
+   ]
+  },
+  {
+   "screenId": "BERX-043",
+   "title": "Home / Feed / Stories 13",
+   "family": "HOME",
+   "routeName": "home-feed-stories-13",
+   "routePath": "/home-feed-stories-13",
+   "mood": "alive",
+   "material": "ClearGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxStoryTray",
+    "BerxMediaCard",
+    "BerxReactionPicker",
+    "BerxBottomNav",
+    "BerxNowPulse"
+   ]
+  },
+  {
+   "screenId": "BERX-044",
+   "title": "Home / Feed / Stories 14",
+   "family": "HOME",
+   "routeName": "home-feed-stories-14",
+   "routePath": "/home-feed-stories-14",
+   "mood": "alive",
+   "material": "ClearGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxStoryTray",
+    "BerxMediaCard",
+    "BerxReactionPicker",
+    "BerxBottomNav",
+    "BerxNowPulse"
+   ]
+  },
+  {
+   "screenId": "BERX-045",
+   "title": "Home / Feed / Stories 15",
+   "family": "HOME",
+   "routeName": "home-feed-stories-15",
+   "routePath": "/home-feed-stories-15",
+   "mood": "alive",
+   "material": "ClearGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxStoryTray",
+    "BerxMediaCard",
+    "BerxReactionPicker",
+    "BerxBottomNav",
+    "BerxNowPulse"
+   ]
+  },
+  {
+   "screenId": "BERX-046",
+   "title": "Home / Feed / Stories 16",
+   "family": "HOME",
+   "routeName": "home-feed-stories-16",
+   "routePath": "/home-feed-stories-16",
+   "mood": "alive",
+   "material": "ClearGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxStoryTray",
+    "BerxMediaCard",
+    "BerxReactionPicker",
+    "BerxBottomNav",
+    "BerxNowPulse"
+   ]
+  },
+  {
+   "screenId": "BERX-047",
+   "title": "Home / Feed / Stories 17",
+   "family": "HOME",
+   "routeName": "home-feed-stories-17",
+   "routePath": "/home-feed-stories-17",
+   "mood": "alive",
+   "material": "ClearGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxStoryTray",
+    "BerxMediaCard",
+    "BerxReactionPicker",
+    "BerxBottomNav",
+    "BerxNowPulse"
+   ]
+  },
+  {
+   "screenId": "BERX-048",
+   "title": "Home / Feed / Stories 18",
+   "family": "HOME",
+   "routeName": "home-feed-stories-18",
+   "routePath": "/home-feed-stories-18",
+   "mood": "alive",
+   "material": "ClearGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxStoryTray",
+    "BerxMediaCard",
+    "BerxReactionPicker",
+    "BerxBottomNav",
+    "BerxNowPulse"
+   ]
+  },
+  {
+   "screenId": "BERX-049",
+   "title": "Home / Feed / Stories 19",
+   "family": "HOME",
+   "routeName": "home-feed-stories-19",
+   "routePath": "/home-feed-stories-19",
+   "mood": "alive",
+   "material": "ClearGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxStoryTray",
+    "BerxMediaCard",
+    "BerxReactionPicker",
+    "BerxBottomNav",
+    "BerxNowPulse"
+   ]
+  },
+  {
+   "screenId": "BERX-050",
+   "title": "Home / Feed / Stories 20",
+   "family": "HOME",
+   "routeName": "home-feed-stories-20",
+   "routePath": "/home-feed-stories-20",
+   "mood": "alive",
+   "material": "ClearGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxStoryTray",
+    "BerxMediaCard",
+    "BerxReactionPicker",
+    "BerxBottomNav",
+    "BerxNowPulse"
+   ]
+  },
+  {
+   "screenId": "BERX-051",
+   "title": "Home / Feed / Stories 21",
+   "family": "HOME",
+   "routeName": "home-feed-stories-21",
+   "routePath": "/home-feed-stories-21",
+   "mood": "alive",
+   "material": "ClearGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxStoryTray",
+    "BerxMediaCard",
+    "BerxReactionPicker",
+    "BerxBottomNav",
+    "BerxNowPulse"
+   ]
+  },
+  {
+   "screenId": "BERX-052",
+   "title": "Home / Feed / Stories 22",
+   "family": "HOME",
+   "routeName": "home-feed-stories-22",
+   "routePath": "/home-feed-stories-22",
+   "mood": "alive",
+   "material": "ClearGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxStoryTray",
+    "BerxMediaCard",
+    "BerxReactionPicker",
+    "BerxBottomNav",
+    "BerxNowPulse"
+   ]
+  },
+  {
+   "screenId": "BERX-053",
+   "title": "Home / Feed / Stories 23",
+   "family": "HOME",
+   "routeName": "home-feed-stories-23",
+   "routePath": "/home-feed-stories-23",
+   "mood": "alive",
+   "material": "ClearGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxStoryTray",
+    "BerxMediaCard",
+    "BerxReactionPicker",
+    "BerxBottomNav",
+    "BerxNowPulse"
+   ]
+  },
+  {
+   "screenId": "BERX-054",
+   "title": "Home / Feed / Stories 24",
+   "family": "HOME",
+   "routeName": "home-feed-stories-24",
+   "routePath": "/home-feed-stories-24",
+   "mood": "alive",
+   "material": "ClearGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxStoryTray",
+    "BerxMediaCard",
+    "BerxReactionPicker",
+    "BerxBottomNav",
+    "BerxNowPulse"
+   ]
+  },
+  {
+   "screenId": "BERX-055",
+   "title": "Home / Feed / Stories 25",
+   "family": "HOME",
+   "routeName": "home-feed-stories-25",
+   "routePath": "/home-feed-stories-25",
+   "mood": "alive",
+   "material": "ClearGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxStoryTray",
+    "BerxMediaCard",
+    "BerxReactionPicker",
+    "BerxBottomNav",
+    "BerxNowPulse"
+   ]
+  },
+  {
+   "screenId": "BERX-056",
+   "title": "Home / Feed / Stories 26",
+   "family": "HOME",
+   "routeName": "home-feed-stories-26",
+   "routePath": "/home-feed-stories-26",
+   "mood": "alive",
+   "material": "ClearGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxStoryTray",
+    "BerxMediaCard",
+    "BerxReactionPicker",
+    "BerxBottomNav",
+    "BerxNowPulse"
+   ]
+  },
+  {
+   "screenId": "BERX-057",
+   "title": "Home / Feed / Stories 27",
+   "family": "HOME",
+   "routeName": "home-feed-stories-27",
+   "routePath": "/home-feed-stories-27",
+   "mood": "alive",
+   "material": "ClearGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxStoryTray",
+    "BerxMediaCard",
+    "BerxReactionPicker",
+    "BerxBottomNav",
+    "BerxNowPulse"
+   ]
+  },
+  {
+   "screenId": "BERX-058",
+   "title": "Home / Feed / Stories 28",
+   "family": "HOME",
+   "routeName": "home-feed-stories-28",
+   "routePath": "/home-feed-stories-28",
+   "mood": "alive",
+   "material": "ClearGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxStoryTray",
+    "BerxMediaCard",
+    "BerxReactionPicker",
+    "BerxBottomNav",
+    "BerxNowPulse"
+   ]
+  },
+  {
+   "screenId": "BERX-059",
+   "title": "Home / Feed / Stories 29",
+   "family": "HOME",
+   "routeName": "home-feed-stories-29",
+   "routePath": "/home-feed-stories-29",
+   "mood": "alive",
+   "material": "ClearGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxStoryTray",
+    "BerxMediaCard",
+    "BerxReactionPicker",
+    "BerxBottomNav",
+    "BerxNowPulse"
+   ]
+  },
+  {
+   "screenId": "BERX-060",
+   "title": "Home / Feed / Stories 30",
+   "family": "HOME",
+   "routeName": "home-feed-stories-30",
+   "routePath": "/home-feed-stories-30",
+   "mood": "alive",
+   "material": "ClearGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxStoryTray",
+    "BerxMediaCard",
+    "BerxReactionPicker",
+    "BerxBottomNav",
+    "BerxNowPulse"
+   ]
+  },
+  {
+   "screenId": "BERX-061",
+   "title": "Explore",
+   "family": "EXPLORE",
+   "routeName": "explore",
+   "routePath": "/explore",
+   "mood": "curious",
+   "material": "ClearGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxSearchField",
+    "BerxHorizontalRail",
+    "BerxSpatialCard",
+    "BerxFilterBar",
+    "BerxMediaCard"
+   ]
+  },
+  {
+   "screenId": "BERX-062",
+   "title": "Explore / Discovery 02",
+   "family": "EXPLORE",
+   "routeName": "explore-discovery-02",
+   "routePath": "/explore-discovery-02",
+   "mood": "curious",
+   "material": "ClearGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxSearchField",
+    "BerxHorizontalRail",
+    "BerxSpatialCard",
+    "BerxFilterBar",
+    "BerxMediaCard"
+   ]
+  },
+  {
+   "screenId": "BERX-063",
+   "title": "Explore / Discovery 03",
+   "family": "EXPLORE",
+   "routeName": "explore-discovery-03",
+   "routePath": "/explore-discovery-03",
+   "mood": "curious",
+   "material": "ClearGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxSearchField",
+    "BerxHorizontalRail",
+    "BerxSpatialCard",
+    "BerxFilterBar",
+    "BerxMediaCard"
+   ]
+  },
+  {
+   "screenId": "BERX-064",
+   "title": "Explore / Discovery 04",
+   "family": "EXPLORE",
+   "routeName": "explore-discovery-04",
+   "routePath": "/explore-discovery-04",
+   "mood": "curious",
+   "material": "ClearGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxSearchField",
+    "BerxHorizontalRail",
+    "BerxSpatialCard",
+    "BerxFilterBar",
+    "BerxMediaCard"
+   ]
+  },
+  {
+   "screenId": "BERX-065",
+   "title": "Explore / Discovery 05",
+   "family": "EXPLORE",
+   "routeName": "explore-discovery-05",
+   "routePath": "/explore-discovery-05",
+   "mood": "curious",
+   "material": "ClearGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxSearchField",
+    "BerxHorizontalRail",
+    "BerxSpatialCard",
+    "BerxFilterBar",
+    "BerxMediaCard"
+   ]
+  },
+  {
+   "screenId": "BERX-066",
+   "title": "Explore / Discovery 06",
+   "family": "EXPLORE",
+   "routeName": "explore-discovery-06",
+   "routePath": "/explore-discovery-06",
+   "mood": "curious",
+   "material": "ClearGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxSearchField",
+    "BerxHorizontalRail",
+    "BerxSpatialCard",
+    "BerxFilterBar",
+    "BerxMediaCard"
+   ]
+  },
+  {
+   "screenId": "BERX-067",
+   "title": "Explore / Discovery 07",
+   "family": "EXPLORE",
+   "routeName": "explore-discovery-07",
+   "routePath": "/explore-discovery-07",
+   "mood": "curious",
+   "material": "ClearGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxSearchField",
+    "BerxHorizontalRail",
+    "BerxSpatialCard",
+    "BerxFilterBar",
+    "BerxMediaCard"
+   ]
+  },
+  {
+   "screenId": "BERX-068",
+   "title": "Explore / Discovery 08",
+   "family": "EXPLORE",
+   "routeName": "explore-discovery-08",
+   "routePath": "/explore-discovery-08",
+   "mood": "curious",
+   "material": "ClearGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxSearchField",
+    "BerxHorizontalRail",
+    "BerxSpatialCard",
+    "BerxFilterBar",
+    "BerxMediaCard"
+   ]
+  },
+  {
+   "screenId": "BERX-069",
+   "title": "Explore / Discovery 09",
+   "family": "EXPLORE",
+   "routeName": "explore-discovery-09",
+   "routePath": "/explore-discovery-09",
+   "mood": "curious",
+   "material": "ClearGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxSearchField",
+    "BerxHorizontalRail",
+    "BerxSpatialCard",
+    "BerxFilterBar",
+    "BerxMediaCard"
+   ]
+  },
+  {
+   "screenId": "BERX-070",
+   "title": "Explore / Discovery 10",
+   "family": "EXPLORE",
+   "routeName": "explore-discovery-10",
+   "routePath": "/explore-discovery-10",
+   "mood": "curious",
+   "material": "ClearGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxSearchField",
+    "BerxHorizontalRail",
+    "BerxSpatialCard",
+    "BerxFilterBar",
+    "BerxMediaCard"
+   ]
+  },
+  {
+   "screenId": "BERX-071",
+   "title": "Explore / Discovery 11",
+   "family": "EXPLORE",
+   "routeName": "explore-discovery-11",
+   "routePath": "/explore-discovery-11",
+   "mood": "curious",
+   "material": "ClearGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxSearchField",
+    "BerxHorizontalRail",
+    "BerxSpatialCard",
+    "BerxFilterBar",
+    "BerxMediaCard"
+   ]
+  },
+  {
+   "screenId": "BERX-072",
+   "title": "Explore / Discovery 12",
+   "family": "EXPLORE",
+   "routeName": "explore-discovery-12",
+   "routePath": "/explore-discovery-12",
+   "mood": "curious",
+   "material": "ClearGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxSearchField",
+    "BerxHorizontalRail",
+    "BerxSpatialCard",
+    "BerxFilterBar",
+    "BerxMediaCard"
+   ]
+  },
+  {
+   "screenId": "BERX-073",
+   "title": "Explore / Discovery 13",
+   "family": "EXPLORE",
+   "routeName": "explore-discovery-13",
+   "routePath": "/explore-discovery-13",
+   "mood": "curious",
+   "material": "ClearGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxSearchField",
+    "BerxHorizontalRail",
+    "BerxSpatialCard",
+    "BerxFilterBar",
+    "BerxMediaCard"
+   ]
+  },
+  {
+   "screenId": "BERX-074",
+   "title": "Explore / Discovery 14",
+   "family": "EXPLORE",
+   "routeName": "explore-discovery-14",
+   "routePath": "/explore-discovery-14",
+   "mood": "curious",
+   "material": "ClearGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxSearchField",
+    "BerxHorizontalRail",
+    "BerxSpatialCard",
+    "BerxFilterBar",
+    "BerxMediaCard"
+   ]
+  },
+  {
+   "screenId": "BERX-075",
+   "title": "Explore / Discovery 15",
+   "family": "EXPLORE",
+   "routeName": "explore-discovery-15",
+   "routePath": "/explore-discovery-15",
+   "mood": "curious",
+   "material": "ClearGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxSearchField",
+    "BerxHorizontalRail",
+    "BerxSpatialCard",
+    "BerxFilterBar",
+    "BerxMediaCard"
+   ]
+  },
+  {
+   "screenId": "BERX-076",
+   "title": "Explore / Discovery 16",
+   "family": "EXPLORE",
+   "routeName": "explore-discovery-16",
+   "routePath": "/explore-discovery-16",
+   "mood": "curious",
+   "material": "ClearGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxSearchField",
+    "BerxHorizontalRail",
+    "BerxSpatialCard",
+    "BerxFilterBar",
+    "BerxMediaCard"
+   ]
+  },
+  {
+   "screenId": "BERX-077",
+   "title": "Explore / Discovery 17",
+   "family": "EXPLORE",
+   "routeName": "explore-discovery-17",
+   "routePath": "/explore-discovery-17",
+   "mood": "curious",
+   "material": "ClearGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxSearchField",
+    "BerxHorizontalRail",
+    "BerxSpatialCard",
+    "BerxFilterBar",
+    "BerxMediaCard"
+   ]
+  },
+  {
+   "screenId": "BERX-078",
+   "title": "Explore / Discovery 18",
+   "family": "EXPLORE",
+   "routeName": "explore-discovery-18",
+   "routePath": "/explore-discovery-18",
+   "mood": "curious",
+   "material": "ClearGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxSearchField",
+    "BerxHorizontalRail",
+    "BerxSpatialCard",
+    "BerxFilterBar",
+    "BerxMediaCard"
+   ]
+  },
+  {
+   "screenId": "BERX-079",
+   "title": "Explore / Discovery 19",
+   "family": "EXPLORE",
+   "routeName": "explore-discovery-19",
+   "routePath": "/explore-discovery-19",
+   "mood": "curious",
+   "material": "ClearGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxSearchField",
+    "BerxHorizontalRail",
+    "BerxSpatialCard",
+    "BerxFilterBar",
+    "BerxMediaCard"
+   ]
+  },
+  {
+   "screenId": "BERX-080",
+   "title": "Explore / Discovery 20",
+   "family": "EXPLORE",
+   "routeName": "explore-discovery-20",
+   "routePath": "/explore-discovery-20",
+   "mood": "curious",
+   "material": "ClearGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxSearchField",
+    "BerxHorizontalRail",
+    "BerxSpatialCard",
+    "BerxFilterBar",
+    "BerxMediaCard"
+   ]
+  },
+  {
+   "screenId": "BERX-081",
+   "title": "Explore / Discovery 21",
+   "family": "EXPLORE",
+   "routeName": "explore-discovery-21",
+   "routePath": "/explore-discovery-21",
+   "mood": "curious",
+   "material": "ClearGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxSearchField",
+    "BerxHorizontalRail",
+    "BerxSpatialCard",
+    "BerxFilterBar",
+    "BerxMediaCard"
+   ]
+  },
+  {
+   "screenId": "BERX-082",
+   "title": "Explore / Discovery 22",
+   "family": "EXPLORE",
+   "routeName": "explore-discovery-22",
+   "routePath": "/explore-discovery-22",
+   "mood": "curious",
+   "material": "ClearGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxSearchField",
+    "BerxHorizontalRail",
+    "BerxSpatialCard",
+    "BerxFilterBar",
+    "BerxMediaCard"
+   ]
+  },
+  {
+   "screenId": "BERX-083",
+   "title": "Explore / Discovery 23",
+   "family": "EXPLORE",
+   "routeName": "explore-discovery-23",
+   "routePath": "/explore-discovery-23",
+   "mood": "curious",
+   "material": "ClearGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxSearchField",
+    "BerxHorizontalRail",
+    "BerxSpatialCard",
+    "BerxFilterBar",
+    "BerxMediaCard"
+   ]
+  },
+  {
+   "screenId": "BERX-084",
+   "title": "Explore / Discovery 24",
+   "family": "EXPLORE",
+   "routeName": "explore-discovery-24",
+   "routePath": "/explore-discovery-24",
+   "mood": "curious",
+   "material": "ClearGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxSearchField",
+    "BerxHorizontalRail",
+    "BerxSpatialCard",
+    "BerxFilterBar",
+    "BerxMediaCard"
+   ]
+  },
+  {
+   "screenId": "BERX-085",
+   "title": "Explore / Discovery 25",
+   "family": "EXPLORE",
+   "routeName": "explore-discovery-25",
+   "routePath": "/explore-discovery-25",
+   "mood": "curious",
+   "material": "ClearGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxSearchField",
+    "BerxHorizontalRail",
+    "BerxSpatialCard",
+    "BerxFilterBar",
+    "BerxMediaCard"
+   ]
+  },
+  {
+   "screenId": "BERX-086",
+   "title": "Explore / Discovery 26",
+   "family": "EXPLORE",
+   "routeName": "explore-discovery-26",
+   "routePath": "/explore-discovery-26",
+   "mood": "curious",
+   "material": "ClearGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxSearchField",
+    "BerxHorizontalRail",
+    "BerxSpatialCard",
+    "BerxFilterBar",
+    "BerxMediaCard"
+   ]
+  },
+  {
+   "screenId": "BERX-087",
+   "title": "Explore / Discovery 27",
+   "family": "EXPLORE",
+   "routeName": "explore-discovery-27",
+   "routePath": "/explore-discovery-27",
+   "mood": "curious",
+   "material": "ClearGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxSearchField",
+    "BerxHorizontalRail",
+    "BerxSpatialCard",
+    "BerxFilterBar",
+    "BerxMediaCard"
+   ]
+  },
+  {
+   "screenId": "BERX-088",
+   "title": "Explore / Discovery 28",
+   "family": "EXPLORE",
+   "routeName": "explore-discovery-28",
+   "routePath": "/explore-discovery-28",
+   "mood": "curious",
+   "material": "ClearGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxSearchField",
+    "BerxHorizontalRail",
+    "BerxSpatialCard",
+    "BerxFilterBar",
+    "BerxMediaCard"
+   ]
+  },
+  {
+   "screenId": "BERX-089",
+   "title": "Explore / Discovery 29",
+   "family": "EXPLORE",
+   "routeName": "explore-discovery-29",
+   "routePath": "/explore-discovery-29",
+   "mood": "curious",
+   "material": "ClearGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxSearchField",
+    "BerxHorizontalRail",
+    "BerxSpatialCard",
+    "BerxFilterBar",
+    "BerxMediaCard"
+   ]
+  },
+  {
+   "screenId": "BERX-090",
+   "title": "Explore / Discovery 30",
+   "family": "EXPLORE",
+   "routeName": "explore-discovery-30",
+   "routePath": "/explore-discovery-30",
+   "mood": "curious",
+   "material": "ClearGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxSearchField",
+    "BerxHorizontalRail",
+    "BerxSpatialCard",
+    "BerxFilterBar",
+    "BerxMediaCard"
+   ]
+  },
+  {
+   "screenId": "BERX-091",
+   "title": "BERX NOW",
+   "family": "NOW",
+   "routeName": "berx-now",
+   "routePath": "/berx-now",
+   "mood": "urgent",
+   "material": "LiquidGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxNowScene",
+    "BerxMap",
+    "BerxMapPin",
+    "BerxPlaceCard",
+    "BerxNowRail",
+    "BerxEnergyHalo"
+   ]
+  },
+  {
+   "screenId": "BERX-092",
+   "title": "BERX NOW / nearby live world 02",
+   "family": "NOW",
+   "routeName": "berx-now-nearby-live-world-02",
+   "routePath": "/berx-now-nearby-live-world-02",
+   "mood": "urgent",
+   "material": "LiquidGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxNowScene",
+    "BerxMap",
+    "BerxMapPin",
+    "BerxPlaceCard",
+    "BerxNowRail",
+    "BerxEnergyHalo"
+   ]
+  },
+  {
+   "screenId": "BERX-093",
+   "title": "BERX NOW / nearby live world 03",
+   "family": "NOW",
+   "routeName": "berx-now-nearby-live-world-03",
+   "routePath": "/berx-now-nearby-live-world-03",
+   "mood": "urgent",
+   "material": "LiquidGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxNowScene",
+    "BerxMap",
+    "BerxMapPin",
+    "BerxPlaceCard",
+    "BerxNowRail",
+    "BerxEnergyHalo"
+   ]
+  },
+  {
+   "screenId": "BERX-094",
+   "title": "BERX NOW / nearby live world 04",
+   "family": "NOW",
+   "routeName": "berx-now-nearby-live-world-04",
+   "routePath": "/berx-now-nearby-live-world-04",
+   "mood": "urgent",
+   "material": "LiquidGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxNowScene",
+    "BerxMap",
+    "BerxMapPin",
+    "BerxPlaceCard",
+    "BerxNowRail",
+    "BerxEnergyHalo"
+   ]
+  },
+  {
+   "screenId": "BERX-095",
+   "title": "BERX NOW / nearby live world 05",
+   "family": "NOW",
+   "routeName": "berx-now-nearby-live-world-05",
+   "routePath": "/berx-now-nearby-live-world-05",
+   "mood": "urgent",
+   "material": "LiquidGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxNowScene",
+    "BerxMap",
+    "BerxMapPin",
+    "BerxPlaceCard",
+    "BerxNowRail",
+    "BerxEnergyHalo"
+   ]
+  },
+  {
+   "screenId": "BERX-096",
+   "title": "BERX NOW / nearby live world 06",
+   "family": "NOW",
+   "routeName": "berx-now-nearby-live-world-06",
+   "routePath": "/berx-now-nearby-live-world-06",
+   "mood": "urgent",
+   "material": "LiquidGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxNowScene",
+    "BerxMap",
+    "BerxMapPin",
+    "BerxPlaceCard",
+    "BerxNowRail",
+    "BerxEnergyHalo"
+   ]
+  },
+  {
+   "screenId": "BERX-097",
+   "title": "BERX NOW / nearby live world 07",
+   "family": "NOW",
+   "routeName": "berx-now-nearby-live-world-07",
+   "routePath": "/berx-now-nearby-live-world-07",
+   "mood": "urgent",
+   "material": "LiquidGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxNowScene",
+    "BerxMap",
+    "BerxMapPin",
+    "BerxPlaceCard",
+    "BerxNowRail",
+    "BerxEnergyHalo"
+   ]
+  },
+  {
+   "screenId": "BERX-098",
+   "title": "BERX NOW / nearby live world 08",
+   "family": "NOW",
+   "routeName": "berx-now-nearby-live-world-08",
+   "routePath": "/berx-now-nearby-live-world-08",
+   "mood": "urgent",
+   "material": "LiquidGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxNowScene",
+    "BerxMap",
+    "BerxMapPin",
+    "BerxPlaceCard",
+    "BerxNowRail",
+    "BerxEnergyHalo"
+   ]
+  },
+  {
+   "screenId": "BERX-099",
+   "title": "BERX NOW / nearby live world 09",
+   "family": "NOW",
+   "routeName": "berx-now-nearby-live-world-09",
+   "routePath": "/berx-now-nearby-live-world-09",
+   "mood": "urgent",
+   "material": "LiquidGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxNowScene",
+    "BerxMap",
+    "BerxMapPin",
+    "BerxPlaceCard",
+    "BerxNowRail",
+    "BerxEnergyHalo"
+   ]
+  },
+  {
+   "screenId": "BERX-100",
+   "title": "BERX NOW / nearby live world 10",
+   "family": "NOW",
+   "routeName": "berx-now-nearby-live-world-10",
+   "routePath": "/berx-now-nearby-live-world-10",
+   "mood": "urgent",
+   "material": "LiquidGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxNowScene",
+    "BerxMap",
+    "BerxMapPin",
+    "BerxPlaceCard",
+    "BerxNowRail",
+    "BerxEnergyHalo"
+   ]
+  },
+  {
+   "screenId": "BERX-101",
+   "title": "BERX NOW / nearby live world 11",
+   "family": "NOW",
+   "routeName": "berx-now-nearby-live-world-11",
+   "routePath": "/berx-now-nearby-live-world-11",
+   "mood": "urgent",
+   "material": "LiquidGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxNowScene",
+    "BerxMap",
+    "BerxMapPin",
+    "BerxPlaceCard",
+    "BerxNowRail",
+    "BerxEnergyHalo"
+   ]
+  },
+  {
+   "screenId": "BERX-102",
+   "title": "BERX NOW / nearby live world 12",
+   "family": "NOW",
+   "routeName": "berx-now-nearby-live-world-12",
+   "routePath": "/berx-now-nearby-live-world-12",
+   "mood": "urgent",
+   "material": "LiquidGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxNowScene",
+    "BerxMap",
+    "BerxMapPin",
+    "BerxPlaceCard",
+    "BerxNowRail",
+    "BerxEnergyHalo"
+   ]
+  },
+  {
+   "screenId": "BERX-103",
+   "title": "BERX NOW / nearby live world 13",
+   "family": "NOW",
+   "routeName": "berx-now-nearby-live-world-13",
+   "routePath": "/berx-now-nearby-live-world-13",
+   "mood": "urgent",
+   "material": "LiquidGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxNowScene",
+    "BerxMap",
+    "BerxMapPin",
+    "BerxPlaceCard",
+    "BerxNowRail",
+    "BerxEnergyHalo"
+   ]
+  },
+  {
+   "screenId": "BERX-104",
+   "title": "BERX NOW / nearby live world 14",
+   "family": "NOW",
+   "routeName": "berx-now-nearby-live-world-14",
+   "routePath": "/berx-now-nearby-live-world-14",
+   "mood": "urgent",
+   "material": "LiquidGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxNowScene",
+    "BerxMap",
+    "BerxMapPin",
+    "BerxPlaceCard",
+    "BerxNowRail",
+    "BerxEnergyHalo"
+   ]
+  },
+  {
+   "screenId": "BERX-105",
+   "title": "BERX NOW / nearby live world 15",
+   "family": "NOW",
+   "routeName": "berx-now-nearby-live-world-15",
+   "routePath": "/berx-now-nearby-live-world-15",
+   "mood": "urgent",
+   "material": "LiquidGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxNowScene",
+    "BerxMap",
+    "BerxMapPin",
+    "BerxPlaceCard",
+    "BerxNowRail",
+    "BerxEnergyHalo"
+   ]
+  },
+  {
+   "screenId": "BERX-106",
+   "title": "BERX NOW / nearby live world 16",
+   "family": "NOW",
+   "routeName": "berx-now-nearby-live-world-16",
+   "routePath": "/berx-now-nearby-live-world-16",
+   "mood": "urgent",
+   "material": "LiquidGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxNowScene",
+    "BerxMap",
+    "BerxMapPin",
+    "BerxPlaceCard",
+    "BerxNowRail",
+    "BerxEnergyHalo"
+   ]
+  },
+  {
+   "screenId": "BERX-107",
+   "title": "BERX NOW / nearby live world 17",
+   "family": "NOW",
+   "routeName": "berx-now-nearby-live-world-17",
+   "routePath": "/berx-now-nearby-live-world-17",
+   "mood": "urgent",
+   "material": "LiquidGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxNowScene",
+    "BerxMap",
+    "BerxMapPin",
+    "BerxPlaceCard",
+    "BerxNowRail",
+    "BerxEnergyHalo"
+   ]
+  },
+  {
+   "screenId": "BERX-108",
+   "title": "BERX NOW / nearby live world 18",
+   "family": "NOW",
+   "routeName": "berx-now-nearby-live-world-18",
+   "routePath": "/berx-now-nearby-live-world-18",
+   "mood": "urgent",
+   "material": "LiquidGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxNowScene",
+    "BerxMap",
+    "BerxMapPin",
+    "BerxPlaceCard",
+    "BerxNowRail",
+    "BerxEnergyHalo"
+   ]
+  },
+  {
+   "screenId": "BERX-109",
+   "title": "BERX NOW / nearby live world 19",
+   "family": "NOW",
+   "routeName": "berx-now-nearby-live-world-19",
+   "routePath": "/berx-now-nearby-live-world-19",
+   "mood": "urgent",
+   "material": "LiquidGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxNowScene",
+    "BerxMap",
+    "BerxMapPin",
+    "BerxPlaceCard",
+    "BerxNowRail",
+    "BerxEnergyHalo"
+   ]
+  },
+  {
+   "screenId": "BERX-110",
+   "title": "BERX NOW / nearby live world 20",
+   "family": "NOW",
+   "routeName": "berx-now-nearby-live-world-20",
+   "routePath": "/berx-now-nearby-live-world-20",
+   "mood": "urgent",
+   "material": "LiquidGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxNowScene",
+    "BerxMap",
+    "BerxMapPin",
+    "BerxPlaceCard",
+    "BerxNowRail",
+    "BerxEnergyHalo"
+   ]
+  },
+  {
+   "screenId": "BERX-111",
+   "title": "BERX NOW / nearby live world 21",
+   "family": "NOW",
+   "routeName": "berx-now-nearby-live-world-21",
+   "routePath": "/berx-now-nearby-live-world-21",
+   "mood": "urgent",
+   "material": "LiquidGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxNowScene",
+    "BerxMap",
+    "BerxMapPin",
+    "BerxPlaceCard",
+    "BerxNowRail",
+    "BerxEnergyHalo"
+   ]
+  },
+  {
+   "screenId": "BERX-112",
+   "title": "BERX NOW / nearby live world 22",
+   "family": "NOW",
+   "routeName": "berx-now-nearby-live-world-22",
+   "routePath": "/berx-now-nearby-live-world-22",
+   "mood": "urgent",
+   "material": "LiquidGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxNowScene",
+    "BerxMap",
+    "BerxMapPin",
+    "BerxPlaceCard",
+    "BerxNowRail",
+    "BerxEnergyHalo"
+   ]
+  },
+  {
+   "screenId": "BERX-113",
+   "title": "BERX NOW / nearby live world 23",
+   "family": "NOW",
+   "routeName": "berx-now-nearby-live-world-23",
+   "routePath": "/berx-now-nearby-live-world-23",
+   "mood": "urgent",
+   "material": "LiquidGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxNowScene",
+    "BerxMap",
+    "BerxMapPin",
+    "BerxPlaceCard",
+    "BerxNowRail",
+    "BerxEnergyHalo"
+   ]
+  },
+  {
+   "screenId": "BERX-114",
+   "title": "BERX NOW / nearby live world 24",
+   "family": "NOW",
+   "routeName": "berx-now-nearby-live-world-24",
+   "routePath": "/berx-now-nearby-live-world-24",
+   "mood": "urgent",
+   "material": "LiquidGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxNowScene",
+    "BerxMap",
+    "BerxMapPin",
+    "BerxPlaceCard",
+    "BerxNowRail",
+    "BerxEnergyHalo"
+   ]
+  },
+  {
+   "screenId": "BERX-115",
+   "title": "BERX NOW / nearby live world 25",
+   "family": "NOW",
+   "routeName": "berx-now-nearby-live-world-25",
+   "routePath": "/berx-now-nearby-live-world-25",
+   "mood": "urgent",
+   "material": "LiquidGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxNowScene",
+    "BerxMap",
+    "BerxMapPin",
+    "BerxPlaceCard",
+    "BerxNowRail",
+    "BerxEnergyHalo"
+   ]
+  },
+  {
+   "screenId": "BERX-116",
+   "title": "BERX NOW / nearby live world 26",
+   "family": "NOW",
+   "routeName": "berx-now-nearby-live-world-26",
+   "routePath": "/berx-now-nearby-live-world-26",
+   "mood": "urgent",
+   "material": "LiquidGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxNowScene",
+    "BerxMap",
+    "BerxMapPin",
+    "BerxPlaceCard",
+    "BerxNowRail",
+    "BerxEnergyHalo"
+   ]
+  },
+  {
+   "screenId": "BERX-117",
+   "title": "BERX NOW / nearby live world 27",
+   "family": "NOW",
+   "routeName": "berx-now-nearby-live-world-27",
+   "routePath": "/berx-now-nearby-live-world-27",
+   "mood": "urgent",
+   "material": "LiquidGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxNowScene",
+    "BerxMap",
+    "BerxMapPin",
+    "BerxPlaceCard",
+    "BerxNowRail",
+    "BerxEnergyHalo"
+   ]
+  },
+  {
+   "screenId": "BERX-118",
+   "title": "BERX NOW / nearby live world 28",
+   "family": "NOW",
+   "routeName": "berx-now-nearby-live-world-28",
+   "routePath": "/berx-now-nearby-live-world-28",
+   "mood": "urgent",
+   "material": "LiquidGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxNowScene",
+    "BerxMap",
+    "BerxMapPin",
+    "BerxPlaceCard",
+    "BerxNowRail",
+    "BerxEnergyHalo"
+   ]
+  },
+  {
+   "screenId": "BERX-119",
+   "title": "BERX NOW / nearby live world 29",
+   "family": "NOW",
+   "routeName": "berx-now-nearby-live-world-29",
+   "routePath": "/berx-now-nearby-live-world-29",
+   "mood": "urgent",
+   "material": "LiquidGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxNowScene",
+    "BerxMap",
+    "BerxMapPin",
+    "BerxPlaceCard",
+    "BerxNowRail",
+    "BerxEnergyHalo"
+   ]
+  },
+  {
+   "screenId": "BERX-120",
+   "title": "BERX NOW / nearby live world 30",
+   "family": "NOW",
+   "routeName": "berx-now-nearby-live-world-30",
+   "routePath": "/berx-now-nearby-live-world-30",
+   "mood": "urgent",
+   "material": "LiquidGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxNowScene",
+    "BerxMap",
+    "BerxMapPin",
+    "BerxPlaceCard",
+    "BerxNowRail",
+    "BerxEnergyHalo"
+   ]
+  },
+  {
+   "screenId": "BERX-121",
+   "title": "Profile Overview",
+   "family": "PROFILE",
+   "routeName": "profile-overview",
+   "routePath": "/profile-overview",
+   "mood": "identity",
+   "material": "ClearGlass",
+   "lightRecipe": "hero",
+   "contentDepth": "D3",
+   "components": [
+    "BerxProfileHero",
+    "BerxProfileTabs",
+    "BerxAvatar",
+    "BerxStatRail",
+    "BerxMomentGrid"
+   ]
+  },
+  {
+   "screenId": "BERX-122",
+   "title": "Profile Moments",
+   "family": "PROFILE",
+   "routeName": "profile-moments",
+   "routePath": "/profile-moments",
+   "mood": "identity",
+   "material": "ClearGlass",
+   "lightRecipe": "hero",
+   "contentDepth": "D3",
+   "components": [
+    "BerxProfileHero",
+    "BerxProfileTabs",
+    "BerxAvatar",
+    "BerxStatRail",
+    "BerxMomentGrid"
+   ]
+  },
+  {
+   "screenId": "BERX-123",
+   "title": "Profile Places",
+   "family": "PROFILE",
+   "routeName": "profile-places",
+   "routePath": "/profile-places",
+   "mood": "identity",
+   "material": "ClearGlass",
+   "lightRecipe": "hero",
+   "contentDepth": "D3",
+   "components": [
+    "BerxProfileHero",
+    "BerxProfileTabs",
+    "BerxAvatar",
+    "BerxStatRail",
+    "BerxMomentGrid"
+   ]
+  },
+  {
+   "screenId": "BERX-124",
+   "title": "Profile Events",
+   "family": "PROFILE",
+   "routeName": "profile-events",
+   "routePath": "/profile-events",
+   "mood": "identity",
+   "material": "ClearGlass",
+   "lightRecipe": "hero",
+   "contentDepth": "D3",
+   "components": [
+    "BerxProfileHero",
+    "BerxProfileTabs",
+    "BerxAvatar",
+    "BerxStatRail",
+    "BerxMomentGrid"
+   ]
+  },
+  {
+   "screenId": "BERX-125",
+   "title": "Profile Experiences",
+   "family": "PROFILE",
+   "routeName": "profile-experiences",
+   "routePath": "/profile-experiences",
+   "mood": "identity",
+   "material": "ClearGlass",
+   "lightRecipe": "hero",
+   "contentDepth": "D3",
+   "components": [
+    "BerxProfileHero",
+    "BerxProfileTabs",
+    "BerxAvatar",
+    "BerxStatRail",
+    "BerxMomentGrid"
+   ]
+  },
+  {
+   "screenId": "BERX-126",
+   "title": "Profile About",
+   "family": "PROFILE",
+   "routeName": "profile-about",
+   "routePath": "/profile-about",
+   "mood": "identity",
+   "material": "ClearGlass",
+   "lightRecipe": "hero",
+   "contentDepth": "D3",
+   "components": [
+    "BerxProfileHero",
+    "BerxProfileTabs",
+    "BerxAvatar",
+    "BerxStatRail",
+    "BerxMomentGrid"
+   ]
+  },
+  {
+   "screenId": "BERX-127",
+   "title": "Profile Connections",
+   "family": "PROFILE",
+   "routeName": "profile-connections",
+   "routePath": "/profile-connections",
+   "mood": "identity",
+   "material": "ClearGlass",
+   "lightRecipe": "hero",
+   "contentDepth": "D3",
+   "components": [
+    "BerxProfileHero",
+    "BerxProfileTabs",
+    "BerxAvatar",
+    "BerxStatRail",
+    "BerxMomentGrid"
+   ]
+  },
+  {
+   "screenId": "BERX-128",
+   "title": "People / Profiles 08",
+   "family": "PROFILE",
+   "routeName": "people-profiles-08",
+   "routePath": "/people-profiles-08",
+   "mood": "identity",
+   "material": "ClearGlass",
+   "lightRecipe": "hero",
+   "contentDepth": "D3",
+   "components": [
+    "BerxProfileHero",
+    "BerxProfileTabs",
+    "BerxAvatar",
+    "BerxStatRail",
+    "BerxMomentGrid"
+   ]
+  },
+  {
+   "screenId": "BERX-129",
+   "title": "People / Profiles 09",
+   "family": "PROFILE",
+   "routeName": "people-profiles-09",
+   "routePath": "/people-profiles-09",
+   "mood": "identity",
+   "material": "ClearGlass",
+   "lightRecipe": "hero",
+   "contentDepth": "D3",
+   "components": [
+    "BerxProfileHero",
+    "BerxProfileTabs",
+    "BerxAvatar",
+    "BerxStatRail",
+    "BerxMomentGrid"
+   ]
+  },
+  {
+   "screenId": "BERX-130",
+   "title": "People / Profiles 10",
+   "family": "PROFILE",
+   "routeName": "people-profiles-10",
+   "routePath": "/people-profiles-10",
+   "mood": "identity",
+   "material": "ClearGlass",
+   "lightRecipe": "hero",
+   "contentDepth": "D3",
+   "components": [
+    "BerxProfileHero",
+    "BerxProfileTabs",
+    "BerxAvatar",
+    "BerxStatRail",
+    "BerxMomentGrid"
+   ]
+  },
+  {
+   "screenId": "BERX-131",
+   "title": "People / Profiles 11",
+   "family": "PROFILE",
+   "routeName": "people-profiles-11",
+   "routePath": "/people-profiles-11",
+   "mood": "identity",
+   "material": "ClearGlass",
+   "lightRecipe": "hero",
+   "contentDepth": "D3",
+   "components": [
+    "BerxProfileHero",
+    "BerxProfileTabs",
+    "BerxAvatar",
+    "BerxStatRail",
+    "BerxMomentGrid"
+   ]
+  },
+  {
+   "screenId": "BERX-132",
+   "title": "People / Profiles 12",
+   "family": "PROFILE",
+   "routeName": "people-profiles-12",
+   "routePath": "/people-profiles-12",
+   "mood": "identity",
+   "material": "ClearGlass",
+   "lightRecipe": "hero",
+   "contentDepth": "D3",
+   "components": [
+    "BerxProfileHero",
+    "BerxProfileTabs",
+    "BerxAvatar",
+    "BerxStatRail",
+    "BerxMomentGrid"
+   ]
+  },
+  {
+   "screenId": "BERX-133",
+   "title": "People / Profiles 13",
+   "family": "PROFILE",
+   "routeName": "people-profiles-13",
+   "routePath": "/people-profiles-13",
+   "mood": "identity",
+   "material": "ClearGlass",
+   "lightRecipe": "hero",
+   "contentDepth": "D3",
+   "components": [
+    "BerxProfileHero",
+    "BerxProfileTabs",
+    "BerxAvatar",
+    "BerxStatRail",
+    "BerxMomentGrid"
+   ]
+  },
+  {
+   "screenId": "BERX-134",
+   "title": "People / Profiles 14",
+   "family": "PROFILE",
+   "routeName": "people-profiles-14",
+   "routePath": "/people-profiles-14",
+   "mood": "identity",
+   "material": "ClearGlass",
+   "lightRecipe": "hero",
+   "contentDepth": "D3",
+   "components": [
+    "BerxProfileHero",
+    "BerxProfileTabs",
+    "BerxAvatar",
+    "BerxStatRail",
+    "BerxMomentGrid"
+   ]
+  },
+  {
+   "screenId": "BERX-135",
+   "title": "People / Profiles 15",
+   "family": "PROFILE",
+   "routeName": "people-profiles-15",
+   "routePath": "/people-profiles-15",
+   "mood": "identity",
+   "material": "ClearGlass",
+   "lightRecipe": "hero",
+   "contentDepth": "D3",
+   "components": [
+    "BerxProfileHero",
+    "BerxProfileTabs",
+    "BerxAvatar",
+    "BerxStatRail",
+    "BerxMomentGrid"
+   ]
+  },
+  {
+   "screenId": "BERX-136",
+   "title": "People / Profiles 16",
+   "family": "PROFILE",
+   "routeName": "people-profiles-16",
+   "routePath": "/people-profiles-16",
+   "mood": "identity",
+   "material": "ClearGlass",
+   "lightRecipe": "hero",
+   "contentDepth": "D3",
+   "components": [
+    "BerxProfileHero",
+    "BerxProfileTabs",
+    "BerxAvatar",
+    "BerxStatRail",
+    "BerxMomentGrid"
+   ]
+  },
+  {
+   "screenId": "BERX-137",
+   "title": "People / Profiles 17",
+   "family": "PROFILE",
+   "routeName": "people-profiles-17",
+   "routePath": "/people-profiles-17",
+   "mood": "identity",
+   "material": "ClearGlass",
+   "lightRecipe": "hero",
+   "contentDepth": "D3",
+   "components": [
+    "BerxProfileHero",
+    "BerxProfileTabs",
+    "BerxAvatar",
+    "BerxStatRail",
+    "BerxMomentGrid"
+   ]
+  },
+  {
+   "screenId": "BERX-138",
+   "title": "People / Profiles 18",
+   "family": "PROFILE",
+   "routeName": "people-profiles-18",
+   "routePath": "/people-profiles-18",
+   "mood": "identity",
+   "material": "ClearGlass",
+   "lightRecipe": "hero",
+   "contentDepth": "D3",
+   "components": [
+    "BerxProfileHero",
+    "BerxProfileTabs",
+    "BerxAvatar",
+    "BerxStatRail",
+    "BerxMomentGrid"
+   ]
+  },
+  {
+   "screenId": "BERX-139",
+   "title": "People / Profiles 19",
+   "family": "PROFILE",
+   "routeName": "people-profiles-19",
+   "routePath": "/people-profiles-19",
+   "mood": "identity",
+   "material": "ClearGlass",
+   "lightRecipe": "hero",
+   "contentDepth": "D3",
+   "components": [
+    "BerxProfileHero",
+    "BerxProfileTabs",
+    "BerxAvatar",
+    "BerxStatRail",
+    "BerxMomentGrid"
+   ]
+  },
+  {
+   "screenId": "BERX-140",
+   "title": "People / Profiles 20",
+   "family": "PROFILE",
+   "routeName": "people-profiles-20",
+   "routePath": "/people-profiles-20",
+   "mood": "identity",
+   "material": "ClearGlass",
+   "lightRecipe": "hero",
+   "contentDepth": "D3",
+   "components": [
+    "BerxProfileHero",
+    "BerxProfileTabs",
+    "BerxAvatar",
+    "BerxStatRail",
+    "BerxMomentGrid"
+   ]
+  },
+  {
+   "screenId": "BERX-141",
+   "title": "People / Profiles 21",
+   "family": "PROFILE",
+   "routeName": "people-profiles-21",
+   "routePath": "/people-profiles-21",
+   "mood": "identity",
+   "material": "ClearGlass",
+   "lightRecipe": "hero",
+   "contentDepth": "D3",
+   "components": [
+    "BerxProfileHero",
+    "BerxProfileTabs",
+    "BerxAvatar",
+    "BerxStatRail",
+    "BerxMomentGrid"
+   ]
+  },
+  {
+   "screenId": "BERX-142",
+   "title": "People / Profiles 22",
+   "family": "PROFILE",
+   "routeName": "people-profiles-22",
+   "routePath": "/people-profiles-22",
+   "mood": "identity",
+   "material": "ClearGlass",
+   "lightRecipe": "hero",
+   "contentDepth": "D3",
+   "components": [
+    "BerxProfileHero",
+    "BerxProfileTabs",
+    "BerxAvatar",
+    "BerxStatRail",
+    "BerxMomentGrid"
+   ]
+  },
+  {
+   "screenId": "BERX-143",
+   "title": "People / Profiles 23",
+   "family": "PROFILE",
+   "routeName": "people-profiles-23",
+   "routePath": "/people-profiles-23",
+   "mood": "identity",
+   "material": "ClearGlass",
+   "lightRecipe": "hero",
+   "contentDepth": "D3",
+   "components": [
+    "BerxProfileHero",
+    "BerxProfileTabs",
+    "BerxAvatar",
+    "BerxStatRail",
+    "BerxMomentGrid"
+   ]
+  },
+  {
+   "screenId": "BERX-144",
+   "title": "People / Profiles 24",
+   "family": "PROFILE",
+   "routeName": "people-profiles-24",
+   "routePath": "/people-profiles-24",
+   "mood": "identity",
+   "material": "ClearGlass",
+   "lightRecipe": "hero",
+   "contentDepth": "D3",
+   "components": [
+    "BerxProfileHero",
+    "BerxProfileTabs",
+    "BerxAvatar",
+    "BerxStatRail",
+    "BerxMomentGrid"
+   ]
+  },
+  {
+   "screenId": "BERX-145",
+   "title": "People / Profiles 25",
+   "family": "PROFILE",
+   "routeName": "people-profiles-25",
+   "routePath": "/people-profiles-25",
+   "mood": "identity",
+   "material": "ClearGlass",
+   "lightRecipe": "hero",
+   "contentDepth": "D3",
+   "components": [
+    "BerxProfileHero",
+    "BerxProfileTabs",
+    "BerxAvatar",
+    "BerxStatRail",
+    "BerxMomentGrid"
+   ]
+  },
+  {
+   "screenId": "BERX-146",
+   "title": "People / Profiles 26",
+   "family": "PROFILE",
+   "routeName": "people-profiles-26",
+   "routePath": "/people-profiles-26",
+   "mood": "identity",
+   "material": "ClearGlass",
+   "lightRecipe": "hero",
+   "contentDepth": "D3",
+   "components": [
+    "BerxProfileHero",
+    "BerxProfileTabs",
+    "BerxAvatar",
+    "BerxStatRail",
+    "BerxMomentGrid"
+   ]
+  },
+  {
+   "screenId": "BERX-147",
+   "title": "People / Profiles 27",
+   "family": "PROFILE",
+   "routeName": "people-profiles-27",
+   "routePath": "/people-profiles-27",
+   "mood": "identity",
+   "material": "ClearGlass",
+   "lightRecipe": "hero",
+   "contentDepth": "D3",
+   "components": [
+    "BerxProfileHero",
+    "BerxProfileTabs",
+    "BerxAvatar",
+    "BerxStatRail",
+    "BerxMomentGrid"
+   ]
+  },
+  {
+   "screenId": "BERX-148",
+   "title": "People / Profiles 28",
+   "family": "PROFILE",
+   "routeName": "people-profiles-28",
+   "routePath": "/people-profiles-28",
+   "mood": "identity",
+   "material": "ClearGlass",
+   "lightRecipe": "hero",
+   "contentDepth": "D3",
+   "components": [
+    "BerxProfileHero",
+    "BerxProfileTabs",
+    "BerxAvatar",
+    "BerxStatRail",
+    "BerxMomentGrid"
+   ]
+  },
+  {
+   "screenId": "BERX-149",
+   "title": "People / Profiles 29",
+   "family": "PROFILE",
+   "routeName": "people-profiles-29",
+   "routePath": "/people-profiles-29",
+   "mood": "identity",
+   "material": "ClearGlass",
+   "lightRecipe": "hero",
+   "contentDepth": "D3",
+   "components": [
+    "BerxProfileHero",
+    "BerxProfileTabs",
+    "BerxAvatar",
+    "BerxStatRail",
+    "BerxMomentGrid"
+   ]
+  },
+  {
+   "screenId": "BERX-150",
+   "title": "People / Profiles 30",
+   "family": "PROFILE",
+   "routeName": "people-profiles-30",
+   "routePath": "/people-profiles-30",
+   "mood": "identity",
+   "material": "ClearGlass",
+   "lightRecipe": "hero",
+   "contentDepth": "D3",
+   "components": [
+    "BerxProfileHero",
+    "BerxProfileTabs",
+    "BerxAvatar",
+    "BerxStatRail",
+    "BerxMomentGrid"
+   ]
+  },
+  {
+   "screenId": "BERX-151",
+   "title": "Connections",
+   "family": "SOCIAL",
+   "routeName": "connections",
+   "routePath": "/connections",
+   "mood": "connected",
+   "material": "FrostGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxIdentity",
+    "BerxAvatarCluster",
+    "BerxGlassSurface",
+    "BerxPrimaryButton",
+    "BerxBottomNav"
+   ]
+  },
+  {
+   "screenId": "BERX-152",
+   "title": "Social graph / connections 02",
+   "family": "SOCIAL",
+   "routeName": "social-graph-connections-02",
+   "routePath": "/social-graph-connections-02",
+   "mood": "connected",
+   "material": "FrostGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxIdentity",
+    "BerxAvatarCluster",
+    "BerxGlassSurface",
+    "BerxPrimaryButton",
+    "BerxBottomNav"
+   ]
+  },
+  {
+   "screenId": "BERX-153",
+   "title": "Social graph / connections 03",
+   "family": "SOCIAL",
+   "routeName": "social-graph-connections-03",
+   "routePath": "/social-graph-connections-03",
+   "mood": "connected",
+   "material": "FrostGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxIdentity",
+    "BerxAvatarCluster",
+    "BerxGlassSurface",
+    "BerxPrimaryButton",
+    "BerxBottomNav"
+   ]
+  },
+  {
+   "screenId": "BERX-154",
+   "title": "Social graph / connections 04",
+   "family": "SOCIAL",
+   "routeName": "social-graph-connections-04",
+   "routePath": "/social-graph-connections-04",
+   "mood": "connected",
+   "material": "FrostGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxIdentity",
+    "BerxAvatarCluster",
+    "BerxGlassSurface",
+    "BerxPrimaryButton",
+    "BerxBottomNav"
+   ]
+  },
+  {
+   "screenId": "BERX-155",
+   "title": "Social graph / connections 05",
+   "family": "SOCIAL",
+   "routeName": "social-graph-connections-05",
+   "routePath": "/social-graph-connections-05",
+   "mood": "connected",
+   "material": "FrostGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxIdentity",
+    "BerxAvatarCluster",
+    "BerxGlassSurface",
+    "BerxPrimaryButton",
+    "BerxBottomNav"
+   ]
+  },
+  {
+   "screenId": "BERX-156",
+   "title": "Social graph / connections 06",
+   "family": "SOCIAL",
+   "routeName": "social-graph-connections-06",
+   "routePath": "/social-graph-connections-06",
+   "mood": "connected",
+   "material": "FrostGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxIdentity",
+    "BerxAvatarCluster",
+    "BerxGlassSurface",
+    "BerxPrimaryButton",
+    "BerxBottomNav"
+   ]
+  },
+  {
+   "screenId": "BERX-157",
+   "title": "Social graph / connections 07",
+   "family": "SOCIAL",
+   "routeName": "social-graph-connections-07",
+   "routePath": "/social-graph-connections-07",
+   "mood": "connected",
+   "material": "FrostGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxIdentity",
+    "BerxAvatarCluster",
+    "BerxGlassSurface",
+    "BerxPrimaryButton",
+    "BerxBottomNav"
+   ]
+  },
+  {
+   "screenId": "BERX-158",
+   "title": "Social graph / connections 08",
+   "family": "SOCIAL",
+   "routeName": "social-graph-connections-08",
+   "routePath": "/social-graph-connections-08",
+   "mood": "connected",
+   "material": "FrostGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxIdentity",
+    "BerxAvatarCluster",
+    "BerxGlassSurface",
+    "BerxPrimaryButton",
+    "BerxBottomNav"
+   ]
+  },
+  {
+   "screenId": "BERX-159",
+   "title": "Social graph / connections 09",
+   "family": "SOCIAL",
+   "routeName": "social-graph-connections-09",
+   "routePath": "/social-graph-connections-09",
+   "mood": "connected",
+   "material": "FrostGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxIdentity",
+    "BerxAvatarCluster",
+    "BerxGlassSurface",
+    "BerxPrimaryButton",
+    "BerxBottomNav"
+   ]
+  },
+  {
+   "screenId": "BERX-160",
+   "title": "Social graph / connections 10",
+   "family": "SOCIAL",
+   "routeName": "social-graph-connections-10",
+   "routePath": "/social-graph-connections-10",
+   "mood": "connected",
+   "material": "FrostGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxIdentity",
+    "BerxAvatarCluster",
+    "BerxGlassSurface",
+    "BerxPrimaryButton",
+    "BerxBottomNav"
+   ]
+  },
+  {
+   "screenId": "BERX-161",
+   "title": "Social graph / connections 11",
+   "family": "SOCIAL",
+   "routeName": "social-graph-connections-11",
+   "routePath": "/social-graph-connections-11",
+   "mood": "connected",
+   "material": "FrostGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxIdentity",
+    "BerxAvatarCluster",
+    "BerxGlassSurface",
+    "BerxPrimaryButton",
+    "BerxBottomNav"
+   ]
+  },
+  {
+   "screenId": "BERX-162",
+   "title": "Social graph / connections 12",
+   "family": "SOCIAL",
+   "routeName": "social-graph-connections-12",
+   "routePath": "/social-graph-connections-12",
+   "mood": "connected",
+   "material": "FrostGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxIdentity",
+    "BerxAvatarCluster",
+    "BerxGlassSurface",
+    "BerxPrimaryButton",
+    "BerxBottomNav"
+   ]
+  },
+  {
+   "screenId": "BERX-163",
+   "title": "Social graph / connections 13",
+   "family": "SOCIAL",
+   "routeName": "social-graph-connections-13",
+   "routePath": "/social-graph-connections-13",
+   "mood": "connected",
+   "material": "FrostGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxIdentity",
+    "BerxAvatarCluster",
+    "BerxGlassSurface",
+    "BerxPrimaryButton",
+    "BerxBottomNav"
+   ]
+  },
+  {
+   "screenId": "BERX-164",
+   "title": "Social graph / connections 14",
+   "family": "SOCIAL",
+   "routeName": "social-graph-connections-14",
+   "routePath": "/social-graph-connections-14",
+   "mood": "connected",
+   "material": "FrostGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxIdentity",
+    "BerxAvatarCluster",
+    "BerxGlassSurface",
+    "BerxPrimaryButton",
+    "BerxBottomNav"
+   ]
+  },
+  {
+   "screenId": "BERX-165",
+   "title": "Social graph / connections 15",
+   "family": "SOCIAL",
+   "routeName": "social-graph-connections-15",
+   "routePath": "/social-graph-connections-15",
+   "mood": "connected",
+   "material": "FrostGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxIdentity",
+    "BerxAvatarCluster",
+    "BerxGlassSurface",
+    "BerxPrimaryButton",
+    "BerxBottomNav"
+   ]
+  },
+  {
+   "screenId": "BERX-166",
+   "title": "Social graph / connections 16",
+   "family": "SOCIAL",
+   "routeName": "social-graph-connections-16",
+   "routePath": "/social-graph-connections-16",
+   "mood": "connected",
+   "material": "FrostGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxIdentity",
+    "BerxAvatarCluster",
+    "BerxGlassSurface",
+    "BerxPrimaryButton",
+    "BerxBottomNav"
+   ]
+  },
+  {
+   "screenId": "BERX-167",
+   "title": "Social graph / connections 17",
+   "family": "SOCIAL",
+   "routeName": "social-graph-connections-17",
+   "routePath": "/social-graph-connections-17",
+   "mood": "connected",
+   "material": "FrostGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxIdentity",
+    "BerxAvatarCluster",
+    "BerxGlassSurface",
+    "BerxPrimaryButton",
+    "BerxBottomNav"
+   ]
+  },
+  {
+   "screenId": "BERX-168",
+   "title": "Social graph / connections 18",
+   "family": "SOCIAL",
+   "routeName": "social-graph-connections-18",
+   "routePath": "/social-graph-connections-18",
+   "mood": "connected",
+   "material": "FrostGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxIdentity",
+    "BerxAvatarCluster",
+    "BerxGlassSurface",
+    "BerxPrimaryButton",
+    "BerxBottomNav"
+   ]
+  },
+  {
+   "screenId": "BERX-169",
+   "title": "Social graph / connections 19",
+   "family": "SOCIAL",
+   "routeName": "social-graph-connections-19",
+   "routePath": "/social-graph-connections-19",
+   "mood": "connected",
+   "material": "FrostGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxIdentity",
+    "BerxAvatarCluster",
+    "BerxGlassSurface",
+    "BerxPrimaryButton",
+    "BerxBottomNav"
+   ]
+  },
+  {
+   "screenId": "BERX-170",
+   "title": "Social graph / connections 20",
+   "family": "SOCIAL",
+   "routeName": "social-graph-connections-20",
+   "routePath": "/social-graph-connections-20",
+   "mood": "connected",
+   "material": "FrostGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxIdentity",
+    "BerxAvatarCluster",
+    "BerxGlassSurface",
+    "BerxPrimaryButton",
+    "BerxBottomNav"
+   ]
+  },
+  {
+   "screenId": "BERX-171",
+   "title": "Social graph / connections 21",
+   "family": "SOCIAL",
+   "routeName": "social-graph-connections-21",
+   "routePath": "/social-graph-connections-21",
+   "mood": "connected",
+   "material": "FrostGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxIdentity",
+    "BerxAvatarCluster",
+    "BerxGlassSurface",
+    "BerxPrimaryButton",
+    "BerxBottomNav"
+   ]
+  },
+  {
+   "screenId": "BERX-172",
+   "title": "Social graph / connections 22",
+   "family": "SOCIAL",
+   "routeName": "social-graph-connections-22",
+   "routePath": "/social-graph-connections-22",
+   "mood": "connected",
+   "material": "FrostGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxIdentity",
+    "BerxAvatarCluster",
+    "BerxGlassSurface",
+    "BerxPrimaryButton",
+    "BerxBottomNav"
+   ]
+  },
+  {
+   "screenId": "BERX-173",
+   "title": "Social graph / connections 23",
+   "family": "SOCIAL",
+   "routeName": "social-graph-connections-23",
+   "routePath": "/social-graph-connections-23",
+   "mood": "connected",
+   "material": "FrostGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxIdentity",
+    "BerxAvatarCluster",
+    "BerxGlassSurface",
+    "BerxPrimaryButton",
+    "BerxBottomNav"
+   ]
+  },
+  {
+   "screenId": "BERX-174",
+   "title": "Social graph / connections 24",
+   "family": "SOCIAL",
+   "routeName": "social-graph-connections-24",
+   "routePath": "/social-graph-connections-24",
+   "mood": "connected",
+   "material": "FrostGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxIdentity",
+    "BerxAvatarCluster",
+    "BerxGlassSurface",
+    "BerxPrimaryButton",
+    "BerxBottomNav"
+   ]
+  },
+  {
+   "screenId": "BERX-175",
+   "title": "Social graph / connections 25",
+   "family": "SOCIAL",
+   "routeName": "social-graph-connections-25",
+   "routePath": "/social-graph-connections-25",
+   "mood": "connected",
+   "material": "FrostGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxIdentity",
+    "BerxAvatarCluster",
+    "BerxGlassSurface",
+    "BerxPrimaryButton",
+    "BerxBottomNav"
+   ]
+  },
+  {
+   "screenId": "BERX-176",
+   "title": "Messages",
+   "family": "MESSAGES",
+   "routeName": "messages",
+   "routePath": "/messages",
+   "mood": "intimate",
+   "material": "DeepGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D2",
+   "components": [
+    "BerxChatRow",
+    "BerxMessageBubble",
+    "BerxComposer",
+    "BerxTypingIndicator",
+    "BerxCallSurface"
+   ]
+  },
+  {
+   "screenId": "BERX-177",
+   "title": "Messaging / calls 02",
+   "family": "MESSAGES",
+   "routeName": "messaging-calls-02",
+   "routePath": "/messaging-calls-02",
+   "mood": "intimate",
+   "material": "DeepGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D2",
+   "components": [
+    "BerxChatRow",
+    "BerxMessageBubble",
+    "BerxComposer",
+    "BerxTypingIndicator",
+    "BerxCallSurface"
+   ]
+  },
+  {
+   "screenId": "BERX-178",
+   "title": "Messaging / calls 03",
+   "family": "MESSAGES",
+   "routeName": "messaging-calls-03",
+   "routePath": "/messaging-calls-03",
+   "mood": "intimate",
+   "material": "DeepGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D2",
+   "components": [
+    "BerxChatRow",
+    "BerxMessageBubble",
+    "BerxComposer",
+    "BerxTypingIndicator",
+    "BerxCallSurface"
+   ]
+  },
+  {
+   "screenId": "BERX-179",
+   "title": "Messaging / calls 04",
+   "family": "MESSAGES",
+   "routeName": "messaging-calls-04",
+   "routePath": "/messaging-calls-04",
+   "mood": "intimate",
+   "material": "DeepGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D2",
+   "components": [
+    "BerxChatRow",
+    "BerxMessageBubble",
+    "BerxComposer",
+    "BerxTypingIndicator",
+    "BerxCallSurface"
+   ]
+  },
+  {
+   "screenId": "BERX-180",
+   "title": "Messaging / calls 05",
+   "family": "MESSAGES",
+   "routeName": "messaging-calls-05",
+   "routePath": "/messaging-calls-05",
+   "mood": "intimate",
+   "material": "DeepGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D2",
+   "components": [
+    "BerxChatRow",
+    "BerxMessageBubble",
+    "BerxComposer",
+    "BerxTypingIndicator",
+    "BerxCallSurface"
+   ]
+  },
+  {
+   "screenId": "BERX-181",
+   "title": "Messaging / calls 06",
+   "family": "MESSAGES",
+   "routeName": "messaging-calls-06",
+   "routePath": "/messaging-calls-06",
+   "mood": "intimate",
+   "material": "DeepGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D2",
+   "components": [
+    "BerxChatRow",
+    "BerxMessageBubble",
+    "BerxComposer",
+    "BerxTypingIndicator",
+    "BerxCallSurface"
+   ]
+  },
+  {
+   "screenId": "BERX-182",
+   "title": "Messaging / calls 07",
+   "family": "MESSAGES",
+   "routeName": "messaging-calls-07",
+   "routePath": "/messaging-calls-07",
+   "mood": "intimate",
+   "material": "DeepGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D2",
+   "components": [
+    "BerxChatRow",
+    "BerxMessageBubble",
+    "BerxComposer",
+    "BerxTypingIndicator",
+    "BerxCallSurface"
+   ]
+  },
+  {
+   "screenId": "BERX-183",
+   "title": "Messaging / calls 08",
+   "family": "MESSAGES",
+   "routeName": "messaging-calls-08",
+   "routePath": "/messaging-calls-08",
+   "mood": "intimate",
+   "material": "DeepGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D2",
+   "components": [
+    "BerxChatRow",
+    "BerxMessageBubble",
+    "BerxComposer",
+    "BerxTypingIndicator",
+    "BerxCallSurface"
+   ]
+  },
+  {
+   "screenId": "BERX-184",
+   "title": "Messaging / calls 09",
+   "family": "MESSAGES",
+   "routeName": "messaging-calls-09",
+   "routePath": "/messaging-calls-09",
+   "mood": "intimate",
+   "material": "DeepGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D2",
+   "components": [
+    "BerxChatRow",
+    "BerxMessageBubble",
+    "BerxComposer",
+    "BerxTypingIndicator",
+    "BerxCallSurface"
+   ]
+  },
+  {
+   "screenId": "BERX-185",
+   "title": "Messaging / calls 10",
+   "family": "MESSAGES",
+   "routeName": "messaging-calls-10",
+   "routePath": "/messaging-calls-10",
+   "mood": "intimate",
+   "material": "DeepGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D2",
+   "components": [
+    "BerxChatRow",
+    "BerxMessageBubble",
+    "BerxComposer",
+    "BerxTypingIndicator",
+    "BerxCallSurface"
+   ]
+  },
+  {
+   "screenId": "BERX-186",
+   "title": "Messaging / calls 11",
+   "family": "MESSAGES",
+   "routeName": "messaging-calls-11",
+   "routePath": "/messaging-calls-11",
+   "mood": "intimate",
+   "material": "DeepGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D2",
+   "components": [
+    "BerxChatRow",
+    "BerxMessageBubble",
+    "BerxComposer",
+    "BerxTypingIndicator",
+    "BerxCallSurface"
+   ]
+  },
+  {
+   "screenId": "BERX-187",
+   "title": "Messaging / calls 12",
+   "family": "MESSAGES",
+   "routeName": "messaging-calls-12",
+   "routePath": "/messaging-calls-12",
+   "mood": "intimate",
+   "material": "DeepGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D2",
+   "components": [
+    "BerxChatRow",
+    "BerxMessageBubble",
+    "BerxComposer",
+    "BerxTypingIndicator",
+    "BerxCallSurface"
+   ]
+  },
+  {
+   "screenId": "BERX-188",
+   "title": "Messaging / calls 13",
+   "family": "MESSAGES",
+   "routeName": "messaging-calls-13",
+   "routePath": "/messaging-calls-13",
+   "mood": "intimate",
+   "material": "DeepGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D2",
+   "components": [
+    "BerxChatRow",
+    "BerxMessageBubble",
+    "BerxComposer",
+    "BerxTypingIndicator",
+    "BerxCallSurface"
+   ]
+  },
+  {
+   "screenId": "BERX-189",
+   "title": "Messaging / calls 14",
+   "family": "MESSAGES",
+   "routeName": "messaging-calls-14",
+   "routePath": "/messaging-calls-14",
+   "mood": "intimate",
+   "material": "DeepGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D2",
+   "components": [
+    "BerxChatRow",
+    "BerxMessageBubble",
+    "BerxComposer",
+    "BerxTypingIndicator",
+    "BerxCallSurface"
+   ]
+  },
+  {
+   "screenId": "BERX-190",
+   "title": "Messaging / calls 15",
+   "family": "MESSAGES",
+   "routeName": "messaging-calls-15",
+   "routePath": "/messaging-calls-15",
+   "mood": "intimate",
+   "material": "DeepGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D2",
+   "components": [
+    "BerxChatRow",
+    "BerxMessageBubble",
+    "BerxComposer",
+    "BerxTypingIndicator",
+    "BerxCallSurface"
+   ]
+  },
+  {
+   "screenId": "BERX-191",
+   "title": "Messaging / calls 16",
+   "family": "MESSAGES",
+   "routeName": "messaging-calls-16",
+   "routePath": "/messaging-calls-16",
+   "mood": "intimate",
+   "material": "DeepGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D2",
+   "components": [
+    "BerxChatRow",
+    "BerxMessageBubble",
+    "BerxComposer",
+    "BerxTypingIndicator",
+    "BerxCallSurface"
+   ]
+  },
+  {
+   "screenId": "BERX-192",
+   "title": "Messaging / calls 17",
+   "family": "MESSAGES",
+   "routeName": "messaging-calls-17",
+   "routePath": "/messaging-calls-17",
+   "mood": "intimate",
+   "material": "DeepGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D2",
+   "components": [
+    "BerxChatRow",
+    "BerxMessageBubble",
+    "BerxComposer",
+    "BerxTypingIndicator",
+    "BerxCallSurface"
+   ]
+  },
+  {
+   "screenId": "BERX-193",
+   "title": "Messaging / calls 18",
+   "family": "MESSAGES",
+   "routeName": "messaging-calls-18",
+   "routePath": "/messaging-calls-18",
+   "mood": "intimate",
+   "material": "DeepGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D2",
+   "components": [
+    "BerxChatRow",
+    "BerxMessageBubble",
+    "BerxComposer",
+    "BerxTypingIndicator",
+    "BerxCallSurface"
+   ]
+  },
+  {
+   "screenId": "BERX-194",
+   "title": "Messaging / calls 19",
+   "family": "MESSAGES",
+   "routeName": "messaging-calls-19",
+   "routePath": "/messaging-calls-19",
+   "mood": "intimate",
+   "material": "DeepGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D2",
+   "components": [
+    "BerxChatRow",
+    "BerxMessageBubble",
+    "BerxComposer",
+    "BerxTypingIndicator",
+    "BerxCallSurface"
+   ]
+  },
+  {
+   "screenId": "BERX-195",
+   "title": "Messaging / calls 20",
+   "family": "MESSAGES",
+   "routeName": "messaging-calls-20",
+   "routePath": "/messaging-calls-20",
+   "mood": "intimate",
+   "material": "DeepGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D2",
+   "components": [
+    "BerxChatRow",
+    "BerxMessageBubble",
+    "BerxComposer",
+    "BerxTypingIndicator",
+    "BerxCallSurface"
+   ]
+  },
+  {
+   "screenId": "BERX-196",
+   "title": "Messaging / calls 21",
+   "family": "MESSAGES",
+   "routeName": "messaging-calls-21",
+   "routePath": "/messaging-calls-21",
+   "mood": "intimate",
+   "material": "DeepGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D2",
+   "components": [
+    "BerxChatRow",
+    "BerxMessageBubble",
+    "BerxComposer",
+    "BerxTypingIndicator",
+    "BerxCallSurface"
+   ]
+  },
+  {
+   "screenId": "BERX-197",
+   "title": "Messaging / calls 22",
+   "family": "MESSAGES",
+   "routeName": "messaging-calls-22",
+   "routePath": "/messaging-calls-22",
+   "mood": "intimate",
+   "material": "DeepGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D2",
+   "components": [
+    "BerxChatRow",
+    "BerxMessageBubble",
+    "BerxComposer",
+    "BerxTypingIndicator",
+    "BerxCallSurface"
+   ]
+  },
+  {
+   "screenId": "BERX-198",
+   "title": "Messaging / calls 23",
+   "family": "MESSAGES",
+   "routeName": "messaging-calls-23",
+   "routePath": "/messaging-calls-23",
+   "mood": "intimate",
+   "material": "DeepGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D2",
+   "components": [
+    "BerxChatRow",
+    "BerxMessageBubble",
+    "BerxComposer",
+    "BerxTypingIndicator",
+    "BerxCallSurface"
+   ]
+  },
+  {
+   "screenId": "BERX-199",
+   "title": "Messaging / calls 24",
+   "family": "MESSAGES",
+   "routeName": "messaging-calls-24",
+   "routePath": "/messaging-calls-24",
+   "mood": "intimate",
+   "material": "DeepGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D2",
+   "components": [
+    "BerxChatRow",
+    "BerxMessageBubble",
+    "BerxComposer",
+    "BerxTypingIndicator",
+    "BerxCallSurface"
+   ]
+  },
+  {
+   "screenId": "BERX-200",
+   "title": "Messaging / calls 25",
+   "family": "MESSAGES",
+   "routeName": "messaging-calls-25",
+   "routePath": "/messaging-calls-25",
+   "mood": "intimate",
+   "material": "DeepGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D2",
+   "components": [
+    "BerxChatRow",
+    "BerxMessageBubble",
+    "BerxComposer",
+    "BerxTypingIndicator",
+    "BerxCallSurface"
+   ]
+  },
+  {
+   "screenId": "BERX-201",
+   "title": "Places Discovery",
+   "family": "PLACES",
+   "routeName": "places-discovery",
+   "routePath": "/places-discovery",
+   "mood": "sensory",
+   "material": "ClearGlass",
+   "lightRecipe": "hero",
+   "contentDepth": "D3",
+   "components": [
+    "BerxPlaceHero",
+    "BerxMap",
+    "BerxPlaceHours",
+    "BerxPlaceRating",
+    "BerxPlaceCard"
+   ]
+  },
+  {
+   "screenId": "BERX-202",
+   "title": "Places / restaurants / businesses 02",
+   "family": "PLACES",
+   "routeName": "places-restaurants-businesses-02",
+   "routePath": "/places-restaurants-businesses-02",
+   "mood": "sensory",
+   "material": "ClearGlass",
+   "lightRecipe": "hero",
+   "contentDepth": "D3",
+   "components": [
+    "BerxPlaceHero",
+    "BerxMap",
+    "BerxPlaceHours",
+    "BerxPlaceRating",
+    "BerxPlaceCard"
+   ]
+  },
+  {
+   "screenId": "BERX-203",
+   "title": "Places / restaurants / businesses 03",
+   "family": "PLACES",
+   "routeName": "places-restaurants-businesses-03",
+   "routePath": "/places-restaurants-businesses-03",
+   "mood": "sensory",
+   "material": "ClearGlass",
+   "lightRecipe": "hero",
+   "contentDepth": "D3",
+   "components": [
+    "BerxPlaceHero",
+    "BerxMap",
+    "BerxPlaceHours",
+    "BerxPlaceRating",
+    "BerxPlaceCard"
+   ]
+  },
+  {
+   "screenId": "BERX-204",
+   "title": "Places / restaurants / businesses 04",
+   "family": "PLACES",
+   "routeName": "places-restaurants-businesses-04",
+   "routePath": "/places-restaurants-businesses-04",
+   "mood": "sensory",
+   "material": "ClearGlass",
+   "lightRecipe": "hero",
+   "contentDepth": "D3",
+   "components": [
+    "BerxPlaceHero",
+    "BerxMap",
+    "BerxPlaceHours",
+    "BerxPlaceRating",
+    "BerxPlaceCard"
+   ]
+  },
+  {
+   "screenId": "BERX-205",
+   "title": "Places / restaurants / businesses 05",
+   "family": "PLACES",
+   "routeName": "places-restaurants-businesses-05",
+   "routePath": "/places-restaurants-businesses-05",
+   "mood": "sensory",
+   "material": "ClearGlass",
+   "lightRecipe": "hero",
+   "contentDepth": "D3",
+   "components": [
+    "BerxPlaceHero",
+    "BerxMap",
+    "BerxPlaceHours",
+    "BerxPlaceRating",
+    "BerxPlaceCard"
+   ]
+  },
+  {
+   "screenId": "BERX-206",
+   "title": "Places / restaurants / businesses 06",
+   "family": "PLACES",
+   "routeName": "places-restaurants-businesses-06",
+   "routePath": "/places-restaurants-businesses-06",
+   "mood": "sensory",
+   "material": "ClearGlass",
+   "lightRecipe": "hero",
+   "contentDepth": "D3",
+   "components": [
+    "BerxPlaceHero",
+    "BerxMap",
+    "BerxPlaceHours",
+    "BerxPlaceRating",
+    "BerxPlaceCard"
+   ]
+  },
+  {
+   "screenId": "BERX-207",
+   "title": "Places / restaurants / businesses 07",
+   "family": "PLACES",
+   "routeName": "places-restaurants-businesses-07",
+   "routePath": "/places-restaurants-businesses-07",
+   "mood": "sensory",
+   "material": "ClearGlass",
+   "lightRecipe": "hero",
+   "contentDepth": "D3",
+   "components": [
+    "BerxPlaceHero",
+    "BerxMap",
+    "BerxPlaceHours",
+    "BerxPlaceRating",
+    "BerxPlaceCard"
+   ]
+  },
+  {
+   "screenId": "BERX-208",
+   "title": "Places / restaurants / businesses 08",
+   "family": "PLACES",
+   "routeName": "places-restaurants-businesses-08",
+   "routePath": "/places-restaurants-businesses-08",
+   "mood": "sensory",
+   "material": "ClearGlass",
+   "lightRecipe": "hero",
+   "contentDepth": "D3",
+   "components": [
+    "BerxPlaceHero",
+    "BerxMap",
+    "BerxPlaceHours",
+    "BerxPlaceRating",
+    "BerxPlaceCard"
+   ]
+  },
+  {
+   "screenId": "BERX-209",
+   "title": "Places / restaurants / businesses 09",
+   "family": "PLACES",
+   "routeName": "places-restaurants-businesses-09",
+   "routePath": "/places-restaurants-businesses-09",
+   "mood": "sensory",
+   "material": "ClearGlass",
+   "lightRecipe": "hero",
+   "contentDepth": "D3",
+   "components": [
+    "BerxPlaceHero",
+    "BerxMap",
+    "BerxPlaceHours",
+    "BerxPlaceRating",
+    "BerxPlaceCard"
+   ]
+  },
+  {
+   "screenId": "BERX-210",
+   "title": "Places / restaurants / businesses 10",
+   "family": "PLACES",
+   "routeName": "places-restaurants-businesses-10",
+   "routePath": "/places-restaurants-businesses-10",
+   "mood": "sensory",
+   "material": "ClearGlass",
+   "lightRecipe": "hero",
+   "contentDepth": "D3",
+   "components": [
+    "BerxPlaceHero",
+    "BerxMap",
+    "BerxPlaceHours",
+    "BerxPlaceRating",
+    "BerxPlaceCard"
+   ]
+  },
+  {
+   "screenId": "BERX-211",
+   "title": "Places / restaurants / businesses 11",
+   "family": "PLACES",
+   "routeName": "places-restaurants-businesses-11",
+   "routePath": "/places-restaurants-businesses-11",
+   "mood": "sensory",
+   "material": "ClearGlass",
+   "lightRecipe": "hero",
+   "contentDepth": "D3",
+   "components": [
+    "BerxPlaceHero",
+    "BerxMap",
+    "BerxPlaceHours",
+    "BerxPlaceRating",
+    "BerxPlaceCard"
+   ]
+  },
+  {
+   "screenId": "BERX-212",
+   "title": "Places / restaurants / businesses 12",
+   "family": "PLACES",
+   "routeName": "places-restaurants-businesses-12",
+   "routePath": "/places-restaurants-businesses-12",
+   "mood": "sensory",
+   "material": "ClearGlass",
+   "lightRecipe": "hero",
+   "contentDepth": "D3",
+   "components": [
+    "BerxPlaceHero",
+    "BerxMap",
+    "BerxPlaceHours",
+    "BerxPlaceRating",
+    "BerxPlaceCard"
+   ]
+  },
+  {
+   "screenId": "BERX-213",
+   "title": "Places / restaurants / businesses 13",
+   "family": "PLACES",
+   "routeName": "places-restaurants-businesses-13",
+   "routePath": "/places-restaurants-businesses-13",
+   "mood": "sensory",
+   "material": "ClearGlass",
+   "lightRecipe": "hero",
+   "contentDepth": "D3",
+   "components": [
+    "BerxPlaceHero",
+    "BerxMap",
+    "BerxPlaceHours",
+    "BerxPlaceRating",
+    "BerxPlaceCard"
+   ]
+  },
+  {
+   "screenId": "BERX-214",
+   "title": "Places / restaurants / businesses 14",
+   "family": "PLACES",
+   "routeName": "places-restaurants-businesses-14",
+   "routePath": "/places-restaurants-businesses-14",
+   "mood": "sensory",
+   "material": "ClearGlass",
+   "lightRecipe": "hero",
+   "contentDepth": "D3",
+   "components": [
+    "BerxPlaceHero",
+    "BerxMap",
+    "BerxPlaceHours",
+    "BerxPlaceRating",
+    "BerxPlaceCard"
+   ]
+  },
+  {
+   "screenId": "BERX-215",
+   "title": "Places / restaurants / businesses 15",
+   "family": "PLACES",
+   "routeName": "places-restaurants-businesses-15",
+   "routePath": "/places-restaurants-businesses-15",
+   "mood": "sensory",
+   "material": "ClearGlass",
+   "lightRecipe": "hero",
+   "contentDepth": "D3",
+   "components": [
+    "BerxPlaceHero",
+    "BerxMap",
+    "BerxPlaceHours",
+    "BerxPlaceRating",
+    "BerxPlaceCard"
+   ]
+  },
+  {
+   "screenId": "BERX-216",
+   "title": "Places / restaurants / businesses 16",
+   "family": "PLACES",
+   "routeName": "places-restaurants-businesses-16",
+   "routePath": "/places-restaurants-businesses-16",
+   "mood": "sensory",
+   "material": "ClearGlass",
+   "lightRecipe": "hero",
+   "contentDepth": "D3",
+   "components": [
+    "BerxPlaceHero",
+    "BerxMap",
+    "BerxPlaceHours",
+    "BerxPlaceRating",
+    "BerxPlaceCard"
+   ]
+  },
+  {
+   "screenId": "BERX-217",
+   "title": "Places / restaurants / businesses 17",
+   "family": "PLACES",
+   "routeName": "places-restaurants-businesses-17",
+   "routePath": "/places-restaurants-businesses-17",
+   "mood": "sensory",
+   "material": "ClearGlass",
+   "lightRecipe": "hero",
+   "contentDepth": "D3",
+   "components": [
+    "BerxPlaceHero",
+    "BerxMap",
+    "BerxPlaceHours",
+    "BerxPlaceRating",
+    "BerxPlaceCard"
+   ]
+  },
+  {
+   "screenId": "BERX-218",
+   "title": "Places / restaurants / businesses 18",
+   "family": "PLACES",
+   "routeName": "places-restaurants-businesses-18",
+   "routePath": "/places-restaurants-businesses-18",
+   "mood": "sensory",
+   "material": "ClearGlass",
+   "lightRecipe": "hero",
+   "contentDepth": "D3",
+   "components": [
+    "BerxPlaceHero",
+    "BerxMap",
+    "BerxPlaceHours",
+    "BerxPlaceRating",
+    "BerxPlaceCard"
+   ]
+  },
+  {
+   "screenId": "BERX-219",
+   "title": "Places / restaurants / businesses 19",
+   "family": "PLACES",
+   "routeName": "places-restaurants-businesses-19",
+   "routePath": "/places-restaurants-businesses-19",
+   "mood": "sensory",
+   "material": "ClearGlass",
+   "lightRecipe": "hero",
+   "contentDepth": "D3",
+   "components": [
+    "BerxPlaceHero",
+    "BerxMap",
+    "BerxPlaceHours",
+    "BerxPlaceRating",
+    "BerxPlaceCard"
+   ]
+  },
+  {
+   "screenId": "BERX-220",
+   "title": "Places / restaurants / businesses 20",
+   "family": "PLACES",
+   "routeName": "places-restaurants-businesses-20",
+   "routePath": "/places-restaurants-businesses-20",
+   "mood": "sensory",
+   "material": "ClearGlass",
+   "lightRecipe": "hero",
+   "contentDepth": "D3",
+   "components": [
+    "BerxPlaceHero",
+    "BerxMap",
+    "BerxPlaceHours",
+    "BerxPlaceRating",
+    "BerxPlaceCard"
+   ]
+  },
+  {
+   "screenId": "BERX-221",
+   "title": "Places / restaurants / businesses 21",
+   "family": "PLACES",
+   "routeName": "places-restaurants-businesses-21",
+   "routePath": "/places-restaurants-businesses-21",
+   "mood": "sensory",
+   "material": "ClearGlass",
+   "lightRecipe": "hero",
+   "contentDepth": "D3",
+   "components": [
+    "BerxPlaceHero",
+    "BerxMap",
+    "BerxPlaceHours",
+    "BerxPlaceRating",
+    "BerxPlaceCard"
+   ]
+  },
+  {
+   "screenId": "BERX-222",
+   "title": "Places / restaurants / businesses 22",
+   "family": "PLACES",
+   "routeName": "places-restaurants-businesses-22",
+   "routePath": "/places-restaurants-businesses-22",
+   "mood": "sensory",
+   "material": "ClearGlass",
+   "lightRecipe": "hero",
+   "contentDepth": "D3",
+   "components": [
+    "BerxPlaceHero",
+    "BerxMap",
+    "BerxPlaceHours",
+    "BerxPlaceRating",
+    "BerxPlaceCard"
+   ]
+  },
+  {
+   "screenId": "BERX-223",
+   "title": "Places / restaurants / businesses 23",
+   "family": "PLACES",
+   "routeName": "places-restaurants-businesses-23",
+   "routePath": "/places-restaurants-businesses-23",
+   "mood": "sensory",
+   "material": "ClearGlass",
+   "lightRecipe": "hero",
+   "contentDepth": "D3",
+   "components": [
+    "BerxPlaceHero",
+    "BerxMap",
+    "BerxPlaceHours",
+    "BerxPlaceRating",
+    "BerxPlaceCard"
+   ]
+  },
+  {
+   "screenId": "BERX-224",
+   "title": "Places / restaurants / businesses 24",
+   "family": "PLACES",
+   "routeName": "places-restaurants-businesses-24",
+   "routePath": "/places-restaurants-businesses-24",
+   "mood": "sensory",
+   "material": "ClearGlass",
+   "lightRecipe": "hero",
+   "contentDepth": "D3",
+   "components": [
+    "BerxPlaceHero",
+    "BerxMap",
+    "BerxPlaceHours",
+    "BerxPlaceRating",
+    "BerxPlaceCard"
+   ]
+  },
+  {
+   "screenId": "BERX-225",
+   "title": "Places / restaurants / businesses 25",
+   "family": "PLACES",
+   "routeName": "places-restaurants-businesses-25",
+   "routePath": "/places-restaurants-businesses-25",
+   "mood": "sensory",
+   "material": "ClearGlass",
+   "lightRecipe": "hero",
+   "contentDepth": "D3",
+   "components": [
+    "BerxPlaceHero",
+    "BerxMap",
+    "BerxPlaceHours",
+    "BerxPlaceRating",
+    "BerxPlaceCard"
+   ]
+  },
+  {
+   "screenId": "BERX-226",
+   "title": "Events Discovery",
+   "family": "EVENTS",
+   "routeName": "events-discovery",
+   "routePath": "/events-discovery",
+   "mood": "anticipatory",
+   "material": "Crystal",
+   "lightRecipe": "hero",
+   "contentDepth": "D3",
+   "components": [
+    "BerxEventHero",
+    "BerxTicket",
+    "BerxCountdown",
+    "BerxShareSheet",
+    "BerxMapPin"
+   ]
+  },
+  {
+   "screenId": "BERX-227",
+   "title": "Events / tickets / check-ins 02",
+   "family": "EVENTS",
+   "routeName": "events-tickets-check-ins-02",
+   "routePath": "/events-tickets-check-ins-02",
+   "mood": "anticipatory",
+   "material": "Crystal",
+   "lightRecipe": "hero",
+   "contentDepth": "D3",
+   "components": [
+    "BerxEventHero",
+    "BerxTicket",
+    "BerxCountdown",
+    "BerxShareSheet",
+    "BerxMapPin"
+   ]
+  },
+  {
+   "screenId": "BERX-228",
+   "title": "Events / tickets / check-ins 03",
+   "family": "EVENTS",
+   "routeName": "events-tickets-check-ins-03",
+   "routePath": "/events-tickets-check-ins-03",
+   "mood": "anticipatory",
+   "material": "Crystal",
+   "lightRecipe": "hero",
+   "contentDepth": "D3",
+   "components": [
+    "BerxEventHero",
+    "BerxTicket",
+    "BerxCountdown",
+    "BerxShareSheet",
+    "BerxMapPin"
+   ]
+  },
+  {
+   "screenId": "BERX-229",
+   "title": "Events / tickets / check-ins 04",
+   "family": "EVENTS",
+   "routeName": "events-tickets-check-ins-04",
+   "routePath": "/events-tickets-check-ins-04",
+   "mood": "anticipatory",
+   "material": "Crystal",
+   "lightRecipe": "hero",
+   "contentDepth": "D3",
+   "components": [
+    "BerxEventHero",
+    "BerxTicket",
+    "BerxCountdown",
+    "BerxShareSheet",
+    "BerxMapPin"
+   ]
+  },
+  {
+   "screenId": "BERX-230",
+   "title": "Events / tickets / check-ins 05",
+   "family": "EVENTS",
+   "routeName": "events-tickets-check-ins-05",
+   "routePath": "/events-tickets-check-ins-05",
+   "mood": "anticipatory",
+   "material": "Crystal",
+   "lightRecipe": "hero",
+   "contentDepth": "D3",
+   "components": [
+    "BerxEventHero",
+    "BerxTicket",
+    "BerxCountdown",
+    "BerxShareSheet",
+    "BerxMapPin"
+   ]
+  },
+  {
+   "screenId": "BERX-231",
+   "title": "Events / tickets / check-ins 06",
+   "family": "EVENTS",
+   "routeName": "events-tickets-check-ins-06",
+   "routePath": "/events-tickets-check-ins-06",
+   "mood": "anticipatory",
+   "material": "Crystal",
+   "lightRecipe": "hero",
+   "contentDepth": "D3",
+   "components": [
+    "BerxEventHero",
+    "BerxTicket",
+    "BerxCountdown",
+    "BerxShareSheet",
+    "BerxMapPin"
+   ]
+  },
+  {
+   "screenId": "BERX-232",
+   "title": "Events / tickets / check-ins 07",
+   "family": "EVENTS",
+   "routeName": "events-tickets-check-ins-07",
+   "routePath": "/events-tickets-check-ins-07",
+   "mood": "anticipatory",
+   "material": "Crystal",
+   "lightRecipe": "hero",
+   "contentDepth": "D3",
+   "components": [
+    "BerxEventHero",
+    "BerxTicket",
+    "BerxCountdown",
+    "BerxShareSheet",
+    "BerxMapPin"
+   ]
+  },
+  {
+   "screenId": "BERX-233",
+   "title": "Events / tickets / check-ins 08",
+   "family": "EVENTS",
+   "routeName": "events-tickets-check-ins-08",
+   "routePath": "/events-tickets-check-ins-08",
+   "mood": "anticipatory",
+   "material": "Crystal",
+   "lightRecipe": "hero",
+   "contentDepth": "D3",
+   "components": [
+    "BerxEventHero",
+    "BerxTicket",
+    "BerxCountdown",
+    "BerxShareSheet",
+    "BerxMapPin"
+   ]
+  },
+  {
+   "screenId": "BERX-234",
+   "title": "Events / tickets / check-ins 09",
+   "family": "EVENTS",
+   "routeName": "events-tickets-check-ins-09",
+   "routePath": "/events-tickets-check-ins-09",
+   "mood": "anticipatory",
+   "material": "Crystal",
+   "lightRecipe": "hero",
+   "contentDepth": "D3",
+   "components": [
+    "BerxEventHero",
+    "BerxTicket",
+    "BerxCountdown",
+    "BerxShareSheet",
+    "BerxMapPin"
+   ]
+  },
+  {
+   "screenId": "BERX-235",
+   "title": "Events / tickets / check-ins 10",
+   "family": "EVENTS",
+   "routeName": "events-tickets-check-ins-10",
+   "routePath": "/events-tickets-check-ins-10",
+   "mood": "anticipatory",
+   "material": "Crystal",
+   "lightRecipe": "hero",
+   "contentDepth": "D3",
+   "components": [
+    "BerxEventHero",
+    "BerxTicket",
+    "BerxCountdown",
+    "BerxShareSheet",
+    "BerxMapPin"
+   ]
+  },
+  {
+   "screenId": "BERX-236",
+   "title": "Events / tickets / check-ins 11",
+   "family": "EVENTS",
+   "routeName": "events-tickets-check-ins-11",
+   "routePath": "/events-tickets-check-ins-11",
+   "mood": "anticipatory",
+   "material": "Crystal",
+   "lightRecipe": "hero",
+   "contentDepth": "D3",
+   "components": [
+    "BerxEventHero",
+    "BerxTicket",
+    "BerxCountdown",
+    "BerxShareSheet",
+    "BerxMapPin"
+   ]
+  },
+  {
+   "screenId": "BERX-237",
+   "title": "Events / tickets / check-ins 12",
+   "family": "EVENTS",
+   "routeName": "events-tickets-check-ins-12",
+   "routePath": "/events-tickets-check-ins-12",
+   "mood": "anticipatory",
+   "material": "Crystal",
+   "lightRecipe": "hero",
+   "contentDepth": "D3",
+   "components": [
+    "BerxEventHero",
+    "BerxTicket",
+    "BerxCountdown",
+    "BerxShareSheet",
+    "BerxMapPin"
+   ]
+  },
+  {
+   "screenId": "BERX-238",
+   "title": "Events / tickets / check-ins 13",
+   "family": "EVENTS",
+   "routeName": "events-tickets-check-ins-13",
+   "routePath": "/events-tickets-check-ins-13",
+   "mood": "anticipatory",
+   "material": "Crystal",
+   "lightRecipe": "hero",
+   "contentDepth": "D3",
+   "components": [
+    "BerxEventHero",
+    "BerxTicket",
+    "BerxCountdown",
+    "BerxShareSheet",
+    "BerxMapPin"
+   ]
+  },
+  {
+   "screenId": "BERX-239",
+   "title": "Events / tickets / check-ins 14",
+   "family": "EVENTS",
+   "routeName": "events-tickets-check-ins-14",
+   "routePath": "/events-tickets-check-ins-14",
+   "mood": "anticipatory",
+   "material": "Crystal",
+   "lightRecipe": "hero",
+   "contentDepth": "D3",
+   "components": [
+    "BerxEventHero",
+    "BerxTicket",
+    "BerxCountdown",
+    "BerxShareSheet",
+    "BerxMapPin"
+   ]
+  },
+  {
+   "screenId": "BERX-240",
+   "title": "Events / tickets / check-ins 15",
+   "family": "EVENTS",
+   "routeName": "events-tickets-check-ins-15",
+   "routePath": "/events-tickets-check-ins-15",
+   "mood": "anticipatory",
+   "material": "Crystal",
+   "lightRecipe": "hero",
+   "contentDepth": "D3",
+   "components": [
+    "BerxEventHero",
+    "BerxTicket",
+    "BerxCountdown",
+    "BerxShareSheet",
+    "BerxMapPin"
+   ]
+  },
+  {
+   "screenId": "BERX-241",
+   "title": "Events / tickets / check-ins 16",
+   "family": "EVENTS",
+   "routeName": "events-tickets-check-ins-16",
+   "routePath": "/events-tickets-check-ins-16",
+   "mood": "anticipatory",
+   "material": "Crystal",
+   "lightRecipe": "hero",
+   "contentDepth": "D3",
+   "components": [
+    "BerxEventHero",
+    "BerxTicket",
+    "BerxCountdown",
+    "BerxShareSheet",
+    "BerxMapPin"
+   ]
+  },
+  {
+   "screenId": "BERX-242",
+   "title": "Events / tickets / check-ins 17",
+   "family": "EVENTS",
+   "routeName": "events-tickets-check-ins-17",
+   "routePath": "/events-tickets-check-ins-17",
+   "mood": "anticipatory",
+   "material": "Crystal",
+   "lightRecipe": "hero",
+   "contentDepth": "D3",
+   "components": [
+    "BerxEventHero",
+    "BerxTicket",
+    "BerxCountdown",
+    "BerxShareSheet",
+    "BerxMapPin"
+   ]
+  },
+  {
+   "screenId": "BERX-243",
+   "title": "Events / tickets / check-ins 18",
+   "family": "EVENTS",
+   "routeName": "events-tickets-check-ins-18",
+   "routePath": "/events-tickets-check-ins-18",
+   "mood": "anticipatory",
+   "material": "Crystal",
+   "lightRecipe": "hero",
+   "contentDepth": "D3",
+   "components": [
+    "BerxEventHero",
+    "BerxTicket",
+    "BerxCountdown",
+    "BerxShareSheet",
+    "BerxMapPin"
+   ]
+  },
+  {
+   "screenId": "BERX-244",
+   "title": "Events / tickets / check-ins 19",
+   "family": "EVENTS",
+   "routeName": "events-tickets-check-ins-19",
+   "routePath": "/events-tickets-check-ins-19",
+   "mood": "anticipatory",
+   "material": "Crystal",
+   "lightRecipe": "hero",
+   "contentDepth": "D3",
+   "components": [
+    "BerxEventHero",
+    "BerxTicket",
+    "BerxCountdown",
+    "BerxShareSheet",
+    "BerxMapPin"
+   ]
+  },
+  {
+   "screenId": "BERX-245",
+   "title": "Events / tickets / check-ins 20",
+   "family": "EVENTS",
+   "routeName": "events-tickets-check-ins-20",
+   "routePath": "/events-tickets-check-ins-20",
+   "mood": "anticipatory",
+   "material": "Crystal",
+   "lightRecipe": "hero",
+   "contentDepth": "D3",
+   "components": [
+    "BerxEventHero",
+    "BerxTicket",
+    "BerxCountdown",
+    "BerxShareSheet",
+    "BerxMapPin"
+   ]
+  },
+  {
+   "screenId": "BERX-246",
+   "title": "Experiences",
+   "family": "EXPERIENCE",
+   "routeName": "experiences",
+   "routePath": "/experiences",
+   "mood": "aspirational",
+   "material": "ClearGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxExperienceCard",
+    "BerxTripCard",
+    "BerxCollectionCard",
+    "BerxProgressRing",
+    "BerxPrimaryButton"
+   ]
+  },
+  {
+   "screenId": "BERX-247",
+   "title": "Experiences / trips / collections 02",
+   "family": "EXPERIENCE",
+   "routeName": "experiences-trips-collections-02",
+   "routePath": "/experiences-trips-collections-02",
+   "mood": "aspirational",
+   "material": "ClearGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxExperienceCard",
+    "BerxTripCard",
+    "BerxCollectionCard",
+    "BerxProgressRing",
+    "BerxPrimaryButton"
+   ]
+  },
+  {
+   "screenId": "BERX-248",
+   "title": "Experiences / trips / collections 03",
+   "family": "EXPERIENCE",
+   "routeName": "experiences-trips-collections-03",
+   "routePath": "/experiences-trips-collections-03",
+   "mood": "aspirational",
+   "material": "ClearGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxExperienceCard",
+    "BerxTripCard",
+    "BerxCollectionCard",
+    "BerxProgressRing",
+    "BerxPrimaryButton"
+   ]
+  },
+  {
+   "screenId": "BERX-249",
+   "title": "Experiences / trips / collections 04",
+   "family": "EXPERIENCE",
+   "routeName": "experiences-trips-collections-04",
+   "routePath": "/experiences-trips-collections-04",
+   "mood": "aspirational",
+   "material": "ClearGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxExperienceCard",
+    "BerxTripCard",
+    "BerxCollectionCard",
+    "BerxProgressRing",
+    "BerxPrimaryButton"
+   ]
+  },
+  {
+   "screenId": "BERX-250",
+   "title": "Experiences / trips / collections 05",
+   "family": "EXPERIENCE",
+   "routeName": "experiences-trips-collections-05",
+   "routePath": "/experiences-trips-collections-05",
+   "mood": "aspirational",
+   "material": "ClearGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxExperienceCard",
+    "BerxTripCard",
+    "BerxCollectionCard",
+    "BerxProgressRing",
+    "BerxPrimaryButton"
+   ]
+  },
+  {
+   "screenId": "BERX-251",
+   "title": "Experiences / trips / collections 06",
+   "family": "EXPERIENCE",
+   "routeName": "experiences-trips-collections-06",
+   "routePath": "/experiences-trips-collections-06",
+   "mood": "aspirational",
+   "material": "ClearGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxExperienceCard",
+    "BerxTripCard",
+    "BerxCollectionCard",
+    "BerxProgressRing",
+    "BerxPrimaryButton"
+   ]
+  },
+  {
+   "screenId": "BERX-252",
+   "title": "Experiences / trips / collections 07",
+   "family": "EXPERIENCE",
+   "routeName": "experiences-trips-collections-07",
+   "routePath": "/experiences-trips-collections-07",
+   "mood": "aspirational",
+   "material": "ClearGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxExperienceCard",
+    "BerxTripCard",
+    "BerxCollectionCard",
+    "BerxProgressRing",
+    "BerxPrimaryButton"
+   ]
+  },
+  {
+   "screenId": "BERX-253",
+   "title": "Experiences / trips / collections 08",
+   "family": "EXPERIENCE",
+   "routeName": "experiences-trips-collections-08",
+   "routePath": "/experiences-trips-collections-08",
+   "mood": "aspirational",
+   "material": "ClearGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxExperienceCard",
+    "BerxTripCard",
+    "BerxCollectionCard",
+    "BerxProgressRing",
+    "BerxPrimaryButton"
+   ]
+  },
+  {
+   "screenId": "BERX-254",
+   "title": "Experiences / trips / collections 09",
+   "family": "EXPERIENCE",
+   "routeName": "experiences-trips-collections-09",
+   "routePath": "/experiences-trips-collections-09",
+   "mood": "aspirational",
+   "material": "ClearGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxExperienceCard",
+    "BerxTripCard",
+    "BerxCollectionCard",
+    "BerxProgressRing",
+    "BerxPrimaryButton"
+   ]
+  },
+  {
+   "screenId": "BERX-255",
+   "title": "Experiences / trips / collections 10",
+   "family": "EXPERIENCE",
+   "routeName": "experiences-trips-collections-10",
+   "routePath": "/experiences-trips-collections-10",
+   "mood": "aspirational",
+   "material": "ClearGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxExperienceCard",
+    "BerxTripCard",
+    "BerxCollectionCard",
+    "BerxProgressRing",
+    "BerxPrimaryButton"
+   ]
+  },
+  {
+   "screenId": "BERX-256",
+   "title": "Experiences / trips / collections 11",
+   "family": "EXPERIENCE",
+   "routeName": "experiences-trips-collections-11",
+   "routePath": "/experiences-trips-collections-11",
+   "mood": "aspirational",
+   "material": "ClearGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxExperienceCard",
+    "BerxTripCard",
+    "BerxCollectionCard",
+    "BerxProgressRing",
+    "BerxPrimaryButton"
+   ]
+  },
+  {
+   "screenId": "BERX-257",
+   "title": "Experiences / trips / collections 12",
+   "family": "EXPERIENCE",
+   "routeName": "experiences-trips-collections-12",
+   "routePath": "/experiences-trips-collections-12",
+   "mood": "aspirational",
+   "material": "ClearGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxExperienceCard",
+    "BerxTripCard",
+    "BerxCollectionCard",
+    "BerxProgressRing",
+    "BerxPrimaryButton"
+   ]
+  },
+  {
+   "screenId": "BERX-258",
+   "title": "Experiences / trips / collections 13",
+   "family": "EXPERIENCE",
+   "routeName": "experiences-trips-collections-13",
+   "routePath": "/experiences-trips-collections-13",
+   "mood": "aspirational",
+   "material": "ClearGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxExperienceCard",
+    "BerxTripCard",
+    "BerxCollectionCard",
+    "BerxProgressRing",
+    "BerxPrimaryButton"
+   ]
+  },
+  {
+   "screenId": "BERX-259",
+   "title": "Experiences / trips / collections 14",
+   "family": "EXPERIENCE",
+   "routeName": "experiences-trips-collections-14",
+   "routePath": "/experiences-trips-collections-14",
+   "mood": "aspirational",
+   "material": "ClearGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxExperienceCard",
+    "BerxTripCard",
+    "BerxCollectionCard",
+    "BerxProgressRing",
+    "BerxPrimaryButton"
+   ]
+  },
+  {
+   "screenId": "BERX-260",
+   "title": "Experiences / trips / collections 15",
+   "family": "EXPERIENCE",
+   "routeName": "experiences-trips-collections-15",
+   "routePath": "/experiences-trips-collections-15",
+   "mood": "aspirational",
+   "material": "ClearGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxExperienceCard",
+    "BerxTripCard",
+    "BerxCollectionCard",
+    "BerxProgressRing",
+    "BerxPrimaryButton"
+   ]
+  },
+  {
+   "screenId": "BERX-261",
+   "title": "Experiences / trips / collections 16",
+   "family": "EXPERIENCE",
+   "routeName": "experiences-trips-collections-16",
+   "routePath": "/experiences-trips-collections-16",
+   "mood": "aspirational",
+   "material": "ClearGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxExperienceCard",
+    "BerxTripCard",
+    "BerxCollectionCard",
+    "BerxProgressRing",
+    "BerxPrimaryButton"
+   ]
+  },
+  {
+   "screenId": "BERX-262",
+   "title": "Experiences / trips / collections 17",
+   "family": "EXPERIENCE",
+   "routeName": "experiences-trips-collections-17",
+   "routePath": "/experiences-trips-collections-17",
+   "mood": "aspirational",
+   "material": "ClearGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxExperienceCard",
+    "BerxTripCard",
+    "BerxCollectionCard",
+    "BerxProgressRing",
+    "BerxPrimaryButton"
+   ]
+  },
+  {
+   "screenId": "BERX-263",
+   "title": "Experiences / trips / collections 18",
+   "family": "EXPERIENCE",
+   "routeName": "experiences-trips-collections-18",
+   "routePath": "/experiences-trips-collections-18",
+   "mood": "aspirational",
+   "material": "ClearGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxExperienceCard",
+    "BerxTripCard",
+    "BerxCollectionCard",
+    "BerxProgressRing",
+    "BerxPrimaryButton"
+   ]
+  },
+  {
+   "screenId": "BERX-264",
+   "title": "Experiences / trips / collections 19",
+   "family": "EXPERIENCE",
+   "routeName": "experiences-trips-collections-19",
+   "routePath": "/experiences-trips-collections-19",
+   "mood": "aspirational",
+   "material": "ClearGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxExperienceCard",
+    "BerxTripCard",
+    "BerxCollectionCard",
+    "BerxProgressRing",
+    "BerxPrimaryButton"
+   ]
+  },
+  {
+   "screenId": "BERX-265",
+   "title": "Experiences / trips / collections 20",
+   "family": "EXPERIENCE",
+   "routeName": "experiences-trips-collections-20",
+   "routePath": "/experiences-trips-collections-20",
+   "mood": "aspirational",
+   "material": "ClearGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxExperienceCard",
+    "BerxTripCard",
+    "BerxCollectionCard",
+    "BerxProgressRing",
+    "BerxPrimaryButton"
+   ]
+  },
+  {
+   "screenId": "BERX-266",
+   "title": "Communities",
+   "family": "COMMUNITY",
+   "routeName": "communities",
+   "routePath": "/communities",
+   "mood": "belonging",
+   "material": "FrostGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxCommunityCard",
+    "BerxAvatarCluster",
+    "BerxMediaCard",
+    "BerxTabs",
+    "BerxComposer"
+   ]
+  },
+  {
+   "screenId": "BERX-267",
+   "title": "Communities / circles 02",
+   "family": "COMMUNITY",
+   "routeName": "communities-circles-02",
+   "routePath": "/communities-circles-02",
+   "mood": "belonging",
+   "material": "FrostGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxCommunityCard",
+    "BerxAvatarCluster",
+    "BerxMediaCard",
+    "BerxTabs",
+    "BerxComposer"
+   ]
+  },
+  {
+   "screenId": "BERX-268",
+   "title": "Communities / circles 03",
+   "family": "COMMUNITY",
+   "routeName": "communities-circles-03",
+   "routePath": "/communities-circles-03",
+   "mood": "belonging",
+   "material": "FrostGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxCommunityCard",
+    "BerxAvatarCluster",
+    "BerxMediaCard",
+    "BerxTabs",
+    "BerxComposer"
+   ]
+  },
+  {
+   "screenId": "BERX-269",
+   "title": "Communities / circles 04",
+   "family": "COMMUNITY",
+   "routeName": "communities-circles-04",
+   "routePath": "/communities-circles-04",
+   "mood": "belonging",
+   "material": "FrostGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxCommunityCard",
+    "BerxAvatarCluster",
+    "BerxMediaCard",
+    "BerxTabs",
+    "BerxComposer"
+   ]
+  },
+  {
+   "screenId": "BERX-270",
+   "title": "Communities / circles 05",
+   "family": "COMMUNITY",
+   "routeName": "communities-circles-05",
+   "routePath": "/communities-circles-05",
+   "mood": "belonging",
+   "material": "FrostGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxCommunityCard",
+    "BerxAvatarCluster",
+    "BerxMediaCard",
+    "BerxTabs",
+    "BerxComposer"
+   ]
+  },
+  {
+   "screenId": "BERX-271",
+   "title": "Communities / circles 06",
+   "family": "COMMUNITY",
+   "routeName": "communities-circles-06",
+   "routePath": "/communities-circles-06",
+   "mood": "belonging",
+   "material": "FrostGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxCommunityCard",
+    "BerxAvatarCluster",
+    "BerxMediaCard",
+    "BerxTabs",
+    "BerxComposer"
+   ]
+  },
+  {
+   "screenId": "BERX-272",
+   "title": "Communities / circles 07",
+   "family": "COMMUNITY",
+   "routeName": "communities-circles-07",
+   "routePath": "/communities-circles-07",
+   "mood": "belonging",
+   "material": "FrostGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxCommunityCard",
+    "BerxAvatarCluster",
+    "BerxMediaCard",
+    "BerxTabs",
+    "BerxComposer"
+   ]
+  },
+  {
+   "screenId": "BERX-273",
+   "title": "Communities / circles 08",
+   "family": "COMMUNITY",
+   "routeName": "communities-circles-08",
+   "routePath": "/communities-circles-08",
+   "mood": "belonging",
+   "material": "FrostGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxCommunityCard",
+    "BerxAvatarCluster",
+    "BerxMediaCard",
+    "BerxTabs",
+    "BerxComposer"
+   ]
+  },
+  {
+   "screenId": "BERX-274",
+   "title": "Communities / circles 09",
+   "family": "COMMUNITY",
+   "routeName": "communities-circles-09",
+   "routePath": "/communities-circles-09",
+   "mood": "belonging",
+   "material": "FrostGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxCommunityCard",
+    "BerxAvatarCluster",
+    "BerxMediaCard",
+    "BerxTabs",
+    "BerxComposer"
+   ]
+  },
+  {
+   "screenId": "BERX-275",
+   "title": "Communities / circles 10",
+   "family": "COMMUNITY",
+   "routeName": "communities-circles-10",
+   "routePath": "/communities-circles-10",
+   "mood": "belonging",
+   "material": "FrostGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxCommunityCard",
+    "BerxAvatarCluster",
+    "BerxMediaCard",
+    "BerxTabs",
+    "BerxComposer"
+   ]
+  },
+  {
+   "screenId": "BERX-276",
+   "title": "Communities / circles 11",
+   "family": "COMMUNITY",
+   "routeName": "communities-circles-11",
+   "routePath": "/communities-circles-11",
+   "mood": "belonging",
+   "material": "FrostGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxCommunityCard",
+    "BerxAvatarCluster",
+    "BerxMediaCard",
+    "BerxTabs",
+    "BerxComposer"
+   ]
+  },
+  {
+   "screenId": "BERX-277",
+   "title": "Communities / circles 12",
+   "family": "COMMUNITY",
+   "routeName": "communities-circles-12",
+   "routePath": "/communities-circles-12",
+   "mood": "belonging",
+   "material": "FrostGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxCommunityCard",
+    "BerxAvatarCluster",
+    "BerxMediaCard",
+    "BerxTabs",
+    "BerxComposer"
+   ]
+  },
+  {
+   "screenId": "BERX-278",
+   "title": "Communities / circles 13",
+   "family": "COMMUNITY",
+   "routeName": "communities-circles-13",
+   "routePath": "/communities-circles-13",
+   "mood": "belonging",
+   "material": "FrostGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxCommunityCard",
+    "BerxAvatarCluster",
+    "BerxMediaCard",
+    "BerxTabs",
+    "BerxComposer"
+   ]
+  },
+  {
+   "screenId": "BERX-279",
+   "title": "Communities / circles 14",
+   "family": "COMMUNITY",
+   "routeName": "communities-circles-14",
+   "routePath": "/communities-circles-14",
+   "mood": "belonging",
+   "material": "FrostGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxCommunityCard",
+    "BerxAvatarCluster",
+    "BerxMediaCard",
+    "BerxTabs",
+    "BerxComposer"
+   ]
+  },
+  {
+   "screenId": "BERX-280",
+   "title": "Communities / circles 15",
+   "family": "COMMUNITY",
+   "routeName": "communities-circles-15",
+   "routePath": "/communities-circles-15",
+   "mood": "belonging",
+   "material": "FrostGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxCommunityCard",
+    "BerxAvatarCluster",
+    "BerxMediaCard",
+    "BerxTabs",
+    "BerxComposer"
+   ]
+  },
+  {
+   "screenId": "BERX-281",
+   "title": "Creator Hub",
+   "family": "CREATOR",
+   "routeName": "creator-hub",
+   "routePath": "/creator-hub",
+   "mood": "expressive",
+   "material": "LiquidGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxCreatorCard",
+    "BerxBusinessMetric",
+    "BerxMediaGrid",
+    "BerxWalletCard",
+    "BerxRewardCard"
+   ]
+  },
+  {
+   "screenId": "BERX-282",
+   "title": "Creators / monetization 02",
+   "family": "CREATOR",
+   "routeName": "creators-monetization-02",
+   "routePath": "/creators-monetization-02",
+   "mood": "expressive",
+   "material": "LiquidGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxCreatorCard",
+    "BerxBusinessMetric",
+    "BerxMediaGrid",
+    "BerxWalletCard",
+    "BerxRewardCard"
+   ]
+  },
+  {
+   "screenId": "BERX-283",
+   "title": "Creators / monetization 03",
+   "family": "CREATOR",
+   "routeName": "creators-monetization-03",
+   "routePath": "/creators-monetization-03",
+   "mood": "expressive",
+   "material": "LiquidGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxCreatorCard",
+    "BerxBusinessMetric",
+    "BerxMediaGrid",
+    "BerxWalletCard",
+    "BerxRewardCard"
+   ]
+  },
+  {
+   "screenId": "BERX-284",
+   "title": "Creators / monetization 04",
+   "family": "CREATOR",
+   "routeName": "creators-monetization-04",
+   "routePath": "/creators-monetization-04",
+   "mood": "expressive",
+   "material": "LiquidGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxCreatorCard",
+    "BerxBusinessMetric",
+    "BerxMediaGrid",
+    "BerxWalletCard",
+    "BerxRewardCard"
+   ]
+  },
+  {
+   "screenId": "BERX-285",
+   "title": "Creators / monetization 05",
+   "family": "CREATOR",
+   "routeName": "creators-monetization-05",
+   "routePath": "/creators-monetization-05",
+   "mood": "expressive",
+   "material": "LiquidGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxCreatorCard",
+    "BerxBusinessMetric",
+    "BerxMediaGrid",
+    "BerxWalletCard",
+    "BerxRewardCard"
+   ]
+  },
+  {
+   "screenId": "BERX-286",
+   "title": "Creators / monetization 06",
+   "family": "CREATOR",
+   "routeName": "creators-monetization-06",
+   "routePath": "/creators-monetization-06",
+   "mood": "expressive",
+   "material": "LiquidGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxCreatorCard",
+    "BerxBusinessMetric",
+    "BerxMediaGrid",
+    "BerxWalletCard",
+    "BerxRewardCard"
+   ]
+  },
+  {
+   "screenId": "BERX-287",
+   "title": "Creators / monetization 07",
+   "family": "CREATOR",
+   "routeName": "creators-monetization-07",
+   "routePath": "/creators-monetization-07",
+   "mood": "expressive",
+   "material": "LiquidGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxCreatorCard",
+    "BerxBusinessMetric",
+    "BerxMediaGrid",
+    "BerxWalletCard",
+    "BerxRewardCard"
+   ]
+  },
+  {
+   "screenId": "BERX-288",
+   "title": "Creators / monetization 08",
+   "family": "CREATOR",
+   "routeName": "creators-monetization-08",
+   "routePath": "/creators-monetization-08",
+   "mood": "expressive",
+   "material": "LiquidGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxCreatorCard",
+    "BerxBusinessMetric",
+    "BerxMediaGrid",
+    "BerxWalletCard",
+    "BerxRewardCard"
+   ]
+  },
+  {
+   "screenId": "BERX-289",
+   "title": "Creators / monetization 09",
+   "family": "CREATOR",
+   "routeName": "creators-monetization-09",
+   "routePath": "/creators-monetization-09",
+   "mood": "expressive",
+   "material": "LiquidGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxCreatorCard",
+    "BerxBusinessMetric",
+    "BerxMediaGrid",
+    "BerxWalletCard",
+    "BerxRewardCard"
+   ]
+  },
+  {
+   "screenId": "BERX-290",
+   "title": "Creators / monetization 10",
+   "family": "CREATOR",
+   "routeName": "creators-monetization-10",
+   "routePath": "/creators-monetization-10",
+   "mood": "expressive",
+   "material": "LiquidGlass",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxCreatorCard",
+    "BerxBusinessMetric",
+    "BerxMediaGrid",
+    "BerxWalletCard",
+    "BerxRewardCard"
+   ]
+  },
+  {
+   "screenId": "BERX-291",
+   "title": "Business Dashboard",
+   "family": "BUSINESS",
+   "routeName": "business-dashboard",
+   "routePath": "/business-dashboard",
+   "mood": "precise",
+   "material": "DarkMetal",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxBusinessHero",
+    "BerxBusinessMetric",
+    "BerxGlassSurface",
+    "BerxHorizontalRail",
+    "BerxFilterBar"
+   ]
+  },
+  {
+   "screenId": "BERX-292",
+   "title": "Business / analytics / offers 02",
+   "family": "BUSINESS",
+   "routeName": "business-analytics-offers-02",
+   "routePath": "/business-analytics-offers-02",
+   "mood": "precise",
+   "material": "DarkMetal",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxBusinessHero",
+    "BerxBusinessMetric",
+    "BerxGlassSurface",
+    "BerxHorizontalRail",
+    "BerxFilterBar"
+   ]
+  },
+  {
+   "screenId": "BERX-293",
+   "title": "Business / analytics / offers 03",
+   "family": "BUSINESS",
+   "routeName": "business-analytics-offers-03",
+   "routePath": "/business-analytics-offers-03",
+   "mood": "precise",
+   "material": "DarkMetal",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxBusinessHero",
+    "BerxBusinessMetric",
+    "BerxGlassSurface",
+    "BerxHorizontalRail",
+    "BerxFilterBar"
+   ]
+  },
+  {
+   "screenId": "BERX-294",
+   "title": "Business / analytics / offers 04",
+   "family": "BUSINESS",
+   "routeName": "business-analytics-offers-04",
+   "routePath": "/business-analytics-offers-04",
+   "mood": "precise",
+   "material": "DarkMetal",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxBusinessHero",
+    "BerxBusinessMetric",
+    "BerxGlassSurface",
+    "BerxHorizontalRail",
+    "BerxFilterBar"
+   ]
+  },
+  {
+   "screenId": "BERX-295",
+   "title": "Business / analytics / offers 05",
+   "family": "BUSINESS",
+   "routeName": "business-analytics-offers-05",
+   "routePath": "/business-analytics-offers-05",
+   "mood": "precise",
+   "material": "DarkMetal",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxBusinessHero",
+    "BerxBusinessMetric",
+    "BerxGlassSurface",
+    "BerxHorizontalRail",
+    "BerxFilterBar"
+   ]
+  },
+  {
+   "screenId": "BERX-296",
+   "title": "Business / analytics / offers 06",
+   "family": "BUSINESS",
+   "routeName": "business-analytics-offers-06",
+   "routePath": "/business-analytics-offers-06",
+   "mood": "precise",
+   "material": "DarkMetal",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxBusinessHero",
+    "BerxBusinessMetric",
+    "BerxGlassSurface",
+    "BerxHorizontalRail",
+    "BerxFilterBar"
+   ]
+  },
+  {
+   "screenId": "BERX-297",
+   "title": "Business / analytics / offers 07",
+   "family": "BUSINESS",
+   "routeName": "business-analytics-offers-07",
+   "routePath": "/business-analytics-offers-07",
+   "mood": "precise",
+   "material": "DarkMetal",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxBusinessHero",
+    "BerxBusinessMetric",
+    "BerxGlassSurface",
+    "BerxHorizontalRail",
+    "BerxFilterBar"
+   ]
+  },
+  {
+   "screenId": "BERX-298",
+   "title": "Business / analytics / offers 08",
+   "family": "BUSINESS",
+   "routeName": "business-analytics-offers-08",
+   "routePath": "/business-analytics-offers-08",
+   "mood": "precise",
+   "material": "DarkMetal",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxBusinessHero",
+    "BerxBusinessMetric",
+    "BerxGlassSurface",
+    "BerxHorizontalRail",
+    "BerxFilterBar"
+   ]
+  },
+  {
+   "screenId": "BERX-299",
+   "title": "Business / analytics / offers 09",
+   "family": "BUSINESS",
+   "routeName": "business-analytics-offers-09",
+   "routePath": "/business-analytics-offers-09",
+   "mood": "precise",
+   "material": "DarkMetal",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxBusinessHero",
+    "BerxBusinessMetric",
+    "BerxGlassSurface",
+    "BerxHorizontalRail",
+    "BerxFilterBar"
+   ]
+  },
+  {
+   "screenId": "BERX-300",
+   "title": "Business / analytics / offers 10",
+   "family": "BUSINESS",
+   "routeName": "business-analytics-offers-10",
+   "routePath": "/business-analytics-offers-10",
+   "mood": "precise",
+   "material": "DarkMetal",
+   "lightRecipe": "card",
+   "contentDepth": "D3",
+   "components": [
+    "BerxBusinessHero",
+    "BerxBusinessMetric",
+    "BerxGlassSurface",
+    "BerxHorizontalRail",
+    "BerxFilterBar"
+   ]
+  }
+ ]
+}
