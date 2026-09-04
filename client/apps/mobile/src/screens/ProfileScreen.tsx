@@ -67,6 +67,8 @@ export interface ProfileScreenProps {
 	onOpenWrapped?: () => void;
 	onOpenDatingPrivacy?: () => void;
 	onOpenCommunities?: () => void;
+	/** BERX-151 Connections — friends and people search in one place. */
+	onOpenConnections?: () => void;
 	onOpenDating?: () => void;
 	onOpenPlaces?: () => void;
 	onOpenEvents?: () => void;
@@ -342,6 +344,7 @@ function ProfileSections(props: ProfileScreenProps & {profile: ProfileData; isOw
 		if (props.onOpenPlaces) world.push({key: 'places', label: 'Места', icon: <IconUsers size={18} color={colors.text} />, onPress: props.onOpenPlaces});
 		if (props.onOpenEvents) world.push({key: 'events', label: 'События', icon: <IconStar size={18} color={colors.text} />, onPress: props.onOpenEvents});
 		if (props.onOpenCommunities) world.push({key: 'communities', label: 'Сообщества', icon: <IconUsers size={18} color={colors.text} />, onPress: props.onOpenCommunities});
+		if (props.onOpenConnections) world.push({key: 'connections', label: 'Связи', icon: <IconUsers size={18} color={colors.text} />, onPress: props.onOpenConnections});
 		if (props.onOpenNotifications) activity.push({key: 'notifications', label: 'Уведомления', icon: <IconBell size={18} color={colors.text} />, onPress: props.onOpenNotifications});
 		if (props.onOpenPoints) activity.push({key: 'points', label: 'Баллы и уровень', icon: <IconStar size={18} color={colors.text} />, onPress: props.onOpenPoints});
 		if (props.onOpenMemories) activity.push({key: 'memories', label: 'Воспоминания', icon: <IconStar size={18} color={colors.text} />, onPress: props.onOpenMemories});

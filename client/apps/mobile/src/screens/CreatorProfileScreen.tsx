@@ -1,5 +1,5 @@
 /**
- * !!! VERIFICATION STATUS: UNVERIFIED — see LoginScreen.tsx header.
+ * BERX-281 — Creator Hub. The CREATOR family's named contract.
  *
  * Real data throughout: api.getCreatorProfile()/getCreatorContent()
  * (components/OssnApi/v1/creator.php). Every number shown here
@@ -15,7 +15,7 @@ import type {BerxApiClient} from '@berx/api/client';
 import type {BerxCreatorProfile, BerxCreatorContent, BerxCreatorPostItem, BerxCreatorAlbumItem, BerxCreatorEventItem, BerxCreatorExperienceItem} from '@berx/api/types';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxCreatorCard} from '../../../../packages/design-system/src/spatial/BerxCreatorCard';
-import {BerxFamilyScene} from '../spatial/BerxScreenScene';
+import {BerxScreenScene} from '../spatial/BerxScreenScene';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
@@ -40,9 +40,9 @@ function fmtDate(unix: number): string {
 
 export default function CreatorProfileScreen(props: CreatorProfileScreenProps) {
 	return (
-		<BerxFamilyScene family="CREATOR" testID="creator-profile">
+		<BerxScreenScene screenId="BERX-281" testID="berx-281">
 			<CreatorProfileSceneBody {...props} />
-		</BerxFamilyScene>
+		</BerxScreenScene>
 	);
 }
 

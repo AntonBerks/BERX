@@ -82,6 +82,7 @@ import CollectionDetailScreen from './screens/CollectionDetailScreen';
 import CreateCollectionScreen from './screens/CreateCollectionScreen';
 import AddToCollectionScreen from './screens/AddToCollectionScreen';
 import CirclesScreen from './screens/CirclesScreen';
+import ConnectionsScreen from './screens/ConnectionsScreen';
 import CircleDetailScreen from './screens/CircleDetailScreen';
 import CreateCircleScreen from './screens/CreateCircleScreen';
 import TripsScreen from './screens/TripsScreen';
@@ -183,6 +184,7 @@ function RouteRenderer({name, params}: {name: BerxRouteName; params: unknown}) {
 					onOpenWrapped={!nav.canGoBack ? () => nav.push('Wrapped', undefined) : undefined}
 					onOpenDatingPrivacy={!nav.canGoBack ? () => nav.push('DatingPrivacy', undefined) : undefined}
 					onOpenCommunities={!nav.canGoBack ? () => nav.push('Communities', undefined) : undefined}
+					onOpenConnections={!nav.canGoBack ? () => nav.push('Connections', undefined) : undefined}
 					onOpenDating={!nav.canGoBack ? () => nav.push('Dating', undefined) : undefined}
 					onOpenPlaces={!nav.canGoBack ? () => nav.push('Places', undefined) : undefined}
 					onOpenEvents={!nav.canGoBack ? () => nav.push('Events', undefined) : undefined}
@@ -595,6 +597,15 @@ function RouteRenderer({name, params}: {name: BerxRouteName; params: unknown}) {
 				/>
 			);
 		}
+		case 'Connections':
+			return (
+				<ConnectionsScreen
+					api={api}
+					onOpenProfile={(username) => nav.push('Profile', {username})}
+					onMessage={(otherGuid, otherUsername) => nav.push('Conversation', {otherGuid, otherUsername})}
+					onBack={nav.pop}
+				/>
+			);
 		case 'Circles':
 			return (
 				<CirclesScreen

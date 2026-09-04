@@ -55,6 +55,7 @@ export type BerxRouteName =
 	| 'CreateCollection'
 	| 'AddToCollection'
 	| 'Circles'
+	| 'Connections'
 	| 'CircleDetail'
 	| 'CreateCircle'
 	| 'Trips'
@@ -138,6 +139,7 @@ export interface BerxRouteParams {
 	CreateCollection: undefined;
 	AddToCollection: { itemType: 'place' | 'event' | 'post'; itemGuid: number };
 	Circles: undefined;
+	Connections: undefined;
 	CircleDetail: { id: number };
 	CreateCircle: undefined;
 	Trips: { userGuid?: number; isOwn: boolean };
@@ -244,6 +246,7 @@ export const BERX_ROUTES: BerxRouteMeta[] = [
 	{ name: 'CreateCollection', connected: true },
 	{ name: 'AddToCollection', connected: true },
 	{ name: 'Circles', connected: true },
+	{ name: 'Connections', connected: true },
 	{ name: 'CircleDetail', connected: true },
 	{ name: 'CreateCircle', connected: true },
 	{ name: 'Trips', connected: true },
