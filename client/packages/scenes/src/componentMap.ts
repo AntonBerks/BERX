@@ -105,7 +105,13 @@ export const BERX_COMPONENT_BINDINGS: Record<string, BerxComponentBinding> = {
 		'components/BerxScrimHero',
 		'Real scrim hero already shipped. Extended with a D1 atmosphere layer and parallax binding so hero media sits behind the content plane rather than beside it.',
 	),
-	BerxMediaCard: B('BerxMediaCard', 'CREATE', 'BerxMediaCard', 'spatial/BerxMediaCard'),
+	BerxMediaCard: B(
+		'BerxMediaCard',
+		'BLOCKED',
+		undefined,
+		undefined,
+		'The HOME contract names a media card, but feed.php returns no media per item — it deliberately omits per-item joins to avoid an N+1, so a feed row has text and an author and nothing to put in a media card. Post detail, where media does exist, fetches the assets separately and renders BerxMediaGrid, which handles the multi-asset case properly. A media card was built during this pass and then removed rather than shipped unrendered: a component nothing draws is not a delivered component.',
+	),
 	BerxMediaGrid: B('BerxMediaGrid', 'EXISTING', 'BerxMediaGrid', 'components/BerxMediaGrid'),
 	BerxMomentGrid: B(
 		'BerxMomentGrid',

@@ -9,16 +9,18 @@
  * Records exactly one real view on mount (self-views excluded
  * server-side).
  */
-import React, {useCallback, useEffect, useState} from 'react';
+import {useCallback, useEffect, useState} from 'react';
 import {View, Text, FlatList, Image, Pressable, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxCreatorProfile, BerxCreatorContent, BerxCreatorPostItem, BerxCreatorAlbumItem, BerxCreatorEventItem, BerxCreatorExperienceItem} from '@berx/api/types';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
+import {BerxCreatorCard} from '../../../../packages/design-system/src/spatial/BerxCreatorCard';
+import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
 
-interface Props {
+export interface CreatorProfileScreenProps {
 	api: BerxApiClient;
 	username: string;
 	onOpenPost: (guid: number) => void;
@@ -36,7 +38,15 @@ function fmtDate(unix: number): string {
 	return new Date(unix * 1000).toLocaleDateString('ru-RU', {day: 'numeric', month: 'short'});
 }
 
-export default function CreatorProfileScreen({api, username, onOpenPost, onOpenAlbum, onOpenEvent, onOpenExperience, onOpenVideos, onOpenSettings, onBack}: Props) {
+export default function CreatorProfileScreen(props: CreatorProfileScreenProps) {
+	return (
+		<BerxFamilyScene family="CREATOR" testID="creator-profile">
+			<CreatorProfileSceneBody {...props} />
+		</BerxFamilyScene>
+	);
+}
+
+function CreatorProfileSceneBody({api, username, onOpenPost, onOpenAlbum, onOpenEvent, onOpenExperience, onOpenVideos, onOpenSettings, onBack}: CreatorProfileScreenProps) {
 	const [profile, setProfile] = useState<BerxCreatorProfile | null>(null);
 	const [content, setContent] = useState<BerxCreatorContent | null>(null);
 	const [tab, setTab] = useState<Tab>('posts');
@@ -71,17 +81,29 @@ export default function CreatorProfileScreen({api, username, onOpenPost, onOpenA
 		<View style={styles.screen}>
 			<BerxHeader title={`@${username}`} onBack={onBack} />
 			<View style={styles.body}>
-				{profile.category ? <Text style={styles.category}>{profile.category}</Text> : null}
-				{profile.bio ? <Text style={styles.bio}>{profile.bio}</Text> : null}
+				{/**
+				 * Real audience numbers from creator.php: friends, total
+				 * views and views in the last 30 days. There is no
+				 * earnings figure anywhere — BERX has points and rewards
+				 * but no money, so BerxWalletCard stays BLOCKED.
+				 */}
+				<BerxCreatorCard
+					userGuid={profile.user_guid}
+					name={`@${username}`}
+					handle={username}
+					tagline={profile.bio ?? undefined}
+					postCount={content.posts.length}
+					viewCount={profile.audience.total_views}
+					onPress={() => undefined}
+					actions={
+						profile.category ? <Text style={styles.category}>{profile.category}</Text> : undefined
+					}
+				/>
 
 				<View style={styles.statsRow}>
 					<View style={styles.stat}>
 						<Text style={styles.statValue}>{profile.audience.friend_count}</Text>
 						<Text style={styles.statLabel}>друзей</Text>
-					</View>
-					<View style={styles.stat}>
-						<Text style={styles.statValue}>{profile.audience.total_views}</Text>
-						<Text style={styles.statLabel}>просмотров</Text>
 					</View>
 					<View style={styles.stat}>
 						<Text style={styles.statValue}>{profile.audience.views_last_30_days}</Text>

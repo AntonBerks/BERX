@@ -6,17 +6,19 @@
  * always the source of truth for seats_left/attendee_count, not a
  * client-side guess.
  */
-import React, {useCallback, useEffect, useState} from 'react';
+import {useCallback, useEffect, useState} from 'react';
 import {View, Text, ScrollView, Image, FlatList, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxEvent, BerxEventAttendee} from '@berx/api/types';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
+import {BerxEventHero} from '../../../../packages/design-system/src/spatial/BerxEventHero';
+import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxDiscussion} from '../../../../packages/design-system/src/components/BerxDiscussion';
 
-interface Props {
+export interface EventDetailScreenProps {
 	api: BerxApiClient;
 	guid: number;
 	myGuid?: number;
@@ -27,7 +29,15 @@ interface Props {
 	onBack?: () => void;
 }
 
-export default function EventDetailScreen({api, guid, myGuid, onOpenPlace, onOpenInvite, onAddToCollection, onAddEventStory, onBack}: Props) {
+export default function EventDetailScreen(props: EventDetailScreenProps) {
+	return (
+		<BerxFamilyScene family="EVENTS" testID="event-detail">
+			<EventDetailSceneBody {...props} />
+		</BerxFamilyScene>
+	);
+}
+
+function EventDetailSceneBody({api, guid, myGuid, onOpenPlace, onOpenInvite, onAddToCollection, onAddEventStory, onBack}: EventDetailScreenProps) {
 	const [event, setEvent] = useState<BerxEvent | null>(null);
 	const [attendees, setAttendees] = useState<BerxEventAttendee[]>([]);
 	const [loading, setLoading] = useState(true);
@@ -84,22 +94,35 @@ export default function EventDetailScreen({api, guid, myGuid, onOpenPlace, onOpe
 	return (
 		<ScrollView style={styles.screen}>
 			<BerxHeader title={event.title} onBack={onBack} />
-			<View style={styles.hero}>
-				{event.cover_url ? (
-					<Image source={{uri: event.cover_url}} style={styles.heroImage} />
-				) : (
-					<View style={styles.heroFallback}>
-						<Text style={styles.heroInitial}>{event.title.charAt(0).toUpperCase()}</Text>
-					</View>
-				)}
-			</View>
+			{/**
+			 * A real countdown to the server-recorded start, the real
+			 * attendee count and the real remaining capacity. No ticket:
+			 * RSVP and capacity exist, payment and ticket issuance do
+			 * not, so BerxTicket stays BLOCKED rather than rendering an
+			 * artefact nobody can redeem.
+			 */}
+			<BerxEventHero
+				eventGuid={event.guid}
+				title={event.title}
+				startsAtUnix={event.starts}
+				placeName={event.place?.title ?? event.location ?? undefined}
+				poster={event.cover_url ? {uri: event.cover_url} : undefined}
+				goingCount={event.attendee_count}
+				capacityLeft={event.seats_left ?? undefined}
+			/>
 
 			<View style={styles.body}>
 				<Text style={styles.when}>
 					{date.toLocaleDateString('ru-RU', {day: 'numeric', month: 'long'})} · {date.toLocaleTimeString('ru-RU', {hour: '2-digit', minute: '2-digit'})}
 				</Text>
 				{event.place ? (
-					<Text style={styles.place} onPress={() => onOpenPlace?.(event.place!.guid)}>📍 {event.place.title}</Text>
+					<Text
+						style={styles.place}
+						accessibilityRole="button"
+						accessibilityLabel={`Место: ${event.place.title}`}
+						onPress={() => onOpenPlace?.(event.place!.guid)}>
+						📍 {event.place.title}
+					</Text>
 				) : event.location ? (
 					<Text style={styles.place}>📍 {event.location}</Text>
 				) : null}

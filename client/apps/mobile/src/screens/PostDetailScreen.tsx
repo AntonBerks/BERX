@@ -1,7 +1,24 @@
 /**
- * !!! VERIFICATION STATUS: UNVERIFIED — see LoginScreen.tsx header.
+ * Post detail — a moment, opened. A HOME-family scene.
+ *
+ * This screen is not one of the 300: the archive names 29 screens and
+ * leaves the rest as numbered contracts with no product logic, and
+ * inventing one for post detail would be inventing product logic. It
+ * borrows the HOME family's spatial definition through
+ * <BerxFamilyScene> and keeps its own naming, and it is not counted
+ * as contract coverage anywhere.
+ *
+ * The like count here is real, unlike on the feed: GET /posts/{id}
+ * returns like_count (feed.php deliberately omits it to avoid an N+1
+ * per item). After a like the post is re-read, so the number shown is
+ * the server's, never a local increment.
+ *
+ * The API still does not tell the client whether the viewer has
+ * already liked a post, so "liked" is only what happened in this
+ * session — and the control disables itself afterwards rather than
+ * offering an unlike the endpoint may not perform.
  */
-import React, {useCallback, useEffect, useState} from 'react';
+import {useCallback, useEffect, useState} from 'react';
 import {View, Text, Image, Pressable, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxPostDetail, BerxPostComment, BerxMediaAsset} from '@berx/api/types';
@@ -13,8 +30,12 @@ import {BerxLoadingState, BerxErrorState} from '../../../../packages/design-syst
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxMediaGrid} from '../../../../packages/design-system/src/components/BerxMediaGrid';
 import {BerxMediaViewer} from '../../../../packages/design-system/src/components/BerxMediaViewer';
+import {BerxReactionPicker} from '../../../../packages/design-system/src/spatial/BerxReactionPicker';
+import {BerxSpatialCard} from '../../../../packages/design-system/src/spatial/BerxSpatialCard';
+import {BerxIdentity} from '../../../../packages/design-system/src/spatial/BerxIdentity';
+import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 
-interface Props {
+export interface PostDetailScreenProps {
 	api: BerxApiClient;
 	postGuid: number;
 	myGuid?: number;
@@ -23,7 +44,15 @@ interface Props {
 	onBack: () => void;
 }
 
-export default function PostDetailScreen({api, postGuid, myGuid, onOpenProfile, onReport, onBack}: Props) {
+export default function PostDetailScreen(props: PostDetailScreenProps) {
+	return (
+		<BerxFamilyScene family="HOME" testID="post-detail">
+			<PostDetailSceneBody {...props} />
+		</BerxFamilyScene>
+	);
+}
+
+function PostDetailSceneBody({api, postGuid, myGuid, onOpenProfile, onReport, onBack}: PostDetailScreenProps) {
 	const [post, setPost] = useState<BerxPostDetail | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
@@ -83,14 +112,17 @@ export default function PostDetailScreen({api, postGuid, myGuid, onOpenProfile, 
 		setLiking(true);
 		try {
 			await api.likePost(postGuid);
+			/**
+			 * The like response is just {status}, with no count — but
+			 * GET /posts/{id} does return like_count, so the real number
+			 * comes from re-reading the post rather than from a local
+			 * increment that could drift from the server.
+			 */
+			const fresh = await api.getPost(postGuid);
+			setPost(fresh);
 			setLiked(true);
 		} catch {
-			// Real, honest limitation: the API's like response is just
-			// {status:string}, no updated like COUNT — so there's
-			// nothing to roll back to on failure beyond the boolean
-			// itself. A real like counter needs a backend change
-			// (posts/{id} would need to return a count), not invented
-			// here.
+			/* nothing optimistic: the count stays where the server left it */
 		} finally {
 			setLiking(false);
 		}
@@ -141,11 +173,15 @@ export default function PostDetailScreen({api, postGuid, myGuid, onOpenProfile, 
 		<View style={styles.screen}>
 			<BerxHeader onBack={onBack} title={post.owner_username ?? undefined} />
 			<View style={styles.container}>
-				<Pressable onPress={() => post.owner_username && onOpenProfile(post.owner_username)} disabled={!post.owner_username}>
-					<Text style={styles.author}>{post.owner_username ?? 'BERX'}</Text>
-				</Pressable>
-				<Text style={styles.text}>{post.text}</Text>
-				<Text style={styles.time}>{relativeTimeLabel(post.time_created)}</Text>
+				<BerxSpatialCard depth="D3" padding={spacing.lg}>
+					<BerxIdentity
+						userGuid={post.owner_guid}
+						name={post.owner_username ?? 'BERX'}
+						subtitle={relativeTimeLabel(post.time_created)}
+						onPress={post.owner_username ? () => onOpenProfile(post.owner_username as string) : undefined}
+					/>
+					<Text style={styles.text}>{post.text}</Text>
+				</BerxSpatialCard>
 
 				{media.length > 0 ? (
 					<View style={styles.mediaWrap}>
@@ -159,12 +195,18 @@ export default function PostDetailScreen({api, postGuid, myGuid, onOpenProfile, 
 
 				<BerxMediaViewer assets={media} initialIndex={viewerIndex} visible={viewerOpen} onClose={() => setViewerOpen(false)} />
 
-				<BerxButton
-					label={liked ? 'Понравилось ✓' : 'Нравится'}
-					variant={liked ? 'secondary' : 'primary'}
-					onPress={handleLike}
-					loading={liking}
-					disabled={liked}
+				<BerxReactionPicker
+					liked={liked}
+					/* the server's own count, re-read after every like */
+					count={post.like_count}
+					onToggle={handleLike}
+					disabled={liked || liking}
+					disabledReason={
+						liked
+							? 'Отметка «нравится» уже сохранена. Снять её через API пока нельзя.'
+							: undefined
+					}
+					testID="post-like"
 				/>
 
 				{/* Reporting your own post makes no sense — same real-target-only rule ReportScreen documents for dating/post/comment/user/group. */}

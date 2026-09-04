@@ -26,7 +26,6 @@ export * from './BerxFilterBar';
 export * from './BerxHorizontalRail';
 export * from './BerxBottomNav';
 
-export * from './BerxMediaCard';
 export * from './BerxStoryTray';
 export * from './BerxReactionPicker';
 export * from './BerxShareSheet';

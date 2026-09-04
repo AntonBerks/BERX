@@ -5,16 +5,18 @@
  * authorization). Someone else's collections show only what's marked
  * public — enforced in the SQL query server-side, not filtered here.
  */
-import React, {useCallback, useEffect, useState} from 'react';
-import {View, Text, FlatList, Pressable, StyleSheet} from 'react-native';
+import {useCallback, useEffect, useState} from 'react';
+import {View, FlatList, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxCollection} from '@berx/api/types';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
+import {BerxCollectionCard} from '../../../../packages/design-system/src/spatial/BerxCollectionCard';
+import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
 
-interface Props {
+export interface CollectionsScreenProps {
 	api: BerxApiClient;
 	userGuid?: number;
 	isOwn: boolean;
@@ -23,7 +25,15 @@ interface Props {
 	onBack?: () => void;
 }
 
-export default function CollectionsScreen({api, userGuid, isOwn, onOpenCollection, onCreate, onBack}: Props) {
+export default function CollectionsScreen(props: CollectionsScreenProps) {
+	return (
+		<BerxFamilyScene family="EXPERIENCE" testID="collections">
+			<CollectionsSceneBody {...props} />
+		</BerxFamilyScene>
+	);
+}
+
+function CollectionsSceneBody({api, userGuid, isOwn, onOpenCollection, onCreate, onBack}: CollectionsScreenProps) {
 	const [items, setItems] = useState<BerxCollection[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
@@ -64,15 +74,15 @@ export default function CollectionsScreen({api, userGuid, isOwn, onOpenCollectio
 					keyExtractor={(c: BerxCollection) => String(c.id)}
 					contentContainerStyle={styles.list}
 					renderItem={({item}: {item: BerxCollection}) => (
-						<Pressable style={styles.row} onPress={() => onOpenCollection(item.id)}>
-							<View style={styles.rowBody}>
-								<Text style={styles.title} numberOfLines={1}>{item.title}</Text>
-								<Text style={styles.meta}>
-									{item.item_count} {item.item_count === 1 ? 'элемент' : 'элементов'}
-									{item.visibility === 'private' ? ' · Приватная' : ''}
-								</Text>
-							</View>
-						</Pressable>
+						<BerxCollectionCard
+							collectionGuid={item.id}
+							title={item.title}
+							itemCount={item.item_count}
+							/* real visibility, shown because a user who cannot tell
+							   will eventually share something they meant to keep */
+							visibility={item.visibility}
+							onPress={() => onOpenCollection(item.id)}
+						/>
 					)}
 				/>
 			)}

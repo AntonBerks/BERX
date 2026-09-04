@@ -34,6 +34,7 @@ import {
 	IconChevronRight,
 } from '../../../../packages/design-system/src/components/BerxIcons';
 import {BerxProfileHero} from '../../../../packages/design-system/src/spatial/BerxProfileHero';
+import {BerxShareSheet} from '../../../../packages/design-system/src/spatial/BerxShareSheet';
 import {BerxDataBoundary} from '../../../../packages/design-system/src/spatial/BerxDataBoundary';
 import {BerxSpatialCard} from '../../../../packages/design-system/src/spatial/BerxSpatialCard';
 import type {BerxStat} from '../../../../packages/design-system/src/spatial/BerxStatRail';
@@ -203,13 +204,29 @@ function ProfileSceneBody(props: ProfileScreenProps) {
 							avatarUrl={profile.icon_url}
 							stats={heroStats}
 							actions={
-								<ProfileActions
-									profile={profile}
-									isOwn={isOwn}
-									friendBusy={friendBusy}
-									onMessage={onMessage}
-									onToggleFriend={toggleFriend}
-								/>
+								<>
+									<ProfileActions
+										profile={profile}
+										isOwn={isOwn}
+										friendBusy={friendBusy}
+										onMessage={onMessage}
+										onToggleFriend={toggleFriend}
+									/>
+									{/**
+									 * profile_url is the one canonical, publicly
+									 * reachable BERX URL the API actually returns,
+									 * so this is the one place a share is real.
+									 * Posts, places and events have no such field
+									 * and therefore get no share control.
+									 */}
+									{profile.profile_url ? (
+										<BerxShareSheet
+											url={profile.profile_url}
+											title={profile.fullname || profile.username}
+											label="Поделиться"
+										/>
+									) : null}
+								</>
 							}
 						/>
 

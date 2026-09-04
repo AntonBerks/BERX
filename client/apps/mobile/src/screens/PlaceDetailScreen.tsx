@@ -6,18 +6,20 @@
  * booking/reservation UI — that backend does not exist (see
  * BERX_DECISIONS.md).
  */
-import React, {useCallback, useEffect, useState} from 'react';
-import {View, Text, ScrollView, Image, Pressable, Linking, StyleSheet} from 'react-native';
+import {useCallback, useEffect, useState} from 'react';
+import {View, Text, ScrollView, Pressable, Linking, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
-import type {BerxPlace, BerxPlaceReview} from '@berx/api/types';
+import type {BerxPlaceHours, BerxPlace, BerxPlaceReview} from '@berx/api/types';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
+import {BerxPlaceHero} from '../../../../packages/design-system/src/spatial/BerxPlaceHero';
+import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {BerxLoadingState, BerxErrorState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxDiscussion} from '../../../../packages/design-system/src/components/BerxDiscussion';
 
-interface Props {
+export interface PlaceDetailScreenProps {
 	api: BerxApiClient;
 	guid: number;
 	myGuid: number;
@@ -26,8 +28,18 @@ interface Props {
 	onBack?: () => void;
 }
 
-export default function PlaceDetailScreen({api, guid, myGuid, onAddToCollection, onOpenBusinessDashboard, onBack}: Props) {
+export default function PlaceDetailScreen(props: PlaceDetailScreenProps) {
+	return (
+		<BerxFamilyScene family="PLACES" testID="place-detail">
+			<PlaceDetailSceneBody {...props} />
+		</BerxFamilyScene>
+	);
+}
+
+function PlaceDetailSceneBody({api, guid, myGuid, onAddToCollection, onOpenBusinessDashboard, onBack}: PlaceDetailScreenProps) {
 	const [place, setPlace] = useState<BerxPlace | null>(null);
+	/** Structured opening hours — the endpoint this screen never called. */
+	const [hours, setHours] = useState<BerxPlaceHours | null>(null);
 	const [reviews, setReviews] = useState<BerxPlaceReview[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
@@ -56,6 +68,28 @@ export default function PlaceDetailScreen({api, guid, myGuid, onAddToCollection,
 	useEffect(() => {
 		load();
 	}, [load]);
+
+	/**
+	 * Structured hours, best-effort: a place without them (or a
+	 * caller without permission to read them) simply shows the
+	 * free-text line, which is what happened before. `is_open_now`
+	 * is the server's own answer, evaluated in the place's local
+	 * time — something the device cannot do on its own.
+	 */
+	useEffect(() => {
+		let cancelled = false;
+		api
+			.placeHours(guid)
+			.then((h) => {
+				if (!cancelled) setHours(h);
+			})
+			.catch(() => {
+				if (!cancelled) setHours(null);
+			});
+		return () => {
+			cancelled = true;
+		};
+	}, [api, guid]);
 
 	/**
 	 * Real route building via core RN Linking — hands the place's real
@@ -150,27 +184,36 @@ export default function PlaceDetailScreen({api, guid, myGuid, onAddToCollection,
 	return (
 		<ScrollView style={styles.screen}>
 			<BerxHeader title={place.title} onBack={onBack} />
-			<View style={styles.hero}>
-				{place.cover_url ? (
-					<Image source={{uri: place.cover_url}} style={styles.heroImage} />
-				) : (
-					<View style={styles.heroFallback}>
-						<Text style={styles.heroInitial}>{place.title.charAt(0).toUpperCase()}</Text>
-					</View>
-				)}
-			</View>
+
+			{/**
+			 * The hero carries the two facts a place page must lead with
+			 * and BERX actually stores: the real rating over its real
+			 * review count, and the real open/closed state from the
+			 * structured hours endpoint. That endpoint existed but this
+			 * screen never called it — it showed only the free-text
+			 * `hours` field, so a place with real structured hours never
+			 * showed whether it was open.
+			 */}
+			<BerxPlaceHero
+				placeGuid={place.guid}
+				name={place.title}
+				category={place.category ?? undefined}
+				address={place.address ?? undefined}
+				cover={place.cover_url ? {uri: place.cover_url} : undefined}
+				rating={place.rating_count > 0 ? place.rating : undefined}
+				ratingCount={place.rating_count}
+				hours={hours?.intervals}
+				isOpenNow={hours ? hours.is_open_now : undefined}
+				rawHours={place.hours ?? undefined}
+			/>
 
 			<View style={styles.body}>
 				<View style={styles.metaRow}>
-					{place.category ? <View style={styles.chip}><Text style={styles.chipText}>{place.category}</Text></View> : null}
 					{place.price ? <Text style={styles.priceText}>{'$'.repeat(place.price)}</Text> : null}
-					{place.rating_count > 0 ? <Text style={styles.ratingText}>★ {place.rating} ({place.rating_count})</Text> : null}
 					{place.is_business && place.verified ? <Text style={styles.verifiedBadge}>✓ Верифицированный бизнес</Text> : null}
 				</View>
 
-				{place.address ? <Text style={styles.address}>{place.address}</Text> : null}
 				{place.phone ? <Text style={styles.address}>{place.phone}</Text> : null}
-				{place.hours ? <Text style={styles.address}>{place.hours}</Text> : null}
 
 				<View style={styles.actions}>
 					<BerxButton

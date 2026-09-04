@@ -45,6 +45,32 @@ const archiveMaterials = JSON.parse(fs.readFileSync(path.join(repoRoot, 'docs/v9
 const archiveScenes = JSON.parse(fs.readFileSync(path.join(repoRoot, 'docs/v9/scenes.v9.json'), 'utf8'));
 const archiveRoutes = JSON.parse(fs.readFileSync(path.join(repoRoot, 'docs/v9/route_manifest.json'), 'utf8'));
 
+/* ---------------- every built component must actually be rendered ----------------
+   "COMPONENT EXISTS ≠ COMPONENT USED" is a rule, so it is checked
+   rather than trusted: a spatial component nothing draws is not a
+   delivered component, and this fails the build if one appears. */
+function walkTsx(dir) {
+	return fs.readdirSync(dir, {withFileTypes: true}).flatMap((e) => {
+		const p = path.join(dir, e.name);
+		return e.isDirectory() ? walkTsx(p) : p.endsWith('.tsx') ? [p] : [];
+	});
+}
+const spatialDir = path.join(clientRoot, 'packages/design-system/src/spatial');
+const consumerFiles = [
+	...walkTsx(path.join(clientRoot, 'apps/mobile/src')),
+	...walkTsx(spatialDir),
+	...walkTsx(path.join(clientRoot, 'packages/design-system/src/components')),
+].map((f) => ({file: f, src: fs.readFileSync(f, 'utf8')}));
+
+const unrenderedComponents = fs
+	.readdirSync(spatialDir)
+	.filter((f) => f.endsWith('.tsx'))
+	.map((f) => f.replace('.tsx', ''))
+	.filter(
+		(name) =>
+			!consumerFiles.some((c) => !c.file.endsWith(`${name}.tsx`) && new RegExp(`<${name}[\\s/>]`).test(c.src)),
+	);
+
 /* ---------------- bundle + run the real runtime ---------------- */
 const outDir = fs.mkdtempSync(path.join(os.tmpdir(), 'berx-v9-probe-'));
 const outFile = path.join(outDir, 'probe.mjs');
@@ -130,6 +156,11 @@ gate(
 		report.profiles.watch.navShells.compact === 300,
 	Object.entries(report.profiles).map(([k, v]) => `${k}:${Object.keys(v.navShells).join('/')}`).join(' '),
 );
+gate(
+	'every built spatial component is actually rendered',
+	unrenderedComponents.length === 0,
+	unrenderedComponents.length === 0 ? 'no unrendered components' : unrenderedComponents.join(', '),
+);
 gate('no probe findings', report.findings.length === 0, report.findings.slice(0, 8).map((f) => `${f.scope}: ${f.message}`).join(' | ') || 'clean');
 
 const failed = gates.filter((g) => !g.pass);
@@ -148,6 +179,7 @@ if (jsonOnly) {
 		log(`  ${name.padEnd(20)} tier=${p.tier.padEnd(6)} blur<=${p.maxBlurLayers} used=${p.blurLayersMax} 3d=${p.allow3D} parallax=${p.allowParallax} minContrast=${p.minContentContrast}`);
 	}
 	log(`\nData modes: ${JSON.stringify(report.dataModes)}`);
+	log(`Unrendered spatial components: ${unrenderedComponents.join(', ') || 'none'}`);
 	log(`Blocked components (named, not stubbed): ${report.blockedComponents.join(', ')}`);
 	log('\n' + '='.repeat(60));
 	log(failed.length === 0 ? `ALL ${gates.length} GATES PASS` : `${failed.length}/${gates.length} GATES FAILED`);

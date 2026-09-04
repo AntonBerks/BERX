@@ -4,16 +4,18 @@
  * domain this session). Own trips call also includes trips you're a
  * real participant on, not just ones you own.
  */
-import React, {useCallback, useEffect, useState} from 'react';
-import {View, Text, FlatList, Pressable, StyleSheet} from 'react-native';
+import {useCallback, useEffect, useState} from 'react';
+import {View, FlatList, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxTrip} from '@berx/api/types';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
+import {BerxTripCard} from '../../../../packages/design-system/src/spatial/BerxTripCard';
+import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
 
-interface Props {
+export interface TripsScreenProps {
 	api: BerxApiClient;
 	userGuid?: number;
 	isOwn: boolean;
@@ -27,7 +29,15 @@ function fmtDate(unix: number | null): string | null {
 	return new Date(unix * 1000).toLocaleDateString('ru-RU', {day: 'numeric', month: 'short'});
 }
 
-export default function TripsScreen({api, userGuid, isOwn, onOpenTrip, onCreate, onBack}: Props) {
+export default function TripsScreen(props: TripsScreenProps) {
+	return (
+		<BerxFamilyScene family="EXPERIENCE" testID="trips">
+			<TripsSceneBody {...props} />
+		</BerxFamilyScene>
+	);
+}
+
+function TripsSceneBody({api, userGuid, isOwn, onOpenTrip, onCreate, onBack}: TripsScreenProps) {
 	const [items, setItems] = useState<BerxTrip[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
@@ -71,14 +81,18 @@ export default function TripsScreen({api, userGuid, isOwn, onOpenTrip, onCreate,
 						const start = fmtDate(item.start_date);
 						const end = fmtDate(item.end_date);
 						return (
-							<Pressable style={styles.row} onPress={() => onOpenTrip(item.id)}>
-								<Text style={styles.title} numberOfLines={1}>{item.title}</Text>
-								<Text style={styles.meta}>
-									{item.stop_count} {item.stop_count === 1 ? 'точка' : 'точек'}
-									{start ? ` · ${start}${end ? ` — ${end}` : ''}` : ''}
-									{!item.is_own ? ' · Совместная' : item.visibility === 'private' ? ' · Приватная' : ''}
-								</Text>
-							</Pressable>
+							<BerxTripCard
+								tripGuid={item.id}
+								title={item.title}
+								datesLabel={[
+									start ? `${start}${end ? ` — ${end}` : ''}` : undefined,
+									!item.is_own ? 'Совместная' : item.visibility === 'private' ? 'Приватная' : undefined,
+								]
+									.filter(Boolean)
+									.join(' · ')}
+								stopCount={item.stop_count}
+								onPress={() => onOpenTrip(item.id)}
+							/>
 						);
 					}}
 				/>

@@ -13,19 +13,32 @@ import {rgba} from '@berx/spatial';
 import {useBerxScene} from './BerxSpatialScene';
 import {colors, spacing, typography} from '../tokens';
 
+/**
+ * Exactly the shape /api/v1/business/places/{guid}/hours returns, so
+ * there is no translation layer between the endpoint and the
+ * component to drift.
+ */
 export interface BerxOpeningInterval {
-	/** 0 = Sunday, matching Date#getDay. */
-	day: number;
-	/** Minutes from midnight. */
-	openMinute: number;
-	closeMinute: number;
+	/** 0 = Sunday, matching PHP date('w') and JS getDay(). */
+	weekday: number;
+	/** Minutes from midnight, place-local. */
+	open: number;
+	close: number;
 }
 
 export interface BerxPlaceHoursProps {
 	intervals?: readonly BerxOpeningInterval[];
 	/** Free-text hours, when that is all the place has. */
 	rawHours?: string;
-	/** Local time to evaluate against. Passed in so the result is testable and timezone-explicit. */
+	/**
+	 * The server's own answer (`is_open_now`), which is authoritative:
+	 * it evaluates in the place's local time, which the device cannot.
+	 * null means the place has no structured hours — genuinely
+	 * different from closed. Omit it and the component falls back to
+	 * computing from the intervals against `now`.
+	 */
+	isOpenNow?: boolean | null;
+	/** Local time for the fallback computation. Injected so it is testable. */
 	now?: Date;
 	testID?: string;
 }
@@ -48,17 +61,18 @@ export function isOpenNow(intervals: readonly BerxOpeningInterval[] | undefined,
 	const day = now.getDay();
 	const minute = now.getHours() * 60 + now.getMinutes();
 	for (const i of intervals) {
-		if (i.day !== day) continue;
+		if (i.weekday !== day) continue;
 		/* an interval that ends past midnight closes on the following day */
-		const close = i.closeMinute <= i.openMinute ? i.closeMinute + 1440 : i.closeMinute;
-		if (minute >= i.openMinute && minute < close) return true;
+		const close = i.close <= i.open ? i.close + 1440 : i.close;
+		if (minute >= i.open && minute < close) return true;
 	}
 	return false;
 }
 
-export function BerxPlaceHours({intervals, rawHours, now = new Date(), testID}: BerxPlaceHoursProps) {
+export function BerxPlaceHours({intervals, rawHours, isOpenNow: serverAnswer, now = new Date(), testID}: BerxPlaceHoursProps) {
 	const {scene} = useBerxScene();
-	const open = isOpenNow(intervals, now);
+	/* the server's answer wins; the local computation is only a fallback */
+	const open = serverAnswer !== undefined ? serverAnswer : isOpenNow(intervals, now);
 
 	return (
 		<View testID={testID} style={styles.root}>
@@ -87,10 +101,13 @@ export function BerxPlaceHours({intervals, rawHours, now = new Date(), testID}: 
 			{intervals && intervals.length > 0 ? (
 				<View accessibilityRole="list" style={styles.list}>
 					{[...intervals]
-						.sort((a, b) => a.day - b.day || a.openMinute - b.openMinute)
+						.sort((a, b) => a.weekday - b.weekday || a.open - b.open)
 						.map((i, idx) => (
-							<Text key={`${i.day}-${idx}`} style={styles.row} accessibilityLabel={`${DAYS[i.day]}: с ${fmt(i.openMinute)} до ${fmt(i.closeMinute)}`}>
-								{DAYS[i.day]}  {fmt(i.openMinute)}–{fmt(i.closeMinute)}
+							<Text
+								key={`${i.weekday}-${idx}`}
+								style={styles.row}
+								accessibilityLabel={`${DAYS[i.weekday]}: с ${fmt(i.open)} до ${fmt(i.close)}`}>
+								{DAYS[i.weekday]}  {fmt(i.open)}–{fmt(i.close)}
 							</Text>
 						))}
 				</View>

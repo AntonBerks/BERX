@@ -20,6 +20,8 @@ export interface BerxPlaceHeroProps {
 	rating?: number;
 	ratingCount?: number;
 	hours?: readonly BerxOpeningInterval[];
+	/** The server's own is_open_now; null means no structured hours exist. */
+	isOpenNow?: boolean | null;
 	rawHours?: string;
 	actions?: React.ReactNode;
 	testID?: string;
@@ -34,6 +36,7 @@ export function BerxPlaceHero({
 	rating,
 	ratingCount = 0,
 	hours,
+	isOpenNow,
 	rawHours,
 	actions,
 	testID,
@@ -49,7 +52,7 @@ export function BerxPlaceHero({
 			badges={
 				<>
 					<BerxPlaceRating average={rating} count={ratingCount} />
-					<BerxPlaceHours intervals={hours} rawHours={rawHours} />
+					<BerxPlaceHours intervals={hours} isOpenNow={isOpenNow} rawHours={rawHours} />
 				</>
 			}
 			actions={actions}

@@ -16,7 +16,8 @@
  */
 import React, {createContext, useContext, useEffect, useMemo} from 'react';
 import {Platform, StyleSheet, View, useWindowDimensions, type ImageSourcePropType} from 'react-native';
-import {resolveScreen, type BerxResolvedScreen} from '@berx/scenes';
+import {getFamilyContracts, resolveScreen, type BerxResolvedScreen} from '@berx/scenes';
+import type {BerxFamily} from '@berx/spatial';
 import type {BerxColorWorldName, BerxDeviceSignals, BerxPlatform} from '@berx/spatial';
 import {BerxSpatialScene} from '../../../../packages/design-system/src/spatial/BerxSpatialScene';
 import {BerxSceneBackdrop} from '../../../../packages/design-system/src/spatial/BerxSceneBackdrop';
@@ -117,6 +118,37 @@ export function BerxScreenScene({
 				<View style={styles.content}>{children}</View>
 			</BerxSpatialScene>
 		</ScreenContext.Provider>
+	);
+}
+
+/**
+ * A scene for a BERX screen that is not one of the 300.
+ *
+ * The archive names 29 screens and leaves 271 numbered contracts with
+ * no product logic. BERX has real screens the archive never named —
+ * a post's detail view, the points ledger, a place's page — and they
+ * still belong to a family and still deserve that family's space.
+ *
+ * This renders the family's *lead* contract, which is the one the
+ * archive actually described, and deliberately emits no contract
+ * analytics: borrowing BERX-031's spatial definition is honest,
+ * reporting a BERX-031 view from a different screen is not. The
+ * screen keeps its own naming.
+ *
+ * It is not a way to quietly claim contract coverage. A screen
+ * rendered this way is not counted as one of the 300 anywhere.
+ */
+export interface BerxFamilySceneProps extends Omit<BerxScreenSceneProps, 'screenId' | 'trackView'> {
+	family: BerxFamily;
+}
+
+export function BerxFamilyScene({family, children, ...rest}: BerxFamilySceneProps) {
+	const lead = getFamilyContracts(family)[0];
+	if (!lead) throw new Error(`BERX: family "${family}" has no contracts.`);
+	return (
+		<BerxScreenScene {...rest} screenId={lead.screenId} trackView={false}>
+			{children}
+		</BerxScreenScene>
 	);
 }
 

@@ -9,17 +9,22 @@
  * OssnPoints.php, and this screen only displays what the server
  * computed from them.
  */
-import React, {useCallback, useEffect, useState} from 'react';
+import {useCallback, useEffect, useState} from 'react';
 import {View, Text, FlatList, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxPointsBalance, BerxPointsHistoryEntry} from '@berx/api/types';
 import {relativeTimeLabel} from '@berx/domain';
 import {colors, spacing, radius, typography} from '@berx/design-system/tokens';
+import {BerxRewardCard} from '../../../../packages/design-system/src/spatial/BerxRewardCard';
+import {BerxProgressRing} from '../../../../packages/design-system/src/spatial/BerxProgressRing';
+import {BerxStatRail} from '../../../../packages/design-system/src/spatial/BerxStatRail';
+import {BerxSpatialCard} from '../../../../packages/design-system/src/spatial/BerxSpatialCard';
+import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState} from '../../../../packages/design-system/src/components/BerxStates';
 
-interface Props {
+export interface PointsScreenProps {
 	api: BerxApiClient;
 	onBack: () => void;
 }
@@ -32,7 +37,21 @@ const REASON_LABELS: Record<string, string> = {
 	dating_boost: 'Буст анкеты',
 };
 
-export default function PointsScreen({api, onBack}: Props) {
+/**
+ * The real cost of the one thing points buy. Named here so the number
+ * on the card and the number the server charges cannot drift apart.
+ */
+const BOOST_COST_POINTS = 30;
+
+export default function PointsScreen(props: PointsScreenProps) {
+	return (
+		<BerxFamilyScene family="PROFILE" testID="points">
+			<PointsSceneBody {...props} />
+		</BerxFamilyScene>
+	);
+}
+
+function PointsSceneBody({api, onBack}: PointsScreenProps) {
 	const [balance, setBalance] = useState<BerxPointsBalance | null>(null);
 	const [history, setHistory] = useState<BerxPointsHistoryEntry[]>([]);
 	const [loading, setLoading] = useState(true);
@@ -99,20 +118,47 @@ export default function PointsScreen({api, onBack}: Props) {
 				keyExtractor={(item: BerxPointsHistoryEntry, i: number) => `${item.time_created}-${i}`}
 				ListHeaderComponent={
 					<View>
-						<View style={styles.hero}>
-							<Text style={styles.levelLabel}>Уровень {balance.level}</Text>
-							<Text style={styles.balanceValue}>{balance.balance}</Text>
-							<Text style={styles.balanceCaption}>баллов на счету</Text>
-
-							<View style={styles.progressTrack}>
-								<View style={[styles.progressFill, {width: `${isMaxLevel ? 100 : progressPercent}%`}]} />
+						<BerxSpatialCard depth="D3" padding={spacing.xl} style={styles.heroCard}>
+							<View style={styles.heroRow}>
+								{/* the real level_progress_ratio, announced as a percentage */}
+								<BerxProgressRing
+									progress={isMaxLevel ? 1 : balance.level_progress_ratio}
+									size={72}
+									thickness={4}
+									accessibilityLabel={
+										isMaxLevel
+											? 'Максимальный уровень'
+											: `Прогресс до уровня ${balance.level + 1}: ${progressPercent}%`
+									}
+								/>
+								<View style={styles.heroText}>
+									<Text style={styles.levelLabel}>Уровень {balance.level}</Text>
+									<Text style={styles.balanceValue}>{balance.balance}</Text>
+									<Text style={styles.balanceCaption}>баллов на счету</Text>
+								</View>
 							</View>
 							<Text style={styles.progressCaption}>
 								{isMaxLevel
 									? 'Максимальный уровень'
 									: `${balance.lifetime_earned} / ${balance.level_ceiling} до уровня ${balance.level + 1}`}
 							</Text>
-						</View>
+							<BerxStatRail
+								stats={[
+									{key: 'lifetime', label: 'заработано всего', value: balance.lifetime_earned},
+									{
+										key: 'streak',
+										label: 'дней подряд',
+										/* omitted, not zeroed, when there is no streak */
+										value: balance.current_streak > 0 ? balance.current_streak : undefined,
+									},
+									{
+										key: 'longest',
+										label: 'лучшая серия',
+										value: balance.longest_streak > 0 ? balance.longest_streak : undefined,
+									},
+								]}
+							/>
+						</BerxSpatialCard>
 
 						{balance.current_streak > 0 ? (
 							<View style={styles.streakRow}>
@@ -125,15 +171,36 @@ export default function PointsScreen({api, onBack}: Props) {
 						) : null}
 
 						<View style={styles.spendSection}>
-							<Text style={styles.sectionTitle}>Потратить</Text>
-							<View style={styles.spendCard}>
-								<View style={styles.spendCardText}>
-									<Text style={styles.spendCardTitle}>Буст анкеты знакомств</Text>
-									<Text style={styles.spendCardSubtitle}>Показ выше в Discover на 30 минут</Text>
-								</View>
-								<BerxButton label="30" onPress={handleBoost} loading={boosting} disabled={balance.balance < 30} />
-							</View>
-							{boostMessage ? <Text style={styles.boostMessage}>{boostMessage}</Text> : null}
+							<Text style={styles.sectionTitle} accessibilityRole="header">
+								Потратить
+							</Text>
+							{/**
+							 * One reward, because BERX has exactly one thing
+							 * points can be spent on: /points/spend accepts the
+							 * single reason 'dating_boost'. A catalogue of
+							 * rewards here would be a catalogue of buttons that
+							 * do nothing.
+							 */}
+							<BerxRewardCard
+								rewardId="dating_boost"
+								title="Буст анкеты знакомств"
+								description="Показ выше в Discover на 30 минут"
+								costPoints={BOOST_COST_POINTS}
+								balancePoints={balance.balance}
+								actions={
+									<BerxButton
+										label={`Потратить ${BOOST_COST_POINTS}`}
+										onPress={handleBoost}
+										loading={boosting}
+										disabled={balance.balance < BOOST_COST_POINTS}
+									/>
+								}
+							/>
+							{boostMessage ? (
+								<Text accessibilityLiveRegion="polite" style={styles.boostMessage}>
+									{boostMessage}
+								</Text>
+							) : null}
 						</View>
 
 						<Text style={styles.sectionTitle}>История</Text>
@@ -157,19 +224,14 @@ export default function PointsScreen({api, onBack}: Props) {
 }
 
 const styles = StyleSheet.create({
-	screen: {flex: 1, backgroundColor: colors.black},
-	hero: {
-		alignItems: 'center',
-		paddingVertical: spacing.xxl,
-		paddingHorizontal: spacing.xl,
-		borderBottomWidth: 1,
-		borderBottomColor: colors.borderSoft,
-	},
-	levelLabel: {color: colors.accent, fontSize: typography.sizeBase, fontWeight: typography.weightMedium, marginBottom: spacing.sm},
-	balanceValue: {color: colors.text, fontSize: 48, fontWeight: typography.weightBold},
-	balanceCaption: {color: colors.textDim, fontSize: typography.sizeSm, marginBottom: spacing.lg},
-	progressTrack: {width: '100%', height: 6, borderRadius: 3, backgroundColor: colors.glass2, overflow: 'hidden'},
-	progressFill: {height: '100%', backgroundColor: colors.accent},
+	heroCard: {margin: spacing.lg},
+	heroRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.lg},
+	heroText: {flex: 1, gap: 2},
+	/* the scene paints the background now */
+	screen: {flex: 1},
+	levelLabel: {color: colors.accent, fontSize: typography.sizeBase, fontWeight: typography.weightMedium},
+	balanceValue: {color: colors.text, fontSize: 40, fontWeight: typography.weightBold},
+	balanceCaption: {color: colors.textDim, fontSize: typography.sizeSm},
 	progressCaption: {color: colors.textFaint, fontSize: typography.sizeXs, marginTop: spacing.sm},
 	streakRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginHorizontal: spacing.lg, backgroundColor: colors.surface, borderRadius: radius.md, padding: spacing.md},
 	streakGlyph: {fontSize: typography.sizeXl},
@@ -177,19 +239,6 @@ const styles = StyleSheet.create({
 	streakCaption: {fontSize: typography.sizeXs, color: colors.textFaint},
 	spendSection: {padding: spacing.lg},
 	sectionTitle: {color: colors.text, fontSize: typography.sizeBase, fontWeight: typography.weightMedium, marginBottom: spacing.sm, paddingHorizontal: spacing.sm},
-	spendCard: {
-		flexDirection: 'row',
-		alignItems: 'center',
-		gap: spacing.md,
-		backgroundColor: colors.graphite,
-		borderRadius: radius.md,
-		borderWidth: 1,
-		borderColor: colors.borderSoft,
-		padding: spacing.lg,
-	},
-	spendCardText: {flex: 1},
-	spendCardTitle: {color: colors.text, fontSize: typography.sizeSm, fontWeight: typography.weightMedium},
-	spendCardSubtitle: {color: colors.textFaint, fontSize: typography.sizeXs, marginTop: spacing.xs},
 	boostMessage: {color: colors.textDim, fontSize: typography.sizeXs, marginTop: spacing.sm, paddingHorizontal: spacing.sm},
 	historyRow: {
 		flexDirection: 'row',
