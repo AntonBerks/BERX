@@ -15,8 +15,9 @@ import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
+import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 
-interface Props {
+export interface DeviceSessionsScreenProps {
 	api: BerxApiClient;
 	onBack?: () => void;
 }
@@ -26,7 +27,15 @@ function fmtTime(unix: number | null): string {
 	return new Date(unix * 1000).toLocaleString('ru-RU');
 }
 
-export default function DeviceSessionsScreen({api, onBack}: Props) {
+export default function DeviceSessionsScreen(props: DeviceSessionsScreenProps) {
+	return (
+		<BerxFamilyScene family="PROFILE" testID="device-sessions">
+			<DeviceSessionsScreenBody {...props} />
+		</BerxFamilyScene>
+	);
+}
+
+function DeviceSessionsScreenBody({api, onBack}: DeviceSessionsScreenProps) {
 	const [items, setItems] = useState<BerxSession[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);

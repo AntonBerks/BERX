@@ -12,8 +12,9 @@ import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
+import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 
-interface Props {
+export interface CreateExperienceScreenProps {
 	api: BerxApiClient;
 	onCreated: (id: number) => void;
 	onBack?: () => void;
@@ -21,7 +22,15 @@ interface Props {
 
 type Anchor = {type: 'place' | 'event'; guid: number; title: string};
 
-export default function CreateExperienceScreen({api, onCreated, onBack}: Props) {
+export default function CreateExperienceScreen(props: CreateExperienceScreenProps) {
+	return (
+		<BerxFamilyScene family="EXPERIENCE" testID="create-experience">
+			<CreateExperienceScreenBody {...props} />
+		</BerxFamilyScene>
+	);
+}
+
+function CreateExperienceScreenBody({api, onCreated, onBack}: CreateExperienceScreenProps) {
 	const [title, setTitle] = useState('');
 	const [description, setDescription] = useState('');
 	const [anchorQuery, setAnchorQuery] = useState('');

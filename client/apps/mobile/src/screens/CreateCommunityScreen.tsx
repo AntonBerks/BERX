@@ -8,14 +8,23 @@ import {colors, spacing, typography} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
+import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 
-interface Props {
+export interface CreateCommunityScreenProps {
 	api: BerxApiClient;
 	onCreated: (guid: number) => void;
 	onBack: () => void;
 }
 
-export default function CreateCommunityScreen({api, onCreated, onBack}: Props) {
+export default function CreateCommunityScreen(props: CreateCommunityScreenProps) {
+	return (
+		<BerxFamilyScene family="COMMUNITY" testID="create-community">
+			<CreateCommunityScreenBody {...props} />
+		</BerxFamilyScene>
+	);
+}
+
+function CreateCommunityScreenBody({api, onCreated, onBack}: CreateCommunityScreenProps) {
 	const [name, setName] = useState('');
 	const [description, setDescription] = useState('');
 	const [privacy, setPrivacy] = useState<'public' | 'private'>('public');

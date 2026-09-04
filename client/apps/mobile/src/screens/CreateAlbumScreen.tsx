@@ -9,14 +9,23 @@ import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
+import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 
-interface Props {
+export interface CreateAlbumScreenProps {
 	api: BerxApiClient;
 	onCreated: (guid: number) => void;
 	onBack?: () => void;
 }
 
-export default function CreateAlbumScreen({api, onCreated, onBack}: Props) {
+export default function CreateAlbumScreen(props: CreateAlbumScreenProps) {
+	return (
+		<BerxFamilyScene family="PROFILE" testID="create-album">
+			<CreateAlbumScreenBody {...props} />
+		</BerxFamilyScene>
+	);
+}
+
+function CreateAlbumScreenBody({api, onCreated, onBack}: CreateAlbumScreenProps) {
 	const [title, setTitle] = useState('');
 	const [access, setAccess] = useState<'public' | 'private'>('public');
 	const [submitting, setSubmitting] = useState(false);

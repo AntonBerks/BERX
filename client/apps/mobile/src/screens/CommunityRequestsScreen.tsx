@@ -15,14 +15,23 @@ import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
+import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 
-interface Props {
+export interface CommunityRequestsScreenProps {
 	api: BerxApiClient;
 	guid: number;
 	onBack?: () => void;
 }
 
-export default function CommunityRequestsScreen({api, guid, onBack}: Props) {
+export default function CommunityRequestsScreen(props: CommunityRequestsScreenProps) {
+	return (
+		<BerxFamilyScene family="COMMUNITY" testID="community-requests">
+			<CommunityRequestsScreenBody {...props} />
+		</BerxFamilyScene>
+	);
+}
+
+function CommunityRequestsScreenBody({api, guid, onBack}: CommunityRequestsScreenProps) {
 	const [items, setItems] = useState<BerxCommunityRequest[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);

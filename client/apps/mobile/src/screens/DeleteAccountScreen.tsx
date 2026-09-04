@@ -16,14 +16,23 @@ import {colors, spacing, typography} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
+import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 
-interface Props {
+export interface DeleteAccountScreenProps {
 	api: BerxApiClient;
 	onDeleted: () => void;
 	onBack?: () => void;
 }
 
-export default function DeleteAccountScreen({api, onDeleted, onBack}: Props) {
+export default function DeleteAccountScreen(props: DeleteAccountScreenProps) {
+	return (
+		<BerxFamilyScene family="PROFILE" testID="delete-account">
+			<DeleteAccountScreenBody {...props} />
+		</BerxFamilyScene>
+	);
+}
+
+function DeleteAccountScreenBody({api, onDeleted, onBack}: DeleteAccountScreenProps) {
 	const [password, setPassword] = useState('');
 	const [confirming, setConfirming] = useState(false);
 	const [submitting, setSubmitting] = useState(false);

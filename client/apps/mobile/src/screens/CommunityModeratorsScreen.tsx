@@ -14,14 +14,23 @@ import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
+import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 
-interface Props {
+export interface CommunityModeratorsScreenProps {
 	api: BerxApiClient;
 	guid: number;
 	onBack?: () => void;
 }
 
-export default function CommunityModeratorsScreen({api, guid, onBack}: Props) {
+export default function CommunityModeratorsScreen(props: CommunityModeratorsScreenProps) {
+	return (
+		<BerxFamilyScene family="COMMUNITY" testID="community-moderators">
+			<CommunityModeratorsScreenBody {...props} />
+		</BerxFamilyScene>
+	);
+}
+
+function CommunityModeratorsScreenBody({api, guid, onBack}: CommunityModeratorsScreenProps) {
 	const [items, setItems] = useState<BerxGroupModerator[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);

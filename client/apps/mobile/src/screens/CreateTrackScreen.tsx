@@ -12,15 +12,24 @@ import {colors, spacing, typography} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
+import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 
-interface Props {
+export interface CreateTrackScreenProps {
 	api: BerxApiClient;
 	pickAudio: () => Promise<BerxFilePart | null>;
 	onCreated: (postGuid: number) => void;
 	onBack?: () => void;
 }
 
-export default function CreateTrackScreen({api, pickAudio, onCreated, onBack}: Props) {
+export default function CreateTrackScreen(props: CreateTrackScreenProps) {
+	return (
+		<BerxFamilyScene family="HOME" testID="create-track">
+			<CreateTrackScreenBody {...props} />
+		</BerxFamilyScene>
+	);
+}
+
+function CreateTrackScreenBody({api, pickAudio, onCreated, onBack}: CreateTrackScreenProps) {
 	const [text, setText] = useState('');
 	const [pickedPart, setPickedPart] = useState<BerxFilePart | null>(null);
 	const [pickedLabel, setPickedLabel] = useState<string | null>(null);

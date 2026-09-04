@@ -13,15 +13,24 @@ import {BerxHeader} from '../../../../packages/design-system/src/components/Berx
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState} from '../../../../packages/design-system/src/components/BerxStates';
+import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 
-interface Props {
+export interface CreatorSettingsScreenProps {
 	api: BerxApiClient;
 	myUsername: string;
 	onDisabled: () => void;
 	onBack?: () => void;
 }
 
-export default function CreatorSettingsScreen({api, myUsername, onDisabled, onBack}: Props) {
+export default function CreatorSettingsScreen(props: CreatorSettingsScreenProps) {
+	return (
+		<BerxFamilyScene family="CREATOR" testID="creator-settings">
+			<CreatorSettingsScreenBody {...props} />
+		</BerxFamilyScene>
+	);
+}
+
+function CreatorSettingsScreenBody({api, myUsername, onDisabled, onBack}: CreatorSettingsScreenProps) {
 	const [isCreator, setIsCreator] = useState<boolean | null>(null);
 	const [category, setCategory] = useState('');
 	const [bio, setBio] = useState('');

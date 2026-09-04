@@ -10,15 +10,24 @@ import type {BerxCommunityMember} from '@berx/api/types';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
+import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 
-interface Props {
+export interface CommunityMembersScreenProps {
 	api: BerxApiClient;
 	guid: number;
 	onOpenProfile: (username: string) => void;
 	onBack?: () => void;
 }
 
-export default function CommunityMembersScreen({api, guid, onOpenProfile, onBack}: Props) {
+export default function CommunityMembersScreen(props: CommunityMembersScreenProps) {
+	return (
+		<BerxFamilyScene family="COMMUNITY" testID="community-members">
+			<CommunityMembersScreenBody {...props} />
+		</BerxFamilyScene>
+	);
+}
+
+function CommunityMembersScreenBody({api, guid, onOpenProfile, onBack}: CommunityMembersScreenProps) {
 	const [items, setItems] = useState<BerxCommunityMember[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);

@@ -10,14 +10,23 @@ import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
+import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 
-interface Props {
+export interface CreateCollectionScreenProps {
 	api: BerxApiClient;
 	onCreated: (id: number) => void;
 	onBack?: () => void;
 }
 
-export default function CreateCollectionScreen({api, onCreated, onBack}: Props) {
+export default function CreateCollectionScreen(props: CreateCollectionScreenProps) {
+	return (
+		<BerxFamilyScene family="EXPERIENCE" testID="create-collection">
+			<CreateCollectionScreenBody {...props} />
+		</BerxFamilyScene>
+	);
+}
+
+function CreateCollectionScreenBody({api, onCreated, onBack}: CreateCollectionScreenProps) {
 	const [title, setTitle] = useState('');
 	const [description, setDescription] = useState('');
 	const [visibility, setVisibility] = useState<BerxCollectionVisibility>('private');

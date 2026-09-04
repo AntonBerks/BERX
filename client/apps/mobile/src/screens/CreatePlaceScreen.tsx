@@ -11,14 +11,23 @@ import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
+import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 
-interface Props {
+export interface CreatePlaceScreenProps {
 	api: BerxApiClient;
 	onCreated: (guid: number) => void;
 	onBack?: () => void;
 }
 
-export default function CreatePlaceScreen({api, onCreated, onBack}: Props) {
+export default function CreatePlaceScreen(props: CreatePlaceScreenProps) {
+	return (
+		<BerxFamilyScene family="PLACES" testID="create-place">
+			<CreatePlaceScreenBody {...props} />
+		</BerxFamilyScene>
+	);
+}
+
+function CreatePlaceScreenBody({api, onCreated, onBack}: CreatePlaceScreenProps) {
 	const [title, setTitle] = useState('');
 	const [description, setDescription] = useState('');
 	const [address, setAddress] = useState('');

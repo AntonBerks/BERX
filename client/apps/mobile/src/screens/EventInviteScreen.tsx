@@ -14,14 +14,23 @@ import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
+import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 
-interface Props {
+export interface EventInviteScreenProps {
 	api: BerxApiClient;
 	guid: number;
 	onBack?: () => void;
 }
 
-export default function EventInviteScreen({api, guid, onBack}: Props) {
+export default function EventInviteScreen(props: EventInviteScreenProps) {
+	return (
+		<BerxFamilyScene family="EVENTS" testID="event-invite">
+			<EventInviteScreenBody {...props} />
+		</BerxFamilyScene>
+	);
+}
+
+function EventInviteScreenBody({api, guid, onBack}: EventInviteScreenProps) {
 	const [friends, setFriends] = useState<BerxFriend[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);

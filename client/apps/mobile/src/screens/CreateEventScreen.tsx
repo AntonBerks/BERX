@@ -13,8 +13,9 @@ import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
+import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 
-interface Props {
+export interface CreateEventScreenProps {
 	api: BerxApiClient;
 	onCreated: (guid: number) => void;
 	onBack?: () => void;
@@ -28,7 +29,15 @@ function defaultStart(): {label: string; unix: number} {
 	return {label: d.toLocaleString('ru-RU'), unix: Math.floor(d.getTime() / 1000)};
 }
 
-export default function CreateEventScreen({api, onCreated, onBack}: Props) {
+export default function CreateEventScreen(props: CreateEventScreenProps) {
+	return (
+		<BerxFamilyScene family="EVENTS" testID="create-event">
+			<CreateEventScreenBody {...props} />
+		</BerxFamilyScene>
+	);
+}
+
+function CreateEventScreenBody({api, onCreated, onBack}: CreateEventScreenProps) {
 	const [title, setTitle] = useState('');
 	const [description, setDescription] = useState('');
 	const [location, setLocation] = useState('');

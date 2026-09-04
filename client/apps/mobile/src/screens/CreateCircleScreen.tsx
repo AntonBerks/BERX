@@ -10,8 +10,9 @@ import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
+import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 
-interface Props {
+export interface CreateCircleScreenProps {
 	api: BerxApiClient;
 	onCreated: (id: number) => void;
 	onBack?: () => void;
@@ -25,7 +26,15 @@ const KINDS: {key: Exclude<BerxCircleKind, null> | null; label: string}[] = [
 	{key: 'close_friends', label: 'Близкие друзья'},
 ];
 
-export default function CreateCircleScreen({api, onCreated, onBack}: Props) {
+export default function CreateCircleScreen(props: CreateCircleScreenProps) {
+	return (
+		<BerxFamilyScene family="SOCIAL" testID="create-circle">
+			<CreateCircleScreenBody {...props} />
+		</BerxFamilyScene>
+	);
+}
+
+function CreateCircleScreenBody({api, onCreated, onBack}: CreateCircleScreenProps) {
 	const [name, setName] = useState('');
 	const [kind, setKind] = useState<Exclude<BerxCircleKind, null> | null>(null);
 	const [submitting, setSubmitting] = useState(false);

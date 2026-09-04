@@ -16,13 +16,22 @@ import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
+import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 
-interface Props {
+export interface AdminUnvalidatedScreenProps {
 	api: BerxApiClient;
 	onBack?: () => void;
 }
 
-export default function AdminUnvalidatedScreen({api, onBack}: Props) {
+export default function AdminUnvalidatedScreen(props: AdminUnvalidatedScreenProps) {
+	return (
+		<BerxFamilyScene family="PROFILE" testID="admin-unvalidated">
+			<AdminUnvalidatedScreenBody {...props} />
+		</BerxFamilyScene>
+	);
+}
+
+function AdminUnvalidatedScreenBody({api, onBack}: AdminUnvalidatedScreenProps) {
 	const [items, setItems] = useState<BerxUnvalidatedUser[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);

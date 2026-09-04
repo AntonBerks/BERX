@@ -13,8 +13,9 @@ import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
+import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 
-interface Props {
+export interface AddToCollectionScreenProps {
 	api: BerxApiClient;
 	myGuid: number;
 	itemType: BerxCollectionItemType;
@@ -24,7 +25,15 @@ interface Props {
 	onBack?: () => void;
 }
 
-export default function AddToCollectionScreen({api, myGuid, itemType, itemGuid, onCreateCollection, onDone, onBack}: Props) {
+export default function AddToCollectionScreen(props: AddToCollectionScreenProps) {
+	return (
+		<BerxFamilyScene family="EXPERIENCE" testID="add-to-collection">
+			<AddToCollectionScreenBody {...props} />
+		</BerxFamilyScene>
+	);
+}
+
+function AddToCollectionScreenBody({api, myGuid, itemType, itemGuid, onCreateCollection, onDone, onBack}: AddToCollectionScreenProps) {
 	const [items, setItems] = useState<BerxCollection[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);

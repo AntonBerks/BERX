@@ -26,8 +26,9 @@ import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
+import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 
-interface Props {
+export interface CreateStoryScreenProps {
 	api: BerxApiClient;
 	pickImage: () => Promise<BerxFilePart | null>;
 	pickVideo: () => Promise<BerxFilePart | null>;
@@ -36,7 +37,15 @@ interface Props {
 	onBack: () => void;
 }
 
-export default function CreateStoryScreen({api, pickImage, pickVideo, eventGuid, onCreated, onBack}: Props) {
+export default function CreateStoryScreen(props: CreateStoryScreenProps) {
+	return (
+		<BerxFamilyScene family="HOME" testID="create-story">
+			<CreateStoryScreenBody {...props} />
+		</BerxFamilyScene>
+	);
+}
+
+function CreateStoryScreenBody({api, pickImage, pickVideo, eventGuid, onCreated, onBack}: CreateStoryScreenProps) {
 	const [file, setFile] = useState<BerxFilePart | null>(null);
 	const [isVideo, setIsVideo] = useState(false);
 	const [previewUri, setPreviewUri] = useState<string | null>(null);

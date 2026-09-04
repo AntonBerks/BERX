@@ -16,8 +16,9 @@ import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
+import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 
-interface Props {
+export interface ReportScreenProps {
 	api: BerxApiClient;
 	targetType: BerxReportTargetType;
 	targetGuid: number;
@@ -34,7 +35,15 @@ const REASONS: {key: BerxReportReason; label: string}[] = [
 	{key: 'other', label: 'Другое'},
 ];
 
-export default function ReportScreen({api, targetType, targetGuid, onSubmitted, onBack}: Props) {
+export default function ReportScreen(props: ReportScreenProps) {
+	return (
+		<BerxFamilyScene family="PROFILE" testID="report">
+			<ReportScreenBody {...props} />
+		</BerxFamilyScene>
+	);
+}
+
+function ReportScreenBody({api, targetType, targetGuid, onSubmitted, onBack}: ReportScreenProps) {
 	const [reason, setReason] = useState<BerxReportReason | null>(null);
 	const [note, setNote] = useState('');
 	const [submitting, setSubmitting] = useState(false);

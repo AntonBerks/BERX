@@ -15,15 +15,24 @@ import {colors, spacing, typography} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
+import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 
-interface Props {
+export interface CreateVideoScreenProps {
 	api: BerxApiClient;
 	pickVideo: () => Promise<BerxFilePart | null>;
 	onCreated: (postGuid: number) => void;
 	onBack?: () => void;
 }
 
-export default function CreateVideoScreen({api, pickVideo, onCreated, onBack}: Props) {
+export default function CreateVideoScreen(props: CreateVideoScreenProps) {
+	return (
+		<BerxFamilyScene family="HOME" testID="create-video">
+			<CreateVideoScreenBody {...props} />
+		</BerxFamilyScene>
+	);
+}
+
+function CreateVideoScreenBody({api, pickVideo, onCreated, onBack}: CreateVideoScreenProps) {
 	const [text, setText] = useState('');
 	const [pickedPart, setPickedPart] = useState<BerxFilePart | null>(null);
 	const [pickedLabel, setPickedLabel] = useState<string | null>(null);

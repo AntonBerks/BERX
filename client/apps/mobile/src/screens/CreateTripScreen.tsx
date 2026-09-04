@@ -10,14 +10,23 @@ import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
+import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 
-interface Props {
+export interface CreateTripScreenProps {
 	api: BerxApiClient;
 	onCreated: (id: number) => void;
 	onBack?: () => void;
 }
 
-export default function CreateTripScreen({api, onCreated, onBack}: Props) {
+export default function CreateTripScreen(props: CreateTripScreenProps) {
+	return (
+		<BerxFamilyScene family="EXPERIENCE" testID="create-trip">
+			<CreateTripScreenBody {...props} />
+		</BerxFamilyScene>
+	);
+}
+
+function CreateTripScreenBody({api, onCreated, onBack}: CreateTripScreenProps) {
 	const [title, setTitle] = useState('');
 	const [description, setDescription] = useState('');
 	const [visibility, setVisibility] = useState<BerxCollectionVisibility>('private');

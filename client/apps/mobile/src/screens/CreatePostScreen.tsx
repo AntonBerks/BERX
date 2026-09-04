@@ -18,14 +18,23 @@ import type {BerxCircle, BerxPostVisibility} from '@berx/api/types';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
+import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 
-interface Props {
+export interface CreatePostScreenProps {
 	api: BerxApiClient;
 	pickImage: () => Promise<BerxFilePart | null>;
 	onCreated: (postGuid: number) => void;
 }
 
-export default function CreatePostScreen({api, pickImage, onCreated}: Props) {
+export default function CreatePostScreen(props: CreatePostScreenProps) {
+	return (
+		<BerxFamilyScene family="HOME" testID="create-post">
+			<CreatePostScreenBody {...props} />
+		</BerxFamilyScene>
+	);
+}
+
+function CreatePostScreenBody({api, pickImage, onCreated}: CreatePostScreenProps) {
 	const [text, setText] = useState('');
 	const [pickedPart, setPickedPart] = useState<BerxFilePart | null>(null);
 	const [previewUri, setPreviewUri] = useState<string | null>(null);

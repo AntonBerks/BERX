@@ -86,6 +86,22 @@ const unrenderedComponents = spatialExports
 	)
 	.map(({name}) => name);
 
+/* ---------------- every routed screen must resolve a scene ----------------
+   "ROUTE EXISTS ≠ SCREEN IMPLEMENTED" cuts both ways: a screen that
+   renders outside a scene has no depth, no material and no motion, and
+   nothing else would catch it. Two files legitimately have no scene of
+   their own — a re-export and the onboarding orchestrator, which
+   renders screens that each have one. */
+const SCENELESS_BY_DESIGN = new Set(['business/BusinessDashboardScreen.tsx', 'onboarding/BerxOnboarding.tsx']);
+const screensDir = path.join(clientRoot, 'apps/mobile/src/screens');
+const scenelessScreens = walkTsx(screensDir)
+	.filter((f) => !SCENELESS_BY_DESIGN.has(path.relative(screensDir, f).split(path.sep).join('/')))
+	.filter((f) => {
+		const src = fs.readFileSync(f, 'utf8');
+		return /export default function/.test(src) && !/Berx(Screen|Family)Scene/.test(src);
+	})
+	.map((f) => path.relative(screensDir, f));
+
 /* ---------------- bundle + run the real runtime ---------------- */
 const outDir = fs.mkdtempSync(path.join(os.tmpdir(), 'berx-v9-probe-'));
 const outFile = path.join(outDir, 'probe.mjs');
@@ -170,6 +186,13 @@ gate(
 		report.profiles['web-tablet'].navShells.rail === 300 &&
 		report.profiles.watch.navShells.compact === 300,
 	Object.entries(report.profiles).map(([k, v]) => `${k}:${Object.keys(v.navShells).join('/')}`).join(' '),
+);
+gate(
+	'every routed screen resolves a scene',
+	scenelessScreens.length === 0,
+	scenelessScreens.length === 0
+		? `${walkTsx(screensDir).length} screen files, none rendering outside a scene`
+		: scenelessScreens.join(', '),
 );
 gate(
 	'every built spatial component is actually rendered',
