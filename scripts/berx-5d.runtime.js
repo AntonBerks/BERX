@@ -675,7 +675,7 @@ function resolveAtmosphere(input) {
   sky = applyKindLight(sky, input.kind);
   if (input.contentColor) sky = capSkyToContent(sky, bg, input.contentColor);
   const lampTint = kindTint(input.kind);
-  const lampStrength = kindTintStrength(input.kind) * 0.75;
+  const lampStrength = kindTintStrength(input.kind) * 0.42;
   if (lampStrength > 0) {
     pools = pools.map((p) => ({ ...p, color: mix(p.color, lampTint, lampStrength) }));
   }

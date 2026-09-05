@@ -790,7 +790,19 @@ export function resolveAtmosphere(input: BerxAtmosphereInput): BerxAtmosphere {
 	sky = applyKindLight(sky, input.kind);
 	if (input.contentColor) sky = capSkyToContent(sky, bg, input.contentColor);
 	const lampTint = kindTint(input.kind);
-	const lampStrength = kindTintStrength(input.kind) * 0.75;
+	/**
+	 * The lamps take the room's temperature, but only about half as
+	 * far as the sky does.
+	 *
+	 * They are the brightest thing in the frame and they are also
+	 * where the active colour world is most visible — a Crimson world
+	 * and an Obsidian one differ in the accent, and the accent lives
+	 * in the pools. Shifting them as hard as the sky would make every
+	 * room's lamps read as the family's temperature rather than as the
+	 * viewer's chosen world, which is the one thing in the atmosphere
+	 * the person actually picked.
+	 */
+	const lampStrength = kindTintStrength(input.kind) * 0.42;
 	if (lampStrength > 0) {
 		pools = pools.map((p) => ({...p, color: mix(p.color, lampTint, lampStrength)}));
 	}
