@@ -21,6 +21,7 @@ import {
 	BERX_MAX_TILT_DEG,
 	berxAtmosphereForFamily,
 	berxAtmospherePoolBudget,
+	planSharedElementFlip,
 	parallaxOffset,
 	perspectiveScale,
 	resolveAtmosphere,
@@ -114,6 +115,90 @@ export function readDeviceSignals(overrides?: Partial<BerxDeviceSignals>): BerxD
 		saveData: nav?.connection?.saveData === true,
 		...overrides,
 	};
+}
+
+/* ------------------------------------------------------------------ */
+/* Shared elements                                                     */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The archive's shared-element transition, actually running.
+ *
+ * v9 names seven things allowed to travel between scenes as one
+ * continuous object — an avatar, hero media, a place pin, an event
+ * poster, a message thread, a primary action, a profile header — and
+ * the point of the list is that the object survives the navigation
+ * rather than being redrawn on the other side. Until now BERX had the
+ * tags on every card and the FLIP maths in the core, and nothing that
+ * moved.
+ *
+ * This is the FLIP: the destination is placed where the source was and
+ * released, so the browser animates one element from one scene's
+ * geometry to the next. The plan comes from @berx/spatial, so the same
+ * transition on React Native travels the same distance over the same
+ * curve.
+ *
+ * Under reduced motion the planner returns an identity transform with
+ * `travels: false` and this cross-fades instead — the element still
+ * changes, it simply stops flying.
+ */
+export interface BerxSharedElementRun {
+	/** Resolves when the element has arrived. */
+	finished: Promise<void>;
+	/** True when the element actually travelled rather than cross-fading. */
+	travelled: boolean;
+}
+
+export function runBerxSharedElement(
+	from: Element,
+	to: HTMLElement,
+	options: {reducedMotion?: boolean} = {},
+): BerxSharedElementRun {
+	const reducedMotion =
+		options.reducedMotion ??
+		(typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches);
+
+	const a = from.getBoundingClientRect();
+	const b = to.getBoundingClientRect();
+	const flip = planSharedElementFlip(
+		{x: a.left, y: a.top, width: a.width, height: a.height},
+		{x: b.left, y: b.top, width: b.width, height: b.height},
+		reducedMotion,
+	);
+
+	/* No geometry to travel between — a destination that has not been
+	   laid out yet would produce a transform from nowhere, so it
+	   cross-fades rather than lying about where it came from. */
+	const measurable = b.width > 0 && b.height > 0;
+	const travels = flip.travels && measurable;
+
+	const keyframes: Keyframe[] = travels
+		? [
+				{
+					transform: `translate(${flip.translateX}px, ${flip.translateY}px) scale(${flip.scaleX}, ${flip.scaleY})`,
+					opacity: 0.72,
+				},
+				{transform: 'translate(0px, 0px) scale(1, 1)', opacity: 1},
+		  ]
+		: [{opacity: 0}, {opacity: 1}];
+
+	const animation = to.animate(keyframes, {
+		duration: flip.durationMs,
+		easing: flip.easing,
+		fill: 'both',
+	});
+
+	/* the element is one object mid-flight, not two overlapping ones */
+	to.dataset.berxSharedElement = travels ? 'travelling' : 'fading';
+	const finished = animation.finished
+		.then(() => undefined)
+		.catch(() => undefined)
+		.finally(() => {
+			animation.cancel();
+			delete to.dataset.berxSharedElement;
+		});
+
+	return {finished, travelled: travels};
 }
 
 /* ------------------------------------------------------------------ */

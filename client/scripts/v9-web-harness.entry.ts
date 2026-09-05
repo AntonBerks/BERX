@@ -13,6 +13,7 @@ import {
 	createBerxEnergy,
 	createBerxLayer,
 	mountBerxScene,
+	runBerxSharedElement,
 	type BerxWebScene,
 } from '@berx/spatial-web';
 import {BERX_DEPTH_KEYS, type BerxAtmosphereKind, type BerxDepthKey} from '@berx/spatial';
@@ -23,6 +24,7 @@ interface BerxHarnessWindow extends Window {
 		mount: (screenId: string, opts?: BerxHarnessMountOptions) => void;
 		contracts: () => string[];
 		scene: () => BerxWebScene | null;
+		sharedElement: (reducedMotion?: boolean) => Promise<Record<string, unknown>>;
 		resolveAll: () => {resolved: number; total: number};
 	};
 }
@@ -135,6 +137,31 @@ w.BERX_HARNESS = {
 	mount: (screenId, opts) => build(screenId, opts ?? {}),
 	contracts: () => BERX_V9_CONTRACTS.map((c) => c.screenId),
 	scene: () => active,
+	/**
+	 * Runs the archive's shared-element transition between two real
+	 * elements in the page — a card on the list plane and the hero it
+	 * opens into — and reports what actually happened, so the probe
+	 * measures the transition rather than the intention.
+	 */
+	sharedElement: async (reducedMotion?: boolean) => {
+		const root = document.getElementById('scene') as HTMLElement;
+		const source = root.querySelector('.berx-surface[data-berx-depth="D3"]') as HTMLElement | null;
+		const destination = root.querySelector('.berx-surface[data-berx-depth="D2"]') as HTMLElement | null;
+		if (!source || !destination) return {ran: false};
+		const run = runBerxSharedElement(source, destination, {reducedMotion});
+		const mid = destination.dataset.berxSharedElement ?? null;
+		const midTransform = getComputedStyle(destination).transform;
+		await run.finished;
+		return {
+			ran: true,
+			travelled: run.travelled,
+			mid,
+			midTransform,
+			endTransform: getComputedStyle(destination).transform,
+			cleared: destination.dataset.berxSharedElement === undefined,
+		};
+	},
+
 	/**
 	 * Resolves all 300 in the browser, not just in Node — a contract
 	 * that resolves under Node's module graph but fails in a real

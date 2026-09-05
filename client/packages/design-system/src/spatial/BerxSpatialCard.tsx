@@ -16,6 +16,7 @@ import {type BerxDepthKey} from '@berx/spatial';
 import {useBerxScene} from './BerxSpatialScene';
 import {BerxSurface} from './BerxSurface';
 import {BerxFocusRing} from './BerxFocusRing';
+import {useBerxSharedElementSource} from './BerxSharedElement';
 
 export interface BerxSpatialCardProps {
 	children: React.ReactNode;
@@ -58,6 +59,7 @@ export function BerxSpatialCard({
 	 * keyboard attached to a tablet.
 	 */
 	const [focused, setFocused] = useState(false);
+	const {ref: sharedRef, record: recordSharedElement} = useBerxSharedElementSource(sharedTag);
 	const focusMotion = scene.motion.focus;
 
 	const animate = useCallback(
@@ -91,7 +93,7 @@ export function BerxSpatialCard({
 
 	if (!onPress) {
 		return (
-			<View testID={testID} nativeID={sharedTag} style={[styles.wrapper, style]}>
+			<View ref={sharedRef} testID={testID} nativeID={sharedTag} style={[styles.wrapper, style]}>
 				{body}
 			</View>
 		);
@@ -99,6 +101,7 @@ export function BerxSpatialCard({
 
 	return (
 		<Pressable
+			ref={sharedRef}
 			testID={testID}
 			nativeID={sharedTag}
 			accessibilityRole="button"
@@ -106,7 +109,13 @@ export function BerxSpatialCard({
 			accessibilityHint={accessibilityHint}
 			accessibilityState={{disabled: disabled === true}}
 			disabled={disabled}
-			onPress={onPress}
+			onPress={() => {
+				/* record where this object was standing before the
+				   navigation takes it off screen, so the destination can
+				   travel from here rather than appearing */
+				recordSharedElement();
+				onPress();
+			}}
 			onPressIn={() => animate(1)}
 			onPressOut={() => animate(0)}
 			onFocus={() => {

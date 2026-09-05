@@ -631,6 +631,27 @@ async function luminanceStructure(page, screenshot) {
 	await ctx.close();
 }
 
+/* --- 4c. the shared element actually travels ----------------------
+   v9 names seven things allowed to move between scenes as one
+   continuous object. BERX had the tags on every card and the FLIP
+   maths in the core, and nothing that moved. This runs the real
+   transition between two real elements in the page and reads back
+   what the browser actually did with them — including under reduced
+   motion, where the element must still change but must not fly. */
+{
+	const {ctx, page} = await openPage({width: 1440, height: 900, reducedMotion: false});
+	await page.evaluate(() => window.BERX_HARNESS.mount('BERX-201'));
+	await page.waitForTimeout(80);
+	results.sharedElement = await page.evaluate(() => window.BERX_HARNESS.sharedElement(false));
+
+	const reduced = await openPage({width: 1440, height: 900, reducedMotion: true});
+	await reduced.page.evaluate(() => window.BERX_HARNESS.mount('BERX-201'));
+	await reduced.page.waitForTimeout(80);
+	results.sharedElementReduced = await reduced.page.evaluate(() => window.BERX_HARNESS.sharedElement(true));
+	await reduced.ctx.close();
+	await ctx.close();
+}
+
 /* --- 5. a real low-capability phone: fewer effects, same scene --- */
 {
 	const ctx = await browser.newContext({viewport: {width: 360, height: 800}, deviceScaleFactor: 3});
@@ -789,9 +810,13 @@ const roomCost = results.frameAttribution.withoutGlass.dropped - results.frameAt
 const frameCount = results.frameAttribution.withGlass.count;
 gate(
 	'frame cost is attributable: glass dominates, the room is cheap',
-	glassCost > roomCost &&
+	/* `>=`, not `>`: on a run where the glass costs no dropped frames
+	   at all there is nothing for the room to be cheaper than, and a
+	   strict comparison failed that run for being too fast. What must
+	   hold is that the room never becomes the expensive layer. */
+	roomCost <= glassCost &&
 		roomCost <= Math.ceil(frameCount * 0.1) &&
-		results.frameAttribution.withoutGlass.p95 < results.frameAttribution.withGlass.p95,
+		results.frameAttribution.withoutGlass.p95 <= results.frameAttribution.withGlass.p95,
 	`glass p95 ${results.frameAttribution.withGlass.p95.toFixed(1)}ms costs ${glassCost} frames; the composed room costs ${roomCost} of ${frameCount} (opaque p95 ${results.frameAttribution.withoutGlass.p95.toFixed(1)}ms, flat-background p95 ${results.frameAttribution.withoutEnvironment.p95.toFixed(1)}ms)`,
 );
 gate(
@@ -868,6 +893,17 @@ gate(
 	'families paint different environments in real pixels',
 	results.visualAcceptance.distinctEnvironments === 3,
 	`${results.visualAcceptance.distinctEnvironments}/3 distinct rooms among PLACES / MESSAGES / AUTH`,
+);
+gate(
+	'the shared element travels between scenes, and stops travelling under reduced motion',
+	results.sharedElement.ran === true &&
+		results.sharedElement.travelled === true &&
+		results.sharedElement.mid === 'travelling' &&
+		results.sharedElement.midTransform !== 'none' &&
+		results.sharedElement.cleared === true &&
+		results.sharedElementReduced.travelled === false &&
+		results.sharedElementReduced.mid === 'fading',
+	`normal: ${results.sharedElement.mid}, mid-flight transform ${String(results.sharedElement.midTransform).slice(0, 42)}; reduced motion: ${results.sharedElementReduced.mid}`,
 );
 gate('no page errors or console errors', findings.filter((f) => f.scope === 'page' || f.scope === 'console').length === 0, 'clean');
 

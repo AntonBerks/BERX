@@ -844,6 +844,35 @@ function resolveMotion(input) {
   }
   return { ...preset, name: requested, adapted: false };
 }
+function planSharedElementFlip(from, to, reducedMotion) {
+  const spatial = BERX_MOTION_PRESETS.spatialEnter;
+  const fade2 = BERX_MOTION_PRESETS.crossFade;
+  if (reducedMotion) {
+    return {
+      translateX: 0,
+      translateY: 0,
+      scaleX: 1,
+      scaleY: 1,
+      durationMs: Math.min(fade2.durationMs, BERX_REDUCED_MOTION_RULES.maxDurationMs),
+      easing: fade2.easing,
+      bezier: fade2.bezier,
+      travels: false
+    };
+  }
+  const scaleX = to.width > 0 ? round(from.width / to.width, 4) : 1;
+  const scaleY = to.height > 0 ? round(from.height / to.height, 4) : 1;
+  return {
+    /* centre-to-centre, so the transform is independent of transform-origin */
+    translateX: round(from.x + from.width / 2 - (to.x + to.width / 2), 2),
+    translateY: round(from.y + from.height / 2 - (to.y + to.height / 2), 2),
+    scaleX,
+    scaleY,
+    durationMs: spatial.durationMs,
+    easing: spatial.easing,
+    bezier: spatial.bezier,
+    travels: true
+  };
+}
 function parallaxOffset(scrollY, parallaxFactor, enabled, maxOffsetPx = 120) {
   if (!enabled || parallaxFactor === 0) return 0;
   const offset = scrollY * (1 - clamp(parallaxFactor, 0, 1)) * -0.35;
@@ -1099,6 +1128,36 @@ function readDeviceSignals(overrides) {
     saveData: nav?.connection?.saveData === true,
     ...overrides
   };
+}
+function runBerxSharedElement(from, to, options = {}) {
+  const reducedMotion = options.reducedMotion ?? (typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches);
+  const a = from.getBoundingClientRect();
+  const b = to.getBoundingClientRect();
+  const flip = planSharedElementFlip(
+    { x: a.left, y: a.top, width: a.width, height: a.height },
+    { x: b.left, y: b.top, width: b.width, height: b.height },
+    reducedMotion
+  );
+  const measurable = b.width > 0 && b.height > 0;
+  const travels = flip.travels && measurable;
+  const keyframes = travels ? [
+    {
+      transform: `translate(${flip.translateX}px, ${flip.translateY}px) scale(${flip.scaleX}, ${flip.scaleY})`,
+      opacity: 0.72
+    },
+    { transform: "translate(0px, 0px) scale(1, 1)", opacity: 1 }
+  ] : [{ opacity: 0 }, { opacity: 1 }];
+  const animation = to.animate(keyframes, {
+    duration: flip.durationMs,
+    easing: flip.easing,
+    fill: "both"
+  });
+  to.dataset.berxSharedElement = travels ? "travelling" : "fading";
+  const finished = animation.finished.then(() => void 0).catch(() => void 0).finally(() => {
+    animation.cancel();
+    delete to.dataset.berxSharedElement;
+  });
+  return { finished, travelled: travels };
 }
 function atmosphereBackground(atmosphere, viewportWidth, viewportHeight, mediaUrl) {
   const major = Math.max(viewportWidth, viewportHeight);
@@ -1400,6 +1459,7 @@ export {
   mountBerxScene,
   readDeviceSignals,
   resolveScene,
+  runBerxSharedElement,
   sceneCustomProperties,
   supportsBackdropBlur
 };

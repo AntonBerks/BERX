@@ -11,6 +11,7 @@ import {Image, StyleSheet, Text, View, type ImageSourcePropType} from 'react-nat
 import {rgba} from '@berx/spatial';
 import {useBerxScene} from './BerxSpatialScene';
 import {BerxActionShelf} from './BerxActionShelf';
+import {BerxSharedElementTarget} from './BerxSharedElement';
 import {colors, spacing, typography} from '../tokens';
 
 export interface BerxSceneHeroProps {
@@ -43,7 +44,10 @@ export function BerxSceneHero({
 	const atmosphere = scene.layers.D1;
 
 	return (
-		<View testID={testID} nativeID={sharedTag} style={[styles.root, {height}]}>
+		/* the destination half of the archive's shared element: when the
+		   card that opened this scene recorded where it was, the hero
+		   travels from there instead of appearing */
+		<BerxSharedElementTarget tag={sharedTag ?? ''} testID={testID} style={[styles.root, {height}]}>
 			{/* D1 — atmosphere */}
 			<View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={StyleSheet.absoluteFillObject}>
 				{media ? (
@@ -66,7 +70,7 @@ export function BerxSceneHero({
 				{/* promoted to the control plane and anchored to the hero above it */}
 				{actions ? <BerxActionShelf variant="anchored">{actions}</BerxActionShelf> : null}
 			</View>
-		</View>
+		</BerxSharedElementTarget>
 	);
 }
 

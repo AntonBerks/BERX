@@ -45,6 +45,7 @@ export * from './BerxCountdown';
 
 export * from './BerxActionShelf';
 export * from './BerxChoiceChips';
+export * from './BerxSharedElement';
 export * from './BerxListGroup';
 export * from './BerxObjectCard';
 export * from './BerxExperienceCard';
