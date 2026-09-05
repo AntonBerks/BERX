@@ -15,6 +15,7 @@ import type {BerxApiClient} from '@berx/api/client';
 import type {BerxPointsBalance, BerxPointsHistoryEntry} from '@berx/api/types';
 import {berxCount, berxPlural, relativeTimeLabel} from '@berx/domain';
 import {colors, spacing, typography} from '@berx/design-system/tokens';
+import {BerxIcon} from '../../../../packages/design-system/src/icons';
 import {BerxRewardCard} from '../../../../packages/design-system/src/spatial/BerxRewardCard';
 import {BerxProgressRing} from '../../../../packages/design-system/src/spatial/BerxProgressRing';
 import {BerxStatRail} from '../../../../packages/design-system/src/spatial/BerxStatRail';
@@ -181,7 +182,11 @@ function PointsSceneBody({api, onBack}: PointsScreenProps) {
 						{balance.current_streak > 0 ? (
 							<BerxSpatialCard depth="D3" padding={spacing.md} radius={18} style={styles.streakCard}>
 					<View style={styles.streakRow}>
-								<BerxText role="heading">🔥</BerxText>
+								{/* the set's own liveness mark. 🔥 is a colour picture from
+								    the platform's emoji font: it ignores the type scale, the
+								    scene's accent and the icon contract's stroke weight, and
+								    it is a different drawing on every OS. */}
+								<BerxIcon name="live" size={22} state="active" decorative />
 								<View>
 									{/* three forms, not two: 2–4 days are "дня" */}
 									<BerxText role="callout">{`${berxCount(balance.current_streak, 'день', 'дня', 'дней')} подряд`}</BerxText>

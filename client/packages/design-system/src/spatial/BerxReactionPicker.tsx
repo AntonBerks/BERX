@@ -15,6 +15,7 @@ import {Pressable, StyleSheet, Text, View} from 'react-native';
 import {rgba} from '@berx/spatial';
 import {useBerxScene} from './BerxSpatialScene';
 import {colors, spacing, typography} from '../tokens';
+import {BerxIcon} from '../icons';
 
 export interface BerxReactionPickerProps {
 	/** Server truth: has the viewer liked this object. */
@@ -75,7 +76,14 @@ export function BerxReactionPicker({liked, count, onToggle, disabled, disabledRe
 						opacity: disabled ? 0.45 : pressed || pending ? 0.7 : 1,
 					},
 				]}>
-				<Text style={[styles.glyph, {color: liked ? scene.accent : colors.textDim}]}>{liked ? '♥' : '♡'}</Text>
+				{/* the set's own heart. ♥/♡ are typographic dingbats: they
+				    ignore the icon contract's grid and stroke weight and are a
+				    different drawing in every font that has them. The like is
+				    not carried by colour alone either — a liked reaction is
+				    lifted onto the control plane, with the shadow that plane
+				    casts, which survives a viewer who cannot tell the accent
+				    from the neutral. */}
+				<BerxIcon name="heart" size={17} state={liked ? 'active' : 'default'} decorative />
 				<Text style={[styles.count, {color: liked ? scene.accent : colors.textDim}]}>{count}</Text>
 			</Pressable>
 			{error ? (
@@ -99,7 +107,6 @@ const styles = StyleSheet.create({
 		alignItems: 'center',
 		gap: spacing.xs,
 	},
-	glyph: {fontSize: typography.sizeLg},
 	count: {fontSize: typography.sizeSm, fontWeight: typography.weightMedium},
 	error: {color: colors.danger, fontSize: typography.sizeXs},
 });

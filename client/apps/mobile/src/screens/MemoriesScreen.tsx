@@ -10,6 +10,7 @@ import {BerxMediaWell} from '../../../../packages/design-system/src/spatial/Berx
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxMemory} from '@berx/api/types';
 import {spacing, radius} from '@berx/design-system/tokens';
+import {BerxIcon} from '../../../../packages/design-system/src/icons';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxSpatialCard} from '../../../../packages/design-system/src/spatial/BerxSpatialCard';
@@ -156,7 +157,9 @@ function MemoriesScreenBody({api, onOpenPost, onOpenAlbum, onBack}: MemoriesScre
 										<Image source={{uri: m.url}} style={styles.thumb} />
 									) : (
 										<BerxMediaWell radius={radius.sm} style={styles.thumbFallback}>
-											<BerxText role="subtitle" emphasis="tertiary">✎</BerxText>
+											{/* a memory with no photograph is a written one — the set's own
+											    mark for that, not a typographic pencil */}
+											<BerxIcon name="edit" size={20} decorative />
 										</BerxMediaWell>
 									)}
 									<View style={styles.rowBody}>

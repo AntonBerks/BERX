@@ -239,7 +239,7 @@ function BusinessSettingsScreenBody({api, placeGuid, onBack}: BusinessSettingsSc
 										accessibilityRole="button"
 										accessibilityLabel={`${wd.label}: открытие на час раньше`}
 										onPress={() => adjustHour(wd.key, 'openHour', -1)}>
-										<BerxText role="body" emphasis="accent" style={styles.hourBtn}>−</BerxText>
+										<BerxIcon name="minus" size={16} state="active" decorative />
 									</Pressable>
 									<Text
 										accessibilityRole="adjustable"
@@ -251,7 +251,7 @@ function BusinessSettingsScreenBody({api, placeGuid, onBack}: BusinessSettingsSc
 										accessibilityRole="button"
 										accessibilityLabel={`${wd.label}: открытие на час позже`}
 										onPress={() => adjustHour(wd.key, 'openHour', 1)}>
-										<BerxText role="body" emphasis="accent" style={styles.hourBtn}>+</BerxText>
+										<BerxIcon name="plus" size={16} state="active" decorative />
 									</Pressable>
 									<BerxText role="meta" emphasis="tertiary" decorative>
 										—
@@ -260,7 +260,7 @@ function BusinessSettingsScreenBody({api, placeGuid, onBack}: BusinessSettingsSc
 										accessibilityRole="button"
 										accessibilityLabel={`${wd.label}: закрытие на час раньше`}
 										onPress={() => adjustHour(wd.key, 'closeHour', -1)}>
-										<BerxText role="body" emphasis="accent" style={styles.hourBtn}>−</BerxText>
+										<BerxIcon name="minus" size={16} state="active" decorative />
 									</Pressable>
 									<Text
 										accessibilityRole="adjustable"
@@ -272,7 +272,7 @@ function BusinessSettingsScreenBody({api, placeGuid, onBack}: BusinessSettingsSc
 										accessibilityRole="button"
 										accessibilityLabel={`${wd.label}: закрытие на час позже`}
 										onPress={() => adjustHour(wd.key, 'closeHour', 1)}>
-										<BerxText role="body" emphasis="accent" style={styles.hourBtn}>+</BerxText>
+										<BerxIcon name="plus" size={16} state="active" decorative />
 									</Pressable>
 								</View>
 							) : (
@@ -320,7 +320,6 @@ const styles = StyleSheet.create({
 	dayLabel: {fontSize: typography.sizeSm, color: colors.textFaint, fontWeight: typography.weightMedium},
 	dayLabelActive: {},
 	hourControls: {flexDirection: 'row', alignItems: 'center', gap: 6},
-	hourBtn: {paddingHorizontal: 6},
 	hourValue: {fontSize: typography.sizeSm, color: colors.white, minWidth: 44, textAlign: 'center'},
 	hoursSavedNote: {flexDirection: 'row', alignItems: 'center', gap: 5},
 	hoursSavedText: {fontSize: typography.sizeXs, color: colors.success},

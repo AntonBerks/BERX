@@ -7,6 +7,7 @@
 
 import {View, StyleSheet} from 'react-native';
 import {spacing} from '@berx/design-system/tokens';
+import {BerxIcon} from '../../../../../packages/design-system/src/icons';
 import {BerxGlassSurface} from '../../../../../packages/design-system/src/components/BerxGlassSurface';
 import {BerxEyebrow} from '../../../../../packages/design-system/src/components/BerxBusinessPrimitives';
 import {BerxFamilyScene} from '../../spatial/BerxScreenScene';
@@ -40,7 +41,10 @@ function BusinessOffersScreenBody({onBack}: BusinessOffersScreenProps) {
 				<BerxEyebrow>Акции и скидки</BerxEyebrow>
 
 				<BerxGlassSurface elevated style={styles.emptyCard}>
-					<BerxText role="display" emphasis="accent">✦</BerxText>
+					{/* the set's own mark, at the size the empty state carries it.
+					    A typographic dingbat is whatever the platform font decides
+					    it is, at whatever weight, in whatever colour. */}
+					<BerxIcon name="reward" size={30} state="active" decorative />
 					<BerxText role="heading">Предложений пока нет</BerxText>
 					<BerxText role="meta" emphasis="tertiary" style={styles.emptySubtitle}>
 						Здесь можно будет создавать реальные акции и специальные условия для клиентов BERX. Функция ещё не подключена к реальным данным.

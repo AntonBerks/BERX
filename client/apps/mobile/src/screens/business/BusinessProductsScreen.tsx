@@ -9,6 +9,7 @@
 
 import {View, StyleSheet} from 'react-native';
 import {spacing} from '@berx/design-system/tokens';
+import {BerxIcon} from '../../../../../packages/design-system/src/icons';
 import {BerxGlassSurface} from '../../../../../packages/design-system/src/components/BerxGlassSurface';
 import {BerxEyebrow} from '../../../../../packages/design-system/src/components/BerxBusinessPrimitives';
 import {BerxFamilyScene} from '../../spatial/BerxScreenScene';
@@ -42,7 +43,10 @@ function BusinessProductsScreenBody({onBack}: BusinessProductsScreenProps) {
 				<BerxEyebrow>Каталог</BerxEyebrow>
 
 				<BerxGlassSurface elevated style={styles.emptyCard}>
-					<BerxText role="display" emphasis="accent">◇</BerxText>
+					{/* the set's own mark, at the size the empty state carries it.
+					    A typographic dingbat is whatever the platform font decides
+					    it is, at whatever weight, in whatever colour. */}
+					<BerxIcon name="tag" size={30} state="active" decorative />
 					<BerxText role="heading">Каталога пока нет</BerxText>
 					<BerxText role="meta" emphasis="tertiary" style={styles.emptySubtitle}>
 						Здесь появятся товары и услуги вашего бизнеса — с ценами, фото и описанием. Эта функция ещё не подключена к реальным данным BERX.
