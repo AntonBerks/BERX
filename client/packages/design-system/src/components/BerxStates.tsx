@@ -27,9 +27,14 @@ import {useBerxSceneOptional} from '../spatial/BerxSpatialScene';
 import {useBerxRoomLight} from '../spatial/useBerxRoomLight';
 
 export function BerxLoadingState({label}: {label?: string}) {
+	const scene = useBerxSceneOptional();
+	/* the scene's own accent, not the token. Every loading state in
+	   BERX was the same cyan whatever colour world the screen was in —
+	   which is the one thing the Color World system exists to prevent.
+	   Outside a scene the token is the honest answer. */
 	return (
 		<View style={styles.center}>
-			<ActivityIndicator color={colors.accent} size="large" />
+			<ActivityIndicator color={scene?.scene.accent ?? colors.accent} size="large" />
 			{label ? <BerxText role="body" emphasis="secondary">{label}</BerxText> : null}
 		</View>
 	);
@@ -96,8 +101,19 @@ function StateObject({children, tone}: {children: React.ReactNode; tone?: 'dange
 	);
 }
 
-/** Pulsing placeholder block — used for a list of these while real content loads, instead of a bare spinner on content-heavy screens (feed, profile). */
+/**
+ * Pulsing placeholder block — used for a list of these while real
+ * content loads, instead of a bare spinner on content-heavy screens
+ * (feed, profile).
+ *
+ * The block is the shape the content will have, so it is painted in
+ * the plane that content will stand on rather than in a fixed grey:
+ * a skeleton in a colour belonging to no plane announces itself as a
+ * placeholder before the eye has read anything.
+ */
 export function BerxSkeleton({width = '100%', height = 16, style}: {width?: number | string; height?: number; style?: object}) {
+	const scene = useBerxSceneOptional();
+	const fill = scene?.scene.layers.D3.surface.backgroundColor ?? colors.glass2;
 	const opacity = useRef(new Animated.Value(0.3)).current;
 	useEffect(() => {
 		const loop = Animated.loop(
@@ -114,7 +130,7 @@ export function BerxSkeleton({width = '100%', height = 16, style}: {width?: numb
 		<Animated.View
 			style={[
 				styles.skeleton,
-				{width: width as never, height, opacity},
+				{width: width as never, height, opacity, backgroundColor: fill},
 				style,
 			]}
 		/>
@@ -135,7 +151,6 @@ const styles = StyleSheet.create({
 	objectBody: {padding: spacing.xl, gap: spacing.md, alignItems: 'center'},
 	errorText: {color: colors.danger, textAlign: 'center'},
 	skeleton: {
-		backgroundColor: colors.glass2,
 		borderRadius: radius.sm,
 	},
 });

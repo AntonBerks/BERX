@@ -26,7 +26,7 @@ import type {BerxApiClient} from '@berx/api/client';
 import type {BerxFeedItem, BerxStoryFeedGroup} from '@berx/api/types';
 import {berxCount, relativeTimeLabel} from '@berx/domain';
 import type {BerxScreenState} from '@berx/spatial';
-import {colors, spacing} from '@berx/design-system/tokens';
+import {spacing} from '@berx/design-system/tokens';
 import {IconPlus} from '../../../../packages/design-system/src/components/BerxIcons';
 import {BerxSceneHeader} from '../../../../packages/design-system/src/spatial/BerxSceneHeader';
 import {BerxText} from '../../../../packages/design-system/src/spatial/BerxText';
@@ -150,7 +150,7 @@ function FeedSceneBody({api, onOpenPost, onOpenProfile, onCreatePost, onOpenStor
 					accessibilityRole="button"
 					accessibilityLabel="Создать пост"
 					style={styles.headerAction}>
-					<IconPlus size={20} color={colors.accent} />
+					<IconPlus size={20} color={screen.scene.accent} />
 				</Pressable>
 			}
 			testID="feed-header"
@@ -194,7 +194,7 @@ function FeedSceneBody({api, onOpenPost, onOpenProfile, onCreatePost, onOpenStor
 					keyExtractor={(item: BerxFeedItem) => String(item.guid)}
 					onScroll={onScroll}
 					scrollEventThrottle={scrollEventThrottle}
-					refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.accent} />}
+					refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={screen.scene.accent} />}
 					ListHeaderComponent={tray}
 					/* virtualization window from the resolved performance budget */
 					initialNumToRender={Math.min(items.length, 6)}

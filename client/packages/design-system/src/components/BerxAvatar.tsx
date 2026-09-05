@@ -5,6 +5,7 @@
 import { View, Image, Text, StyleSheet } from 'react-native';
 import { colors, typography } from '../tokens';
 import { BerxMediaWell } from '../spatial/BerxMediaWell';
+import { useBerxSceneOptional } from '../spatial/BerxSpatialScene';
 
 export interface BerxAvatarProps {
 	iconUrl?: string | null;
@@ -15,12 +16,18 @@ export interface BerxAvatarProps {
 }
 
 export function BerxAvatar({ iconUrl, fallbackInitial, size = 44, hasActiveStory }: BerxAvatarProps) {
+	const scene = useBerxSceneOptional();
+	/* the ring around a person with a story is the scene's own accent:
+	   the token is one cyan in every colour world, and a ring that
+	   ignores the room it is in is the flattening the Color World
+	   system exists to prevent */
+	const ringColor = scene?.scene.accent ?? colors.accent;
 	const dimension = { width: size, height: size, borderRadius: size / 2 };
 	return (
 		<View
 			style={[
 				styles.ring,
-				hasActiveStory && styles.ringActive,
+				hasActiveStory && [styles.ringActive, { borderColor: ringColor }],
 				{ width: size + (hasActiveStory ? 6 : 0), height: size + (hasActiveStory ? 6 : 0), borderRadius: (size + 6) / 2 },
 			]}
 		>
@@ -44,7 +51,6 @@ const styles = StyleSheet.create({
 	},
 	ringActive: {
 		borderWidth: 2,
-		borderColor: colors.accent,
 	},
 	image: {
 		resizeMode: 'cover',

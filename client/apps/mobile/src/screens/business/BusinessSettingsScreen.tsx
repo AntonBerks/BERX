@@ -11,6 +11,7 @@ import {View, Text, Pressable, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxPlace, BerxBusinessSubscription, BerxBusinessType, BerxOpeningInterval} from '@berx/api/types';
 import {colors, spacing, typography} from '@berx/design-system/tokens';
+import {useBerxScene} from '../../../../../packages/design-system/src/spatial/BerxSpatialScene';
 import {BerxIcon} from '../../../../../packages/design-system/src/icons';
 import {BerxGlassSurface} from '../../../../../packages/design-system/src/components/BerxGlassSurface';
 import {BerxEyebrow} from '../../../../../packages/design-system/src/components/BerxBusinessPrimitives';
@@ -82,6 +83,10 @@ export default function BusinessSettingsScreen(props: BusinessSettingsScreenProp
 }
 
 function BusinessSettingsScreenBody({api, placeGuid, onBack}: BusinessSettingsScreenProps) {
+	/* the scene's own accent: the token is one colour in every colour
+	   world, and a mark that ignores the room it stands in is exactly
+	   the flattening the Color World system exists to prevent */
+	const accent = useBerxScene().scene.accent;
 	const [place, setPlace] = useState<BerxPlace | null>(null);
 	const [subscription, setSubscription] = useState<BerxBusinessSubscription | null>(null);
 	const [loading, setLoading] = useState(true);
@@ -190,7 +195,7 @@ function BusinessSettingsScreenBody({api, placeGuid, onBack}: BusinessSettingsSc
 								accessibilityLabel={wd.label}
 								accessibilityState={{checked: d.enabled}}
 								onPress={() => toggleDay(wd.key)}>
-								<Text style={[styles.dayLabel, d.enabled && styles.dayLabelActive]}>{wd.label}</Text>
+								<Text style={[styles.dayLabel, d.enabled && [styles.dayLabelActive, {color: accent}]]}>{wd.label}</Text>
 							</Pressable>
 							{/* forty-two identical ± controls, one per hour per day,
 							    every one of them announced as nothing. Each now says
@@ -281,7 +286,7 @@ const styles = StyleSheet.create({
 	dayRow: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: spacing.xs},
 	dayToggle: {width: 40},
 	dayLabel: {fontSize: typography.sizeSm, color: colors.textFaint, fontWeight: typography.weightMedium},
-	dayLabelActive: {color: colors.accent},
+	dayLabelActive: {},
 	hourControls: {flexDirection: 'row', alignItems: 'center', gap: 6},
 	hourBtn: {paddingHorizontal: 6},
 	hourValue: {fontSize: typography.sizeSm, color: colors.white, minWidth: 44, textAlign: 'center'},

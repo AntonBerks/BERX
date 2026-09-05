@@ -11,7 +11,7 @@ import type {BerxApiClient} from '@berx/api/client';
 import type {BerxPlace} from '@berx/api/types';
 import {BerxStars} from '../../../../../packages/design-system/src/spatial/BerxStars';
 import {BerxIcon, type BerxIconName} from '../../../../../packages/design-system/src/icons';
-import {colors, spacing, typography} from '@berx/design-system/tokens';
+import {spacing} from '@berx/design-system/tokens';
 import {BerxScrimHero, scrimBadgeStyles} from '../../../../../packages/design-system/src/components/BerxScrimHero';
 import {BerxFamilyScene, useBerxSceneAtmosphere} from '../../spatial/BerxScreenScene';
 import {BerxHeader} from '../../../../../packages/design-system/src/components/BerxHeader';
@@ -142,5 +142,4 @@ const styles = StyleSheet.create({
 	infoIcon: {width: 22, alignItems: 'center'},
 	infoText: {flex: 1},
 	ratingCard: {flexDirection: 'row', alignItems: 'center', gap: spacing.md},
-	ratingStars: {fontSize: typography.sizeBase, color: colors.accent},
 });

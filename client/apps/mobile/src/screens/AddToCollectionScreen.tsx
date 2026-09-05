@@ -10,6 +10,7 @@ import {View, Text, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxCollection, BerxCollectionItemType} from '@berx/api/types';
 import {colors, spacing, typography} from '@berx/design-system/tokens';
+import {useBerxScene} from '../../../../packages/design-system/src/spatial/BerxSpatialScene';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
@@ -37,6 +38,10 @@ export default function AddToCollectionScreen(props: AddToCollectionScreenProps)
 }
 
 function AddToCollectionScreenBody({api, myGuid, itemType, itemGuid, onCreateCollection, onDone, onBack}: AddToCollectionScreenProps) {
+	/* the scene's own accent: the token is one colour in every colour
+	   world, and a mark that ignores the room it stands in is exactly
+	   the flattening the Color World system exists to prevent */
+	const accent = useBerxScene().scene.accent;
 	const [items, setItems] = useState<BerxCollection[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
@@ -102,7 +107,7 @@ function AddToCollectionScreenBody({api, myGuid, itemType, itemGuid, onCreateCol
 								accessibilityLabel={added ? `${item.title}, уже добавлено` : `Добавить в ${item.title}`}>
 								<View style={styles.row}>
 									<BerxText role="callout">{item.title}</BerxText>
-									<Text style={added ? styles.added : busyId === item.id ? styles.busy : styles.action}>
+									<Text style={added ? styles.added : busyId === item.id ? styles.busy : [styles.action, {color: accent}]}>
 										{added ? 'Добавлено' : busyId === item.id ? '...' : 'Добавить'}
 									</Text>
 								</View>
@@ -127,7 +132,7 @@ const styles = StyleSheet.create({
 	   content plane's own material — an opaque token fill on top of it
 	   hides the surface the card just resolved */
 	row: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: spacing.md, marginBottom: spacing.sm},
-	action: {fontSize: typography.sizeSm, color: colors.accent, fontWeight: typography.weightMedium},
+	action: {fontSize: typography.sizeSm, fontWeight: typography.weightMedium},
 	busy: {fontSize: typography.sizeSm, color: colors.textFaint},
 	added: {fontSize: typography.sizeSm, color: colors.textFaint},
 	footer: {padding: spacing.md},

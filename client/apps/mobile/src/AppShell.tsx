@@ -29,6 +29,7 @@ import {colors, spacing, typography} from '@berx/design-system/tokens';
 import {BerxLoadingState, BerxErrorState} from '../../../packages/design-system/src/components/BerxStates';
 import {IconHome, IconSearch, IconPlus, IconMessage, IconMenu} from '../../../packages/design-system/src/components/BerxIcons';
 import {BerxBottomNav, type BerxNavTab} from '../../../packages/design-system/src/spatial/BerxBottomNav';
+import {useBerxLayer} from '../../../packages/design-system/src/spatial/useBerxLayer';
 import {BerxNavRail} from '../../../packages/design-system/src/spatial/BerxNavRail';
 import {resolveNavShell} from '@berx/scenes';
 import {BerxColorWorldProvider} from './spatial/BerxColorWorld';
@@ -1026,10 +1027,17 @@ function AuthenticatedApp() {
 		};
 	}, [activeTab]);
 
+	/* The tab bar's own resolved control plane. Its indicator and its
+	   badge already took their colour from here; the icon beside them
+	   took the accent token, so the active glyph and the mark under it
+	   could be two different cyans — and in a colour world that is not
+	   cyan at all, the glyph stayed cyan while everything around it
+	   moved. One accent, resolved once. */
+	const navAccent = useBerxLayer('D4', 'active').accent;
 	const tabs: BerxNavTab<BerxRouteName>[] = BERX_BOTTOM_TABS.map((tab) => ({
 		key: tab,
 		label: TAB_LABEL[tab] ?? tab,
-		icon: <TabIcon tab={tab} color={activeTab === tab ? colors.accent : colors.textFaint} />,
+		icon: <TabIcon tab={tab} color={activeTab === tab ? navAccent : colors.textFaint} />,
 		badge: tab === 'Messages' ? unreadMessages : undefined,
 	}));
 

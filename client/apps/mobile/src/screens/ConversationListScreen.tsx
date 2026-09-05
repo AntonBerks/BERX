@@ -23,7 +23,7 @@ import type {BerxApiClient} from '@berx/api/client';
 import type {BerxConversationSummary} from '@berx/api/types';
 import {relativeTimeLabel} from '@berx/domain';
 import type {BerxScreenState} from '@berx/spatial';
-import {colors, spacing} from '@berx/design-system/tokens';
+import {spacing} from '@berx/design-system/tokens';
 import {BerxSearchField} from '../../../../packages/design-system/src/spatial/BerxSearchField';
 import {BerxChatRow} from '../../../../packages/design-system/src/spatial/BerxChatRow';
 import {BerxDataBoundary} from '../../../../packages/design-system/src/spatial/BerxDataBoundary';
@@ -189,7 +189,7 @@ function ConversationListSceneBody({api, onOpenConversation, onOpenMessageSearch
 								setRefreshing(true);
 								load();
 							}}
-							tintColor={colors.accent}
+							tintColor={screen.scene.accent}
 						/>
 					}
 					renderItem={({item}: {item: BerxConversationSummary}) => (
