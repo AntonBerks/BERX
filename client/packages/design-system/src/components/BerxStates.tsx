@@ -1,14 +1,30 @@
 /**
- * !!! VERIFICATION STATUS: UNVERIFIED — see BerxButton.tsx header.
+ * The states thirty-seven screens share.
  *
- * These four cover the "every screen needs loading/error/empty state"
- * requirement — real components, not a checklist item left unbuilt.
+ * They used to be centred text on whatever was behind them. In a lit
+ * room that reads as nothing at all: a sentence floating in the
+ * middle of a space, with no object holding it and nothing to
+ * separate a failure from a blank. An error and an empty are both
+ * things the person has to act on, so both are objects — the
+ * structure plane's own surface, standing in the room, taking the
+ * light that reaches their corner and flattening against what is
+ * actually behind them.
+ *
+ * Loading stays centred and unboxed on purpose: a card drawn around a
+ * spinner is a card the content will replace a moment later, and the
+ * room behind it is already saying that the scene exists.
+ *
+ * Outside a scene all three keep the flat look rather than throwing —
+ * an auth screen's first frame exists before the scene does.
  */
-import {useEffect, useRef} from 'react';
-import {View, Text, ActivityIndicator, Animated, StyleSheet} from 'react-native';
-import {colors, spacing, radius, typography} from '../tokens';
+import React, {useEffect, useRef} from 'react';
+import {View, ActivityIndicator, Animated, StyleSheet} from 'react-native';
+import {colors, spacing, radius} from '../tokens';
 import {BerxButton} from './BerxButton';
 import {BerxText} from '../spatial/BerxText';
+import {BerxSurface} from '../spatial/BerxSurface';
+import {useBerxSceneOptional} from '../spatial/BerxSpatialScene';
+import {useBerxRoomLight} from '../spatial/useBerxRoomLight';
 
 export function BerxLoadingState({label}: {label?: string}) {
 	return (
@@ -21,18 +37,61 @@ export function BerxLoadingState({label}: {label?: string}) {
 
 export function BerxErrorState({message, onRetry}: {message: string; onRetry?: () => void}) {
 	return (
-		<View style={styles.center}>
-			<Text style={styles.errorText}>{message}</Text>
+		<StateObject tone="danger">
+			<BerxText role="callout" style={styles.errorText}>
+				{message}
+			</BerxText>
 			{onRetry ? <BerxButton label="Повторить" variant="secondary" onPress={onRetry} /> : null}
-		</View>
+		</StateObject>
 	);
 }
 
 export function BerxEmptyState({title, subtitle}: {title: string; subtitle?: string}) {
 	return (
+		<StateObject>
+			<BerxText role="heading" heading>
+				{title}
+			</BerxText>
+			{subtitle ? (
+				<BerxText role="body" emphasis="secondary" style={styles.dimTextSmall}>
+					{subtitle}
+				</BerxText>
+			) : null}
+		</StateObject>
+	);
+}
+
+/**
+ * The object a state stands in.
+ *
+ * The structure plane, because that is what a state is: architecture
+ * holding a message, not content. A destructive one carries the
+ * danger colour on its leading edge rather than in its fill — a red
+ * panel reads as an alarm, and most of these are "we could not reach
+ * the server", which is not one.
+ */
+function StateObject({children, tone}: {children: React.ReactNode; tone?: 'danger'}) {
+	const scene = useBerxSceneOptional();
+	const light = useBerxRoomLight();
+
+	if (!scene) {
+		return <View style={styles.center}>{children}</View>;
+	}
+
+	const structure = scene.scene.layers.D2;
+	return (
 		<View style={styles.center}>
-			<BerxText role="subtitle">{title}</BerxText>
-			{subtitle ? <BerxText role="meta" emphasis="tertiary" style={styles.dimTextSmall}>{subtitle}</BerxText> : null}
+			<View ref={light.measure} onLayout={light.onLayout} style={styles.objectWrap}>
+				<BerxSurface
+					surface={structure.surface}
+					lighting={structure.lighting}
+					radius={22}
+					illumination={light.illumination}
+					behind={light.behind}
+					style={tone === 'danger' ? {borderLeftWidth: 2, borderLeftColor: colors.danger} : undefined}>
+					<View style={styles.objectBody}>{children}</View>
+				</BerxSurface>
+			</View>
 		</View>
 	);
 }
@@ -71,7 +130,10 @@ const styles = StyleSheet.create({
 		gap: spacing.md,
 	},
 	dimTextSmall: {textAlign: 'center'},
-	errorText: {color: colors.danger, fontSize: typography.sizeBase, textAlign: 'center'},
+	/* the object holds the message; it does not stretch to the frame */
+	objectWrap: {maxWidth: 420, width: '100%'},
+	objectBody: {padding: spacing.xl, gap: spacing.md, alignItems: 'center'},
+	errorText: {color: colors.danger, textAlign: 'center'},
 	skeleton: {
 		backgroundColor: colors.glass2,
 		borderRadius: radius.sm,
