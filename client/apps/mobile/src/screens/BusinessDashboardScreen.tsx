@@ -32,6 +32,7 @@ import type {
 	BerxPlaceReview,
 } from '@berx/api/types';
 import type {BerxScreenState} from '@berx/spatial';
+import {berxWhenRange} from '@berx/domain';
 import {colors, spacing, typography} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
@@ -254,9 +255,18 @@ function BusinessDashboardSceneBody({api, placeGuid, onBack}: BusinessDashboardS
 								moments.map((m) => (
 									<BerxSpatialCard key={m.id} depth="D3" padding={spacing.md} radius={16}>
 										<View style={styles.momentRow}>
-											<BerxText role="meta" style={styles.momentText} numberOfLines={2}>
-												{m.text}
-											</BerxText>
+											<View style={styles.momentBody}>
+												<BerxText role="meta" style={styles.momentText} numberOfLines={2}>
+													{m.text}
+												</BerxText>
+												{/* a moment is time-bounded by definition — this screen
+												    sets a two-hour window when it publishes one — and the
+												    owner could not see how long a live one had left. The
+												    server records both ends of the window; both are said. */}
+												<BerxText role="meta" emphasis="tertiary">
+													{berxWhenRange(m.starts_at, m.ends_at)}
+												</BerxText>
+											</View>
 											<BerxButton label="Убрать" variant="secondary" onPress={() => removeMoment(m.id)} />
 										</View>
 									</BerxSpatialCard>
@@ -349,7 +359,8 @@ const styles = StyleSheet.create({
 	section: {paddingHorizontal: spacing.lg, paddingTop: spacing.lg, gap: spacing.sm},
 	warning: {color: colors.danger, fontSize: typography.sizeSm},
 	momentRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.md},
-	momentText: {flex: 1},
+	momentBody: {flex: 1, gap: 2},
+	momentText: {},
 	reviewHead: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm},
 	reviewText: {marginTop: 4},
 	reply: {marginTop: spacing.sm, paddingLeft: spacing.md, borderLeftWidth: 2, borderLeftColor: colors.borderSoft},

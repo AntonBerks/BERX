@@ -91,3 +91,44 @@ export function berxPlural(count: number, one: string, few: string, many: string
 export function berxCount(count: number, one: string, few: string, many: string): string {
 	return `${count} ${berxPlural(count, one, few, many)}`;
 }
+
+/**
+ * When a thing happens, including when it ends.
+ *
+ * BERX stores an end time on events and on experiences, and every
+ * screen showed only the start — so a concert read as "14 июня ·
+ * 19:00" and said nothing about whether it finished at nine or at
+ * three in the morning. That is a real fact the server already
+ * returns, and it is usually the one that decides whether someone
+ * goes.
+ *
+ * The end is omitted when there isn't one, rather than guessed at:
+ * `ends` is nullable in the API and an event with no recorded end is
+ * different from one that ends at midnight. When start and end fall
+ * on the same day the date is said once — "14 июня · 19:00 – 23:00" —
+ * and when they do not, both dates are, because an event that runs
+ * past midnight is a different plan from one that does not.
+ */
+export function berxWhenRange(
+	startUnix: number,
+	endUnix?: number | null,
+	locale = 'ru-RU',
+): string {
+	const start = new Date(startUnix * 1000);
+	const dayFmt: Intl.DateTimeFormatOptions = {day: 'numeric', month: 'long'};
+	const timeFmt: Intl.DateTimeFormatOptions = {hour: '2-digit', minute: '2-digit'};
+	const startDay = start.toLocaleDateString(locale, dayFmt);
+	const startTime = start.toLocaleTimeString(locale, timeFmt);
+
+	if (endUnix === undefined || endUnix === null || endUnix <= startUnix) {
+		return `${startDay} · ${startTime}`;
+	}
+
+	const end = new Date(endUnix * 1000);
+	const endDay = end.toLocaleDateString(locale, dayFmt);
+	const endTime = end.toLocaleTimeString(locale, timeFmt);
+
+	return startDay === endDay
+		? `${startDay} · ${startTime} – ${endTime}`
+		: `${startDay}, ${startTime} – ${endDay}, ${endTime}`;
+}

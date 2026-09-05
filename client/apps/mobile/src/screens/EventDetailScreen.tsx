@@ -22,7 +22,7 @@ import {BerxLoadingState, BerxErrorState} from '../../../../packages/design-syst
 import {BerxDiscussion} from '../../../../packages/design-system/src/components/BerxDiscussion';
 import {BerxSceneScroll} from '../../../../packages/design-system/src/spatial/BerxSceneScroll';
 import {BerxSection} from '../../../../packages/design-system/src/spatial/BerxSection';
-import {berxCount} from '@berx/domain';
+import {berxCount, berxWhenRange} from '@berx/domain';
 
 export interface EventDetailScreenProps {
 	api: BerxApiClient;
@@ -118,7 +118,6 @@ function EventDetailSceneBody({api, guid, myGuid, onOpenPlace, onOpenInvite, onA
 	if (error && !event) return <BerxErrorState message={error} onRetry={load} />;
 	if (!event) return null;
 
-	const date = new Date(event.starts * 1000);
 	const rsvpLabel = event.has_ended ? 'Завершено' : event.is_going ? 'Вы идёте' : event.seats_left === 0 ? 'Мест нет' : 'Пойду';
 	const rsvpDisabled = event.has_ended || (event.seats_left === 0 && !event.is_going);
 
@@ -143,8 +142,11 @@ function EventDetailSceneBody({api, guid, myGuid, onOpenPlace, onOpenInvite, onA
 			/>
 
 			<View style={styles.body}>
+				{/* when it starts and when it ends. The server records both
+				    and this line said only the first, so an event gave no
+				    answer to the question people actually ask about one. */}
 				<BerxText role="meta" emphasis="secondary">
-					{date.toLocaleDateString('ru-RU', {day: 'numeric', month: 'long'})} · {date.toLocaleTimeString('ru-RU', {hour: '2-digit', minute: '2-digit'})}
+					{berxWhenRange(event.starts, event.ends)}
 				</BerxText>
 				{/* where, with the icon set's own pin. The emoji that used
 				    to be here is a colour image from the platform's font:

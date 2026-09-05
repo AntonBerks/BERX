@@ -18,7 +18,7 @@ import {BerxFamilyScene, useBerxSceneAtmosphere} from '../spatial/BerxScreenScen
 import {BerxSection} from '../../../../packages/design-system/src/spatial/BerxSection';
 import {BerxSceneHero} from '../../../../packages/design-system/src/spatial/BerxSceneHero';
 import {BerxText} from '../../../../packages/design-system/src/spatial/BerxText';
-import {berxCount} from '@berx/domain';
+import {berxCount, berxWhenRange} from '@berx/domain';
 
 export interface ExperienceDetailScreenProps {
 	api: BerxApiClient;
@@ -33,10 +33,6 @@ const STATUS_LABEL: Record<string, string> = {
 	accepted: 'Идёт',
 	declined: 'Отклонил',
 };
-
-function fmtWhen(unix: number): string {
-	return new Date(unix * 1000).toLocaleString('ru-RU', {day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit'});
-}
 
 export default function ExperienceDetailScreen(props: ExperienceDetailScreenProps) {
 	return (
@@ -123,7 +119,9 @@ function ExperienceDetailScreenBody({api, id, onOpenPlace, onOpenEvent, onBack}:
 				/* the same object the list card sent forward */
 				sharedTag={sharedElementTag('heroMedia', id)}
 				title={experience.title}
-				meta={fmtWhen(experience.scheduled_start)}
+				/* both ends of it: an experience has a scheduled end in the
+				   API and the hero named only its start */
+				meta={berxWhenRange(experience.scheduled_start, experience.scheduled_end)}
 				media={experience.anchor?.image_url ? {uri: experience.anchor.image_url} : undefined}
 				mediaAlt={experience.anchor ? `${experience.anchor.title}` : undefined}
 				height={210}
