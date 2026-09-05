@@ -3,7 +3,7 @@
  * Real data: api.getExperience()/respondToExperience()/
  * inviteToExperience() (components/OssnApi/v1/experiences.php).
  */
-import React, {useCallback, useEffect, useState} from 'react';
+import {useCallback, useEffect, useState} from 'react';
 import {View, Text, FlatList, Image, Pressable, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxExperienceDetail, BerxExperienceParticipant, BerxFriend} from '@berx/api/types';
@@ -11,10 +11,11 @@ import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState} from '../../../../packages/design-system/src/components/BerxStates';
-import {BerxActionShelf} from '../../../../packages/design-system/src/spatial/BerxActionShelf';
 import {BerxSpatialCard} from '../../../../packages/design-system/src/spatial/BerxSpatialCard';
 import {BerxFamilyScene, useBerxSceneAtmosphere} from '../spatial/BerxScreenScene';
 import {BerxEyebrow} from '../../../../packages/design-system/src/components/BerxBusinessPrimitives';
+import {BerxSceneHero} from '../../../../packages/design-system/src/spatial/BerxSceneHero';
+import {BerxText} from '../../../../packages/design-system/src/spatial/BerxText';
 
 export interface ExperienceDetailScreenProps {
 	api: BerxApiClient;
@@ -105,9 +106,40 @@ function ExperienceDetailScreenBody({api, id, onOpenPlace, onOpenEvent, onBack}:
 
 	return (
 		<View style={styles.screen}>
-			<BerxHeader title={experience.title} onBack={onBack} />
+			{/* the title lives in the hero, so the way back does not
+			    repeat it */}
+			<BerxHeader onBack={onBack} />
+
+			{/* the experience as the scene's subject, standing where it
+			    is happening: the anchor's own photograph is real domain
+			    media, and the anchor card below still says in words which
+			    place or event that is, so the image is context rather
+			    than a claim. An experience with no anchor gets the room's
+			    own lit surface instead of a borrowed picture. */}
+			<BerxSceneHero
+				title={experience.title}
+				meta={fmtWhen(experience.scheduled_start)}
+				media={experience.anchor?.image_url ? {uri: experience.anchor.image_url} : undefined}
+				mediaAlt={experience.anchor ? `${experience.anchor.title}` : undefined}
+				height={210}
+				actions={
+					!experience.is_own && experience.my_status === 'invited' ? (
+						<>
+							<BerxButton label="Пойду" loading={busy} onPress={() => respond(true)} />
+							<BerxButton label="Не пойду" variant="secondary" loading={busy} onPress={() => respond(false)} />
+						</>
+					) : experience.is_own ? (
+						<BerxButton
+							label={showPicker ? 'Скрыть друзей' : 'Пригласить друга'}
+							variant="secondary"
+							onPress={() => setShowPicker(!showPicker)}
+							accessibilityState={{expanded: showPicker}}
+						/>
+					) : undefined
+				}
+			/>
+
 			<View style={styles.body}>
-				<Text style={styles.when}>{fmtWhen(experience.scheduled_start)}</Text>
 
 				{experience.anchor ? (
 					<BerxSpatialCard
@@ -126,23 +158,10 @@ function ExperienceDetailScreenBody({api, id, onOpenPlace, onOpenEvent, onBack}:
 					</BerxSpatialCard>
 				) : null}
 
-				{experience.description ? <Text style={styles.description}>{experience.description}</Text> : null}
-
-				{!experience.is_own && experience.my_status === 'invited' ? (
-					<BerxActionShelf variant="anchored">
-						<BerxButton label="Пойду" loading={busy} onPress={() => respond(true)} />
-						<BerxButton label="Не пойду" variant="secondary" loading={busy} onPress={() => respond(false)} />
-					</BerxActionShelf>
-				) : null}
-
-				{experience.is_own ? (
-					<Pressable
-						accessibilityRole="button"
-						accessibilityState={{expanded: showPicker}}
-						accessibilityLabel={showPicker ? 'Скрыть список друзей' : 'Пригласить друга'}
-						onPress={() => setShowPicker(!showPicker)}>
-						<Text style={styles.toggleText}>{showPicker ? 'Скрыть друзей' : 'Пригласить друга'}</Text>
-					</Pressable>
+				{experience.description ? (
+					<BerxText role="body" emphasis="secondary">
+						{experience.description}
+					</BerxText>
 				) : null}
 
 				{showPicker ? (
@@ -188,16 +207,13 @@ const styles = StyleSheet.create({
 	/* no opaque fill: the scene paints the room this screen stands in */
 	screen: {flex: 1},
 	body: {padding: spacing.md, gap: spacing.md},
-	when: {fontSize: typography.sizeSm, color: colors.textDim},
 	anchorCard: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm, padding: spacing.sm},
 	anchorImage: {width: 56, height: 56, borderRadius: radius.sm},
 	anchorImageFallback: {width: 56, height: 56, borderRadius: radius.sm, backgroundColor: colors.graphite},
 	anchorBody: {flex: 1, gap: 2},
 	anchorTitle: {fontSize: typography.sizeBase, color: colors.white, fontWeight: typography.weightMedium},
 	anchorType: {fontSize: typography.sizeXs, color: colors.textFaint},
-	description: {fontSize: typography.sizeBase, color: colors.text, lineHeight: typography.sizeBase * typography.lineHeightBase},
 	actions: {flexDirection: 'row', gap: spacing.sm},
-	toggleText: {fontSize: typography.sizeSm, color: colors.accent, fontWeight: typography.weightMedium},
 	hint: {fontSize: typography.sizeSm, color: colors.textFaint},
 	pickerRow: {gap: spacing.sm},
 	pickerItem: {alignItems: 'center', width: 64, marginRight: spacing.sm},

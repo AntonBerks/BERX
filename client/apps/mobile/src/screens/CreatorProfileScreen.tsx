@@ -21,6 +21,8 @@ import {BerxScreenScene, useBerxSceneAtmosphere} from '../spatial/BerxScreenScen
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
+import {BerxStatRail} from '../../../../packages/design-system/src/spatial/BerxStatRail';
+import {BerxActionShelf} from '../../../../packages/design-system/src/spatial/BerxActionShelf';
 
 export interface CreatorProfileScreenProps {
 	api: BerxApiClient;
@@ -119,23 +121,27 @@ function CreatorProfileSceneBody({api, username, onOpenPost, onOpenAlbum, onOpen
 					}
 				/>
 
-				<View style={styles.statsRow}>
-					<View style={styles.stat}>
-						<Text style={styles.statValue}>{profile.audience.friend_count}</Text>
-						<Text style={styles.statLabel}>друзей</Text>
-					</View>
-					<View style={styles.stat}>
-						<Text style={styles.statValue}>{profile.audience.views_last_30_days}</Text>
-						<Text style={styles.statLabel}>за 30 дней</Text>
-					</View>
-				</View>
+				{/* the design system's own stat rail rather than a third
+				    hand-rolled pair of number-over-label columns */}
+				<BerxStatRail
+					stats={[
+						{key: 'friends', label: 'друзей', value: profile.audience.friend_count},
+						{key: 'views30', label: 'за 30 дней', value: profile.audience.views_last_30_days},
+					]}
+				/>
 
-				{profile.is_own && onOpenSettings ? (
-					<BerxButton label="Настройки автора" variant="secondary" onPress={onOpenSettings} fullWidth />
-				) : null}
-
-				{onOpenVideos ? (
-					<BerxButton label="Видео автора" variant="secondary" onPress={() => onOpenVideos(profile.user_guid)} fullWidth />
+				{/* the creator's own controls, on the control plane and
+				    beside each other: two stacked full-width buttons are a
+				    settings screen, not a profile */}
+				{(profile.is_own && onOpenSettings) || onOpenVideos ? (
+					<BerxActionShelf variant="anchored">
+						{profile.is_own && onOpenSettings ? (
+							<BerxButton label="Настройки автора" variant="secondary" onPress={onOpenSettings} />
+						) : null}
+						{onOpenVideos ? (
+							<BerxButton label="Видео автора" variant="secondary" onPress={() => onOpenVideos(profile.user_guid)} />
+						) : null}
+					</BerxActionShelf>
 				) : null}
 			</View>
 
@@ -249,10 +255,6 @@ const styles = StyleSheet.create({
 	body: {padding: spacing.md, gap: spacing.sm},
 	category: {fontSize: typography.sizeXs, color: colors.accent, fontWeight: typography.weightBold, textTransform: 'uppercase'},
 	bio: {fontSize: typography.sizeSm, color: colors.textDim},
-	statsRow: {flexDirection: 'row', gap: spacing.lg, paddingVertical: spacing.sm},
-	stat: {alignItems: 'flex-start'},
-	statValue: {fontSize: typography.sizeLg, color: colors.white, fontWeight: typography.weightBold},
-	statLabel: {fontSize: typography.sizeXs, color: colors.textFaint},
 	tabRow: {flexDirection: 'row', gap: spacing.xs, paddingHorizontal: spacing.md, paddingBottom: spacing.sm},
 
 	tabActive: {backgroundColor: colors.accentSoft},
