@@ -25,6 +25,7 @@ import {BerxText} from '../spatial/BerxText';
 import {BerxSurface} from '../spatial/BerxSurface';
 import {useBerxSceneOptional} from '../spatial/BerxSpatialScene';
 import {useBerxRoomLight} from '../spatial/useBerxRoomLight';
+import {useBerxReducedMotion} from '../spatial/useBerxReducedMotion';
 
 export function BerxLoadingState({label}: {label?: string}) {
 	const scene = useBerxSceneOptional();
@@ -115,7 +116,15 @@ export function BerxSkeleton({width = '100%', height = 16, style}: {width?: numb
 	const scene = useBerxSceneOptional();
 	const fill = scene?.scene.layers.D3.surface.backgroundColor ?? colors.glass2;
 	const opacity = useRef(new Animated.Value(0.3)).current;
+	/* the pulse is ambient motion, and ambient motion stops when
+	   someone has asked for less of it. A skeleton that does not
+	   breathe is still a skeleton. */
+	const reducedMotion = useBerxReducedMotion();
 	useEffect(() => {
+		if (reducedMotion) {
+			opacity.setValue(0.5);
+			return;
+		}
 		const loop = Animated.loop(
 			Animated.sequence([
 				Animated.timing(opacity, {toValue: 0.7, duration: 700, useNativeDriver: true}),
@@ -124,7 +133,7 @@ export function BerxSkeleton({width = '100%', height = 16, style}: {width?: numb
 		);
 		loop.start();
 		return () => loop.stop();
-	}, [opacity]);
+	}, [opacity, reducedMotion]);
 
 	return (
 		<Animated.View

@@ -24,6 +24,7 @@ import {Animated, Easing, Pressable, StyleSheet, View, type ViewStyle} from 'rea
 import Svg, {Circle, Path} from 'react-native-svg';
 import {BERX_ICON_PATHS, type BerxIconName} from './paths';
 import {useBerxLayer} from '../spatial/useBerxLayer';
+import {useBerxReducedMotion} from '../spatial/useBerxReducedMotion';
 import {useBerxSceneOptional} from '../spatial/BerxSpatialScene';
 import {useBerxRoomLight} from '../spatial/useBerxRoomLight';
 import {BerxSurface} from '../spatial/BerxSurface';
@@ -59,8 +60,13 @@ export function BerxIcon(props: BerxIconProps) {
 	const geometry = BERX_ICON_PATHS[name];
 
 	const spin = useRef(new Animated.Value(0)).current;
-	/* `loading` is the single exception to "never rotate continuously" */
-	const allowSpin = name === 'loading';
+	/* `loading` is the single exception to "never rotate continuously"
+	   — and it stops for someone who asked the OS for less motion,
+	   where a static arc still reads as busy. This file's own header
+	   has said so since it was written; nothing was reading the
+	   setting until now. */
+	const reducedMotion = useBerxReducedMotion();
+	const allowSpin = name === 'loading' && !reducedMotion;
 
 	useEffect(() => {
 		if (!allowSpin) return;
