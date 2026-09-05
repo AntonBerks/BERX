@@ -20,6 +20,10 @@
 <meta property="og:image" content="https://berx.online/assets/media/og/berx-og-1200x630.jpg">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="stylesheet" href="styles/berx.css">
+<!-- The BERX 5D runtime's own stylesheet. Same depth planes, materials
+     and light recipes the app renders; the site is a BERX surface, not
+     a separate look that happens to share a logo. -->
+<link rel="stylesheet" href="styles/berx-5d.css">
 
 <!-- Фаза интро выставляется ДО первой отрисовки. Нет JS → нет интро (graceful). -->
 <script>
@@ -137,6 +141,14 @@
 <main id="top">
 <!-- ══════════ HERO ══════════ -->
 <section id="hero" aria-labelledby="h1">
+  <!-- D0/D1 — the real BERX environment, resolved by the same runtime
+       the app uses, from the archive's own BERX-001 contract. The
+       hand-built beams and haze below sit inside that room rather
+       than standing in for one. -->
+  <div class="berx-scene" id="heroScene" aria-hidden="true">
+    <div class="berx-layer" data-berx-depth="D0"><div class="berx-surface" data-berx-depth="D0"></div></div>
+    <div class="berx-layer" data-berx-depth="D1"><div class="berx-surface" data-berx-depth="D1"></div></div>
+  </div>
   <div class="env" aria-hidden="true">
     <div class="grid"></div>
     <div class="beam" style="left:22%"></div>

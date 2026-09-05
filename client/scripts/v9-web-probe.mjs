@@ -652,6 +652,68 @@ async function luminanceStructure(page, screenshot) {
 	await ctx.close();
 }
 
+/* --- 4d. the site is a BERX surface, not a lookalike ---------------
+   berx.online ships the 5D runtime, and for a long time loaded none
+   of it: the page had its own hand-built beams and haze while the
+   generated runtime sat unreferenced next to it. The hero now mounts
+   a real v9 scene from the archive's own BERX-001 contract. This
+   loads the actual site, from the actual repository root, and checks
+   that it did — and that nothing on the page throws while doing it. */
+{
+	const siteTypes = {
+		'.html': 'text/html; charset=utf-8',
+		'.js': 'text/javascript; charset=utf-8',
+		'.css': 'text/css; charset=utf-8',
+		'.json': 'application/json; charset=utf-8',
+		'.svg': 'image/svg+xml',
+		'.ico': 'image/x-icon',
+		'.png': 'image/png',
+		'.jpg': 'image/jpeg',
+		'.webmanifest': 'application/manifest+json',
+	};
+	const siteServer = http.createServer((req, res) => {
+		const name = (req.url ?? '/').split('?')[0];
+		const file = path.join(repoRoot, name === '/' ? 'index.html' : path.normalize(name).replace(/^(\.\.[/\\])+/, ''));
+		if (!file.startsWith(repoRoot) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) {
+			res.writeHead(404).end();
+			return;
+		}
+		res.writeHead(200, {'content-type': siteTypes[path.extname(file)] ?? 'application/octet-stream'});
+		fs.createReadStream(file).pipe(res);
+	});
+	await new Promise((r) => siteServer.listen(0, '127.0.0.1', r));
+	const siteBase = `http://127.0.0.1:${siteServer.address().port}/`;
+
+	const ctx = await browser.newContext({viewport: {width: 1440, height: 900}, deviceScaleFactor: 2});
+	const page = await ctx.newPage();
+	const siteErrors = [];
+	page.on('pageerror', (e) => siteErrors.push(`uncaught: ${e.message}`));
+	page.on('console', (m) => {
+		if (m.type() === 'error') siteErrors.push(m.text());
+	});
+	/* intro=off skips the five-second reveal; it is also the path that
+	   used to throw, which is why the probe takes it */
+	await page.goto(`${siteBase}?intro=off`, {waitUntil: 'load'});
+	await page.waitForTimeout(700);
+	results.site = await page.evaluate(() => {
+		const host = document.getElementById('heroScene');
+		const d1 = host ? host.querySelector('.berx-surface[data-berx-depth="D1"]') : null;
+		const bg = d1 ? getComputedStyle(d1).backgroundImage : '';
+		return {
+			screenId: host ? host.dataset.berxScene ?? null : null,
+			family: host ? host.dataset.berxFamily ?? null : null,
+			atmosphere: host ? host.dataset.berxAtmosphere ?? null : null,
+			gradients: (bg.match(/gradient/g) ?? []).length,
+			heroIntact: Boolean(document.querySelector('#hero .wrap')),
+			errors: 0,
+		};
+	});
+	results.site.errors = siteErrors.length;
+	results.site.errorSample = siteErrors.slice(0, 3);
+	await ctx.close();
+	siteServer.close();
+}
+
 /* --- 5. a real low-capability phone: fewer effects, same scene --- */
 {
 	const ctx = await browser.newContext({viewport: {width: 360, height: 800}, deviceScaleFactor: 3});
@@ -904,6 +966,15 @@ gate(
 		results.sharedElementReduced.travelled === false &&
 		results.sharedElementReduced.mid === 'fading',
 	`normal: ${results.sharedElement.mid}, mid-flight transform ${String(results.sharedElement.midTransform).slice(0, 42)}; reduced motion: ${results.sharedElementReduced.mid}`,
+);
+gate(
+	'the site runs the same BERX runtime as the app',
+	results.site.screenId === 'BERX-001' &&
+		results.site.atmosphere === 'cinematic' &&
+		results.site.gradients >= 3 &&
+		results.site.heroIntact === true &&
+		results.site.errors === 0,
+	`hero mounts ${results.site.screenId} (${results.site.family}, ${results.site.atmosphere}) with ${results.site.gradients} real gradients; ${results.site.errors} page errors${results.site.errorSample.length ? `: ${results.site.errorSample.join(' | ')}` : ''}`,
 );
 gate('no page errors or console errors', findings.filter((f) => f.scope === 'page' || f.scope === 'console').length === 0, 'clean');
 

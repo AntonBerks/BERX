@@ -64,9 +64,49 @@ if (!finished){
   document.addEventListener('visibilitychange', ()=>{ if(document.hidden) finishIntro(true); });
 } else { setPhase('done'); intro.remove(); }
 
+/* ═══ 1b. THE BERX WORLD ═══════════════════════════════════════
+   The site stands in the same room the app does.
+
+   berx-5d.runtime.js is generated from the same TypeScript the React
+   Native client runs — one resolver, two platforms — and until now
+   the site shipped it and loaded nothing. The hero now mounts a real
+   v9 scene from the archive's own BERX-001 contract, so its
+   environment, materials, lighting, parallax and tilt are BERX's
+   rather than a second implementation that happens to look similar.
+
+   It is additive and it fails quietly: a browser that cannot load a
+   module, or a build without the artefacts, keeps the page exactly as
+   it was. The site's own beams and haze stay — they now sit inside a
+   resolved room instead of standing in for one.
+   ═══════════════════════════════════════════════════════════════ */
+let heroScene = null;
+(async () => {
+  const host = $('#heroScene');
+  if (!host) return;
+  try {
+    const [{mountBerxScene}, {BERX_SITE_CONTRACTS}] = await Promise.all([
+      import('./berx-5d.runtime.js'),
+      import('./berx-5d.scenes.js'),
+    ]);
+    const contract = BERX_SITE_CONTRACTS['BERX-001'];
+    if (!contract) return;
+    heroScene = mountBerxScene(host, contract, {
+      /* the page's own tier watchdog already measures frames; the
+         scene's sampler would fight it for the same budget */
+      sampleFrames: false,
+    });
+    H.dataset.berx5d = heroScene.scene.budget.tier;
+  } catch {
+    /* no 5D runtime available — the page is unchanged, not broken */
+  }
+})();
+
 /* ═══ 2. PARTICLE DUST (tier 3 only) ══════════════════════════ */
 function dust(canvas, count, speed){
-  if (tier < 3 || reduced()) return ()=>{};
+  /* canvas can legitimately be absent: with ?intro=off the intro block
+     is removed before this runs, and reading getContext on null threw
+     an uncaught TypeError on every such load. */
+  if (!canvas || tier < 3 || reduced()) return ()=>{};
   const ctx = canvas.getContext('2d', {alpha:true}); if(!ctx) return ()=>{};
   const DPR = Math.min(devicePixelRatio||1, 1.75);
   let w, h, ps = [], raf = 0, on = true;
