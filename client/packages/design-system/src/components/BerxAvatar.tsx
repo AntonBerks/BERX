@@ -4,6 +4,7 @@
  */
 import { View, Image, Text, StyleSheet } from 'react-native';
 import { colors, typography } from '../tokens';
+import { BerxMediaWell } from '../spatial/BerxMediaWell';
 
 export interface BerxAvatarProps {
 	iconUrl?: string | null;
@@ -26,9 +27,11 @@ export function BerxAvatar({ iconUrl, fallbackInitial, size = 44, hasActiveStory
 			{iconUrl ? (
 				<Image source={{ uri: iconUrl }} style={[styles.image, dimension]} />
 			) : (
-				<View style={[styles.fallback, dimension]}>
+				/* no avatar is a recess in the room, not a grey disc that
+				   belongs to no plane */
+				<BerxMediaWell radius={size / 2} style={dimension}>
 					<Text style={[styles.fallbackText, { fontSize: size * 0.4 }]}>{fallbackInitial.toUpperCase()}</Text>
-				</View>
+				</BerxMediaWell>
 			)}
 		</View>
 	);
@@ -45,11 +48,6 @@ const styles = StyleSheet.create({
 	},
 	image: {
 		resizeMode: 'cover',
-	},
-	fallback: {
-		backgroundColor: colors.graphite,
-		alignItems: 'center',
-		justifyContent: 'center',
 	},
 	fallbackText: {
 		color: colors.textDim,

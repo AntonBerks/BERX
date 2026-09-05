@@ -8,6 +8,7 @@
  */
 import {useCallback, useEffect, useState} from 'react';
 import {View, Image, Pressable, StyleSheet} from 'react-native';
+import {BerxMediaWell} from '../../../../packages/design-system/src/spatial/BerxMediaWell';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxCollectionDetail, BerxCollectionItem} from '@berx/api/types';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
@@ -108,7 +109,7 @@ function CollectionDetailScreenBody({api, id, onOpenPlace, onOpenEvent, onOpenPo
 							onPress={() => openItem(item)}
 							accessibilityLabel={item.title}>
 							<View style={styles.row}>
-							{item.image_url ? <Image source={{uri: item.image_url}} style={styles.thumb} /> : <View style={styles.thumbFallback} />}
+							{item.image_url ? <Image source={{uri: item.image_url}} style={styles.thumb} /> : <BerxMediaWell radius={radius.sm} style={styles.thumbFallback} />}
 							<View style={styles.rowBody}>
 								<BerxText role="callout" numberOfLines={1}>{item.title}</BerxText>
 								<BerxText role="meta" emphasis="tertiary">{item.item_type === 'place' ? 'Место' : item.item_type === 'event' ? 'Событие' : 'Пост'}</BerxText>
@@ -141,7 +142,7 @@ const styles = StyleSheet.create({
 	   hides the surface the card just resolved */
 	row: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm, padding: spacing.sm, marginBottom: spacing.sm},
 	thumb: {width: 48, height: 48, borderRadius: radius.sm},
-	thumbFallback: {width: 48, height: 48, borderRadius: radius.sm, backgroundColor: colors.graphite},
+	thumbFallback: {width: 48, height: 48},
 	rowBody: {flex: 1, gap: 2},
 	remove: {fontSize: typography.sizeSm, color: colors.textFaint, padding: 4},
 });

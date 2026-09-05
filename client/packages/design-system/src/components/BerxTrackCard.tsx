@@ -10,6 +10,7 @@ import { View, Pressable, StyleSheet } from 'react-native';
 import { colors, spacing, radius } from '../tokens';
 import { BerxIcon } from '../icons';
 import { BerxSpatialCard } from '../spatial/BerxSpatialCard';
+import { BerxMediaWell } from '../spatial/BerxMediaWell';
 import type { BerxTrackPost } from '@berx/api/types';
 import {BerxText} from '../spatial/BerxText';
 import { berxCount, berxPlural } from '@berx/domain';
@@ -33,9 +34,11 @@ export function BerxTrackCard({ track, onPress, onOpenProfile }: BerxTrackCardPr
 			accessibilityLabel={`Трек ${track.owner_username ?? 'BERX'}${track.text ? `: ${track.text}` : ''}`}
 			style={styles.card}>
 			<View style={styles.row}>
-			<View style={styles.badge}>
+			{/* a track has no cover art in the API — the well is where one
+			    would be, lit by the room rather than filled with grey */}
+			<BerxMediaWell radius={radius.md} style={styles.badge}>
 				<BerxIcon name="music" size={16} color={colors.white} decorative />
-			</View>
+			</BerxMediaWell>
 			<View style={styles.body}>
 				<Pressable
 					disabled={!track.owner_username || !onOpenProfile}
@@ -56,6 +59,6 @@ export function BerxTrackCard({ track, onPress, onOpenProfile }: BerxTrackCardPr
 const styles = StyleSheet.create({
 	card: { marginBottom: spacing.sm },
 	row: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-	badge: { width: 48, height: 48, borderRadius: radius.md, backgroundColor: colors.graphite, alignItems: 'center', justifyContent: 'center' },
+	badge: { width: 48, height: 48 },
 	body: { flex: 1, gap: 2 },
 });

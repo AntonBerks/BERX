@@ -6,9 +6,10 @@
  */
 import {useCallback, useEffect, useState} from 'react';
 import {View, Image, StyleSheet} from 'react-native';
+import {BerxMediaWell} from '../../../../packages/design-system/src/spatial/BerxMediaWell';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxMemory} from '@berx/api/types';
-import {colors, spacing, radius} from '@berx/design-system/tokens';
+import {spacing, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxSpatialCard} from '../../../../packages/design-system/src/spatial/BerxSpatialCard';
@@ -122,9 +123,9 @@ function MemoriesScreenBody({api, onOpenPost, onOpenAlbum, onBack}: MemoriesScre
 									{m.type === 'photo' && m.url ? (
 										<Image source={{uri: m.url}} style={styles.thumb} />
 									) : (
-										<View style={styles.thumbFallback}>
+										<BerxMediaWell radius={radius.sm} style={styles.thumbFallback}>
 											<BerxText role="subtitle" emphasis="tertiary">✎</BerxText>
-										</View>
+										</BerxMediaWell>
 									)}
 									<View style={styles.rowBody}>
 										{m.text ? <BerxText role="meta" numberOfLines={2}>{m.text}</BerxText> : (
@@ -153,6 +154,6 @@ const styles = StyleSheet.create({
 	   hides the surface the card just resolved */
 	row: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm, padding: spacing.sm},
 	thumb: {width: 56, height: 56, borderRadius: radius.sm},
-	thumbFallback: {width: 56, height: 56, borderRadius: radius.sm, backgroundColor: colors.graphite, alignItems: 'center', justifyContent: 'center'},
+	thumbFallback: {width: 56, height: 56},
 	rowBody: {flex: 1, gap: 2},
 });

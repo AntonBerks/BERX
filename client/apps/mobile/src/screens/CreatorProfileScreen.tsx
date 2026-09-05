@@ -11,6 +11,7 @@
  */
 import {useCallback, useEffect, useState} from 'react';
 import {View, FlatList, Image, StyleSheet} from 'react-native';
+import {BerxMediaWell} from '../../../../packages/design-system/src/spatial/BerxMediaWell';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxCreatorProfile, BerxCreatorContent, BerxCreatorPostItem, BerxCreatorAlbumItem, BerxCreatorEventItem, BerxCreatorExperienceItem} from '@berx/api/types';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
@@ -214,7 +215,7 @@ function CreatorProfileSceneBody({api, username, onOpenPost, onOpenAlbum, onOpen
 							accessibilityLabel={item.title}
 							style={styles.listItem}>
 							<View style={styles.mediaRow}>
-							{item.image_url ? <Image source={{uri: item.image_url}} style={styles.thumb} /> : <View style={styles.thumbFallback} />}
+							{item.image_url ? <Image source={{uri: item.image_url}} style={styles.thumb} /> : <BerxMediaWell radius={radius.sm} style={styles.thumbFallback} />}
 							<View style={styles.mediaBody}>
 								<BerxText role="body" numberOfLines={1}>{item.title}</BerxText>
 								<BerxText role="meta" emphasis="tertiary">{fmtDate(item.starts)}</BerxText>
@@ -237,7 +238,7 @@ function CreatorProfileSceneBody({api, username, onOpenPost, onOpenAlbum, onOpen
 							accessibilityLabel={item.title}
 							style={styles.listItem}>
 							<View style={styles.mediaRow}>
-							{item.image_url ? <Image source={{uri: item.image_url}} style={styles.thumb} /> : <View style={styles.thumbFallback} />}
+							{item.image_url ? <Image source={{uri: item.image_url}} style={styles.thumb} /> : <BerxMediaWell radius={radius.sm} style={styles.thumbFallback} />}
 							<View style={styles.mediaBody}>
 								<BerxText role="body" numberOfLines={1}>{item.title}</BerxText>
 								<BerxText role="meta" emphasis="tertiary">{item.anchor_title ?? ''} · {fmtDate(item.scheduled_start)}</BerxText>
@@ -268,6 +269,6 @@ const styles = StyleSheet.create({
 	listItem: {marginBottom: spacing.sm},
 	mediaRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm},
 	thumb: {width: 48, height: 48, borderRadius: radius.sm},
-	thumbFallback: {width: 48, height: 48, borderRadius: radius.sm, backgroundColor: colors.graphite},
+	thumbFallback: {width: 48, height: 48},
 	mediaBody: {flex: 1, gap: 2},
 });

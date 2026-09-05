@@ -24,8 +24,7 @@ import type {BerxApiClient} from '@berx/api/client';
 import type {BerxPostDetail, BerxPostComment, BerxMediaAsset} from '@berx/api/types';
 import {relativeTimeLabel} from '@berx/domain';
 import {colors, spacing, radius, typography} from '@berx/design-system/tokens';
-import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
-import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
+import {BerxComposer} from '../../../../packages/design-system/src/spatial/BerxComposer';
 import {BerxLoadingState, BerxErrorState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxMediaGrid} from '../../../../packages/design-system/src/components/BerxMediaGrid';
@@ -95,9 +94,6 @@ function PostDetailSceneBody({api, postGuid, myGuid, onOpenProfile, onReport, on
 	const [error, setError] = useState<string | null>(null);
 	const [liking, setLiking] = useState(false);
 	const [liked, setLiked] = useState(false);
-	const [commentText, setCommentText] = useState('');
-	const [posting, setPosting] = useState(false);
-	const [commentStatus, setCommentStatus] = useState<string | null>(null);
 	const [comments, setComments] = useState<BerxPostComment[]>([]);
 	const [commentsLoading, setCommentsLoading] = useState(true);
 	const [media, setMedia] = useState<BerxMediaAsset[]>([]);
@@ -165,19 +161,13 @@ function PostDetailSceneBody({api, postGuid, myGuid, onOpenProfile, onReport, on
 		}
 	}
 
-	async function handleComment() {
-		if (!commentText.trim()) return;
-		setPosting(true);
-		setCommentStatus(null);
-		try {
-			await api.commentOnPost(postGuid, commentText.trim());
-			setCommentText('');
-			await loadComments();
-		} catch {
-			setCommentStatus('Не удалось отправить комментарий');
-		} finally {
-			setPosting(false);
-		}
+	/* The composer owns the field, the send state and the error, and
+	   clears the text only once this resolves — so a failed comment
+	   keeps what was written instead of losing it to an optimistic
+	   reset. Rejecting is how it is told the send failed. */
+	async function handleComment(text: string) {
+		await api.commentOnPost(postGuid, text);
+		await loadComments();
 	}
 
 	async function handleDeleteComment(commentId: number) {
@@ -262,15 +252,17 @@ function PostDetailSceneBody({api, postGuid, myGuid, onOpenProfile, onReport, on
 						</Pressable>
 					) : null}
 
+					{/* D4 — the archive's own composer, not a grey box with a
+					    button in it: writing a comment holds the scene's
+					    focus, so the post steps back while you answer it and
+					    comes forward again when you leave the field. */}
 					<View style={styles.commentBox}>
-						<BerxInput
+						<BerxComposer
+							onSend={handleComment}
 							placeholder="Написать комментарий..."
-							value={commentText}
-							onChangeText={setCommentText}
-							multiline
+							accessibilityLabel="Текст комментария"
+							testID="post-comment"
 						/>
-						<BerxButton label="Отправить" variant="secondary" onPress={handleComment} loading={posting} />
-						{commentStatus ? <BerxText role="meta" emphasis="secondary">{commentStatus}</BerxText> : null}
 					</View>
 
 					<View style={styles.commentsList}>
@@ -331,15 +323,7 @@ const styles = StyleSheet.create({
 	author: {color: colors.accent, fontWeight: typography.weightMedium, fontSize: typography.sizeLg},
 	mediaWrap: {borderRadius: radius.md, overflow: 'hidden'},
 	time: {color: colors.textFaint, fontSize: typography.sizeXs},
-	commentBox: {
-		marginTop: spacing.lg,
-		gap: spacing.sm,
-		padding: spacing.md,
-		backgroundColor: colors.graphite,
-		borderRadius: radius.md,
-		borderWidth: 1,
-		borderColor: colors.borderSoft,
-	},
+	commentBox: {marginTop: spacing.lg},
 	reportLink: {textDecorationLine: 'underline'},
 	commentsList: {marginTop: spacing.md, gap: spacing.sm},
 	commentRow: {flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, paddingVertical: spacing.sm, borderTopWidth: 1, borderTopColor: colors.borderSoft},

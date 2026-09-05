@@ -20,8 +20,19 @@
  * real project — every prop this component already takes
  * (`url`, `posterColor`, `onPlay`) maps directly onto that library's
  * own real API, so no caller needs to change.
+ *
+ * Spatially it is a real object, not a grey rectangle with a circle
+ * on it. The frame stands on the content plane and takes the light
+ * that reaches its own corner of the room; the play control is on the
+ * control plane in front of it, with the control material's own lit
+ * edge — so the thing you press reads as being nearer than the thing
+ * it acts on, which is the only reason a badge over a poster works at
+ * all.
  */
-import { View, Pressable, Linking, StyleSheet } from 'react-native';
+import { Pressable, Linking, StyleSheet } from 'react-native';
+import {BerxSurface} from '../spatial/BerxSurface';
+import {useBerxScene} from '../spatial/BerxSpatialScene';
+import {useBerxRoomLight} from '../spatial/useBerxRoomLight';
 import { colors, spacing, radius } from '../tokens';
 import { BerxIcon } from '../icons';
 import {BerxText} from '../spatial/BerxText';
@@ -45,17 +56,43 @@ export function BerxVideoPlayer({ url, widthRatio = 16 / 9, onOpen }: BerxVideoP
 		}
 	}
 
+	const {scene} = useBerxScene();
+	const room = useBerxRoomLight();
+
 	return (
-		<Pressable style={[styles.frame, { aspectRatio: widthRatio }]} onPress={handleOpen}>
-			<View style={styles.playBadge}>
-				<BerxIcon name="play" size={22} color={colors.white} decorative />
-			</View>
-			<BerxText role="meta" emphasis="secondary">Открыть видео</BerxText>
+		<Pressable
+			ref={room.measure}
+			onLayout={room.onLayout}
+			accessibilityRole="button"
+			accessibilityLabel="Открыть видео"
+			accessibilityHint="Откроется в системном проигрывателе"
+			style={{ aspectRatio: widthRatio }}
+			onPress={handleOpen}>
+			{/* D3 — the poster is an object standing in the room */}
+			<BerxSurface
+				surface={scene.layers.D3.surface}
+				lighting={scene.layers.D3.lighting}
+				radius={radius.md}
+				illumination={room.illumination}
+				behind={room.behind}
+				style={styles.frame}>
+				{/* D4 — the control is in front of what it plays, carrying
+				    the control plane's own material and its emission */}
+				<BerxSurface
+					surface={scene.layers.D4.surface}
+					lighting={scene.layers.D4.lighting}
+					radius={radius.pill}
+					emissive
+					style={styles.playBadge}>
+					<BerxIcon name="play" size={22} color={colors.white} decorative />
+				</BerxSurface>
+				<BerxText role="meta" emphasis="secondary">Открыть видео</BerxText>
+			</BerxSurface>
 		</Pressable>
 	);
 }
 
 const styles = StyleSheet.create({
-	frame: { backgroundColor: colors.graphite, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center', gap: spacing.sm },
-	playBadge: { width: 56, height: 56, borderRadius: radius.pill, backgroundColor: 'rgba(5,5,5,0.55)', alignItems: 'center', justifyContent: 'center' },
+	frame: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.sm },
+	playBadge: { width: 56, height: 56, alignItems: 'center', justifyContent: 'center' },
 });

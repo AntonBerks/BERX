@@ -13,6 +13,7 @@
  */
 import {useCallback, useEffect, useState} from 'react';
 import {View, Text, Image, Pressable, StyleSheet} from 'react-native';
+import {BerxMediaWell} from '../spatial/BerxMediaWell';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxObjectComment, BerxCommentableType} from '@berx/api/types';
 import {colors, spacing, typography, radius} from '../tokens';
@@ -99,7 +100,7 @@ export function BerxDiscussion({api, type, id, myGuid}: Props) {
 			) : (
 				comments.map((c) => (
 					<View key={c.id} style={[styles.row, {borderColor: dividerColor}]}>
-						{c.author ? <Image source={{uri: c.author.icon}} style={styles.avatar} /> : <View style={styles.avatarFallback} />}
+						{c.author ? <Image source={{uri: c.author.icon}} style={styles.avatar} /> : <BerxMediaWell radius={radius.pill} style={styles.avatarFallback} />}
 						<View style={styles.body}>
 							<BerxText role="label">{c.author?.fullname ?? 'Пользователь'}</BerxText>
 							<BerxText role="meta" emphasis="secondary">{c.text}</BerxText>
@@ -122,7 +123,7 @@ const styles = StyleSheet.create({
 	error: {fontSize: typography.sizeSm, color: colors.danger},
 	row: {flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, paddingVertical: spacing.sm, borderTopWidth: 1, borderTopColor: colors.borderSoft},
 	avatar: {width: 32, height: 32, borderRadius: radius.pill},
-	avatarFallback: {width: 32, height: 32, borderRadius: radius.pill, backgroundColor: colors.graphite},
+	avatarFallback: {width: 32, height: 32},
 	body: {flex: 1, gap: 2},
 	deleteLink: {fontSize: typography.sizeSm, color: colors.textFaint, padding: 4},
 });

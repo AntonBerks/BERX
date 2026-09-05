@@ -21,6 +21,7 @@ import {View, Image, StyleSheet} from 'react-native';
 import {colors, spacing, typography, radius} from '../tokens';
 import {BerxText} from '../spatial/BerxText';
 import {BerxScrim} from '../spatial/BerxScrim';
+import {BerxMediaWell} from '../spatial/BerxMediaWell';
 import {useBerxSceneOptional} from '../spatial/BerxSpatialScene';
 
 export interface BerxScrimHeroProps {
@@ -40,9 +41,12 @@ export function BerxScrimHero({imageUrl, title, subtitle, badge, height = 280, c
 			{imageUrl ? (
 				<Image source={{uri: imageUrl}} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
 			) : (
-				<View style={[StyleSheet.absoluteFillObject, styles.fallback]}>
+				/* a hero with no photograph is a recess in the room lit by
+				   the room, carrying the object's own initial — not a slab
+				   of grey with a letter on it */
+				<BerxMediaWell radius={0} style={StyleSheet.absoluteFillObject}>
 					<BerxText role="display" emphasis="tertiary">{title.charAt(0).toUpperCase()}</BerxText>
-				</View>
+				</BerxMediaWell>
 			)}
 			<BerxScrim
 				color={scene?.scene.background ?? colors.bg}
@@ -61,8 +65,7 @@ export function BerxScrimHero({imageUrl, title, subtitle, badge, height = 280, c
 }
 
 const styles = StyleSheet.create({
-	wrap: {width: '100%', backgroundColor: colors.graphite, justifyContent: 'flex-end'},
-	fallback: {alignItems: 'center', justifyContent: 'center', backgroundColor: colors.graphite},
+	wrap: {width: '100%', justifyContent: 'flex-end'},
 	content: {padding: spacing.lg, gap: spacing.xs},
 });
 

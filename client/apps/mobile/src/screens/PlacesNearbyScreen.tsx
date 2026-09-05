@@ -11,9 +11,10 @@
  */
 import {useState} from 'react';
 import {View, Image, StyleSheet} from 'react-native';
+import {BerxMediaWell} from '../../../../packages/design-system/src/spatial/BerxMediaWell';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxNearbyPlace} from '@berx/api/types';
-import {colors, spacing, radius} from '@berx/design-system/tokens';
+import {spacing, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
@@ -106,7 +107,7 @@ function PlacesNearbyScreenBody({api, onOpenPlace, onBack}: PlacesNearbyScreenPr
 							radius={18}
 							onPress={() => onOpenPlace(item.guid)}
 							accessibilityLabel={item.title}>
-							{item.cover_url ? <Image source={{uri: item.cover_url}} style={styles.cardImage} /> : <View style={styles.cardImageFallback} />}
+							{item.cover_url ? <Image source={{uri: item.cover_url}} style={styles.cardImage} /> : <BerxMediaWell radius={radius.sm} style={styles.cardImageFallback} />}
 							<View style={styles.cardBody}>
 								<BerxText role="callout" numberOfLines={1}>{item.title}</BerxText>
 								<BerxText role="meta" emphasis="accent">{item.distance_km} км</BerxText>
@@ -131,6 +132,6 @@ const styles = StyleSheet.create({
 	   hides the surface the card just resolved */
 	card: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm, padding: spacing.sm, marginBottom: spacing.sm},
 	cardImage: {width: 56, height: 56, borderRadius: radius.sm},
-	cardImageFallback: {width: 56, height: 56, borderRadius: radius.sm, backgroundColor: colors.graphite},
+	cardImageFallback: {width: 56, height: 56},
 	cardBody: {flex: 1},
 });

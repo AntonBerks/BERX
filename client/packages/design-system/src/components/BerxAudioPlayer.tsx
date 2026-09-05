@@ -17,9 +17,18 @@
  * swap this component's body for `<Sound source={{uri: url}} ... />`
  * (or similar) from a library like react-native-track-player once
  * installed — `url`/`onPlay` map directly onto that kind of API.
+ *
+ * The bar is an object on the content plane and the play control is
+ * on the control plane in front of it. That ordering is the whole
+ * point: a flat grey bar with a coloured circle printed into it reads
+ * as one graphic, and what you can press has to be the part that is
+ * nearer.
  */
-import { View, Pressable, Linking, StyleSheet } from 'react-native';
-import { colors, spacing, radius } from '../tokens';
+import { Pressable, Linking, StyleSheet } from 'react-native';
+import { spacing, radius } from '../tokens';
+import {BerxSurface} from '../spatial/BerxSurface';
+import {useBerxScene} from '../spatial/BerxSpatialScene';
+import {useBerxRoomLight} from '../spatial/useBerxRoomLight';
 import { BerxIcon } from '../icons';
 import {BerxText} from '../spatial/BerxText';
 
@@ -41,17 +50,42 @@ export function BerxAudioPlayer({ url, onOpen }: BerxAudioPlayerProps) {
 		}
 	}
 
+	const {scene} = useBerxScene();
+	const room = useBerxRoomLight();
+
 	return (
-		<Pressable style={styles.bar} onPress={handleOpen}>
-			<View style={styles.playBadge}>
-				<BerxIcon name="play" size={16} state="active" decorative />
-			</View>
-			<BerxText role="meta" emphasis="secondary">Воспроизвести трек</BerxText>
+		<Pressable
+			ref={room.measure}
+			onLayout={room.onLayout}
+			accessibilityRole="button"
+			accessibilityLabel="Воспроизвести трек"
+			accessibilityHint="Откроется в системном проигрывателе"
+			onPress={handleOpen}>
+			{/* D3 — the track, standing where it stands in the room */}
+			<BerxSurface
+				surface={scene.layers.D3.surface}
+				lighting={scene.layers.D3.lighting}
+				radius={radius.md}
+				illumination={room.illumination}
+				behind={room.behind}
+				style={styles.bar}>
+				{/* D4 — the control, one plane nearer, carrying the energy
+				    the control plane declares */}
+				<BerxSurface
+					surface={scene.layers.D4.surface}
+					lighting={scene.layers.D4.lighting}
+					radius={radius.pill}
+					emissive
+					style={styles.playBadge}>
+					<BerxIcon name="play" size={16} state="active" decorative />
+				</BerxSurface>
+				<BerxText role="meta" emphasis="secondary">Воспроизвести трек</BerxText>
+			</BerxSurface>
 		</Pressable>
 	);
 }
 
 const styles = StyleSheet.create({
-	bar: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.graphite, borderRadius: radius.md, padding: spacing.md },
-	playBadge: { width: 40, height: 40, borderRadius: radius.pill, backgroundColor: colors.accentSoft, alignItems: 'center', justifyContent: 'center' },
+	bar: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, padding: spacing.md },
+	playBadge: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
 });

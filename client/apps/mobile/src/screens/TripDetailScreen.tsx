@@ -7,6 +7,7 @@
  */
 import {useCallback, useEffect, useState} from 'react';
 import {View, FlatList, Image, Pressable, StyleSheet} from 'react-native';
+import {BerxMediaWell} from '../../../../packages/design-system/src/spatial/BerxMediaWell';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxTripDetail, BerxTripStop, BerxTripParticipant, BerxFriend} from '@berx/api/types';
 import {sharedElementTag} from '@berx/spatial';
@@ -224,7 +225,7 @@ function TripDetailScreenBody({api, id, onOpenPlace, onOpenEvent, onBack}: TripD
 									onPress={() => (s.item_type === 'place' ? onOpenPlace(s.item_guid) : onOpenEvent(s.item_guid))}
 									accessibilityLabel={`${s.title}, ${s.item_type === 'place' ? 'место' : 'событие'}, день ${day}`}>
 									<View style={styles.stopRow}>
-									{s.image_url ? <Image source={{uri: s.image_url}} style={styles.thumb} /> : <View style={styles.thumbFallback} />}
+									{s.image_url ? <Image source={{uri: s.image_url}} style={styles.thumb} /> : <BerxMediaWell radius={radius.sm} style={styles.thumbFallback} />}
 									<View style={styles.stopBody}>
 										<BerxText role="callout" numberOfLines={1}>{s.title}</BerxText>
 										<BerxText role="meta" emphasis="tertiary">{s.item_type === 'place' ? 'Место' : 'Событие'}</BerxText>
@@ -266,7 +267,7 @@ const styles = StyleSheet.create({
 	   hides the surface the card just resolved */
 	stopRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm, padding: spacing.sm},
 	thumb: {width: 48, height: 48, borderRadius: radius.sm},
-	thumbFallback: {width: 48, height: 48, borderRadius: radius.sm, backgroundColor: colors.graphite},
+	thumbFallback: {width: 48, height: 48},
 	stopBody: {flex: 1, gap: 2},
 	remove: {fontSize: typography.sizeSm, color: colors.textFaint, padding: 4},
 });

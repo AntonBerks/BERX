@@ -5,6 +5,7 @@
  */
 import {useCallback, useEffect, useState} from 'react';
 import {View, FlatList, Image, Pressable, StyleSheet} from 'react-native';
+import {BerxMediaWell} from '../../../../packages/design-system/src/spatial/BerxMediaWell';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxExperienceDetail, BerxExperienceParticipant, BerxFriend} from '@berx/api/types';
 import {sharedElementTag} from '@berx/spatial';
@@ -153,7 +154,7 @@ function ExperienceDetailScreenBody({api, id, onOpenPlace, onOpenEvent, onBack}:
 						accessibilityLabel={`${experience.anchor.title}, ${experience.anchor.type === 'place' ? 'место' : 'событие'}`}
 						onPress={() => (experience.anchor!.type === 'place' ? onOpenPlace(experience.anchor!.guid) : onOpenEvent(experience.anchor!.guid))}>
 						<View style={styles.anchorCard}>
-						{experience.anchor.image_url ? <Image source={{uri: experience.anchor.image_url}} style={styles.anchorImage} /> : <View style={styles.anchorImageFallback} />}
+						{experience.anchor.image_url ? <Image source={{uri: experience.anchor.image_url}} style={styles.anchorImage} /> : <BerxMediaWell radius={radius.sm} style={styles.anchorImageFallback} />}
 						<View style={styles.anchorBody}>
 							<BerxText role="callout" numberOfLines={1}>{experience.anchor.title}</BerxText>
 							<BerxText role="meta" emphasis="tertiary">{experience.anchor.type === 'place' ? 'Место' : 'Событие'}</BerxText>
@@ -214,7 +215,7 @@ const styles = StyleSheet.create({
 	body: {padding: spacing.md, gap: spacing.md},
 	anchorCard: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm, padding: spacing.sm},
 	anchorImage: {width: 56, height: 56, borderRadius: radius.sm},
-	anchorImageFallback: {width: 56, height: 56, borderRadius: radius.sm, backgroundColor: colors.graphite},
+	anchorImageFallback: {width: 56, height: 56},
 	anchorBody: {flex: 1, gap: 2},
 	actions: {flexDirection: 'row', gap: spacing.sm},
 	pickerRow: {gap: spacing.sm},
