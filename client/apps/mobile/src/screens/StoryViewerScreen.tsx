@@ -28,6 +28,7 @@ import type {BerxStoryFeedGroup} from '@berx/api/types';
 import {colors, spacing, typography} from '@berx/design-system/tokens';
 import {BerxActionShelf} from '../../../../packages/design-system/src/spatial/BerxActionShelf';
 import {useBerxScene} from '../../../../packages/design-system/src/spatial/BerxSpatialScene';
+import {BerxFocusTarget} from '../../../../packages/design-system/src/spatial/BerxFocusTarget';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 
 export interface StoryViewerScreenProps {
@@ -186,20 +187,29 @@ function StoryViewerScreenBody({
 				))}
 			</View>
 
-			{current.mime_type === 'video/mp4' ? (
-				<View style={styles.videoFallback}>
-					<Text style={styles.videoFallbackText}>▶ Видео-история</Text>
-					<Text style={styles.videoFallbackHint}>Просмотр видео-историй в приложении пока не поддерживается</Text>
-				</View>
-			) : (
-				<Image
-					source={{uri: api.storyMediaUrl(current.id), headers: authHeaders}}
-					style={styles.media}
-					/* contain, not cover: the scene's own atmosphere fills
-					   the rest of the frame, so nothing has to be cropped */
-					resizeMode="contain"
-				/>
-			)}
+			{/* D5 — the frame being watched is what the scene is looking
+			    at, so it holds the scene's focus: the room, the track and
+			    the atmosphere behind it all step back by their own amount
+			    and the falloff opens around the story itself. Nothing here
+			    is painted brighter; the scene makes room for it. The
+			    controls do not recede — the tap zones under this are the
+			    only way through a story. */}
+			<BerxFocusTarget id={`story-${current.id}`} focused style={styles.media} testID="story-focus">
+				{current.mime_type === 'video/mp4' ? (
+					<View style={styles.videoFallback}>
+						<Text style={styles.videoFallbackText}>▶ Видео-история</Text>
+						<Text style={styles.videoFallbackHint}>Просмотр видео-историй в приложении пока не поддерживается</Text>
+					</View>
+				) : (
+					<Image
+						source={{uri: api.storyMediaUrl(current.id), headers: authHeaders}}
+						style={styles.media}
+						/* contain, not cover: the scene's own atmosphere fills
+						   the rest of the frame, so nothing has to be cropped */
+						resizeMode="contain"
+					/>
+				)}
+			</BerxFocusTarget>
 
 			{/* The two halves of the screen are the story's navigation.
 			    They were unlabelled, which made the only way through a

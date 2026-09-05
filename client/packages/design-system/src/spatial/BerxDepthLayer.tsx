@@ -51,8 +51,17 @@ export function BerxDepthLayer({
 	accessibilityLabel,
 	decorative,
 }: BerxDepthLayerProps) {
-	const {scene, scrollY} = useBerxScene();
+	const {scene, scrollY, focusField} = useBerxScene();
 	const layer = scene.layers[depth];
+
+	/**
+	 * While something holds focus, every plane steps back by the
+	 * amount focus.ts resolved for it — graduated by depth, so the
+	 * environment recedes furthest and the controls barely move. A
+	 * uniform dim would leave the hierarchy proportionally identical
+	 * and simply cost contrast.
+	 */
+	const opacity = focusField ? layer.contentOpacity * focusField.recession[depth] : layer.contentOpacity;
 
 	const isDecorative = decorative ?? (depth === 'D0' || depth === 'D1');
 
@@ -79,7 +88,7 @@ export function BerxDepthLayer({
 			accessibilityElementsHidden={isDecorative}
 			importantForAccessibility={isDecorative ? 'no-hide-descendants' : 'auto'}
 			pointerEvents={isDecorative ? 'none' : 'auto'}
-			style={[absoluteFill ? styles.absolute : null, {zIndex: layer.zIndex, opacity: layer.contentOpacity, transform}, style]}>
+			style={[absoluteFill ? styles.absolute : null, {zIndex: layer.zIndex, opacity, transform}, style]}>
 			{body}
 		</View>
 	);

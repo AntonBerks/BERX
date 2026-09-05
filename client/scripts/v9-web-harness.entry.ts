@@ -25,6 +25,8 @@ interface BerxHarnessWindow extends Window {
 		contracts: () => string[];
 		scene: () => BerxWebScene | null;
 		sharedElement: (reducedMotion?: boolean) => Promise<Record<string, unknown>>;
+		focus: (on: boolean) => Record<string, unknown> | null;
+		focusBox: () => {x: number; y: number; width: number; height: number} | null;
 		resolveAll: () => {resolved: number; total: number};
 	};
 }
@@ -100,6 +102,16 @@ function build(screenId: string, opts: BerxHarnessMountOptions) {
 		}
 		if (depth === 'D5') {
 			surface.appendChild(createBerxEnergy(64));
+			/* the object focus is given to.
+			 *
+			 * It is on the focus plane rather than inside the content,
+			 * because the clearing is painted between the content and
+			 * the controls: an object focused on the content plane sits
+			 * under its own falloff and darkens with the surround it is
+			 * supposed to be emerging from. Focus promotes — this is
+			 * what promoted looks like in the DOM. */
+			surface.classList.add('berx-focus-holder');
+			surface.dataset.berxFocusHolder = 'true';
 		}
 
 		wrapper.appendChild(surface);
@@ -160,6 +172,42 @@ w.BERX_HARNESS = {
 			endTransform: getComputedStyle(destination).transform,
 			cleared: destination.dataset.berxSharedElement === undefined,
 		};
+	},
+
+/**
+	 * Gives the scene's focus to the promoted object, or takes it
+	 * back. Returns the field the runtime actually resolved plus the
+	 * recessions it wrote onto the real layer elements, so the probe
+	 * reads the DOM's state rather than the runtime's intention.
+	 */
+	focus: (on: boolean) => {
+		if (!active) return null;
+		const root = document.getElementById('scene') as HTMLElement;
+		const holder = root.querySelector<HTMLElement>('[data-berx-focus-holder="true"]');
+		if (!holder) return null;
+		const field = active.setFocus(on ? holder : null);
+		const applied: Record<string, string> = {};
+		for (const el of Array.from(root.querySelectorAll<HTMLElement>('[data-berx-depth]'))) {
+			applied[el.dataset.berxDepth as string] = el.style.getPropertyValue('--berx-focus-recession');
+		}
+		return {
+			field: field as unknown as Record<string, unknown> | null,
+			applied,
+			focused: root.dataset.berxFocused,
+			clearingPresent: root.querySelector('.berx-focus-clearing') !== null,
+			clearingBackground: (() => {
+				const c = root.querySelector<HTMLElement>('.berx-focus-clearing');
+				return c ? getComputedStyle(c).backgroundImage.slice(0, 90) : null;
+			})(),
+		};
+	},
+
+	focusBox: () => {
+		const root = document.getElementById('scene') as HTMLElement;
+		const holder = root.querySelector<HTMLElement>('[data-berx-focus-holder="true"]');
+		if (!holder) return null;
+		const r = holder.getBoundingClientRect();
+		return {x: r.left, y: r.top, width: r.width, height: r.height};
 	},
 
 	/**

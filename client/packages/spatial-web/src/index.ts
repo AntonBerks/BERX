@@ -25,6 +25,7 @@ import {
 	parallaxOffset,
 	perspectiveScale,
 	resolveAtmosphere,
+	resolveFocus,
 	resolveScene,
 	tiltFromPointer,
 	type BerxAtmosphere,
@@ -32,6 +33,7 @@ import {
 	type BerxColorWorldName,
 	type BerxDepthKey,
 	type BerxDeviceSignals,
+	type BerxFocusField,
 	type BerxPlatform,
 	type BerxSceneContract,
 	type BerxSceneRuntime,
@@ -83,6 +85,17 @@ export interface BerxWebScene {
 	measuredFps: () => number | null;
 	/** True once the runtime has lowered its own tier from a measurement. */
 	adapted: () => boolean;
+	/**
+	 * Gives the scene's focus to an element, or releases it with null.
+	 *
+	 * The element is measured, not described: the clearing is centred
+	 * and sized on the box the object actually occupies, so a wide
+	 * hero and a small avatar get different fields from the same call.
+	 * Returns the resolved field, or null when focus was released.
+	 */
+	setFocus: (target: HTMLElement | null, intensity?: number) => BerxFocusField | null;
+	/** The field currently held, or null. */
+	focusField: () => BerxFocusField | null;
 }
 
 /* ------------------------------------------------------------------ */
@@ -305,6 +318,63 @@ export function atmosphereCustomProperties(
 }
 
 /* ------------------------------------------------------------------ */
+/* D5 — focus                                                          */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The focus falloff as one CSS radial gradient.
+ *
+ * An ellipse rather than a circle, because the clearing is shaped by
+ * the object that holds focus and objects on a phone are rarely
+ * square; and `closest-side` sizing with explicit radii, so the field
+ * is the one the resolver computed rather than one the browser picks
+ * from the box.
+ */
+export function focusBackground(field: BerxFocusField): string {
+	const stops = field.stops
+		.map((stop) => `${rgbaOf(field.surroundColor, stop.alpha)} ${round2(stop.offset * 100)}%`)
+		.join(', ');
+	return `radial-gradient(ellipse ${round2(field.radiusX * 100)}% ${round2(field.radiusY * 100)}% at ${round2(field.centerX * 100)}% ${round2(field.centerY * 100)}%, ${stops})`;
+}
+
+function round2(value: number): number {
+	return Math.round(value * 100) / 100;
+}
+
+/** The substrate colour at a given alpha, whatever notation it arrived in. */
+function rgbaOf(color: string, alpha: number): string {
+	const hex = /^#([0-9a-f]{6})$/i.exec(color.trim());
+	if (hex) {
+		const n = parseInt(hex[1], 16);
+		return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`;
+	}
+	const rgb = /^rgba?\(([^,]+),([^,]+),([^,)]+)(?:,([^)]+))?\)$/.exec(color.replace(/\s/g, ''));
+	if (rgb) return `rgba(${rgb[1]}, ${rgb[2]}, ${rgb[3]}, ${alpha})`;
+	/* an unparseable colour is reported, not silently replaced with a
+	   black that would turn the room into a hole */
+	throw new Error(`BERX: focus surround colour "${color}" is not a colour this runtime can fade.`);
+}
+
+/**
+ * The focus field as custom properties. Null clears them, so a scene
+ * that has released focus carries no stale clearing.
+ */
+export function focusCustomProperties(field: BerxFocusField | null): Record<string, string> {
+	if (!field) {
+		return {
+			'--berx-focus-field': 'none',
+			'--berx-focus-emission': '1',
+			'--berx-focus-alpha': '0',
+		};
+	}
+	return {
+		'--berx-focus-field': focusBackground(field),
+		'--berx-focus-emission': String(field.emissionGain),
+		'--berx-focus-alpha': String(field.surroundAlpha),
+	};
+}
+
+/* ------------------------------------------------------------------ */
 /* Custom properties                                                   */
 /* ------------------------------------------------------------------ */
 
@@ -342,6 +412,7 @@ export function sceneCustomProperties(scene: BerxSceneRuntime): Record<string, s
 		'--berx-enter-ease': scene.motion.enter.easing,
 		'--berx-exit-ms': `${scene.motion.exit.durationMs}ms`,
 		'--berx-focus-ms': `${scene.motion.focus.durationMs}ms`,
+		'--berx-focus-ease': scene.motion.focus.easing,
 		'--berx-focus-scale': String(scene.motion.focus.to?.scale ?? 1),
 		'--berx-ambient-ms': `${scene.motion.ambient.durationMs}ms`,
 	};
@@ -441,6 +512,10 @@ export function mountBerxScene(
 	let scene: BerxSceneRuntime;
 	let atmosphere: BerxAtmosphere;
 	let frame = 0;
+	let focusTarget: HTMLElement | null = null;
+	let focusIntensity: number | undefined;
+	let focusField: BerxFocusField | null = null;
+	let clearingEl: HTMLElement | null = null;
 
 	const scrollTarget = options.scrollTarget ?? window;
 
@@ -516,6 +591,77 @@ export function mountBerxScene(
 		);
 		root.dataset.berx3d = String(scene.camera.perspectiveEnabled);
 		root.dataset.berxAdaptation = blurDisabled ? (tierOverride === undefined ? 'blur-dropped' : 'tier-dropped') : 'none';
+		/* the focus field is resolved against the scene that just
+		   changed, never against the one it replaced */
+		if (focusTarget) applyFocus();
+	};
+
+	/**
+	 * D5 — the focus field.
+	 *
+	 * Two things happen and neither is "make the object brighter":
+	 * the planes behind the focus step back by the amount focus.ts
+	 * resolved for each of them, and one radial falloff is painted
+	 * between the content and the controls so the surround falls away
+	 * around the object rather than a sheet being laid over the room.
+	 *
+	 * It is rebuilt whenever the scene is, because a resize, a tier
+	 * drop or a colour-world change all move the box the clearing is
+	 * centred on.
+	 */
+	const applyFocus = () => {
+		focusField = null;
+		if (focusTarget && root.contains(focusTarget)) {
+			const target = focusTarget.getBoundingClientRect();
+			const box = root.getBoundingClientRect();
+			/* the plane the target is standing on: recession is measured
+			   from the focus, so the layer holding it must not dim out
+			   from under it */
+			const holder = focusTarget.closest<HTMLElement>('[data-berx-depth]');
+			const holderDepth = holder?.dataset.berxDepth as BerxDepthKey | undefined;
+			focusField = resolveFocus({
+				/* the object's box in the scene's own coordinates */
+				rect: {
+					x: target.left - box.left,
+					y: target.top - box.top,
+					width: target.width,
+					height: target.height,
+				},
+				viewportWidth: Math.max(1, box.width),
+				viewportHeight: Math.max(1, box.height),
+				background: scene.background,
+				intensity: focusIntensity,
+				plane: holderDepth && holderDepth in scene.layers ? holderDepth : undefined,
+				tier: scene.budget.tier,
+				blurred: scene.layers.D5.blurred,
+			});
+		}
+
+		applyProps(root, focusCustomProperties(focusField));
+		root.dataset.berxFocused = String(focusField !== null);
+
+		for (const el of Array.from(root.querySelectorAll<HTMLElement>('[data-berx-depth]'))) {
+			const depth = el.dataset.berxDepth as BerxDepthKey | undefined;
+			if (!depth || !(depth in scene.layers)) continue;
+			el.style.setProperty('--berx-focus-recession', String(focusField ? focusField.recession[depth] : 1));
+		}
+
+		if (!focusField) {
+			clearingEl?.remove();
+			clearingEl = null;
+			return;
+		}
+		if (!clearingEl) {
+			clearingEl = document.createElement('div');
+			clearingEl.className = 'berx-focus-clearing';
+			clearingEl.setAttribute('aria-hidden', 'true');
+			root.appendChild(clearingEl);
+		}
+		/* last child, so it cannot be reordered under content added
+		   after focus was taken */
+		if (clearingEl.parentElement !== root || root.lastElementChild !== clearingEl) {
+			root.appendChild(clearingEl);
+		}
 	};
 
 	build();
@@ -633,10 +779,19 @@ export function mountBerxScene(
 			return atmosphere;
 		},
 		refresh: build,
+		setFocus: (target, intensity) => {
+			focusTarget = target;
+			focusIntensity = intensity;
+			applyFocus();
+			return focusField;
+		},
+		focusField: () => focusField,
 		measuredFps: () => fps,
 		adapted: () => blurDisabled || tierOverride !== undefined,
 		destroy: () => {
 			if (frame) cancelAnimationFrame(frame);
+			clearingEl?.remove();
+			clearingEl = null;
 			scrollTarget.removeEventListener('scroll', onScroll);
 			window.removeEventListener('resize', onResize);
 			window.removeEventListener('pointermove', onPointerMove);

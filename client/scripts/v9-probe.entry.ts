@@ -19,6 +19,11 @@ import {
 	BERX_MIN_TEXT_CONTRAST,
 	assertAtmosphereDepth,
 	assertContrastHierarchy,
+	assertFocusDepth,
+	flatten,
+	mix,
+	rgba,
+	resolveFocus,
 	relativeLuminance,
 	resolveScene,
 	berxAtmosphereForFamily,
@@ -153,6 +158,13 @@ export interface ProbeReport {
 	materials: Record<string, {blurPx: number; fill: string; contrast: number; opaqueFallback: boolean; glowRadius: number}>;
 	/** Depth read as lightness: inversions and the smallest step a person must see. */
 	depthOrder: {inversions: number; smallestContentStepLStar: number};
+	focus: {
+		fieldsResolved: number;
+		inversions: number;
+		smallestEmergenceLStar: number;
+		recessionSpread: number;
+		problems: string[];
+	};
 	/**
 	 * The environment each atmosphere kind resolves to, measured
 	 * unblurred — the condition the visual-acceptance rule cares
@@ -416,6 +428,95 @@ export function runProbe(): ProbeReport {
 			}
 		}
 	}
+	/* --- D5: focus, measured -------------------------------------
+	   "Focus must emerge from the surrounding scene without
+	   destroying the hierarchy" is two measurable claims, so both are
+	   measured rather than asserted.
+
+	   EMERGES: on the content plane, the far surround has to be
+	   visibly darker than the clearing the focused object sits in.
+	   That difference is read in L*, the same space the plane order
+	   is read in, so a focus that only shows up as a number is caught
+	   here and not in review.
+
+	   WITHOUT DESTROYING: after every plane has receded by its own
+	   amount, the plane order established by materials.ts must still
+	   be strictly increasing. A uniform dim would pass that trivially
+	   and communicate nothing; a graduated one can genuinely invert,
+	   which is exactly why it is checked on every contract rather
+	   than on one. */
+	const focusShapes = [
+		/* a hero, a card and an avatar: the three sizes a BERX object
+		   actually comes in, and the clearing is shaped by the object.
+		   Two of them are focused on the focus plane, one on the
+		   control plane — the two places an object can be promoted to
+		   and still sit above its own clearing. */
+		{name: 'hero', plane: 'D5' as const, rect: {x: 0, y: 96, width: 430, height: 280}},
+		{name: 'card', plane: 'D4' as const, rect: {x: 24, y: 420, width: 382, height: 180}},
+		{name: 'avatar', plane: 'D5' as const, rect: {x: 168, y: 300, width: 94, height: 94}},
+	];
+	let focusFields = 0;
+	let focusInversions = 0;
+	let smallestEmergence = Infinity;
+	let recessionSpread = 0;
+	const focusProblems = new Set<string>();
+	for (const c of BERX_V9_CONTRACTS) {
+		for (const device of [
+			{platform: 'ios', supportsBackdropBlur: false},
+			{platform: 'desktop', supportsBackdropBlur: true},
+		] as BerxDeviceSignals[]) {
+			const scene = resolveScene(c, {device, viewportWidth: 430, viewportHeight: 932});
+			for (const shape of focusShapes) {
+				const field = resolveFocus({
+					rect: shape.rect,
+					viewportWidth: 430,
+					viewportHeight: 932,
+					background: scene.background,
+					plane: shape.plane,
+					tier: scene.budget.tier,
+					blurred: scene.layers.D5.blurred,
+				});
+				if (!field) {
+					focusProblems.add(`${c.screenId}/${shape.name}: focus resolved to nothing at full intensity`);
+					continue;
+				}
+				focusFields += 1;
+				for (const problem of assertFocusDepth(field)) {
+					focusProblems.add(`${c.screenId}/${shape.name}: ${problem}`);
+				}
+
+				/* the planes as they are actually composited while focus
+				   holds: each one's own colour, mixed back toward the
+				   substrate by how far it has stepped away */
+				const recessed = BERX_DEPTH_KEYS.map((d) =>
+					mix(scene.background, scene.layers[d].surface.effectiveColor, field.recession[d]),
+				);
+				const lightness = recessed.map((color) => lStar(color));
+				for (let i = 1; i < lightness.length; i += 1) {
+					if (lightness[i] - lightness[i - 1] <= 0) focusInversions += 1;
+				}
+				recessionSpread = Math.max(recessionSpread, field.recession.D5 - field.recession.D0);
+
+				/* the clearing is fully transparent over the object, so
+				   the centre is the recessed content plane untouched;
+				   the far edge is that plane under the full surround */
+				const centre = lStar(recessed[3]);
+				const edge = lStar(flatten(rgba(field.surroundColor, field.surroundAlpha), recessed[3]));
+				smallestEmergence = Math.min(smallestEmergence, centre - edge);
+			}
+		}
+	}
+	if (focusInversions > 0) {
+		findings.push({
+			severity: 'error',
+			scope: 'focus:order',
+			message: `${focusInversions} plane inversions once the scene recedes behind its focus`,
+		});
+	}
+	for (const problem of focusProblems) {
+		findings.push({severity: 'error', scope: 'focus:field', message: problem});
+	}
+
 	if (planeInversions > 0) {
 		findings.push({severity: 'error', scope: 'depth:order', message: `${planeInversions} plane inversions across the contract set`});
 	}
@@ -509,6 +610,13 @@ export function runProbe(): ProbeReport {
 		depthOrder: {
 			inversions: planeInversions,
 			smallestContentStepLStar: smallestContentStep === Infinity ? 0 : Math.round(smallestContentStep * 100) / 100,
+		},
+		focus: {
+			fieldsResolved: focusFields,
+			inversions: focusInversions,
+			smallestEmergenceLStar: smallestEmergence === Infinity ? 0 : Math.round(smallestEmergence * 100) / 100,
+			recessionSpread: Math.round(recessionSpread * 1000) / 1000,
+			problems: [...focusProblems].slice(0, 8),
 		},
 		atmospheres,
 		transitionSample: sampleA && sampleB ? planTransition(sampleA, sampleB, 42) : null,

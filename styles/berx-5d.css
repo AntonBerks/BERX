@@ -28,7 +28,9 @@
 .berx-layer{
   position:relative;
   z-index:var(--berx-layer-z,0);
-  opacity:var(--berx-layer-opacity,1);
+  /* the layer's own dimming, times how far it has stepped back while
+     something else holds the scene's focus */
+  opacity:calc(var(--berx-layer-opacity,1) * var(--berx-focus-recession,1));
   transform:
     translate3d(0,var(--berx-parallax-y,0px),var(--berx-layer-translate-z,0px))
     rotateX(var(--berx-tilt-x,0deg))
@@ -143,6 +145,37 @@
 @keyframes berx-spatial-enter{
   from{opacity:0;transform:translate3d(0,0,-24px) scale(.96)}
   to{opacity:1;transform:translate3d(0,0,0) scale(1)}
+}
+
+/* ── D5 focus field ──────────────────────────────────
+   The clearing sits between the content and the controls: above D3,
+   so the content around the focus falls away with the room it stands
+   in, and below D4, so the controls stay reachable — a scene whose
+   actions dimmed out with everything else is a modal, and D5 focus is
+   not a modal.
+
+   It is one paint of one gradient, and it never becomes a sheet: the
+   resolver caps the surround at 0.72 alpha and always leaves the
+   focused object's own box fully clear. */
+.berx-focus-clearing{
+  position:absolute;
+  inset:0;
+  z-index:calc(var(--berx-d3-z,3) + 1);
+  pointer-events:none;
+  background-image:var(--berx-focus-field,none);
+  transition:opacity var(--berx-focus-ms,320ms) var(--berx-focus-ease,cubic-bezier(.16,1,.3,1));
+}
+/* the planes step back on the focus preset's own timing */
+.berx-scene[data-berx-focused="true"] .berx-layer{
+  transition:opacity var(--berx-focus-ms,320ms) var(--berx-focus-ease,cubic-bezier(.16,1,.3,1));
+}
+/* the focused object rises to the focus plane and turns its own
+   material's emission up; a surface with no emissive term stays
+   unlit, because focus amplifies a material, it does not repaint one */
+.berx-scene[data-berx-focused="true"] .berx-focus-holder{
+  position:relative;
+  z-index:var(--berx-d5-z,5);
+  box-shadow:0 0 calc(var(--berx-d5-glow-radius,0px) * var(--berx-focus-emission,1)) var(--berx-d5-glow,transparent);
 }
 
 /* ── focus ───────────────────────────────────────────────────── */

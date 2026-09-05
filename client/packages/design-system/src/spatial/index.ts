@@ -17,6 +17,8 @@ export * from './BerxRoomShell';
 export * from './BerxScrim';
 export * from './BerxSpatialCard';
 export * from './BerxFocusRing';
+export * from './BerxFocusClearing';
+export * from './BerxFocusTarget';
 export * from './BerxEnergyHalo';
 export * from './BerxProgressRing';
 export * from './BerxDataBoundary';

@@ -35,6 +35,13 @@ export interface BerxSurfaceProps {
 	style?: ViewStyle;
 	/** Adds the material's emissive glow. Only D5/energy surfaces should. */
 	emissive?: boolean;
+	/**
+	 * Multiplier on that glow while the object holds the scene's
+	 * focus. The material's declared emission is what is amplified —
+	 * a surface with no emissive term stays unlit, because focus does
+	 * not repaint a material, it turns its own light up.
+	 */
+	emissiveGain?: number;
 	testID?: string;
 }
 
@@ -54,8 +61,9 @@ function keyAxis(angleDeg: number) {
 	};
 }
 
-export function BerxSurface({surface, lighting, radius, children, style, emissive, testID}: BerxSurfaceProps) {
+export function BerxSurface({surface, lighting, radius, children, style, emissive, emissiveGain = 1, testID}: BerxSurfaceProps) {
 	const glowing = emissive === true && surface.glowRadius > 0;
+	const glowRadius = surface.glowRadius * Math.max(1, emissiveGain);
 	const axis = useMemo(() => keyAxis(lighting.key.angleDeg), [lighting.key.angleDeg]);
 	/* one gradient id per recipe+depth, so two surfaces in one tree
 	   cannot pick up each other's definitions */
@@ -73,7 +81,7 @@ export function BerxSurface({surface, lighting, radius, children, style, emissiv
 					borderColor: surface.borderColor,
 					shadowColor: glowing ? surface.glowColor : lighting.shadow.color,
 					shadowOpacity: 1,
-					shadowRadius: glowing ? surface.glowRadius : lighting.shadow.radius,
+					shadowRadius: glowing ? glowRadius : lighting.shadow.radius,
 					shadowOffset: {width: 0, height: glowing ? 0 : lighting.shadow.offsetY},
 					elevation: lighting.shadow.elevation,
 				},

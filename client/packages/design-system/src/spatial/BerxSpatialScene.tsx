@@ -10,21 +10,48 @@
  * depth, and that is deliberate — depth is a property of the space,
  * not of a card.
  */
-import React, {createContext, useCallback, useContext, useMemo, useRef, useState} from 'react';
+import React, {createContext, useCallback, useContext, useId, useMemo, useRef, useState} from 'react';
 import {Animated, StyleSheet, View, useWindowDimensions, type NativeScrollEvent, type NativeSyntheticEvent, type ViewStyle} from 'react-native';
 import {
+	resolveFocus,
 	resolveScene,
 	type BerxColorWorldName,
+	type BerxDepthKey,
 	type BerxDeviceSignals,
+	type BerxFocusField,
+	type BerxFocusRect,
 	type BerxSceneContract,
 	type BerxSceneRuntime,
 } from '@berx/spatial';
+import {BerxFocusClearing} from './BerxFocusClearing';
+
+/**
+ * What the scene currently holds focus on.
+ *
+ * The id is what a component uses to ask "is the focus mine?" — the
+ * focused object promotes itself to D5 and gains its material's
+ * emission, and every other object is, by definition, the surround.
+ */
+export interface BerxSceneFocus {
+	id: string;
+	/** The object's box in scene coordinates, from onLayout. */
+	rect: BerxFocusRect;
+	/** 0..1. Defaults to full. */
+	intensity?: number;
+	/** The plane the focused object sits on. Defaults to the focus plane. */
+	plane?: BerxDepthKey;
+}
 
 export interface BerxSceneContextValue {
 	scene: BerxSceneRuntime;
 	/** Live scroll offset in px. Layers read it for parallax. */
 	scrollY: number;
 	setScrollY: (y: number) => void;
+	/** Null when nothing is focused — which is most of the time. */
+	focus: BerxSceneFocus | null;
+	/** The resolved falloff and recession. Null when nothing is focused. */
+	focusField: BerxFocusField | null;
+	setFocus: (focus: BerxSceneFocus | null) => void;
 }
 
 const SceneContext = createContext<BerxSceneContextValue | null>(null);
@@ -74,18 +101,46 @@ export function BerxSpatialScene({
 }: BerxSpatialSceneProps) {
 	const {width, height} = useWindowDimensions();
 	const [scrollY, setScrollY] = useState(0);
+	const [focus, setFocus] = useState<BerxSceneFocus | null>(null);
+	/* SVG gradient ids are global to the document and React's id
+	   carries delimiters that do not belong in one. */
+	const sceneId = useId().replace(/[^a-zA-Z0-9]/g, '');
 
 	const scene = useMemo(
 		() => resolveScene(contract, {device, viewportWidth: width, viewportHeight: height, colorWorld, highContrast}),
 		[contract, device, width, height, colorWorld, highContrast],
 	);
 
-	const value = useMemo<BerxSceneContextValue>(() => ({scene, scrollY, setScrollY}), [scene, scrollY]);
+	/**
+	 * Focus is resolved from the same numbers everything else is: the
+	 * scene's substrate colour so the surround falls toward the room
+	 * rather than toward black, the performance tier so a weak device
+	 * pays for fewer stops, and whether D5 actually got its blur.
+	 */
+	const focusField = useMemo<BerxFocusField | null>(() => {
+		if (!focus) return null;
+		return resolveFocus({
+			rect: focus.rect,
+			viewportWidth: width,
+			viewportHeight: height,
+			background: scene.background,
+			intensity: focus.intensity,
+			plane: focus.plane,
+			tier: scene.budget.tier,
+			blurred: scene.layers.D5.blurred,
+		});
+	}, [focus, width, height, scene.background, scene.budget.tier, scene.layers.D5.blurred]);
+
+	const value = useMemo<BerxSceneContextValue>(
+		() => ({scene, scrollY, setScrollY, focus, focusField, setFocus}),
+		[scene, scrollY, focus, focusField],
+	);
 
 	return (
 		<SceneContext.Provider value={value}>
 			<View testID={testID} style={[styles.root, {backgroundColor: scene.background}, style]}>
 				{children}
+				{focusField ? <BerxFocusClearing field={focusField} id={`berx-focus-${sceneId}`} testID="berx-focus-clearing" /> : null}
 			</View>
 		</SceneContext.Provider>
 	);

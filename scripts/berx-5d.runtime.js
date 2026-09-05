@@ -1017,6 +1017,78 @@ function allocateBlurLayers(depths, budget) {
   return allowed;
 }
 
+// packages/spatial/src/focus.ts
+var RECESSION_AT_FULL = {
+  D0: 0.66,
+  D1: 0.71,
+  D2: 0.8,
+  D3: 0.88,
+  D4: 0.95,
+  D5: 1
+};
+var CLEAR_MIN = 0.08;
+var CLEAR_MAX = 0.56;
+function resolveFocus(input) {
+  const intensity = clamp(input.intensity ?? 1, 0, 1);
+  if (intensity < 0.02) return null;
+  const vw = Math.max(1, input.viewportWidth);
+  const vh = Math.max(1, input.viewportHeight);
+  const cx = clamp((input.rect.x + input.rect.width / 2) / vw, 0, 1);
+  const cy = clamp((input.rect.y + input.rect.height / 2) / vh, 0, 1);
+  const radiusX = round(clamp(Math.max(cx, 1 - cx) * 1.42, 0.2, 2), 4);
+  const radiusY = round(clamp(Math.max(cy, 1 - cy) * 1.42, 0.2, 2), 4);
+  const marginedX = input.rect.width / 2 / vw * 1.18;
+  const marginedY = input.rect.height / 2 / vh * 1.18;
+  const clearOffset = round(
+    clamp(Math.max(marginedX / radiusX, marginedY / radiusY), CLEAR_MIN, CLEAR_MAX),
+    4
+  );
+  const tier = input.tier ?? "high";
+  const flatGain = input.blurred === false ? 1.22 : 1;
+  const surroundAlpha = round(clamp(0.46 * intensity * flatGain, 0, 0.72), 4);
+  const surroundColor = input.background;
+  const knee = clamp(clearOffset + (1 - clearOffset) * 0.42, clearOffset + 0.02, 0.98);
+  const stops = tier === "low" ? [
+    { offset: 0, alpha: 0 },
+    { offset: clearOffset, alpha: 0 },
+    { offset: 1, alpha: surroundAlpha }
+  ] : [
+    { offset: 0, alpha: 0 },
+    { offset: clearOffset, alpha: 0 },
+    { offset: round(knee, 4), alpha: round(surroundAlpha * 0.52, 4) },
+    { offset: 1, alpha: surroundAlpha }
+  ];
+  const plane = input.plane ?? "D5";
+  const planeZ = BERX_DEPTH_TOKENS[plane].z;
+  const recession = {};
+  for (const depth of BERX_DEPTH_KEYS) {
+    if (BERX_DEPTH_TOKENS[depth].z >= planeZ) {
+      recession[depth] = 1;
+      continue;
+    }
+    const full = RECESSION_AT_FULL[depth];
+    recession[depth] = round(1 - (1 - full) * intensity, 4);
+  }
+  const haloRadiusPx = Math.round(
+    clamp(Math.max(input.rect.width, input.rect.height) * 0.34, 12, 96)
+  );
+  return {
+    centerX: round(cx, 4),
+    centerY: round(cy, 4),
+    radiusX,
+    radiusY,
+    clearOffset,
+    stops,
+    plane,
+    surroundAlpha,
+    surroundColor,
+    recession,
+    emissionGain: round(1 + 0.62 * intensity, 4),
+    haloRadiusPx,
+    description: `focus clearing at ${Math.round(cx * 100)}%/${Math.round(cy * 100)}%, surround falls to ${Math.round(surroundAlpha * 100)}%`
+  };
+}
+
 // packages/spatial/src/scene.ts
 function materialForDepth(depth, sceneMaterial) {
   switch (depth) {
@@ -1232,6 +1304,37 @@ function atmosphereCustomProperties(atmosphere, viewportWidth, viewportHeight, m
     "--berx-d1-vignette": String(atmosphere.vignette)
   };
 }
+function focusBackground(field) {
+  const stops = field.stops.map((stop) => `${rgbaOf(field.surroundColor, stop.alpha)} ${round2(stop.offset * 100)}%`).join(", ");
+  return `radial-gradient(ellipse ${round2(field.radiusX * 100)}% ${round2(field.radiusY * 100)}% at ${round2(field.centerX * 100)}% ${round2(field.centerY * 100)}%, ${stops})`;
+}
+function round2(value) {
+  return Math.round(value * 100) / 100;
+}
+function rgbaOf(color, alpha) {
+  const hex = /^#([0-9a-f]{6})$/i.exec(color.trim());
+  if (hex) {
+    const n = parseInt(hex[1], 16);
+    return `rgba(${n >> 16 & 255}, ${n >> 8 & 255}, ${n & 255}, ${alpha})`;
+  }
+  const rgb = /^rgba?\(([^,]+),([^,]+),([^,)]+)(?:,([^)]+))?\)$/.exec(color.replace(/\s/g, ""));
+  if (rgb) return `rgba(${rgb[1]}, ${rgb[2]}, ${rgb[3]}, ${alpha})`;
+  throw new Error(`BERX: focus surround colour "${color}" is not a colour this runtime can fade.`);
+}
+function focusCustomProperties(field) {
+  if (!field) {
+    return {
+      "--berx-focus-field": "none",
+      "--berx-focus-emission": "1",
+      "--berx-focus-alpha": "0"
+    };
+  }
+  return {
+    "--berx-focus-field": focusBackground(field),
+    "--berx-focus-emission": String(field.emissionGain),
+    "--berx-focus-alpha": String(field.surroundAlpha)
+  };
+}
 function sceneCustomProperties(scene) {
   const controlScale = perspectiveScale(scene.layers.D4.translateZ, scene.camera.perspectivePx);
   const OFF_AXIS_WORST_CASE = 0.94;
@@ -1247,6 +1350,7 @@ function sceneCustomProperties(scene) {
     "--berx-enter-ease": scene.motion.enter.easing,
     "--berx-exit-ms": `${scene.motion.exit.durationMs}ms`,
     "--berx-focus-ms": `${scene.motion.focus.durationMs}ms`,
+    "--berx-focus-ease": scene.motion.focus.easing,
     "--berx-focus-scale": String(scene.motion.focus.to?.scale ?? 1),
     "--berx-ambient-ms": `${scene.motion.ambient.durationMs}ms`
   };
@@ -1291,6 +1395,10 @@ function mountBerxScene(root, contract, options = {}) {
   let scene;
   let atmosphere;
   let frame = 0;
+  let focusTarget = null;
+  let focusIntensity;
+  let focusField = null;
+  let clearingEl = null;
   const scrollTarget = options.scrollTarget ?? window;
   const build = () => {
     const device = readDeviceSignals({
@@ -1339,6 +1447,53 @@ function mountBerxScene(root, contract, options = {}) {
     );
     root.dataset.berx3d = String(scene.camera.perspectiveEnabled);
     root.dataset.berxAdaptation = blurDisabled ? tierOverride === void 0 ? "blur-dropped" : "tier-dropped" : "none";
+    if (focusTarget) applyFocus();
+  };
+  const applyFocus = () => {
+    focusField = null;
+    if (focusTarget && root.contains(focusTarget)) {
+      const target = focusTarget.getBoundingClientRect();
+      const box = root.getBoundingClientRect();
+      const holder = focusTarget.closest("[data-berx-depth]");
+      const holderDepth = holder?.dataset.berxDepth;
+      focusField = resolveFocus({
+        /* the object's box in the scene's own coordinates */
+        rect: {
+          x: target.left - box.left,
+          y: target.top - box.top,
+          width: target.width,
+          height: target.height
+        },
+        viewportWidth: Math.max(1, box.width),
+        viewportHeight: Math.max(1, box.height),
+        background: scene.background,
+        intensity: focusIntensity,
+        plane: holderDepth && holderDepth in scene.layers ? holderDepth : void 0,
+        tier: scene.budget.tier,
+        blurred: scene.layers.D5.blurred
+      });
+    }
+    applyProps(root, focusCustomProperties(focusField));
+    root.dataset.berxFocused = String(focusField !== null);
+    for (const el of Array.from(root.querySelectorAll("[data-berx-depth]"))) {
+      const depth = el.dataset.berxDepth;
+      if (!depth || !(depth in scene.layers)) continue;
+      el.style.setProperty("--berx-focus-recession", String(focusField ? focusField.recession[depth] : 1));
+    }
+    if (!focusField) {
+      clearingEl?.remove();
+      clearingEl = null;
+      return;
+    }
+    if (!clearingEl) {
+      clearingEl = document.createElement("div");
+      clearingEl.className = "berx-focus-clearing";
+      clearingEl.setAttribute("aria-hidden", "true");
+      root.appendChild(clearingEl);
+    }
+    if (clearingEl.parentElement !== root || root.lastElementChild !== clearingEl) {
+      root.appendChild(clearingEl);
+    }
   };
   build();
   const layerEls = () => Array.from(root.querySelectorAll("[data-berx-depth]"));
@@ -1410,10 +1565,19 @@ function mountBerxScene(root, contract, options = {}) {
       return atmosphere;
     },
     refresh: build,
+    setFocus: (target, intensity) => {
+      focusTarget = target;
+      focusIntensity = intensity;
+      applyFocus();
+      return focusField;
+    },
+    focusField: () => focusField,
     measuredFps: () => fps,
     adapted: () => blurDisabled || tierOverride !== void 0,
     destroy: () => {
       if (frame) cancelAnimationFrame(frame);
+      clearingEl?.remove();
+      clearingEl = null;
       scrollTarget.removeEventListener("scroll", onScroll);
       window.removeEventListener("resize", onResize);
       window.removeEventListener("pointermove", onPointerMove);
@@ -1497,6 +1661,8 @@ export {
   createBerxLayer,
   createBerxSceneRoot,
   detectPlatform,
+  focusBackground,
+  focusCustomProperties,
   mountBerxScene,
   readDeviceSignals,
   resolveScene,

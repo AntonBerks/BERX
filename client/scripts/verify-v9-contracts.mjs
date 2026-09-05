@@ -436,6 +436,24 @@ gate(
 	report.depthOrder.inversions === 0 && report.depthOrder.smallestContentStepLStar >= 1.5,
 	`no inversions across 300 contracts x 2 platforms; smallest step between the planes a person reads and reaches for: ${report.depthOrder.smallestContentStepLStar} L*`,
 );
+/* --- D5 -------------------------------------------------------------
+   The focus plane was the last one that existed only in code: a glow
+   component and a CSS class, with nothing in the scene responding to
+   anything being focused. These two gates are what "focus must emerge
+   from the surrounding scene without destroying the hierarchy" means
+   when it is measured instead of described. */
+gate(
+	'focus emerges from the scene it is in',
+	report.focus.fieldsResolved === 1800 && report.focus.smallestEmergenceLStar >= 3,
+	`${report.focus.fieldsResolved} fields (300 contracts x 2 platforms x 3 object sizes); the far surround reads at least ${report.focus.smallestEmergenceLStar} L* below the clearing`,
+);
+gate(
+	'the hierarchy survives focus',
+	report.focus.inversions === 0 && report.focus.problems.length === 0 && report.focus.recessionSpread > 0.2,
+	report.focus.problems.length > 0
+		? report.focus.problems.join(' | ')
+		: `no plane inversions once every plane has receded; the environment steps back ${report.focus.recessionSpread} further than the focus does`,
+);
 gate('no probe findings', report.findings.length === 0, report.findings.slice(0, 8).map((f) => `${f.scope}: ${f.message}`).join(' | ') || 'clean');
 
 const failed = gates.filter((g) => !g.pass);
