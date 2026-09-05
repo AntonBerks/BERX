@@ -21,7 +21,7 @@
  *    detail scene, where like_count is real.
  */
 import {useCallback, useEffect, useState} from 'react';
-import {FlatList, RefreshControl, StyleSheet, View, Pressable} from 'react-native';
+import {RefreshControl, StyleSheet, View, Pressable} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxFeedItem, BerxStoryFeedGroup} from '@berx/api/types';
 import {relativeTimeLabel} from '@berx/domain';
@@ -33,6 +33,7 @@ import {BerxText} from '../../../../packages/design-system/src/spatial/BerxText'
 import {BerxDataBoundary} from '../../../../packages/design-system/src/spatial/BerxDataBoundary';
 import {BerxSpatialCard} from '../../../../packages/design-system/src/spatial/BerxSpatialCard';
 import {BerxIdentity} from '../../../../packages/design-system/src/spatial/BerxIdentity';
+import {BerxSceneList} from '../../../../packages/design-system/src/spatial/BerxSceneList';
 import {BerxStoryTray} from '../../../../packages/design-system/src/spatial/BerxStoryTray';
 import {useBerxSceneScroll} from '../../../../packages/design-system/src/spatial/BerxSpatialScene';
 import {BerxPartialNotice} from '../../../../packages/design-system/src/spatial/BerxPartialNotice';
@@ -200,7 +201,8 @@ function FeedSceneBody({api, onOpenPost, onOpenProfile, onCreatePost, onOpenStor
 				emptyBody="Это ваша стена — ваши посты и посты друзей на ней, а не общая лента всех подписок."
 				emptyAction={{label: 'Написать пост', onPress: onCreatePost}}
 				style={styles.body}>
-				<FlatList
+				<BerxSceneList
+					screen={screen}
 					data={items}
 					keyExtractor={(item: BerxFeedItem) => String(item.guid)}
 					onScroll={onScroll}
@@ -212,6 +214,8 @@ function FeedSceneBody({api, onOpenPost, onOpenProfile, onCreatePost, onOpenStor
 					maxToRenderPerBatch={6}
 					windowSize={Math.max(3, Math.round(screen.scene.budget.listWindowSize / 3))}
 					removeClippedSubviews
+					/* the padding and the rhythm come from the layout
+					   contract now, not from a number this screen picked */
 					contentContainerStyle={styles.list}
 					renderItem={({item}: {item: BerxFeedItem}) => (
 						<BerxSpatialCard
@@ -248,8 +252,9 @@ const styles = StyleSheet.create({
 	body: {flex: 1},
 	/* 44dp, per the v9 accessibility contract — it was a bare icon before */
 	headerAction: {minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center'},
-	/* the gap between cards is where the room shows through, so it is
-	   larger than the padding inside them */
-	list: {paddingHorizontal: spacing.lg, paddingTop: spacing.sm, paddingBottom: spacing.xxl, gap: spacing.lg},
+	/* only the bottom is this screen's business: the floating tab bar
+	   sits over the end of the list. The gutter and the gap between
+	   objects come from the layout contract. */
+	list: {paddingBottom: spacing.xxxl},
 	postText: {marginTop: spacing.sm},
 });

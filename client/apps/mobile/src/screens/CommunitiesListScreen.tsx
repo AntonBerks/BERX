@@ -25,6 +25,7 @@ import {BerxScreenScene, useBerxScreen} from '../spatial/BerxScreenScene';
 import {classifyFailure} from '../spatial/screenState';
 import {useBerxConnectivity} from '../spatial/useBerxConnectivity';
 import {berxAnalytics} from '../spatial/analytics';
+import {BerxSceneList} from '../../../../packages/design-system/src/spatial/BerxSceneList';
 
 export interface CommunitiesListScreenProps {
 	api: BerxApiClient;
@@ -137,11 +138,14 @@ function CommunitiesSceneBody({api, onOpenCommunity, onCreate, onBack}: Communit
 				}
 				emptyAction={{label: 'Создать сообщество', onPress: onCreate}}
 				style={styles.body}>
-				<FlatList
+				<BerxSceneList screen={screen}
 					data={items}
 					keyExtractor={(c: BerxCommunity) => String(c.guid)}
 					onScroll={onScroll}
 					scrollEventThrottle={scrollEventThrottle}
+					/* the gutter and the rhythm come from the layout
+					   contract; only the room for the floating tab bar at
+					   the end of the list is this screen's business */
 					contentContainerStyle={styles.list}
 					removeClippedSubviews
 					windowSize={Math.max(3, Math.round(screen.scene.budget.listWindowSize / 3))}
@@ -183,5 +187,5 @@ const styles = StyleSheet.create({
 	toolbar: {paddingTop: spacing.sm, gap: spacing.sm},
 	actions: {flexDirection: 'row', gap: spacing.sm, paddingHorizontal: spacing.lg},
 	body: {flex: 1},
-	list: {padding: spacing.lg, gap: spacing.md},
+	list: {paddingBottom: spacing.xxxl},
 });

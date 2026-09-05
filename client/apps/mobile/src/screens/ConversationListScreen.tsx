@@ -35,6 +35,7 @@ import {BerxScreenScene, useBerxScreen} from '../spatial/BerxScreenScene';
 import {classifyFailure} from '../spatial/screenState';
 import {useBerxConnectivity} from '../spatial/useBerxConnectivity';
 import {berxAnalytics} from '../spatial/analytics';
+import {BerxSceneList} from '../../../../packages/design-system/src/spatial/BerxSceneList';
 
 export interface ConversationListScreenProps {
 	api: BerxApiClient;
@@ -170,11 +171,14 @@ function ConversationListSceneBody({api, onOpenConversation, onOpenMessageSearch
 				}
 				emptyAction={filteredToNothing ? {label: 'Сбросить фильтр', onPress: () => setQuery('')} : undefined}
 				style={styles.body}>
-				<FlatList
+				<BerxSceneList screen={screen} rows
 					data={filtered}
 					keyExtractor={(item: BerxConversationSummary) => String(item.with_guid)}
 					onScroll={onScroll}
 					scrollEventThrottle={scrollEventThrottle}
+					/* the gutter and the rhythm come from the layout
+					   contract; only the room for the floating tab bar at
+					   the end of the list is this screen's business */
 					contentContainerStyle={styles.list}
 					removeClippedSubviews
 					windowSize={Math.max(3, Math.round(screen.scene.budget.listWindowSize / 3))}
@@ -208,5 +212,5 @@ const styles = StyleSheet.create({
 	headerNotice: {paddingHorizontal: spacing.lg},
 	filter: {paddingHorizontal: spacing.lg, paddingTop: spacing.sm},
 	body: {flex: 1},
-	list: {padding: spacing.lg, gap: spacing.sm},
+	list: {paddingBottom: spacing.xxxl},
 });

@@ -30,6 +30,7 @@ import {BerxScreenScene, useBerxScreen, useBerxSceneAtmosphere} from '../spatial
 import {classifyFailure} from '../spatial/screenState';
 import {useBerxConnectivity} from '../spatial/useBerxConnectivity';
 import {berxAnalytics} from '../spatial/analytics';
+import {BerxSceneList} from '../../../../packages/design-system/src/spatial/BerxSceneList';
 
 export interface EventsListScreenProps {
 	api: BerxApiClient;
@@ -165,11 +166,14 @@ function EventsSceneBody({api, onOpenEvent, onCreate, onOpenMine, onBack}: Event
 				emptyBody={tab === 'past' ? 'Здесь появятся события, которые уже закончились.' : 'Создайте первое событие рядом с вами.'}
 				emptyAction={tab === 'past' ? undefined : {label: 'Создать событие', onPress: onCreate}}
 				style={styles.body}>
-				<FlatList
+				<BerxSceneList screen={screen}
 					data={items}
 					keyExtractor={(e: BerxEvent) => String(e.guid)}
 					onScroll={onScroll}
 					scrollEventThrottle={scrollEventThrottle}
+					/* the gutter and the rhythm come from the layout
+					   contract; only the room for the floating tab bar at
+					   the end of the list is this screen's business */
 					contentContainerStyle={styles.list}
 					removeClippedSubviews
 					windowSize={Math.max(3, Math.round(screen.scene.budget.listWindowSize / 3))}
@@ -214,5 +218,5 @@ const styles = StyleSheet.create({
 	toolbar: {paddingTop: spacing.sm, gap: spacing.sm},
 	actions: {flexDirection: 'row', gap: spacing.sm, paddingHorizontal: spacing.lg},
 	body: {flex: 1},
-	list: {padding: spacing.lg, gap: spacing.md},
+	list: {paddingBottom: spacing.xxxl},
 });

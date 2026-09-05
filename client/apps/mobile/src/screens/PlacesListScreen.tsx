@@ -34,6 +34,7 @@ import {BerxScreenScene, useBerxScreen, useBerxSceneAtmosphere} from '../spatial
 import {classifyFailure} from '../spatial/screenState';
 import {useBerxConnectivity} from '../spatial/useBerxConnectivity';
 import {berxAnalytics} from '../spatial/analytics';
+import {BerxSceneList} from '../../../../packages/design-system/src/spatial/BerxSceneList';
 
 export interface PlacesListScreenProps {
 	api: BerxApiClient;
@@ -174,11 +175,14 @@ function PlacesSceneBody({api, onOpenPlace, onCreate, onOpenNearby, onOpenSaved,
 				emptyBody="Попробуйте другой запрос или добавьте первое место."
 				emptyAction={{label: 'Добавить место', onPress: onCreate}}
 				style={styles.body}>
-				<FlatList
+				<BerxSceneList screen={screen}
 					data={items}
 					keyExtractor={(p: BerxPlace) => String(p.guid)}
 					onScroll={onScroll}
 					scrollEventThrottle={scrollEventThrottle}
+					/* the gutter and the rhythm come from the layout
+					   contract; only the room for the floating tab bar at
+					   the end of the list is this screen's business */
 					contentContainerStyle={styles.list}
 					removeClippedSubviews
 					windowSize={Math.max(3, Math.round(screen.scene.budget.listWindowSize / 3))}
@@ -211,5 +215,5 @@ const styles = StyleSheet.create({
 	toolbar: {paddingHorizontal: spacing.lg, paddingTop: spacing.sm, gap: spacing.sm},
 	actions: {flexDirection: 'row', gap: spacing.sm, flexWrap: 'wrap'},
 	body: {flex: 1},
-	list: {padding: spacing.lg, gap: spacing.md},
+	list: {paddingBottom: spacing.xxxl},
 });

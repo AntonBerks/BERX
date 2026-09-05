@@ -35,6 +35,8 @@ import {BerxScreenScene, useBerxScreen} from '../spatial/BerxScreenScene';
 import {classifyFailure} from '../spatial/screenState';
 import {useBerxConnectivity} from '../spatial/useBerxConnectivity';
 import {berxAnalytics} from '../spatial/analytics';
+import {BerxEyebrow} from '../../../../packages/design-system/src/components/BerxBusinessPrimitives';
+import {BerxText} from '../../../../packages/design-system/src/spatial/BerxText';
 
 export interface NearbyNowScreenProps {
 	api: BerxApiClient;
@@ -146,6 +148,15 @@ function NearbyNowSceneBody({api, onOpenPlace, onOpenEvent, onBack}: NearbyNowSc
 			<BerxHeader title="Рядом сейчас" onBack={onBack} />
 
 			<View style={styles.form}>
+				{/* the two boxes were unexplained, so the screen read as
+				    unfinished rather than as deliberate. BERX asks for two
+				    numbers instead of a permission it cannot use — saying
+				    so out loud costs one line and turns a shortcoming into
+				    a stated choice. */}
+				<BerxEyebrow tone="quiet">Координаты</BerxEyebrow>
+				<BerxText role="meta" emphasis="tertiary">
+					BERX не запрашивает доступ к геолокации — введите точку вручную.
+				</BerxText>
 				<View style={styles.coords}>
 					<View style={styles.half}>
 						<BerxInput placeholder="Широта" value={lat} onChangeText={setLat} keyboardType="decimal-pad" />
@@ -192,7 +203,7 @@ function NearbyNowSceneBody({api, onOpenPlace, onOpenEvent, onBack}: NearbyNowSc
 
 const styles = StyleSheet.create({
 	screen: {flex: 1},
-	form: {paddingHorizontal: spacing.lg, paddingTop: spacing.sm, gap: spacing.sm},
+	form: {paddingHorizontal: spacing.lg, paddingTop: spacing.sm, gap: spacing.sm, paddingBottom: spacing.md},
 	coords: {flexDirection: 'row', gap: spacing.sm},
 	half: {flex: 1},
 	body: {flex: 1, paddingTop: spacing.lg},
