@@ -18,6 +18,7 @@ import {BerxButton} from '../../../../packages/design-system/src/components/Berx
 import {BerxGlassSurface} from '../../../../packages/design-system/src/components/BerxGlassSurface';
 import {BerxActionShelf} from '../../../../packages/design-system/src/spatial/BerxActionShelf';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
+import {BerxSceneScroll} from '../../../../packages/design-system/src/spatial/BerxSceneScroll';
 
 export interface CreateVideoScreenProps {
 	api: BerxApiClient;
@@ -79,27 +80,34 @@ function CreateVideoScreenBody({api, pickVideo, onCreated, onBack}: CreateVideoS
 	return (
 		<View style={styles.screen}>
 			<BerxHeader title="Новое видео" onBack={onBack} />
-			<View style={styles.body}>
-				{/* D2 — the form is a structural object in the room, not
-				    fields floating on the substrate */}
-				<BerxGlassSurface padding="lg" style={styles.form}>
-					<BerxButton label={pickedLabel ?? 'Выбрать видео'} variant="secondary" onPress={handlePickVideo} />
+			{/* the content scrolls. It used to be laid out below the
+			    fold with nothing to scroll, so anything past the first
+			    screenful could not be reached at all. Scrolling is also
+			    what moves the room. */}
+			<BerxSceneScroll contentContainerStyle={styles.scrollBody}>
+				<View style={styles.body}>
+					{/* D2 — the form is a structural object in the room, not
+					    fields floating on the substrate */}
+					<BerxGlassSurface padding="lg" style={styles.form}>
+						<BerxButton label={pickedLabel ?? 'Выбрать видео'} variant="secondary" onPress={handlePickVideo} />
 
-					<BerxInput placeholder="Подпись (необязательно)" value={text} onChangeText={setText} multiline style={styles.input} />
+						<BerxInput placeholder="Подпись (необязательно)" value={text} onChangeText={setText} multiline style={styles.input} />
 
-					{error ? <Text style={styles.error}>{error}</Text> : null}
+						{error ? <Text style={styles.error}>{error}</Text> : null}
 
-					{/* D4 — the commit action, promoted onto the control plane */}
-					<BerxActionShelf variant="anchored" align="stack">
-						<BerxButton label="Опубликовать" onPress={handlePost} loading={posting} disabled={!pickedPart} fullWidth />
-					</BerxActionShelf>
-				</BerxGlassSurface>
-			</View>
+						{/* D4 — the commit action, promoted onto the control plane */}
+						<BerxActionShelf variant="anchored" align="stack">
+							<BerxButton label="Опубликовать" onPress={handlePost} loading={posting} disabled={!pickedPart} fullWidth />
+						</BerxActionShelf>
+					</BerxGlassSurface>
+				</View>
+			</BerxSceneScroll>
 		</View>
 	);
 }
 
 const styles = StyleSheet.create({
+	scrollBody: {paddingBottom: 48},
 	/* no opaque fill: the scene paints the room this screen stands in */
 	screen: {flex: 1},
 	body: {padding: spacing.lg, gap: spacing.md},

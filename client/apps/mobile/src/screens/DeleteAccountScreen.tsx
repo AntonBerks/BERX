@@ -20,6 +20,7 @@ import {BerxGlassSurface} from '../../../../packages/design-system/src/component
 import {BerxActionShelf} from '../../../../packages/design-system/src/spatial/BerxActionShelf';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 import {BerxText} from '../../../../packages/design-system/src/spatial/BerxText';
+import {BerxSceneScroll} from '../../../../packages/design-system/src/spatial/BerxSceneScroll';
 
 export interface DeleteAccountScreenProps {
 	api: BerxApiClient;
@@ -70,37 +71,44 @@ function DeleteAccountScreenBody({api, onDeleted, onBack}: DeleteAccountScreenPr
 	return (
 		<View style={styles.screen}>
 			<BerxHeader title="Удаление аккаунта" onBack={onBack} />
-			<View style={styles.body}>
-				{/* D2 — the consequences and the confirmation are one object.
-				    Nothing else on this screen competes with them. */}
-				<BerxGlassSurface padding="lg" style={styles.form}>
-					<BerxText role="meta" emphasis="secondary">Это действие необратимо. Аккаунт и все связанные данные будут удалены безвозвратно.</BerxText>
-					<View style={styles.list}>
-						<BerxText role="meta" emphasis="tertiary">· Все ваши посты, комментарии и лайки будут удалены</BerxText>
-						<BerxText role="meta" emphasis="tertiary">· Все загруженные фото и файлы будут удалены</BerxText>
-						<BerxText role="meta" emphasis="tertiary">· Отменить это действие будет невозможно</BerxText>
-					</View>
-					<BerxInput placeholder="Введите пароль для подтверждения" value={password} onChangeText={setPassword} secureTextEntry />
-					{error ? <Text style={styles.error}>{error}</Text> : null}
-					{/* D4 — a destructive commit, on the control plane where the
-					    person has to reach for it deliberately */}
-					<BerxActionShelf variant="anchored" align="stack">
-						<BerxButton
-							label={confirming ? 'Точно удалить навсегда' : 'Удалить аккаунт'}
-							variant="danger"
-							loading={submitting}
-							disabled={password.length === 0}
-							onPress={submit}
-							fullWidth
-						/>
-					</BerxActionShelf>
-				</BerxGlassSurface>
-			</View>
+			{/* the content scrolls. It used to be laid out below the
+			    fold with nothing to scroll, so anything past the first
+			    screenful could not be reached at all. Scrolling is also
+			    what moves the room. */}
+			<BerxSceneScroll contentContainerStyle={styles.scrollBody}>
+				<View style={styles.body}>
+					{/* D2 — the consequences and the confirmation are one object.
+					    Nothing else on this screen competes with them. */}
+					<BerxGlassSurface padding="lg" style={styles.form}>
+						<BerxText role="meta" emphasis="secondary">Это действие необратимо. Аккаунт и все связанные данные будут удалены безвозвратно.</BerxText>
+						<View style={styles.list}>
+							<BerxText role="meta" emphasis="tertiary">· Все ваши посты, комментарии и лайки будут удалены</BerxText>
+							<BerxText role="meta" emphasis="tertiary">· Все загруженные фото и файлы будут удалены</BerxText>
+							<BerxText role="meta" emphasis="tertiary">· Отменить это действие будет невозможно</BerxText>
+						</View>
+						<BerxInput placeholder="Введите пароль для подтверждения" value={password} onChangeText={setPassword} secureTextEntry />
+						{error ? <Text style={styles.error}>{error}</Text> : null}
+						{/* D4 — a destructive commit, on the control plane where the
+						    person has to reach for it deliberately */}
+						<BerxActionShelf variant="anchored" align="stack">
+							<BerxButton
+								label={confirming ? 'Точно удалить навсегда' : 'Удалить аккаунт'}
+								variant="danger"
+								loading={submitting}
+								disabled={password.length === 0}
+								onPress={submit}
+								fullWidth
+							/>
+						</BerxActionShelf>
+					</BerxGlassSurface>
+				</View>
+			</BerxSceneScroll>
 		</View>
 	);
 }
 
 const styles = StyleSheet.create({
+	scrollBody: {paddingBottom: 48},
 	/* no opaque fill: the scene paints the room this screen stands in */
 	screen: {flex: 1},
 	body: {padding: spacing.md, gap: spacing.md},

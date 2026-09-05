@@ -18,6 +18,7 @@ import {BerxActionShelf} from '../../../../packages/design-system/src/spatial/Be
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 import {BerxSceneHero} from '../../../../packages/design-system/src/spatial/BerxSceneHero';
 import {BerxText} from '../../../../packages/design-system/src/spatial/BerxText';
+import {BerxSceneScroll} from '../../../../packages/design-system/src/spatial/BerxSceneScroll';
 
 export interface CommunityDetailScreenProps {
 	api: BerxApiClient;
@@ -100,6 +101,12 @@ function CommunityDetailScreenBody({api, guid, myGuid, onBack, onOpenRequests, o
 			    say it a second time */}
 			<BerxHeader onBack={onBack} />
 
+			{/* the content scrolls. It used to be laid out below the fold
+			    with nothing to scroll, so a long description or a set of
+			    owner tools could not be reached. Scrolling is also what
+			    moves the room. */}
+			<BerxSceneScroll contentContainerStyle={styles.scrollBody}>
+
 			{/* The community as the scene's subject rather than as the
 			    first card in a stack.
 			    The API carries no cover or icon for a community, so the
@@ -150,11 +157,13 @@ function CommunityDetailScreenBody({api, guid, myGuid, onBack, onOpenRequests, o
 					</Pressable>
 				) : null}
 			</View>
+			</BerxSceneScroll>
 		</View>
 	);
 }
 
 const styles = StyleSheet.create({
+	scrollBody: {paddingBottom: 48},
 	/* no opaque fill: the scene paints the room this screen stands in */
 	screen: {flex: 1},
 	content: {padding: spacing.lg, gap: spacing.md},

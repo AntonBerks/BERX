@@ -15,6 +15,7 @@ import {BerxActionShelf} from '../../../../packages/design-system/src/spatial/Be
 import {BerxChoiceChips} from '../../../../packages/design-system/src/spatial/BerxChoiceChips';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 import {BerxText} from '../../../../packages/design-system/src/spatial/BerxText';
+import {BerxSceneScroll} from '../../../../packages/design-system/src/spatial/BerxSceneScroll';
 
 export interface CreateCircleScreenProps {
 	api: BerxApiClient;
@@ -64,33 +65,40 @@ function CreateCircleScreenBody({api, onCreated, onBack}: CreateCircleScreenProp
 	return (
 		<View style={styles.screen}>
 			<BerxHeader title="Создать круг" onBack={onBack} />
-			<View style={styles.body}>
-				{/* D2 — the form is a structural object in the room, not
-				    fields floating on the substrate */}
-				<BerxGlassSurface padding="lg" style={styles.form}>
-					<BerxInput placeholder="Название круга" value={name} onChangeText={setName} />
+			{/* the content scrolls. It used to be laid out below the
+			    fold with nothing to scroll, so anything past the first
+			    screenful could not be reached at all. Scrolling is also
+			    what moves the room. */}
+			<BerxSceneScroll contentContainerStyle={styles.scrollBody}>
+				<View style={styles.body}>
+					{/* D2 — the form is a structural object in the room, not
+					    fields floating on the substrate */}
+					<BerxGlassSurface padding="lg" style={styles.form}>
+						<BerxInput placeholder="Название круга" value={name} onChangeText={setName} />
 
-					<BerxText role="micro" emphasis="tertiary">Категория</BerxText>
-					<BerxChoiceChips
-						accessibilityLabel="Категория круга"
-						value={kind ?? undefined}
-						onChange={(key) => setKind(key as Exclude<BerxCircleKind, null>)}
-						options={KINDS.filter((k) => k.key !== null).map((k) => ({key: k.key as string, label: k.label}))}
-					/>
+						<BerxText role="micro" emphasis="tertiary">Категория</BerxText>
+						<BerxChoiceChips
+							accessibilityLabel="Категория круга"
+							value={kind ?? undefined}
+							onChange={(key) => setKind(key as Exclude<BerxCircleKind, null>)}
+							options={KINDS.filter((k) => k.key !== null).map((k) => ({key: k.key as string, label: k.label}))}
+						/>
 
-					{error ? <Text style={styles.error}>{error}</Text> : null}
+						{error ? <Text style={styles.error}>{error}</Text> : null}
 
-					{/* D4 — the commit action, promoted onto the control plane */}
-					<BerxActionShelf variant="anchored" align="stack">
-						<BerxButton label="Создать" loading={submitting} onPress={submit} fullWidth />
-					</BerxActionShelf>
-				</BerxGlassSurface>
-			</View>
+						{/* D4 — the commit action, promoted onto the control plane */}
+						<BerxActionShelf variant="anchored" align="stack">
+							<BerxButton label="Создать" loading={submitting} onPress={submit} fullWidth />
+						</BerxActionShelf>
+					</BerxGlassSurface>
+				</View>
+			</BerxSceneScroll>
 		</View>
 	);
 }
 
 const styles = StyleSheet.create({
+	scrollBody: {paddingBottom: 48},
 	/* no opaque fill: the scene paints the room this screen stands in */
 	screen: {flex: 1},
 	body: {padding: spacing.md, gap: spacing.md},

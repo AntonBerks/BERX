@@ -13,6 +13,7 @@ import {BerxFamilyScene} from '../../spatial/BerxScreenScene';
 import {BerxHeader} from '../../../../../packages/design-system/src/components/BerxHeader';
 import {BerxButton} from '../../../../../packages/design-system/src/components/BerxButton';
 import {BerxText} from '../../../../../packages/design-system/src/spatial/BerxText';
+import {BerxSceneScroll} from '../../../../../packages/design-system/src/spatial/BerxSceneScroll';
 
 export interface BusinessOffersScreenProps {
 	onBack?: () => void;
@@ -30,22 +31,29 @@ function BusinessOffersScreenBody({onBack}: BusinessOffersScreenProps) {
 	return (
 		<View style={styles.screen}>
 			<BerxHeader onBack={onBack} />
-			<BerxText role="title">Предложения</BerxText>
-			<BerxEyebrow>Акции и скидки</BerxEyebrow>
+			{/* the content scrolls. It used to be laid out below the
+			    fold with nothing to scroll, so anything past the first
+			    screenful could not be reached at all. Scrolling is also
+			    what moves the room. */}
+			<BerxSceneScroll contentContainerStyle={styles.scrollBody}>
+				<BerxText role="title">Предложения</BerxText>
+				<BerxEyebrow>Акции и скидки</BerxEyebrow>
 
-			<BerxGlassSurface elevated style={styles.emptyCard}>
-				<BerxText role="display" emphasis="accent">✦</BerxText>
-				<BerxText role="heading">Предложений пока нет</BerxText>
-				<BerxText role="meta" emphasis="tertiary" style={styles.emptySubtitle}>
-					Здесь можно будет создавать реальные акции и специальные условия для клиентов BERX. Функция ещё не подключена к реальным данным.
-				</BerxText>
-				<BerxButton label="Создать предложение" variant="secondary" disabled fullWidth />
-			</BerxGlassSurface>
+				<BerxGlassSurface elevated style={styles.emptyCard}>
+					<BerxText role="display" emphasis="accent">✦</BerxText>
+					<BerxText role="heading">Предложений пока нет</BerxText>
+					<BerxText role="meta" emphasis="tertiary" style={styles.emptySubtitle}>
+						Здесь можно будет создавать реальные акции и специальные условия для клиентов BERX. Функция ещё не подключена к реальным данным.
+					</BerxText>
+					<BerxButton label="Создать предложение" variant="secondary" disabled fullWidth />
+				</BerxGlassSurface>
+			</BerxSceneScroll>
 		</View>
 	);
 }
 
 const styles = StyleSheet.create({
+	scrollBody: {paddingBottom: 48},
 	/* no opaque fill: the scene paints the room this screen stands in */
 	screen: {flex: 1, padding: spacing.lg, gap: spacing.md},
 	emptyCard: {alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.xxl},

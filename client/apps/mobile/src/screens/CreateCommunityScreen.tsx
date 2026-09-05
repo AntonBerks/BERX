@@ -10,6 +10,7 @@ import {BerxInput} from '../../../../packages/design-system/src/components/BerxI
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxGlassSurface} from '../../../../packages/design-system/src/components/BerxGlassSurface';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
+import {BerxSceneScroll} from '../../../../packages/design-system/src/spatial/BerxSceneScroll';
 
 export interface CreateCommunityScreenProps {
 	api: BerxApiClient;
@@ -49,34 +50,41 @@ function CreateCommunityScreenBody({api, onCreated, onBack}: CreateCommunityScre
 	return (
 		<View style={styles.screen}>
 			<BerxHeader onBack={onBack} title="Новое сообщество" />
-			<View style={styles.content}>
-				{/* D2 — the work sits on a structural surface, not on the substrate */}
-				<BerxGlassSurface padding="lg" style={styles.form}>
-					<BerxInput placeholder="Название" value={name} onChangeText={setName} />
-					<BerxInput placeholder="Описание" value={description} onChangeText={setDescription} multiline style={styles.descInput} />
+			{/* the content scrolls. It used to be laid out below the
+			    fold with nothing to scroll, so anything past the first
+			    screenful could not be reached at all. Scrolling is also
+			    what moves the room. */}
+			<BerxSceneScroll contentContainerStyle={styles.scrollBody}>
+				<View style={styles.content}>
+					{/* D2 — the work sits on a structural surface, not on the substrate */}
+					<BerxGlassSurface padding="lg" style={styles.form}>
+						<BerxInput placeholder="Название" value={name} onChangeText={setName} />
+						<BerxInput placeholder="Описание" value={description} onChangeText={setDescription} multiline style={styles.descInput} />
 
-					<View style={styles.privacyRow}>
-						<BerxButton
-							label="Открытое"
-							variant={privacy === 'public' ? 'primary' : 'secondary'}
-							onPress={() => setPrivacy('public')}
-						/>
-						<BerxButton
-							label="Закрытое"
-							variant={privacy === 'private' ? 'primary' : 'secondary'}
-							onPress={() => setPrivacy('private')}
-						/>
-					</View>
+						<View style={styles.privacyRow}>
+							<BerxButton
+								label="Открытое"
+								variant={privacy === 'public' ? 'primary' : 'secondary'}
+								onPress={() => setPrivacy('public')}
+							/>
+							<BerxButton
+								label="Закрытое"
+								variant={privacy === 'private' ? 'primary' : 'secondary'}
+								onPress={() => setPrivacy('private')}
+							/>
+						</View>
 
-					{error ? <Text style={styles.error}>{error}</Text> : null}
-					<BerxButton label="Создать" onPress={handleCreate} loading={creating} disabled={!name.trim()} fullWidth />
-			</BerxGlassSurface>
-			</View>
+						{error ? <Text style={styles.error}>{error}</Text> : null}
+						<BerxButton label="Создать" onPress={handleCreate} loading={creating} disabled={!name.trim()} fullWidth />
+				</BerxGlassSurface>
+				</View>
+			</BerxSceneScroll>
 		</View>
 	);
 }
 
 const styles = StyleSheet.create({
+	scrollBody: {paddingBottom: 48},
 	form: {gap: spacing.md},
 	/* no opaque fill: the scene paints the room this screen stands in */
 	screen: {flex: 1},

@@ -20,6 +20,7 @@ import {BerxGlassSurface} from '../../../../packages/design-system/src/component
 import {BerxChoiceChips} from '../../../../packages/design-system/src/spatial/BerxChoiceChips';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 import {BerxText} from '../../../../packages/design-system/src/spatial/BerxText';
+import {BerxSceneScroll} from '../../../../packages/design-system/src/spatial/BerxSceneScroll';
 
 export interface ReportScreenProps {
 	api: BerxApiClient;
@@ -72,30 +73,37 @@ function ReportScreenBody({api, targetType, targetGuid, onSubmitted, onBack}: Re
 	return (
 		<View style={styles.screen}>
 			<BerxHeader title="Пожаловаться" onBack={onBack} />
-			<View style={styles.body}>
-				{/* D2 — the work sits on a structural surface, not on the substrate */}
-				<BerxGlassSurface padding="lg" style={styles.form}>
-					<BerxText role="micro" emphasis="tertiary">Причина</BerxText>
-					{/* the reasons the API actually accepts, nothing invented */}
-					<BerxChoiceChips
-						accessibilityLabel="Причина жалобы"
-						value={reason ?? undefined}
-						onChange={(key) => setReason(key as BerxReportReason)}
-						options={REASONS.map((r) => ({key: r.key, label: r.label}))}
-					/>
+			{/* the content scrolls. It used to be laid out below the
+			    fold with nothing to scroll, so anything past the first
+			    screenful could not be reached at all. Scrolling is also
+			    what moves the room. */}
+			<BerxSceneScroll contentContainerStyle={styles.scrollBody}>
+				<View style={styles.body}>
+					{/* D2 — the work sits on a structural surface, not on the substrate */}
+					<BerxGlassSurface padding="lg" style={styles.form}>
+						<BerxText role="micro" emphasis="tertiary">Причина</BerxText>
+						{/* the reasons the API actually accepts, nothing invented */}
+						<BerxChoiceChips
+							accessibilityLabel="Причина жалобы"
+							value={reason ?? undefined}
+							onChange={(key) => setReason(key as BerxReportReason)}
+							options={REASONS.map((r) => ({key: r.key, label: r.label}))}
+						/>
 
-					<BerxInput placeholder="Дополнительные детали (необязательно)" value={note} onChangeText={setNote} multiline />
+						<BerxInput placeholder="Дополнительные детали (необязательно)" value={note} onChangeText={setNote} multiline />
 
-					{error ? <Text style={styles.error}>{error}</Text> : null}
+						{error ? <Text style={styles.error}>{error}</Text> : null}
 
-					<BerxButton label="Отправить жалобу" variant="danger" loading={submitting} disabled={!reason} onPress={submit} fullWidth />
-			</BerxGlassSurface>
-			</View>
+						<BerxButton label="Отправить жалобу" variant="danger" loading={submitting} disabled={!reason} onPress={submit} fullWidth />
+				</BerxGlassSurface>
+				</View>
+			</BerxSceneScroll>
 		</View>
 	);
 }
 
 const styles = StyleSheet.create({
+	scrollBody: {paddingBottom: 48},
 	form: {gap: spacing.md},
 	/* no opaque fill: the scene paints the room this screen stands in */
 	screen: {flex: 1},

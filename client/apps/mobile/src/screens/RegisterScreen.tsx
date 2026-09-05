@@ -24,6 +24,7 @@ import {BerxText} from '../../../../packages/design-system/src/spatial/BerxText'
 import {BerxWordmark} from '../../../../packages/design-system/src/spatial/BerxWordmark';
 import {BerxSpatialCard} from '../../../../packages/design-system/src/spatial/BerxSpatialCard';
 import {BerxScreenScene} from '../spatial/BerxScreenScene';
+import {BerxSceneScroll} from '../../../../packages/design-system/src/spatial/BerxSceneScroll';
 
 export interface RegisterScreenProps {
 	api: BerxApiClient;
@@ -118,7 +119,10 @@ function RegisterSceneBody({api, onRegistered, onBack}: RegisterScreenProps) {
 	}
 
 	return (
-		<View style={styles.screen}>
+		<BerxSceneScroll
+			style={styles.screen}
+			contentContainerStyle={styles.scrollBody}
+			keyboardShouldPersistTaps="handled">
 			<View style={styles.masthead}>
 				<BerxWordmark size={34} />
 			</View>
@@ -145,12 +149,16 @@ function RegisterSceneBody({api, onRegistered, onBack}: RegisterScreenProps) {
 				/>
 				<BerxButton label="Назад" variant="secondary" onPress={onBack} fullWidth />
 			</BerxSpatialCard>
-		</View>
+		</BerxSceneScroll>
 	);
 }
 
 const styles = StyleSheet.create({
-	screen: {flex: 1, padding: spacing.xl, justifyContent: 'center', gap: spacing.md},
+	/* the form scrolls: five fields and a keyboard do not fit on a
+	   small phone, and a centred column with nothing to scroll simply
+	   put the submit button out of reach */
+	scrollBody: {flexGrow: 1, justifyContent: 'center', padding: spacing.xl, paddingVertical: spacing.xl, gap: spacing.md},
+	screen: {flex: 1},
 	masthead: {alignItems: 'center', gap: spacing.sm, marginBottom: spacing.md},
 	centered: {textAlign: 'center'},
 	title: {textAlign: 'center', marginBottom: spacing.md},

@@ -36,6 +36,7 @@ import {BerxIdentity} from '../../../../packages/design-system/src/spatial/BerxI
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 import {BerxIcon} from '../../../../packages/design-system/src/icons';
 import {BerxText} from '../../../../packages/design-system/src/spatial/BerxText';
+import {BerxSceneScroll} from '../../../../packages/design-system/src/spatial/BerxSceneScroll';
 
 export interface PostDetailScreenProps {
 	api: BerxApiClient;
@@ -202,115 +203,122 @@ function PostDetailSceneBody({api, postGuid, myGuid, onOpenProfile, onReport, on
 	return (
 		<View style={styles.screen}>
 			<BerxHeader onBack={onBack} title={post.owner_username ?? undefined} />
-			<View style={styles.container}>
-				<BerxSpatialCard depth="D3" padding={spacing.lg}>
-					<BerxIdentity
-						userGuid={post.owner_guid}
-						name={post.owner_username ?? 'BERX'}
-						subtitle={relativeTimeLabel(post.time_created)}
-						onPress={post.owner_username ? () => onOpenProfile(post.owner_username as string) : undefined}
-					/>
-					<BerxText role="body">{post.text}</BerxText>
-				</BerxSpatialCard>
-
-				{media.length > 0 ? (
-					<View style={styles.mediaWrap}>
-						<BerxMediaGrid
-							items={media.map((m) => ({guid: m.guid, url: m.url, media_type: m.media_type}))}
-							columns={media.length === 1 ? 1 : 3}
-							onPress={(_, idx) => { setViewerIndex(idx); setViewerOpen(true); }}
+			{/* the content scrolls. It used to be laid out below the
+			    fold with nothing to scroll, so anything past the first
+			    screenful could not be reached at all. Scrolling is also
+			    what moves the room. */}
+			<BerxSceneScroll contentContainerStyle={styles.scrollBody}>
+				<View style={styles.container}>
+					<BerxSpatialCard depth="D3" padding={spacing.lg}>
+						<BerxIdentity
+							userGuid={post.owner_guid}
+							name={post.owner_username ?? 'BERX'}
+							subtitle={relativeTimeLabel(post.time_created)}
+							onPress={post.owner_username ? () => onOpenProfile(post.owner_username as string) : undefined}
 						/>
-					</View>
-				) : null}
+						<BerxText role="body">{post.text}</BerxText>
+					</BerxSpatialCard>
 
-				<BerxMediaViewer assets={media} initialIndex={viewerIndex} visible={viewerOpen} onClose={() => setViewerOpen(false)} />
+					{media.length > 0 ? (
+						<View style={styles.mediaWrap}>
+							<BerxMediaGrid
+								items={media.map((m) => ({guid: m.guid, url: m.url, media_type: m.media_type}))}
+								columns={media.length === 1 ? 1 : 3}
+								onPress={(_, idx) => { setViewerIndex(idx); setViewerOpen(true); }}
+							/>
+						</View>
+					) : null}
 
-				<BerxReactionPicker
-					liked={liked}
-					/* the server's own count, re-read after every like */
-					count={post.like_count}
-					onToggle={handleLike}
-					disabled={liked || liking}
-					disabledReason={
-						liked
-							? 'Отметка «нравится» уже сохранена. Снять её через API пока нельзя.'
-							: undefined
-					}
-					testID="post-like"
-				/>
+					<BerxMediaViewer assets={media} initialIndex={viewerIndex} visible={viewerOpen} onClose={() => setViewerOpen(false)} />
 
-				{/* Reporting your own post makes no sense — same real-target-only rule ReportScreen documents for dating/post/comment/user/group. */}
-				{myGuid && post.owner_guid !== myGuid ? (
-					<Pressable
-						accessibilityRole="button"
-						accessibilityLabel="Пожаловаться на пост"
-						onPress={() => onReport('post', post.guid)}
-						hitSlop={8}>
-						<BerxText role="meta" emphasis="tertiary" style={styles.reportLink}>Пожаловаться на пост</BerxText>
-					</Pressable>
-				) : null}
-
-				<View style={styles.commentBox}>
-					<BerxInput
-						placeholder="Написать комментарий..."
-						value={commentText}
-						onChangeText={setCommentText}
-						multiline
+					<BerxReactionPicker
+						liked={liked}
+						/* the server's own count, re-read after every like */
+						count={post.like_count}
+						onToggle={handleLike}
+						disabled={liked || liking}
+						disabledReason={
+							liked
+								? 'Отметка «нравится» уже сохранена. Снять её через API пока нельзя.'
+								: undefined
+						}
+						testID="post-like"
 					/>
-					<BerxButton label="Отправить" variant="secondary" onPress={handleComment} loading={posting} />
-					{commentStatus ? <BerxText role="meta" emphasis="secondary">{commentStatus}</BerxText> : null}
-				</View>
 
-				<View style={styles.commentsList}>
-					{commentsLoading ? (
-						<BerxText role="meta" emphasis="secondary">Загрузка комментариев...</BerxText>
-					) : comments.length === 0 ? (
-						<BerxText role="meta" emphasis="secondary">Комментариев пока нет.</BerxText>
-					) : (
-						comments.map((c) => (
-							<View key={c.id} style={styles.commentRow}>
-								{c.author ? (
-									<Pressable
-										accessibilityRole="button"
-										accessibilityLabel={`Профиль ${c.author.fullname || c.author.username}`}
-										onPress={() => onOpenProfile(c.author!.username)}>
-										<Image source={{uri: c.author.icon}} style={styles.commentAvatar} />
-									</Pressable>
-								) : (
-									<View style={styles.commentAvatar} />
-								)}
-								<View style={styles.commentBody}>
-									<BerxText role="label">{c.author?.fullname ?? 'Пользователь'}</BerxText>
-									<BerxText role="meta" emphasis="secondary">{c.text}</BerxText>
-									<BerxText role="meta" emphasis="tertiary">{relativeTimeLabel(c.time)}</BerxText>
+					{/* Reporting your own post makes no sense — same real-target-only rule ReportScreen documents for dating/post/comment/user/group. */}
+					{myGuid && post.owner_guid !== myGuid ? (
+						<Pressable
+							accessibilityRole="button"
+							accessibilityLabel="Пожаловаться на пост"
+							onPress={() => onReport('post', post.guid)}
+							hitSlop={8}>
+							<BerxText role="meta" emphasis="tertiary" style={styles.reportLink}>Пожаловаться на пост</BerxText>
+						</Pressable>
+					) : null}
+
+					<View style={styles.commentBox}>
+						<BerxInput
+							placeholder="Написать комментарий..."
+							value={commentText}
+							onChangeText={setCommentText}
+							multiline
+						/>
+						<BerxButton label="Отправить" variant="secondary" onPress={handleComment} loading={posting} />
+						{commentStatus ? <BerxText role="meta" emphasis="secondary">{commentStatus}</BerxText> : null}
+					</View>
+
+					<View style={styles.commentsList}>
+						{commentsLoading ? (
+							<BerxText role="meta" emphasis="secondary">Загрузка комментариев...</BerxText>
+						) : comments.length === 0 ? (
+							<BerxText role="meta" emphasis="secondary">Комментариев пока нет.</BerxText>
+						) : (
+							comments.map((c) => (
+								<View key={c.id} style={styles.commentRow}>
+									{c.author ? (
+										<Pressable
+											accessibilityRole="button"
+											accessibilityLabel={`Профиль ${c.author.fullname || c.author.username}`}
+											onPress={() => onOpenProfile(c.author!.username)}>
+											<Image source={{uri: c.author.icon}} style={styles.commentAvatar} />
+										</Pressable>
+									) : (
+										<View style={styles.commentAvatar} />
+									)}
+									<View style={styles.commentBody}>
+										<BerxText role="label">{c.author?.fullname ?? 'Пользователь'}</BerxText>
+										<BerxText role="meta" emphasis="secondary">{c.text}</BerxText>
+										<BerxText role="meta" emphasis="tertiary">{relativeTimeLabel(c.time)}</BerxText>
+									</View>
+									{myGuid && c.author?.guid === myGuid ? (
+										<Pressable
+											accessibilityRole="button"
+											accessibilityLabel="Удалить комментарий"
+											onPress={() => handleDeleteComment(c.id)}
+											hitSlop={8}>
+											<BerxIcon name="close" size={14} decorative />
+										</Pressable>
+									) : myGuid && c.author?.guid !== myGuid ? (
+										<Pressable
+											accessibilityRole="button"
+											accessibilityLabel="Пожаловаться на комментарий"
+											onPress={() => onReport('comment', c.id)}
+											hitSlop={8}>
+											<BerxText role="meta" emphasis="tertiary" style={styles.commentDelete}>⚑</BerxText>
+										</Pressable>
+									) : null}
 								</View>
-								{myGuid && c.author?.guid === myGuid ? (
-									<Pressable
-										accessibilityRole="button"
-										accessibilityLabel="Удалить комментарий"
-										onPress={() => handleDeleteComment(c.id)}
-										hitSlop={8}>
-										<BerxIcon name="close" size={14} decorative />
-									</Pressable>
-								) : myGuid && c.author?.guid !== myGuid ? (
-									<Pressable
-										accessibilityRole="button"
-										accessibilityLabel="Пожаловаться на комментарий"
-										onPress={() => onReport('comment', c.id)}
-										hitSlop={8}>
-										<BerxText role="meta" emphasis="tertiary" style={styles.commentDelete}>⚑</BerxText>
-									</Pressable>
-								) : null}
-							</View>
-						))
-					)}
+							))
+						)}
+					</View>
 				</View>
-			</View>
+			</BerxSceneScroll>
 		</View>
 	);
 }
 
 const styles = StyleSheet.create({
+	scrollBody: {paddingBottom: 48},
 	/* no opaque fill: the scene paints the room this screen stands in */
 	screen: {flex: 1},
 	container: {flex: 1, padding: spacing.lg, gap: spacing.md},

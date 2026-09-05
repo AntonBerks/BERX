@@ -16,6 +16,7 @@ import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../pack
 import {BerxStatRail} from '../../../../packages/design-system/src/spatial/BerxStatRail';
 import {BerxSegmentTabs} from '../../../../packages/design-system/src/components/BerxBusinessPrimitives';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
+import {BerxSceneScroll} from '../../../../packages/design-system/src/spatial/BerxSceneScroll';
 
 export interface WrappedScreenProps {
 	api: BerxApiClient;
@@ -66,43 +67,50 @@ function WrappedScreenBody({api, onBack}: WrappedScreenProps) {
 	return (
 		<View style={styles.screen}>
 			<BerxHeader title="BERX Wrapped" onBack={onBack} />
-			{/* was two <Text> elements with onPress — invisible to a
-			    screen reader as controls, and unreachable by keyboard.
-			    The archive's segmented control announces the selection. */}
-			<View style={styles.tabs}>
-				<BerxSegmentTabs
-					options={[
-						{key: 'week' as BerxWrappedPeriod, label: 'Неделя'},
-						{key: 'month' as BerxWrappedPeriod, label: 'Месяц'},
-					]}
-					value={period}
-					onChange={setPeriod}
-				/>
-			</View>
-
-			{data.insufficient_data ? (
-				<BerxEmptyState title="Пока маловато активности" subtitle="Как только вы больше сделаете в BERX, здесь появится ваш реальный итог." />
-			) : (
-				<View style={styles.list}>
-					{/* the archive's own stat rail: real counts only, and a
-					    zero is omitted rather than shown as an achievement */}
-					<BerxStatRail
-						stats={ROWS.map((row) => {
-							const value = data[row.key];
-							return {
-								key: row.key,
-								label: row.label,
-								value: typeof value === 'number' && value > 0 ? value : undefined,
-							};
-						})}
+			{/* the content scrolls. It used to be laid out below the
+			    fold with nothing to scroll, so anything past the first
+			    screenful could not be reached at all. Scrolling is also
+			    what moves the room. */}
+			<BerxSceneScroll contentContainerStyle={styles.scrollBody}>
+				{/* was two <Text> elements with onPress — invisible to a
+				    screen reader as controls, and unreachable by keyboard.
+				    The archive's segmented control announces the selection. */}
+				<View style={styles.tabs}>
+					<BerxSegmentTabs
+						options={[
+							{key: 'week' as BerxWrappedPeriod, label: 'Неделя'},
+							{key: 'month' as BerxWrappedPeriod, label: 'Месяц'},
+						]}
+						value={period}
+						onChange={setPeriod}
 					/>
 				</View>
-			)}
+
+				{data.insufficient_data ? (
+					<BerxEmptyState title="Пока маловато активности" subtitle="Как только вы больше сделаете в BERX, здесь появится ваш реальный итог." />
+				) : (
+					<View style={styles.list}>
+						{/* the archive's own stat rail: real counts only, and a
+						    zero is omitted rather than shown as an achievement */}
+						<BerxStatRail
+							stats={ROWS.map((row) => {
+								const value = data[row.key];
+								return {
+									key: row.key,
+									label: row.label,
+									value: typeof value === 'number' && value > 0 ? value : undefined,
+								};
+							})}
+						/>
+					</View>
+				)}
+			</BerxSceneScroll>
 		</View>
 	);
 }
 
 const styles = StyleSheet.create({
+	scrollBody: {paddingBottom: 48},
 	/* no opaque fill: the scene paints the room this screen stands in */
 	screen: {flex: 1},
 	tabs: {flexDirection: 'row', gap: spacing.sm, padding: spacing.md},

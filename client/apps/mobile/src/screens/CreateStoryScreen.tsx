@@ -29,6 +29,7 @@ import {BerxInput} from '../../../../packages/design-system/src/components/BerxI
 import {BerxGlassSurface} from '../../../../packages/design-system/src/components/BerxGlassSurface';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 import {BerxText} from '../../../../packages/design-system/src/spatial/BerxText';
+import {BerxSceneScroll} from '../../../../packages/design-system/src/spatial/BerxSceneScroll';
 
 export interface CreateStoryScreenProps {
 	api: BerxApiClient;
@@ -88,38 +89,45 @@ function CreateStoryScreenBody({api, pickImage, pickVideo, eventGuid, onCreated,
 	return (
 		<View style={styles.screen}>
 			<BerxHeader onBack={onBack} title={eventGuid ? "История события" : "Новая история"} />
-			<View style={styles.content}>
-				{/* D2 — the work sits on a structural surface, not on the substrate */}
-				<BerxGlassSurface padding="lg" style={styles.form}>
-					{previewUri ? (
-						<Image source={{uri: previewUri}} style={styles.preview} resizeMode="cover" />
-					) : pickedLabel ? (
-						<View style={styles.placeholder}>
-							<BerxText role="body" emphasis="tertiary">{pickedLabel}</BerxText>
+			{/* the content scrolls. It used to be laid out below the
+			    fold with nothing to scroll, so anything past the first
+			    screenful could not be reached at all. Scrolling is also
+			    what moves the room. */}
+			<BerxSceneScroll contentContainerStyle={styles.scrollBody}>
+				<View style={styles.content}>
+					{/* D2 — the work sits on a structural surface, not on the substrate */}
+					<BerxGlassSurface padding="lg" style={styles.form}>
+						{previewUri ? (
+							<Image source={{uri: previewUri}} style={styles.preview} resizeMode="cover" />
+						) : pickedLabel ? (
+							<View style={styles.placeholder}>
+								<BerxText role="body" emphasis="tertiary">{pickedLabel}</BerxText>
+							</View>
+						) : (
+							<View style={styles.placeholder}>
+								<BerxText role="body" emphasis="tertiary">Ничего не выбрано</BerxText>
+							</View>
+						)}
+
+						<View style={styles.pickRow}>
+							<BerxButton label="Фото" variant={!isVideo && file ? 'primary' : 'secondary'} onPress={() => handlePick(false)} />
+							<BerxButton label="Видео" variant={isVideo && file ? 'primary' : 'secondary'} onPress={() => handlePick(true)} />
 						</View>
-					) : (
-						<View style={styles.placeholder}>
-							<BerxText role="body" emphasis="tertiary">Ничего не выбрано</BerxText>
-						</View>
-					)}
 
-					<View style={styles.pickRow}>
-						<BerxButton label="Фото" variant={!isVideo && file ? 'primary' : 'secondary'} onPress={() => handlePick(false)} />
-						<BerxButton label="Видео" variant={isVideo && file ? 'primary' : 'secondary'} onPress={() => handlePick(true)} />
-					</View>
+						<BerxInput placeholder="Подпись (необязательно)" value={caption} onChangeText={setCaption} />
 
-					<BerxInput placeholder="Подпись (необязательно)" value={caption} onChangeText={setCaption} />
+						{error ? <Text style={styles.error}>{error}</Text> : null}
 
-					{error ? <Text style={styles.error}>{error}</Text> : null}
-
-					<BerxButton label="Опубликовать" onPress={handleUpload} loading={uploading} disabled={!file} fullWidth />
-			</BerxGlassSurface>
-			</View>
+						<BerxButton label="Опубликовать" onPress={handleUpload} loading={uploading} disabled={!file} fullWidth />
+				</BerxGlassSurface>
+				</View>
+			</BerxSceneScroll>
 		</View>
 	);
 }
 
 const styles = StyleSheet.create({
+	scrollBody: {paddingBottom: 48},
 	form: {gap: spacing.md},
 	/* no opaque fill: the scene paints the room this screen stands in */
 	screen: {flex: 1},

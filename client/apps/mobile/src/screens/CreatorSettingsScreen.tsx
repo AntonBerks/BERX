@@ -16,6 +16,7 @@ import {BerxLoadingState} from '../../../../packages/design-system/src/component
 import {BerxGlassSurface} from '../../../../packages/design-system/src/components/BerxGlassSurface';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 import {BerxText} from '../../../../packages/design-system/src/spatial/BerxText';
+import {BerxSceneScroll} from '../../../../packages/design-system/src/spatial/BerxSceneScroll';
 
 export interface CreatorSettingsScreenProps {
 	api: BerxApiClient;
@@ -105,33 +106,40 @@ function CreatorSettingsScreenBody({api, myUsername, onDisabled, onBack}: Creato
 	return (
 		<View style={styles.screen}>
 			<BerxHeader title="Режим автора" onBack={onBack} />
-			<View style={styles.body}>
-				{/* D2 — the work sits on a structural surface, not on the substrate */}
-				<BerxGlassSurface padding="lg" style={styles.form}>
-					{!isCreator ? (
-						<BerxText role="meta" emphasis="secondary">Режим автора открывает публичную страницу с вашими постами, альбомами, событиями и впечатлениями — с реальной статистикой просмотров.</BerxText>
-					) : null}
+			{/* the content scrolls. It used to be laid out below the
+			    fold with nothing to scroll, so anything past the first
+			    screenful could not be reached at all. Scrolling is also
+			    what moves the room. */}
+			<BerxSceneScroll contentContainerStyle={styles.scrollBody}>
+				<View style={styles.body}>
+					{/* D2 — the work sits on a structural surface, not on the substrate */}
+					<BerxGlassSurface padding="lg" style={styles.form}>
+						{!isCreator ? (
+							<BerxText role="meta" emphasis="secondary">Режим автора открывает публичную страницу с вашими постами, альбомами, событиями и впечатлениями — с реальной статистикой просмотров.</BerxText>
+						) : null}
 
-					<BerxInput placeholder="Категория (например, «Фотограф»)" value={category} onChangeText={setCategory} />
-					<BerxInput placeholder="Описание" value={bio} onChangeText={setBio} multiline />
+						<BerxInput placeholder="Категория (например, «Фотограф»)" value={category} onChangeText={setCategory} />
+						<BerxInput placeholder="Описание" value={bio} onChangeText={setBio} multiline />
 
-					{error ? <Text style={styles.error}>{error}</Text> : null}
+						{error ? <Text style={styles.error}>{error}</Text> : null}
 
-					{!isCreator ? (
-						<BerxButton label="Включить режим автора" loading={busy} onPress={enable} fullWidth />
-					) : (
-						<>
-							<BerxButton label="Сохранить" loading={busy} onPress={save} fullWidth />
-							<BerxButton label="Выключить режим автора" variant="danger" loading={busy} onPress={disable} fullWidth />
-						</>
-					)}
-			</BerxGlassSurface>
-			</View>
+						{!isCreator ? (
+							<BerxButton label="Включить режим автора" loading={busy} onPress={enable} fullWidth />
+						) : (
+							<>
+								<BerxButton label="Сохранить" loading={busy} onPress={save} fullWidth />
+								<BerxButton label="Выключить режим автора" variant="danger" loading={busy} onPress={disable} fullWidth />
+							</>
+						)}
+				</BerxGlassSurface>
+				</View>
+			</BerxSceneScroll>
 		</View>
 	);
 }
 
 const styles = StyleSheet.create({
+	scrollBody: {paddingBottom: 48},
 	form: {gap: spacing.md},
 	/* no opaque fill: the scene paints the room this screen stands in */
 	screen: {flex: 1},

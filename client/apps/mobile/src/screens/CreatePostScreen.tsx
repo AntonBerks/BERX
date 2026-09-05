@@ -24,6 +24,7 @@ import {BerxActionShelf} from '../../../../packages/design-system/src/spatial/Be
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 import {BerxIcon} from '../../../../packages/design-system/src/icons';
 import {BerxText} from '../../../../packages/design-system/src/spatial/BerxText';
+import {BerxSceneScroll} from '../../../../packages/design-system/src/spatial/BerxSceneScroll';
 
 export interface CreatePostScreenProps {
 	api: BerxApiClient;
@@ -103,6 +104,10 @@ function CreatePostScreenBody({api, pickImage, onCreated}: CreatePostScreenProps
 	return (
 		<View style={styles.screen}>
 			<BerxText role="heading" style={styles.title}>Новый пост</BerxText>
+			{/* the content scrolls: a post with several attachments and the
+			    audience control below them used to run off the bottom with
+			    nothing to scroll. Scrolling is also what moves the room. */}
+			<BerxSceneScroll contentContainerStyle={styles.scrollBody}>
 			{/* D2 — the composer is one object: what you write, what you
 			    attach and who sees it belong together */}
 			<BerxGlassSurface padding="lg" style={styles.form}>
@@ -150,11 +155,13 @@ function CreatePostScreenBody({api, pickImage, onCreated}: CreatePostScreenProps
 				<BerxButton label="Опубликовать" onPress={handlePost} loading={posting} disabled={!text.trim() && !pickedPart} fullWidth />
 			</BerxActionShelf>
 			</BerxGlassSurface>
+			</BerxSceneScroll>
 		</View>
 	);
 }
 
 const styles = StyleSheet.create({
+	scrollBody: {paddingBottom: 48},
 	form: {gap: spacing.md},
 	/* no opaque fill: the scene paints the room this screen stands in */
 	screen: {flex: 1, padding: spacing.lg, gap: spacing.md},

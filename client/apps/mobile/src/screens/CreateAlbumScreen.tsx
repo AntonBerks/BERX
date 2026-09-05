@@ -14,6 +14,7 @@ import {BerxSegmentTabs} from '../../../../packages/design-system/src/components
 import {BerxActionShelf} from '../../../../packages/design-system/src/spatial/BerxActionShelf';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 import {BerxText} from '../../../../packages/design-system/src/spatial/BerxText';
+import {BerxSceneScroll} from '../../../../packages/design-system/src/spatial/BerxSceneScroll';
 
 export interface CreateAlbumScreenProps {
 	api: BerxApiClient;
@@ -55,37 +56,44 @@ function CreateAlbumScreenBody({api, onCreated, onBack}: CreateAlbumScreenProps)
 	return (
 		<View style={styles.screen}>
 			<BerxHeader title="Создать альбом" onBack={onBack} />
-			<View style={styles.body}>
-				{/* D2 — the form is a structural object in the room, not
-				    fields floating on the substrate */}
-				<BerxGlassSurface padding="lg" style={styles.form}>
-					<BerxInput placeholder="Название альбома" value={title} onChangeText={setTitle} />
+			{/* the content scrolls. It used to be laid out below the
+			    fold with nothing to scroll, so anything past the first
+			    screenful could not be reached at all. Scrolling is also
+			    what moves the room. */}
+			<BerxSceneScroll contentContainerStyle={styles.scrollBody}>
+				<View style={styles.body}>
+					{/* D2 — the form is a structural object in the room, not
+					    fields floating on the substrate */}
+					<BerxGlassSurface padding="lg" style={styles.form}>
+						<BerxInput placeholder="Название альбома" value={title} onChangeText={setTitle} />
 
-					<BerxText role="micro" emphasis="tertiary">Доступ</BerxText>
-					{/* the archive's own segmented control, not a second one
-					    hand-rolled per screen */}
-					<BerxSegmentTabs
-						options={[
-							{key: 'public', label: 'Открытый'},
-							{key: 'private', label: 'Приватный'},
-						]}
-						value={access}
-						onChange={setAccess}
-					/>
+						<BerxText role="micro" emphasis="tertiary">Доступ</BerxText>
+						{/* the archive's own segmented control, not a second one
+						    hand-rolled per screen */}
+						<BerxSegmentTabs
+							options={[
+								{key: 'public', label: 'Открытый'},
+								{key: 'private', label: 'Приватный'},
+							]}
+							value={access}
+							onChange={setAccess}
+						/>
 
-					{error ? <Text style={styles.error}>{error}</Text> : null}
+						{error ? <Text style={styles.error}>{error}</Text> : null}
 
-					{/* D4 — the commit action, promoted onto the control plane */}
-					<BerxActionShelf variant="anchored" align="stack">
-						<BerxButton label="Создать" loading={submitting} onPress={submit} fullWidth />
-					</BerxActionShelf>
-				</BerxGlassSurface>
-			</View>
+						{/* D4 — the commit action, promoted onto the control plane */}
+						<BerxActionShelf variant="anchored" align="stack">
+							<BerxButton label="Создать" loading={submitting} onPress={submit} fullWidth />
+						</BerxActionShelf>
+					</BerxGlassSurface>
+				</View>
+			</BerxSceneScroll>
 		</View>
 	);
 }
 
 const styles = StyleSheet.create({
+	scrollBody: {paddingBottom: 48},
 	/* no opaque fill: the scene paints the room this screen stands in */
 	screen: {flex: 1},
 	body: {padding: spacing.md, gap: spacing.md},

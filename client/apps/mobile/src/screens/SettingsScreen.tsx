@@ -12,6 +12,7 @@ import {spacing} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxListGroup, BerxListRow} from '../../../../packages/design-system/src/spatial/BerxListGroup';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
+import {BerxSceneScroll} from '../../../../packages/design-system/src/spatial/BerxSceneScroll';
 
 export interface SettingsScreenProps {
 	onOpenDeviceSessions: () => void;
@@ -34,23 +35,29 @@ function SettingsScreenBody({onOpenDeviceSessions, onOpenBlockedUsers, onOpenDel
 	return (
 		<View style={styles.screen}>
 			<BerxHeader title="Настройки" onBack={onBack} />
-			<View style={styles.groups}>
-				<BerxListGroup label="Приватность и безопасность">
-					<BerxListRow label="Устройства и сессии" onPress={onOpenDeviceSessions} />
-					<BerxListRow label="Заблокированные" onPress={onOpenBlockedUsers} />
-					<BerxListRow label="Приватность знакомств" onPress={onOpenDatingPrivacy} />
-					{onOpenCircles ? <BerxListRow label="Круги" onPress={onOpenCircles} last /> : null}
-				</BerxListGroup>
+			{/* the content scrolls: it used to be laid out below the fold
+			    with nothing to scroll, so anything past the first screenful
+			    could not be reached. Scrolling also moves the room. */}
+			<BerxSceneScroll contentContainerStyle={styles.scrollBody}>
+				<View style={styles.groups}>
+					<BerxListGroup label="Приватность и безопасность">
+						<BerxListRow label="Устройства и сессии" onPress={onOpenDeviceSessions} />
+						<BerxListRow label="Заблокированные" onPress={onOpenBlockedUsers} />
+						<BerxListRow label="Приватность знакомств" onPress={onOpenDatingPrivacy} />
+						{onOpenCircles ? <BerxListRow label="Круги" onPress={onOpenCircles} last /> : null}
+					</BerxListGroup>
 
-				<BerxListGroup label="Аккаунт">
-					<BerxListRow label="Удалить аккаунт" onPress={onOpenDeleteAccount} danger last />
-				</BerxListGroup>
-			</View>
+					<BerxListGroup label="Аккаунт">
+						<BerxListRow label="Удалить аккаунт" onPress={onOpenDeleteAccount} danger last />
+					</BerxListGroup>
+				</View>
+			</BerxSceneScroll>
 		</View>
 	);
 }
 
 const styles = StyleSheet.create({
+	scrollBody: {paddingBottom: 48},
 	/* no opaque fill: the scene paints the room this screen stands in */
 	screen: {flex: 1},
 	groups: {paddingHorizontal: spacing.md, gap: spacing.md},

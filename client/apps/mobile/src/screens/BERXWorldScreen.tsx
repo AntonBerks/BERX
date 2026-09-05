@@ -19,6 +19,7 @@ import {BerxHeader} from '../../../../packages/design-system/src/components/Berx
 import {BerxSpatialCard} from '../../../../packages/design-system/src/spatial/BerxSpatialCard';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 import {BerxText} from '../../../../packages/design-system/src/spatial/BerxText';
+import {BerxSceneScroll} from '../../../../packages/design-system/src/spatial/BerxSceneScroll';
 
 export interface BERXWorldScreenProps {
 	onOpenPlaces: () => void;
@@ -60,20 +61,27 @@ function BERXWorldScreenBody({onOpenPlaces, onOpenEvents, onOpenNearby, onOpenCo
 	return (
 		<View style={styles.screen}>
 			<BerxHeader title="BERX World" onBack={onBack} />
-			<View style={styles.grid}>
-				<WorldCard label="Места" subtitle="Кафе, рестораны, бары и не только" onPress={onOpenPlaces} />
-				<WorldCard label="События" subtitle="Концерты, встречи, мероприятия" onPress={onOpenEvents} />
-				<WorldCard label="Рядом" subtitle="Что вокруг вас прямо сейчас" onPress={onOpenNearby} />
-				<WorldCard label="Сообщества" subtitle="Люди с общими интересами" onPress={onOpenCommunities} />
-				<WorldCard label="Видео" subtitle="Смотрите, что снимают вокруг" onPress={onOpenVideo} />
-				<WorldCard label="Музыка" subtitle="Треки, которые загружают другие" onPress={onOpenMusic} />
-				<WorldCard label="Рядом сейчас" subtitle="Реальные места и события поблизости" onPress={onOpenNearbyNow} />
-			</View>
+			{/* the content scrolls. It used to be laid out below the
+			    fold with nothing to scroll, so anything past the first
+			    screenful could not be reached at all. Scrolling is also
+			    what moves the room. */}
+			<BerxSceneScroll contentContainerStyle={styles.scrollBody}>
+				<View style={styles.grid}>
+					<WorldCard label="Места" subtitle="Кафе, рестораны, бары и не только" onPress={onOpenPlaces} />
+					<WorldCard label="События" subtitle="Концерты, встречи, мероприятия" onPress={onOpenEvents} />
+					<WorldCard label="Рядом" subtitle="Что вокруг вас прямо сейчас" onPress={onOpenNearby} />
+					<WorldCard label="Сообщества" subtitle="Люди с общими интересами" onPress={onOpenCommunities} />
+					<WorldCard label="Видео" subtitle="Смотрите, что снимают вокруг" onPress={onOpenVideo} />
+					<WorldCard label="Музыка" subtitle="Треки, которые загружают другие" onPress={onOpenMusic} />
+					<WorldCard label="Рядом сейчас" subtitle="Реальные места и события поблизости" onPress={onOpenNearbyNow} />
+				</View>
+			</BerxSceneScroll>
 		</View>
 	);
 }
 
 const styles = StyleSheet.create({
+	scrollBody: {paddingBottom: 48},
 	/* no opaque fill: the scene paints the room this screen stands in */
 	screen: {flex: 1},
 	grid: {padding: spacing.md, gap: spacing.sm},
