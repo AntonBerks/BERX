@@ -30,12 +30,23 @@ import {classifyFailure} from '../spatial/screenState';
 import {useBerxConnectivity} from '../spatial/useBerxConnectivity';
 import {berxAnalytics} from '../spatial/analytics';
 import {BerxText} from '../../../../packages/design-system/src/spatial/BerxText';
+import {BerxSection} from '../../../../packages/design-system/src/spatial/BerxSection';
 
 export interface StoriesRailScreenProps {
 	api: BerxApiClient;
 	onOpenGroup: (group: BerxStoryFeedGroup) => void;
 	onCreateStory: () => void;
 	onBack?: () => void;
+}
+
+/** Real Russian plural agreement on the caller's own story count. */
+function ownCountLabel(count: number): string | undefined {
+	if (count === 0) return undefined;
+	const mod10 = count % 10;
+	const mod100 = count % 100;
+	if (mod10 === 1 && mod100 !== 11) return `${count} активная`;
+	if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return `${count} активные`;
+	return `${count} активных`;
 }
 
 export default function StoriesRailScreen(props: StoriesRailScreenProps) {
@@ -165,10 +176,7 @@ function StoriesSceneBody({api, onOpenGroup, onCreateStory, onBack}: StoriesRail
 					) : null}
 
 					{own.length > 0 ? (
-						<View style={styles.section}>
-							<BerxText role="micro" emphasis="tertiary" heading>
-								Ваши истории
-							</BerxText>
+						<BerxSection label="Ваши истории" detail={ownCountLabel(own.length)}>
 							{own.map((s) => (
 								<BerxSpatialCard key={s.id} depth="D3" padding={spacing.md} radius={18}>
 									<View style={styles.ownRow}>
@@ -188,7 +196,7 @@ function StoriesSceneBody({api, onOpenGroup, onCreateStory, onBack}: StoriesRail
 									</View>
 								</BerxSpatialCard>
 							))}
-						</View>
+						</BerxSection>
 					) : null}
 				</ScrollView>
 			</BerxDataBoundary>
@@ -199,8 +207,7 @@ function StoriesSceneBody({api, onOpenGroup, onCreateStory, onBack}: StoriesRail
 const styles = StyleSheet.create({
 	screen: {flex: 1},
 	body: {flex: 1},
-	scroll: {paddingBottom: spacing.xxxl},
-	section: {paddingHorizontal: spacing.lg, paddingTop: spacing.lg, gap: spacing.sm},
+	scroll: {paddingHorizontal: spacing.lg, paddingBottom: spacing.xxxl},
 	ownRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.md},
 	ownText: {flex: 1, gap: spacing.xs},
 });
