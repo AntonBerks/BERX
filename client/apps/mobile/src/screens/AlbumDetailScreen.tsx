@@ -12,7 +12,7 @@
  * prop; this screen owns everything after a file is selected.
  */
 import React, {useCallback, useEffect, useState} from 'react';
-import {View, Text, FlatList, Image, Pressable, Dimensions, StyleSheet} from 'react-native';
+import {View, Text, ScrollView, StyleSheet} from 'react-native';
 import type {BerxApiClient, BerxFilePart} from '@berx/api/client';
 import type {BerxAlbumDetail, BerxAlbumPhoto} from '@berx/api/types';
 import type {BerxAuthState} from '@berx/auth';
@@ -20,6 +20,8 @@ import {colors, spacing, typography} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
+import {BerxMediaGrid} from '../../../../packages/design-system/src/components/BerxMediaGrid';
+import {BerxActionShelf} from '../../../../packages/design-system/src/spatial/BerxActionShelf';
 import {BerxFamilyScene, useBerxSceneAtmosphere} from '../spatial/BerxScreenScene';
 
 export interface AlbumDetailScreenProps {
@@ -29,8 +31,6 @@ export interface AlbumDetailScreenProps {
 	pickImage: () => Promise<BerxFilePart | null>;
 	onBack?: () => void;
 }
-
-const TILE = Dimensions.get('window').width / 3;
 
 export default function AlbumDetailScreen(props: AlbumDetailScreenProps) {
 	return (
@@ -46,6 +46,14 @@ function AlbumDetailScreenBody({api, guid, authState, pickImage, onBack}: AlbumD
 	const [error, setError] = useState<string | null>(null);
 	const [uploading, setUploading] = useState(false);
 	const [busyGuid, setBusyGuid] = useState<number | null>(null);
+	/**
+	 * Deleting used to be long-press only, with a line of text under
+	 * the grid explaining the gesture. A destructive action reachable
+	 * by exactly one gesture is unreachable for anyone using a screen
+	 * reader or a keyboard, so selecting a photo now brings a real
+	 * control forward instead.
+	 */
+	const [selected, setSelected] = useState<number | null>(null);
 
 	const myGuid = authState.getSnapshot().user?.guid;
 	const isOwn = !!album && !!myGuid && album.owner_guid === myGuid;
@@ -114,31 +122,50 @@ function AlbumDetailScreenBody({api, guid, authState, pickImage, onBack}: AlbumD
 			{album.photos.length === 0 ? (
 				<BerxEmptyState title="Фотографий пока нет" />
 			) : (
-				<FlatList
-					data={album.photos}
-					keyExtractor={(p: BerxAlbumPhoto) => String(p.guid)}
-					numColumns={3}
-					renderItem={({item}: {item: BerxAlbumPhoto}) => (
-						<Pressable
-							style={styles.tileWrap}
-							onLongPress={isOwn ? () => handleDeletePhoto(item.guid) : undefined}
-							disabled={busyGuid === item.guid}>
-							<Image source={{uri: item.url}} style={styles.tile} />
-						</Pressable>
-					)}
-				/>
+				<ScrollView contentContainerStyle={styles.gridPad}>
+					{/* the archive's own media grid, over the album domain */}
+					<BerxMediaGrid
+						items={album.photos.map((p: BerxAlbumPhoto) => ({
+							guid: p.guid,
+							url: p.url,
+							media_type: 'image' as const,
+						}))}
+						columns={3}
+						onPress={isOwn ? (item) => setSelected(item.guid === selected ? null : item.guid) : undefined}
+					/>
+				</ScrollView>
 			)}
-			{isOwn && album.photos.length > 0 ? <Text style={styles.hint}>Удерживайте фото, чтобы удалить</Text> : null}
+			{isOwn && selected !== null ? (
+				/* D4 — the destructive control, brought forward for the
+				   selected photo and nowhere else */
+				<BerxActionShelf variant="anchored" align="spread">
+					<Text style={styles.selectedLabel}>Фото выбрано</Text>
+					<View style={styles.selectedActions}>
+						<BerxButton label="Отмена" variant="secondary" onPress={() => setSelected(null)} />
+						<BerxButton
+							label="Удалить"
+							variant="danger"
+							loading={busyGuid === selected}
+							onPress={() => {
+								const guidToDelete = selected;
+								setSelected(null);
+								handleDeletePhoto(guidToDelete);
+							}}
+						/>
+					</View>
+				</BerxActionShelf>
+			) : null}
 		</View>
 	);
 }
 
 const styles = StyleSheet.create({
+	gridPad: {padding: spacing.sm},
+	selectedLabel: {color: colors.textDim, fontSize: typography.sizeSm},
+	selectedActions: {flexDirection: 'row', gap: spacing.sm},
 	/* no opaque fill: the scene paints the room this screen stands in */
 	screen: {flex: 1},
 	toolbar: {padding: spacing.md, gap: spacing.xs},
-	tileWrap: {width: TILE, height: TILE},
-	tile: {width: TILE, height: TILE, backgroundColor: colors.graphite},
 	hint: {fontSize: typography.sizeXs, color: colors.textFaint, textAlign: 'center', padding: spacing.sm},
 	error: {fontSize: typography.sizeSm, color: colors.danger},
 });

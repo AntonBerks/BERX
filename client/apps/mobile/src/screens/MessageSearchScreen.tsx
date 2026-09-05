@@ -14,6 +14,7 @@ import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
+import {BerxSpatialCard} from '../../../../packages/design-system/src/spatial/BerxSpatialCard';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 
 export interface MessageSearchScreenProps {
@@ -77,14 +78,19 @@ function MessageSearchScreenBody({api, onOpenConversation, onBack}: MessageSearc
 					keyExtractor={(r: BerxMessageSearchResult, i: number) => `${r.user.guid}-${r.time}-${i}`}
 					contentContainerStyle={styles.list}
 					renderItem={({item}: {item: BerxMessageSearchResult}) => (
-						<Pressable style={styles.row} onPress={() => onOpenConversation(item.user.guid)}>
+						<BerxSpatialCard
+							depth="D3"
+							padding={spacing.md}
+							radius={18}
+							onPress={() => onOpenConversation(item.user.guid)}
+							accessibilityLabel={`Переписка с ${item.user.fullname}`}>
 							<Image source={{uri: item.user.icon}} style={styles.avatar} />
 							<View style={styles.body}>
 								<Text style={styles.name} numberOfLines={1}>{item.user.fullname}</Text>
 								<Text style={styles.text} numberOfLines={2}>{item.outgoing ? 'Вы: ' : ''}{item.text}</Text>
 								<Text style={styles.time}>{fmtTime(item.time)}</Text>
 							</View>
-						</Pressable>
+						</BerxSpatialCard>
 					)}
 				/>
 			)}

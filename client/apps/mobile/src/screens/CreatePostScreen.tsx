@@ -18,6 +18,9 @@ import type {BerxCircle, BerxPostVisibility} from '@berx/api/types';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
+import {BerxChoiceChips} from '../../../../packages/design-system/src/spatial/BerxChoiceChips';
+import {BerxGlassSurface} from '../../../../packages/design-system/src/components/BerxGlassSurface';
+import {BerxActionShelf} from '../../../../packages/design-system/src/spatial/BerxActionShelf';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 
 export interface CreatePostScreenProps {
@@ -98,6 +101,9 @@ function CreatePostScreenBody({api, pickImage, onCreated}: CreatePostScreenProps
 	return (
 		<View style={styles.screen}>
 			<Text style={styles.title}>Новый пост</Text>
+			{/* D2 — the composer is one object: what you write, what you
+			    attach and who sees it belong together */}
+			<BerxGlassSurface padding="lg" style={styles.form}>
 			<BerxInput
 				placeholder="О чём думаете?"
 				value={text}
@@ -118,31 +124,32 @@ function CreatePostScreenBody({api, pickImage, onCreated}: CreatePostScreenProps
 			<BerxButton label={pickedPart ? 'Заменить фото' : 'Добавить фото'} variant="secondary" onPress={handlePickImage} />
 
 			<Text style={styles.label}>Кто увидит пост</Text>
-			<View style={styles.visRow}>
-				<Pressable style={[styles.visChip, visibility === 'public' && styles.visChipActive]} onPress={() => setVisibility('public')}>
-					<Text style={[styles.visChipText, visibility === 'public' && styles.visChipTextActive]}>Все</Text>
-				</Pressable>
-				<Pressable style={[styles.visChip, visibility === 'friends' && styles.visChipActive]} onPress={() => setVisibility('friends')}>
-					<Text style={[styles.visChipText, visibility === 'friends' && styles.visChipTextActive]}>Друзья</Text>
-				</Pressable>
-				{myCircles.map((c) => {
-					const key = `circle:${c.id}` as BerxPostVisibility;
-					const active = visibility === key;
-					return (
-						<Pressable key={c.id} style={[styles.visChip, active && styles.visChipActive]} onPress={() => setVisibility(key)}>
-							<Text style={[styles.visChipText, active && styles.visChipTextActive]}>{c.name}</Text>
-						</Pressable>
-					);
-				})}
-			</View>
+			{/* the real set: two server visibilities plus every circle the
+			    person actually owns — a variable length, so chips, not a
+			    fixed segmented control */}
+			<BerxChoiceChips
+				accessibilityLabel="Кто увидит пост"
+				value={visibility}
+				onChange={setVisibility}
+				options={[
+					{key: 'public' as BerxPostVisibility, label: 'Все'},
+					{key: 'friends' as BerxPostVisibility, label: 'Друзья'},
+					...myCircles.map((c) => ({key: `circle:${c.id}` as BerxPostVisibility, label: c.name})),
+				]}
+			/>
 
 			{error ? <Text style={styles.error}>{error}</Text> : null}
-			<BerxButton label="Опубликовать" onPress={handlePost} loading={posting} disabled={!text.trim() && !pickedPart} fullWidth />
+			{/* D4 — publishing is the commit action, on the control plane */}
+			<BerxActionShelf variant="anchored" align="stack">
+				<BerxButton label="Опубликовать" onPress={handlePost} loading={posting} disabled={!text.trim() && !pickedPart} fullWidth />
+			</BerxActionShelf>
+			</BerxGlassSurface>
 		</View>
 	);
 }
 
 const styles = StyleSheet.create({
+	form: {gap: spacing.md},
 	/* no opaque fill: the scene paints the room this screen stands in */
 	screen: {flex: 1, padding: spacing.lg, gap: spacing.md},
 	title: {color: colors.text, fontSize: typography.sizeXl, fontWeight: typography.weightBold, marginBottom: spacing.sm},

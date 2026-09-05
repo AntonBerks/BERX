@@ -26,6 +26,7 @@ import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
+import {BerxGlassSurface} from '../../../../packages/design-system/src/components/BerxGlassSurface';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 
 export interface CreateStoryScreenProps {
@@ -87,34 +88,38 @@ function CreateStoryScreenBody({api, pickImage, pickVideo, eventGuid, onCreated,
 		<View style={styles.screen}>
 			<BerxHeader onBack={onBack} title={eventGuid ? "История события" : "Новая история"} />
 			<View style={styles.content}>
-				{previewUri ? (
-					<Image source={{uri: previewUri}} style={styles.preview} resizeMode="cover" />
-				) : pickedLabel ? (
-					<View style={styles.placeholder}>
-						<Text style={styles.placeholderText}>▶ {pickedLabel}</Text>
+				{/* D2 — the work sits on a structural surface, not on the substrate */}
+				<BerxGlassSurface padding="lg" style={styles.form}>
+					{previewUri ? (
+						<Image source={{uri: previewUri}} style={styles.preview} resizeMode="cover" />
+					) : pickedLabel ? (
+						<View style={styles.placeholder}>
+							<Text style={styles.placeholderText}>▶ {pickedLabel}</Text>
+						</View>
+					) : (
+						<View style={styles.placeholder}>
+							<Text style={styles.placeholderText}>Ничего не выбрано</Text>
+						</View>
+					)}
+
+					<View style={styles.pickRow}>
+						<BerxButton label="Фото" variant={!isVideo && file ? 'primary' : 'secondary'} onPress={() => handlePick(false)} />
+						<BerxButton label="Видео" variant={isVideo && file ? 'primary' : 'secondary'} onPress={() => handlePick(true)} />
 					</View>
-				) : (
-					<View style={styles.placeholder}>
-						<Text style={styles.placeholderText}>Ничего не выбрано</Text>
-					</View>
-				)}
 
-				<View style={styles.pickRow}>
-					<BerxButton label="Фото" variant={!isVideo && file ? 'primary' : 'secondary'} onPress={() => handlePick(false)} />
-					<BerxButton label="Видео" variant={isVideo && file ? 'primary' : 'secondary'} onPress={() => handlePick(true)} />
-				</View>
+					<BerxInput placeholder="Подпись (необязательно)" value={caption} onChangeText={setCaption} />
 
-				<BerxInput placeholder="Подпись (необязательно)" value={caption} onChangeText={setCaption} />
+					{error ? <Text style={styles.error}>{error}</Text> : null}
 
-				{error ? <Text style={styles.error}>{error}</Text> : null}
-
-				<BerxButton label="Опубликовать" onPress={handleUpload} loading={uploading} disabled={!file} fullWidth />
+					<BerxButton label="Опубликовать" onPress={handleUpload} loading={uploading} disabled={!file} fullWidth />
+			</BerxGlassSurface>
 			</View>
 		</View>
 	);
 }
 
 const styles = StyleSheet.create({
+	form: {gap: spacing.md},
 	/* no opaque fill: the scene paints the room this screen stands in */
 	screen: {flex: 1},
 	content: {padding: spacing.lg, gap: spacing.md},

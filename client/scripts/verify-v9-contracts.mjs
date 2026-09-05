@@ -258,6 +258,62 @@ gate(
 		? `${walkTsx(screensDir).length} screens, every one standing in its scene`
 		: opaqueScreens.map((f) => `${f.file} (${f.hits})`).join(', '),
 );
+/* --- every screen must place its content on a real plane ----------
+   A scene wrapper around a column of Text is the failure the archive
+   calls a flat screen inside a 5D shell: D0 and D1 resolve, and then
+   nothing between the room and the words. A screen passes when it
+   renders at least one component that actually resolves a depth
+   plane — a structural surface, a content card, a control shelf, an
+   identity, a hero. Which plane is the screen's decision; having none
+   is not one of the options. */
+const PLANE_COMPONENTS = [
+	'BerxGlassSurface',
+	'BerxSpatialCard',
+	'BerxObjectCard',
+	'BerxListGroup',
+	'BerxActionShelf',
+	'BerxDepthLayer',
+	'BerxIdentity',
+	'BerxSceneHero',
+	'BerxProfileHero',
+	'BerxPlaceHero',
+	'BerxEventHero',
+	'BerxBusinessHero',
+	'BerxScrimHero',
+	'BerxPlaceCard',
+	'BerxCollectionCard',
+	'BerxTripCard',
+	'BerxCommunityCard',
+	'BerxCreatorCard',
+	'BerxExperienceCard',
+	'BerxRewardCard',
+	'BerxChatRow',
+	'BerxMessageBubble',
+	'BerxStoryTray',
+	'BerxNowScene',
+	'BerxSceneInspector',
+	'BerxHorizontalRail',
+	'BerxStatRail',
+	'BerxMediaGrid',
+];
+const planelessScreens = walkTsx(screensDir)
+	.filter((file) => {
+		const src = fs.readFileSync(file, 'utf8');
+		/* Only files that open a scene of their own are asked this
+		   question. A flow controller that renders other screens, and a
+		   re-export that renders nothing, have no scene to be flat
+		   inside — the screens they delegate to are checked instead. */
+		if (!/<Berx(Screen|Family)Scene[\s>]/.test(src)) return false;
+		return !PLANE_COMPONENTS.some((c) => new RegExp(`<${c}[\\s/>]`).test(src));
+	})
+	.map((file) => path.relative(clientRoot, file));
+gate(
+	'every screen places its content on a real depth plane',
+	planelessScreens.length === 0,
+	planelessScreens.length === 0
+		? `${walkTsx(screensDir).length} screens, none flat inside their scene`
+		: `${planelessScreens.length} flat: ${planelessScreens.slice(0, 12).join(', ')}`,
+);
 gate('no probe findings', report.findings.length === 0, report.findings.slice(0, 8).map((f) => `${f.scope}: ${f.message}`).join(' | ') || 'clean');
 
 const failed = gates.filter((g) => !g.pass);

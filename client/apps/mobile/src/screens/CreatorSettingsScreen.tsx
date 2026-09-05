@@ -13,6 +13,7 @@ import {BerxHeader} from '../../../../packages/design-system/src/components/Berx
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState} from '../../../../packages/design-system/src/components/BerxStates';
+import {BerxGlassSurface} from '../../../../packages/design-system/src/components/BerxGlassSurface';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 
 export interface CreatorSettingsScreenProps {
@@ -104,29 +105,33 @@ function CreatorSettingsScreenBody({api, myUsername, onDisabled, onBack}: Creato
 		<View style={styles.screen}>
 			<BerxHeader title="Режим автора" onBack={onBack} />
 			<View style={styles.body}>
-				{!isCreator ? (
-					<Text style={styles.hint}>Режим автора открывает публичную страницу с вашими постами, альбомами, событиями и впечатлениями — с реальной статистикой просмотров.</Text>
-				) : null}
+				{/* D2 — the work sits on a structural surface, not on the substrate */}
+				<BerxGlassSurface padding="lg" style={styles.form}>
+					{!isCreator ? (
+						<Text style={styles.hint}>Режим автора открывает публичную страницу с вашими постами, альбомами, событиями и впечатлениями — с реальной статистикой просмотров.</Text>
+					) : null}
 
-				<BerxInput placeholder="Категория (например, «Фотограф»)" value={category} onChangeText={setCategory} />
-				<BerxInput placeholder="Описание" value={bio} onChangeText={setBio} multiline />
+					<BerxInput placeholder="Категория (например, «Фотограф»)" value={category} onChangeText={setCategory} />
+					<BerxInput placeholder="Описание" value={bio} onChangeText={setBio} multiline />
 
-				{error ? <Text style={styles.error}>{error}</Text> : null}
+					{error ? <Text style={styles.error}>{error}</Text> : null}
 
-				{!isCreator ? (
-					<BerxButton label="Включить режим автора" loading={busy} onPress={enable} fullWidth />
-				) : (
-					<>
-						<BerxButton label="Сохранить" loading={busy} onPress={save} fullWidth />
-						<BerxButton label="Выключить режим автора" variant="danger" loading={busy} onPress={disable} fullWidth />
-					</>
-				)}
+					{!isCreator ? (
+						<BerxButton label="Включить режим автора" loading={busy} onPress={enable} fullWidth />
+					) : (
+						<>
+							<BerxButton label="Сохранить" loading={busy} onPress={save} fullWidth />
+							<BerxButton label="Выключить режим автора" variant="danger" loading={busy} onPress={disable} fullWidth />
+						</>
+					)}
+			</BerxGlassSurface>
 			</View>
 		</View>
 	);
 }
 
 const styles = StyleSheet.create({
+	form: {gap: spacing.md},
 	/* no opaque fill: the scene paints the room this screen stands in */
 	screen: {flex: 1},
 	body: {padding: spacing.md, gap: spacing.md},

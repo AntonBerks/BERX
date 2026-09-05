@@ -8,6 +8,7 @@ import {colors, spacing, typography} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
+import {BerxGlassSurface} from '../../../../packages/design-system/src/components/BerxGlassSurface';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 
 export interface CreateCommunityScreenProps {
@@ -49,30 +50,34 @@ function CreateCommunityScreenBody({api, onCreated, onBack}: CreateCommunityScre
 		<View style={styles.screen}>
 			<BerxHeader onBack={onBack} title="Новое сообщество" />
 			<View style={styles.content}>
-				<BerxInput placeholder="Название" value={name} onChangeText={setName} />
-				<BerxInput placeholder="Описание" value={description} onChangeText={setDescription} multiline style={styles.descInput} />
+				{/* D2 — the work sits on a structural surface, not on the substrate */}
+				<BerxGlassSurface padding="lg" style={styles.form}>
+					<BerxInput placeholder="Название" value={name} onChangeText={setName} />
+					<BerxInput placeholder="Описание" value={description} onChangeText={setDescription} multiline style={styles.descInput} />
 
-				<View style={styles.privacyRow}>
-					<BerxButton
-						label="Открытое"
-						variant={privacy === 'public' ? 'primary' : 'secondary'}
-						onPress={() => setPrivacy('public')}
-					/>
-					<BerxButton
-						label="Закрытое"
-						variant={privacy === 'private' ? 'primary' : 'secondary'}
-						onPress={() => setPrivacy('private')}
-					/>
-				</View>
+					<View style={styles.privacyRow}>
+						<BerxButton
+							label="Открытое"
+							variant={privacy === 'public' ? 'primary' : 'secondary'}
+							onPress={() => setPrivacy('public')}
+						/>
+						<BerxButton
+							label="Закрытое"
+							variant={privacy === 'private' ? 'primary' : 'secondary'}
+							onPress={() => setPrivacy('private')}
+						/>
+					</View>
 
-				{error ? <Text style={styles.error}>{error}</Text> : null}
-				<BerxButton label="Создать" onPress={handleCreate} loading={creating} disabled={!name.trim()} fullWidth />
+					{error ? <Text style={styles.error}>{error}</Text> : null}
+					<BerxButton label="Создать" onPress={handleCreate} loading={creating} disabled={!name.trim()} fullWidth />
+			</BerxGlassSurface>
 			</View>
 		</View>
 	);
 }
 
 const styles = StyleSheet.create({
+	form: {gap: spacing.md},
 	/* no opaque fill: the scene paints the room this screen stands in */
 	screen: {flex: 1},
 	content: {padding: spacing.lg, gap: spacing.md},

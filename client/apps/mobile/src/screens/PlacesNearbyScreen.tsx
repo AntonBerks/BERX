@@ -18,6 +18,7 @@ import {BerxHeader} from '../../../../packages/design-system/src/components/Berx
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
+import {BerxSpatialCard} from '../../../../packages/design-system/src/spatial/BerxSpatialCard';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 
 export interface PlacesNearbyScreenProps {
@@ -97,13 +98,18 @@ function PlacesNearbyScreenBody({api, onOpenPlace, onBack}: PlacesNearbyScreenPr
 					keyExtractor={(p: BerxNearbyPlace) => String(p.guid)}
 					contentContainerStyle={styles.list}
 					renderItem={({item}: {item: BerxNearbyPlace}) => (
-						<Pressable style={styles.card} onPress={() => onOpenPlace(item.guid)}>
+						<BerxSpatialCard
+							depth="D3"
+							padding={0}
+							radius={18}
+							onPress={() => onOpenPlace(item.guid)}
+							accessibilityLabel={item.title}>
 							{item.cover_url ? <Image source={{uri: item.cover_url}} style={styles.cardImage} /> : <View style={styles.cardImageFallback} />}
 							<View style={styles.cardBody}>
 								<Text style={styles.cardTitle} numberOfLines={1}>{item.title}</Text>
 								<Text style={styles.cardDistance}>{item.distance_km} км</Text>
 							</View>
-						</Pressable>
+						</BerxSpatialCard>
 					)}
 				/>
 			)}

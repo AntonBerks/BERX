@@ -16,6 +16,8 @@ import {colors, spacing, typography} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
+import {BerxGlassSurface} from '../../../../packages/design-system/src/components/BerxGlassSurface';
+import {BerxActionShelf} from '../../../../packages/design-system/src/spatial/BerxActionShelf';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 
 export interface DeleteAccountScreenProps {
@@ -68,22 +70,30 @@ function DeleteAccountScreenBody({api, onDeleted, onBack}: DeleteAccountScreenPr
 		<View style={styles.screen}>
 			<BerxHeader title="Удаление аккаунта" onBack={onBack} />
 			<View style={styles.body}>
-				<Text style={styles.warning}>Это действие необратимо. Аккаунт и все связанные данные будут удалены безвозвратно.</Text>
-				<View style={styles.list}>
-					<Text style={styles.point}>· Все ваши посты, комментарии и лайки будут удалены</Text>
-					<Text style={styles.point}>· Все загруженные фото и файлы будут удалены</Text>
-					<Text style={styles.point}>· Отменить это действие будет невозможно</Text>
-				</View>
-				<BerxInput placeholder="Введите пароль для подтверждения" value={password} onChangeText={setPassword} secureTextEntry />
-				{error ? <Text style={styles.error}>{error}</Text> : null}
-				<BerxButton
-					label={confirming ? 'Точно удалить навсегда' : 'Удалить аккаунт'}
-					variant="danger"
-					loading={submitting}
-					disabled={password.length === 0}
-					onPress={submit}
-					fullWidth
-				/>
+				{/* D2 — the consequences and the confirmation are one object.
+				    Nothing else on this screen competes with them. */}
+				<BerxGlassSurface padding="lg" style={styles.form}>
+					<Text style={styles.warning}>Это действие необратимо. Аккаунт и все связанные данные будут удалены безвозвратно.</Text>
+					<View style={styles.list}>
+						<Text style={styles.point}>· Все ваши посты, комментарии и лайки будут удалены</Text>
+						<Text style={styles.point}>· Все загруженные фото и файлы будут удалены</Text>
+						<Text style={styles.point}>· Отменить это действие будет невозможно</Text>
+					</View>
+					<BerxInput placeholder="Введите пароль для подтверждения" value={password} onChangeText={setPassword} secureTextEntry />
+					{error ? <Text style={styles.error}>{error}</Text> : null}
+					{/* D4 — a destructive commit, on the control plane where the
+					    person has to reach for it deliberately */}
+					<BerxActionShelf variant="anchored" align="stack">
+						<BerxButton
+							label={confirming ? 'Точно удалить навсегда' : 'Удалить аккаунт'}
+							variant="danger"
+							loading={submitting}
+							disabled={password.length === 0}
+							onPress={submit}
+							fullWidth
+						/>
+					</BerxActionShelf>
+				</BerxGlassSurface>
 			</View>
 		</View>
 	);
@@ -93,6 +103,7 @@ const styles = StyleSheet.create({
 	/* no opaque fill: the scene paints the room this screen stands in */
 	screen: {flex: 1},
 	body: {padding: spacing.md, gap: spacing.md},
+	form: {gap: spacing.md},
 	warning: {fontSize: typography.sizeSm, color: colors.textDim},
 	list: {gap: 4},
 	point: {fontSize: typography.sizeSm, color: colors.textFaint},
