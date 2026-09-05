@@ -30,20 +30,29 @@
 (function(){
   var h=document.documentElement, q=new URLSearchParams(location.search);
   var forced=q.get('intro'); // full | off
-  if(forced==='off'){ h.dataset.intro='done'; h.dataset.introMode='off'; return; }
   var rm=matchMedia('(prefers-reduced-motion: reduce)').matches;
   var motionPref=localStorage.getItem('berx.motion'); // 'on' | 'off'
   var reduced = motionPref==='off' || (rm && motionPref!=='on');
-  var seen=+localStorage.getItem('berx.intro.seen')||0;
-  var recent=(Date.now()-seen)<12*36e5;
-  h.dataset.intro='void';
-  h.dataset.introMode = forced==='full' ? 'full' : reduced ? 'reduced' : recent ? 'short' : 'full';
+
+  /* Motion and tier are decided for every load, including intro=off.
+     They used to sit after an early return taken on that parameter,
+     so skipping the intro silently switched the whole reduced-motion
+     system off: data-motion was never set, and every rule that keys
+     on it — the page's own animations, the card demos, the device's
+     message thread — kept running for someone who had asked their
+     browser for less motion. */
   h.dataset.motion = reduced ? 'reduced' : 'full';
   var n=navigator, c=n.connection||{}, cores=n.hardwareConcurrency||4, mem=n.deviceMemory||4;
   var tier=3;
   if(cores<=4||mem<=4||innerWidth<720) tier=2;
   if(cores<=2||mem<=2||c.saveData||/2g/.test(c.effectiveType||'')||reduced) tier=1;
   h.dataset.tier=tier;
+
+  if(forced==='off'){ h.dataset.intro='done'; h.dataset.introMode='off'; return; }
+  var seen=+localStorage.getItem('berx.intro.seen')||0;
+  var recent=(Date.now()-seen)<12*36e5;
+  h.dataset.intro='void';
+  h.dataset.introMode = forced==='full' ? 'full' : reduced ? 'reduced' : recent ? 'short' : 'full';
 })();
 </script>
 </head>

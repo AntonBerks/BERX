@@ -396,7 +396,13 @@ html[data-motion="reduced"] .card:hover{transform:none}
   background:color-mix(in srgb,#000 46%,transparent);border:1px solid var(--line)}
 .demo *{animation-play-state:paused}
 .demo[data-live] *{animation-play-state:running}
-html[data-motion="reduced"] .demo *{animation:none!important}
+/* .screen too: the phone's own message thread and its feed are not
+   inside a .demo, so under reduced motion the bubbles kept arriving
+   and the feed kept scrolling in the one place on the page a person
+   is meant to look at. The map panel inside the device was already
+   covered because it is wrapped in a .demo; the other two were not. */
+html[data-motion="reduced"] .demo *,
+html[data-motion="reduced"] .screen *{animation:none!important}
 /* At four columns the six cards fall 2 + 2 + 1, so the feed card sat
    alone with half a row of nothing beside it — a gap the eye reads as
    a card that failed to load. It takes the width instead. */
