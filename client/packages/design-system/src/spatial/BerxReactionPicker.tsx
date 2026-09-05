@@ -62,8 +62,16 @@ export function BerxReactionPicker({liked, count, onToggle, disabled, disabledRe
 				style={({pressed}) => [
 					styles.button,
 					{
+						/* liked is depth, not only colour: the control comes
+						   forward onto its own plane, with the plane's fill and
+						   the plane's shadow, rather than being tinted in place */
 						borderColor: liked ? rgba(scene.accent, 0.5) : scene.layers.D4.surface.borderColor,
-						backgroundColor: liked ? rgba(scene.accent, 0.12) : 'transparent',
+						backgroundColor: liked ? scene.layers.D4.surface.effectiveColor : 'transparent',
+						shadowColor: scene.layers.D4.lighting.shadow.color,
+						shadowOpacity: liked ? 1 : 0,
+						shadowRadius: liked ? scene.layers.D4.lighting.shadow.radius : 0,
+						shadowOffset: {width: 0, height: liked ? scene.layers.D4.lighting.shadow.offsetY : 0},
+						elevation: liked ? scene.layers.D4.lighting.shadow.elevation : 0,
 						opacity: disabled ? 0.45 : pressed || pending ? 0.7 : 1,
 					},
 				]}>
