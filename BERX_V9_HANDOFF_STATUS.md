@@ -5,8 +5,8 @@ something a probe or a typecheck actually checked. Reproduce with:
 
 ```
 cd client
-npm run verify:v9        # contract + spatial runtime, 26 gates, Node
-npm run verify:v9:web    # the same runtime measured in real Chromium, 23 gates
+npm run verify:v9        # contract + spatial runtime, 29 gates, Node
+npm run verify:v9:web    # the same runtime measured in real Chromium, 24 gates
 npx tsc -p tsconfig.json --noEmit
 node scripts/v9-status.mjs      # the facts these reports are written from
 ```
@@ -43,6 +43,10 @@ and every screen's data layer are untouched.
 | Screens on the runtime | **DONE for all 86 screen files** | Every screen resolves a scene and places its content on a depth plane; see BERX_V9_SCREEN_STATUS.md for which of the 29 named contracts carry real bindings |
 | Component resolution | **DONE** | All 50 contract-requested components resolved; 0 unrendered components (gated) |
 | Real data only | **DONE** | Endpoints typed as `keyof BerxApiClient` — an invented endpoint cannot compile |
+| Failure states are real | **DONE** | Every screen routes a caught failure through `classifyFailure`: an expired session, a forbidden resource, a dead server and an offline device are four different answers with four different actions. Gated |
+| Partial data | **DONE where it occurs** | A failed secondary read says so where it would have been, with a retry for itself — instead of an empty rail or a wrong count |
+| Every control announces itself | **DONE** | 29 unnamed controls found and fixed; gated |
+| No dead controls | **DONE** | Gated |
 | Seven states | **DONE for wired scenes** | `BerxDataBoundary`; contract-only scenes carry the full state set, dataless scenes honestly carry three |
 | Accessibility | **PARTIAL** | See BERX_V9_ACCESSIBILITY_REPORT.md. Defects found and fixed since: a period switch built from `<Text onPress>`, long-press-only photo deletion, unnamed ✕ controls, selection announced only by colour. Still no automated audit |
 | Analytics | **PARTIAL / BLOCKED sink** | Contract implemented; BERX has no analytics endpoint, so events go to a bounded local buffer and any attached sink |
