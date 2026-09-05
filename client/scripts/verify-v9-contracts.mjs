@@ -318,6 +318,25 @@ gate(
 		? `${walkTsx(screensDir).length} screens, none flat inside their scene`
 		: `${planelessScreens.length} flat: ${planelessScreens.slice(0, 12).join(', ')}`,
 );
+/* --- selection is a shared behaviour, not a per-screen style -------
+   Eleven screens had each hand-rolled the same selectable chip with
+   the same two fixed colours, none of them on a depth plane and none
+   of them announcing the selection to assistive technology. Selection
+   now belongs to BerxChoiceChips and BerxSegmentTabs; a screen that
+   grows its own `chipActive` style again has re-created the problem. */
+const handRolledSelection = walkTsx(screensDir)
+	.map((file) => ({
+		file: path.relative(clientRoot, file),
+		hits: (fs.readFileSync(file, 'utf8').match(/^\s*\w*[Cc]hipActive: \{/gm) ?? []).length,
+	}))
+	.filter((f) => f.hits > 0);
+gate(
+	'selection uses the shared controls, not per-screen chip styles',
+	handRolledSelection.length === 0,
+	handRolledSelection.length === 0
+		? 'no screen defines its own selected-chip style'
+		: handRolledSelection.map((f) => f.file).join(', '),
+);
 gate('no probe findings', report.findings.length === 0, report.findings.slice(0, 8).map((f) => `${f.scope}: ${f.message}`).join(' | ') || 'clean');
 
 const failed = gates.filter((g) => !g.pass);

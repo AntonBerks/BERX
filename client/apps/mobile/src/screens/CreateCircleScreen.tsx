@@ -12,6 +12,7 @@ import {BerxInput} from '../../../../packages/design-system/src/components/BerxI
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxGlassSurface} from '../../../../packages/design-system/src/components/BerxGlassSurface';
 import {BerxActionShelf} from '../../../../packages/design-system/src/spatial/BerxActionShelf';
+import {BerxChoiceChips} from '../../../../packages/design-system/src/spatial/BerxChoiceChips';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 
 export interface CreateCircleScreenProps {
@@ -69,13 +70,12 @@ function CreateCircleScreenBody({api, onCreated, onBack}: CreateCircleScreenProp
 					<BerxInput placeholder="Название круга" value={name} onChangeText={setName} />
 
 					<Text style={styles.label}>Категория</Text>
-					<View style={styles.chipWrap}>
-						{KINDS.map((k) => (
-							<Pressable key={k.label} style={[styles.chip, kind === k.key && styles.chipActive]} onPress={() => setKind(k.key)}>
-								<Text style={[styles.chipText, kind === k.key && styles.chipTextActive]}>{k.label}</Text>
-							</Pressable>
-						))}
-					</View>
+					<BerxChoiceChips
+						accessibilityLabel="Категория круга"
+						value={kind ?? undefined}
+						onChange={(key) => setKind(key as Exclude<BerxCircleKind, null>)}
+						options={KINDS.filter((k) => k.key !== null).map((k) => ({key: k.key as string, label: k.label}))}
+					/>
 
 					{error ? <Text style={styles.error}>{error}</Text> : null}
 
@@ -95,10 +95,5 @@ const styles = StyleSheet.create({
 	body: {padding: spacing.md, gap: spacing.md},
 	form: {gap: spacing.md},
 	label: {fontSize: typography.sizeXs, color: colors.textFaint, fontWeight: typography.weightBold, textTransform: 'uppercase'},
-	chipWrap: {flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs},
-	chip: {paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: radius.pill, backgroundColor: colors.surface},
-	chipActive: {backgroundColor: colors.accentSoft, borderWidth: 1, borderColor: colors.accent},
-	chipText: {fontSize: typography.sizeSm, color: colors.textDim},
-	chipTextActive: {color: colors.accent, fontWeight: typography.weightMedium},
 	error: {fontSize: typography.sizeSm, color: colors.danger},
 });

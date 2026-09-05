@@ -161,8 +161,4 @@ const styles = StyleSheet.create({
 	error: {color: colors.danger, fontSize: typography.sizeSm},
 	label: {color: colors.textFaint, fontSize: typography.sizeXs, fontWeight: typography.weightBold, textTransform: 'uppercase'},
 	visRow: {flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs},
-	visChip: {paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: radius.pill, backgroundColor: colors.glass1},
-	visChipActive: {backgroundColor: colors.accentSoft, borderWidth: 1, borderColor: colors.accent},
-	visChipText: {fontSize: typography.sizeSm, color: colors.textDim},
-	visChipTextActive: {color: colors.accent, fontWeight: typography.weightMedium},
 });

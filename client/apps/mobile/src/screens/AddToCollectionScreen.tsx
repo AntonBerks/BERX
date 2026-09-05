@@ -121,7 +121,10 @@ const styles = StyleSheet.create({
 	screen: {flex: 1},
 	toolbar: {padding: spacing.md},
 	list: {paddingHorizontal: spacing.md, gap: spacing.sm},
-	row: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: colors.surface, borderRadius: radius.md, padding: spacing.md, marginBottom: spacing.sm},
+	/* fill removed: a BerxSpatialCard wraps this row and paints the
+	   content plane's own material — an opaque token fill on top of it
+	   hides the surface the card just resolved */
+	row: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: spacing.md, marginBottom: spacing.sm},
 	title: {fontSize: typography.sizeBase, color: colors.white, fontWeight: typography.weightMedium},
 	action: {fontSize: typography.sizeSm, color: colors.accent, fontWeight: typography.weightMedium},
 	busy: {fontSize: typography.sizeSm, color: colors.textFaint},

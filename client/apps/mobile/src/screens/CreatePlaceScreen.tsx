@@ -13,6 +13,7 @@ import {BerxInput} from '../../../../packages/design-system/src/components/BerxI
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxGlassSurface} from '../../../../packages/design-system/src/components/BerxGlassSurface';
 import {BerxActionShelf} from '../../../../packages/design-system/src/spatial/BerxActionShelf';
+import {BerxChoiceChips} from '../../../../packages/design-system/src/spatial/BerxChoiceChips';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 
 export interface CreatePlaceScreenProps {
@@ -69,13 +70,14 @@ function CreatePlaceScreenBody({api, onCreated, onBack}: CreatePlaceScreenProps)
 					<BerxInput placeholder="Название" value={title} onChangeText={setTitle} />
 
 					<Text style={styles.label}>Категория</Text>
-					<View style={styles.chipWrap}>
-						{categories.map((c) => (
-							<Pressable key={c.slug} style={[styles.chip, category === c.slug && styles.chipActive]} onPress={() => setCategory(c.slug)}>
-								<Text style={[styles.chipText, category === c.slug && styles.chipTextActive]}>{c.label}</Text>
-							</Pressable>
-						))}
-					</View>
+					{/* the server owns the category whitelist — these are the
+					    slugs it actually returned, never a hardcoded list */}
+					<BerxChoiceChips
+						accessibilityLabel="Категория места"
+						value={category}
+						onChange={setCategory}
+						options={categories.map((c) => ({key: c.slug, label: c.label}))}
+					/>
 
 					<BerxInput placeholder="Адрес" value={address} onChangeText={setAddress} />
 					<BerxInput placeholder="Описание" value={description} onChangeText={setDescription} multiline />
@@ -98,10 +100,5 @@ const styles = StyleSheet.create({
 	body: {padding: spacing.md, gap: spacing.md},
 	form: {gap: spacing.md},
 	label: {fontSize: typography.sizeXs, color: colors.textFaint, fontWeight: typography.weightBold, textTransform: 'uppercase'},
-	chipWrap: {flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs},
-	chip: {paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: radius.pill, backgroundColor: colors.surface},
-	chipActive: {backgroundColor: colors.accentSoft, borderWidth: 1, borderColor: colors.accent},
-	chipText: {fontSize: typography.sizeSm, color: colors.textDim},
-	chipTextActive: {color: colors.accent, fontWeight: typography.weightMedium},
 	error: {fontSize: typography.sizeSm, color: colors.danger},
 });

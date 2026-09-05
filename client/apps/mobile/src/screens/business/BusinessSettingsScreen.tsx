@@ -13,6 +13,7 @@ import type {BerxPlace, BerxBusinessSubscription, BerxBusinessType, BerxOpeningI
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxGlassSurface} from '../../../../../packages/design-system/src/components/BerxGlassSurface';
 import {BerxEyebrow} from '../../../../../packages/design-system/src/components/BerxBusinessPrimitives';
+import {BerxChoiceChips} from '../../../../../packages/design-system/src/spatial/BerxChoiceChips';
 import {BerxFamilyScene} from '../../spatial/BerxScreenScene';
 import {BerxHeader} from '../../../../../packages/design-system/src/components/BerxHeader';
 import {BerxButton} from '../../../../../packages/design-system/src/components/BerxButton';
@@ -166,16 +167,13 @@ function BusinessSettingsScreenBody({api, placeGuid, onBack}: BusinessSettingsSc
 			<Text style={styles.pageTitle}>Настройки бизнеса</Text>
 
 			<BerxEyebrow>Тип бизнеса</BerxEyebrow>
-			<View style={styles.typeGrid}>
-				{TYPES.map((t) => {
-					const active = place.business_type === t.key;
-					return (
-						<Pressable key={t.key} disabled={typeBusy} onPress={() => handleSetType(t.key)} style={[styles.typeChip, active && styles.typeChipActive]}>
-							<Text style={[styles.typeChipText, active && styles.typeChipTextActive]}>{t.label}</Text>
-						</Pressable>
-					);
-				})}
-			</View>
+			<BerxChoiceChips
+				accessibilityLabel="Тип бизнеса"
+				disabled={typeBusy}
+				value={place.business_type ?? undefined}
+				onChange={(key) => handleSetType(key as BerxBusinessType)}
+				options={TYPES.map((t) => ({key: t.key as string, label: t.label}))}
+			/>
 
 			<BerxEyebrow>Часы работы</BerxEyebrow>
 			<BerxGlassSurface style={styles.hoursCard}>
@@ -243,10 +241,6 @@ const styles = StyleSheet.create({
 	content: {padding: spacing.lg, gap: spacing.md, paddingBottom: spacing.xxxl},
 	pageTitle: {fontSize: typography.sizeTitle, color: colors.white, fontWeight: typography.weightBold},
 	typeGrid: {flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs},
-	typeChip: {paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: radius.pill, backgroundColor: colors.glass1},
-	typeChipActive: {backgroundColor: colors.accentSoft, borderWidth: 1, borderColor: colors.accent},
-	typeChipText: {fontSize: typography.sizeSm, color: colors.textDim},
-	typeChipTextActive: {color: colors.accent, fontWeight: typography.weightMedium},
 	subCard: {gap: spacing.sm},
 	subStatus: {fontSize: typography.sizeBase, color: colors.white, fontWeight: typography.weightMedium},
 	subMeta: {fontSize: typography.sizeSm, color: colors.textDim},

@@ -93,9 +93,5 @@ const styles = StyleSheet.create({
 	form: {gap: spacing.md},
 	label: {fontSize: typography.sizeXs, color: colors.textFaint, fontWeight: typography.weightBold, textTransform: 'uppercase'},
 	row: {flexDirection: 'row', gap: spacing.sm},
-	chip: {paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: radius.pill, backgroundColor: colors.surface},
-	chipActive: {backgroundColor: colors.accentSoft, borderWidth: 1, borderColor: colors.accent},
-	chipText: {fontSize: typography.sizeSm, color: colors.textDim},
-	chipTextActive: {color: colors.accent, fontWeight: typography.weightMedium},
 	error: {fontSize: typography.sizeSm, color: colors.danger},
 });

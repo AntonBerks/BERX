@@ -129,7 +129,10 @@ const styles = StyleSheet.create({
 	screen: {flex: 1},
 	description: {fontSize: typography.sizeSm, color: colors.textDim, paddingHorizontal: spacing.md, paddingTop: spacing.sm},
 	list: {padding: spacing.md, gap: spacing.sm},
-	row: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.surface, borderRadius: radius.md, padding: spacing.sm, marginBottom: spacing.sm},
+	/* fill removed: a BerxSpatialCard wraps this row and paints the
+	   content plane's own material — an opaque token fill on top of it
+	   hides the surface the card just resolved */
+	row: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm, padding: spacing.sm, marginBottom: spacing.sm},
 	thumb: {width: 48, height: 48, borderRadius: radius.sm},
 	thumbFallback: {width: 48, height: 48, borderRadius: radius.sm, backgroundColor: colors.graphite},
 	rowBody: {flex: 1, gap: 2},

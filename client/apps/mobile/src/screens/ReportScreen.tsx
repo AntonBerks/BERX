@@ -17,6 +17,7 @@ import {BerxHeader} from '../../../../packages/design-system/src/components/Berx
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxGlassSurface} from '../../../../packages/design-system/src/components/BerxGlassSurface';
+import {BerxChoiceChips} from '../../../../packages/design-system/src/spatial/BerxChoiceChips';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 
 export interface ReportScreenProps {
@@ -74,13 +75,13 @@ function ReportScreenBody({api, targetType, targetGuid, onSubmitted, onBack}: Re
 				{/* D2 — the work sits on a structural surface, not on the substrate */}
 				<BerxGlassSurface padding="lg" style={styles.form}>
 					<Text style={styles.label}>Причина</Text>
-					<View style={styles.chipWrap}>
-						{REASONS.map((r) => (
-							<Pressable key={r.key} style={[styles.chip, reason === r.key && styles.chipActive]} onPress={() => setReason(r.key)}>
-								<Text style={[styles.chipText, reason === r.key && styles.chipTextActive]}>{r.label}</Text>
-							</Pressable>
-						))}
-					</View>
+					{/* the reasons the API actually accepts, nothing invented */}
+					<BerxChoiceChips
+						accessibilityLabel="Причина жалобы"
+						value={reason ?? undefined}
+						onChange={(key) => setReason(key as BerxReportReason)}
+						options={REASONS.map((r) => ({key: r.key, label: r.label}))}
+					/>
 
 					<BerxInput placeholder="Дополнительные детали (необязательно)" value={note} onChangeText={setNote} multiline />
 
@@ -99,10 +100,5 @@ const styles = StyleSheet.create({
 	screen: {flex: 1},
 	body: {padding: spacing.md, gap: spacing.md},
 	label: {fontSize: typography.sizeXs, color: colors.textFaint, fontWeight: typography.weightBold, textTransform: 'uppercase'},
-	chipWrap: {flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs},
-	chip: {paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: radius.pill, backgroundColor: colors.surface},
-	chipActive: {backgroundColor: colors.accentSoft, borderWidth: 1, borderColor: colors.accent},
-	chipText: {fontSize: typography.sizeSm, color: colors.textDim},
-	chipTextActive: {color: colors.accent, fontWeight: typography.weightMedium},
 	error: {fontSize: typography.sizeSm, color: colors.danger},
 });

@@ -12,6 +12,7 @@ import {BerxInput} from '../../../../packages/design-system/src/components/BerxI
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxGlassSurface} from '../../../../packages/design-system/src/components/BerxGlassSurface';
 import {BerxActionShelf} from '../../../../packages/design-system/src/spatial/BerxActionShelf';
+import {BerxSegmentTabs} from '../../../../packages/design-system/src/components/BerxBusinessPrimitives';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 
 export interface CreateTripScreenProps {
@@ -63,14 +64,14 @@ function CreateTripScreenBody({api, onCreated, onBack}: CreateTripScreenProps) {
 					<BerxInput placeholder="Описание (необязательно)" value={description} onChangeText={setDescription} multiline />
 
 					<Text style={styles.label}>Доступ</Text>
-					<View style={styles.row}>
-						<Pressable style={[styles.chip, visibility === 'private' && styles.chipActive]} onPress={() => setVisibility('private')}>
-							<Text style={[styles.chipText, visibility === 'private' && styles.chipTextActive]}>Приватная</Text>
-						</Pressable>
-						<Pressable style={[styles.chip, visibility === 'public' && styles.chipActive]} onPress={() => setVisibility('public')}>
-							<Text style={[styles.chipText, visibility === 'public' && styles.chipTextActive]}>Открытая</Text>
-						</Pressable>
-					</View>
+					<BerxSegmentTabs
+						options={[
+							{key: 'private', label: 'Приватная'},
+							{key: 'public', label: 'Открытая'},
+						]}
+						value={visibility}
+						onChange={setVisibility}
+					/>
 					<Text style={styles.hint}>Даты и участников можно будет добавить после создания.</Text>
 
 					{error ? <Text style={styles.error}>{error}</Text> : null}
@@ -92,10 +93,6 @@ const styles = StyleSheet.create({
 	form: {gap: spacing.md},
 	label: {fontSize: typography.sizeXs, color: colors.textFaint, fontWeight: typography.weightBold, textTransform: 'uppercase'},
 	row: {flexDirection: 'row', gap: spacing.sm},
-	chip: {paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: radius.pill, backgroundColor: colors.surface},
-	chipActive: {backgroundColor: colors.accentSoft, borderWidth: 1, borderColor: colors.accent},
-	chipText: {fontSize: typography.sizeSm, color: colors.textDim},
-	chipTextActive: {color: colors.accent, fontWeight: typography.weightMedium},
 	hint: {fontSize: typography.sizeXs, color: colors.textFaint},
 	error: {fontSize: typography.sizeSm, color: colors.danger},
 });

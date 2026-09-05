@@ -19,6 +19,7 @@ import {BerxInput} from '../../../../packages/design-system/src/components/BerxI
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxSpatialCard} from '../../../../packages/design-system/src/spatial/BerxSpatialCard';
+import {BerxChoiceChips} from '../../../../packages/design-system/src/spatial/BerxChoiceChips';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 
 export interface PlacesNearbyScreenProps {
@@ -74,13 +75,12 @@ function PlacesNearbyScreenBody({api, onOpenPlace, onBack}: PlacesNearbyScreenPr
 					<View style={styles.half}><BerxInput placeholder="Широта" value={lat} onChangeText={setLat} keyboardType="decimal-pad" /></View>
 					<View style={styles.half}><BerxInput placeholder="Долгота" value={lng} onChangeText={setLng} keyboardType="decimal-pad" /></View>
 				</View>
-				<View style={styles.chipRow}>
-					{RADII.map((r) => (
-						<Pressable key={r} style={[styles.chip, radiusKm === r && styles.chipActive]} onPress={() => setRadiusKm(r)}>
-							<Text style={[styles.chipText, radiusKm === r && styles.chipTextActive]}>{r} км</Text>
-						</Pressable>
-					))}
-				</View>
+				<BerxChoiceChips
+					accessibilityLabel="Радиус поиска"
+					value={radiusKm}
+					onChange={setRadiusKm}
+					options={RADII.map((r) => ({key: r, label: `${r} км`}))}
+				/>
 				<BerxButton label="Искать" loading={loading} onPress={search} fullWidth />
 			</View>
 
@@ -123,13 +123,11 @@ const styles = StyleSheet.create({
 	form: {padding: spacing.md, gap: spacing.sm},
 	row: {flexDirection: 'row', gap: spacing.sm},
 	half: {flex: 1},
-	chipRow: {flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs},
-	chip: {paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: radius.pill, backgroundColor: colors.surface},
-	chipActive: {backgroundColor: colors.accentSoft, borderWidth: 1, borderColor: colors.accent},
-	chipText: {fontSize: typography.sizeSm, color: colors.textDim},
-	chipTextActive: {color: colors.accent, fontWeight: typography.weightMedium},
 	list: {padding: spacing.md, gap: spacing.sm},
-	card: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.surface, borderRadius: radius.md, padding: spacing.sm, marginBottom: spacing.sm},
+	/* fill removed: a BerxSpatialCard wraps this row and paints the
+	   content plane's own material — an opaque token fill on top of it
+	   hides the surface the card just resolved */
+	card: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm, padding: spacing.sm, marginBottom: spacing.sm},
 	cardImage: {width: 56, height: 56, borderRadius: radius.sm},
 	cardImageFallback: {width: 56, height: 56, borderRadius: radius.sm, backgroundColor: colors.graphite},
 	cardBody: {flex: 1},

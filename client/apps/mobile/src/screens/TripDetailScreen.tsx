@@ -206,7 +206,10 @@ const styles = StyleSheet.create({
 	list: {padding: spacing.md, gap: spacing.md},
 	dayBlock: {gap: spacing.sm, marginBottom: spacing.md},
 	dayLabel: {fontSize: typography.sizeXs, color: colors.textFaint, fontWeight: typography.weightBold, textTransform: 'uppercase'},
-	stopRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.surface, borderRadius: radius.md, padding: spacing.sm},
+	/* fill removed: a BerxSpatialCard wraps this row and paints the
+	   content plane's own material — an opaque token fill on top of it
+	   hides the surface the card just resolved */
+	stopRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm, padding: spacing.sm},
 	thumb: {width: 48, height: 48, borderRadius: radius.sm},
 	thumbFallback: {width: 48, height: 48, borderRadius: radius.sm, backgroundColor: colors.graphite},
 	stopBody: {flex: 1, gap: 2},

@@ -15,6 +15,7 @@ import {BerxInput} from '../../../../packages/design-system/src/components/BerxI
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxGlassSurface} from '../../../../packages/design-system/src/components/BerxGlassSurface';
 import {BerxActionShelf} from '../../../../packages/design-system/src/spatial/BerxActionShelf';
+import {BerxChoiceChips} from '../../../../packages/design-system/src/spatial/BerxChoiceChips';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 
 export interface CreateEventScreenProps {
@@ -96,27 +97,25 @@ function CreateEventScreenBody({api, onCreated, onBack}: CreateEventScreenProps)
 					<Text style={styles.hint}>Дата/время — заглушка на завтра 19:00 до появления реального picker-компонента (без установленного react-native, полноценный нативный picker здесь непроверяем).</Text>
 
 					<Text style={styles.label}>Категория</Text>
-					<View style={styles.chipWrap}>
-						{categories.map((c) => (
-							<Pressable key={c.slug} style={[styles.chip, category === c.slug && styles.chipActive]} onPress={() => setCategory(c.slug)}>
-								<Text style={[styles.chipText, category === c.slug && styles.chipTextActive]}>{c.label}</Text>
-							</Pressable>
-						))}
-					</View>
+					{/* the server owns the category whitelist */}
+					<BerxChoiceChips
+						accessibilityLabel="Категория события"
+						value={category}
+						onChange={setCategory}
+						options={categories.map((c) => ({key: c.slug, label: c.label}))}
+					/>
 
 					{places.length > 0 ? (
 						<>
 							<Text style={styles.label}>Место (необязательно)</Text>
-							<View style={styles.chipWrap}>
-								<Pressable style={[styles.chip, !placeGuid && styles.chipActive]} onPress={() => setPlaceGuid(undefined)}>
-									<Text style={[styles.chipText, !placeGuid && styles.chipTextActive]}>Не выбрано</Text>
-								</Pressable>
-								{places.map((p) => (
-									<Pressable key={p.guid} style={[styles.chip, placeGuid === p.guid && styles.chipActive]} onPress={() => setPlaceGuid(p.guid)}>
-										<Text style={[styles.chipText, placeGuid === p.guid && styles.chipTextActive]} numberOfLines={1}>{p.title}</Text>
-									</Pressable>
-								))}
-							</View>
+							{/* the person's own real places, plus an explicit "none" */}
+							<BerxChoiceChips
+								accessibilityLabel="Место события"
+								scroll
+								value={placeGuid ?? 0}
+								onChange={(key) => setPlaceGuid(key === 0 ? undefined : (key as number))}
+								options={[{key: 0, label: 'Не выбрано'}, ...places.map((p) => ({key: p.guid, label: p.title}))]}
+							/>
 						</>
 					) : null}
 
@@ -144,10 +143,5 @@ const styles = StyleSheet.create({
 	label: {fontSize: typography.sizeXs, color: colors.textFaint, fontWeight: typography.weightBold, textTransform: 'uppercase'},
 	staticValue: {fontSize: typography.sizeBase, color: colors.text},
 	hint: {fontSize: typography.sizeXs, color: colors.textFaint},
-	chipWrap: {flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs},
-	chip: {paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: radius.pill, backgroundColor: colors.surface, maxWidth: 160},
-	chipActive: {backgroundColor: colors.accentSoft, borderWidth: 1, borderColor: colors.accent},
-	chipText: {fontSize: typography.sizeSm, color: colors.textDim},
-	chipTextActive: {color: colors.accent, fontWeight: typography.weightMedium},
 	error: {fontSize: typography.sizeSm, color: colors.danger},
 });

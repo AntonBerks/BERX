@@ -14,6 +14,7 @@ import {BerxInput} from '../../../../packages/design-system/src/components/BerxI
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxGlassSurface} from '../../../../packages/design-system/src/components/BerxGlassSurface';
 import {BerxActionShelf} from '../../../../packages/design-system/src/spatial/BerxActionShelf';
+import {BerxSegmentTabs} from '../../../../packages/design-system/src/components/BerxBusinessPrimitives';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 
 export interface CreateExperienceScreenProps {
@@ -107,14 +108,17 @@ function CreateExperienceScreenBody({api, onCreated, onBack}: CreateExperienceSc
 					<BerxInput placeholder="Описание (необязательно)" value={description} onChangeText={setDescription} multiline />
 
 					<Text style={styles.label}>Привязать к</Text>
-					<View style={styles.row}>
-						<Pressable style={[styles.chip, anchorTab === 'place' && styles.chipActive]} onPress={() => { setAnchorTab('place'); setAnchor(null); }}>
-							<Text style={[styles.chipText, anchorTab === 'place' && styles.chipTextActive]}>Место</Text>
-						</Pressable>
-						<Pressable style={[styles.chip, anchorTab === 'event' && styles.chipActive]} onPress={() => { setAnchorTab('event'); setAnchor(null); }}>
-							<Text style={[styles.chipText, anchorTab === 'event' && styles.chipTextActive]}>Событие</Text>
-						</Pressable>
-					</View>
+					<BerxSegmentTabs
+						options={[
+							{key: 'place', label: 'Место'},
+							{key: 'event', label: 'Событие'},
+						]}
+						value={anchorTab}
+						onChange={(key) => {
+							setAnchorTab(key as 'place' | 'event');
+							setAnchor(null);
+						}}
+					/>
 
 					{anchor ? (
 						<View style={styles.anchorSelected}>
@@ -149,14 +153,14 @@ function CreateExperienceScreenBody({api, onCreated, onBack}: CreateExperienceSc
 					)}
 
 					<Text style={styles.label}>Доступ</Text>
-					<View style={styles.row}>
-						<Pressable style={[styles.chip, visibility === 'private' && styles.chipActive]} onPress={() => setVisibility('private')}>
-							<Text style={[styles.chipText, visibility === 'private' && styles.chipTextActive]}>Приватное</Text>
-						</Pressable>
-						<Pressable style={[styles.chip, visibility === 'public' && styles.chipActive]} onPress={() => setVisibility('public')}>
-							<Text style={[styles.chipText, visibility === 'public' && styles.chipTextActive]}>Открытое</Text>
-						</Pressable>
-					</View>
+					<BerxSegmentTabs
+						options={[
+							{key: 'private', label: 'Приватное'},
+							{key: 'public', label: 'Открытое'},
+						]}
+						value={visibility}
+						onChange={setVisibility}
+					/>
 
 					{error ? <Text style={styles.error}>{error}</Text> : null}
 
@@ -177,10 +181,6 @@ const styles = StyleSheet.create({
 	form: {gap: spacing.md},
 	label: {fontSize: typography.sizeXs, color: colors.textFaint, fontWeight: typography.weightBold, textTransform: 'uppercase'},
 	row: {flexDirection: 'row', gap: spacing.sm},
-	chip: {paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: radius.pill, backgroundColor: colors.surface},
-	chipActive: {backgroundColor: colors.accentSoft, borderWidth: 1, borderColor: colors.accent},
-	chipText: {fontSize: typography.sizeSm, color: colors.textDim},
-	chipTextActive: {color: colors.accent, fontWeight: typography.weightMedium},
 	resultRow: {paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.borderSoft},
 	resultText: {fontSize: typography.sizeSm, color: colors.white},
 	anchorSelected: {flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: colors.surface, borderRadius: radius.md, padding: spacing.sm},
