@@ -16,7 +16,7 @@ import {BerxScrimHero, scrimBadgeStyles} from '../../../../../packages/design-sy
 import {BerxFamilyScene, useBerxSceneAtmosphere} from '../../spatial/BerxScreenScene';
 import {BerxHeader} from '../../../../../packages/design-system/src/components/BerxHeader';
 import {BerxGlassSurface} from '../../../../../packages/design-system/src/components/BerxGlassSurface';
-import {BerxEyebrow} from '../../../../../packages/design-system/src/components/BerxBusinessPrimitives';
+import {BerxSection} from '../../../../../packages/design-system/src/spatial/BerxSection';
 import {BerxLoadingState, BerxErrorState} from '../../../../../packages/design-system/src/components/BerxStates';
 import {BerxText} from '../../../../../packages/design-system/src/spatial/BerxText';
 import {BerxSceneScroll} from '../../../../../packages/design-system/src/spatial/BerxSceneScroll';
@@ -49,6 +49,20 @@ function InfoRow({icon, label}: {icon: BerxIconName; label: string}) {
 			<BerxText role="meta" emphasis="secondary" style={styles.infoText}>{label}</BerxText>
 		</View>
 	);
+}
+
+/**
+ * Russian plural agreement on the real review count — "1 отзыв",
+ * "2 отзыва", "5 отзывов". The screen used to choose between exactly
+ * two of those three words, so every count from 2 to 4 was wrong.
+ */
+function ratingCountLabel(count: number): string | undefined {
+	if (count === 0) return undefined;
+	const mod10 = count % 10;
+	const mod100 = count % 100;
+	if (mod10 === 1 && mod100 !== 11) return `${count} отзыв`;
+	if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return `${count} отзыва`;
+	return `${count} отзывов`;
 }
 
 export default function BusinessProfileScreen(props: BusinessProfileScreenProps) {
@@ -102,9 +116,13 @@ function BusinessProfileScreenBody({api, placeGuid, onBack}: BusinessProfileScre
 				}
 			/>
 			<View style={styles.body}>
-				{place.description ? <BerxText role="body">{place.description}</BerxText> : null}
+				{place.description ? (
+					<BerxSection leading>
+						<BerxText role="body">{place.description}</BerxText>
+					</BerxSection>
+				) : null}
 
-				<BerxEyebrow>Контакты</BerxEyebrow>
+				<BerxSection label="Контакты">
 				<BerxGlassSurface style={styles.infoCard}>
 					{place.address ? <InfoRow icon="location" label={place.address} /> : null}
 					{place.hours ? <InfoRow icon="clock" label={place.hours} /> : null}
@@ -114,15 +132,14 @@ function BusinessProfileScreenBody({api, placeGuid, onBack}: BusinessProfileScre
 						<BerxText role="meta" emphasis="tertiary">Контакты ещё не заполнены.</BerxText>
 					) : null}
 				</BerxGlassSurface>
+				</BerxSection>
 
-				<BerxEyebrow>Рейтинг</BerxEyebrow>
+				<BerxSection label="Рейтинг" detail={ratingCountLabel(place.rating_count)}>
 				<BerxGlassSurface style={styles.ratingCard}>
 					<BerxText role="display">{place.rating.toFixed(1)}</BerxText>
-					<View>
-						<BerxStars value={place.rating} />
-						<BerxText role="meta" emphasis="tertiary">{place.rating_count} {place.rating_count === 1 ? 'отзыв' : 'отзывов'}</BerxText>
-					</View>
+					<BerxStars value={place.rating} />
 				</BerxGlassSurface>
+				</BerxSection>
 			</View>
 		</BerxSceneScroll>
 	);
