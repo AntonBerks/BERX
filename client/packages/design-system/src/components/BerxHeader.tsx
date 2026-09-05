@@ -32,6 +32,7 @@ import {spacing} from '../tokens';
 import {BerxText} from '../spatial/BerxText';
 import {BerxSurface} from '../spatial/BerxSurface';
 import {useBerxSceneOptional} from '../spatial/BerxSpatialScene';
+import {useBerxRoomLight} from '../spatial/useBerxRoomLight';
 import {BerxIcon} from '../icons';
 
 export interface BerxHeaderProps {
@@ -53,6 +54,10 @@ export interface BerxHeaderProps {
 export function BerxHeader({title, onBack, subtitle, leading, actions}: BerxHeaderProps) {
 	const scene = useBerxSceneOptional();
 	const controls = scene?.scene.layers.D4;
+	/* the way back is an object standing somewhere, like everything
+	   else in the room: it catches the light that reaches its own
+	   corner rather than a light every header shares */
+	const room = useBerxRoomLight();
 
 	return (
 		<View style={styles.header}>
@@ -60,6 +65,8 @@ export function BerxHeader({title, onBack, subtitle, leading, actions}: BerxHead
 				<Pressable
 					onPress={onBack}
 					hitSlop={8}
+					ref={room.measure}
+					onLayout={room.onLayout}
 					accessibilityRole="button"
 					accessibilityLabel="Назад"
 					style={styles.backTarget}>
@@ -68,6 +75,8 @@ export function BerxHeader({title, onBack, subtitle, leading, actions}: BerxHead
 							surface={controls.surface}
 							lighting={controls.lighting}
 							radius={22}
+							illumination={room.illumination}
+							behind={room.behind}
 							style={styles.backSurface}>
 							<BerxIcon name="chevronLeft" size={18} state="active" decorative />
 						</BerxSurface>

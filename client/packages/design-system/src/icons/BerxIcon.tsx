@@ -24,6 +24,9 @@ import {Animated, Easing, Pressable, StyleSheet, View, type ViewStyle} from 'rea
 import Svg, {Circle, Path} from 'react-native-svg';
 import {BERX_ICON_PATHS, type BerxIconName} from './paths';
 import {useBerxLayer} from '../spatial/useBerxLayer';
+import {useBerxSceneOptional} from '../spatial/BerxSpatialScene';
+import {useBerxRoomLight} from '../spatial/useBerxRoomLight';
+import {BerxSurface} from '../spatial/BerxSurface';
 import {colors} from '../tokens';
 
 const GRID = 24;
@@ -139,13 +142,33 @@ export interface BerxIconButtonProps {
 	size?: number;
 	state?: BerxIconState;
 	disabled?: boolean;
+	/**
+	 * Renders the glyph alone, with no plane under it.
+	 *
+	 * For an icon that belongs to the thing it sits inside — a chevron
+	 * ending a row, a mark inside a card — where promoting it to the
+	 * control plane would lift it off the object it acts on.
+	 */
+	bare?: boolean;
 	style?: ViewStyle;
 	testID?: string;
 }
 
 /**
- * An icon that acts. The 44×44 target comes from the contract, not
- * from whatever padding the caller happened to add.
+ * An icon that acts, standing on the control plane.
+ *
+ * It used to be a bare glyph in a 44dp box. Every use of it in BERX is
+ * a scene action beside the way back — and the way back is a lit disc
+ * on the control plane, so each header showed one control that was an
+ * object and one that was a drawing floating next to it. A control
+ * that reads as a decoration is the flat-control failure the archive
+ * names, in the row every screen has.
+ *
+ * It takes the control plane's own material now, lit by the corner of
+ * the room it is standing in, at the same 40dp inside the same 44dp
+ * target the back control uses. Outside a scene it falls back to the
+ * bare glyph, which is what a screen's first frame has before its
+ * scene exists.
  */
 export function BerxIconButton({
 	name,
@@ -155,12 +178,20 @@ export function BerxIconButton({
 	size = GRID,
 	state = 'default',
 	disabled,
+	bare,
 	style,
 	testID,
 }: BerxIconButtonProps) {
+	const scene = useBerxSceneOptional();
+	const room = useBerxRoomLight();
+	const controls = bare ? null : scene?.scene.layers.D4;
+	const glyph = <BerxIcon name={name} size={size} state={disabled ? 'disabled' : state} decorative />;
+
 	return (
 		<Pressable
 			testID={testID}
+			ref={room.measure}
+			onLayout={room.onLayout}
 			accessibilityRole="button"
 			accessibilityLabel={accessibilityLabel}
 			accessibilityHint={accessibilityHint}
@@ -168,7 +199,19 @@ export function BerxIconButton({
 			disabled={disabled}
 			onPress={onPress}
 			style={({pressed}) => [styles.target, {opacity: disabled ? 0.45 : pressed ? 0.6 : 1}, style]}>
-			<BerxIcon name={name} size={size} state={disabled ? 'disabled' : state} decorative />
+			{controls ? (
+				<BerxSurface
+					surface={controls.surface}
+					lighting={controls.lighting}
+					radius={20}
+					illumination={room.illumination}
+					behind={room.behind}
+					style={styles.control}>
+					{glyph}
+				</BerxSurface>
+			) : (
+				glyph
+			)}
 		</Pressable>
 	);
 }
@@ -176,4 +219,7 @@ export function BerxIconButton({
 const styles = StyleSheet.create({
 	/* the archive's minimum, on every touch surface */
 	target: {minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center'},
+	/* 40dp object inside the 44dp target — the same object the way
+	   back is, so a header's two controls are the same kind of thing */
+	control: {width: 40, height: 40, alignItems: 'center', justifyContent: 'center'},
 });
