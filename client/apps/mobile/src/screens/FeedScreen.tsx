@@ -153,7 +153,7 @@ function FeedSceneBody({api, onOpenPost, onOpenProfile, onCreatePost, onOpenStor
 	 */
 	const header = (
 		<BerxSceneHeader
-			overline="BERX"
+			mark
 			title="Лента"
 			subtitle={items.length > 0 ? postCountLabel(items.length) : undefined}
 			actions={

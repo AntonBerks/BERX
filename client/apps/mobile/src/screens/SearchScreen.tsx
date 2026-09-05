@@ -174,7 +174,7 @@ function SearchSceneBody({api, onOpenProfile, onOpenPlace, onOpenEvent, onOpenCo
 			{/* the explore scene names itself before it asks a question:
 			    a search field alone at the top of a room reads as a
 			    widget, not as a place */}
-			<BerxSceneHeader overline="BERX" title="Поиск" testID="explore-header" />
+			<BerxSceneHeader mark title="Поиск" testID="explore-header" />
 			<View style={styles.controls}>
 				<BerxSearchField
 					value={query}

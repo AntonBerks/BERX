@@ -123,7 +123,7 @@ function ConversationListSceneBody({api, onOpenConversation, onOpenMessageSearch
 			    as context under it — never a zero standing in for a count
 			    that did not load */}
 			<BerxSceneHeader
-				overline="BERX"
+				mark
 				title="Сообщения"
 				subtitle={unread !== null && unread > 0 ? `${unread} непрочитанных` : undefined}
 				actions={

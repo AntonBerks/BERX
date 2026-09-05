@@ -38,11 +38,18 @@ export interface BerxHeaderProps {
 	onBack?: () => void;
 	/** Real context under the title — a count, a state. Never a tagline. */
 	subtitle?: string;
+	/**
+	 * What the scene is about, beside its name — the person you are
+	 * talking to, the place you are in. It sits between the way back
+	 * and the title, so a room that has a subject shows it rather than
+	 * naming it twice.
+	 */
+	leading?: React.ReactNode;
 	/** Controls belonging to this scene, on the same plane as the back control. */
 	actions?: React.ReactNode;
 }
 
-export function BerxHeader({title, onBack, subtitle, actions}: BerxHeaderProps) {
+export function BerxHeader({title, onBack, subtitle, leading, actions}: BerxHeaderProps) {
 	const scene = useBerxSceneOptional();
 	const controls = scene?.scene.layers.D4;
 
@@ -72,6 +79,7 @@ export function BerxHeader({title, onBack, subtitle, actions}: BerxHeaderProps) 
 					)}
 				</Pressable>
 			) : null}
+			{leading ? <View style={styles.leading}>{leading}</View> : null}
 			<View style={styles.text}>
 				{title ? (
 					<BerxText role="subtitle" emphasis="primary" heading numberOfLines={1}>
@@ -105,6 +113,7 @@ const styles = StyleSheet.create({
 	/* the chevron is optically low in its own box; this puts it back
 	   on the centre line */
 	chevron: {marginTop: -2, fontSize: 22, lineHeight: 22},
+	leading: {flexShrink: 0},
 	text: {flex: 1, gap: 1},
 	actions: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm},
 });

@@ -30,10 +30,20 @@
 import React from 'react';
 import {StyleSheet, View, type ViewStyle} from 'react-native';
 import {BerxText} from './BerxText';
+import {BerxWordmark} from './BerxWordmark';
 import {BerxActionShelf} from './BerxActionShelf';
 import {spacing} from '../tokens';
 
 export interface BerxSceneHeaderProps {
+	/**
+	 * Draws the BERX mark above the title instead of an overline.
+	 *
+	 * For the scenes a person arrives at rather than navigates into —
+	 * the tab roots. Everywhere else the overline says which part of
+	 * BERX you are in, which is more useful than repeating the name of
+	 * the product to someone already inside it.
+	 */
+	mark?: boolean;
 	/** Where you are: the family, the section. Real, short, dim. */
 	overline?: string;
 	title: string;
@@ -52,6 +62,7 @@ export interface BerxSceneHeaderProps {
 }
 
 export function BerxSceneHeader({
+	mark,
 	overline,
 	title,
 	subtitle,
@@ -63,12 +74,17 @@ export function BerxSceneHeader({
 	return (
 		<View testID={testID} style={[compact ? styles.rootCompact : styles.root, style]}>
 			<View style={styles.text}>
-				{overline ? (
+				{mark ? <BerxWordmark size={13} style={styles.mark} /> : null}
+				{!mark && overline ? (
 					<BerxText role="micro" emphasis="tertiary" numberOfLines={1}>
 						{overline}
 					</BerxText>
 				) : null}
-				<BerxText role={compact ? 'title' : 'display'} heading numberOfLines={2} style={overline ? styles.titleUnderOverline : undefined}>
+				<BerxText
+					role={compact ? 'title' : 'display'}
+					heading
+					numberOfLines={2}
+					style={mark || overline ? styles.titleUnderOverline : undefined}>
 					{title}
 				</BerxText>
 				{subtitle ? (
@@ -110,6 +126,9 @@ const styles = StyleSheet.create({
 		paddingBottom: spacing.md,
 	},
 	text: {flex: 1, gap: 2},
+	/* the mark reads as a label at this size, so it is dimmed to sit
+	   behind the title rather than compete with it */
+	mark: {opacity: 0.72},
 	/* the overline sits close to the title it labels */
 	titleUnderOverline: {marginTop: 2},
 	subtitle: {marginTop: spacing.xs},

@@ -30,6 +30,7 @@ import type {BerxMessage} from '@berx/api/types';
 import {relativeTimeLabel} from '@berx/domain';
 import type {BerxScreenState} from '@berx/spatial';
 import {spacing} from '@berx/design-system/tokens';
+import {BerxAvatar} from '../../../../packages/design-system/src/components/BerxAvatar';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxMessageBubble} from '../../../../packages/design-system/src/spatial/BerxMessageBubble';
 import {BerxComposer} from '../../../../packages/design-system/src/spatial/BerxComposer';
@@ -161,7 +162,15 @@ function ConversationSceneBody({api, myGuid, otherGuid, otherUsername, onBack}: 
 
 	return (
 		<View style={styles.screen}>
-			<BerxHeader onBack={onBack} title={title} />
+			{/* the room shows who is in it. The typing signal stays where
+			    it belongs — at the end of the thread, above the composer,
+			    where a reply is about to appear — rather than being said
+			    twice in two places. */}
+			<BerxHeader
+				onBack={onBack}
+				title={title}
+				leading={<BerxAvatar fallbackInitial={title.slice(0, 1).toUpperCase()} size={36} />}
+			/>
 
 			<BerxDataBoundary
 				state={state}
@@ -183,6 +192,7 @@ function ConversationSceneBody({api, myGuid, otherGuid, otherUsername, onBack}: 
 						const own = item.from_guid === myGuid;
 						return (
 							<BerxMessageBubble
+								id={item.id}
 								text={item.text}
 								own={own}
 								senderName={title}
