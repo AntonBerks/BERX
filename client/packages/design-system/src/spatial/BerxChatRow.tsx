@@ -54,15 +54,15 @@ export function BerxChatRow({
 				<BerxAvatar iconUrl={avatarUrl} fallbackInitial={name.slice(0, 1)} size={46} />
 				<View style={styles.text}>
 					<View style={styles.topRow}>
-						<Text style={[styles.name, unread > 0 ? styles.nameUnread : null]} numberOfLines={1}>
+						<BerxText role={unread > 0 ? 'callout' : 'body'} emphasis={unread > 0 ? 'primary' : 'secondary'} numberOfLines={1} style={styles.name}>
 							{name}
-						</Text>
+						</BerxText>
 						{timeLabel ? <BerxText role="meta" emphasis="tertiary">{timeLabel}</BerxText> : null}
 					</View>
 					{preview ? (
-						<Text style={[styles.preview, unread > 0 ? {color: colors.text} : null]} numberOfLines={1}>
+						<BerxText role="meta" emphasis={unread > 0 ? 'primary' : 'secondary'} numberOfLines={1}>
 							{preview}
-						</Text>
+						</BerxText>
 					) : null}
 				</View>
 				{unread > 0 ? (
@@ -81,9 +81,7 @@ const styles = StyleSheet.create({
 	row: {flexDirection: 'row', alignItems: 'center', gap: spacing.md},
 	text: {flex: 1, gap: 2},
 	topRow: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm},
-	name: {color: colors.textDim, fontSize: typography.sizeBase, flexShrink: 1},
-	nameUnread: {color: colors.text, fontWeight: typography.weightMedium},
-	preview: {color: colors.textDim, fontSize: typography.sizeSm},
+	name: {flexShrink: 1},
 	badge: {minWidth: 22, height: 22, borderRadius: 11, paddingHorizontal: 6, alignItems: 'center', justifyContent: 'center', shadowOpacity: 1, shadowRadius: 8},
 	badgeText: {color: '#04252A', fontSize: 11, fontWeight: typography.weightBold},
 	badgeSpacer: {width: 22, height: 22},
