@@ -22,7 +22,8 @@ import React from 'react';
 import {View, StyleSheet, ViewStyle} from 'react-native';
 import {ensureReadableSurface, resolveLighting, type BerxDepthKey} from '@berx/spatial';
 import {colors, radius, spacing, shadow} from '../tokens';
-import {useBerxSceneOptional} from '../spatial/BerxSpatialScene';
+import {useBerxScene, useBerxSceneOptional} from '../spatial/BerxSpatialScene';
+import {useBerxRoomLight} from '../spatial/useBerxRoomLight';
 import {BerxSurface} from '../spatial/BerxSurface';
 
 export interface BerxGlassSurfaceProps {
@@ -44,11 +45,10 @@ export function BerxGlassSurface({children, elevated, padding = 'lg', style, dep
 	const pad = padding !== 0 ? {padding: spacing[padding]} : null;
 
 	if (scene) {
-		const layer = scene.scene.layers[plane];
 		return (
-			<BerxSurface surface={layer.surface} lighting={layer.lighting} radius={radius.lg} style={style}>
-				<View style={pad}>{children}</View>
-			</BerxSurface>
+			<LitPane plane={plane} radius={radius.lg} style={style} pad={pad}>
+				{children}
+			</LitPane>
 		);
 	}
 
@@ -78,6 +78,43 @@ export function BerxGlassSurface({children, elevated, padding = 'lg', style, dep
 			<View style={[styles.hairline, {backgroundColor: surface.edgeHighlightColor}]} />
 			<View style={[styles.leadingRim, {backgroundColor: lighting.rimColor, width: lighting.rimWidth}]} />
 			{children}
+		</View>
+	);
+}
+
+/**
+ * A pane that knows where in the room it is standing.
+ *
+ * Split out because the hook has to run unconditionally, and the
+ * fallback path above deliberately has no scene to measure against.
+ */
+function LitPane({
+	plane,
+	radius: r,
+	style,
+	pad,
+	children,
+}: {
+	plane: BerxDepthKey;
+	radius: number;
+	style?: ViewStyle;
+	pad: ViewStyle | null;
+	children: React.ReactNode;
+}) {
+	const scene = useBerxScene();
+	const layer = scene.scene.layers[plane];
+	const light = useBerxRoomLight();
+
+	return (
+		<View ref={light.measure} onLayout={light.onLayout} style={style}>
+			<BerxSurface
+				surface={layer.surface}
+				lighting={layer.lighting}
+				radius={r}
+				illumination={light.illumination}
+				behind={light.behind}>
+				<View style={pad}>{children}</View>
+			</BerxSurface>
 		</View>
 	);
 }

@@ -1,18 +1,27 @@
 /**
- * !!! VERIFICATION STATUS: UNVERIFIED — see BerxButton.tsx header.
+ * The cinematic hero: real media, with the falloff that lets the type
+ * be read over it.
  *
- * Cinematic hero image with bottom-anchored legibility scrim. No
- * gradient library is installed (no expo-linear-gradient — same npm
- * constraint as every native module this session), so the scrim is
- * simulated with 5 stacked, increasingly-opaque absolute Views
- * rather than a real gradient shader. Visually reads as a gradient
- * at normal viewing distance; documented here as the honest reason
- * it's not one, not left unexplained.
+ * The falloff used to be five stacked absolute Views at 0, 15, 35, 60
+ * and 92 per cent, because when this was written no gradient library
+ * was installed. That constraint is gone — react-native-svg is a real
+ * dependency the icon set, the atmosphere and every BERX surface
+ * already use — and five hard steps across a photograph are five
+ * visible bands, not a gradient. It uses BerxScrim now: the same
+ * falloff every other BERX object gets, in the scene's own substrate
+ * colour, so the image darkens into the room rather than into a
+ * black rectangle.
+ *
+ * Outside a scene it falls back to the substrate token rather than
+ * throwing, which is what a hero rendered before its scene exists
+ * actually needs.
  */
 import React from 'react';
 import {View, Image, StyleSheet} from 'react-native';
 import {colors, spacing, typography, radius} from '../tokens';
 import {BerxText} from '../spatial/BerxText';
+import {BerxScrim} from '../spatial/BerxScrim';
+import {useBerxSceneOptional} from '../spatial/BerxSpatialScene';
 
 export interface BerxScrimHeroProps {
 	imageUrl: string | null;
@@ -23,9 +32,9 @@ export interface BerxScrimHeroProps {
 	children?: React.ReactNode;
 }
 
-const SCRIM_STEPS = [0, 0.15, 0.35, 0.6, 0.92];
-
 export function BerxScrimHero({imageUrl, title, subtitle, badge, height = 280, children}: BerxScrimHeroProps) {
+	const scene = useBerxSceneOptional();
+
 	return (
 		<View style={[styles.wrap, {height}]}>
 			{imageUrl ? (
@@ -35,21 +44,12 @@ export function BerxScrimHero({imageUrl, title, subtitle, badge, height = 280, c
 					<BerxText role="display" emphasis="tertiary">{title.charAt(0).toUpperCase()}</BerxText>
 				</View>
 			)}
-			<View style={StyleSheet.absoluteFillObject}>
-				{SCRIM_STEPS.map((opacity, i) => (
-					<View
-						key={i}
-						style={{
-							position: 'absolute',
-							left: 0,
-							right: 0,
-							bottom: 0,
-							height: `${100 - i * 18}%`,
-							backgroundColor: `rgba(5,5,5,${opacity})`,
-						}}
-					/>
-				))}
-			</View>
+			<BerxScrim
+				color={scene?.scene.background ?? colors.bg}
+				strength={0.94}
+				textStart={imageUrl ? 0.46 : 0.2}
+				id={`berx-scrim-hero-${title}`}
+			/>
 			<View style={styles.content}>
 				{badge}
 				<BerxText role="title" numberOfLines={2}>{title}</BerxText>
