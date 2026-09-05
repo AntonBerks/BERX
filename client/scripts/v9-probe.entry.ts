@@ -85,6 +85,17 @@ export const PROFILES: ProbeProfile[] = [
 		height: 800,
 	},
 	{
+		/**
+		 * The one platform whose depth is not a metaphor. BERX resolves
+		 * scenes for it; nothing here renders them, and the report says
+		 * so rather than implying a headset build exists.
+		 */
+		name: 'arvr',
+		device: {platform: 'arvr', supportsBackdropBlur: false},
+		width: 1440,
+		height: 1600,
+	},
+	{
 		name: 'watch',
 		device: {platform: 'watch', supportsBackdropBlur: false},
 		width: 198,

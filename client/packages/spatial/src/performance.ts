@@ -70,8 +70,43 @@ const WATCH_BUDGET: Omit<BerxPerformanceBudget, 'reason'> = {
 	lazyMedia: true,
 };
 
+/**
+ * A headset is the one platform where the depth is not a metaphor.
+ *
+ * Two things follow, and they pull in opposite directions. The scene
+ * is genuinely volumetric, so 3D, parallax and every depth cue stay
+ * on — flattening a scene for a device whose whole point is space
+ * would be absurd. And the frame budget is far harsher than a
+ * phone's: a headset renders every frame twice, at 72Hz or more, and
+ * a dropped frame is not a stutter but nausea. So the expensive
+ * screen-space effects go: no backdrop blur, no ambient loops, less
+ * concurrent video.
+ *
+ * BERX resolves scenes for this platform. It does not render them —
+ * there is no headset runtime in this repository — and that gap is
+ * recorded as a blocked capability rather than papered over.
+ */
+const ARVR_BUDGET: Omit<BerxPerformanceBudget, 'reason'> = {
+	tier: 'medium',
+	/* 72Hz is the floor across current standalone headsets */
+	targetFps: 72,
+	frameBudgetMs: 13.9,
+	/* screen-space blur is the first thing a stereo renderer cannot afford */
+	maxBlurLayers: 0,
+	allow3D: true,
+	allowAmbientMotion: false,
+	allowParallax: true,
+	maxConcurrentVideo: 1,
+	max3DObjects: BERX_V9_PERFORMANCE.simultaneous3DObjectsMobile,
+	listWindowSize: 10,
+	lazyMedia: true,
+};
+
 export function resolvePerformanceTier(signals: BerxDeviceSignals): {tier: BerxPerformanceTier; reason: string} {
 	if (signals.platform === 'watch') return {tier: 'low', reason: 'watch platform: depth is simulated, never composited'};
+	if (signals.platform === 'arvr') {
+		return {tier: 'medium', reason: 'headset: real volumetric depth, but two eyes at 72Hz+'};
+	}
 
 	if (signals.measuredFps !== undefined && signals.measuredFps > 0) {
 		if (signals.measuredFps < 45) return {tier: 'low', reason: `measured ${Math.round(signals.measuredFps)}fps below 45`};
@@ -115,6 +150,9 @@ export function resolvePerformanceTier(signals: BerxDeviceSignals): {tier: BerxP
 export function resolvePerformanceBudget(signals: BerxDeviceSignals): BerxPerformanceBudget {
 	if (signals.platform === 'watch') {
 		return {...WATCH_BUDGET, reason: 'watch platform: depth is simulated, never composited'};
+	}
+	if (signals.platform === 'arvr') {
+		return {...ARVR_BUDGET, reason: 'headset: depth kept in full, screen-space effects dropped for the frame budget'};
 	}
 
 	const {tier, reason} = resolvePerformanceTier(signals);

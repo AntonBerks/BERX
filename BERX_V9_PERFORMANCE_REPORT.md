@@ -4,6 +4,35 @@ All numbers below were measured, not estimated. Reproduce with
 `cd client && npm run verify:v9:web` (real Chromium) and
 `npm run verify:v9` (the resolver across seven device profiles).
 
+## Platforms, including the two that are not phones
+
+Eight device profiles are measured, not six. The two the archive names
+and BERX cannot ship to are handled honestly rather than left as a
+type that resolves nothing:
+
+**Watch.** Tier low by definition: depth is simulated, never
+composited. No 3D, no parallax, no blur, no ambient motion, an
+eight-item list window. All 300 contracts still resolve — the scene
+flattens, it does not disappear — and the navigation shell is
+`compact`.
+
+**AR/VR.** The one platform whose depth is not a metaphor, and the two
+facts about it pull in opposite directions. The scene is genuinely
+volumetric, so 3D, parallax and every depth cue stay on; flattening a
+scene for a device whose whole point is space would be absurd. And the
+frame budget is far harsher than a phone's — every frame rendered
+twice at 72Hz or more, where a dropped frame is not a stutter but
+nausea — so backdrop blur, ambient loops and concurrent video go.
+Target 72fps, 13.9ms per frame, blur 0, 3D on, parallax on, shell
+`spatial-anchors`. All 300 contracts resolve, at 18.09:1 text
+contrast.
+
+**BLOCKED: there is no headset renderer in this repository.** BERX
+resolves scenes for AR/VR and nothing here draws them. That is a real
+missing dependency, not a missing decision, and it is recorded rather
+than implied away by a platform constant that resolves to nothing.
+
+
 ## Contract
 
 Target 60fps · interactive budget 16.7ms · ≤3 blurred layers on mobile ·

@@ -165,6 +165,15 @@ gate(
 	`parallax:${report.profiles['web-reduced-motion'].allowParallax} scenes:${report.profiles['web-reduced-motion'].reducedMotionScenes}/300`,
 );
 gate(
+	'a headset keeps its depth and loses its screen-space effects',
+	report.profiles.arvr.allow3D === true &&
+		report.profiles.arvr.allowParallax === true &&
+		report.profiles.arvr.blurLayersMax === 0 &&
+		report.profiles.arvr.resolved === 300 &&
+		report.profiles.arvr.navShells['spatial-anchors'] === 300,
+	`3d=${report.profiles.arvr.allow3D} parallax=${report.profiles.arvr.allowParallax} blur=${report.profiles.arvr.blurLayersMax} shell=spatial-anchors, ${report.profiles.arvr.resolved}/300 resolved`,
+);
+gate(
 	'watch flattens instead of dropping the scene',
 	report.profiles.watch.allow3D === false && report.profiles.watch.resolved === 300,
 	`allow3D:${report.profiles.watch.allow3D} resolved:${report.profiles.watch.resolved}/300`,
