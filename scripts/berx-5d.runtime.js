@@ -1813,6 +1813,26 @@ function createBerxCard(options = {}) {
     if (options.accessibleName) el.setAttribute("aria-label", options.accessibleName);
     el.addEventListener("click", () => options.onPress?.());
   }
+  if (options.mediaUrl) {
+    el.classList.add("berx-card-media");
+    const stage = document.createElement("div");
+    stage.className = "berx-card-stage";
+    const img = document.createElement("img");
+    img.src = options.mediaUrl;
+    img.decoding = "async";
+    img.loading = "lazy";
+    if (options.mediaAlt) img.alt = options.mediaAlt;
+    else {
+      img.alt = "";
+      img.setAttribute("aria-hidden", "true");
+    }
+    stage.appendChild(img);
+    const fall = document.createElement("div");
+    fall.className = "berx-card-fall";
+    fall.setAttribute("aria-hidden", "true");
+    stage.appendChild(fall);
+    el.appendChild(stage);
+  }
   return el;
 }
 function createBerxControl(label, onPress) {

@@ -933,6 +933,20 @@ export interface BerxCardOptions {
 	onPress?: () => void;
 	accessibleName?: string;
 	className?: string;
+	/**
+	 * Real domain media. Given one, the card *is* the picture: the
+	 * image fills the object and everything the object says sits in
+	 * the image's own falloff at the bottom of it, rather than in a
+	 * paragraph under a decorative band. The same treatment the React
+	 * Native object card gives it, so a place looks like the same
+	 * place on both platforms.
+	 *
+	 * Omitted, the card is the lit surface and the type. BERX ships no
+	 * stock photograph to make the two look alike.
+	 */
+	mediaUrl?: string;
+	/** What the picture shows. Omitted marks it decorative. */
+	mediaAlt?: string;
 }
 
 /**
@@ -964,6 +978,30 @@ export function createBerxCard(options: BerxCardOptions = {}): HTMLElement {
 		(el as HTMLButtonElement).type = 'button';
 		if (options.accessibleName) el.setAttribute('aria-label', options.accessibleName);
 		el.addEventListener('click', () => options.onPress?.());
+	}
+
+	if (options.mediaUrl) {
+		el.classList.add('berx-card-media');
+		const stage = document.createElement('div');
+		stage.className = 'berx-card-stage';
+		const img = document.createElement('img');
+		img.src = options.mediaUrl;
+		img.decoding = 'async';
+		img.loading = 'lazy';
+		if (options.mediaAlt) img.alt = options.mediaAlt;
+		else {
+			img.alt = '';
+			img.setAttribute('aria-hidden', 'true');
+		}
+		stage.appendChild(img);
+		/* the falloff, painted by the stylesheet from the scene's own
+		   substrate colour so the picture darkens into the room rather
+		   than into a black rectangle */
+		const fall = document.createElement('div');
+		fall.className = 'berx-card-fall';
+		fall.setAttribute('aria-hidden', 'true');
+		stage.appendChild(fall);
+		el.appendChild(stage);
 	}
 	return el;
 }

@@ -158,6 +158,33 @@
   to{opacity:1;transform:translate3d(0,0,0) scale(1)}
 }
 
+/* ── objects made of their own media ─────────────────────────
+   A photograph in a band above a paragraph is a conventional card:
+   the image is decoration attached to a text block, and a column of
+   them reads as a column of rectangles with pictures in them. The
+   archive's treatment is the other way round — the media is the
+   object, and what the object says sits inside the media's own
+   falloff.
+
+   The falloff is not a bar laid over the picture. It ramps from clear
+   through the point where the text begins to full at the lower edge,
+   in the scene's own substrate colour, so the image darkens into the
+   room. That ramp is also what keeps the type at 4.5:1 over an image
+   BERX has never seen. */
+.berx-card-media{padding:0;display:flex;flex-direction:column}
+.berx-card-stage{position:relative;width:100%;aspect-ratio:3/2;overflow:hidden;border-radius:inherit}
+.berx-card-stage img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+.berx-card-fall{
+  position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(to bottom,
+    color-mix(in srgb, var(--berx-bg,#050505) 0%, transparent) 0%,
+    color-mix(in srgb, var(--berx-bg,#050505) 12%, transparent) 42%,
+    color-mix(in srgb, var(--berx-bg,#050505) 62%, transparent) 68%,
+    color-mix(in srgb, var(--berx-bg,#050505) 94%, transparent) 100%);
+}
+/* the object's own words, standing in its own picture */
+.berx-card-media > :not(.berx-card-stage){position:relative;margin-top:-28%;padding:0 16px 16px;z-index:1}
+
 /* ── D5 focus field ──────────────────────────────────
    The clearing sits between the content and the controls: above D3,
    so the content around the focus falls away with the room it stands
