@@ -10,8 +10,9 @@ import {Pressable, StyleSheet, Text, View} from 'react-native';
 import {rgba} from '@berx/spatial';
 import {useBerxLayer} from './useBerxLayer';
 import {BerxSurface} from './BerxSurface';
+import {BerxText} from './BerxText';
 import type {BerxNavTab} from './BerxBottomNav';
-import {colors, spacing, typography} from '../tokens';
+import {spacing, typography} from '../tokens';
 
 export interface BerxNavRailProps<T extends string> {
 	tabs: readonly BerxNavTab<T>[];
@@ -57,9 +58,9 @@ export function BerxNavRail<T extends string>({tabs, active, onSelect, variant, 
 									) : null}
 								</View>
 								{sidebar ? (
-									<Text style={[styles.label, {color: selected ? accent : colors.textDim}]} numberOfLines={1}>
+									<BerxText role="label" emphasis={selected ? 'accent' : 'secondary'} numberOfLines={1} style={styles.label}>
 										{tab.label}
-									</Text>
+									</BerxText>
 								) : null}
 								{selected ? <View style={[styles.indicator, {backgroundColor: accent, shadowColor: accent}]} /> : null}
 							</Pressable>
@@ -82,7 +83,7 @@ const styles = StyleSheet.create({
 	itemRail: {paddingVertical: spacing.md},
 	itemSidebar: {flexDirection: 'row', gap: spacing.md, paddingHorizontal: spacing.lg, justifyContent: 'flex-start'},
 	iconWrap: {},
-	label: {flex: 1, fontSize: typography.sizeSm, fontWeight: typography.weightMedium},
+	label: {flex: 1},
 	indicator: {position: 'absolute', left: 0, top: 12, bottom: 12, width: 2, borderRadius: 1, shadowOpacity: 1, shadowRadius: 6},
 	badge: {
 		position: 'absolute',
