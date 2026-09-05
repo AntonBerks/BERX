@@ -8,11 +8,12 @@
  * keeps its identity across scenes.
  */
 import React from 'react';
-import {Pressable, StyleSheet, Text, View} from 'react-native';
+import {Pressable, StyleSheet, View} from 'react-native';
 import {rgba, sharedElementTag} from '@berx/spatial';
 import {useBerxScene} from './BerxSpatialScene';
 import {BerxAvatar} from '../components/BerxAvatar';
-import {spacing, typography} from '../tokens';
+import {BerxIcon} from '../icons';
+import {spacing} from '../tokens';
 import {BerxText} from './BerxText';
 
 export type BerxRelationship = 'self' | 'friend' | 'requested' | 'none';
@@ -77,7 +78,7 @@ export function BerxIdentity({
 					</BerxText>
 					{verified ? (
 						<View style={[styles.verified, {backgroundColor: rgba(scene.accent, 0.16), borderColor: rgba(scene.accent, 0.4)}]}>
-							<Text style={[styles.verifiedGlyph, {color: scene.accent}]}>✓</Text>
+							<BerxIcon name="verified" size={11} state="active" decorative />
 						</View>
 					) : null}
 				</View>
@@ -119,5 +120,4 @@ const styles = StyleSheet.create({
 	nameRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.xs},
 	name: {flexShrink: 1},
 	verified: {width: 16, height: 16, borderRadius: 8, borderWidth: 1, alignItems: 'center', justifyContent: 'center'},
-	verifiedGlyph: {fontSize: 10, fontWeight: typography.weightBold, lineHeight: 12},
 });

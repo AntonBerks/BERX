@@ -139,7 +139,7 @@ function VideoDetailScreenBody({api, postGuid, myGuid, onOpenProfile, onDeleted,
 				<BerxText role="meta" emphasis="tertiary">{relativeTimeLabel(video.time_created)}</BerxText>
 
 				<BerxActionShelf variant="anchored">
-					<BerxButton label={liked ? 'Понравилось ✓' : 'Нравится'} variant={liked ? 'secondary' : 'primary'} onPress={handleLike} loading={liking} disabled={liked} />
+					<BerxButton label={liked ? 'Понравилось' : 'Нравится'} variant={liked ? 'secondary' : 'primary'} onPress={handleLike} loading={liking} disabled={liked} />
 					{isOwn ? <BerxButton label="Удалить" variant="danger" onPress={handleDelete} loading={deleting} /> : null}
 				</BerxActionShelf>
 

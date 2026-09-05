@@ -9,12 +9,21 @@
  * An undefined ring is drawn as "not known to be seen" and says
  * nothing about it out loud, rather than claiming "просмотрено" from
  * a fact nobody has.
+ *
+ * It scrolls. It was a plain row, so on a phone the sixth person and
+ * everyone after them was laid out past the right edge of the screen
+ * with no way to reach them — the stories of everybody the viewer
+ * follows beyond the first five were simply unreachable. The rail
+ * bleeds past the scene's gutter on both sides, because a rail that
+ * stops at the margin reads as a box of avatars rather than as
+ * something continuing off the screen.
  */
-import {StyleSheet, Pressable, Text, View} from 'react-native';
+import {ScrollView, StyleSheet, Pressable, View} from 'react-native';
 import {rgba, sharedElementTag} from '@berx/spatial';
 import {useBerxScene} from './BerxSpatialScene';
 import {BerxAvatar} from '../components/BerxAvatar';
-import {spacing, typography} from '../tokens';
+import {BerxIcon} from '../icons';
+import {spacing} from '../tokens';
 import {BerxText} from './BerxText';
 
 export interface BerxStoryTrayItem {
@@ -41,7 +50,14 @@ export function BerxStoryTray({items, onOpen, onCreate, testID}: BerxStoryTrayPr
 	const {scene} = useBerxScene();
 
 	return (
-		<View testID={testID} accessibilityRole="list" accessibilityLabel="Истории" style={styles.root}>
+		<ScrollView
+			testID={testID}
+			horizontal
+			showsHorizontalScrollIndicator={false}
+			accessibilityRole="list"
+			accessibilityLabel="Истории"
+			style={styles.rail}
+			contentContainerStyle={styles.root}>
 			{onCreate ? (
 				<Pressable
 					accessibilityRole="button"
@@ -49,7 +65,7 @@ export function BerxStoryTray({items, onOpen, onCreate, testID}: BerxStoryTrayPr
 					onPress={onCreate}
 					style={styles.item}>
 					<View style={[styles.ring, {borderColor: rgba(scene.accent, 0.5), borderStyle: 'dashed'}]}>
-						<Text style={[styles.plus, {color: scene.accent}]}>+</Text>
+						<BerxIcon name="plus" size={22} state="active" decorative />
 					</View>
 					<BerxText role="meta" emphasis="secondary" style={styles.name} numberOfLines={1}>
 						Вы
@@ -83,14 +99,15 @@ export function BerxStoryTray({items, onOpen, onCreate, testID}: BerxStoryTrayPr
 					</BerxText>
 				</Pressable>
 			))}
-		</View>
+		</ScrollView>
 	);
 }
 
 const styles = StyleSheet.create({
+	/* the rail itself never grows past the scene; its content does */
+	rail: {flexGrow: 0, marginHorizontal: -spacing.lg},
 	root: {flexDirection: 'row', gap: spacing.md, paddingHorizontal: spacing.lg, paddingVertical: spacing.md},
 	item: {alignItems: 'center', gap: spacing.xs, width: 68, minHeight: 44},
 	ring: {width: 62, height: 62, borderRadius: 31, borderWidth: 2, alignItems: 'center', justifyContent: 'center'},
-	plus: {fontSize: typography.sizeXl, fontWeight: typography.weightMedium},
 	name: {maxWidth: 64},
 });

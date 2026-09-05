@@ -31,6 +31,7 @@ import {Pressable, StyleSheet, Text, View} from 'react-native';
 import {rgba} from '@berx/spatial';
 import {useBerxScene} from './BerxSpatialScene';
 import {BerxSurface} from './BerxSurface';
+import {BerxIcon} from '../icons';
 import {BerxFocusTarget} from './BerxFocusTarget';
 import {BerxActionShelf} from './BerxActionShelf';
 import {colors, spacing, typography} from '../tokens';
@@ -109,14 +110,17 @@ export function BerxMessageBubble({
 						<BerxText role="body">{text}</BerxText>
 						<View style={styles.meta}>
 							<Text style={styles.time}>{timeLabel}</Text>
+							{/* delivery, in the icon set's own marks: a warning for a
+							    message the server never took, the loading arc while it
+							    is in flight, a check once the server has it. The state
+							    is announced in the bubble's label either way. */}
 							{own ? (
-								<Text
-									style={[
-										styles.delivery,
-										delivery === 'failed' ? {color: colors.danger} : delivery === 'sending' ? {color: colors.textFaint} : {color: scene.accent},
-									]}>
-									{delivery === 'failed' ? '!' : delivery === 'sending' ? '…' : '✓'}
-								</Text>
+								<BerxIcon
+									name={delivery === 'failed' ? 'warning' : delivery === 'sending' ? 'loading' : 'check'}
+									size={12}
+									color={delivery === 'failed' ? colors.danger : delivery === 'sending' ? colors.textFaint : scene.accent}
+									decorative
+								/>
 							) : null}
 						</View>
 					</View>
@@ -156,7 +160,6 @@ const styles = StyleSheet.create({
 	bubble: {paddingHorizontal: spacing.md, paddingVertical: spacing.sm, gap: 2},
 	meta: {flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 4},
 	time: {color: colors.textFaint, fontSize: 11},
-	delivery: {fontSize: 11, fontWeight: typography.weightMedium},
 	actions: {marginTop: spacing.xs, alignSelf: 'flex-end'},
 	/* the 44dp target stays; it is now on a control that is only there
 	   when the message it belongs to is the one being acted on */

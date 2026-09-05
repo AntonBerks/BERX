@@ -8,14 +8,15 @@
  * moving between profile tabs keeps the same person on screen instead
  * of rebuilding them.
  */
-import {Image, StyleSheet, Text, View, type ImageSourcePropType} from 'react-native';
+import {Image, StyleSheet, View, type ImageSourcePropType} from 'react-native';
 import {rgba, sharedElementTag} from '@berx/spatial';
 import {useBerxScene} from './BerxSpatialScene';
 import {BerxScrim} from './BerxScrim';
 import {BerxActionShelf} from './BerxActionShelf';
 import {BerxAvatar} from '../components/BerxAvatar';
+import {BerxIcon} from '../icons';
 import {BerxStatRail, type BerxStat} from './BerxStatRail';
-import {spacing, typography} from '../tokens';
+import {spacing} from '../tokens';
 import {BerxText} from './BerxText';
 
 export interface BerxProfileHeroProps {
@@ -79,7 +80,7 @@ export function BerxProfileHero({
 						<BerxText role="title">{name}</BerxText>
 						{verified ? (
 							<View style={[styles.verified, {borderColor: rgba(scene.accent, 0.42), backgroundColor: rgba(scene.accent, 0.16)}]}>
-								<Text style={[styles.verifiedGlyph, {color: scene.accent}]}>✓</Text>
+								<BerxIcon name="verified" size={12} state="active" decorative />
 							</View>
 						) : null}
 					</View>
@@ -100,11 +101,18 @@ export function BerxProfileHero({
 
 const styles = StyleSheet.create({
 	root: {},
-	cover: {height: 168, overflow: 'hidden'},
-	body: {paddingHorizontal: spacing.lg, paddingBottom: spacing.lg, gap: spacing.md, marginTop: -42},
+	/**
+	 * A cover, not a banner strip.
+	 *
+	 * 168px was a header decoration: enough to see that a photograph
+	 * exists and not enough to see what it is of. A profile is a
+	 * person standing in their own space, so the space gets the room
+	 * to be one, and the identity below sits inside its falloff.
+	 */
+	cover: {height: 232, overflow: 'hidden'},
+	body: {paddingHorizontal: spacing.lg, paddingBottom: spacing.lg, gap: spacing.md, marginTop: -52},
 	avatar: {borderWidth: 3, borderRadius: 48, alignSelf: 'flex-start'},
 	nameRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm},
 	verified: {width: 20, height: 20, borderRadius: 10, borderWidth: 1, alignItems: 'center', justifyContent: 'center'},
-	verifiedGlyph: {fontSize: 11, fontWeight: typography.weightBold},
 	actions: {flexDirection: 'row', gap: spacing.sm, flexWrap: 'wrap'},
 });

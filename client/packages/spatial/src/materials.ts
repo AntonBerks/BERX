@@ -23,7 +23,7 @@ import {
 	type BerxMaterialName,
 	type BerxMaterialSpec,
 } from './tokens';
-import {clamp, contrastRatio, flatten, mix, rgba, round} from './color';
+import {clamp, contrastRatio, flatten, rgba, round} from './color';
 
 export interface BerxMaterialSurfaceInput {
 	material: BerxMaterialName;
