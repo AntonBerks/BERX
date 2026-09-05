@@ -17,6 +17,7 @@ import React from 'react';
 import {View, Text, Pressable, StyleSheet} from 'react-native';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
+import {BerxSpatialCard} from '../../../../packages/design-system/src/spatial/BerxSpatialCard';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 
 export interface BERXWorldScreenProps {
@@ -32,10 +33,18 @@ export interface BERXWorldScreenProps {
 
 function WorldCard({label, subtitle, onPress}: {label: string; subtitle: string; onPress: () => void}) {
 	return (
-		<Pressable style={styles.card} onPress={onPress}>
+		/* D3 — each door into the world is an object standing in it,
+		   lit by the same geographic atmosphere behind them */
+		<BerxSpatialCard
+			depth="D3"
+			padding={spacing.lg}
+			radius={18}
+			onPress={onPress}
+			accessibilityLabel={`${label}. ${subtitle}`}
+			style={styles.card}>
 			<Text style={styles.cardLabel}>{label}</Text>
 			<Text style={styles.cardSubtitle}>{subtitle}</Text>
-		</Pressable>
+		</BerxSpatialCard>
 	);
 }
 
@@ -68,7 +77,7 @@ const styles = StyleSheet.create({
 	/* no opaque fill: the scene paints the room this screen stands in */
 	screen: {flex: 1},
 	grid: {padding: spacing.md, gap: spacing.sm},
-	card: {backgroundColor: colors.surface, borderRadius: radius.md, padding: spacing.md, gap: 4},
+	card: {gap: 4},
 	cardLabel: {fontSize: typography.sizeLg, color: colors.white, fontWeight: typography.weightBold},
 	cardSubtitle: {fontSize: typography.sizeSm, color: colors.textDim},
 });

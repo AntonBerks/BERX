@@ -14,6 +14,8 @@ import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
+import {BerxSpatialCard} from '../../../../packages/design-system/src/spatial/BerxSpatialCard';
+import {BerxIdentity} from '../../../../packages/design-system/src/spatial/BerxIdentity';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 
 export interface EventInviteScreenProps {
@@ -82,15 +84,24 @@ function EventInviteScreenBody({api, guid, onBack}: EventInviteScreenProps) {
 					keyExtractor={(f: BerxFriend) => String(f.guid)}
 					contentContainerStyle={styles.list}
 					renderItem={({item}: {item: BerxFriend}) => (
-						<View style={styles.row}>
-							<Image source={{uri: item.icon}} style={styles.avatar} />
-							<Text style={styles.name} numberOfLines={1}>{item.fullname}</Text>
-							{invited.has(item.guid) ? (
-								<Text style={styles.invitedLabel}>Приглашён</Text>
-							) : (
-								<BerxButton label="Пригласить" loading={busyGuid === item.guid} onPress={() => invite(item.guid)} />
-							)}
-						</View>
+						<BerxSpatialCard depth="D3" padding={spacing.md} radius={18}>
+							<BerxIdentity
+								userGuid={item.guid}
+								name={item.fullname}
+								avatarUrl={item.icon}
+								trailing={
+									invited.has(item.guid) ? (
+										<Text style={styles.invitedLabel}>Приглашён</Text>
+									) : (
+										<BerxButton
+											label="Пригласить"
+											loading={busyGuid === item.guid}
+											onPress={() => invite(item.guid)}
+										/>
+									)
+								}
+							/>
+						</BerxSpatialCard>
 					)}
 				/>
 			)}

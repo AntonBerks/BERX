@@ -295,6 +295,10 @@ const PLANE_COMPONENTS = [
 	'BerxHorizontalRail',
 	'BerxStatRail',
 	'BerxMediaGrid',
+	/* these two resolve D3 themselves, so a screen that renders them
+	   is not flat — see BerxTrackCard / BerxVideoCard */
+	'BerxTrackCard',
+	'BerxVideoCard',
 ];
 const planelessScreens = walkTsx(screensDir)
 	.filter((file) => {

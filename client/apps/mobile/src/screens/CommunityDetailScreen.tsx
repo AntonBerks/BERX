@@ -14,6 +14,8 @@ import {colors, spacing, typography} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState} from '../../../../packages/design-system/src/components/BerxStates';
+import {BerxSpatialCard} from '../../../../packages/design-system/src/spatial/BerxSpatialCard';
+import {BerxActionShelf} from '../../../../packages/design-system/src/spatial/BerxActionShelf';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 
 export interface CommunityDetailScreenProps {
@@ -95,25 +97,35 @@ function CommunityDetailScreenBody({api, guid, myGuid, onBack, onOpenRequests, o
 		<View style={styles.screen}>
 			<BerxHeader onBack={onBack} title={community.name} />
 			<View style={styles.content}>
-				<Text style={styles.name}>{community.name}</Text>
-				<Text style={styles.privacy}>{community.privacy === 'private' ? 'Закрытое сообщество' : 'Открытое сообщество'}</Text>
-				{community.description ? <Text style={styles.description}>{community.description}</Text> : null}
+				{/* D3 — who this community is. The API carries no cover or
+				    icon for a community, so its identity is its name,
+				    its openness and what it says about itself — stated,
+				    not padded out with a stock image. */}
+				<BerxSpatialCard depth="D3" padding={spacing.lg} radius={22}>
+					<Text style={styles.name}>{community.name}</Text>
+					<Text style={styles.privacy}>{community.privacy === 'private' ? 'Закрытое сообщество' : 'Открытое сообщество'}</Text>
+					{community.description ? <Text style={styles.description}>{community.description}</Text> : null}
 
-				<BerxButton
-					label={community.is_member ? 'Покинуть сообщество' : 'Вступить'}
-					variant={community.is_member ? 'secondary' : 'primary'}
-					onPress={handleJoinLeave}
-					loading={acting}
-					fullWidth
-				/>
-
-				{onOpenMembers ? <BerxButton label="Участники" variant="secondary" onPress={() => onOpenMembers(guid)} fullWidth /> : null}
+					{/* D4 — the membership decision, on the control plane */}
+					<BerxActionShelf variant="anchored" align="stack">
+						<BerxButton
+							label={community.is_member ? 'Покинуть сообщество' : 'Вступить'}
+							variant={community.is_member ? 'secondary' : 'primary'}
+							onPress={handleJoinLeave}
+							loading={acting}
+							fullWidth
+						/>
+						{onOpenMembers ? <BerxButton label="Участники" variant="secondary" onPress={() => onOpenMembers(guid)} fullWidth /> : null}
+					</BerxActionShelf>
+				</BerxSpatialCard>
 
 				{myGuid && community.owner_guid === myGuid ? (
-					<View style={styles.ownerActions}>
+					/* the owner's tools are a separate object: managing the
+					   community is not the same act as being in it */
+					<BerxActionShelf variant="anchored" align="stack" style={styles.ownerActions}>
 						{onOpenRequests ? <BerxButton label="Заявки на вступление" variant="secondary" onPress={() => onOpenRequests(guid)} fullWidth /> : null}
 						{onOpenModerators ? <BerxButton label="Модераторы" variant="secondary" onPress={() => onOpenModerators(guid)} fullWidth /> : null}
-					</View>
+					</BerxActionShelf>
 				) : null}
 
 				{myGuid && community.owner_guid !== myGuid && onReport ? (

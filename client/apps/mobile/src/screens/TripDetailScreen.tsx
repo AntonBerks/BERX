@@ -12,6 +12,7 @@ import type {BerxTripDetail, BerxTripStop, BerxTripParticipant, BerxFriend} from
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
+import {BerxSpatialCard} from '../../../../packages/design-system/src/spatial/BerxSpatialCard';
 import {BerxFamilyScene, useBerxSceneAtmosphere} from '../spatial/BerxScreenScene';
 
 export interface TripDetailScreenProps {
@@ -156,21 +157,30 @@ function TripDetailScreenBody({api, id, onOpenPlace, onOpenEvent, onBack}: TripD
 						<View style={styles.dayBlock}>
 							<Text style={styles.dayLabel}>День {day}</Text>
 							{stops.map((s: BerxTripStop) => (
-								<Pressable
+								<BerxSpatialCard
 									key={s.stop_id}
-									style={styles.stopRow}
-									onPress={() => (s.item_type === 'place' ? onOpenPlace(s.item_guid) : onOpenEvent(s.item_guid))}>
+									depth="D3"
+									padding={spacing.md}
+									radius={18}
+									onPress={() => (s.item_type === 'place' ? onOpenPlace(s.item_guid) : onOpenEvent(s.item_guid))}
+									accessibilityLabel={`${s.title}, ${s.item_type === 'place' ? 'место' : 'событие'}, день ${day}`}>
+									<View style={styles.stopRow}>
 									{s.image_url ? <Image source={{uri: s.image_url}} style={styles.thumb} /> : <View style={styles.thumbFallback} />}
 									<View style={styles.stopBody}>
 										<Text style={styles.stopTitle} numberOfLines={1}>{s.title}</Text>
 										<Text style={styles.stopType}>{s.item_type === 'place' ? 'Место' : 'Событие'}</Text>
 									</View>
 									{trip.is_own ? (
-										<Pressable onPress={() => removeStop(s.stop_id)} hitSlop={8}>
+										<Pressable
+											onPress={() => removeStop(s.stop_id)}
+											hitSlop={8}
+											accessibilityRole="button"
+											accessibilityLabel={`Убрать ${s.title} из поездки`}>
 											<Text style={styles.remove}>✕</Text>
 										</Pressable>
 									) : null}
-								</Pressable>
+									</View>
+								</BerxSpatialCard>
 							))}
 						</View>
 					)}

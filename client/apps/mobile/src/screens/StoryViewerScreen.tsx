@@ -26,6 +26,8 @@ import {View, Text, Image, Pressable, Animated, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxStoryFeedGroup} from '@berx/api/types';
 import {colors, spacing, typography} from '@berx/design-system/tokens';
+import {BerxActionShelf} from '../../../../packages/design-system/src/spatial/BerxActionShelf';
+import {useBerxScene} from '../../../../packages/design-system/src/spatial/BerxSpatialScene';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 
 export interface StoryViewerScreenProps {
@@ -90,6 +92,14 @@ function StoryViewerScreenBody({
 }) {
 	const [paused, setPaused] = useState(false);
 	const [deleting, setDeleting] = useState(false);
+	/**
+	 * The planes of a story: D1 is the story itself, dimmed, filling
+	 * the room around it; D2 is the progress track; D3 is the frame
+	 * you are looking at; D4 is everything you can do to it; D5 is the
+	 * segment currently running, which is the only thing on screen
+	 * that is actively happening.
+	 */
+	const {scene} = useBerxScene();
 	const progress = useRef(new Animated.Value(0)).current;
 	const isOwn = group.owner_guid === myGuid;
 
@@ -155,10 +165,13 @@ function StoryViewerScreenBody({
 		<View style={styles.screen}>
 			<View style={styles.progressRow}>
 				{group.stories.map((s, i) => (
-					<View key={s.id} style={styles.progressTrack}>
+					/* D2 — the track is structure */
+					<View key={s.id} style={[styles.progressTrack, {backgroundColor: scene.layers.D2.surface.backgroundColor}]}>
 						<Animated.View
 							style={[
 								styles.progressFill,
+								/* D5 — the running segment is the live one */
+								{backgroundColor: i === index ? scene.layers.D5.surface.glowColor : scene.accent},
 								{
 									width:
 										i < index
@@ -203,16 +216,26 @@ function StoryViewerScreenBody({
 				/>
 			</View>
 
+			{/* D4 — who this is and what you can do about it, on the
+			    control plane, where it stays readable over any frame */}
 			<View style={styles.footer}>
-				{current.caption ? <Text style={styles.caption}>{current.caption}</Text> : null}
-				<View style={styles.footerRow}>
-					<Text style={styles.owner}>{group.owner_username ?? `#${group.owner_guid}`}</Text>
+				<BerxActionShelf variant="anchored" align="spread">
+					<View style={styles.footerText}>
+						{current.caption ? <Text style={styles.caption}>{current.caption}</Text> : null}
+						<Text style={styles.owner}>{group.owner_username ?? `#${group.owner_guid}`}</Text>
+					</View>
 					{isOwn ? (
-						<Pressable onPress={handleDelete} disabled={deleting}>
+						<Pressable
+							onPress={handleDelete}
+							disabled={deleting}
+							accessibilityRole="button"
+							accessibilityLabel="Удалить историю"
+							accessibilityState={{disabled: deleting}}
+							hitSlop={12}>
 							<Text style={styles.deleteText}>{deleting ? '...' : 'Удалить'}</Text>
 						</Pressable>
 					) : null}
-				</View>
+				</BerxActionShelf>
 			</View>
 
 			<Pressable style={styles.closeButton} onPress={onClose} hitSlop={12}>
@@ -227,8 +250,8 @@ const styles = StyleSheet.create({
 	   would hide the atmosphere the story itself provides */
 	screen: {flex: 1},
 	progressRow: {flexDirection: 'row', gap: spacing.xs, padding: spacing.md, paddingTop: spacing.xl},
-	progressTrack: {flex: 1, height: 3, backgroundColor: colors.glass2, borderRadius: 2, overflow: 'hidden'},
-	progressFill: {height: '100%', backgroundColor: colors.accent},
+	progressTrack: {flex: 1, height: 3, borderRadius: 2, overflow: 'hidden'},
+	progressFill: {height: '100%'},
 	media: {flex: 1, width: '100%'},
 	videoFallback: {flex: 1, width: '100%', alignItems: 'center', justifyContent: 'center', gap: spacing.sm},
 	videoFallbackText: {color: colors.white, fontSize: typography.sizeLg, fontWeight: typography.weightBold},
@@ -237,6 +260,7 @@ const styles = StyleSheet.create({
 	tapLeft: {flex: 1},
 	tapRight: {flex: 1},
 	footer: {position: 'absolute', bottom: 0, left: 0, right: 0, padding: spacing.lg},
+	footerText: {flex: 1, gap: 2},
 	footerRow: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'},
 	caption: {color: colors.text, fontSize: typography.sizeBase, marginBottom: spacing.sm},
 	owner: {color: colors.textDim, fontSize: typography.sizeSm},

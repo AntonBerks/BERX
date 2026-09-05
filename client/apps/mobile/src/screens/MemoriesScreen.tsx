@@ -11,6 +11,7 @@ import type {BerxMemory} from '@berx/api/types';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
+import {BerxSpatialCard} from '../../../../packages/design-system/src/spatial/BerxSpatialCard';
 import {BerxFamilyScene, useBerxSceneAtmosphere} from '../spatial/BerxScreenScene';
 
 export interface MemoriesScreenProps {
@@ -108,10 +109,14 @@ function MemoriesScreenBody({api, onOpenPost, onOpenAlbum, onBack}: MemoriesScre
 						<View style={styles.section}>
 							<Text style={styles.sectionTitle}>{yearsAgoLabel(section.yearsAgo)}</Text>
 							{section.items.map((m: BerxMemory) => (
-								<Pressable
+								<BerxSpatialCard
 									key={`${m.type}-${m.guid}`}
-									style={styles.row}
-									onPress={() => (m.type === 'post' ? onOpenPost(m.guid) : onOpenAlbum(m.album_guid ?? m.guid))}>
+									depth="D3"
+									padding={spacing.md}
+									radius={18}
+									onPress={() => (m.type === 'post' ? onOpenPost(m.guid) : onOpenAlbum(m.album_guid ?? m.guid))}
+									accessibilityLabel={`${m.text || 'Фото'}, ${fmtDate(m.time)}`}>
+									<View style={styles.row}>
 									{m.type === 'photo' && m.url ? (
 										<Image source={{uri: m.url}} style={styles.thumb} />
 									) : (
@@ -125,7 +130,8 @@ function MemoriesScreenBody({api, onOpenPost, onOpenAlbum, onBack}: MemoriesScre
 										)}
 										<Text style={styles.rowMeta}>{fmtDate(m.time)}</Text>
 									</View>
-								</Pressable>
+									</View>
+								</BerxSpatialCard>
 							))}
 						</View>
 					)}

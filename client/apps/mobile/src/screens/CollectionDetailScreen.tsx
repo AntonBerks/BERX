@@ -13,6 +13,7 @@ import type {BerxCollectionDetail, BerxCollectionItem} from '@berx/api/types';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
+import {BerxSpatialCard} from '../../../../packages/design-system/src/spatial/BerxSpatialCard';
 import {BerxFamilyScene, useBerxSceneAtmosphere} from '../spatial/BerxScreenScene';
 
 export interface CollectionDetailScreenProps {
@@ -97,7 +98,13 @@ function CollectionDetailScreenBody({api, id, onOpenPlace, onOpenEvent, onOpenPo
 					keyExtractor={(i: BerxCollectionItem) => `${i.item_type}-${i.item_guid}`}
 					contentContainerStyle={styles.list}
 					renderItem={({item}: {item: BerxCollectionItem}) => (
-						<Pressable style={styles.row} onPress={() => openItem(item)}>
+						<BerxSpatialCard
+							depth="D3"
+							padding={spacing.md}
+							radius={18}
+							onPress={() => openItem(item)}
+							accessibilityLabel={item.title}>
+							<View style={styles.row}>
 							{item.image_url ? <Image source={{uri: item.image_url}} style={styles.thumb} /> : <View style={styles.thumbFallback} />}
 							<View style={styles.rowBody}>
 								<Text style={styles.title} numberOfLines={1}>{item.title}</Text>
@@ -108,7 +115,8 @@ function CollectionDetailScreenBody({api, id, onOpenPlace, onOpenEvent, onOpenPo
 									<Text style={styles.remove}>✕</Text>
 								</Pressable>
 							) : null}
-						</Pressable>
+						</View>
+						</BerxSpatialCard>
 					)}
 				/>
 			)}

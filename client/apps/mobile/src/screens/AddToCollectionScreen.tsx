@@ -13,6 +13,7 @@ import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
+import {BerxSpatialCard} from '../../../../packages/design-system/src/spatial/BerxSpatialCard';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 
 export interface AddToCollectionScreenProps {
@@ -90,12 +91,20 @@ function AddToCollectionScreenBody({api, myGuid, itemType, itemGuid, onCreateCol
 					renderItem={({item}: {item: BerxCollection}) => {
 						const added = addedIds.has(item.id);
 						return (
-							<Pressable style={styles.row} disabled={added} onPress={() => addTo(item.id)}>
-								<Text style={styles.title}>{item.title}</Text>
-								<Text style={added ? styles.added : busyId === item.id ? styles.busy : styles.action}>
-									{added ? 'Добавлено' : busyId === item.id ? '...' : 'Добавить'}
-								</Text>
-							</Pressable>
+							<BerxSpatialCard
+								depth="D3"
+								padding={spacing.md}
+								radius={18}
+								disabled={added}
+								onPress={() => addTo(item.id)}
+								accessibilityLabel={added ? `${item.title}, уже добавлено` : `Добавить в ${item.title}`}>
+								<View style={styles.row}>
+									<Text style={styles.title}>{item.title}</Text>
+									<Text style={added ? styles.added : busyId === item.id ? styles.busy : styles.action}>
+										{added ? 'Добавлено' : busyId === item.id ? '...' : 'Добавить'}
+									</Text>
+								</View>
+							</BerxSpatialCard>
 						);
 					}}
 				/>

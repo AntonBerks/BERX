@@ -13,6 +13,8 @@ import type {BerxWrapped, BerxWrappedPeriod} from '@berx/api/types';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
+import {BerxStatRail} from '../../../../packages/design-system/src/spatial/BerxStatRail';
+import {BerxSegmentTabs} from '../../../../packages/design-system/src/components/BerxBusinessPrimitives';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 
 export interface WrappedScreenProps {
@@ -64,25 +66,36 @@ function WrappedScreenBody({api, onBack}: WrappedScreenProps) {
 	return (
 		<View style={styles.screen}>
 			<BerxHeader title="BERX Wrapped" onBack={onBack} />
+			{/* was two <Text> elements with onPress — invisible to a
+			    screen reader as controls, and unreachable by keyboard.
+			    The archive's segmented control announces the selection. */}
 			<View style={styles.tabs}>
-				<Text style={[styles.tab, period === 'week' && styles.tabActive]} onPress={() => setPeriod('week')}>Неделя</Text>
-				<Text style={[styles.tab, period === 'month' && styles.tabActive]} onPress={() => setPeriod('month')}>Месяц</Text>
+				<BerxSegmentTabs
+					options={[
+						{key: 'week' as BerxWrappedPeriod, label: 'Неделя'},
+						{key: 'month' as BerxWrappedPeriod, label: 'Месяц'},
+					]}
+					value={period}
+					onChange={setPeriod}
+				/>
 			</View>
 
 			{data.insufficient_data ? (
 				<BerxEmptyState title="Пока маловато активности" subtitle="Как только вы больше сделаете в BERX, здесь появится ваш реальный итог." />
 			) : (
 				<View style={styles.list}>
-					{ROWS.map((row) => {
-						const value = data[row.key];
-						if (typeof value !== 'number' || value === 0) return null;
-						return (
-							<View key={row.key} style={styles.row}>
-								<Text style={styles.value}>{value}</Text>
-								<Text style={styles.label}>{row.label}</Text>
-							</View>
-						);
-					})}
+					{/* the archive's own stat rail: real counts only, and a
+					    zero is omitted rather than shown as an achievement */}
+					<BerxStatRail
+						stats={ROWS.map((row) => {
+							const value = data[row.key];
+							return {
+								key: row.key,
+								label: row.label,
+								value: typeof value === 'number' && value > 0 ? value : undefined,
+							};
+						})}
+					/>
 				</View>
 			)}
 		</View>

@@ -13,6 +13,7 @@ import type {BerxCircleDetail, BerxCircleMember, BerxFriend} from '@berx/api/typ
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
+import {BerxSpatialCard} from '../../../../packages/design-system/src/spatial/BerxSpatialCard';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 
 export interface CircleDetailScreenProps {
@@ -124,13 +125,15 @@ function CircleDetailScreenBody({api, id, onBack}: CircleDetailScreenProps) {
 					keyExtractor={(m: BerxCircleMember) => String(m.guid)}
 					contentContainerStyle={styles.list}
 					renderItem={({item}: {item: BerxCircleMember}) => (
-						<View style={styles.row}>
+						<BerxSpatialCard depth="D3" padding={spacing.md} radius={18}>
+							<View style={styles.row}>
 							<Image source={{uri: item.icon}} style={styles.avatar} />
 							<Text style={styles.name} numberOfLines={1}>{item.fullname}</Text>
 							<Pressable onPress={() => removeMember(item.guid)} hitSlop={8} disabled={busyGuid === item.guid}>
 								<Text style={styles.remove}>✕</Text>
 							</Pressable>
 						</View>
+						</BerxSpatialCard>
 					)}
 				/>
 			)}

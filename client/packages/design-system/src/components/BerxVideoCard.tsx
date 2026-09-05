@@ -12,6 +12,7 @@
 import React from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { colors, spacing, radius, typography } from '../tokens';
+import { BerxSpatialCard } from '../spatial/BerxSpatialCard';
 import type { BerxVideoPost } from '@berx/api/types';
 
 export interface BerxVideoCardProps {
@@ -22,7 +23,14 @@ export interface BerxVideoCardProps {
 
 export function BerxVideoCard({ video, onPress, onOpenProfile }: BerxVideoCardProps) {
 	return (
-		<Pressable style={styles.card} onPress={() => onPress(video)}>
+		/* D3 — the video sits on the content plane as an object */
+		<BerxSpatialCard
+			depth="D3"
+			padding={0}
+			radius={radius.md}
+			onPress={() => onPress(video)}
+			accessibilityLabel={`Видео ${video.owner_username ?? 'BERX'}${video.text ? `: ${video.text}` : ''}`}
+			style={styles.card}>
 			<View style={styles.poster}>
 				<View style={styles.playBadge}>
 					<Text style={styles.playGlyph}>▶</Text>
@@ -42,7 +50,7 @@ export function BerxVideoCard({ video, onPress, onOpenProfile }: BerxVideoCardPr
 				{video.text ? <Text style={styles.text} numberOfLines={2}>{video.text}</Text> : null}
 				<Text style={styles.meta}>{video.like_count} нравится · {video.comment_count} комментариев</Text>
 			</View>
-		</Pressable>
+		</BerxSpatialCard>
 	);
 }
 
@@ -53,7 +61,7 @@ function formatDuration(seconds: number): string {
 }
 
 const styles = StyleSheet.create({
-	card: { backgroundColor: colors.surface, borderRadius: radius.md, overflow: 'hidden', marginBottom: spacing.sm },
+	card: { overflow: 'hidden', marginBottom: spacing.sm },
 	poster: { aspectRatio: 16 / 9, backgroundColor: colors.graphite, alignItems: 'center', justifyContent: 'center' },
 	playBadge: { width: 48, height: 48, borderRadius: radius.pill, backgroundColor: 'rgba(5,5,5,0.55)', alignItems: 'center', justifyContent: 'center' },
 	playGlyph: { color: colors.white, fontSize: typography.sizeLg },
