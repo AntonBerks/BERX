@@ -22,6 +22,7 @@ import {BerxLoadingState, BerxErrorState} from '../../../../packages/design-syst
 import {BerxDiscussion} from '../../../../packages/design-system/src/components/BerxDiscussion';
 import {BerxSceneScroll} from '../../../../packages/design-system/src/spatial/BerxSceneScroll';
 import {BerxSection} from '../../../../packages/design-system/src/spatial/BerxSection';
+import {berxCount} from '@berx/domain';
 
 export interface EventDetailScreenProps {
 	api: BerxApiClient;
@@ -32,16 +33,6 @@ export interface EventDetailScreenProps {
 	onAddToCollection?: () => void;
 	onAddEventStory?: (eventGuid: number) => void;
 	onBack?: () => void;
-}
-
-/** Real Russian plural agreement on the real attendee count. */
-function attendeeCountLabel(count: number): string | undefined {
-	if (count === 0) return undefined;
-	const mod10 = count % 10;
-	const mod100 = count % 100;
-	if (mod10 === 1 && mod100 !== 11) return `${count} участник`;
-	if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return `${count} участника`;
-	return `${count} участников`;
 }
 
 export default function EventDetailScreen(props: EventDetailScreenProps) {
@@ -202,7 +193,7 @@ function EventDetailSceneBody({api, guid, myGuid, onOpenPlace, onOpenInvite, onA
 					</BerxSection>
 				) : null}
 
-				<BerxSection label="Участники" detail={attendeeCountLabel(event.attendee_count)}>
+				<BerxSection label="Участники" detail={(event.attendee_count > 0 ? berxCount(event.attendee_count, 'участник', 'участника', 'участников') : undefined)}>
 					<FlatList
 						horizontal
 						showsHorizontalScrollIndicator={false}

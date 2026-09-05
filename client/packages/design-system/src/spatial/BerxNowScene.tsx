@@ -12,13 +12,13 @@
  * distance list instead, which is a smaller promise that BERX can
  * actually keep.
  */
-import {StyleSheet, Text, View} from 'react-native';
-import {useBerxScene} from './BerxSpatialScene';
+import {StyleSheet, View} from 'react-native';
 import {BerxDepthLayer} from './BerxDepthLayer';
 import {BerxEnergyHalo} from './BerxEnergyHalo';
 import {BerxNowRail, type BerxNowItem} from './BerxNowRail';
-import {spacing, typography} from '../tokens';
+import {spacing} from '../tokens';
 import {BerxText} from './BerxText';
+import {berxPlural} from '@berx/domain';
 
 export interface BerxNowSceneProps {
 	items: readonly BerxNowItem[];
@@ -40,7 +40,6 @@ export interface BerxNowSceneProps {
 }
 
 export function BerxNowScene({items, liveCount, placesWithoutHours, hasLocation, header, testID}: BerxNowSceneProps) {
-	const {scene} = useBerxScene();
 
 	return (
 		<View testID={testID} style={styles.root}>
@@ -51,10 +50,13 @@ export function BerxNowScene({items, liveCount, placesWithoutHours, hasLocation,
 				<View style={styles.pulse}>
 					<BerxEnergyHalo size={76} intensity={liveCount > 0 ? Math.min(1, 0.4 + liveCount / 12) : 0.15} />
 					<View style={styles.pulseText}>
-						<Text style={[styles.count, {color: scene.accent}]} accessibilityLiveRegion="polite">
-							{liveCount}
-						</Text>
-						<BerxText role="meta" emphasis="secondary">{liveCount === 1 ? 'событие сейчас' : 'событий сейчас'}</BerxText>
+						<BerxText role="numeric" emphasis="accent" liveRegion="polite">
+							{String(liveCount)}
+						</BerxText>
+						{/* three Russian forms, not two: "2 событий" is wrong,
+						    and a live counter that prints the wrong word is
+						    the first thing anybody notices about it */}
+						<BerxText role="meta" emphasis="secondary">{`${berxPlural(liveCount, 'событие', 'события', 'событий')} сейчас`}</BerxText>
 					</View>
 				</View>
 			</BerxDepthLayer>
@@ -82,6 +84,5 @@ const styles = StyleSheet.create({
 	pulseLayer: {alignItems: 'center'},
 	pulse: {alignItems: 'center', justifyContent: 'center', height: 96},
 	pulseText: {position: 'absolute', alignItems: 'center'},
-	count: {fontSize: typography.sizeHero, fontWeight: typography.weightBold},
 	note: {paddingHorizontal: spacing.lg},
 });

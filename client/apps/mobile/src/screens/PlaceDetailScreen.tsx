@@ -25,6 +25,7 @@ import {BerxLoadingState, BerxErrorState} from '../../../../packages/design-syst
 import {BerxDiscussion} from '../../../../packages/design-system/src/components/BerxDiscussion';
 import {BerxSceneScroll} from '../../../../packages/design-system/src/spatial/BerxSceneScroll';
 import {BerxSection} from '../../../../packages/design-system/src/spatial/BerxSection';
+import {berxCount} from '@berx/domain';
 
 export interface PlaceDetailScreenProps {
 	api: BerxApiClient;
@@ -33,20 +34,6 @@ export interface PlaceDetailScreenProps {
 	onAddToCollection?: () => void;
 	onOpenBusinessDashboard?: (placeGuid: number) => void;
 	onBack?: () => void;
-}
-
-/**
- * Russian plural agreement on a real count. "1 отзыв", "2 отзыва",
- * "5 отзывов" are three different words, and a section header that
- * prints the wrong one looks unfinished however well the room is lit.
- */
-function reviewCountLabel(count: number): string | undefined {
-	if (count === 0) return undefined;
-	const mod10 = count % 10;
-	const mod100 = count % 100;
-	if (mod10 === 1 && mod100 !== 11) return `${count} отзыв`;
-	if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return `${count} отзыва`;
-	return `${count} отзывов`;
 }
 
 export default function PlaceDetailScreen(props: PlaceDetailScreenProps) {
@@ -317,7 +304,7 @@ function PlaceDetailSceneBody({api, guid, myGuid, onAddToCollection, onOpenBusin
 					</BerxSection>
 				) : null}
 
-				<BerxSection label="Отзывы" detail={reviewCountLabel(reviews.length)}>
+				<BerxSection label="Отзывы" detail={reviews.length > 0 ? berxCount(reviews.length, 'отзыв', 'отзыва', 'отзывов') : undefined}>
 				{!isOwner && !alreadyReviewed ? (
 					<View style={styles.reviewForm}>
 						<View style={styles.starRow}>

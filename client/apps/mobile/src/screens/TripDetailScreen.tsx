@@ -19,6 +19,7 @@ import {BerxSceneHero} from '../../../../packages/design-system/src/spatial/Berx
 import {BerxAvatarCluster} from '../../../../packages/design-system/src/spatial/BerxAvatarCluster';
 import {BerxText} from '../../../../packages/design-system/src/spatial/BerxText';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
+import {berxCount} from '@berx/domain';
 
 export interface TripDetailScreenProps {
 	api: BerxApiClient;
@@ -43,13 +44,7 @@ function groupByDay(stops: BerxTripStop[]): [number, BerxTripStop[]][] {
  */
 function tripMeta(trip: {stop_count: number; start_date: number | null; end_date: number | null}): string | undefined {
 	const parts: string[] = [];
-	if (trip.stop_count > 0) {
-		const n = trip.stop_count;
-		const mod10 = n % 10;
-		const mod100 = n % 100;
-		const word = mod10 === 1 && mod100 !== 11 ? 'точка' : mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14) ? 'точки' : 'точек';
-		parts.push(`${n} ${word}`);
-	}
+	if (trip.stop_count > 0) parts.push(berxCount(trip.stop_count, 'точка', 'точки', 'точек'));
 	if (trip.start_date) {
 		const from = new Date(trip.start_date * 1000).toLocaleDateString('ru-RU', {day: 'numeric', month: 'short'});
 		const to = trip.end_date ? new Date(trip.end_date * 1000).toLocaleDateString('ru-RU', {day: 'numeric', month: 'short'}) : null;

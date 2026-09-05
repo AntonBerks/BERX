@@ -61,3 +61,33 @@ export function relativeTimeLabel(unixSeconds: number, nowMs: number = Date.now(
 	const date = new Date(unixSeconds * 1000);
 	return date.toLocaleDateString('ru-RU');
 }
+
+/**
+ * Russian plural agreement, in one place.
+ *
+ * Russian has three forms where English has two, and the split is not
+ * singular-vs-plural: 1 takes one form, 2–4 take a second, 5–20 and
+ * everything ending in 0 or 5–9 take a third, and the teens are an
+ * exception to all of it. Six screens had each written their own
+ * two-branch version of this, so every count from 2 to 4 printed the
+ * wrong word — "2 отзывов", "3 участников", "2 дней подряд". Nobody
+ * reads that as a rendering bug; they read it as an app that was not
+ * finished.
+ *
+ * Pure, no I/O, and the same arithmetic every caller was approximating:
+ *
+ *   berxPlural(2, 'отзыв', 'отзыва', 'отзывов') === 'отзыва'
+ */
+export function berxPlural(count: number, one: string, few: string, many: string): string {
+	const n = Math.abs(Math.trunc(count));
+	const mod10 = n % 10;
+	const mod100 = n % 100;
+	if (mod10 === 1 && mod100 !== 11) return one;
+	if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return few;
+	return many;
+}
+
+/** The count and its agreeing word: `berxCount(3, 'отзыв', 'отзыва', 'отзывов')` → "3 отзыва". */
+export function berxCount(count: number, one: string, few: string, many: string): string {
+	return `${count} ${berxPlural(count, one, few, many)}`;
+}

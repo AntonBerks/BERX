@@ -24,7 +24,7 @@ import {useCallback, useEffect, useState} from 'react';
 import {RefreshControl, StyleSheet, View, Pressable} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxFeedItem, BerxStoryFeedGroup} from '@berx/api/types';
-import {relativeTimeLabel} from '@berx/domain';
+import {berxCount, relativeTimeLabel} from '@berx/domain';
 import type {BerxScreenState} from '@berx/spatial';
 import {colors, spacing} from '@berx/design-system/tokens';
 import {IconPlus} from '../../../../packages/design-system/src/components/BerxIcons';
@@ -49,19 +49,6 @@ interface Props {
 	onCreatePost: () => void;
 	onOpenStoryGroup: (group: BerxStoryFeedGroup) => void;
 	onCreateStory: () => void;
-}
-
-/**
- * Real Russian plural agreement on a real count. "5 постов" and "1
- * пост" are different words, and a screen that prints the wrong one
- * looks unfinished in a way no amount of depth compensates for.
- */
-function postCountLabel(count: number): string {
-	const mod10 = count % 10;
-	const mod100 = count % 100;
-	if (mod10 === 1 && mod100 !== 11) return `${count} пост на вашей стене`;
-	if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return `${count} поста на вашей стене`;
-	return `${count} постов на вашей стене`;
 }
 
 export default function FeedScreen(props: Props) {
@@ -156,7 +143,7 @@ function FeedSceneBody({api, onOpenPost, onOpenProfile, onCreatePost, onOpenStor
 		<BerxSceneHeader
 			mark
 			title="Лента"
-			subtitle={items.length > 0 ? postCountLabel(items.length) : undefined}
+			subtitle={items.length > 0 ? `${berxCount(items.length, 'пост', 'поста', 'постов')} на вашей стене` : undefined}
 			actions={
 				<Pressable
 					onPress={onCreatePost}

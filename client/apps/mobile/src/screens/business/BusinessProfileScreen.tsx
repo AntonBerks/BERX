@@ -20,6 +20,7 @@ import {BerxSection} from '../../../../../packages/design-system/src/spatial/Ber
 import {BerxLoadingState, BerxErrorState} from '../../../../../packages/design-system/src/components/BerxStates';
 import {BerxText} from '../../../../../packages/design-system/src/spatial/BerxText';
 import {BerxSceneScroll} from '../../../../../packages/design-system/src/spatial/BerxSceneScroll';
+import {berxCount} from '@berx/domain';
 
 export interface BusinessProfileScreenProps {
 	api: BerxApiClient;
@@ -49,20 +50,6 @@ function InfoRow({icon, label}: {icon: BerxIconName; label: string}) {
 			<BerxText role="meta" emphasis="secondary" style={styles.infoText}>{label}</BerxText>
 		</View>
 	);
-}
-
-/**
- * Russian plural agreement on the real review count — "1 отзыв",
- * "2 отзыва", "5 отзывов". The screen used to choose between exactly
- * two of those three words, so every count from 2 to 4 was wrong.
- */
-function ratingCountLabel(count: number): string | undefined {
-	if (count === 0) return undefined;
-	const mod10 = count % 10;
-	const mod100 = count % 100;
-	if (mod10 === 1 && mod100 !== 11) return `${count} отзыв`;
-	if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return `${count} отзыва`;
-	return `${count} отзывов`;
 }
 
 export default function BusinessProfileScreen(props: BusinessProfileScreenProps) {
@@ -134,7 +121,7 @@ function BusinessProfileScreenBody({api, placeGuid, onBack}: BusinessProfileScre
 				</BerxGlassSurface>
 				</BerxSection>
 
-				<BerxSection label="Рейтинг" detail={ratingCountLabel(place.rating_count)}>
+				<BerxSection label="Рейтинг" detail={(place.rating_count > 0 ? berxCount(place.rating_count, 'отзыв', 'отзыва', 'отзывов') : undefined)}>
 				<BerxGlassSurface style={styles.ratingCard}>
 					<BerxText role="display">{place.rating.toFixed(1)}</BerxText>
 					<BerxStars value={place.rating} />

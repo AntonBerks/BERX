@@ -16,6 +16,7 @@ import {BerxFamilyScene, useBerxSceneAtmosphere} from '../spatial/BerxScreenScen
 import {BerxSection} from '../../../../packages/design-system/src/spatial/BerxSection';
 import {BerxSceneHero} from '../../../../packages/design-system/src/spatial/BerxSceneHero';
 import {BerxText} from '../../../../packages/design-system/src/spatial/BerxText';
+import {berxCount} from '@berx/domain';
 
 export interface ExperienceDetailScreenProps {
 	api: BerxApiClient;
@@ -33,16 +34,6 @@ const STATUS_LABEL: Record<string, string> = {
 
 function fmtWhen(unix: number): string {
 	return new Date(unix * 1000).toLocaleString('ru-RU', {day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit'});
-}
-
-/** Real Russian plural agreement on the real participant count. */
-function participantCountLabel(count: number): string | undefined {
-	if (count === 0) return undefined;
-	const mod10 = count % 10;
-	const mod100 = count % 100;
-	if (mod10 === 1 && mod100 !== 11) return `${count} участник`;
-	if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return `${count} участника`;
-	return `${count} участников`;
 }
 
 export default function ExperienceDetailScreen(props: ExperienceDetailScreenProps) {
@@ -200,7 +191,7 @@ function ExperienceDetailScreenBody({api, id, onOpenPlace, onOpenEvent, onBack}:
 					)
 				) : null}
 
-				<BerxSection label="Участники" detail={participantCountLabel(experience.participants.length)}>
+				<BerxSection label="Участники" detail={(experience.participants.length > 0 ? berxCount(experience.participants.length, 'участник', 'участника', 'участников') : undefined)}>
 					{experience.participants.map((p: BerxExperienceParticipant) => (
 						<View key={p.guid} style={styles.participantRow}>
 							<Image source={{uri: p.icon}} style={styles.participantAvatar} />

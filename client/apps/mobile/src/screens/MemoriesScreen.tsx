@@ -16,6 +16,7 @@ import {BerxFamilyScene, useBerxSceneAtmosphere} from '../spatial/BerxScreenScen
 import {BerxEyebrow} from '../../../../packages/design-system/src/components/BerxBusinessPrimitives';
 import {BerxSceneList} from '../../../../packages/design-system/src/spatial/BerxSceneList';
 import {BerxText} from '../../../../packages/design-system/src/spatial/BerxText';
+import {berxCount} from '@berx/domain';
 
 export interface MemoriesScreenProps {
 	api: BerxApiClient;
@@ -25,12 +26,10 @@ export interface MemoriesScreenProps {
 }
 
 function yearsAgoLabel(n: number): string {
+	/* one year ago is named rather than counted; everything else takes
+	   the shared agreement rule */
 	if (n === 1) return 'Год назад';
-	const mod10 = n % 10;
-	const mod100 = n % 100;
-	if (mod10 === 1 && mod100 !== 11) return `${n} год назад`;
-	if ([2, 3, 4].includes(mod10) && ![12, 13, 14].includes(mod100)) return `${n} года назад`;
-	return `${n} лет назад`;
+	return `${berxCount(n, 'год', 'года', 'лет')} назад`;
 }
 
 function fmtDate(unix: number): string {

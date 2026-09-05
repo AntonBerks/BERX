@@ -13,7 +13,7 @@ import {useCallback, useEffect, useState} from 'react';
 import {View, Text, FlatList, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxPointsBalance, BerxPointsHistoryEntry} from '@berx/api/types';
-import {relativeTimeLabel} from '@berx/domain';
+import {berxCount, relativeTimeLabel} from '@berx/domain';
 import {colors, spacing, typography} from '@berx/design-system/tokens';
 import {BerxRewardCard} from '../../../../packages/design-system/src/spatial/BerxRewardCard';
 import {BerxProgressRing} from '../../../../packages/design-system/src/spatial/BerxProgressRing';
@@ -167,7 +167,8 @@ function PointsSceneBody({api, onBack}: PointsScreenProps) {
 					<View style={styles.streakRow}>
 								<BerxText role="heading">🔥</BerxText>
 								<View>
-									<BerxText role="callout">{balance.current_streak} {balance.current_streak === 1 ? 'день' : 'дней'} подряд</BerxText>
+									{/* three forms, not two: 2–4 days are "дня" */}
+									<BerxText role="callout">{`${berxCount(balance.current_streak, 'день', 'дня', 'дней')} подряд`}</BerxText>
 									<BerxText role="meta" emphasis="tertiary">Лучший результат: {balance.longest_streak}</BerxText>
 								</View>
 							</View>

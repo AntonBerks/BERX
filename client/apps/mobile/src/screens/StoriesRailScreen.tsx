@@ -31,22 +31,13 @@ import {useBerxConnectivity} from '../spatial/useBerxConnectivity';
 import {berxAnalytics} from '../spatial/analytics';
 import {BerxText} from '../../../../packages/design-system/src/spatial/BerxText';
 import {BerxSection} from '../../../../packages/design-system/src/spatial/BerxSection';
+import {berxCount} from '@berx/domain';
 
 export interface StoriesRailScreenProps {
 	api: BerxApiClient;
 	onOpenGroup: (group: BerxStoryFeedGroup) => void;
 	onCreateStory: () => void;
 	onBack?: () => void;
-}
-
-/** Real Russian plural agreement on the caller's own story count. */
-function ownCountLabel(count: number): string | undefined {
-	if (count === 0) return undefined;
-	const mod10 = count % 10;
-	const mod100 = count % 100;
-	if (mod10 === 1 && mod100 !== 11) return `${count} активная`;
-	if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return `${count} активные`;
-	return `${count} активных`;
 }
 
 export default function StoriesRailScreen(props: StoriesRailScreenProps) {
@@ -176,7 +167,7 @@ function StoriesSceneBody({api, onOpenGroup, onCreateStory, onBack}: StoriesRail
 					) : null}
 
 					{own.length > 0 ? (
-						<BerxSection label="Ваши истории" detail={ownCountLabel(own.length)}>
+						<BerxSection label="Ваши истории" detail={(own.length > 0 ? berxCount(own.length, 'активная', 'активные', 'активных') : undefined)}>
 							{own.map((s) => (
 								<BerxSpatialCard key={s.id} depth="D3" padding={spacing.md} radius={18}>
 									<View style={styles.ownRow}>
