@@ -19,10 +19,11 @@
  * It is a real radio group: one control per option with `selected`
  * state, so the choice is announced rather than only coloured.
  */
-import {Pressable, ScrollView, StyleSheet, Text, View, type ViewStyle} from 'react-native';
+import {Pressable, ScrollView, StyleSheet, View, type ViewStyle} from 'react-native';
 import {BERX_V9_TOUCH} from '@berx/spatial';
-import {colors, radius, spacing, typography} from '../tokens';
+import {colors, radius, spacing} from '../tokens';
 import {useBerxSceneOptional} from './BerxSpatialScene';
+import {BerxText} from './BerxText';
 
 export interface BerxChoiceOption<T extends string | number> {
 	key: T;
@@ -84,7 +85,9 @@ export function BerxChoiceChips<T extends string | number>({
 				disabled={disabled}
 				onPress={() => onChange(opt.key)}
 				style={[styles.chip, active ? styles.chipActive : null, spatial, disabled ? styles.disabled : null]}>
-				<Text style={[styles.chipText, active ? styles.chipTextActive : null]}>{opt.label}</Text>
+				<BerxText role="label" emphasis={active ? 'accent' : 'secondary'}>
+					{opt.label}
+				</BerxText>
 			</Pressable>
 		);
 	});
@@ -124,7 +127,5 @@ const styles = StyleSheet.create({
 		justifyContent: 'center',
 	},
 	chipActive: {borderColor: colors.accent},
-	chipText: {fontSize: typography.sizeSm, color: colors.textDim},
-	chipTextActive: {color: colors.text, fontWeight: typography.weightMedium},
 	disabled: {opacity: 0.5},
 });

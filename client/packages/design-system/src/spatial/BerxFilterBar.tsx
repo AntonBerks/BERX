@@ -7,10 +7,11 @@
  * state, and the bar reports how many filters are active.
  */
 
-import {Pressable, ScrollView, StyleSheet, Text, View} from 'react-native';
+import {Pressable, ScrollView, StyleSheet, View} from 'react-native';
 import {rgba} from '@berx/spatial';
 import {useBerxScene} from './BerxSpatialScene';
-import {colors, spacing, typography} from '../tokens';
+import {spacing} from '../tokens';
+import {BerxText} from './BerxText';
 
 export interface BerxFilterOption {
 	key: string;
@@ -54,14 +55,42 @@ export function BerxFilterBar({
 							style={({pressed}) => [
 								styles.chip,
 								{
+									/**
+									 * Selection is depth, not only colour.
+									 *
+									 * An unselected chip is an outline standing on the
+									 * room. A selected one is a real object on the
+									 * control plane — the plane's own fill, its lit
+									 * edge, its shadow — so the set reads as one chip
+									 * having come forward rather than one having been
+									 * tinted. The accent still marks it, because cyan
+									 * is stateful by contract; it is no longer the
+									 * only thing marking it.
+									 */
 									borderColor: active ? rgba(scene.accent, 0.5) : scene.layers.D4.surface.borderColor,
-									backgroundColor: active ? rgba(scene.accent, 0.14) : 'transparent',
+									backgroundColor: active ? scene.layers.D4.surface.effectiveColor : 'transparent',
+									shadowColor: scene.layers.D4.lighting.shadow.color,
+									shadowOpacity: active ? 1 : 0,
+									shadowRadius: active ? scene.layers.D4.lighting.shadow.radius : 0,
+									shadowOffset: {width: 0, height: active ? scene.layers.D4.lighting.shadow.offsetY : 0},
+									elevation: active ? scene.layers.D4.lighting.shadow.elevation : 0,
 									opacity: pressed ? 0.75 : 1,
 								},
 							]}>
-							<Text style={[styles.label, {color: active ? scene.accent : colors.textDim}]}>{o.label}</Text>
+							{active ? (
+								/* the lit edge of the object that came forward */
+								<View
+									pointerEvents="none"
+									style={[styles.chipEdge, {backgroundColor: scene.layers.D4.surface.edgeHighlightColor}]}
+								/>
+							) : null}
+							<BerxText role="label" emphasis={active ? 'accent' : 'secondary'}>
+								{o.label}
+							</BerxText>
 							{o.count !== undefined ? (
-								<Text style={[styles.count, {color: active ? scene.accent : colors.textFaint}]}>{o.count}</Text>
+								<BerxText role="micro" emphasis={active ? 'accent' : 'tertiary'}>
+									{String(o.count)}
+								</BerxText>
 							) : null}
 						</Pressable>
 					);
@@ -73,6 +102,7 @@ export function BerxFilterBar({
 
 const styles = StyleSheet.create({
 	row: {gap: spacing.sm, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm},
+	chipEdge: {position: 'absolute', top: 0, left: 0, right: 0, height: 1, borderTopLeftRadius: 999, borderTopRightRadius: 999},
 	chip: {
 		minHeight: 44,
 		paddingHorizontal: spacing.lg,
@@ -82,6 +112,4 @@ const styles = StyleSheet.create({
 		alignItems: 'center',
 		gap: spacing.xs,
 	},
-	label: {fontSize: typography.sizeSm, fontWeight: typography.weightMedium},
-	count: {fontSize: typography.sizeXs},
 });
