@@ -20,6 +20,7 @@ import {BerxHeader} from '../../../../packages/design-system/src/components/Berx
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxDiscussion} from '../../../../packages/design-system/src/components/BerxDiscussion';
+import {BerxEyebrow} from '../../../../packages/design-system/src/components/BerxBusinessPrimitives';
 
 export interface EventDetailScreenProps {
 	api: BerxApiClient;
@@ -185,7 +186,7 @@ function EventDetailSceneBody({api, guid, myGuid, onOpenPlace, onOpenInvite, onA
 
 				{event.seats_left !== null ? <Text style={styles.seats}>Свободных мест: {event.seats_left}</Text> : null}
 
-				<Text style={styles.sectionTitle}>Участники ({event.attendee_count})</Text>
+				<BerxEyebrow tone="quiet">Участники ({event.attendee_count})</BerxEyebrow>
 				<FlatList
 					horizontal
 					showsHorizontalScrollIndicator={false}
@@ -220,7 +221,6 @@ const styles = StyleSheet.create({
 	error: {fontSize: typography.sizeSm, color: colors.danger},
 	description: {fontSize: typography.sizeBase, color: colors.text, lineHeight: typography.sizeBase * typography.lineHeightBase},
 	seats: {fontSize: typography.sizeSm, color: colors.textFaint},
-	sectionTitle: {fontSize: typography.sizeXs, color: colors.textFaint, fontWeight: typography.weightBold, textTransform: 'uppercase'},
 	attendee: {alignItems: 'center', width: 64, marginRight: spacing.sm},
 	attendeeIcon: {width: 48, height: 48, borderRadius: radius.pill, backgroundColor: colors.graphite},
 	attendeeName: {fontSize: typography.sizeXs, color: colors.textDim, marginTop: 4},

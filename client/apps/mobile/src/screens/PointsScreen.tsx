@@ -23,6 +23,7 @@ import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState} from '../../../../packages/design-system/src/components/BerxStates';
+import {BerxEyebrow} from '../../../../packages/design-system/src/components/BerxBusinessPrimitives';
 
 export interface PointsScreenProps {
 	api: BerxApiClient;
@@ -173,9 +174,9 @@ function PointsSceneBody({api, onBack}: PointsScreenProps) {
 						) : null}
 
 						<View style={styles.spendSection}>
-							<Text style={styles.sectionTitle} accessibilityRole="header">
+							<BerxEyebrow tone="quiet">
 								Потратить
-							</Text>
+							</BerxEyebrow>
 							{/**
 							 * One reward, because BERX has exactly one thing
 							 * points can be spent on: /points/spend accepts the
@@ -205,7 +206,7 @@ function PointsSceneBody({api, onBack}: PointsScreenProps) {
 							) : null}
 						</View>
 
-						<Text style={styles.sectionTitle}>История</Text>
+						<BerxEyebrow tone="quiet">История</BerxEyebrow>
 					</View>
 				}
 				renderItem={({item}: {item: BerxPointsHistoryEntry}) => (
@@ -241,7 +242,6 @@ const styles = StyleSheet.create({
 	streakValue: {fontSize: typography.sizeBase, color: colors.white, fontWeight: typography.weightBold},
 	streakCaption: {fontSize: typography.sizeXs, color: colors.textFaint},
 	spendSection: {padding: spacing.lg},
-	sectionTitle: {color: colors.text, fontSize: typography.sizeBase, fontWeight: typography.weightMedium, marginBottom: spacing.sm, paddingHorizontal: spacing.sm},
 	boostMessage: {color: colors.textDim, fontSize: typography.sizeXs, marginTop: spacing.sm, paddingHorizontal: spacing.sm},
 	historyRow: {
 		flexDirection: 'row',

@@ -14,6 +14,7 @@ import {BerxLoadingState, BerxErrorState} from '../../../../packages/design-syst
 import {BerxActionShelf} from '../../../../packages/design-system/src/spatial/BerxActionShelf';
 import {BerxSpatialCard} from '../../../../packages/design-system/src/spatial/BerxSpatialCard';
 import {BerxFamilyScene, useBerxSceneAtmosphere} from '../spatial/BerxScreenScene';
+import {BerxEyebrow} from '../../../../packages/design-system/src/components/BerxBusinessPrimitives';
 
 export interface ExperienceDetailScreenProps {
 	api: BerxApiClient;
@@ -170,7 +171,7 @@ function ExperienceDetailScreenBody({api, id, onOpenPlace, onOpenEvent, onBack}:
 					)
 				) : null}
 
-				<Text style={styles.sectionTitle}>Участники ({experience.participants.length})</Text>
+				<BerxEyebrow tone="quiet">Участники ({experience.participants.length})</BerxEyebrow>
 				{experience.participants.map((p: BerxExperienceParticipant) => (
 					<View key={p.guid} style={styles.participantRow}>
 						<Image source={{uri: p.icon}} style={styles.participantAvatar} />
@@ -202,7 +203,6 @@ const styles = StyleSheet.create({
 	pickerItem: {alignItems: 'center', width: 64, marginRight: spacing.sm},
 	pickerAvatar: {width: 48, height: 48, borderRadius: radius.pill, backgroundColor: colors.graphite},
 	pickerName: {fontSize: typography.sizeXs, color: colors.textDim, marginTop: 4},
-	sectionTitle: {fontSize: typography.sizeXs, color: colors.textFaint, fontWeight: typography.weightBold, textTransform: 'uppercase', marginTop: spacing.sm},
 	participantRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.xs},
 	participantAvatar: {width: 32, height: 32, borderRadius: radius.pill, backgroundColor: colors.graphite},
 	participantName: {flex: 1, fontSize: typography.sizeSm, color: colors.white},

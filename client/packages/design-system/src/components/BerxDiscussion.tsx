@@ -19,6 +19,7 @@ import {colors, spacing, typography, radius} from '../tokens';
 import {BerxInput} from './BerxInput';
 import {BerxButton} from './BerxButton';
 import {BerxIcon} from '../icons';
+import {BerxEyebrow} from './BerxBusinessPrimitives';
 
 interface Props {
 	api: BerxApiClient;
@@ -76,7 +77,7 @@ export function BerxDiscussion({api, type, id, myGuid}: Props) {
 
 	return (
 		<View style={styles.wrap}>
-			<Text style={styles.sectionTitle}>Обсуждение ({comments.length})</Text>
+			<BerxEyebrow tone="quiet">Обсуждение ({comments.length})</BerxEyebrow>
 
 			<View style={styles.form}>
 				<BerxInput placeholder="Написать комментарий" value={text} onChangeText={setText} />
@@ -110,7 +111,6 @@ export function BerxDiscussion({api, type, id, myGuid}: Props) {
 
 const styles = StyleSheet.create({
 	wrap: {gap: spacing.sm},
-	sectionTitle: {fontSize: typography.sizeXs, color: colors.textFaint, fontWeight: typography.weightBold, textTransform: 'uppercase'},
 	form: {flexDirection: 'row', gap: spacing.sm, alignItems: 'center'},
 	error: {fontSize: typography.sizeSm, color: colors.danger},
 	hint: {fontSize: typography.sizeSm, color: colors.textFaint},

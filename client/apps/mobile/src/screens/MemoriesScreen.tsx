@@ -13,6 +13,7 @@ import {BerxHeader} from '../../../../packages/design-system/src/components/Berx
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxSpatialCard} from '../../../../packages/design-system/src/spatial/BerxSpatialCard';
 import {BerxFamilyScene, useBerxSceneAtmosphere} from '../spatial/BerxScreenScene';
+import {BerxEyebrow} from '../../../../packages/design-system/src/components/BerxBusinessPrimitives';
 
 export interface MemoriesScreenProps {
 	api: BerxApiClient;
@@ -107,7 +108,7 @@ function MemoriesScreenBody({api, onOpenPost, onOpenAlbum, onBack}: MemoriesScre
 					contentContainerStyle={styles.list}
 					renderItem={({item: section}: {item: Section}) => (
 						<View style={styles.section}>
-							<Text style={styles.sectionTitle}>{yearsAgoLabel(section.yearsAgo)}</Text>
+							<BerxEyebrow tone="accent">{yearsAgoLabel(section.yearsAgo)}</BerxEyebrow>
 							{section.items.map((m: BerxMemory) => (
 								<BerxSpatialCard
 									key={`${m.type}-${m.guid}`}
@@ -146,7 +147,6 @@ const styles = StyleSheet.create({
 	screen: {flex: 1},
 	list: {padding: spacing.md},
 	section: {marginBottom: spacing.lg, gap: spacing.sm},
-	sectionTitle: {fontSize: typography.sizeSm, color: colors.accent, fontWeight: typography.weightBold, textTransform: 'uppercase'},
 	/* fill removed: a BerxSpatialCard wraps this row and paints the
 	   content plane's own material — an opaque token fill on top of it
 	   hides the surface the card just resolved */

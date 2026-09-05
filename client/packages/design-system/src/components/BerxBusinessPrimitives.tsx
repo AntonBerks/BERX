@@ -9,6 +9,7 @@ import React from 'react';
 import {View, Text, Pressable, StyleSheet} from 'react-native';
 import {colors, spacing, typography, radius} from '../tokens';
 import {useBerxSceneOptional} from '../spatial/BerxSpatialScene';
+import {BerxText} from '../spatial/BerxText';
 
 export interface BerxStatTileProps {
 	label: string;
@@ -40,13 +41,27 @@ const tileStyles = StyleSheet.create({
 	trendFlat: {color: colors.textFaint},
 });
 
-export function BerxEyebrow({children}: {children: React.ReactNode}) {
-	return <Text style={eyebrowStyles.text}>{children}</Text>;
+/**
+ * The section label, everywhere.
+ *
+ * Nine screens each had their own `sectionTitle` — 11px faint bold
+ * uppercase here, 13px accent bold uppercase there, 15px medium
+ * sentence case somewhere else. It is the same thing on every one of
+ * them: the name of the group you are about to read. It is the micro
+ * role, and it is a real heading for assistive technology, which most
+ * of those copies were not.
+ *
+ * `tone` is the only variation, and it is semantic: accent for a
+ * section that belongs to the scene's subject, quiet for one that is
+ * simply structure.
+ */
+export function BerxEyebrow({children, tone = 'accent'}: {children: React.ReactNode; tone?: 'accent' | 'quiet'}) {
+	return (
+		<BerxText role="micro" emphasis={tone === 'accent' ? 'accent' : 'tertiary'} heading>
+			{children}
+		</BerxText>
+	);
 }
-
-const eyebrowStyles = StyleSheet.create({
-	text: {fontSize: typography.sizeXs, color: colors.accent, fontWeight: typography.weightBold, textTransform: 'uppercase', letterSpacing: 1.1},
-});
 
 export interface BerxSegmentTabsProps<T extends string> {
 	options: {key: T; label: string}[];
