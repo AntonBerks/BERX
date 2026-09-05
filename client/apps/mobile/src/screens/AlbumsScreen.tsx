@@ -9,11 +9,11 @@ import type {BerxApiClient} from '@berx/api/client';
 import type {BerxAlbum} from '@berx/api/types';
 import {colors, spacing, typography} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
-import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 import {BerxObjectCard} from '../../../../packages/design-system/src/spatial/BerxObjectCard';
 import {BerxSceneList} from '../../../../packages/design-system/src/spatial/BerxSceneList';
+import {BerxIconButton} from '../../../../packages/design-system/src/icons';
 
 export interface AlbumsScreenProps {
 	api: BerxApiClient;
@@ -59,12 +59,13 @@ function AlbumsScreenBody({api, userGuid, isOwn, onOpenAlbum, onCreate, onBack}:
 
 	return (
 		<View style={styles.screen}>
-			<BerxHeader title="Альбомы" onBack={onBack} />
-			{isOwn ? (
-				<View style={styles.toolbar}>
-					<BerxButton label="Создать альбом" onPress={onCreate} fullWidth />
-				</View>
-			) : null}
+			{/* one creation control, on the control plane beside the scene's
+			    name — a full-width button across the top of a list is a
+			    banner, and it pushed the first real object off the fold */}
+			<BerxHeader
+				title="Альбомы" onBack={onBack}
+				actions={isOwn ? <BerxIconButton name="plus" accessibilityLabel="Создать альбом" onPress={onCreate} /> : undefined}
+			/>
 			{items.length === 0 ? (
 				<BerxEmptyState title="Альбомов пока нет" subtitle={isOwn ? 'Создайте первый альбом.' : undefined} />
 			) : (
@@ -85,7 +86,6 @@ function AlbumsScreenBody({api, userGuid, isOwn, onOpenAlbum, onCreate, onBack}:
 const styles = StyleSheet.create({
 	/* no opaque fill: the scene paints the room this screen stands in */
 	screen: {flex: 1},
-	toolbar: {padding: spacing.md},
 	list: {paddingBottom: spacing.xxxl},
 	cardMedia: {width: '100%', aspectRatio: 1, backgroundColor: colors.graphite, alignItems: 'center', justifyContent: 'center'},
 	cardInitial: {fontSize: typography.sizeXl, color: colors.textFaint},

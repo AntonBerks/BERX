@@ -13,9 +13,9 @@ import {colors, spacing, typography} from '@berx/design-system/tokens';
 import {BerxCollectionCard} from '../../../../packages/design-system/src/spatial/BerxCollectionCard';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
-import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxSceneList} from '../../../../packages/design-system/src/spatial/BerxSceneList';
+import {BerxIconButton} from '../../../../packages/design-system/src/icons';
 
 export interface CollectionsScreenProps {
 	api: BerxApiClient;
@@ -61,12 +61,13 @@ function CollectionsSceneBody({api, userGuid, isOwn, onOpenCollection, onCreate,
 
 	return (
 		<View style={styles.screen}>
-			<BerxHeader title="Подборки" onBack={onBack} />
-			{isOwn ? (
-				<View style={styles.toolbar}>
-					<BerxButton label="Создать подборку" onPress={onCreate} fullWidth />
-				</View>
-			) : null}
+			{/* one creation control, on the control plane beside the scene's
+			    name — a full-width button across the top of a list is a
+			    banner, and it pushed the first real object off the fold */}
+			<BerxHeader
+				title="Подборки" onBack={onBack}
+				actions={isOwn ? <BerxIconButton name="plus" accessibilityLabel="Создать подборку" onPress={onCreate} /> : undefined}
+			/>
 			{items.length === 0 ? (
 				<BerxEmptyState title="Подборок пока нет" subtitle={isOwn ? 'Соберите места, события и посты в одну подборку.' : undefined} />
 			) : (
@@ -94,7 +95,6 @@ function CollectionsSceneBody({api, userGuid, isOwn, onOpenCollection, onCreate,
 const styles = StyleSheet.create({
 	/* no opaque fill: the scene paints the room this screen stands in */
 	screen: {flex: 1},
-	toolbar: {padding: spacing.md},
 	list: {paddingBottom: spacing.xxxl},
 	rowBody: {gap: 2},
 	title: {fontSize: typography.sizeBase, color: colors.white, fontWeight: typography.weightMedium},

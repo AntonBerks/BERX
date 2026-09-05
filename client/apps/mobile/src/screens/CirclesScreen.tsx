@@ -10,11 +10,11 @@ import type {BerxApiClient} from '@berx/api/client';
 import type {BerxCircle} from '@berx/api/types';
 import {colors, spacing, typography} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
-import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 import {BerxObjectCard} from '../../../../packages/design-system/src/spatial/BerxObjectCard';
 import {BerxSceneList} from '../../../../packages/design-system/src/spatial/BerxSceneList';
+import {BerxIconButton} from '../../../../packages/design-system/src/icons';
 
 export interface CirclesScreenProps {
 	api: BerxApiClient;
@@ -65,10 +65,14 @@ function CirclesScreenBody({api, onOpenCircle, onCreate, onBack}: CirclesScreenP
 
 	return (
 		<View style={styles.screen}>
-			<BerxHeader title="Круги" onBack={onBack} />
-			<View style={styles.toolbar}>
-				<BerxButton label="Создать круг" onPress={onCreate} fullWidth />
-			</View>
+			{/* one creation control, on the control plane beside the scene's
+			    name — a full-width button across the top of a list is a
+			    banner, and it pushed the first real object off the fold */}
+			<BerxHeader
+				title="Круги" onBack={onBack}
+				actions={<BerxIconButton name="plus" accessibilityLabel="Создать круг" onPress={onCreate} />}
+			/>
+
 			{items.length === 0 ? (
 				<BerxEmptyState title="Кругов пока нет" subtitle="Круги — приватные списки друзей для управления видимостью." />
 			) : (
@@ -93,7 +97,6 @@ function CirclesScreenBody({api, onOpenCircle, onCreate, onBack}: CirclesScreenP
 const styles = StyleSheet.create({
 	/* no opaque fill: the scene paints the room this screen stands in */
 	screen: {flex: 1},
-	toolbar: {padding: spacing.md},
 	list: {paddingBottom: spacing.xxxl},
 	rowBody: {gap: 2},
 	title: {fontSize: typography.sizeBase, color: colors.white, fontWeight: typography.weightMedium},

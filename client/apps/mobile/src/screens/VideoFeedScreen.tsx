@@ -8,14 +8,15 @@
  * discovery feed (api.videoFeed). Real data throughout.
  */
 import {useCallback, useEffect, useState} from 'react';
-import {View, FlatList} from 'react-native';
+import {View} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxVideoPost} from '@berx/api/types';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxVideoCard} from '../../../../packages/design-system/src/components/BerxVideoCard';
-import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
+import {BerxSceneList} from '../../../../packages/design-system/src/spatial/BerxSceneList';
+import {BerxIconButton} from '../../../../packages/design-system/src/icons';
 
 export interface VideoFeedScreenProps {
 	api: BerxApiClient;
@@ -64,19 +65,21 @@ function VideoFeedScreenBody({api, userGuid, isOwn, title, onOpenVideo, onOpenPr
 	return (
 		/* no opaque fill: the scene paints the room */
 		<View style={{flex: 1}}>
-			<BerxHeader title={title} onBack={onBack} />
-			{isOwn && onCreate ? (
-				<View style={{padding: 16}}>
-					<BerxButton label="Загрузить видео" onPress={onCreate} fullWidth />
-				</View>
-			) : null}
+			{/* the upload sits on the control plane beside the scene's
+			    name, not as a full-width bar across the top of the room */}
+			<BerxHeader
+				title={title}
+				onBack={onBack}
+				actions={isOwn && onCreate ? <BerxIconButton name="upload" accessibilityLabel="Загрузить видео" onPress={onCreate} /> : undefined}
+			/>
 			{items.length === 0 ? (
 				<BerxEmptyState title="Видео пока нет" subtitle={isOwn ? 'Загрузите первое видео.' : undefined} />
 			) : (
-				<FlatList
+				<BerxSceneList
 					data={items}
 					keyExtractor={(v: BerxVideoPost) => String(v.post_guid)}
-					contentContainerStyle={{padding: 16}}
+					/* the gutter and the rhythm come from the layout contract */
+					contentContainerStyle={{paddingBottom: 48}}
 					renderItem={({item}: {item: BerxVideoPost}) => (
 						<BerxVideoCard video={item} onPress={(v) => onOpenVideo(v.post_guid)} onOpenProfile={onOpenProfile} />
 					)}
