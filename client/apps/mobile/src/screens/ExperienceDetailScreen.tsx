@@ -7,6 +7,7 @@ import {useCallback, useEffect, useState} from 'react';
 import {View, FlatList, Image, Pressable, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxExperienceDetail, BerxExperienceParticipant, BerxFriend} from '@berx/api/types';
+import {sharedElementTag} from '@berx/spatial';
 import {colors, spacing, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
@@ -118,6 +119,8 @@ function ExperienceDetailScreenBody({api, id, onOpenPlace, onOpenEvent, onBack}:
 			    than a claim. An experience with no anchor gets the room's
 			    own lit surface instead of a borrowed picture. */}
 			<BerxSceneHero
+				/* the same object the list card sent forward */
+				sharedTag={sharedElementTag('heroMedia', id)}
 				title={experience.title}
 				meta={fmtWhen(experience.scheduled_start)}
 				media={experience.anchor?.image_url ? {uri: experience.anchor.image_url} : undefined}

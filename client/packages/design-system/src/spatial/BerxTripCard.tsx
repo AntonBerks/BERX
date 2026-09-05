@@ -5,6 +5,7 @@
  * no stops yet says so, because "0 остановок" is a true and useful
  * statement about a trip being planned, unlike an invented preview.
  */
+import {berxPlural} from '@berx/domain';
 import {BerxObjectCard, type BerxObjectCardFact} from './BerxObjectCard';
 import {sharedElementTag} from '@berx/spatial';
 import type {ImageSourcePropType} from 'react-native';
@@ -35,8 +36,8 @@ export function BerxTripCard({
 	testID,
 }: BerxTripCardProps) {
 	const facts: BerxObjectCardFact[] = [];
-	if (stopCount !== undefined) facts.push({label: 'остановок', value: stopCount});
-	if (participantCount !== undefined) facts.push({label: 'участников', value: participantCount});
+	if (stopCount !== undefined) facts.push({label: berxPlural(stopCount, 'остановка', 'остановки', 'остановок'), value: stopCount});
+	if (participantCount !== undefined) facts.push({label: berxPlural(participantCount, 'участник', 'участника', 'участников'), value: participantCount});
 
 	return (
 		<BerxObjectCard

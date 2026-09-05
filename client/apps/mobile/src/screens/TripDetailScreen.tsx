@@ -9,6 +9,7 @@ import {useCallback, useEffect, useState} from 'react';
 import {View, FlatList, Image, Pressable, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxTripDetail, BerxTripStop, BerxTripParticipant, BerxFriend} from '@berx/api/types';
+import {sharedElementTag} from '@berx/spatial';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
@@ -139,6 +140,8 @@ function TripDetailScreenBody({api, id, onOpenPlace, onOpenEvent, onBack}: TripD
 			    Its meta is the two real facts a trip has — how many stops
 			    it holds and when it runs. */}
 			<BerxSceneHero
+				/* the same object the list card sent forward */
+				sharedTag={sharedElementTag('heroMedia', id)}
 				title={trip.title}
 				meta={tripMeta(trip)}
 				height={190}

@@ -2,10 +2,12 @@
  * !!! VERIFICATION STATUS: UNVERIFIED — see LoginScreen.tsx header.
  * Real data: api.myGoingEvents() (components/OssnApi/v1/events.php).
  */
+import {berxPlural} from '@berx/domain';
 import {useCallback, useEffect, useState} from 'react';
 import {View, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxEvent} from '@berx/api/types';
+import {sharedElementTag} from '@berx/spatial';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
@@ -76,12 +78,14 @@ function MyEventsScreenBody({api, onOpenEvent, onBack}: MyEventsScreenProps) {
 						const date = new Date(item.starts * 1000);
 						return (
 							<BerxObjectCard
+								/* the poster travels into the event's hero */
+								sharedTag={sharedElementTag('eventPoster', item.guid)}
 								title={item.title}
 								subtitle={date.toLocaleDateString('ru-RU', {day: 'numeric', month: 'long'})}
 								media={item.cover_url ? {uri: item.cover_url} : undefined}
 								mediaAlt={item.cover_url ? `Афиша события ${item.title}` : undefined}
 								/* only counts the server returns */
-								facts={[{label: 'идут', value: item.attendee_count}]}
+								facts={[{label: berxPlural(item.attendee_count, 'идёт', 'идут', 'идут'), value: item.attendee_count}]}
 								badges={item.has_ended ? undefined : <BerxCountdown startsAtUnix={item.starts} />}
 								onPress={() => onOpenEvent(item.guid)}
 							/>

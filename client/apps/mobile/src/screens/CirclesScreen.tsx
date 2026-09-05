@@ -4,6 +4,7 @@
  * domain this session). Always the caller's own — circles have no
  * public tier at all.
  */
+import {berxPlural} from '@berx/domain';
 import {useCallback, useEffect, useState} from 'react';
 import {View, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
@@ -84,7 +85,7 @@ function CirclesScreenBody({api, onOpenCircle, onCreate, onBack}: CirclesScreenP
 						<BerxObjectCard
 							title={item.name}
 							subtitle={item.kind ? (KIND_LABEL[item.kind] ?? item.kind) : undefined}
-							facts={[{label: 'участников', value: item.member_count}]}
+							facts={[{label: berxPlural(item.member_count, 'участник', 'участника', 'участников'), value: item.member_count}]}
 							onPress={() => onOpenCircle(item.id)}
 						/>
 					)}

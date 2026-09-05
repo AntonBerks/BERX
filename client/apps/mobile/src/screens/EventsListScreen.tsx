@@ -12,11 +12,13 @@
  * BerxTicket and BerxWalletCard stay BLOCKED — a ticket that cannot
  * be redeemed is the fake functionality the constitution forbids.
  */
+import {berxPlural} from '@berx/domain';
 import {useCallback, useEffect, useState} from 'react';
 import {StyleSheet, View} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxEvent, BerxPlaceCategory} from '@berx/api/types';
 import type {BerxScreenState} from '@berx/spatial';
+import {sharedElementTag} from '@berx/spatial';
 import {spacing} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
@@ -179,6 +181,10 @@ function EventsSceneBody({api, onOpenEvent, onCreate, onOpenMine, onBack}: Event
 					windowSize={Math.max(3, Math.round(screen.scene.budget.listWindowSize / 3))}
 					renderItem={({item}: {item: BerxEvent}) => (
 						<BerxObjectCard
+							/* the poster travels into the event's hero when it
+							   opens, so the object you touched is the object
+							   that arrives */
+							sharedTag={sharedElementTag('eventPoster', item.guid)}
 							title={item.title}
 							subtitle={[item.place?.title ?? item.location ?? undefined, item.category ?? undefined]
 								.filter(Boolean)
@@ -189,8 +195,10 @@ function EventsSceneBody({api, onOpenEvent, onCreate, onOpenMine, onBack}: Event
 							onPress={() => onOpenEvent(item.guid)}
 							/* only counts the server actually returns */
 							facts={[
-								{label: 'идут', value: item.attendee_count},
-								...(item.seats_left !== null ? [{label: 'мест осталось', value: item.seats_left}] : []),
+								{label: berxPlural(item.attendee_count, 'идёт', 'идут', 'идут'), value: item.attendee_count},
+								...(item.seats_left !== null
+									? [{label: `${berxPlural(item.seats_left, 'место', 'места', 'мест')} осталось`, value: item.seats_left}]
+									: []),
 							]}
 							badges={item.has_ended ? undefined : <BerxCountdown startsAtUnix={item.starts} />}
 							actions={

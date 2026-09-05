@@ -57,7 +57,10 @@ export function BerxObjectCard({
 	const {scene} = useBerxScene();
 	const label =
 		accessibilityLabel ??
-		[title, subtitle, ...(facts ?? []).map((f) => `${f.label}: ${f.value}`)].filter(Boolean).join(', ');
+		/* facts read as the quantities they are — "12 участников", not
+		   "участников: 12" — because every fact label is the noun the
+		   number governs, and it already agrees with that number */
+		[title, subtitle, ...(facts ?? []).map((f) => `${f.value} ${f.label}`)].filter(Boolean).join(', ');
 
 	/**
 	 * An object with real media is made of that media.
@@ -149,7 +152,7 @@ function Facts({facts}: {facts: readonly BerxObjectCardFact[]}) {
 	return (
 		<View style={styles.facts} accessibilityRole="list">
 			{facts.map((f) => (
-				<View key={f.label} style={styles.fact} accessible accessibilityLabel={`${f.label}: ${f.value}`}>
+				<View key={f.label} style={styles.fact} accessible accessibilityLabel={`${f.value} ${f.label}`}>
 					<BerxText role="heading">{f.value}</BerxText>
 					<BerxText role="meta" emphasis="tertiary">{f.label}</BerxText>
 				</View>

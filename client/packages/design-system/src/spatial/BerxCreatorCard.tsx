@@ -5,6 +5,7 @@
  * earnings figure: BERX has points and rewards but no money, so a
  * revenue line here would be invented (see BerxWalletCard, BLOCKED).
  */
+import {berxPlural} from '@berx/domain';
 import {BerxObjectCard, type BerxObjectCardFact} from './BerxObjectCard';
 import {BerxIdentity} from './BerxIdentity';
 import {sharedElementTag} from '@berx/spatial';
@@ -51,10 +52,10 @@ export function BerxCreatorCard({
 	testID,
 }: BerxCreatorCardProps) {
 	const facts: BerxObjectCardFact[] = [];
-	if (postCount !== undefined) facts.push({label: 'постов', value: postCount});
-	if (videoCount !== undefined) facts.push({label: 'видео', value: videoCount});
-	if (trackCount !== undefined) facts.push({label: 'треков', value: trackCount});
-	if (viewCount !== undefined) facts.push({label: 'просмотров', value: viewCount});
+	if (postCount !== undefined) facts.push({label: berxPlural(postCount, 'пост', 'поста', 'постов'), value: postCount});
+	if (videoCount !== undefined) facts.push({label: 'видео', value: videoCount}); // 'видео' is indeclinable
+	if (trackCount !== undefined) facts.push({label: berxPlural(trackCount, 'трек', 'трека', 'треков'), value: trackCount});
+	if (viewCount !== undefined) facts.push({label: berxPlural(viewCount, 'просмотр', 'просмотра', 'просмотров'), value: viewCount});
 
 	return (
 		<BerxObjectCard

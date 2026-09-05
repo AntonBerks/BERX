@@ -6,6 +6,7 @@
  * actually answered rather than an aspirational "join" that has no
  * record behind it.
  */
+import {berxPlural} from '@berx/domain';
 import {BerxObjectCard, type BerxObjectCardFact} from './BerxObjectCard';
 import {sharedElementTag} from '@berx/spatial';
 import type {ImageSourcePropType} from 'react-native';
@@ -45,7 +46,7 @@ export function BerxExperienceCard({
 	testID,
 }: BerxExperienceCardProps) {
 	const facts: BerxObjectCardFact[] = [];
-	if (participantCount !== undefined) facts.push({label: 'участников', value: participantCount});
+	if (participantCount !== undefined) facts.push({label: berxPlural(participantCount, 'участник', 'участника', 'участников'), value: participantCount});
 
 	return (
 		<BerxObjectCard

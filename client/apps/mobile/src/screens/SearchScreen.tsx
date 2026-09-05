@@ -22,6 +22,8 @@ import {StyleSheet, View} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxPlaceSearchResult, BerxEventSearchResult, BerxCommunitySearchResult} from '@berx/api/types';
 import type {BerxScreenState} from '@berx/spatial';
+import {sharedElementTag} from '@berx/spatial';
+import {berxPlural} from '@berx/domain';
 import {spacing} from '@berx/design-system/tokens';
 import {BerxDataBoundary} from '../../../../packages/design-system/src/spatial/BerxDataBoundary';
 import {BerxSceneHeader} from '../../../../packages/design-system/src/spatial/BerxSceneHeader';
@@ -252,6 +254,8 @@ function SearchSceneBody({api, onOpenProfile, onOpenPlace, onOpenEvent, onOpenCo
 						keyExtractor={(e: BerxEventSearchResult) => String(e.guid)}
 						renderItem={({item}: {item: BerxEventSearchResult}) => (
 							<BerxObjectCard
+								/* the poster travels into the event's hero */
+								sharedTag={sharedElementTag('eventPoster', item.guid)}
 								title={item.title}
 								subtitle={new Date(item.starts * 1000).toLocaleDateString('ru-RU')}
 								media={item.cover_url ? {uri: item.cover_url} : undefined}
@@ -267,9 +271,17 @@ function SearchSceneBody({api, onOpenProfile, onOpenPlace, onOpenEvent, onOpenCo
 						keyExtractor={(c: BerxCommunitySearchResult) => String(c.guid)}
 						renderItem={({item}: {item: BerxCommunitySearchResult}) => (
 							<BerxObjectCard
+								/* the same tag BerxCommunityCard emits, so a
+								   community found by search opens the same way
+								   as one found in the list */
+								sharedTag={sharedElementTag('heroMedia', item.guid)}
 								title={item.title}
-								subtitle={item.owner ? `${item.members} участников · ${item.owner}` : `${item.members} участников`}
-								facts={[{label: 'участников', value: item.members}]}
+								/* the count is said once, in the facts; the subtitle
+								   is who runs it. Repeating the number in both put
+								   "12 участников" on the card twice — and said it
+								   ungrammatically for 1, 2, 3 and 21. */
+								subtitle={item.owner ?? undefined}
+								facts={[{label: berxPlural(item.members, 'участник', 'участника', 'участников'), value: item.members}]}
 								onPress={() => onOpenCommunity(item.guid)}
 							/>
 						)}

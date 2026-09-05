@@ -10,6 +10,7 @@ import {useEffect, useState} from 'react';
 import {View, Pressable, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxCommunity} from '@berx/api/types';
+import {sharedElementTag} from '@berx/spatial';
 import {spacing} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
@@ -115,6 +116,10 @@ function CommunityDetailScreenBody({api, guid, myGuid, onBack, onOpenRequests, o
 			    Its identity here is its name, its openness and what it
 			    says about itself, at the sizes those things deserve. */}
 			<BerxSceneHero
+				/* the same object the list card sent forward: opening a
+				   community travels its card into this hero instead of
+				   replacing one screen with another */
+				sharedTag={sharedElementTag('heroMedia', guid)}
 				title={community.name}
 				meta={community.privacy === 'private' ? 'Закрытое сообщество' : 'Открытое сообщество'}
 				height={200}

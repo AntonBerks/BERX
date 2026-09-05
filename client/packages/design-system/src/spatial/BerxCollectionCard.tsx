@@ -5,6 +5,7 @@
  * because a user who cannot tell whether a collection is public will
  * eventually share something they meant to keep.
  */
+import {berxPlural} from '@berx/domain';
 import {StyleSheet, Text, View} from 'react-native';
 import {rgba} from '@berx/spatial';
 import {useBerxScene} from './BerxSpatialScene';
@@ -43,7 +44,7 @@ export function BerxCollectionCard({
 }: BerxCollectionCardProps) {
 	const {scene} = useBerxScene();
 	const facts: BerxObjectCardFact[] = [];
-	if (itemCount !== undefined) facts.push({label: 'объектов', value: itemCount});
+	if (itemCount !== undefined) facts.push({label: berxPlural(itemCount, 'объект', 'объекта', 'объектов'), value: itemCount});
 
 	return (
 		<BerxObjectCard

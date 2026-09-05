@@ -6,6 +6,7 @@
  * once the server has recorded the request. Three real states, no
  * button that pretends the answer is already known.
  */
+import {berxPlural} from '@berx/domain';
 import {BerxObjectCard, type BerxObjectCardFact} from './BerxObjectCard';
 import {BerxAvatarCluster, type BerxClusterMember} from './BerxAvatarCluster';
 import {sharedElementTag} from '@berx/spatial';
@@ -47,7 +48,7 @@ export function BerxCommunityCard({
 	testID,
 }: BerxCommunityCardProps) {
 	const facts: BerxObjectCardFact[] = [];
-	if (memberCount !== undefined) facts.push({label: 'участников', value: memberCount});
+	if (memberCount !== undefined) facts.push({label: berxPlural(memberCount, 'участник', 'участника', 'участников'), value: memberCount});
 
 	return (
 		<BerxObjectCard
