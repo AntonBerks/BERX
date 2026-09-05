@@ -16,6 +16,7 @@ import {BerxButton} from '../../../../packages/design-system/src/components/Berx
 import {BerxGlassSurface} from '../../../../packages/design-system/src/components/BerxGlassSurface';
 import {BerxActionShelf} from '../../../../packages/design-system/src/spatial/BerxActionShelf';
 import {BerxChoiceChips} from '../../../../packages/design-system/src/spatial/BerxChoiceChips';
+import {BerxWhenPicker} from '../../../../packages/design-system/src/spatial/BerxWhenPicker';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 import {BerxText} from '../../../../packages/design-system/src/spatial/BerxText';
 import {BerxSceneScroll} from '../../../../packages/design-system/src/spatial/BerxSceneScroll';
@@ -26,12 +27,18 @@ export interface CreateEventScreenProps {
 	onBack?: () => void;
 }
 
-/** +1 day at 19:00 — a reasonable default the user can see and the server actually receives; not silently different values in two places. */
-function defaultStart(): {label: string; unix: number} {
+/**
+ * Where the picker opens, not what it submits.
+ *
+ * Tomorrow at 19:00 used to be the only moment this form could
+ * produce; it is now just the first one shown, and the person moves
+ * it. The server receives whatever they chose.
+ */
+function defaultStart(): number {
 	const d = new Date();
 	d.setDate(d.getDate() + 1);
 	d.setHours(19, 0, 0, 0);
-	return {label: d.toLocaleString('ru-RU'), unix: Math.floor(d.getTime() / 1000)};
+	return Math.floor(d.getTime() / 1000);
 }
 
 export default function CreateEventScreen(props: CreateEventScreenProps) {
@@ -51,7 +58,7 @@ function CreateEventScreenBody({api, onCreated, onBack}: CreateEventScreenProps)
 	const [capacity, setCapacity] = useState('');
 	const [places, setPlaces] = useState<BerxPlace[]>([]);
 	const [placeGuid, setPlaceGuid] = useState<number | undefined>(undefined);
-	const [start] = useState(defaultStart);
+	const [start, setStart] = useState(defaultStart);
 	const [submitting, setSubmitting] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
@@ -71,7 +78,7 @@ function CreateEventScreenBody({api, onCreated, onBack}: CreateEventScreenProps)
 			const res = await api.createEvent({
 				title: title.trim(),
 				category,
-				starts: start.unix,
+				starts: start,
 				description: description.trim() || undefined,
 				location: location.trim() || undefined,
 				placeGuid,
@@ -94,9 +101,9 @@ function CreateEventScreenBody({api, onCreated, onBack}: CreateEventScreenProps)
 				<BerxGlassSurface padding="lg" style={styles.form}>
 					<BerxInput placeholder="Название" value={title} onChangeText={setTitle} />
 
-					<BerxText role="micro" emphasis="tertiary">Начало</BerxText>
-					<BerxText role="body">{start.label}</BerxText>
-					<BerxText role="meta" emphasis="tertiary">Дата/время — заглушка на завтра 19:00 до появления реального picker-компонента (без установленного react-native, полноценный нативный picker здесь непроверяем).</BerxText>
+					{/* a real choice, built from BERX's own chip rail and the
+					    stepper the opening-hours screen already uses */}
+					<BerxWhenPicker value={start} onChange={setStart} testID="create-event-start" />
 
 					<BerxText role="micro" emphasis="tertiary">Категория</BerxText>
 					{/* the server owns the category whitelist */}

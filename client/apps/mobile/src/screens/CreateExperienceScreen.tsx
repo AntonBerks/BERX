@@ -15,6 +15,7 @@ import {BerxButton} from '../../../../packages/design-system/src/components/Berx
 import {BerxGlassSurface} from '../../../../packages/design-system/src/components/BerxGlassSurface';
 import {BerxActionShelf} from '../../../../packages/design-system/src/spatial/BerxActionShelf';
 import {BerxSegmentTabs} from '../../../../packages/design-system/src/components/BerxBusinessPrimitives';
+import {BerxWhenPicker} from '../../../../packages/design-system/src/spatial/BerxWhenPicker';
 import {BerxSpatialCard} from '../../../../packages/design-system/src/spatial/BerxSpatialCard';
 import {useBerxScene} from '../../../../packages/design-system/src/spatial/BerxSpatialScene';
 import {BerxSceneScroll} from '../../../../packages/design-system/src/spatial/BerxSceneScroll';
@@ -43,6 +44,13 @@ function CreateExperienceScreenBody({api, onCreated, onBack}: CreateExperienceSc
 	   with the colour world */
 	const dividerColor = useBerxScene().scene.layers.D2.surface.borderColor;
 	const [title, setTitle] = useState('');
+	/* where the picker opens, not what it submits */
+	const [scheduledStart, setScheduledStart] = useState(() => {
+		const d = new Date();
+		d.setDate(d.getDate() + 1);
+		d.setHours(19, 0, 0, 0);
+		return Math.floor(d.getTime() / 1000);
+	});
 	const [description, setDescription] = useState('');
 	const [anchorQuery, setAnchorQuery] = useState('');
 	const [anchorTab, setAnchorTab] = useState<'place' | 'event'>('place');
@@ -73,13 +81,6 @@ function CreateExperienceScreenBody({api, onCreated, onBack}: CreateExperienceSc
 		}
 	}
 
-	/** +1 day at 19:00 — a default the user could later be given control over; not silently different from what's submitted. */
-	const scheduledStart = (() => {
-		const d = new Date();
-		d.setDate(d.getDate() + 1);
-		d.setHours(19, 0, 0, 0);
-		return Math.floor(d.getTime() / 1000);
-	})();
 
 	async function submit() {
 		if (!title.trim() || !anchor) {
@@ -176,6 +177,10 @@ function CreateExperienceScreenBody({api, onCreated, onBack}: CreateExperienceSc
 								  ))}
 						</>
 					)}
+
+					{/* when it happens — a real choice, not a fixed tomorrow at
+					    seven that nobody's plan actually is */}
+					<BerxWhenPicker value={scheduledStart} onChange={setScheduledStart} testID="create-experience-start" />
 
 					<BerxText role="micro" emphasis="tertiary">Доступ</BerxText>
 					<BerxSegmentTabs
