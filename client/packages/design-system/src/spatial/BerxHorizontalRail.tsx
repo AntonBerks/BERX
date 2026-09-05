@@ -12,10 +12,10 @@
  *    page, usable by keyboard and switch control.
  */
 import React, {useCallback, useRef, useState} from 'react';
-import {FlatList, Pressable, StyleSheet, Text, View, type ListRenderItem, type ViewStyle} from 'react-native';
+import {FlatList, Pressable, StyleSheet, View, type ListRenderItem, type ViewStyle} from 'react-native';
 import {rgba} from '@berx/spatial';
 import {useBerxScene} from './BerxSpatialScene';
-import {typography, spacing} from '../tokens';
+import {spacing} from '../tokens';
 import {BerxIcon, type BerxIconName} from '../icons';
 
 export interface BerxHorizontalRailProps<T> {

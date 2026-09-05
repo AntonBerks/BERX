@@ -29,6 +29,7 @@ import {BerxDataBoundary} from '../../../../../packages/design-system/src/spatia
 import {BerxFamilyScene} from '../../spatial/BerxScreenScene';
 import {classifyFailure} from '../../spatial/screenState';
 import {useBerxConnectivity} from '../../spatial/useBerxConnectivity';
+import {BerxText} from '../../../../../packages/design-system/src/spatial/BerxText';
 
 interface SearchResultUser {
 	guid: number;
@@ -169,9 +170,9 @@ function BusinessTeamSceneBody({api, placeGuid, onBack}: BusinessTeamScreenProps
 		<View style={styles.screen}>
 			<BerxHeader onBack={onBack} title="Команда" />
 			<ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-				<Text style={styles.sectionTitle} accessibilityRole="header">
+				<BerxText role="micro" emphasis="tertiary" style={styles.sectionTitle} heading>
 					Добавить сотрудника
-				</Text>
+				</BerxText>
 
 				<BerxFilterBar
 					options={[
@@ -200,7 +201,7 @@ function BusinessTeamSceneBody({api, placeGuid, onBack}: BusinessTeamScreenProps
 				) : null}
 
 				{searched && results.length === 0 && !searching ? (
-					<Text style={styles.hint}>Никого не нашлось по этому запросу.</Text>
+					<BerxText role="meta" emphasis="tertiary">Никого не нашлось по этому запросу.</BerxText>
 				) : null}
 
 				{results.map((user) => {
@@ -225,9 +226,9 @@ function BusinessTeamSceneBody({api, placeGuid, onBack}: BusinessTeamScreenProps
 					);
 				})}
 
-				<Text style={styles.sectionTitle} accessibilityRole="header">
+				<BerxText role="micro" emphasis="tertiary" style={styles.sectionTitle} heading>
 					Команда
-				</Text>
+				</BerxText>
 
 				<BerxDataBoundary
 					state={state}
@@ -267,14 +268,7 @@ function BusinessTeamSceneBody({api, placeGuid, onBack}: BusinessTeamScreenProps
 const styles = StyleSheet.create({
 	screen: {flex: 1},
 	content: {padding: spacing.lg, gap: spacing.md, paddingBottom: spacing.xxxl},
-	sectionTitle: {
-		color: colors.textFaint,
-		fontSize: typography.sizeXs,
-		textTransform: 'uppercase',
-		letterSpacing: 0.5,
-		marginTop: spacing.sm,
-	},
+	sectionTitle: {marginTop: spacing.sm},
 	list: {gap: spacing.md},
 	error: {color: colors.danger, fontSize: typography.sizeSm},
-	hint: {color: colors.textFaint, fontSize: typography.sizeSm},
 });

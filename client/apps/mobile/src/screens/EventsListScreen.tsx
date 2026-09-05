@@ -13,7 +13,7 @@
  * be redeemed is the fake functionality the constitution forbids.
  */
 import {useCallback, useEffect, useState} from 'react';
-import {FlatList, StyleSheet, View} from 'react-native';
+import {StyleSheet, View} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxEvent, BerxPlaceCategory} from '@berx/api/types';
 import type {BerxScreenState} from '@berx/spatial';

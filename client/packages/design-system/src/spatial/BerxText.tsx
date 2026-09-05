@@ -26,8 +26,20 @@ export interface BerxTextProps {
 	children?: React.ReactNode;
 	style?: StyleProp<TextStyle>;
 	numberOfLines?: number;
+	/**
+	 * Politeness for a line that changes in place — a live count, a
+	 * status. Assistive technology announces the change without moving
+	 * focus to it.
+	 */
+	liveRegion?: 'polite' | 'assertive';
 	/** Marks the line as a heading for assistive technology. */
 	heading?: boolean;
+	/**
+	 * Text that carries no information of its own — a glyph, a
+	 * decorative repeat of something already announced. Hidden from
+	 * assistive technology rather than read out twice.
+	 */
+	decorative?: boolean;
 	accessibilityLabel?: string;
 	testID?: string;
 	onPress?: () => void;
@@ -40,6 +52,8 @@ export function BerxText({
 	style,
 	numberOfLines,
 	heading,
+	decorative,
+	liveRegion,
 	accessibilityLabel,
 	testID,
 	onPress,
@@ -69,6 +83,9 @@ export function BerxText({
 			numberOfLines={numberOfLines}
 			accessibilityRole={heading ? 'header' : undefined}
 			accessibilityLabel={accessibilityLabel}
+			accessibilityLiveRegion={liveRegion}
+			accessibilityElementsHidden={decorative}
+			importantForAccessibility={decorative ? 'no-hide-descendants' : undefined}
 			style={[
 				{
 					color,

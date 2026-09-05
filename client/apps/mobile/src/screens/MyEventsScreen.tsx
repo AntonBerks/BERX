@@ -3,7 +3,7 @@
  * Real data: api.myGoingEvents() (components/OssnApi/v1/events.php).
  */
 import {useCallback, useEffect, useState} from 'react';
-import {View, FlatList, StyleSheet} from 'react-native';
+import {View, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxEvent} from '@berx/api/types';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';

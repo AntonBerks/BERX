@@ -5,7 +5,7 @@
  * only on the caller's own account — enforced server-side regardless
  * of what this screen sends.
  */
-import React, {useEffect, useState} from 'react';
+import {useEffect, useState} from 'react';
 import {View, Text, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import {colors, spacing, typography} from '@berx/design-system/tokens';
@@ -15,6 +15,7 @@ import {BerxButton} from '../../../../packages/design-system/src/components/Berx
 import {BerxLoadingState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxGlassSurface} from '../../../../packages/design-system/src/components/BerxGlassSurface';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
+import {BerxText} from '../../../../packages/design-system/src/spatial/BerxText';
 
 export interface CreatorSettingsScreenProps {
 	api: BerxApiClient;
@@ -108,7 +109,7 @@ function CreatorSettingsScreenBody({api, myUsername, onDisabled, onBack}: Creato
 				{/* D2 — the work sits on a structural surface, not on the substrate */}
 				<BerxGlassSurface padding="lg" style={styles.form}>
 					{!isCreator ? (
-						<Text style={styles.hint}>Режим автора открывает публичную страницу с вашими постами, альбомами, событиями и впечатлениями — с реальной статистикой просмотров.</Text>
+						<BerxText role="meta" emphasis="secondary">Режим автора открывает публичную страницу с вашими постами, альбомами, событиями и впечатлениями — с реальной статистикой просмотров.</BerxText>
 					) : null}
 
 					<BerxInput placeholder="Категория (например, «Фотограф»)" value={category} onChangeText={setCategory} />
@@ -135,6 +136,5 @@ const styles = StyleSheet.create({
 	/* no opaque fill: the scene paints the room this screen stands in */
 	screen: {flex: 1},
 	body: {padding: spacing.md, gap: spacing.md},
-	hint: {fontSize: typography.sizeSm, color: colors.textDim},
 	error: {fontSize: typography.sizeSm, color: colors.danger},
 });

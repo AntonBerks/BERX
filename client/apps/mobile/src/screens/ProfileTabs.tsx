@@ -30,11 +30,11 @@
  * cannot ask" are different things and the difference matters.
  */
 import {useCallback, useEffect, useState} from 'react';
-import {StyleSheet, Text, View} from 'react-native';
+import {StyleSheet, View} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxAlbum, BerxExperience, BerxFriend, BerxPlace} from '@berx/api/types';
 import type {BerxScreenState} from '@berx/spatial';
-import {colors, spacing, typography} from '@berx/design-system/tokens';
+import {spacing} from '@berx/design-system/tokens';
 import {BerxSegmentTabs} from '../../../../packages/design-system/src/components/BerxBusinessPrimitives';
 import {BerxScreenScene} from '../spatial/BerxScreenScene';
 import {classifyFailure} from '../spatial/screenState';
@@ -42,6 +42,7 @@ import {useBerxConnectivity} from '../spatial/useBerxConnectivity';
 import {BerxDataBoundary} from '../../../../packages/design-system/src/spatial/BerxDataBoundary';
 import {BerxIdentity} from '../../../../packages/design-system/src/spatial/BerxIdentity';
 import {BerxSpatialCard} from '../../../../packages/design-system/src/spatial/BerxSpatialCard';
+import {BerxText} from '../../../../packages/design-system/src/spatial/BerxText';
 
 /** The archive's six, in the archive's order. */
 export type BerxProfileTab = 'moments' | 'places' | 'events' | 'experiences' | 'about' | 'connections';
@@ -187,12 +188,12 @@ export function ProfileTabs({
 				style={styles.body}>
 				{tab === 'about' ? (
 					<BerxSpatialCard depth="D3" padding={spacing.lg} radius={18}>
-						<Text style={styles.aboutName}>{profile.fullname}</Text>
-						<Text style={styles.aboutHandle}>@{profile.username}</Text>
+						<BerxText role="heading">{profile.fullname}</BerxText>
+						<BerxText role="meta" emphasis="secondary" style={styles.aboutHandle}>@{profile.username}</BerxText>
 						{/* only fields the API actually returns */}
-						<Text style={styles.aboutFact}>{profile.is_creator ? 'Создаёт контент в BERX' : 'Участник BERX'}</Text>
+						<BerxText role="meta" emphasis="secondary">{profile.is_creator ? 'Создаёт контент в BERX' : 'Участник BERX'}</BerxText>
 						{!isOwn ? (
-							<Text style={styles.aboutFact}>{profile.is_friend ? 'У вас в друзьях' : 'Не в друзьях'}</Text>
+							<BerxText role="meta" emphasis="secondary">{profile.is_friend ? 'У вас в друзьях' : 'Не в друзьях'}</BerxText>
 						) : null}
 					</BerxSpatialCard>
 				) : tab === 'moments' ? (
@@ -205,9 +206,9 @@ export function ProfileTabs({
 								radius={18}
 								onPress={onOpenAlbum ? () => onOpenAlbum(a.guid) : undefined}
 								accessibilityLabel={a.title}>
-								<Text style={styles.itemTitle} numberOfLines={1}>
+								<BerxText role="callout" numberOfLines={1}>
 									{a.title}
-								</Text>
+								</BerxText>
 							</BerxSpatialCard>
 						))}
 					</View>
@@ -221,13 +222,13 @@ export function ProfileTabs({
 								radius={18}
 								onPress={onOpenPlace ? () => onOpenPlace(p.guid) : undefined}
 								accessibilityLabel={p.title}>
-								<Text style={styles.itemTitle} numberOfLines={1}>
+								<BerxText role="callout" numberOfLines={1}>
 									{p.title}
-								</Text>
+								</BerxText>
 								{p.address ? (
-									<Text style={styles.itemMeta} numberOfLines={1}>
+									<BerxText role="meta" emphasis="secondary" style={styles.itemMeta} numberOfLines={1}>
 										{p.address}
-									</Text>
+									</BerxText>
 								) : null}
 							</BerxSpatialCard>
 						))}
@@ -242,13 +243,13 @@ export function ProfileTabs({
 								radius={18}
 								onPress={onOpenExperience ? () => onOpenExperience(x.id) : undefined}
 								accessibilityLabel={x.title}>
-								<Text style={styles.itemTitle} numberOfLines={1}>
+								<BerxText role="callout" numberOfLines={1}>
 									{x.title}
-								</Text>
+								</BerxText>
 								{x.anchor ? (
-									<Text style={styles.itemMeta} numberOfLines={1}>
+									<BerxText role="meta" emphasis="secondary" style={styles.itemMeta} numberOfLines={1}>
 										{x.anchor.title}
-									</Text>
+									</BerxText>
 								) : null}
 							</BerxSpatialCard>
 						))}
@@ -313,9 +314,6 @@ const styles = StyleSheet.create({
 	panel: {borderRadius: 22, overflow: 'hidden', minHeight: 160},
 	body: {minHeight: 120},
 	list: {gap: spacing.sm},
-	itemTitle: {color: colors.text, fontSize: typography.sizeBase, fontWeight: typography.weightMedium},
-	itemMeta: {color: colors.textDim, fontSize: typography.sizeXs, marginTop: 2},
-	aboutName: {color: colors.text, fontSize: typography.sizeLg, fontWeight: typography.weightBold},
-	aboutHandle: {color: colors.textDim, fontSize: typography.sizeSm, marginBottom: spacing.sm},
-	aboutFact: {color: colors.textDim, fontSize: typography.sizeSm},
+	itemMeta: {marginTop: 2},
+	aboutHandle: {marginBottom: spacing.sm},
 });

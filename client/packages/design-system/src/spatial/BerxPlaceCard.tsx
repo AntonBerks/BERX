@@ -6,11 +6,12 @@
  * has not made. `placePin` is the shared element, so opening a place
  * carries the same object into the detail scene.
  */
-import {Image, StyleSheet, Text, View, type ImageSourcePropType} from 'react-native';
+import {Image, StyleSheet, View, type ImageSourcePropType} from 'react-native';
 import {sharedElementTag} from '@berx/spatial';
 import {BerxSpatialCard} from './BerxSpatialCard';
 import {BerxPlaceRating} from './BerxPlaceRating';
-import {colors, spacing, typography} from '../tokens';
+import {spacing} from '../tokens';
+import {BerxText} from './BerxText';
 
 export interface BerxPlaceCardProps {
 	placeGuid: number;
@@ -60,13 +61,13 @@ export function BerxPlaceCard({
 			<View style={styles.row}>
 				{cover ? <Image source={cover} resizeMode="cover" accessible={false} style={styles.thumb} /> : <View style={[styles.thumb, styles.thumbEmpty]} />}
 				<View style={styles.text}>
-					<Text style={styles.name} numberOfLines={1}>
+					<BerxText role="callout" numberOfLines={1}>
 						{name}
-					</Text>
+					</BerxText>
 					{meta ? (
-						<Text style={styles.meta} numberOfLines={1}>
+						<BerxText role="meta" emphasis="secondary" numberOfLines={1}>
 							{meta}
-						</Text>
+						</BerxText>
 					) : null}
 					<BerxPlaceRating average={rating} count={ratingCount} compact />
 				</View>
@@ -81,6 +82,4 @@ const styles = StyleSheet.create({
 	thumb: {width: 72, height: 72, borderRadius: 16},
 	thumbEmpty: {backgroundColor: 'rgba(255,255,255,0.05)'},
 	text: {flex: 1, gap: 3},
-	name: {color: colors.text, fontSize: typography.sizeBase, fontWeight: typography.weightMedium},
-	meta: {color: colors.textDim, fontSize: typography.sizeSm},
 });

@@ -6,11 +6,11 @@
  * "top X%" comparison — honest counts only, or an honest
  * insufficient-data state when there isn't enough real activity.
  */
-import React, {useCallback, useEffect, useState} from 'react';
-import {View, Text, StyleSheet} from 'react-native';
+import {useCallback, useEffect, useState} from 'react';
+import {View, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxWrapped, BerxWrappedPeriod} from '@berx/api/types';
-import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
+import {colors, spacing, typography} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxStatRail} from '../../../../packages/design-system/src/spatial/BerxStatRail';

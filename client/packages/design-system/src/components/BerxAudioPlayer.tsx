@@ -18,10 +18,10 @@
  * (or similar) from a library like react-native-track-player once
  * installed — `url`/`onPlay` map directly onto that kind of API.
  */
-import React from 'react';
-import { View, Text, Pressable, Linking, StyleSheet } from 'react-native';
-import { colors, spacing, radius, typography } from '../tokens';
+import { View, Pressable, Linking, StyleSheet } from 'react-native';
+import { colors, spacing, radius } from '../tokens';
 import { BerxIcon } from '../icons';
+import {BerxText} from '../spatial/BerxText';
 
 export interface BerxAudioPlayerProps {
 	url: string;
@@ -46,7 +46,7 @@ export function BerxAudioPlayer({ url, onOpen }: BerxAudioPlayerProps) {
 			<View style={styles.playBadge}>
 				<BerxIcon name="play" size={16} state="active" decorative />
 			</View>
-			<Text style={styles.hint}>Воспроизвести трек</Text>
+			<BerxText role="meta" emphasis="secondary">Воспроизвести трек</BerxText>
 		</Pressable>
 	);
 }
@@ -54,5 +54,4 @@ export function BerxAudioPlayer({ url, onOpen }: BerxAudioPlayerProps) {
 const styles = StyleSheet.create({
 	bar: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.graphite, borderRadius: radius.md, padding: spacing.md },
 	playBadge: { width: 40, height: 40, borderRadius: radius.pill, backgroundColor: colors.accentSoft, alignItems: 'center', justifyContent: 'center' },
-	hint: { color: colors.textDim, fontSize: typography.sizeSm },
 });

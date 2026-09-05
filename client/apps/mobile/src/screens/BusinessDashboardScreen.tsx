@@ -47,6 +47,7 @@ import {BerxScreenScene, useBerxScreen, useBerxSceneAtmosphere} from '../spatial
 import {classifyFailure} from '../spatial/screenState';
 import {useBerxConnectivity} from '../spatial/useBerxConnectivity';
 import {berxAnalytics} from '../spatial/analytics';
+import {BerxText} from '../../../../packages/design-system/src/spatial/BerxText';
 
 export interface BusinessDashboardScreenProps {
 	api: BerxApiClient;
@@ -227,9 +228,9 @@ function BusinessDashboardSceneBody({api, placeGuid, onBack}: BusinessDashboardS
 									]}
 								/>
 								{impressions.shown > 0 ? (
-									<Text style={styles.note}>
+									<BerxText role="meta" emphasis="secondary">
 										{Math.round((impressions.opened / impressions.shown) * 100)}% открывают ваш профиль после показа рядом
-									</Text>
+									</BerxText>
 								) : null}
 							</Section>
 						) : null}
@@ -248,14 +249,14 @@ function BusinessDashboardSceneBody({api, placeGuid, onBack}: BusinessDashboardS
 								disabled={momentText.trim().length === 0}
 							/>
 							{moments.length === 0 ? (
-								<Text style={styles.empty}>Сейчас нет активных moments.</Text>
+								<BerxText role="meta" emphasis="tertiary">Сейчас нет активных moments.</BerxText>
 							) : (
 								moments.map((m) => (
 									<BerxSpatialCard key={m.id} depth="D3" padding={spacing.md} radius={16}>
 										<View style={styles.momentRow}>
-											<Text style={styles.momentText} numberOfLines={2}>
+											<BerxText role="meta" style={styles.momentText} numberOfLines={2}>
 												{m.text}
-											</Text>
+											</BerxText>
 											<BerxButton label="Убрать" variant="secondary" onPress={() => removeMoment(m.id)} />
 										</View>
 									</BerxSpatialCard>
@@ -266,12 +267,12 @@ function BusinessDashboardSceneBody({api, placeGuid, onBack}: BusinessDashboardS
 						{subscription ? (
 							<Section title="Подписка">
 								<BerxSpatialCard depth="D2" padding={spacing.lg}>
-									<Text style={styles.status}>{STATUS_LABEL[subscription.status]}</Text>
+									<BerxText role="callout">{STATUS_LABEL[subscription.status]}</BerxText>
 									{subscription.status === 'trial' && subscription.trial_ends_at ? (
-										<Text style={styles.note}>Пробный период до {fmtDate(subscription.trial_ends_at)}</Text>
+										<BerxText role="meta" emphasis="secondary">Пробный период до {fmtDate(subscription.trial_ends_at)}</BerxText>
 									) : null}
 									{subscription.monthly_price_rub ? (
-										<Text style={styles.note}>{subscription.monthly_price_rub} ₽ / месяц после пробного периода</Text>
+										<BerxText role="meta" emphasis="secondary">{subscription.monthly_price_rub} ₽ / месяц после пробного периода</BerxText>
 									) : null}
 									{subscription.status === 'none' ? (
 										<BerxButton label="Начать 7-дневный пробный период" onPress={startTrial} loading={trialBusy} fullWidth />
@@ -285,7 +286,7 @@ function BusinessDashboardSceneBody({api, placeGuid, onBack}: BusinessDashboardS
 
 						<Section title="Команда">
 							{team.length === 0 ? (
-								<Text style={styles.empty}>Пока только вы управляете этим местом.</Text>
+								<BerxText role="meta" emphasis="tertiary">Пока только вы управляете этим местом.</BerxText>
 							) : (
 								team.map((m) => (
 									<BerxSpatialCard key={m.guid} depth="D3" padding={spacing.md} radius={16}>
@@ -304,19 +305,19 @@ function BusinessDashboardSceneBody({api, placeGuid, onBack}: BusinessDashboardS
 
 						<Section title="Последние отзывы">
 							{data.recent_reviews.length === 0 ? (
-								<Text style={styles.empty}>Отзывов пока нет.</Text>
+								<BerxText role="meta" emphasis="tertiary">Отзывов пока нет.</BerxText>
 							) : (
 								data.recent_reviews.map((r: BerxPlaceReview) => (
 									<BerxSpatialCard key={r.guid} depth="D3" padding={spacing.md} radius={16}>
 										<View style={styles.reviewHead}>
-											<Text style={styles.reviewAuthor}>{r.author?.fullname ?? 'Пользователь'}</Text>
+											<BerxText role="label">{r.author?.fullname ?? 'Пользователь'}</BerxText>
 											<BerxPlaceRating average={r.rating} count={1} compact />
 										</View>
-										{r.text ? <Text style={styles.reviewText}>{r.text}</Text> : null}
+										{r.text ? <BerxText role="meta" emphasis="secondary" style={styles.reviewText}>{r.text}</BerxText> : null}
 										{r.owner_reply ? (
 											<View style={styles.reply}>
-												<Text style={styles.replyLabel}>Ваш ответ</Text>
-												<Text style={styles.reviewText}>{r.owner_reply.text}</Text>
+												<BerxText role="label" emphasis="accent">Ваш ответ</BerxText>
+												<BerxText role="meta" emphasis="secondary" style={styles.reviewText}>{r.owner_reply.text}</BerxText>
 											</View>
 										) : null}
 									</BerxSpatialCard>
@@ -333,9 +334,9 @@ function BusinessDashboardSceneBody({api, placeGuid, onBack}: BusinessDashboardS
 function Section({title, children}: {title: string; children: React.ReactNode}) {
 	return (
 		<View style={styles.section}>
-			<Text style={styles.sectionTitle} accessibilityRole="header">
+			<BerxText role="micro" emphasis="tertiary" heading>
 				{title}
-			</Text>
+			</BerxText>
 			{children}
 		</View>
 	);
@@ -346,21 +347,10 @@ const styles = StyleSheet.create({
 	body: {flex: 1},
 	scroll: {paddingBottom: spacing.xxxl},
 	section: {paddingHorizontal: spacing.lg, paddingTop: spacing.lg, gap: spacing.sm},
-	sectionTitle: {
-		color: colors.textFaint,
-		fontSize: typography.sizeXs,
-		textTransform: 'uppercase',
-		letterSpacing: 0.5,
-	},
-	status: {color: colors.text, fontSize: typography.sizeBase, fontWeight: typography.weightMedium},
-	note: {color: colors.textDim, fontSize: typography.sizeSm},
 	warning: {color: colors.danger, fontSize: typography.sizeSm},
-	empty: {color: colors.textFaint, fontSize: typography.sizeSm},
 	momentRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.md},
-	momentText: {flex: 1, color: colors.text, fontSize: typography.sizeSm},
+	momentText: {flex: 1},
 	reviewHead: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm},
-	reviewAuthor: {color: colors.text, fontSize: typography.sizeSm, fontWeight: typography.weightMedium},
-	reviewText: {color: colors.textDim, fontSize: typography.sizeSm, marginTop: 4, lineHeight: typography.sizeSm * 1.45},
+	reviewText: {marginTop: 4},
 	reply: {marginTop: spacing.sm, paddingLeft: spacing.md, borderLeftWidth: 2, borderLeftColor: colors.borderSoft},
-	replyLabel: {color: colors.accent, fontSize: typography.sizeXs, fontWeight: typography.weightMedium},
 });

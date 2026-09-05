@@ -11,7 +11,7 @@
  * comments (myGuid === comment.author.guid) — the server re-checks
  * this regardless, this is just not showing a control that would 403.
  */
-import React, {useCallback, useEffect, useState} from 'react';
+import {useCallback, useEffect, useState} from 'react';
 import {View, Text, Image, Pressable, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxObjectComment, BerxCommentableType} from '@berx/api/types';
@@ -20,6 +20,7 @@ import {BerxInput} from './BerxInput';
 import {BerxButton} from './BerxButton';
 import {BerxIcon} from '../icons';
 import {BerxEyebrow} from './BerxBusinessPrimitives';
+import {BerxText} from '../spatial/BerxText';
 
 interface Props {
 	api: BerxApiClient;
@@ -86,16 +87,16 @@ export function BerxDiscussion({api, type, id, myGuid}: Props) {
 			{error ? <Text style={styles.error}>{error}</Text> : null}
 
 			{loading ? (
-				<Text style={styles.hint}>Загрузка...</Text>
+				<BerxText role="meta" emphasis="tertiary">Загрузка...</BerxText>
 			) : comments.length === 0 ? (
-				<Text style={styles.hint}>Комментариев пока нет.</Text>
+				<BerxText role="meta" emphasis="tertiary">Комментариев пока нет.</BerxText>
 			) : (
 				comments.map((c) => (
 					<View key={c.id} style={styles.row}>
 						{c.author ? <Image source={{uri: c.author.icon}} style={styles.avatar} /> : <View style={styles.avatarFallback} />}
 						<View style={styles.body}>
-							<Text style={styles.author}>{c.author?.fullname ?? 'Пользователь'}</Text>
-							<Text style={styles.text}>{c.text}</Text>
+							<BerxText role="label">{c.author?.fullname ?? 'Пользователь'}</BerxText>
+							<BerxText role="meta" emphasis="secondary">{c.text}</BerxText>
 						</View>
 						{myGuid && c.author?.guid === myGuid ? (
 							<Pressable onPress={() => remove(c.id)} hitSlop={8}>
@@ -113,12 +114,9 @@ const styles = StyleSheet.create({
 	wrap: {gap: spacing.sm},
 	form: {flexDirection: 'row', gap: spacing.sm, alignItems: 'center'},
 	error: {fontSize: typography.sizeSm, color: colors.danger},
-	hint: {fontSize: typography.sizeSm, color: colors.textFaint},
 	row: {flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, paddingVertical: spacing.sm, borderTopWidth: 1, borderTopColor: colors.borderSoft},
 	avatar: {width: 32, height: 32, borderRadius: radius.pill},
 	avatarFallback: {width: 32, height: 32, borderRadius: radius.pill, backgroundColor: colors.graphite},
 	body: {flex: 1, gap: 2},
-	author: {fontSize: typography.sizeSm, color: colors.white, fontWeight: typography.weightMedium},
-	text: {fontSize: typography.sizeSm, color: colors.textDim},
 	deleteLink: {fontSize: typography.sizeSm, color: colors.textFaint, padding: 4},
 });

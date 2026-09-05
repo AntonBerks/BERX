@@ -11,6 +11,7 @@ import {rgba} from '@berx/spatial';
 import {useBerxScene} from './BerxSpatialScene';
 import {BerxIcon} from '../icons';
 import {colors, spacing, typography} from '../tokens';
+import {BerxText} from './BerxText';
 
 export interface BerxPlaceRatingProps {
 	/** Server average, or undefined when there are no reviews. */
@@ -42,15 +43,13 @@ export function BerxPlaceRating({average, count, compact, testID}: BerxPlaceRati
 			{/* the icon set's own star at the type's own size, not a
 			    glyph from whatever font the platform resolves */}
 			<BerxIcon name="star" size={13} state="active" decorative />
-			<Text style={styles.value}>{rounded.toFixed(1)}</Text>
-			<Text style={styles.count}>({count})</Text>
+			<BerxText role="label">{rounded.toFixed(1)}</BerxText>
+			<BerxText role="meta" emphasis="secondary">({count})</BerxText>
 		</View>
 	);
 }
 
 const styles = StyleSheet.create({
 	root: {flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: spacing.sm, paddingVertical: 4, borderRadius: 999, alignSelf: 'flex-start'},
-	value: {color: colors.text, fontSize: typography.sizeSm, fontWeight: typography.weightMedium},
-	count: {color: colors.textDim, fontSize: typography.sizeXs},
 	empty: {color: colors.textFaint, fontSize: typography.sizeSm},
 });

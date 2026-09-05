@@ -19,7 +19,7 @@
  * offering an unlike the endpoint may not perform.
  */
 import {useCallback, useEffect, useState} from 'react';
-import {View, Text, Image, Pressable, StyleSheet} from 'react-native';
+import {View, Image, Pressable, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxPostDetail, BerxPostComment, BerxMediaAsset} from '@berx/api/types';
 import {relativeTimeLabel} from '@berx/domain';
@@ -35,6 +35,7 @@ import {BerxSpatialCard} from '../../../../packages/design-system/src/spatial/Be
 import {BerxIdentity} from '../../../../packages/design-system/src/spatial/BerxIdentity';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 import {BerxIcon} from '../../../../packages/design-system/src/icons';
+import {BerxText} from '../../../../packages/design-system/src/spatial/BerxText';
 
 export interface PostDetailScreenProps {
 	api: BerxApiClient;
@@ -209,7 +210,7 @@ function PostDetailSceneBody({api, postGuid, myGuid, onOpenProfile, onReport, on
 						subtitle={relativeTimeLabel(post.time_created)}
 						onPress={post.owner_username ? () => onOpenProfile(post.owner_username as string) : undefined}
 					/>
-					<Text style={styles.text}>{post.text}</Text>
+					<BerxText role="body">{post.text}</BerxText>
 				</BerxSpatialCard>
 
 				{media.length > 0 ? (
@@ -245,7 +246,7 @@ function PostDetailSceneBody({api, postGuid, myGuid, onOpenProfile, onReport, on
 						accessibilityLabel="Пожаловаться на пост"
 						onPress={() => onReport('post', post.guid)}
 						hitSlop={8}>
-						<Text style={styles.reportLink}>Пожаловаться на пост</Text>
+						<BerxText role="meta" emphasis="tertiary" style={styles.reportLink}>Пожаловаться на пост</BerxText>
 					</Pressable>
 				) : null}
 
@@ -257,14 +258,14 @@ function PostDetailSceneBody({api, postGuid, myGuid, onOpenProfile, onReport, on
 						multiline
 					/>
 					<BerxButton label="Отправить" variant="secondary" onPress={handleComment} loading={posting} />
-					{commentStatus ? <Text style={styles.commentStatus}>{commentStatus}</Text> : null}
+					{commentStatus ? <BerxText role="meta" emphasis="secondary">{commentStatus}</BerxText> : null}
 				</View>
 
 				<View style={styles.commentsList}>
 					{commentsLoading ? (
-						<Text style={styles.commentStatus}>Загрузка комментариев...</Text>
+						<BerxText role="meta" emphasis="secondary">Загрузка комментариев...</BerxText>
 					) : comments.length === 0 ? (
-						<Text style={styles.commentStatus}>Комментариев пока нет.</Text>
+						<BerxText role="meta" emphasis="secondary">Комментариев пока нет.</BerxText>
 					) : (
 						comments.map((c) => (
 							<View key={c.id} style={styles.commentRow}>
@@ -279,9 +280,9 @@ function PostDetailSceneBody({api, postGuid, myGuid, onOpenProfile, onReport, on
 									<View style={styles.commentAvatar} />
 								)}
 								<View style={styles.commentBody}>
-									<Text style={styles.commentAuthor}>{c.author?.fullname ?? 'Пользователь'}</Text>
-									<Text style={styles.commentText}>{c.text}</Text>
-									<Text style={styles.commentTime}>{relativeTimeLabel(c.time)}</Text>
+									<BerxText role="label">{c.author?.fullname ?? 'Пользователь'}</BerxText>
+									<BerxText role="meta" emphasis="secondary">{c.text}</BerxText>
+									<BerxText role="meta" emphasis="tertiary">{relativeTimeLabel(c.time)}</BerxText>
 								</View>
 								{myGuid && c.author?.guid === myGuid ? (
 									<Pressable
@@ -297,7 +298,7 @@ function PostDetailSceneBody({api, postGuid, myGuid, onOpenProfile, onReport, on
 										accessibilityLabel="Пожаловаться на комментарий"
 										onPress={() => onReport('comment', c.id)}
 										hitSlop={8}>
-										<Text style={styles.commentDelete}>⚑</Text>
+										<BerxText role="meta" emphasis="tertiary" style={styles.commentDelete}>⚑</BerxText>
 									</Pressable>
 								) : null}
 							</View>
@@ -314,7 +315,6 @@ const styles = StyleSheet.create({
 	screen: {flex: 1},
 	container: {flex: 1, padding: spacing.lg, gap: spacing.md},
 	author: {color: colors.accent, fontWeight: typography.weightMedium, fontSize: typography.sizeLg},
-	text: {color: colors.text, fontSize: typography.sizeBase, lineHeight: typography.sizeBase * typography.lineHeightBase},
 	mediaWrap: {borderRadius: radius.md, overflow: 'hidden'},
 	time: {color: colors.textFaint, fontSize: typography.sizeXs},
 	commentBox: {
@@ -326,14 +326,10 @@ const styles = StyleSheet.create({
 		borderWidth: 1,
 		borderColor: colors.borderSoft,
 	},
-	reportLink: {color: colors.textFaint, fontSize: typography.sizeXs, textDecorationLine: 'underline'},
-	commentStatus: {color: colors.textDim, fontSize: typography.sizeXs},
+	reportLink: {textDecorationLine: 'underline'},
 	commentsList: {marginTop: spacing.md, gap: spacing.sm},
 	commentRow: {flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, paddingVertical: spacing.sm, borderTopWidth: 1, borderTopColor: colors.borderSoft},
 	commentAvatar: {width: 32, height: 32, borderRadius: radius.pill, backgroundColor: colors.glass2},
 	commentBody: {flex: 1, gap: 2},
-	commentAuthor: {color: colors.text, fontSize: typography.sizeSm, fontWeight: typography.weightMedium},
-	commentText: {color: colors.textDim, fontSize: typography.sizeSm},
-	commentTime: {color: colors.textFaint, fontSize: typography.sizeXs},
-	commentDelete: {color: colors.textFaint, fontSize: typography.sizeSm, padding: 4},
+	commentDelete: {padding: 4},
 });

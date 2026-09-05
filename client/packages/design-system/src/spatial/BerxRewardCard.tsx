@@ -14,6 +14,7 @@ import {rgba} from '@berx/spatial';
 import {useBerxScene} from './BerxSpatialScene';
 import {BerxObjectCard} from './BerxObjectCard';
 import {colors, typography} from '../tokens';
+import {BerxText} from './BerxText';
 
 export interface BerxRewardCardProps {
 	rewardId: string;
@@ -66,9 +67,9 @@ export function BerxRewardCard({
 				<>
 					{actions}
 					{!affordable ? (
-						<Text style={styles.short} accessibilityLiveRegion="polite">
+						<BerxText role="meta" emphasis="secondary" style={styles.short} liveRegion="polite">
 							Не хватает {short} баллов
-						</Text>
+						</BerxText>
 					) : null}
 				</>
 			}
@@ -80,5 +81,5 @@ export function BerxRewardCard({
 const styles = StyleSheet.create({
 	cost: {paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999, borderWidth: 1},
 	costText: {fontSize: typography.sizeXs, fontWeight: typography.weightMedium},
-	short: {color: colors.textDim, fontSize: typography.sizeXs, alignSelf: 'center'},
+	short: {alignSelf: 'center'},
 });

@@ -31,6 +31,7 @@ import {BerxActionShelf} from '../../../../packages/design-system/src/spatial/Be
 import {useBerxScene} from '../../../../packages/design-system/src/spatial/BerxSpatialScene';
 import {BerxFocusTarget} from '../../../../packages/design-system/src/spatial/BerxFocusTarget';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
+import {BerxText} from '../../../../packages/design-system/src/spatial/BerxText';
 
 export interface StoryViewerScreenProps {
 	api: BerxApiClient;
@@ -199,8 +200,8 @@ function StoryViewerScreenBody({
 				{current.mime_type === 'video/mp4' ? (
 					<View style={styles.videoFallback}>
 						<BerxIcon name="play" size={26} decorative />
-						<Text style={styles.videoFallbackText}>Видео-история</Text>
-						<Text style={styles.videoFallbackHint}>Просмотр видео-историй в приложении пока не поддерживается</Text>
+						<BerxText role="heading">Видео-история</BerxText>
+						<BerxText role="meta" emphasis="tertiary" style={styles.videoFallbackHint}>Просмотр видео-историй в приложении пока не поддерживается</BerxText>
 					</View>
 				) : (
 					<Image
@@ -244,8 +245,8 @@ function StoryViewerScreenBody({
 			<View style={styles.footer}>
 				<BerxActionShelf variant="anchored" align="spread">
 					<View style={styles.footerText}>
-						{current.caption ? <Text style={styles.caption}>{current.caption}</Text> : null}
-						<Text style={styles.owner}>{group.owner_username ?? `#${group.owner_guid}`}</Text>
+						{current.caption ? <BerxText role="body" style={styles.caption}>{current.caption}</BerxText> : null}
+						<BerxText role="meta" emphasis="secondary">{group.owner_username ?? `#${group.owner_guid}`}</BerxText>
 					</View>
 					{isOwn ? (
 						<Pressable
@@ -282,16 +283,14 @@ const styles = StyleSheet.create({
 	progressFill: {height: '100%'},
 	media: {flex: 1, width: '100%'},
 	videoFallback: {flex: 1, width: '100%', alignItems: 'center', justifyContent: 'center', gap: spacing.sm},
-	videoFallbackText: {color: colors.white, fontSize: typography.sizeLg, fontWeight: typography.weightBold},
-	videoFallbackHint: {color: colors.textFaint, fontSize: typography.sizeSm, textAlign: 'center', paddingHorizontal: spacing.xl},
+	videoFallbackHint: {textAlign: 'center', paddingHorizontal: spacing.xl},
 	tapZones: {...StyleSheet.absoluteFillObject, flexDirection: 'row'},
 	tapLeft: {flex: 1},
 	tapRight: {flex: 1},
 	footer: {position: 'absolute', bottom: 0, left: 0, right: 0, padding: spacing.lg},
 	footerText: {flex: 1, gap: 2},
 	footerRow: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'},
-	caption: {color: colors.text, fontSize: typography.sizeBase, marginBottom: spacing.sm},
-	owner: {color: colors.textDim, fontSize: typography.sizeSm},
+	caption: {marginBottom: spacing.sm},
 	deleteText: {color: colors.danger, fontSize: typography.sizeSm},
 	closeButton: {position: 'absolute', top: spacing.xl, right: spacing.md, padding: spacing.sm},
 	closeText: {color: colors.text, fontSize: typography.sizeLg},

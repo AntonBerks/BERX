@@ -9,7 +9,7 @@
  * me.php) — this screen does not fabricate a soft-delete that
  * doesn't exist.
  */
-import React, {useState} from 'react';
+import {useState} from 'react';
 import {View, Text, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import {colors, spacing, typography} from '@berx/design-system/tokens';
@@ -19,6 +19,7 @@ import {BerxButton} from '../../../../packages/design-system/src/components/Berx
 import {BerxGlassSurface} from '../../../../packages/design-system/src/components/BerxGlassSurface';
 import {BerxActionShelf} from '../../../../packages/design-system/src/spatial/BerxActionShelf';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
+import {BerxText} from '../../../../packages/design-system/src/spatial/BerxText';
 
 export interface DeleteAccountScreenProps {
 	api: BerxApiClient;
@@ -73,11 +74,11 @@ function DeleteAccountScreenBody({api, onDeleted, onBack}: DeleteAccountScreenPr
 				{/* D2 — the consequences and the confirmation are one object.
 				    Nothing else on this screen competes with them. */}
 				<BerxGlassSurface padding="lg" style={styles.form}>
-					<Text style={styles.warning}>Это действие необратимо. Аккаунт и все связанные данные будут удалены безвозвратно.</Text>
+					<BerxText role="meta" emphasis="secondary">Это действие необратимо. Аккаунт и все связанные данные будут удалены безвозвратно.</BerxText>
 					<View style={styles.list}>
-						<Text style={styles.point}>· Все ваши посты, комментарии и лайки будут удалены</Text>
-						<Text style={styles.point}>· Все загруженные фото и файлы будут удалены</Text>
-						<Text style={styles.point}>· Отменить это действие будет невозможно</Text>
+						<BerxText role="meta" emphasis="tertiary">· Все ваши посты, комментарии и лайки будут удалены</BerxText>
+						<BerxText role="meta" emphasis="tertiary">· Все загруженные фото и файлы будут удалены</BerxText>
+						<BerxText role="meta" emphasis="tertiary">· Отменить это действие будет невозможно</BerxText>
 					</View>
 					<BerxInput placeholder="Введите пароль для подтверждения" value={password} onChangeText={setPassword} secureTextEntry />
 					{error ? <Text style={styles.error}>{error}</Text> : null}
@@ -104,8 +105,6 @@ const styles = StyleSheet.create({
 	screen: {flex: 1},
 	body: {padding: spacing.md, gap: spacing.md},
 	form: {gap: spacing.md},
-	warning: {fontSize: typography.sizeSm, color: colors.textDim},
 	list: {gap: 4},
-	point: {fontSize: typography.sizeSm, color: colors.textFaint},
 	error: {fontSize: typography.sizeSm, color: colors.danger},
 });

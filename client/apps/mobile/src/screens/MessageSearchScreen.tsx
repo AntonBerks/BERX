@@ -6,16 +6,17 @@
  * scoped to messages the caller sent/received, block-aware, real
  * bound-parameter LIKE match (not string-concatenated).
  */
-import React, {useState} from 'react';
-import {View, Text, FlatList, Image, Pressable, StyleSheet} from 'react-native';
+import {useState} from 'react';
+import {View, FlatList, Image, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxMessageSearchResult} from '@berx/api/types';
-import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
+import {colors, spacing, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxSpatialCard} from '../../../../packages/design-system/src/spatial/BerxSpatialCard';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
+import {BerxText} from '../../../../packages/design-system/src/spatial/BerxText';
 
 export interface MessageSearchScreenProps {
 	api: BerxApiClient;
@@ -86,9 +87,9 @@ function MessageSearchScreenBody({api, onOpenConversation, onBack}: MessageSearc
 							accessibilityLabel={`Переписка с ${item.user.fullname}`}>
 							<Image source={{uri: item.user.icon}} style={styles.avatar} />
 							<View style={styles.body}>
-								<Text style={styles.name} numberOfLines={1}>{item.user.fullname}</Text>
-								<Text style={styles.text} numberOfLines={2}>{item.outgoing ? 'Вы: ' : ''}{item.text}</Text>
-								<Text style={styles.time}>{fmtTime(item.time)}</Text>
+								<BerxText role="callout" numberOfLines={1}>{item.user.fullname}</BerxText>
+								<BerxText role="meta" emphasis="secondary" numberOfLines={2}>{item.outgoing ? 'Вы: ' : ''}{item.text}</BerxText>
+								<BerxText role="meta" emphasis="tertiary">{fmtTime(item.time)}</BerxText>
 							</View>
 						</BerxSpatialCard>
 					)}
@@ -109,7 +110,4 @@ const styles = StyleSheet.create({
 	row: {flexDirection: 'row', gap: spacing.sm, paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.borderSoft},
 	avatar: {width: 40, height: 40, borderRadius: radius.pill, backgroundColor: colors.graphite},
 	body: {flex: 1, gap: 2},
-	name: {fontSize: typography.sizeBase, color: colors.white, fontWeight: typography.weightMedium},
-	text: {fontSize: typography.sizeSm, color: colors.textDim},
-	time: {fontSize: typography.sizeXs, color: colors.textFaint},
 });

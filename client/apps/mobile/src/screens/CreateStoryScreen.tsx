@@ -19,7 +19,7 @@
  * a real filename label instead of a fake thumbnail — honest about
  * what it can and can't render before upload.
  */
-import React, {useState} from 'react';
+import {useState} from 'react';
 import {View, Text, Image, StyleSheet} from 'react-native';
 import type {BerxApiClient, BerxFilePart} from '@berx/api/client';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
@@ -28,6 +28,7 @@ import {BerxButton} from '../../../../packages/design-system/src/components/Berx
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {BerxGlassSurface} from '../../../../packages/design-system/src/components/BerxGlassSurface';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
+import {BerxText} from '../../../../packages/design-system/src/spatial/BerxText';
 
 export interface CreateStoryScreenProps {
 	api: BerxApiClient;
@@ -94,11 +95,11 @@ function CreateStoryScreenBody({api, pickImage, pickVideo, eventGuid, onCreated,
 						<Image source={{uri: previewUri}} style={styles.preview} resizeMode="cover" />
 					) : pickedLabel ? (
 						<View style={styles.placeholder}>
-							<Text style={styles.placeholderText}>{pickedLabel}</Text>
+							<BerxText role="body" emphasis="tertiary">{pickedLabel}</BerxText>
 						</View>
 					) : (
 						<View style={styles.placeholder}>
-							<Text style={styles.placeholderText}>Ничего не выбрано</Text>
+							<BerxText role="body" emphasis="tertiary">Ничего не выбрано</BerxText>
 						</View>
 					)}
 
@@ -132,7 +133,6 @@ const styles = StyleSheet.create({
 		alignItems: 'center',
 		justifyContent: 'center',
 	},
-	placeholderText: {color: colors.textFaint, fontSize: typography.sizeBase},
 	pickRow: {flexDirection: 'row', gap: spacing.sm},
 	error: {color: colors.danger, fontSize: typography.sizeSm},
 });

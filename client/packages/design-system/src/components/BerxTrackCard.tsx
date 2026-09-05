@@ -6,12 +6,12 @@
  * for either exists (no audio-analysis pipeline), so neither is
  * faked; a plain note-glyph badge stands in honestly.
  */
-import React from 'react';
-import { View, Text, Pressable, StyleSheet } from 'react-native';
-import { colors, spacing, radius, typography } from '../tokens';
+import { View, Pressable, StyleSheet } from 'react-native';
+import { colors, spacing, radius } from '../tokens';
 import { BerxIcon } from '../icons';
 import { BerxSpatialCard } from '../spatial/BerxSpatialCard';
 import type { BerxTrackPost } from '@berx/api/types';
+import {BerxText} from '../spatial/BerxText';
 
 export interface BerxTrackCardProps {
 	track: BerxTrackPost;
@@ -39,10 +39,10 @@ export function BerxTrackCard({ track, onPress, onOpenProfile }: BerxTrackCardPr
 				<Pressable
 					disabled={!track.owner_username || !onOpenProfile}
 					onPress={() => track.owner_username && onOpenProfile?.(track.owner_username)}>
-					<Text style={styles.owner}>{track.owner_username ?? 'BERX'}</Text>
+					<BerxText role="label" emphasis="accent">{track.owner_username ?? 'BERX'}</BerxText>
 				</Pressable>
-				{track.text ? <Text style={styles.text} numberOfLines={1}>{track.text}</Text> : null}
-				<Text style={styles.meta}>{track.like_count} нравится · {track.comment_count} комментариев</Text>
+				{track.text ? <BerxText role="meta" numberOfLines={1}>{track.text}</BerxText> : null}
+				<BerxText role="meta" emphasis="tertiary">{track.like_count} нравится · {track.comment_count} комментариев</BerxText>
 			</View>
 			</View>
 		</BerxSpatialCard>
@@ -54,7 +54,4 @@ const styles = StyleSheet.create({
 	row: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
 	badge: { width: 48, height: 48, borderRadius: radius.md, backgroundColor: colors.graphite, alignItems: 'center', justifyContent: 'center' },
 	body: { flex: 1, gap: 2 },
-	owner: { color: colors.accent, fontSize: typography.sizeSm, fontWeight: typography.weightMedium },
-	text: { color: colors.text, fontSize: typography.sizeSm },
-	meta: { color: colors.textFaint, fontSize: typography.sizeXs },
 });

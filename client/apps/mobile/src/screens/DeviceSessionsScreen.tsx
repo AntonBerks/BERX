@@ -7,7 +7,7 @@
  * comment on OssnApiToken::listSessions()), so this list is real API
  * logins only, honestly, not a fabricated "this device" entry.
  */
-import React, {useCallback, useEffect, useState} from 'react';
+import {useCallback, useEffect, useState} from 'react';
 import {View, ScrollView, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxSession} from '@berx/api/types';

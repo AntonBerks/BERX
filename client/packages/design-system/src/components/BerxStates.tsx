@@ -4,16 +4,17 @@
  * These four cover the "every screen needs loading/error/empty state"
  * requirement — real components, not a checklist item left unbuilt.
  */
-import React, {useEffect, useRef} from 'react';
+import {useEffect, useRef} from 'react';
 import {View, Text, ActivityIndicator, Animated, StyleSheet} from 'react-native';
 import {colors, spacing, radius, typography} from '../tokens';
 import {BerxButton} from './BerxButton';
+import {BerxText} from '../spatial/BerxText';
 
 export function BerxLoadingState({label}: {label?: string}) {
 	return (
 		<View style={styles.center}>
 			<ActivityIndicator color={colors.accent} size="large" />
-			{label ? <Text style={styles.dimText}>{label}</Text> : null}
+			{label ? <BerxText role="body" emphasis="secondary">{label}</BerxText> : null}
 		</View>
 	);
 }
@@ -30,8 +31,8 @@ export function BerxErrorState({message, onRetry}: {message: string; onRetry?: (
 export function BerxEmptyState({title, subtitle}: {title: string; subtitle?: string}) {
 	return (
 		<View style={styles.center}>
-			<Text style={styles.emptyTitle}>{title}</Text>
-			{subtitle ? <Text style={styles.dimTextSmall}>{subtitle}</Text> : null}
+			<BerxText role="subtitle">{title}</BerxText>
+			{subtitle ? <BerxText role="meta" emphasis="tertiary" style={styles.dimTextSmall}>{subtitle}</BerxText> : null}
 		</View>
 	);
 }
@@ -69,10 +70,8 @@ const styles = StyleSheet.create({
 		padding: spacing.xl,
 		gap: spacing.md,
 	},
-	dimText: {color: colors.textDim, fontSize: typography.sizeBase},
-	dimTextSmall: {color: colors.textFaint, fontSize: typography.sizeXs, textAlign: 'center'},
+	dimTextSmall: {textAlign: 'center'},
 	errorText: {color: colors.danger, fontSize: typography.sizeBase, textAlign: 'center'},
-	emptyTitle: {color: colors.text, fontSize: typography.sizeLg, fontWeight: typography.weightMedium},
 	skeleton: {
 		backgroundColor: colors.glass2,
 		borderRadius: radius.sm,

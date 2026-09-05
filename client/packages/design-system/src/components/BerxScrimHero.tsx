@@ -10,8 +10,9 @@
  * it's not one, not left unexplained.
  */
 import React from 'react';
-import {View, Image, Text, StyleSheet} from 'react-native';
+import {View, Image, StyleSheet} from 'react-native';
 import {colors, spacing, typography, radius} from '../tokens';
+import {BerxText} from '../spatial/BerxText';
 
 export interface BerxScrimHeroProps {
 	imageUrl: string | null;
@@ -31,7 +32,7 @@ export function BerxScrimHero({imageUrl, title, subtitle, badge, height = 280, c
 				<Image source={{uri: imageUrl}} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
 			) : (
 				<View style={[StyleSheet.absoluteFillObject, styles.fallback]}>
-					<Text style={styles.fallbackGlyph}>{title.charAt(0).toUpperCase()}</Text>
+					<BerxText role="display" emphasis="tertiary">{title.charAt(0).toUpperCase()}</BerxText>
 				</View>
 			)}
 			<View style={StyleSheet.absoluteFillObject}>
@@ -51,8 +52,8 @@ export function BerxScrimHero({imageUrl, title, subtitle, badge, height = 280, c
 			</View>
 			<View style={styles.content}>
 				{badge}
-				<Text style={styles.title} numberOfLines={2}>{title}</Text>
-				{subtitle ? <Text style={styles.subtitle} numberOfLines={1}>{subtitle}</Text> : null}
+				<BerxText role="title" numberOfLines={2}>{title}</BerxText>
+				{subtitle ? <BerxText role="meta" emphasis="secondary" numberOfLines={1}>{subtitle}</BerxText> : null}
 				{children}
 			</View>
 		</View>
@@ -62,10 +63,7 @@ export function BerxScrimHero({imageUrl, title, subtitle, badge, height = 280, c
 const styles = StyleSheet.create({
 	wrap: {width: '100%', backgroundColor: colors.graphite, justifyContent: 'flex-end'},
 	fallback: {alignItems: 'center', justifyContent: 'center', backgroundColor: colors.graphite},
-	fallbackGlyph: {fontSize: typography.sizeHero, color: colors.textFaint, fontWeight: typography.weightBold},
 	content: {padding: spacing.lg, gap: spacing.xs},
-	title: {fontSize: typography.sizeTitle, color: colors.white, fontWeight: typography.weightBold, letterSpacing: -0.3},
-	subtitle: {fontSize: typography.sizeSm, color: colors.textDim},
 });
 
 export const scrimBadgeStyles = StyleSheet.create({

@@ -10,12 +10,13 @@
  * Domain-specific wrappers live in their own modules and are thin by
  * design — each supplies real fields, none re-implements the surface.
  */
-import {Image, StyleSheet, Text, View, type ImageSourcePropType} from 'react-native';
+import {Image, StyleSheet, View, type ImageSourcePropType} from 'react-native';
 import {BerxSpatialCard} from './BerxSpatialCard';
 import {BerxActionShelf} from './BerxActionShelf';
 import {BerxScrim} from './BerxScrim';
 import {useBerxScene} from './BerxSpatialScene';
-import {colors, spacing, typography} from '../tokens';
+import {spacing} from '../tokens';
+import {BerxText} from './BerxText';
 
 export interface BerxObjectCardFact {
 	label: string;
@@ -77,21 +78,21 @@ export function BerxObjectCard({
 			) : null}
 			<View style={styles.body}>
 				{badges ? <View style={styles.badges}>{badges}</View> : null}
-				<Text style={styles.title} numberOfLines={2}>
+				<BerxText role="subtitle" numberOfLines={2}>
 					{title}
-				</Text>
-				{subtitle ? <Text style={styles.subtitle} numberOfLines={1}>{subtitle}</Text> : null}
+				</BerxText>
+				{subtitle ? <BerxText role="meta" emphasis="secondary" numberOfLines={1}>{subtitle}</BerxText> : null}
 				{body ? (
-					<Text style={styles.text} numberOfLines={3}>
+					<BerxText role="body" emphasis="secondary" numberOfLines={3}>
 						{body}
-					</Text>
+					</BerxText>
 				) : null}
 				{facts && facts.length > 0 ? (
 					<View style={styles.facts} accessibilityRole="list">
 						{facts.map((f) => (
 							<View key={f.label} style={styles.fact} accessible accessibilityLabel={`${f.label}: ${f.value}`}>
-								<Text style={styles.factValue}>{f.value}</Text>
-								<Text style={styles.factLabel}>{f.label}</Text>
+								<BerxText role="heading">{f.value}</BerxText>
+								<BerxText role="meta" emphasis="tertiary">{f.label}</BerxText>
 							</View>
 						))}
 					</View>
@@ -110,11 +111,6 @@ const styles = StyleSheet.create({
 	media: {...StyleSheet.absoluteFillObject},
 	body: {padding: spacing.lg, gap: spacing.xs},
 	badges: {flexDirection: 'row', gap: spacing.sm, flexWrap: 'wrap', marginBottom: 2},
-	title: {color: colors.text, fontSize: typography.sizeLg, fontWeight: typography.weightMedium},
-	subtitle: {color: colors.textDim, fontSize: typography.sizeSm},
-	text: {color: colors.textDim, fontSize: typography.sizeBase, lineHeight: typography.sizeBase * 1.45},
 	facts: {flexDirection: 'row', gap: spacing.xl, paddingTop: spacing.sm, flexWrap: 'wrap'},
 	fact: {gap: 1},
-	factValue: {color: colors.text, fontSize: typography.sizeLg, fontWeight: typography.weightBold},
-	factLabel: {color: colors.textFaint, fontSize: typography.sizeXs},
 });

@@ -19,7 +19,6 @@
  * It is a real radio group: one control per option with `selected`
  * state, so the choice is announced rather than only coloured.
  */
-import React from 'react';
 import {Pressable, ScrollView, StyleSheet, Text, View, type ViewStyle} from 'react-native';
 import {BERX_V9_TOUCH} from '@berx/spatial';
 import {colors, radius, spacing, typography} from '../tokens';

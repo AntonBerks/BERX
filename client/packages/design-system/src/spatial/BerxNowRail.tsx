@@ -10,7 +10,8 @@ import {useBerxScene} from './BerxSpatialScene';
 import {BerxHorizontalRail} from './BerxHorizontalRail';
 import {BerxSpatialCard} from './BerxSpatialCard';
 import {BerxNowPulse} from './BerxNowPulse';
-import {colors, spacing, typography} from '../tokens';
+import {spacing, typography} from '../tokens';
+import {BerxText} from './BerxText';
 
 export interface BerxNowItem {
 	id: string;
@@ -64,13 +65,13 @@ export function BerxNowRail({items, accessibilityLabel = 'Рядом сейча�
 					style={{width: ITEM_WIDTH}}>
 					<View style={styles.body}>
 						{item.live ? <BerxNowPulse live label={item.kind === 'event' ? 'Идёт' : 'Активно'} /> : null}
-						<Text style={styles.title} numberOfLines={2}>
+						<BerxText role="callout" numberOfLines={2}>
 							{item.title}
-						</Text>
+						</BerxText>
 						{item.subtitle ? (
-							<Text style={styles.subtitle} numberOfLines={1}>
+							<BerxText role="meta" emphasis="secondary" numberOfLines={1}>
 								{item.subtitle}
-							</Text>
+							</BerxText>
 						) : null}
 						{item.distanceM !== undefined ? (
 							<Text style={[styles.distance, {color: scene.accent}]}>
@@ -86,7 +87,5 @@ export function BerxNowRail({items, accessibilityLabel = 'Рядом сейча�
 
 const styles = StyleSheet.create({
 	body: {gap: spacing.xs, minHeight: 96, justifyContent: 'flex-end'},
-	title: {color: colors.text, fontSize: typography.sizeBase, fontWeight: typography.weightMedium},
-	subtitle: {color: colors.textDim, fontSize: typography.sizeSm},
 	distance: {fontSize: typography.sizeXs, fontWeight: typography.weightMedium},
 });

@@ -18,11 +18,11 @@
  * is announced as an alert so it is not silence for a screen-reader
  * user either.
  */
-import React from 'react';
 import {Pressable, StyleSheet, Text, View} from 'react-native';
 import {BERX_V9_TOUCH} from '@berx/spatial';
-import {colors, radius, spacing, typography} from '../tokens';
+import {radius, spacing, typography} from '../tokens';
 import {useBerxScene} from './BerxSpatialScene';
+import {BerxText} from './BerxText';
 
 export interface BerxPartialNoticeProps {
 	/** What is missing, in the screen's own words. Never "something went wrong". */
@@ -49,7 +49,7 @@ export function BerxPartialNotice({message, onRetry, retryLabel = 'Повтор�
 				},
 			]}>
 			<View pointerEvents="none" style={[styles.edge, {backgroundColor: controls.surface.edgeHighlightColor}]} />
-			<Text style={styles.message}>{message}</Text>
+			<BerxText role="meta" emphasis="secondary" style={styles.message}>{message}</BerxText>
 			{onRetry ? (
 				<Pressable
 					onPress={onRetry}
@@ -76,7 +76,7 @@ const styles = StyleSheet.create({
 		overflow: 'hidden',
 	},
 	edge: {position: 'absolute', top: 0, left: 0, right: 0, height: 1},
-	message: {flex: 1, color: colors.textDim, fontSize: typography.sizeSm},
+	message: {flex: 1},
 	retry: {minHeight: BERX_V9_TOUCH.preferredDp - 12, justifyContent: 'center', paddingHorizontal: spacing.sm},
 	retryText: {fontSize: typography.sizeSm, fontWeight: typography.weightMedium},
 });

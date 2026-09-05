@@ -10,7 +10,7 @@
  * the server decides what a match list contains after the call.
  */
 import {useCallback, useEffect, useState} from 'react';
-import {FlatList, StyleSheet, View} from 'react-native';
+import {StyleSheet, View} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxDatingMatch} from '@berx/api/types';
 import type {BerxScreenState} from '@berx/spatial';

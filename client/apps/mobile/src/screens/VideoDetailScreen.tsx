@@ -8,12 +8,12 @@
  * system. Delete reuses api.deletePost() (author/admin only,
  * server-side), which also cleans up the real attached video file.
  */
-import React, {useCallback, useEffect, useState} from 'react';
-import {View, Text, Pressable, StyleSheet} from 'react-native';
+import {useCallback, useEffect, useState} from 'react';
+import {View, Pressable, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxVideoPost, BerxPostComment} from '@berx/api/types';
 import {relativeTimeLabel} from '@berx/domain';
-import {colors, spacing, typography} from '@berx/design-system/tokens';
+import {colors, spacing} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
@@ -21,6 +21,7 @@ import {BerxVideoPlayer} from '../../../../packages/design-system/src/components
 import {BerxLoadingState, BerxErrorState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxActionShelf} from '../../../../packages/design-system/src/spatial/BerxActionShelf';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
+import {BerxText} from '../../../../packages/design-system/src/spatial/BerxText';
 
 export interface VideoDetailScreenProps {
 	api: BerxApiClient;
@@ -132,10 +133,10 @@ function VideoDetailScreenBody({api, postGuid, myGuid, onOpenProfile, onDeleted,
 					accessibilityRole="button"
 					accessibilityLabel={`Профиль ${video.owner_username ?? 'BERX'}`}
 					onPress={() => video.owner_username && onOpenProfile(video.owner_username)}>
-					<Text style={styles.author}>{video.owner_username ?? 'BERX'}</Text>
+					<BerxText role="subtitle" emphasis="accent">{video.owner_username ?? 'BERX'}</BerxText>
 				</Pressable>
-				{video.text ? <Text style={styles.text}>{video.text}</Text> : null}
-				<Text style={styles.time}>{relativeTimeLabel(video.time_created)}</Text>
+				{video.text ? <BerxText role="body">{video.text}</BerxText> : null}
+				<BerxText role="meta" emphasis="tertiary">{relativeTimeLabel(video.time_created)}</BerxText>
 
 				<BerxActionShelf variant="anchored">
 					<BerxButton label={liked ? 'Понравилось ✓' : 'Нравится'} variant={liked ? 'secondary' : 'primary'} onPress={handleLike} loading={liking} disabled={liked} />
@@ -148,14 +149,14 @@ function VideoDetailScreenBody({api, postGuid, myGuid, onOpenProfile, onDeleted,
 				</View>
 
 				{commentsLoading ? (
-					<Text style={styles.commentMeta}>Загрузка комментариев...</Text>
+					<BerxText role="meta" emphasis="secondary">Загрузка комментариев...</BerxText>
 				) : comments.length === 0 ? (
-					<Text style={styles.commentMeta}>Комментариев пока нет.</Text>
+					<BerxText role="meta" emphasis="secondary">Комментариев пока нет.</BerxText>
 				) : (
 					comments.map((c) => (
 						<View key={c.id} style={styles.commentRow}>
-							<Text style={styles.commentAuthor}>{c.author?.fullname ?? 'Пользователь'}</Text>
-							<Text style={styles.commentText}>{c.text}</Text>
+							<BerxText role="label">{c.author?.fullname ?? 'Пользователь'}</BerxText>
+							<BerxText role="meta" emphasis="secondary">{c.text}</BerxText>
 						</View>
 					))
 				)}
@@ -168,13 +169,7 @@ const styles = StyleSheet.create({
 	/* no opaque fill: the scene paints the room this screen stands in */
 	screen: {flex: 1},
 	body: {padding: spacing.lg, gap: spacing.md},
-	author: {color: colors.accent, fontSize: typography.sizeLg, fontWeight: typography.weightMedium},
-	text: {color: colors.text, fontSize: typography.sizeBase},
-	time: {color: colors.textFaint, fontSize: typography.sizeXs},
 	actions: {flexDirection: 'row', gap: spacing.sm},
 	commentBox: {gap: spacing.sm, marginTop: spacing.sm},
-	commentMeta: {color: colors.textDim, fontSize: typography.sizeXs},
 	commentRow: {gap: 2, paddingVertical: spacing.xs, borderTopWidth: 1, borderTopColor: colors.glass1},
-	commentAuthor: {color: colors.white, fontSize: typography.sizeSm, fontWeight: typography.weightMedium},
-	commentText: {color: colors.textDim, fontSize: typography.sizeSm},
 });

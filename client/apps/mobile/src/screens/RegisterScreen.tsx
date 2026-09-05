@@ -122,9 +122,9 @@ function RegisterSceneBody({api, onRegistered, onBack}: RegisterScreenProps) {
 			<View style={styles.masthead}>
 				<BerxWordmark size={34} />
 			</View>
-			<Text style={styles.title} accessibilityRole="header">
+			<BerxText role="heading" heading style={styles.title}>
 				Создать аккаунт
-			</Text>
+			</BerxText>
 			<BerxSpatialCard depth="D2" padding={spacing.xl}>
 				<BerxInput placeholder="Имя" value={firstname} onChangeText={setFirstname} style={styles.input} />
 				<BerxInput placeholder="Фамилия" value={lastname} onChangeText={setLastname} style={styles.input} />
@@ -153,7 +153,7 @@ const styles = StyleSheet.create({
 	screen: {flex: 1, padding: spacing.xl, justifyContent: 'center', gap: spacing.md},
 	masthead: {alignItems: 'center', gap: spacing.sm, marginBottom: spacing.md},
 	centered: {textAlign: 'center'},
-	title: {fontSize: typography.sizeXl, fontWeight: typography.weightBold, color: colors.text, textAlign: 'center', marginBottom: spacing.md},
+	title: {textAlign: 'center', marginBottom: spacing.md},
 	/* the inputs sit inside one glass pane now, so they need their own rhythm */
 	input: {marginBottom: spacing.md},
 	error: {color: colors.danger, fontSize: typography.sizeSm, textAlign: 'center'},

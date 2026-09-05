@@ -34,7 +34,7 @@
  * throwing: an auth screen's first frame exists before the scene
  * does.
  */
-import React, {useCallback, useRef} from 'react';
+import {useCallback, useRef} from 'react';
 import {Animated, Pressable, ActivityIndicator, StyleSheet, View, type PressableProps} from 'react-native';
 import {rgba} from '@berx/spatial';
 import {colors, radius, spacing} from '../tokens';

@@ -15,7 +15,8 @@ import {BerxScrim} from './BerxScrim';
 import {BerxActionShelf} from './BerxActionShelf';
 import {BerxAvatar} from '../components/BerxAvatar';
 import {BerxStatRail, type BerxStat} from './BerxStatRail';
-import {colors, spacing, typography} from '../tokens';
+import {spacing, typography} from '../tokens';
+import {BerxText} from './BerxText';
 
 export interface BerxProfileHeroProps {
 	userGuid: number;
@@ -75,17 +76,17 @@ export function BerxProfileHero({
 
 				<View accessible accessibilityRole="header" accessibilityLabel={`${name}${handle ? `, @${handle}` : ''}${verified ? ', подтверждён' : ''}`}>
 					<View style={styles.nameRow}>
-						<Text style={styles.name}>{name}</Text>
+						<BerxText role="title">{name}</BerxText>
 						{verified ? (
 							<View style={[styles.verified, {borderColor: rgba(scene.accent, 0.42), backgroundColor: rgba(scene.accent, 0.16)}]}>
 								<Text style={[styles.verifiedGlyph, {color: scene.accent}]}>✓</Text>
 							</View>
 						) : null}
 					</View>
-					{handle ? <Text style={styles.handle}>@{handle}</Text> : null}
+					{handle ? <BerxText role="body" emphasis="secondary">@{handle}</BerxText> : null}
 				</View>
 
-				{bio ? <Text style={styles.bio}>{bio}</Text> : null}
+				{bio ? <BerxText role="body" emphasis="secondary">{bio}</BerxText> : null}
 
 				<BerxStatRail stats={stats} />
 
@@ -103,10 +104,7 @@ const styles = StyleSheet.create({
 	body: {paddingHorizontal: spacing.lg, paddingBottom: spacing.lg, gap: spacing.md, marginTop: -42},
 	avatar: {borderWidth: 3, borderRadius: 48, alignSelf: 'flex-start'},
 	nameRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm},
-	name: {color: colors.text, fontSize: typography.sizeTitle, fontWeight: typography.weightBold},
 	verified: {width: 20, height: 20, borderRadius: 10, borderWidth: 1, alignItems: 'center', justifyContent: 'center'},
 	verifiedGlyph: {fontSize: 11, fontWeight: typography.weightBold},
-	handle: {color: colors.textDim, fontSize: typography.sizeBase},
-	bio: {color: colors.textDim, fontSize: typography.sizeBase, lineHeight: typography.sizeBase * 1.45},
 	actions: {flexDirection: 'row', gap: spacing.sm, flexWrap: 'wrap'},
 });

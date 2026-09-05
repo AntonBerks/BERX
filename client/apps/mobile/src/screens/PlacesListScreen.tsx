@@ -17,7 +17,7 @@
  * instead of an empty map frame.
  */
 import {useCallback, useEffect, useState} from 'react';
-import {FlatList, StyleSheet, View} from 'react-native';
+import {StyleSheet, View} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxPlace, BerxPlaceCategory} from '@berx/api/types';
 import type {BerxScreenState} from '@berx/spatial';

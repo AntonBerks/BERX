@@ -3,11 +3,11 @@
  * Real submit: api.createPlace() (components/OssnApi/v1/places.php,
  * POST /places). Category select uses the real server whitelist.
  */
-import React, {useEffect, useState} from 'react';
-import {View, Text, ScrollView, Pressable, StyleSheet} from 'react-native';
+import {useEffect, useState} from 'react';
+import {View, Text, ScrollView, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxPlaceCategory} from '@berx/api/types';
-import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
+import {colors, spacing, typography} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
@@ -15,6 +15,7 @@ import {BerxGlassSurface} from '../../../../packages/design-system/src/component
 import {BerxActionShelf} from '../../../../packages/design-system/src/spatial/BerxActionShelf';
 import {BerxChoiceChips} from '../../../../packages/design-system/src/spatial/BerxChoiceChips';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
+import {BerxText} from '../../../../packages/design-system/src/spatial/BerxText';
 
 export interface CreatePlaceScreenProps {
 	api: BerxApiClient;
@@ -69,7 +70,7 @@ function CreatePlaceScreenBody({api, onCreated, onBack}: CreatePlaceScreenProps)
 				<BerxGlassSurface padding="lg" style={styles.form}>
 					<BerxInput placeholder="Название" value={title} onChangeText={setTitle} />
 
-					<Text style={styles.label}>Категория</Text>
+					<BerxText role="micro" emphasis="tertiary">Категория</BerxText>
 					{/* the server owns the category whitelist — these are the
 					    slugs it actually returned, never a hardcoded list */}
 					<BerxChoiceChips
@@ -99,6 +100,5 @@ const styles = StyleSheet.create({
 	screen: {flex: 1},
 	body: {padding: spacing.md, gap: spacing.md},
 	form: {gap: spacing.md},
-	label: {fontSize: typography.sizeXs, color: colors.textFaint, fontWeight: typography.weightBold, textTransform: 'uppercase'},
 	error: {fontSize: typography.sizeSm, color: colors.danger},
 });

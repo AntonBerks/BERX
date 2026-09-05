@@ -18,11 +18,11 @@
  * this screen has always refused to do.
  */
 import {useCallback, useEffect, useState} from 'react';
-import {ScrollView, StyleSheet, Text, View, Pressable} from 'react-native';
+import {ScrollView, StyleSheet, View, Pressable} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxAuthState} from '@berx/auth';
 import type {BerxScreenState} from '@berx/spatial';
-import {colors, spacing, typography} from '@berx/design-system/tokens';
+import {spacing} from '@berx/design-system/tokens';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import type {BerxIconName} from '../../../../packages/design-system/src/icons';
@@ -41,6 +41,7 @@ import {BerxScreenScene, useBerxScreen} from '../spatial/BerxScreenScene';
 import {classifyFailure} from '../spatial/screenState';
 import {useBerxConnectivity} from '../spatial/useBerxConnectivity';
 import {berxAnalytics} from '../spatial/analytics';
+import {BerxText} from '../../../../packages/design-system/src/spatial/BerxText';
 
 interface ProfileData {
 	guid?: number;
@@ -312,7 +313,7 @@ function ProfileSceneBody(props: ProfileScreenProps) {
 								accessibilityLabel="Пожаловаться на пользователя"
 								onPress={() => onReport(profile.guid as number)}
 								style={styles.reportRow}>
-								<Text style={styles.reportLink}>Пожаловаться на пользователя</Text>
+								<BerxText role="meta" emphasis="tertiary" style={styles.reportLink}>Пожаловаться на пользователя</BerxText>
 							</Pressable>
 						) : null}
 
@@ -493,6 +494,6 @@ const styles = StyleSheet.create({
 	scroll: {paddingBottom: spacing.xxxl},
 	sections: {paddingHorizontal: spacing.lg, paddingTop: spacing.lg, gap: spacing.xl},
 	reportRow: {minHeight: 44, alignItems: 'center', justifyContent: 'center', marginTop: spacing.lg},
-	reportLink: {color: colors.textFaint, fontSize: typography.sizeXs, textDecorationLine: 'underline'},
+	reportLink: {textDecorationLine: 'underline'},
 	logoutWrap: {paddingHorizontal: spacing.lg, marginTop: spacing.xl},
 });

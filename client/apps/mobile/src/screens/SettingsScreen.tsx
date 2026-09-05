@@ -7,7 +7,6 @@
  * doesn't exist in OSSN at all, see BERX_DECISIONS.md) or belong to
  * ProfileScreen's own edit flow, not duplicated here.
  */
-import React from 'react';
 import {View, StyleSheet} from 'react-native';
 import {spacing} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';

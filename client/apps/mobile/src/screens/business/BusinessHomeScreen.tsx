@@ -11,13 +11,14 @@ import {useCallback, useEffect, useState} from 'react';
 import {View, Text, ScrollView, Pressable, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxPlace, BerxBusinessDashboard, BerxBusinessSubscription} from '@berx/api/types';
-import {colors, spacing, typography} from '@berx/design-system/tokens';
+import {spacing} from '@berx/design-system/tokens';
 import {BerxIcon} from '../../../../../packages/design-system/src/icons';
 import {BerxScrimHero, scrimBadgeStyles} from '../../../../../packages/design-system/src/components/BerxScrimHero';
 import {BerxGlassSurface} from '../../../../../packages/design-system/src/components/BerxGlassSurface';
 import {BerxStatTile, BerxEyebrow} from '../../../../../packages/design-system/src/components/BerxBusinessPrimitives';
 import {BerxLoadingState, BerxErrorState} from '../../../../../packages/design-system/src/components/BerxStates';
 import {BerxFamilyScene, useBerxSceneAtmosphere} from '../../spatial/BerxScreenScene';
+import {BerxText} from '../../../../../packages/design-system/src/spatial/BerxText';
 
 export interface BusinessHomeScreenProps {
 	api: BerxApiClient;
@@ -129,8 +130,8 @@ function BusinessHomeScreenBody({api, placeGuid, onOpenProfile, onOpenDashboard,
 							onPress={nav[card.key]}
 							style={styles.cardWrap}>
 							<BerxGlassSurface padding="md" style={styles.card}>
-								<Text style={styles.cardTitle}>{card.title}</Text>
-								<Text style={styles.cardSubtitle}>{card.subtitle}</Text>
+								<BerxText role="callout">{card.title}</BerxText>
+								<BerxText role="meta" emphasis="tertiary">{card.subtitle}</BerxText>
 							</BerxGlassSurface>
 						</Pressable>
 					))}
@@ -150,6 +151,4 @@ const styles = StyleSheet.create({
 	grid: {flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm},
 	cardWrap: {width: '48%'},
 	card: {gap: 4, minHeight: 92, justifyContent: 'center'},
-	cardTitle: {fontSize: typography.sizeBase, color: colors.white, fontWeight: typography.weightBold},
-	cardSubtitle: {fontSize: typography.sizeXs, color: colors.textFaint},
 });

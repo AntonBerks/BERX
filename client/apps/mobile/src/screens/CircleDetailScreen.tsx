@@ -6,8 +6,8 @@
  * exclude people already in the circle — never an arbitrary user
  * search, since the server would reject a non-friend anyway.
  */
-import React, {useCallback, useEffect, useState} from 'react';
-import {View, Text, FlatList, Image, Pressable, StyleSheet} from 'react-native';
+import {useCallback, useEffect, useState} from 'react';
+import {View, FlatList, Image, Pressable, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxCircleDetail, BerxCircleMember, BerxFriend} from '@berx/api/types';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
@@ -16,6 +16,7 @@ import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../pack
 import {BerxSpatialCard} from '../../../../packages/design-system/src/spatial/BerxSpatialCard';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 import {BerxIcon} from '../../../../packages/design-system/src/icons';
+import {BerxText} from '../../../../packages/design-system/src/spatial/BerxText';
 
 export interface CircleDetailScreenProps {
 	api: BerxApiClient;
@@ -99,13 +100,13 @@ function CircleDetailScreenBody({api, id, onBack}: CircleDetailScreenProps) {
 					accessibilityState={{expanded: showPicker}}
 					accessibilityLabel={showPicker ? 'Скрыть список друзей' : 'Добавить друга в круг'}
 					onPress={() => setShowPicker(!showPicker)}>
-					<Text style={styles.toggleBtnText}>{showPicker ? 'Скрыть список друзей' : 'Добавить друга'}</Text>
+					<BerxText role="label" emphasis="accent">{showPicker ? 'Скрыть список друзей' : 'Добавить друга'}</BerxText>
 				</Pressable>
 			</View>
 
 			{showPicker ? (
 				availableFriends.length === 0 ? (
-					<Text style={styles.hint}>Все друзья уже в этом круге.</Text>
+					<BerxText role="meta" emphasis="tertiary" style={styles.hint}>Все друзья уже в этом круге.</BerxText>
 				) : (
 					<FlatList
 						horizontal
@@ -122,7 +123,7 @@ function CircleDetailScreenBody({api, id, onBack}: CircleDetailScreenProps) {
 								onPress={() => addMember(item.guid)}
 								disabled={busyGuid === item.guid}>
 								<Image source={{uri: item.icon}} style={styles.pickerAvatar} />
-								<Text style={styles.pickerName} numberOfLines={1}>{item.fullname}</Text>
+								<BerxText role="meta" emphasis="secondary" style={styles.pickerName} numberOfLines={1}>{item.fullname}</BerxText>
 							</Pressable>
 						)}
 					/>
@@ -140,7 +141,7 @@ function CircleDetailScreenBody({api, id, onBack}: CircleDetailScreenProps) {
 						<BerxSpatialCard depth="D3" padding={spacing.md} radius={18}>
 							<View style={styles.row}>
 							<Image source={{uri: item.icon}} style={styles.avatar} />
-							<Text style={styles.name} numberOfLines={1}>{item.fullname}</Text>
+							<BerxText role="callout" style={styles.name} numberOfLines={1}>{item.fullname}</BerxText>
 							<Pressable
 								accessibilityRole="button"
 								accessibilityLabel={`Убрать ${item.fullname} из круга`}
@@ -164,18 +165,17 @@ const styles = StyleSheet.create({
 	screen: {flex: 1},
 	toolbar: {padding: spacing.md},
 	toggleBtn: {alignSelf: 'flex-start'},
-	toggleBtnText: {fontSize: typography.sizeSm, color: colors.accent, fontWeight: typography.weightMedium},
-	hint: {fontSize: typography.sizeSm, color: colors.textFaint, paddingHorizontal: spacing.md, paddingBottom: spacing.sm},
+	hint: {paddingHorizontal: spacing.md, paddingBottom: spacing.sm},
 	pickerRow: {paddingHorizontal: spacing.md, paddingBottom: spacing.sm, gap: spacing.sm},
 	pickerItem: {alignItems: 'center', width: 64, marginRight: spacing.sm},
 	pickerAvatar: {width: 48, height: 48, borderRadius: radius.pill, backgroundColor: colors.graphite},
-	pickerName: {fontSize: typography.sizeXs, color: colors.textDim, marginTop: 4},
+	pickerName: {marginTop: 4},
 	list: {padding: spacing.md, gap: spacing.sm},
 	/* fill removed: a BerxSpatialCard wraps this row and paints the
 	   content plane's own material — an opaque token fill on top of it
 	   hides the surface the card just resolved */
 	row: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.borderSoft},
 	avatar: {width: 40, height: 40, borderRadius: radius.pill, backgroundColor: colors.graphite},
-	name: {flex: 1, fontSize: typography.sizeBase, color: colors.white, fontWeight: typography.weightMedium},
+	name: {flex: 1},
 	remove: {fontSize: typography.sizeSm, color: colors.textFaint, padding: 4},
 });

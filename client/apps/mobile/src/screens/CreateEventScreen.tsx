@@ -5,11 +5,11 @@
  * server's is_numeric() branch accepts that directly (see the
  * comment on createEvent() in client.ts).
  */
-import React, {useEffect, useState} from 'react';
-import {View, Text, ScrollView, Pressable, StyleSheet} from 'react-native';
+import {useEffect, useState} from 'react';
+import {View, Text, ScrollView, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxPlaceCategory, BerxPlace} from '@berx/api/types';
-import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
+import {colors, spacing, typography} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
@@ -17,6 +17,7 @@ import {BerxGlassSurface} from '../../../../packages/design-system/src/component
 import {BerxActionShelf} from '../../../../packages/design-system/src/spatial/BerxActionShelf';
 import {BerxChoiceChips} from '../../../../packages/design-system/src/spatial/BerxChoiceChips';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
+import {BerxText} from '../../../../packages/design-system/src/spatial/BerxText';
 
 export interface CreateEventScreenProps {
 	api: BerxApiClient;
@@ -92,11 +93,11 @@ function CreateEventScreenBody({api, onCreated, onBack}: CreateEventScreenProps)
 				<BerxGlassSurface padding="lg" style={styles.form}>
 					<BerxInput placeholder="Название" value={title} onChangeText={setTitle} />
 
-					<Text style={styles.label}>Начало</Text>
-					<Text style={styles.staticValue}>{start.label}</Text>
-					<Text style={styles.hint}>Дата/время — заглушка на завтра 19:00 до появления реального picker-компонента (без установленного react-native, полноценный нативный picker здесь непроверяем).</Text>
+					<BerxText role="micro" emphasis="tertiary">Начало</BerxText>
+					<BerxText role="body">{start.label}</BerxText>
+					<BerxText role="meta" emphasis="tertiary">Дата/время — заглушка на завтра 19:00 до появления реального picker-компонента (без установленного react-native, полноценный нативный picker здесь непроверяем).</BerxText>
 
-					<Text style={styles.label}>Категория</Text>
+					<BerxText role="micro" emphasis="tertiary">Категория</BerxText>
 					{/* the server owns the category whitelist */}
 					<BerxChoiceChips
 						accessibilityLabel="Категория события"
@@ -107,7 +108,7 @@ function CreateEventScreenBody({api, onCreated, onBack}: CreateEventScreenProps)
 
 					{places.length > 0 ? (
 						<>
-							<Text style={styles.label}>Место (необязательно)</Text>
+							<BerxText role="micro" emphasis="tertiary">Место (необязательно)</BerxText>
 							{/* the person's own real places, plus an explicit "none" */}
 							<BerxChoiceChips
 								accessibilityLabel="Место события"
@@ -140,8 +141,5 @@ const styles = StyleSheet.create({
 	screen: {flex: 1},
 	body: {padding: spacing.md, gap: spacing.md},
 	form: {gap: spacing.md},
-	label: {fontSize: typography.sizeXs, color: colors.textFaint, fontWeight: typography.weightBold, textTransform: 'uppercase'},
-	staticValue: {fontSize: typography.sizeBase, color: colors.text},
-	hint: {fontSize: typography.sizeXs, color: colors.textFaint},
 	error: {fontSize: typography.sizeSm, color: colors.danger},
 });

@@ -14,7 +14,7 @@ import {View, Text, FlatList, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxPointsBalance, BerxPointsHistoryEntry} from '@berx/api/types';
 import {relativeTimeLabel} from '@berx/domain';
-import {colors, spacing, radius, typography} from '@berx/design-system/tokens';
+import {colors, spacing, typography} from '@berx/design-system/tokens';
 import {BerxRewardCard} from '../../../../packages/design-system/src/spatial/BerxRewardCard';
 import {BerxProgressRing} from '../../../../packages/design-system/src/spatial/BerxProgressRing';
 import {BerxStatRail} from '../../../../packages/design-system/src/spatial/BerxStatRail';
@@ -24,6 +24,7 @@ import {BerxHeader} from '../../../../packages/design-system/src/components/Berx
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxEyebrow} from '../../../../packages/design-system/src/components/BerxBusinessPrimitives';
+import {BerxText} from '../../../../packages/design-system/src/spatial/BerxText';
 
 export interface PointsScreenProps {
 	api: BerxApiClient;
@@ -133,16 +134,16 @@ function PointsSceneBody({api, onBack}: PointsScreenProps) {
 									}
 								/>
 								<View style={styles.heroText}>
-									<Text style={styles.levelLabel}>Уровень {balance.level}</Text>
+									<BerxText role="callout" emphasis="accent">Уровень {balance.level}</BerxText>
 									<Text style={styles.balanceValue}>{balance.balance}</Text>
-									<Text style={styles.balanceCaption}>баллов на счету</Text>
+									<BerxText role="meta" emphasis="secondary">баллов на счету</BerxText>
 								</View>
 							</View>
-							<Text style={styles.progressCaption}>
+							<BerxText role="meta" emphasis="tertiary" style={styles.progressCaption}>
 								{isMaxLevel
 									? 'Максимальный уровень'
 									: `${balance.lifetime_earned} / ${balance.level_ceiling} до уровня ${balance.level + 1}`}
-							</Text>
+							</BerxText>
 							<BerxStatRail
 								stats={[
 									{key: 'lifetime', label: 'заработано всего', value: balance.lifetime_earned},
@@ -164,10 +165,10 @@ function PointsSceneBody({api, onBack}: PointsScreenProps) {
 						{balance.current_streak > 0 ? (
 							<BerxSpatialCard depth="D3" padding={spacing.md} radius={18} style={styles.streakCard}>
 					<View style={styles.streakRow}>
-								<Text style={styles.streakGlyph}>🔥</Text>
+								<BerxText role="heading">🔥</BerxText>
 								<View>
-									<Text style={styles.streakValue}>{balance.current_streak} {balance.current_streak === 1 ? 'день' : 'дней'} подряд</Text>
-									<Text style={styles.streakCaption}>Лучший результат: {balance.longest_streak}</Text>
+									<BerxText role="callout">{balance.current_streak} {balance.current_streak === 1 ? 'день' : 'дней'} подряд</BerxText>
+									<BerxText role="meta" emphasis="tertiary">Лучший результат: {balance.longest_streak}</BerxText>
 								</View>
 							</View>
 				</BerxSpatialCard>
@@ -211,7 +212,7 @@ function PointsSceneBody({api, onBack}: PointsScreenProps) {
 				}
 				renderItem={({item}: {item: BerxPointsHistoryEntry}) => (
 					<View style={styles.historyRow}>
-						<Text style={styles.historyReason}>{REASON_LABELS[item.reason] ?? item.reason}</Text>
+						<BerxText role="meta">{REASON_LABELS[item.reason] ?? item.reason}</BerxText>
 						<View style={styles.historyRight}>
 							<Text style={[styles.historyDelta, item.delta < 0 ? styles.historyDeltaNegative : styles.historyDeltaPositive]}>
 								{item.delta > 0 ? `+${item.delta}` : item.delta}
@@ -220,7 +221,7 @@ function PointsSceneBody({api, onBack}: PointsScreenProps) {
 						</View>
 					</View>
 				)}
-				ListEmptyComponent={<Text style={styles.emptyHistory}>Пока нет начислений</Text>}
+				ListEmptyComponent={<BerxText role="meta" emphasis="tertiary" style={styles.emptyHistory}>Пока нет начислений</BerxText>}
 			/>
 		</View>
 	);
@@ -232,15 +233,10 @@ const styles = StyleSheet.create({
 	heroText: {flex: 1, gap: 2},
 	/* the scene paints the background now */
 	screen: {flex: 1},
-	levelLabel: {color: colors.accent, fontSize: typography.sizeBase, fontWeight: typography.weightMedium},
 	balanceValue: {color: colors.text, fontSize: 40, fontWeight: typography.weightBold},
-	balanceCaption: {color: colors.textDim, fontSize: typography.sizeSm},
-	progressCaption: {color: colors.textFaint, fontSize: typography.sizeXs, marginTop: spacing.sm},
+	progressCaption: {marginTop: spacing.sm},
 	streakCard: {marginHorizontal: spacing.lg},
 	streakRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm},
-	streakGlyph: {fontSize: typography.sizeXl},
-	streakValue: {fontSize: typography.sizeBase, color: colors.white, fontWeight: typography.weightBold},
-	streakCaption: {fontSize: typography.sizeXs, color: colors.textFaint},
 	spendSection: {padding: spacing.lg},
 	boostMessage: {color: colors.textDim, fontSize: typography.sizeXs, marginTop: spacing.sm, paddingHorizontal: spacing.sm},
 	historyRow: {
@@ -252,11 +248,10 @@ const styles = StyleSheet.create({
 		borderBottomWidth: 1,
 		borderBottomColor: colors.borderSoft,
 	},
-	historyReason: {color: colors.text, fontSize: typography.sizeSm},
 	historyRight: {alignItems: 'flex-end'},
 	historyDelta: {fontSize: typography.sizeSm, fontWeight: typography.weightMedium},
 	historyDeltaPositive: {color: colors.success},
 	historyDeltaNegative: {color: colors.danger},
 	historyTime: {color: colors.textFaint, fontSize: 11, marginTop: 2},
-	emptyHistory: {color: colors.textFaint, fontSize: typography.sizeSm, textAlign: 'center', padding: spacing.xl},
+	emptyHistory: {textAlign: 'center', padding: spacing.xl},
 });

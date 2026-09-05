@@ -7,9 +7,10 @@
  * screen-reader user learns the same fact as a sighted one.
  */
 import {useEffect, useRef} from 'react';
-import {Animated, Easing, StyleSheet, Text, View} from 'react-native';
+import {Animated, Easing, StyleSheet, View} from 'react-native';
 import {useBerxScene} from './BerxSpatialScene';
-import {colors, spacing, typography} from '../tokens';
+import {spacing} from '../tokens';
+import {BerxText} from './BerxText';
 
 export interface BerxTypingIndicatorProps {
 	/** Real names from the typing endpoint. Empty renders nothing. */
@@ -56,7 +57,7 @@ export function BerxTypingIndicator({names, testID}: BerxTypingIndicatorProps) {
 					/>
 				))}
 			</View>
-			<Text style={styles.text}>{label}</Text>
+			<BerxText role="meta" emphasis="secondary">{label}</BerxText>
 		</View>
 	);
 }
@@ -65,5 +66,4 @@ const styles = StyleSheet.create({
 	root: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm},
 	dots: {flexDirection: 'row', gap: 3},
 	dot: {width: 6, height: 6, borderRadius: 3},
-	text: {color: colors.textDim, fontSize: typography.sizeXs},
 });

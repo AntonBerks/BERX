@@ -6,8 +6,8 @@
  * friends are listed — nobody can be invited who the caller isn't
  * actually connected to; the server re-checks this regardless.
  */
-import React, {useCallback, useEffect, useState} from 'react';
-import {View, Text, FlatList, Image, StyleSheet} from 'react-native';
+import {useCallback, useEffect, useState} from 'react';
+import {View, FlatList, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxFriend} from '@berx/api/types';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
@@ -17,6 +17,7 @@ import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../pack
 import {BerxSpatialCard} from '../../../../packages/design-system/src/spatial/BerxSpatialCard';
 import {BerxIdentity} from '../../../../packages/design-system/src/spatial/BerxIdentity';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
+import {BerxText} from '../../../../packages/design-system/src/spatial/BerxText';
 
 export interface EventInviteScreenProps {
 	api: BerxApiClient;
@@ -91,7 +92,7 @@ function EventInviteScreenBody({api, guid, onBack}: EventInviteScreenProps) {
 								avatarUrl={item.icon}
 								trailing={
 									invited.has(item.guid) ? (
-										<Text style={styles.invitedLabel}>Приглашён</Text>
+										<BerxText role="meta" emphasis="tertiary">Приглашён</BerxText>
 									) : (
 										<BerxButton
 											label="Пригласить"
@@ -119,5 +120,4 @@ const styles = StyleSheet.create({
 	row: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.borderSoft},
 	avatar: {width: 40, height: 40, borderRadius: radius.pill, backgroundColor: colors.graphite},
 	name: {flex: 1, fontSize: typography.sizeBase, color: colors.white, fontWeight: typography.weightMedium},
-	invitedLabel: {fontSize: typography.sizeXs, color: colors.textFaint},
 });

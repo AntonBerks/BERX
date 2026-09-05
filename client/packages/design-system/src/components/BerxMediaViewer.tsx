@@ -13,11 +13,12 @@
  * multiple assets uses a plain horizontal FlatList with paging, which
  * needs no external library.
  */
-import React, {useState} from 'react';
-import {View, Image, Text, FlatList, Modal, Pressable, Dimensions, StyleSheet} from 'react-native';
+import {useState} from 'react';
+import {View, Image, FlatList, Modal, Pressable, Dimensions, StyleSheet} from 'react-native';
 import {colors, spacing, typography, radius} from '../tokens';
 import { BerxIcon } from '../icons';
 import type {BerxMediaAsset} from '@berx/api/types';
+import {BerxText} from '../spatial/BerxText';
 
 export interface BerxMediaViewerProps {
 	assets: BerxMediaAsset[];
@@ -55,8 +56,8 @@ export function BerxMediaViewer({assets, initialIndex = 0, visible, onClose}: Be
 							) : (
 								<View style={styles.typeFallback}>
 									<BerxIcon name={item.media_type === 'video' ? 'play' : 'music'} size={20} decorative />
-									<Text style={styles.typeFallbackText}>{item.media_type === 'video' ? 'Видео' : 'Аудио'}</Text>
-									<Text style={styles.typeFallbackHint}>Воспроизведение в приложении пока не поддерживается</Text>
+									<BerxText role="heading">{item.media_type === 'video' ? 'Видео' : 'Аудио'}</BerxText>
+									<BerxText role="meta" emphasis="tertiary" style={styles.typeFallbackHint}>Воспроизведение в приложении пока не поддерживается</BerxText>
 								</View>
 							)}
 						</View>
@@ -82,8 +83,7 @@ const styles = StyleSheet.create({
 	page: {width: SCREEN_WIDTH, alignItems: 'center', justifyContent: 'center'},
 	image: {width: SCREEN_WIDTH, height: '100%'},
 	typeFallback: {alignItems: 'center', gap: spacing.sm, padding: spacing.xl},
-	typeFallbackText: {color: colors.white, fontSize: typography.sizeLg, fontWeight: typography.weightBold},
-	typeFallbackHint: {color: colors.textFaint, fontSize: typography.sizeSm, textAlign: 'center'},
+	typeFallbackHint: {textAlign: 'center'},
 	dots: {flexDirection: 'row', justifyContent: 'center', gap: 6, paddingBottom: spacing.lg},
 	dot: {width: 6, height: 6, borderRadius: 3, backgroundColor: colors.glass2},
 	dotActive: {backgroundColor: colors.accent},

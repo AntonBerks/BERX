@@ -8,17 +8,18 @@
  * places/events: those two are not in the real server whitelist, and
  * a report button there would 422 on every submission.
  */
-import React, {useState} from 'react';
-import {View, Text, Pressable, StyleSheet} from 'react-native';
+import {useState} from 'react';
+import {View, Text, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxReportTargetType, BerxReportReason} from '@berx/api/types';
-import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
+import {colors, spacing, typography} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxGlassSurface} from '../../../../packages/design-system/src/components/BerxGlassSurface';
 import {BerxChoiceChips} from '../../../../packages/design-system/src/spatial/BerxChoiceChips';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
+import {BerxText} from '../../../../packages/design-system/src/spatial/BerxText';
 
 export interface ReportScreenProps {
 	api: BerxApiClient;
@@ -74,7 +75,7 @@ function ReportScreenBody({api, targetType, targetGuid, onSubmitted, onBack}: Re
 			<View style={styles.body}>
 				{/* D2 — the work sits on a structural surface, not on the substrate */}
 				<BerxGlassSurface padding="lg" style={styles.form}>
-					<Text style={styles.label}>Причина</Text>
+					<BerxText role="micro" emphasis="tertiary">Причина</BerxText>
 					{/* the reasons the API actually accepts, nothing invented */}
 					<BerxChoiceChips
 						accessibilityLabel="Причина жалобы"
@@ -99,6 +100,5 @@ const styles = StyleSheet.create({
 	/* no opaque fill: the scene paints the room this screen stands in */
 	screen: {flex: 1},
 	body: {padding: spacing.md, gap: spacing.md},
-	label: {fontSize: typography.sizeXs, color: colors.textFaint, fontWeight: typography.weightBold, textTransform: 'uppercase'},
 	error: {fontSize: typography.sizeSm, color: colors.danger},
 });

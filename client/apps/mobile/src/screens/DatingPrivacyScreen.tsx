@@ -27,6 +27,7 @@ import {BerxButton} from '../../../../packages/design-system/src/components/Berx
 import {BerxSpatialCard} from '../../../../packages/design-system/src/spatial/BerxSpatialCard';
 import {useBerxScene} from '../../../../packages/design-system/src/spatial/BerxSpatialScene';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
+import {BerxText} from '../../../../packages/design-system/src/spatial/BerxText';
 
 export interface DatingPrivacyScreenProps {
 	api: BerxApiClient;
@@ -89,10 +90,10 @@ function DatingPrivacySceneBody({api, onBack}: DatingPrivacyScreenProps) {
 			<BerxHeader onBack={onBack} title="Приватность знакомств" />
 			<ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
 				<BerxSpatialCard depth="D2" padding={spacing.lg}>
-					<Text style={styles.notice}>
+					<BerxText role="meta" emphasis="secondary">
 						BERX не отдаёт текущие настройки приватности через API — их можно только записать. Поэтому переключатели
 						ниже не показывают ваше текущее состояние. Отправляются только те, которые вы измените.
-					</Text>
+					</BerxText>
 				</BerxSpatialCard>
 
 				{FIELDS.map((field) => {
@@ -102,8 +103,8 @@ function DatingPrivacySceneBody({api, onBack}: DatingPrivacyScreenProps) {
 						<BerxSpatialCard key={field.key} depth="D3" padding={spacing.lg} radius={18}>
 							<View style={styles.row}>
 								<View style={styles.rowText}>
-									<Text style={styles.rowLabel}>{field.label}</Text>
-									<Text style={styles.rowDescription}>{field.description}</Text>
+									<BerxText role="callout">{field.label}</BerxText>
+									<BerxText role="meta" emphasis="tertiary" style={styles.rowDescription}>{field.description}</BerxText>
 									<Text style={[styles.rowState, isTouched ? {color: scene.accent} : null]}>
 										{isTouched ? (value ? 'будет включено' : 'будет выключено') : 'не изменено'}
 									</Text>
@@ -144,11 +145,9 @@ function DatingPrivacySceneBody({api, onBack}: DatingPrivacyScreenProps) {
 const styles = StyleSheet.create({
 	screen: {flex: 1},
 	content: {padding: spacing.lg, gap: spacing.md, paddingBottom: spacing.xxxl},
-	notice: {color: colors.textDim, fontSize: typography.sizeSm, lineHeight: typography.sizeSm * 1.5},
 	row: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.md},
 	rowText: {flex: 1},
-	rowLabel: {color: colors.text, fontSize: typography.sizeBase, fontWeight: typography.weightMedium},
-	rowDescription: {color: colors.textFaint, fontSize: typography.sizeXs, marginTop: spacing.xs},
+	rowDescription: {marginTop: spacing.xs},
 	rowState: {color: colors.textFaint, fontSize: typography.sizeXs, marginTop: spacing.xs},
 	status: {fontSize: typography.sizeSm, textAlign: 'center'},
 });

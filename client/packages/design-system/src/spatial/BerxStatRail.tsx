@@ -6,9 +6,10 @@
  * caller omits it, and the rail simply has fewer items.
  */
 
-import {Pressable, StyleSheet, Text, View} from 'react-native';
+import {Pressable, StyleSheet, View} from 'react-native';
 import {useBerxScene} from './BerxSpatialScene';
-import {colors, spacing, typography} from '../tokens';
+import {spacing} from '../tokens';
+import {BerxText} from './BerxText';
 
 export interface BerxStat {
 	key: string;
@@ -34,8 +35,8 @@ export function BerxStatRail({stats, testID}: BerxStatRailProps) {
 				const label = `${s.label}: ${s.value}`;
 				const content = (
 					<>
-						<Text style={styles.value}>{s.value}</Text>
-						<Text style={styles.label}>{s.label}</Text>
+						<BerxText role="heading">{s.value}</BerxText>
+						<BerxText role="meta" emphasis="secondary">{s.label}</BerxText>
 					</>
 				);
 				return s.onPress ? (
@@ -61,6 +62,4 @@ const styles = StyleSheet.create({
 	root: {flexDirection: 'row', gap: spacing.xl, flexWrap: 'wrap'},
 	item: {gap: 2, minHeight: 44, justifyContent: 'center'},
 	pressable: {paddingHorizontal: spacing.md, borderRadius: 12, borderWidth: 1},
-	value: {color: colors.text, fontSize: typography.sizeXl, fontWeight: typography.weightBold},
-	label: {color: colors.textDim, fontSize: typography.sizeXs},
 });

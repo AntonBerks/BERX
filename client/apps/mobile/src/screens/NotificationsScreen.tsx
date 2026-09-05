@@ -13,7 +13,7 @@
  * navigating — never silently pretends to go somewhere.
  */
 import {useCallback, useEffect, useState} from 'react';
-import {View, Text, FlatList, RefreshControl, StyleSheet} from 'react-native';
+import {View, Text, RefreshControl, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxNotification} from '@berx/api/types';
 import {relativeTimeLabel} from '@berx/domain';
@@ -30,6 +30,7 @@ import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 import {classifyFailure} from '../spatial/screenState';
 import {useBerxConnectivity} from '../spatial/useBerxConnectivity';
 import {BerxSceneList} from '../../../../packages/design-system/src/spatial/BerxSceneList';
+import {BerxText} from '../../../../packages/design-system/src/spatial/BerxText';
 
 export interface NotificationsScreenProps {
 	api: BerxApiClient;
@@ -197,7 +198,7 @@ function NotificationsScreenBody({api, onOpenConversation, onOpenDating, onOpenP
 									</View>
 									<View style={styles.rowText}>
 										<Text style={[styles.label, item.viewed ? styles.labelRead : null]}>{label}</Text>
-										<Text style={styles.time}>{relativeTimeLabel(item.time_created)}</Text>
+										<BerxText role="meta" emphasis="tertiary" style={styles.time}>{relativeTimeLabel(item.time_created)}</BerxText>
 									</View>
 								</View>
 							</BerxSpatialCard>
@@ -229,5 +230,5 @@ const styles = StyleSheet.create({
 	dot: {width: 8, height: 8, borderRadius: 4, backgroundColor: colors.accent},
 	rowText: {flex: 1},
 	label: {color: colors.text, fontSize: typography.sizeBase},
-	time: {color: colors.textFaint, fontSize: typography.sizeXs, marginTop: spacing.xs},
+	time: {marginTop: spacing.xs},
 });

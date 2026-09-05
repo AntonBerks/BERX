@@ -12,11 +12,11 @@
  * "seen" otherwise.
  */
 import {useCallback, useEffect, useState} from 'react';
-import {ScrollView, StyleSheet, Text, View} from 'react-native';
+import {ScrollView, StyleSheet, View} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxOwnStorySummary, BerxStoryFeedGroup} from '@berx/api/types';
 import type {BerxScreenState} from '@berx/spatial';
-import {colors, spacing, typography} from '@berx/design-system/tokens';
+import {spacing} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxStoryTray} from '../../../../packages/design-system/src/spatial/BerxStoryTray';
@@ -29,6 +29,7 @@ import {BerxScreenScene, useBerxScreen} from '../spatial/BerxScreenScene';
 import {classifyFailure} from '../spatial/screenState';
 import {useBerxConnectivity} from '../spatial/useBerxConnectivity';
 import {berxAnalytics} from '../spatial/analytics';
+import {BerxText} from '../../../../packages/design-system/src/spatial/BerxText';
 
 export interface StoriesRailScreenProps {
 	api: BerxApiClient;
@@ -165,16 +166,16 @@ function StoriesSceneBody({api, onOpenGroup, onCreateStory, onBack}: StoriesRail
 
 					{own.length > 0 ? (
 						<View style={styles.section}>
-							<Text style={styles.sectionTitle} accessibilityRole="header">
+							<BerxText role="micro" emphasis="tertiary" heading>
 								Ваши истории
-							</Text>
+							</BerxText>
 							{own.map((s) => (
 								<BerxSpatialCard key={s.id} depth="D3" padding={spacing.md} radius={18}>
 									<View style={styles.ownRow}>
 										<View style={styles.ownText}>
-											<Text style={styles.ownCaption} numberOfLines={2}>
+											<BerxText role="meta" numberOfLines={2}>
 												{s.caption || 'Без подписи'}
-											</Text>
+											</BerxText>
 											{/* real expiry from the server, counted down */}
 											<BerxCountdown startsAtUnix={s.time_expires} label="Исчезнет" />
 										</View>
@@ -200,13 +201,6 @@ const styles = StyleSheet.create({
 	body: {flex: 1},
 	scroll: {paddingBottom: spacing.xxxl},
 	section: {paddingHorizontal: spacing.lg, paddingTop: spacing.lg, gap: spacing.sm},
-	sectionTitle: {
-		color: colors.textFaint,
-		fontSize: typography.sizeXs,
-		textTransform: 'uppercase',
-		letterSpacing: 0.5,
-	},
 	ownRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.md},
 	ownText: {flex: 1, gap: spacing.xs},
-	ownCaption: {color: colors.text, fontSize: typography.sizeSm},
 });

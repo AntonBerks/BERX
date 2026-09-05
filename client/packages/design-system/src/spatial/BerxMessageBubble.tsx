@@ -34,6 +34,7 @@ import {BerxSurface} from './BerxSurface';
 import {BerxFocusTarget} from './BerxFocusTarget';
 import {BerxActionShelf} from './BerxActionShelf';
 import {colors, spacing, typography} from '../tokens';
+import {BerxText} from './BerxText';
 
 export type BerxMessageDelivery = 'sending' | 'sent' | 'failed';
 
@@ -105,7 +106,7 @@ export function BerxMessageBubble({
 					radius={18}
 					style={own ? {backgroundColor: rgba(scene.accent, 0.14), borderColor: rgba(scene.accent, 0.32)} : undefined}>
 					<View style={styles.bubble}>
-						<Text style={styles.text}>{text}</Text>
+						<BerxText role="body">{text}</BerxText>
 						<View style={styles.meta}>
 							<Text style={styles.time}>{timeLabel}</Text>
 							{own ? (
@@ -153,7 +154,6 @@ const styles = StyleSheet.create({
 	rowOther: {justifyContent: 'flex-start'},
 	bubbleWrap: {maxWidth: '82%', gap: 2},
 	bubble: {paddingHorizontal: spacing.md, paddingVertical: spacing.sm, gap: 2},
-	text: {color: colors.text, fontSize: typography.sizeBase, lineHeight: typography.sizeBase * 1.4},
 	meta: {flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 4},
 	time: {color: colors.textFaint, fontSize: 11},
 	delivery: {fontSize: 11, fontWeight: typography.weightMedium},

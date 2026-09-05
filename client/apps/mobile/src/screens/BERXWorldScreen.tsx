@@ -13,12 +13,12 @@
  * Foundation) shipped — this comment previously said Video had no
  * real backend, which is now stale and corrected.
  */
-import React from 'react';
-import {View, Text, Pressable, StyleSheet} from 'react-native';
-import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
+import {View, StyleSheet} from 'react-native';
+import {spacing} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxSpatialCard} from '../../../../packages/design-system/src/spatial/BerxSpatialCard';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
+import {BerxText} from '../../../../packages/design-system/src/spatial/BerxText';
 
 export interface BERXWorldScreenProps {
 	onOpenPlaces: () => void;
@@ -42,8 +42,8 @@ function WorldCard({label, subtitle, onPress}: {label: string; subtitle: string;
 			onPress={onPress}
 			accessibilityLabel={`${label}. ${subtitle}`}
 			style={styles.card}>
-			<Text style={styles.cardLabel}>{label}</Text>
-			<Text style={styles.cardSubtitle}>{subtitle}</Text>
+			<BerxText role="heading">{label}</BerxText>
+			<BerxText role="meta" emphasis="secondary">{subtitle}</BerxText>
 		</BerxSpatialCard>
 	);
 }
@@ -78,6 +78,4 @@ const styles = StyleSheet.create({
 	screen: {flex: 1},
 	grid: {padding: spacing.md, gap: spacing.sm},
 	card: {gap: 4},
-	cardLabel: {fontSize: typography.sizeLg, color: colors.white, fontWeight: typography.weightBold},
-	cardSubtitle: {fontSize: typography.sizeSm, color: colors.textDim},
 });

@@ -26,6 +26,7 @@ import {BerxDepthLayer} from './BerxDepthLayer';
 import {BerxSpatialCard} from './BerxSpatialCard';
 import {BerxEnergyHalo} from './BerxEnergyHalo';
 import {useBerxScene, useBerxSceneScroll} from './BerxSpatialScene';
+import {BerxText} from './BerxText';
 
 export interface BerxSceneInspectorProps {
 	screen: BerxResolvedScreen;
@@ -56,44 +57,44 @@ export function BerxSceneInspector({screen, children, testID}: BerxSceneInspecto
 			scrollEventThrottle={scrollEventThrottle}
 			contentContainerStyle={styles.content}
 			showsVerticalScrollIndicator={false}>
-			<Text style={styles.kicker}>{screen.screenId}</Text>
-			<Text style={styles.title} accessibilityRole="header">
+			<BerxText role="meta" emphasis="tertiary">{screen.screenId}</BerxText>
+			<BerxText role="title" heading>
 				{screen.contract.title}
-			</Text>
-			<Text style={styles.meta}>
+			</BerxText>
+			<BerxText role="meta" emphasis="secondary" style={styles.meta}>
 				{screen.family} · {screen.route.path} · {screen.contract.experience.mood}
-			</Text>
+			</BerxText>
 
 			{children}
 
 			{/* the six planes, each rendered in its own resolved material and light */}
-			<Text style={styles.section} accessibilityRole="header">
+			<BerxText role="micro" emphasis="tertiary" style={styles.section} heading>
 				Пространственные слои
-			</Text>
+			</BerxText>
 			{BERX_DEPTH_KEYS.map((depth) => {
 				const layer = scene.layers[depth];
 				return (
 					<BerxDepthLayer key={depth} depth={depth} surface radius={18} style={styles.layerCard} decorative={false}>
 						<View style={styles.layerBody}>
 							<View style={styles.layerHead}>
-								<Text style={styles.layerTitle}>{DEPTH_TITLE[depth]}</Text>
+								<BerxText role="label">{DEPTH_TITLE[depth]}</BerxText>
 								{depth === 'D5' ? <BerxEnergyHalo size={22} intensity={0.9} /> : null}
 							</View>
-							<Text style={styles.layerMeta}>
+							<BerxText role="meta" emphasis="tertiary">
 								{layer.surface.material} · z {layer.z} · {layer.translateZ}px
 								{layer.blurred ? ` · blur ${layer.surface.blurPx}px` : ' · непрозрачно'}
-							</Text>
-							<Text style={styles.layerMeta}>
+							</BerxText>
+							<BerxText role="meta" emphasis="tertiary">
 								параллакс {layer.parallaxFactor} · контраст {layer.surface.textContrast}:1
-							</Text>
+							</BerxText>
 						</View>
 					</BerxDepthLayer>
 				);
 			})}
 
-			<Text style={styles.section} accessibilityRole="header">
+			<BerxText role="micro" emphasis="tertiary" style={styles.section} heading>
 				Сцена
-			</Text>
+			</BerxText>
 			<BerxSpatialCard depth="D2" padding={spacing.lg}>
 				<Fact label="Материал" value={screen.contract.scene.material} />
 				<Fact label="Свет" value={screen.contract.scene.lightRecipe} />
@@ -108,9 +109,9 @@ export function BerxSceneInspector({screen, children, testID}: BerxSceneInspecto
 				<Fact label="Движение" value={scene.reducedMotion ? 'сокращённое' : `${scene.motion.enter.durationMs}ms вход`} />
 			</BerxSpatialCard>
 
-			<Text style={styles.section} accessibilityRole="header">
+			<BerxText role="micro" emphasis="tertiary" style={styles.section} heading>
 				Данные
-			</Text>
+			</BerxText>
 			<BerxSpatialCard depth="D2" padding={spacing.lg}>
 				{screen.dataMode === 'bound' ? (
 					<>
@@ -139,14 +140,14 @@ export function BerxSceneInspector({screen, children, testID}: BerxSceneInspecto
 				{screen.data?.blocked?.map((b) => (
 					<View key={b.capability} style={styles.blocked}>
 						<Text style={styles.blockedTitle}>Недоступно: {b.capability}</Text>
-						<Text style={styles.blockedReason}>{b.reason}</Text>
+						<BerxText role="meta" emphasis="secondary" style={styles.blockedReason}>{b.reason}</BerxText>
 					</View>
 				))}
 			</BerxSpatialCard>
 
-			<Text style={styles.section} accessibilityRole="header">
+			<BerxText role="micro" emphasis="tertiary" style={styles.section} heading>
 				Компоненты
-			</Text>
+			</BerxText>
 			<BerxSpatialCard depth="D2" padding={spacing.lg}>
 				{screen.components.map((c) => (
 					<Fact key={c.contractName} label={c.contractName} value={`${c.resolution}${c.implementation ? ` · ${c.implementation}` : ''}`} />
@@ -154,23 +155,23 @@ export function BerxSceneInspector({screen, children, testID}: BerxSceneInspecto
 				{screen.blockedComponents.map((c) => (
 					<View key={c.contractName} style={styles.blocked}>
 						<Text style={styles.blockedTitle}>{c.contractName} — недоступен</Text>
-						<Text style={styles.blockedReason}>{c.note}</Text>
+						<BerxText role="meta" emphasis="secondary" style={styles.blockedReason}>{c.note}</BerxText>
 					</View>
 				))}
 			</BerxSpatialCard>
 
-			<Text style={styles.section} accessibilityRole="header">
+			<BerxText role="micro" emphasis="tertiary" style={styles.section} heading>
 				Состояния
-			</Text>
+			</BerxText>
 			<BerxSpatialCard depth="D2" padding={spacing.lg}>
 				<Text style={styles.body}>{screen.states.join(' · ')}</Text>
 			</BerxSpatialCard>
 
 			{scene.adaptations.length > 0 ? (
 				<>
-					<Text style={styles.section} accessibilityRole="header">
+					<BerxText role="micro" emphasis="tertiary" style={styles.section} heading>
 						Адаптация под устройство
-					</Text>
+					</BerxText>
 					<BerxSpatialCard depth="D2" padding={spacing.lg}>
 						{scene.adaptations.map((a) => (
 							<Text key={a} style={styles.body}>
@@ -187,34 +188,24 @@ export function BerxSceneInspector({screen, children, testID}: BerxSceneInspecto
 function Fact({label, value}: {label: string; value: string}) {
 	return (
 		<View style={styles.fact} accessible accessibilityLabel={`${label}: ${value}`}>
-			<Text style={styles.factLabel}>{label}</Text>
-			<Text style={styles.factValue}>{value}</Text>
+			<BerxText role="meta" emphasis="tertiary" style={styles.factLabel}>{label}</BerxText>
+			<BerxText role="meta" style={styles.factValue}>{value}</BerxText>
 		</View>
 	);
 }
 
 const styles = StyleSheet.create({
 	content: {padding: spacing.lg, gap: spacing.sm, paddingBottom: spacing.xxxl},
-	kicker: {color: colors.textFaint, fontSize: typography.sizeXs, letterSpacing: 1},
-	title: {color: colors.text, fontSize: typography.sizeTitle, fontWeight: typography.weightBold},
-	meta: {color: colors.textDim, fontSize: typography.sizeSm, marginBottom: spacing.md},
-	section: {
-		color: colors.textFaint,
-		fontSize: typography.sizeXs,
-		textTransform: 'uppercase',
-		letterSpacing: 0.5,
-		marginTop: spacing.lg,
-	},
+	meta: {marginBottom: spacing.md},
+	section: {marginTop: spacing.lg},
 	layerCard: {marginBottom: spacing.sm},
 	layerBody: {padding: spacing.md, gap: 2},
 	layerHead: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'},
-	layerTitle: {color: colors.text, fontSize: typography.sizeSm, fontWeight: typography.weightMedium},
-	layerMeta: {color: colors.textFaint, fontSize: typography.sizeXs},
 	body: {color: colors.textDim, fontSize: typography.sizeSm, lineHeight: typography.sizeSm * 1.5},
 	fact: {flexDirection: 'row', justifyContent: 'space-between', gap: spacing.md, paddingVertical: 3},
-	factLabel: {color: colors.textFaint, fontSize: typography.sizeXs, flexShrink: 0},
-	factValue: {color: colors.text, fontSize: typography.sizeXs, flex: 1, textAlign: 'right'},
+	factLabel: {flexShrink: 0},
+	factValue: {flex: 1, textAlign: 'right'},
 	blocked: {marginTop: spacing.sm, paddingLeft: spacing.md, borderLeftWidth: 2, borderLeftColor: colors.danger},
 	blockedTitle: {color: colors.danger, fontSize: typography.sizeXs, fontWeight: typography.weightMedium},
-	blockedReason: {color: colors.textDim, fontSize: typography.sizeXs, lineHeight: typography.sizeXs * 1.5, marginTop: 2},
+	blockedReason: {marginTop: 2},
 });

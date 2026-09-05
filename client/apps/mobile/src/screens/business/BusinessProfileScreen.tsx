@@ -18,6 +18,7 @@ import {BerxHeader} from '../../../../../packages/design-system/src/components/B
 import {BerxGlassSurface} from '../../../../../packages/design-system/src/components/BerxGlassSurface';
 import {BerxEyebrow} from '../../../../../packages/design-system/src/components/BerxBusinessPrimitives';
 import {BerxLoadingState, BerxErrorState} from '../../../../../packages/design-system/src/components/BerxStates';
+import {BerxText} from '../../../../../packages/design-system/src/spatial/BerxText';
 
 export interface BusinessProfileScreenProps {
 	api: BerxApiClient;
@@ -44,7 +45,7 @@ function InfoRow({icon, label}: {icon: BerxIconName; label: string}) {
 			<View style={styles.infoIcon}>
 				<BerxIcon name={icon} size={16} decorative />
 			</View>
-			<Text style={styles.infoText}>{label}</Text>
+			<BerxText role="meta" emphasis="secondary" style={styles.infoText}>{label}</BerxText>
 		</View>
 	);
 }
@@ -100,7 +101,7 @@ function BusinessProfileScreenBody({api, placeGuid, onBack}: BusinessProfileScre
 				}
 			/>
 			<View style={styles.body}>
-				{place.description ? <Text style={styles.description}>{place.description}</Text> : null}
+				{place.description ? <BerxText role="body">{place.description}</BerxText> : null}
 
 				<BerxEyebrow>Контакты</BerxEyebrow>
 				<BerxGlassSurface style={styles.infoCard}>
@@ -109,16 +110,16 @@ function BusinessProfileScreenBody({api, placeGuid, onBack}: BusinessProfileScre
 					{place.phone ? <InfoRow icon="phone" label={place.phone} /> : null}
 					{place.website ? <InfoRow icon="globe" label={place.website} /> : null}
 					{!place.address && !place.hours && !place.phone && !place.website ? (
-						<Text style={styles.emptyInfo}>Контакты ещё не заполнены.</Text>
+						<BerxText role="meta" emphasis="tertiary">Контакты ещё не заполнены.</BerxText>
 					) : null}
 				</BerxGlassSurface>
 
 				<BerxEyebrow>Рейтинг</BerxEyebrow>
 				<BerxGlassSurface style={styles.ratingCard}>
-					<Text style={styles.ratingValue}>{place.rating.toFixed(1)}</Text>
+					<BerxText role="display">{place.rating.toFixed(1)}</BerxText>
 					<View>
 						<BerxStars value={place.rating} />
-						<Text style={styles.ratingCount}>{place.rating_count} {place.rating_count === 1 ? 'отзыв' : 'отзывов'}</Text>
+						<BerxText role="meta" emphasis="tertiary">{place.rating_count} {place.rating_count === 1 ? 'отзыв' : 'отзывов'}</BerxText>
 					</View>
 				</BerxGlassSurface>
 			</View>
@@ -130,15 +131,11 @@ const styles = StyleSheet.create({
 	/* no opaque fill: the scene paints the room this screen stands in */
 	screen: {flex: 1},
 	body: {padding: spacing.lg, gap: spacing.md, marginTop: -spacing.lg},
-	description: {fontSize: typography.sizeBase, color: colors.text, lineHeight: typography.sizeBase * typography.lineHeightBase},
 	infoCard: {gap: spacing.sm},
 	infoRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm},
 	/* a fixed column, so contact lines share one left edge */
 	infoIcon: {width: 22, alignItems: 'center'},
-	infoText: {fontSize: typography.sizeSm, color: colors.textDim, flex: 1},
-	emptyInfo: {fontSize: typography.sizeSm, color: colors.textFaint},
+	infoText: {flex: 1},
 	ratingCard: {flexDirection: 'row', alignItems: 'center', gap: spacing.md},
-	ratingValue: {fontSize: typography.sizeHero, color: colors.white, fontWeight: typography.weightBold},
 	ratingStars: {fontSize: typography.sizeBase, color: colors.accent},
-	ratingCount: {fontSize: typography.sizeXs, color: colors.textFaint},
 });

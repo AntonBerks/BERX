@@ -11,7 +11,6 @@ import {useCallback, useEffect, useState} from 'react';
 import {View, FlatList} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxVideoPost} from '@berx/api/types';
-import {colors} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxVideoCard} from '../../../../packages/design-system/src/components/BerxVideoCard';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';

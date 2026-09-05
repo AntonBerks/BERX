@@ -12,7 +12,8 @@ import {Pressable, StyleSheet, Text, View} from 'react-native';
 import {rgba, sharedElementTag} from '@berx/spatial';
 import {useBerxScene} from './BerxSpatialScene';
 import {BerxAvatar} from '../components/BerxAvatar';
-import {colors, spacing, typography} from '../tokens';
+import {spacing, typography} from '../tokens';
+import {BerxText} from './BerxText';
 
 export type BerxRelationship = 'self' | 'friend' | 'requested' | 'none';
 
@@ -71,9 +72,9 @@ export function BerxIdentity({
 			</View>
 			<View style={styles.text}>
 				<View style={styles.nameRow}>
-					<Text style={styles.name} numberOfLines={1}>
+					<BerxText role="callout" style={styles.name} numberOfLines={1}>
 						{name}
-					</Text>
+					</BerxText>
 					{verified ? (
 						<View style={[styles.verified, {backgroundColor: rgba(scene.accent, 0.16), borderColor: rgba(scene.accent, 0.4)}]}>
 							<Text style={[styles.verifiedGlyph, {color: scene.accent}]}>✓</Text>
@@ -81,9 +82,9 @@ export function BerxIdentity({
 					) : null}
 				</View>
 				{handle || subtitle || rel ? (
-					<Text style={styles.meta} numberOfLines={1}>
+					<BerxText role="meta" emphasis="secondary" numberOfLines={1}>
 						{[handle ? `@${handle}` : undefined, subtitle, rel].filter(Boolean).join(' · ')}
-					</Text>
+					</BerxText>
 				) : null}
 			</View>
 			{trailing}
@@ -116,8 +117,7 @@ const styles = StyleSheet.create({
 	pressable: {minHeight: 44},
 	text: {flex: 1, gap: 2},
 	nameRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.xs},
-	name: {color: colors.text, fontSize: typography.sizeBase, fontWeight: typography.weightMedium, flexShrink: 1},
-	meta: {color: colors.textDim, fontSize: typography.sizeSm},
+	name: {flexShrink: 1},
 	verified: {width: 16, height: 16, borderRadius: 8, borderWidth: 1, alignItems: 'center', justifyContent: 'center'},
 	verifiedGlyph: {fontSize: 10, fontWeight: typography.weightBold, lineHeight: 12},
 });

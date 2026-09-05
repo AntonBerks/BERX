@@ -9,11 +9,11 @@
  * device location. A real build should add a Geolocation permission
  * flow here later; this does not pretend that already exists.
  */
-import React, {useState} from 'react';
-import {View, Text, FlatList, Image, Pressable, StyleSheet} from 'react-native';
+import {useState} from 'react';
+import {View, Image, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxNearbyPlace} from '@berx/api/types';
-import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
+import {colors, spacing, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
@@ -22,6 +22,7 @@ import {BerxSpatialCard} from '../../../../packages/design-system/src/spatial/Be
 import {BerxChoiceChips} from '../../../../packages/design-system/src/spatial/BerxChoiceChips';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 import {BerxSceneList} from '../../../../packages/design-system/src/spatial/BerxSceneList';
+import {BerxText} from '../../../../packages/design-system/src/spatial/BerxText';
 
 export interface PlacesNearbyScreenProps {
 	api: BerxApiClient;
@@ -107,8 +108,8 @@ function PlacesNearbyScreenBody({api, onOpenPlace, onBack}: PlacesNearbyScreenPr
 							accessibilityLabel={item.title}>
 							{item.cover_url ? <Image source={{uri: item.cover_url}} style={styles.cardImage} /> : <View style={styles.cardImageFallback} />}
 							<View style={styles.cardBody}>
-								<Text style={styles.cardTitle} numberOfLines={1}>{item.title}</Text>
-								<Text style={styles.cardDistance}>{item.distance_km} км</Text>
+								<BerxText role="callout" numberOfLines={1}>{item.title}</BerxText>
+								<BerxText role="meta" emphasis="accent">{item.distance_km} км</BerxText>
 							</View>
 						</BerxSpatialCard>
 					)}
@@ -132,6 +133,4 @@ const styles = StyleSheet.create({
 	cardImage: {width: 56, height: 56, borderRadius: radius.sm},
 	cardImageFallback: {width: 56, height: 56, borderRadius: radius.sm, backgroundColor: colors.graphite},
 	cardBody: {flex: 1},
-	cardTitle: {fontSize: typography.sizeBase, color: colors.white, fontWeight: typography.weightMedium},
-	cardDistance: {fontSize: typography.sizeXs, color: colors.accent},
 });

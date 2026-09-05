@@ -141,9 +141,9 @@ function EventDetailSceneBody({api, guid, myGuid, onOpenPlace, onOpenInvite, onA
 			/>
 
 			<View style={styles.body}>
-				<Text style={styles.when}>
+				<BerxText role="meta" emphasis="secondary">
 					{date.toLocaleDateString('ru-RU', {day: 'numeric', month: 'long'})} · {date.toLocaleTimeString('ru-RU', {hour: '2-digit', minute: '2-digit'})}
-				</Text>
+				</BerxText>
 				{/* where, with the icon set's own pin. The emoji that used
 				    to be here is a colour image from the platform's font:
 				    it ignores the scene's accent and looks different on
@@ -182,9 +182,9 @@ function EventDetailSceneBody({api, guid, myGuid, onOpenPlace, onOpenInvite, onA
 				</BerxActionShelf>
 				{rsvpError ? <Text style={styles.error}>{rsvpError}</Text> : null}
 
-				{event.description ? <Text style={styles.description}>{event.description}</Text> : null}
+				{event.description ? <BerxText role="body">{event.description}</BerxText> : null}
 
-				{event.seats_left !== null ? <Text style={styles.seats}>Свободных мест: {event.seats_left}</Text> : null}
+				{event.seats_left !== null ? <BerxText role="meta" emphasis="tertiary">Свободных мест: {event.seats_left}</BerxText> : null}
 
 				<BerxEyebrow tone="quiet">Участники ({event.attendee_count})</BerxEyebrow>
 				<FlatList
@@ -195,7 +195,7 @@ function EventDetailSceneBody({api, guid, myGuid, onOpenPlace, onOpenInvite, onA
 					renderItem={({item}: {item: BerxEventAttendee}) => (
 						<View style={styles.attendee}>
 							<Image source={{uri: item.icon}} style={styles.attendeeIcon} />
-							<Text style={styles.attendeeName} numberOfLines={1}>{item.fullname}</Text>
+							<BerxText role="meta" emphasis="secondary" style={styles.attendeeName} numberOfLines={1}>{item.fullname}</BerxText>
 						</View>
 					)}
 				/>
@@ -214,14 +214,11 @@ const styles = StyleSheet.create({
 	heroFallback: {flex: 1, alignItems: 'center', justifyContent: 'center'},
 	heroInitial: {fontSize: typography.sizeHero, color: colors.textFaint},
 	body: {padding: spacing.md, gap: spacing.md},
-	when: {fontSize: typography.sizeSm, color: colors.textDim},
 	/* 44dp when it navigates; the row is the control, not the word */
 	placeRow: {flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 44},
 	actions: {flexDirection: 'row', gap: spacing.sm},
 	error: {fontSize: typography.sizeSm, color: colors.danger},
-	description: {fontSize: typography.sizeBase, color: colors.text, lineHeight: typography.sizeBase * typography.lineHeightBase},
-	seats: {fontSize: typography.sizeSm, color: colors.textFaint},
 	attendee: {alignItems: 'center', width: 64, marginRight: spacing.sm},
 	attendeeIcon: {width: 48, height: 48, borderRadius: radius.pill, backgroundColor: colors.graphite},
-	attendeeName: {fontSize: typography.sizeXs, color: colors.textDim, marginTop: 4},
+	attendeeName: {marginTop: 4},
 });

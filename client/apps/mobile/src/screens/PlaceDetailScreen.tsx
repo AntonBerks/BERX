@@ -7,10 +7,10 @@
  * BERX_DECISIONS.md).
  */
 import {useCallback, useEffect, useState} from 'react';
-import {View, Text, ScrollView, Pressable, Linking, StyleSheet} from 'react-native';
+import {View, ScrollView, Pressable, Linking, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxPlaceHours, BerxPlace, BerxPlaceReview} from '@berx/api/types';
-import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
+import {colors, spacing, typography} from '@berx/design-system/tokens';
 import {BerxPlaceHero} from '../../../../packages/design-system/src/spatial/BerxPlaceHero';
 import {BerxIcon} from '../../../../packages/design-system/src/icons';
 import {BerxText} from '../../../../packages/design-system/src/spatial/BerxText';
@@ -245,7 +245,7 @@ function PlaceDetailSceneBody({api, guid, myGuid, onAddToCollection, onOpenBusin
 
 			<View style={styles.body}>
 				<View style={styles.metaRow}>
-					{place.price ? <Text style={styles.priceText}>{'$'.repeat(place.price)}</Text> : null}
+					{place.price ? <BerxText role="label" emphasis="tertiary">{'$'.repeat(place.price)}</BerxText> : null}
 					{place.is_business && place.verified ? (
 						<View style={styles.verifiedBadge}>
 							<BerxIcon name="verified" size={13} state="active" decorative />
@@ -391,7 +391,6 @@ const styles = StyleSheet.create({
 	body: {padding: spacing.md, gap: spacing.md},
 	metaRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm},
 	chipText: {fontSize: typography.sizeXs, color: colors.textDim},
-	priceText: {fontSize: typography.sizeXs, color: colors.textFaint, fontWeight: typography.weightBold},
 	ratingText: {fontSize: typography.sizeSm, color: colors.accent, fontWeight: typography.weightMedium},
 	verifiedBadge: {flexDirection: 'row', alignItems: 'center', gap: 5},
 	actions: {flexDirection: 'row', gap: spacing.sm},

@@ -7,16 +7,17 @@
  * still surfaces as a real error if permission was misjudged
  * client-side.
  */
-import React, {useCallback, useEffect, useState} from 'react';
-import {View, Text, FlatList, Image, StyleSheet} from 'react-native';
+import {useCallback, useEffect, useState} from 'react';
+import {View, FlatList, Image, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxCommunityRequest} from '@berx/api/types';
-import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
+import {colors, spacing, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxActionShelf} from '../../../../packages/design-system/src/spatial/BerxActionShelf';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
+import {BerxText} from '../../../../packages/design-system/src/spatial/BerxText';
 
 export interface CommunityRequestsScreenProps {
 	api: BerxApiClient;
@@ -87,7 +88,7 @@ function CommunityRequestsScreenBody({api, guid, onBack}: CommunityRequestsScree
 					renderItem={({item}: {item: BerxCommunityRequest}) => (
 						<View style={styles.row}>
 							<Image source={{uri: item.icon}} style={styles.avatar} />
-							<Text style={styles.name} numberOfLines={1}>{item.fullname}</Text>
+							<BerxText role="callout" style={styles.name} numberOfLines={1}>{item.fullname}</BerxText>
 							<BerxActionShelf variant="anchored">
 								<BerxButton label="Принять" loading={busyGuid === item.guid} onPress={() => respond(item.guid, true)} />
 								<BerxButton label="Отклонить" variant="secondary" loading={busyGuid === item.guid} onPress={() => respond(item.guid, false)} />
@@ -106,6 +107,6 @@ const styles = StyleSheet.create({
 	list: {padding: spacing.md, gap: spacing.sm},
 	row: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.borderSoft},
 	avatar: {width: 40, height: 40, borderRadius: radius.pill, backgroundColor: colors.graphite},
-	name: {flex: 1, fontSize: typography.sizeBase, color: colors.white, fontWeight: typography.weightMedium},
+	name: {flex: 1},
 	actions: {flexDirection: 'row', gap: spacing.xs},
 });

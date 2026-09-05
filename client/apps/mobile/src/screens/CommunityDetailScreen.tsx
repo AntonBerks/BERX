@@ -7,10 +7,10 @@
  * built and tested, not a guessed full feature set."
  */
 import {useEffect, useState} from 'react';
-import {View, Text, Pressable, StyleSheet} from 'react-native';
+import {View, Pressable, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxCommunity} from '@berx/api/types';
-import {colors, spacing, typography} from '@berx/design-system/tokens';
+import {spacing} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState} from '../../../../packages/design-system/src/components/BerxStates';
@@ -146,7 +146,7 @@ function CommunityDetailScreenBody({api, guid, myGuid, onBack, onOpenRequests, o
 						accessibilityLabel="Пожаловаться на сообщество"
 						onPress={() => onReport(guid)}
 						hitSlop={8}>
-						<Text style={styles.reportLink}>Пожаловаться на сообщество</Text>
+						<BerxText role="meta" emphasis="tertiary" style={styles.reportLink}>Пожаловаться на сообщество</BerxText>
 					</Pressable>
 				) : null}
 			</View>
@@ -159,5 +159,5 @@ const styles = StyleSheet.create({
 	screen: {flex: 1},
 	content: {padding: spacing.lg, gap: spacing.md},
 	ownerActions: {gap: spacing.sm, marginTop: spacing.sm},
-	reportLink: {color: colors.textFaint, fontSize: typography.sizeXs, textDecorationLine: 'underline', textAlign: 'center', marginTop: spacing.sm},
+	reportLink: {textDecorationLine: 'underline', textAlign: 'center', marginTop: spacing.sm},
 });

@@ -8,7 +8,7 @@
  * pending — no button that assumes the answer.
  */
 import {useCallback, useEffect, useState} from 'react';
-import {FlatList, StyleSheet, View} from 'react-native';
+import {StyleSheet, View} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxCommunity} from '@berx/api/types';
 import type {BerxScreenState} from '@berx/spatial';

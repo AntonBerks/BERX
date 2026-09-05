@@ -4,10 +4,10 @@
  * inviteToExperience() (components/OssnApi/v1/experiences.php).
  */
 import {useCallback, useEffect, useState} from 'react';
-import {View, Text, FlatList, Image, Pressable, StyleSheet} from 'react-native';
+import {View, FlatList, Image, Pressable, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxExperienceDetail, BerxExperienceParticipant, BerxFriend} from '@berx/api/types';
-import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
+import {colors, spacing, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState} from '../../../../packages/design-system/src/components/BerxStates';
@@ -151,8 +151,8 @@ function ExperienceDetailScreenBody({api, id, onOpenPlace, onOpenEvent, onBack}:
 						<View style={styles.anchorCard}>
 						{experience.anchor.image_url ? <Image source={{uri: experience.anchor.image_url}} style={styles.anchorImage} /> : <View style={styles.anchorImageFallback} />}
 						<View style={styles.anchorBody}>
-							<Text style={styles.anchorTitle} numberOfLines={1}>{experience.anchor.title}</Text>
-							<Text style={styles.anchorType}>{experience.anchor.type === 'place' ? 'Место' : 'Событие'}</Text>
+							<BerxText role="callout" numberOfLines={1}>{experience.anchor.title}</BerxText>
+							<BerxText role="meta" emphasis="tertiary">{experience.anchor.type === 'place' ? 'Место' : 'Событие'}</BerxText>
 						</View>
 						</View>
 					</BerxSpatialCard>
@@ -166,7 +166,7 @@ function ExperienceDetailScreenBody({api, id, onOpenPlace, onOpenEvent, onBack}:
 
 				{showPicker ? (
 					availableFriends.length === 0 ? (
-						<Text style={styles.hint}>Все друзья уже приглашены.</Text>
+						<BerxText role="meta" emphasis="tertiary">Все друзья уже приглашены.</BerxText>
 					) : (
 						<FlatList
 							horizontal
@@ -183,7 +183,7 @@ function ExperienceDetailScreenBody({api, id, onOpenPlace, onOpenEvent, onBack}:
 									onPress={() => invite(item.guid)}
 									disabled={busy}>
 									<Image source={{uri: item.icon}} style={styles.pickerAvatar} />
-									<Text style={styles.pickerName} numberOfLines={1}>{item.fullname}</Text>
+									<BerxText role="meta" emphasis="secondary" style={styles.pickerName} numberOfLines={1}>{item.fullname}</BerxText>
 								</Pressable>
 							)}
 						/>
@@ -194,8 +194,8 @@ function ExperienceDetailScreenBody({api, id, onOpenPlace, onOpenEvent, onBack}:
 				{experience.participants.map((p: BerxExperienceParticipant) => (
 					<View key={p.guid} style={styles.participantRow}>
 						<Image source={{uri: p.icon}} style={styles.participantAvatar} />
-						<Text style={styles.participantName} numberOfLines={1}>{p.fullname}</Text>
-						<Text style={styles.participantStatus}>{STATUS_LABEL[p.status]}</Text>
+						<BerxText role="meta" style={styles.participantName} numberOfLines={1}>{p.fullname}</BerxText>
+						<BerxText role="meta" emphasis="tertiary">{STATUS_LABEL[p.status]}</BerxText>
 					</View>
 				))}
 			</View>
@@ -211,16 +211,12 @@ const styles = StyleSheet.create({
 	anchorImage: {width: 56, height: 56, borderRadius: radius.sm},
 	anchorImageFallback: {width: 56, height: 56, borderRadius: radius.sm, backgroundColor: colors.graphite},
 	anchorBody: {flex: 1, gap: 2},
-	anchorTitle: {fontSize: typography.sizeBase, color: colors.white, fontWeight: typography.weightMedium},
-	anchorType: {fontSize: typography.sizeXs, color: colors.textFaint},
 	actions: {flexDirection: 'row', gap: spacing.sm},
-	hint: {fontSize: typography.sizeSm, color: colors.textFaint},
 	pickerRow: {gap: spacing.sm},
 	pickerItem: {alignItems: 'center', width: 64, marginRight: spacing.sm},
 	pickerAvatar: {width: 48, height: 48, borderRadius: radius.pill, backgroundColor: colors.graphite},
-	pickerName: {fontSize: typography.sizeXs, color: colors.textDim, marginTop: 4},
+	pickerName: {marginTop: 4},
 	participantRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.xs},
 	participantAvatar: {width: 32, height: 32, borderRadius: radius.pill, backgroundColor: colors.graphite},
-	participantName: {flex: 1, fontSize: typography.sizeSm, color: colors.white},
-	participantStatus: {fontSize: typography.sizeXs, color: colors.textFaint},
+	participantName: {flex: 1},
 });

@@ -21,10 +21,10 @@
  * (`url`, `posterColor`, `onPlay`) maps directly onto that library's
  * own real API, so no caller needs to change.
  */
-import React from 'react';
-import { View, Text, Pressable, Linking, StyleSheet } from 'react-native';
-import { colors, spacing, radius, typography } from '../tokens';
+import { View, Pressable, Linking, StyleSheet } from 'react-native';
+import { colors, spacing, radius } from '../tokens';
 import { BerxIcon } from '../icons';
+import {BerxText} from '../spatial/BerxText';
 
 export interface BerxVideoPlayerProps {
 	url: string;
@@ -50,7 +50,7 @@ export function BerxVideoPlayer({ url, widthRatio = 16 / 9, onOpen }: BerxVideoP
 			<View style={styles.playBadge}>
 				<BerxIcon name="play" size={22} color={colors.white} decorative />
 			</View>
-			<Text style={styles.hint}>Открыть видео</Text>
+			<BerxText role="meta" emphasis="secondary">Открыть видео</BerxText>
 		</Pressable>
 	);
 }
@@ -58,5 +58,4 @@ export function BerxVideoPlayer({ url, widthRatio = 16 / 9, onOpen }: BerxVideoP
 const styles = StyleSheet.create({
 	frame: { backgroundColor: colors.graphite, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center', gap: spacing.sm },
 	playBadge: { width: 56, height: 56, borderRadius: radius.pill, backgroundColor: 'rgba(5,5,5,0.55)', alignItems: 'center', justifyContent: 'center' },
-	hint: { color: colors.textDim, fontSize: typography.sizeSm },
 });

@@ -9,7 +9,7 @@
  * buttons appear only on an invitation that is genuinely pending.
  */
 import {useCallback, useEffect, useState} from 'react';
-import {FlatList, StyleSheet, View} from 'react-native';
+import {StyleSheet, View} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxExperience} from '@berx/api/types';
 import type {BerxScreenState} from '@berx/spatial';

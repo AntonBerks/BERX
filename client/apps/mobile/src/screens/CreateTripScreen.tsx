@@ -2,11 +2,11 @@
  * !!! VERIFICATION STATUS: UNVERIFIED — see LoginScreen.tsx header.
  * Real submit: api.createTrip() (components/OssnApi/v1/trips.php).
  */
-import React, {useState} from 'react';
-import {View, Text, Pressable, StyleSheet} from 'react-native';
+import {useState} from 'react';
+import {View, Text, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxCollectionVisibility} from '@berx/api/types';
-import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
+import {colors, spacing, typography} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
@@ -14,6 +14,7 @@ import {BerxGlassSurface} from '../../../../packages/design-system/src/component
 import {BerxActionShelf} from '../../../../packages/design-system/src/spatial/BerxActionShelf';
 import {BerxSegmentTabs} from '../../../../packages/design-system/src/components/BerxBusinessPrimitives';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
+import {BerxText} from '../../../../packages/design-system/src/spatial/BerxText';
 
 export interface CreateTripScreenProps {
 	api: BerxApiClient;
@@ -63,7 +64,7 @@ function CreateTripScreenBody({api, onCreated, onBack}: CreateTripScreenProps) {
 					<BerxInput placeholder="Название поездки" value={title} onChangeText={setTitle} />
 					<BerxInput placeholder="Описание (необязательно)" value={description} onChangeText={setDescription} multiline />
 
-					<Text style={styles.label}>Доступ</Text>
+					<BerxText role="micro" emphasis="tertiary">Доступ</BerxText>
 					<BerxSegmentTabs
 						options={[
 							{key: 'private', label: 'Приватная'},
@@ -72,7 +73,7 @@ function CreateTripScreenBody({api, onCreated, onBack}: CreateTripScreenProps) {
 						value={visibility}
 						onChange={setVisibility}
 					/>
-					<Text style={styles.hint}>Даты и участников можно будет добавить после создания.</Text>
+					<BerxText role="meta" emphasis="tertiary">Даты и участников можно будет добавить после создания.</BerxText>
 
 					{error ? <Text style={styles.error}>{error}</Text> : null}
 
@@ -91,8 +92,6 @@ const styles = StyleSheet.create({
 	screen: {flex: 1},
 	body: {padding: spacing.md, gap: spacing.md},
 	form: {gap: spacing.md},
-	label: {fontSize: typography.sizeXs, color: colors.textFaint, fontWeight: typography.weightBold, textTransform: 'uppercase'},
 	row: {flexDirection: 'row', gap: spacing.sm},
-	hint: {fontSize: typography.sizeXs, color: colors.textFaint},
 	error: {fontSize: typography.sizeSm, color: colors.danger},
 });

@@ -4,7 +4,7 @@
  * block.php, wraps OssnBlock::getBlocking()/removeBlock() verbatim).
  */
 import {useCallback, useEffect, useState} from 'react';
-import {View, FlatList, StyleSheet} from 'react-native';
+import {View, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxBlockedUser} from '@berx/api/types';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';

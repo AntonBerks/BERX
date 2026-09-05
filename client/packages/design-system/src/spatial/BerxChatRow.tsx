@@ -13,6 +13,7 @@ import {useBerxScene} from './BerxSpatialScene';
 import {BerxSpatialCard} from './BerxSpatialCard';
 import {BerxAvatar} from '../components/BerxAvatar';
 import {colors, spacing, typography} from '../tokens';
+import {BerxText} from './BerxText';
 
 export interface BerxChatRowProps {
 	conversationGuid: number;
@@ -56,7 +57,7 @@ export function BerxChatRow({
 						<Text style={[styles.name, unread > 0 ? styles.nameUnread : null]} numberOfLines={1}>
 							{name}
 						</Text>
-						{timeLabel ? <Text style={styles.time}>{timeLabel}</Text> : null}
+						{timeLabel ? <BerxText role="meta" emphasis="tertiary">{timeLabel}</BerxText> : null}
 					</View>
 					{preview ? (
 						<Text style={[styles.preview, unread > 0 ? {color: colors.text} : null]} numberOfLines={1}>
@@ -82,7 +83,6 @@ const styles = StyleSheet.create({
 	topRow: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm},
 	name: {color: colors.textDim, fontSize: typography.sizeBase, flexShrink: 1},
 	nameUnread: {color: colors.text, fontWeight: typography.weightMedium},
-	time: {color: colors.textFaint, fontSize: typography.sizeXs},
 	preview: {color: colors.textDim, fontSize: typography.sizeSm},
 	badge: {minWidth: 22, height: 22, borderRadius: 11, paddingHorizontal: 6, alignItems: 'center', justifyContent: 'center', shadowOpacity: 1, shadowRadius: 8},
 	badgeText: {color: '#04252A', fontSize: 11, fontWeight: typography.weightBold},

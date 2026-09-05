@@ -6,7 +6,7 @@
  * (already ordered by day, sort_order) — no separate per-day fetch.
  */
 import {useCallback, useEffect, useState} from 'react';
-import {View, Text, FlatList, Image, Pressable, StyleSheet} from 'react-native';
+import {View, FlatList, Image, Pressable, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxTripDetail, BerxTripStop, BerxTripParticipant, BerxFriend} from '@berx/api/types';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
@@ -166,7 +166,7 @@ function TripDetailScreenBody({api, id, onOpenPlace, onOpenEvent, onBack}: TripD
 
 			{showPicker ? (
 				availableFriends.length === 0 ? (
-					<Text style={styles.hint}>Все друзья уже участвуют.</Text>
+					<BerxText role="meta" emphasis="tertiary" style={styles.hint}>Все друзья уже участвуют.</BerxText>
 				) : (
 					<FlatList
 						horizontal
@@ -183,7 +183,7 @@ function TripDetailScreenBody({api, id, onOpenPlace, onOpenEvent, onBack}: TripD
 								onPress={() => addParticipant(item.guid)}
 								disabled={busy}>
 								<Image source={{uri: item.icon}} style={styles.pickerAvatar} />
-								<Text style={styles.pickerName} numberOfLines={1}>{item.fullname}</Text>
+								<BerxText role="meta" emphasis="secondary" style={styles.pickerName} numberOfLines={1}>{item.fullname}</BerxText>
 							</Pressable>
 						)}
 					/>
@@ -215,7 +215,7 @@ function TripDetailScreenBody({api, id, onOpenPlace, onOpenEvent, onBack}: TripD
 					contentContainerStyle={styles.list}
 					renderItem={({item: [day, stops]}: {item: [number, BerxTripStop[]]}) => (
 						<View style={styles.dayBlock}>
-							<Text style={styles.dayLabel}>День {day}</Text>
+							<BerxText role="micro" emphasis="tertiary">День {day}</BerxText>
 							{stops.map((s: BerxTripStop) => (
 								<BerxSpatialCard
 									key={s.stop_id}
@@ -227,8 +227,8 @@ function TripDetailScreenBody({api, id, onOpenPlace, onOpenEvent, onBack}: TripD
 									<View style={styles.stopRow}>
 									{s.image_url ? <Image source={{uri: s.image_url}} style={styles.thumb} /> : <View style={styles.thumbFallback} />}
 									<View style={styles.stopBody}>
-										<Text style={styles.stopTitle} numberOfLines={1}>{s.title}</Text>
-										<Text style={styles.stopType}>{s.item_type === 'place' ? 'Место' : 'Событие'}</Text>
+										<BerxText role="callout" numberOfLines={1}>{s.title}</BerxText>
+										<BerxText role="meta" emphasis="tertiary">{s.item_type === 'place' ? 'Место' : 'Событие'}</BerxText>
 									</View>
 									{trip.is_own ? (
 										<Pressable
@@ -254,15 +254,14 @@ const styles = StyleSheet.create({
 	/* no opaque fill: the scene paints the room this screen stands in */
 	screen: {flex: 1},
 	description: {paddingHorizontal: spacing.lg, paddingTop: spacing.md},
-	hint: {fontSize: typography.sizeSm, color: colors.textFaint, paddingHorizontal: spacing.md, paddingBottom: spacing.sm},
+	hint: {paddingHorizontal: spacing.md, paddingBottom: spacing.sm},
 	pickerRow: {paddingHorizontal: spacing.md, paddingVertical: spacing.sm, gap: spacing.sm},
 	pickerItem: {alignItems: 'center', width: 64, marginRight: spacing.sm},
 	pickerAvatar: {width: 48, height: 48, borderRadius: radius.pill, backgroundColor: colors.graphite},
-	pickerName: {fontSize: typography.sizeXs, color: colors.textDim, marginTop: 4},
+	pickerName: {marginTop: 4},
 	participantsRow: {paddingHorizontal: spacing.lg, paddingVertical: spacing.sm},
 	list: {padding: spacing.md, gap: spacing.md},
 	dayBlock: {gap: spacing.sm, marginBottom: spacing.md},
-	dayLabel: {fontSize: typography.sizeXs, color: colors.textFaint, fontWeight: typography.weightBold, textTransform: 'uppercase'},
 	/* fill removed: a BerxSpatialCard wraps this row and paints the
 	   content plane's own material — an opaque token fill on top of it
 	   hides the surface the card just resolved */
@@ -270,7 +269,5 @@ const styles = StyleSheet.create({
 	thumb: {width: 48, height: 48, borderRadius: radius.sm},
 	thumbFallback: {width: 48, height: 48, borderRadius: radius.sm, backgroundColor: colors.graphite},
 	stopBody: {flex: 1, gap: 2},
-	stopTitle: {fontSize: typography.sizeBase, color: colors.white, fontWeight: typography.weightMedium},
-	stopType: {fontSize: typography.sizeXs, color: colors.textFaint},
 	remove: {fontSize: typography.sizeSm, color: colors.textFaint, padding: 4},
 });

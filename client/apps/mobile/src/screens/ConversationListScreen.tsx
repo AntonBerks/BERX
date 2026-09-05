@@ -18,7 +18,7 @@
  * that cannot place a call.
  */
 import {useCallback, useEffect, useMemo, useState} from 'react';
-import {FlatList, RefreshControl, StyleSheet, View} from 'react-native';
+import {RefreshControl, StyleSheet, View} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxConversationSummary} from '@berx/api/types';
 import {relativeTimeLabel} from '@berx/domain';

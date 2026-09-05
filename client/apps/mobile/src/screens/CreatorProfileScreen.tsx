@@ -10,7 +10,7 @@
  * server-side).
  */
 import {useCallback, useEffect, useState} from 'react';
-import {View, Text, FlatList, Image, Pressable, StyleSheet} from 'react-native';
+import {View, FlatList, Image, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxCreatorProfile, BerxCreatorContent, BerxCreatorPostItem, BerxCreatorAlbumItem, BerxCreatorEventItem, BerxCreatorExperienceItem} from '@berx/api/types';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
@@ -23,6 +23,7 @@ import {BerxButton} from '../../../../packages/design-system/src/components/Berx
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxStatRail} from '../../../../packages/design-system/src/spatial/BerxStatRail';
 import {BerxActionShelf} from '../../../../packages/design-system/src/spatial/BerxActionShelf';
+import {BerxText} from '../../../../packages/design-system/src/spatial/BerxText';
 
 export interface CreatorProfileScreenProps {
 	api: BerxApiClient;
@@ -117,7 +118,7 @@ function CreatorProfileSceneBody({api, username, onOpenPost, onOpenAlbum, onOpen
 					postCount={content.posts.length}
 					viewCount={profile.audience.total_views}
 					actions={
-						profile.category ? <Text style={styles.category}>{profile.category}</Text> : undefined
+						profile.category ? <BerxText role="micro" emphasis="accent">{profile.category}</BerxText> : undefined
 					}
 				/>
 
@@ -175,8 +176,8 @@ function CreatorProfileSceneBody({api, username, onOpenPost, onOpenAlbum, onOpen
 							onPress={() => onOpenPost(item.guid)}
 							accessibilityLabel={`${item.text}, ${fmtDate(item.time)}`}
 							style={styles.listItem}>
-							<Text style={styles.rowText} numberOfLines={2}>{item.text}</Text>
-							<Text style={styles.rowMeta}>{fmtDate(item.time)}</Text>
+							<BerxText role="body" numberOfLines={2}>{item.text}</BerxText>
+							<BerxText role="meta" emphasis="tertiary">{fmtDate(item.time)}</BerxText>
 						</BerxSpatialCard>
 					)}
 				/>
@@ -194,7 +195,7 @@ function CreatorProfileSceneBody({api, username, onOpenPost, onOpenAlbum, onOpen
 							onPress={() => onOpenAlbum(item.guid)}
 							accessibilityLabel={item.title}
 							style={styles.gridCard}>
-							<Text style={styles.gridTitle} numberOfLines={1}>{item.title}</Text>
+							<BerxText role="label" numberOfLines={1}>{item.title}</BerxText>
 						</BerxSpatialCard>
 					)}
 				/>
@@ -214,8 +215,8 @@ function CreatorProfileSceneBody({api, username, onOpenPost, onOpenAlbum, onOpen
 							<View style={styles.mediaRow}>
 							{item.image_url ? <Image source={{uri: item.image_url}} style={styles.thumb} /> : <View style={styles.thumbFallback} />}
 							<View style={styles.mediaBody}>
-								<Text style={styles.rowText} numberOfLines={1}>{item.title}</Text>
-								<Text style={styles.rowMeta}>{fmtDate(item.starts)}</Text>
+								<BerxText role="body" numberOfLines={1}>{item.title}</BerxText>
+								<BerxText role="meta" emphasis="tertiary">{fmtDate(item.starts)}</BerxText>
 								</View>
 							</View>
 						</BerxSpatialCard>
@@ -237,8 +238,8 @@ function CreatorProfileSceneBody({api, username, onOpenPost, onOpenAlbum, onOpen
 							<View style={styles.mediaRow}>
 							{item.image_url ? <Image source={{uri: item.image_url}} style={styles.thumb} /> : <View style={styles.thumbFallback} />}
 							<View style={styles.mediaBody}>
-								<Text style={styles.rowText} numberOfLines={1}>{item.title}</Text>
-								<Text style={styles.rowMeta}>{item.anchor_title ?? ''} · {fmtDate(item.scheduled_start)}</Text>
+								<BerxText role="body" numberOfLines={1}>{item.title}</BerxText>
+								<BerxText role="meta" emphasis="tertiary">{item.anchor_title ?? ''} · {fmtDate(item.scheduled_start)}</BerxText>
 								</View>
 							</View>
 						</BerxSpatialCard>
@@ -253,7 +254,6 @@ const styles = StyleSheet.create({
 	/* no opaque fill: the scene paints the room this screen stands in */
 	screen: {flex: 1},
 	body: {padding: spacing.md, gap: spacing.sm},
-	category: {fontSize: typography.sizeXs, color: colors.accent, fontWeight: typography.weightBold, textTransform: 'uppercase'},
 	bio: {fontSize: typography.sizeSm, color: colors.textDim},
 	tabRow: {flexDirection: 'row', gap: spacing.xs, paddingHorizontal: spacing.md, paddingBottom: spacing.sm},
 
@@ -262,12 +262,9 @@ const styles = StyleSheet.create({
 	tabTextActive: {color: colors.accent, fontWeight: typography.weightMedium},
 	list: {padding: spacing.md, gap: spacing.sm},
 
-	rowText: {fontSize: typography.sizeBase, color: colors.white},
-	rowMeta: {fontSize: typography.sizeXs, color: colors.textFaint},
 	grid: {padding: spacing.sm},
 	gridCard: {flex: 1, margin: spacing.xs, aspectRatio: 1.3, justifyContent: 'flex-end'},
 	listItem: {marginBottom: spacing.sm},
-	gridTitle: {fontSize: typography.sizeSm, color: colors.white, fontWeight: typography.weightMedium},
 	mediaRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm},
 	thumb: {width: 48, height: 48, borderRadius: radius.sm},
 	thumbFallback: {width: 48, height: 48, borderRadius: radius.sm, backgroundColor: colors.graphite},

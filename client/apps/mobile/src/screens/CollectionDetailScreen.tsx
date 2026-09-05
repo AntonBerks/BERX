@@ -6,8 +6,8 @@
  * yet navigable from here (no PostDetail route param path wired for
  * this screen; not faked as clickable when it wouldn't do anything).
  */
-import React, {useCallback, useEffect, useState} from 'react';
-import {View, Text, FlatList, Image, Pressable, StyleSheet} from 'react-native';
+import {useCallback, useEffect, useState} from 'react';
+import {View, FlatList, Image, Pressable, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxCollectionDetail, BerxCollectionItem} from '@berx/api/types';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
@@ -16,6 +16,7 @@ import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../pack
 import {BerxSpatialCard} from '../../../../packages/design-system/src/spatial/BerxSpatialCard';
 import {BerxFamilyScene, useBerxSceneAtmosphere} from '../spatial/BerxScreenScene';
 import {BerxIcon} from '../../../../packages/design-system/src/icons';
+import {BerxText} from '../../../../packages/design-system/src/spatial/BerxText';
 
 export interface CollectionDetailScreenProps {
 	api: BerxApiClient;
@@ -90,7 +91,7 @@ function CollectionDetailScreenBody({api, id, onOpenPlace, onOpenEvent, onOpenPo
 	return (
 		<View style={styles.screen}>
 			<BerxHeader title={collection.title} onBack={onBack} />
-			{collection.description ? <Text style={styles.description}>{collection.description}</Text> : null}
+			{collection.description ? <BerxText role="meta" emphasis="secondary" style={styles.description}>{collection.description}</BerxText> : null}
 			{collection.items.length === 0 ? (
 				<BerxEmptyState title="Пока пусто" subtitle="Добавляйте места и события в эту подборку с их страниц." />
 			) : (
@@ -108,8 +109,8 @@ function CollectionDetailScreenBody({api, id, onOpenPlace, onOpenEvent, onOpenPo
 							<View style={styles.row}>
 							{item.image_url ? <Image source={{uri: item.image_url}} style={styles.thumb} /> : <View style={styles.thumbFallback} />}
 							<View style={styles.rowBody}>
-								<Text style={styles.title} numberOfLines={1}>{item.title}</Text>
-								<Text style={styles.type}>{item.item_type === 'place' ? 'Место' : item.item_type === 'event' ? 'Событие' : 'Пост'}</Text>
+								<BerxText role="callout" numberOfLines={1}>{item.title}</BerxText>
+								<BerxText role="meta" emphasis="tertiary">{item.item_type === 'place' ? 'Место' : item.item_type === 'event' ? 'Событие' : 'Пост'}</BerxText>
 							</View>
 							{collection.is_own ? (
 								<Pressable
@@ -132,7 +133,7 @@ function CollectionDetailScreenBody({api, id, onOpenPlace, onOpenEvent, onOpenPo
 const styles = StyleSheet.create({
 	/* no opaque fill: the scene paints the room this screen stands in */
 	screen: {flex: 1},
-	description: {fontSize: typography.sizeSm, color: colors.textDim, paddingHorizontal: spacing.md, paddingTop: spacing.sm},
+	description: {paddingHorizontal: spacing.md, paddingTop: spacing.sm},
 	list: {padding: spacing.md, gap: spacing.sm},
 	/* fill removed: a BerxSpatialCard wraps this row and paints the
 	   content plane's own material — an opaque token fill on top of it
@@ -141,7 +142,5 @@ const styles = StyleSheet.create({
 	thumb: {width: 48, height: 48, borderRadius: radius.sm},
 	thumbFallback: {width: 48, height: 48, borderRadius: radius.sm, backgroundColor: colors.graphite},
 	rowBody: {flex: 1, gap: 2},
-	title: {fontSize: typography.sizeBase, color: colors.white, fontWeight: typography.weightMedium},
-	type: {fontSize: typography.sizeXs, color: colors.textFaint},
 	remove: {fontSize: typography.sizeSm, color: colors.textFaint, padding: 4},
 });

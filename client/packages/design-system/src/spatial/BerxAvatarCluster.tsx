@@ -6,10 +6,10 @@
  * six "image" nodes tells the user nothing about who is here.
  */
 
-import {StyleSheet, Text, View} from 'react-native';
+import {StyleSheet, View} from 'react-native';
 import {useBerxScene} from './BerxSpatialScene';
 import {BerxAvatar} from '../components/BerxAvatar';
-import {colors, typography} from '../tokens';
+import {BerxText} from './BerxText';
 
 export interface BerxClusterMember {
 	guid: number;
@@ -65,7 +65,7 @@ export function BerxAvatarCluster({members, total, max = 4, size = 32, contextLa
 							backgroundColor: scene.layers.D4.surface.backgroundColor,
 						},
 					]}>
-					<Text style={styles.overflowText}>+{overflow}</Text>
+					<BerxText role="label" emphasis="secondary">+{overflow}</BerxText>
 				</View>
 			) : null}
 		</View>
@@ -76,5 +76,4 @@ const styles = StyleSheet.create({
 	root: {flexDirection: 'row', alignItems: 'center'},
 	slot: {},
 	overflow: {alignItems: 'center', justifyContent: 'center', borderWidth: 2},
-	overflowText: {color: colors.textDim, fontSize: typography.sizeXs, fontWeight: typography.weightMedium},
 });

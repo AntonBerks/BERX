@@ -11,7 +11,7 @@
  * actual device picker is a separate piece that plugs into this
  * prop; this screen owns everything after a file is selected.
  */
-import React, {useCallback, useEffect, useState} from 'react';
+import {useCallback, useEffect, useState} from 'react';
 import {View, Text, ScrollView, StyleSheet} from 'react-native';
 import type {BerxApiClient, BerxFilePart} from '@berx/api/client';
 import type {BerxAlbumDetail, BerxAlbumPhoto} from '@berx/api/types';
@@ -23,6 +23,7 @@ import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../pack
 import {BerxMediaGrid} from '../../../../packages/design-system/src/components/BerxMediaGrid';
 import {BerxActionShelf} from '../../../../packages/design-system/src/spatial/BerxActionShelf';
 import {BerxFamilyScene, useBerxSceneAtmosphere} from '../spatial/BerxScreenScene';
+import {BerxText} from '../../../../packages/design-system/src/spatial/BerxText';
 
 export interface AlbumDetailScreenProps {
 	api: BerxApiClient;
@@ -139,7 +140,7 @@ function AlbumDetailScreenBody({api, guid, authState, pickImage, onBack}: AlbumD
 				/* D4 — the destructive control, brought forward for the
 				   selected photo and nowhere else */
 				<BerxActionShelf variant="anchored" align="spread">
-					<Text style={styles.selectedLabel}>Фото выбрано</Text>
+					<BerxText role="meta" emphasis="secondary">Фото выбрано</BerxText>
 					<View style={styles.selectedActions}>
 						<BerxButton label="Отмена" variant="secondary" onPress={() => setSelected(null)} />
 						<BerxButton
@@ -161,7 +162,6 @@ function AlbumDetailScreenBody({api, guid, authState, pickImage, onBack}: AlbumD
 
 const styles = StyleSheet.create({
 	gridPad: {padding: spacing.sm},
-	selectedLabel: {color: colors.textDim, fontSize: typography.sizeSm},
 	selectedActions: {flexDirection: 'row', gap: spacing.sm},
 	/* no opaque fill: the scene paints the room this screen stands in */
 	screen: {flex: 1},

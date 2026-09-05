@@ -8,12 +8,12 @@
  * across families instead of three drifting copies.
  */
 import {Image, StyleSheet, Text, View, type ImageSourcePropType} from 'react-native';
-import {rgba} from '@berx/spatial';
 import {useBerxScene} from './BerxSpatialScene';
 import {BerxActionShelf} from './BerxActionShelf';
 import {BerxSharedElementTarget} from './BerxSharedElement';
 import {BerxScrim} from './BerxScrim';
 import {colors, spacing, typography} from '../tokens';
+import {BerxText} from './BerxText';
 
 export interface BerxSceneHeroProps {
 	title: string;
@@ -72,7 +72,7 @@ export function BerxSceneHero({
 				<Text accessibilityRole="header" style={styles.title} numberOfLines={3}>
 					{title}
 				</Text>
-				{meta ? <Text style={styles.meta}>{meta}</Text> : null}
+				{meta ? <BerxText role="body" emphasis="secondary">{meta}</BerxText> : null}
 				{/* D4 — controls */}
 				{/* promoted to the control plane and anchored to the hero above it */}
 				{actions ? <BerxActionShelf variant="anchored">{actions}</BerxActionShelf> : null}
@@ -86,6 +86,5 @@ const styles = StyleSheet.create({
 	content: {padding: spacing.lg, gap: spacing.sm},
 	badges: {flexDirection: 'row', gap: spacing.sm, flexWrap: 'wrap'},
 	title: {color: colors.text, fontSize: typography.sizeHero, fontWeight: typography.weightBold, lineHeight: typography.sizeHero * 1.15},
-	meta: {color: colors.textDim, fontSize: typography.sizeBase},
 	actions: {flexDirection: 'row', gap: spacing.sm, flexWrap: 'wrap', paddingTop: spacing.xs},
 });

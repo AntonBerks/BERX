@@ -5,16 +5,17 @@
  * (place/event/post) to any of the caller's own collections — shown
  * as a picker, not duplicated per source screen.
  */
-import React, {useCallback, useEffect, useState} from 'react';
-import {View, Text, FlatList, Pressable, StyleSheet} from 'react-native';
+import {useCallback, useEffect, useState} from 'react';
+import {View, Text, FlatList, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxCollection, BerxCollectionItemType} from '@berx/api/types';
-import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
+import {colors, spacing, typography} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxSpatialCard} from '../../../../packages/design-system/src/spatial/BerxSpatialCard';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
+import {BerxText} from '../../../../packages/design-system/src/spatial/BerxText';
 
 export interface AddToCollectionScreenProps {
 	api: BerxApiClient;
@@ -99,7 +100,7 @@ function AddToCollectionScreenBody({api, myGuid, itemType, itemGuid, onCreateCol
 								onPress={() => addTo(item.id)}
 								accessibilityLabel={added ? `${item.title}, уже добавлено` : `Добавить в ${item.title}`}>
 								<View style={styles.row}>
-									<Text style={styles.title}>{item.title}</Text>
+									<BerxText role="callout">{item.title}</BerxText>
 									<Text style={added ? styles.added : busyId === item.id ? styles.busy : styles.action}>
 										{added ? 'Добавлено' : busyId === item.id ? '...' : 'Добавить'}
 									</Text>
@@ -125,7 +126,6 @@ const styles = StyleSheet.create({
 	   content plane's own material — an opaque token fill on top of it
 	   hides the surface the card just resolved */
 	row: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: spacing.md, marginBottom: spacing.sm},
-	title: {fontSize: typography.sizeBase, color: colors.white, fontWeight: typography.weightMedium},
 	action: {fontSize: typography.sizeSm, color: colors.accent, fontWeight: typography.weightMedium},
 	busy: {fontSize: typography.sizeSm, color: colors.textFaint},
 	added: {fontSize: typography.sizeSm, color: colors.textFaint},

@@ -14,13 +14,14 @@
  * standing in for people.
  */
 import {Animated, StyleSheet, Text, View} from 'react-native';
-import {colors, spacing, typography} from '@berx/design-system/tokens';
+import {spacing, typography} from '@berx/design-system/tokens';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxDepthLayer} from '../../../../packages/design-system/src/spatial/BerxDepthLayer';
 import {BerxActionShelf} from '../../../../packages/design-system/src/spatial/BerxActionShelf';
 import {BerxEnergyHalo} from '../../../../packages/design-system/src/spatial/BerxEnergyHalo';
 import {useBerxScene, useBerxSceneEnter} from '../../../../packages/design-system/src/spatial/BerxSpatialScene';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
+import {BerxText} from '../../../../packages/design-system/src/spatial/BerxText';
 
 export interface DatingMatchScreenProps {
 	otherUsername: string;
@@ -53,7 +54,7 @@ function DatingMatchSceneBody({otherUsername, onMessage, onContinueBrowsing}: Da
 					accessibilityLiveRegion="polite">
 					Это совпадение!
 				</Text>
-				<Text style={styles.subtitle}>Вы понравились друг другу с {otherUsername}</Text>
+				<BerxText role="body" emphasis="secondary" style={styles.subtitle}>Вы понравились друг другу с {otherUsername}</BerxText>
 			</Animated.View>
 
 			<BerxActionShelf variant="anchored">
@@ -69,6 +70,6 @@ const styles = StyleSheet.create({
 	haloLayer: {position: 'absolute', top: '20%', left: 0, right: 0, alignItems: 'center'},
 	center: {flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.md},
 	title: {fontSize: typography.sizeHero, fontWeight: typography.weightBold, textAlign: 'center'},
-	subtitle: {color: colors.textDim, fontSize: typography.sizeBase, textAlign: 'center'},
+	subtitle: {textAlign: 'center'},
 	actions: {gap: spacing.md},
 });

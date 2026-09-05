@@ -11,7 +11,7 @@
  * sandbox, so device picking is a separate piece that plugs into
  * this prop; this screen owns everything after a file is selected.
  */
-import React, {useEffect, useState} from 'react';
+import {useEffect, useState} from 'react';
 import {View, Text, Image, Pressable, StyleSheet} from 'react-native';
 import type {BerxApiClient, BerxFilePart} from '@berx/api/client';
 import type {BerxCircle, BerxPostVisibility} from '@berx/api/types';
@@ -23,6 +23,7 @@ import {BerxGlassSurface} from '../../../../packages/design-system/src/component
 import {BerxActionShelf} from '../../../../packages/design-system/src/spatial/BerxActionShelf';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 import {BerxIcon} from '../../../../packages/design-system/src/icons';
+import {BerxText} from '../../../../packages/design-system/src/spatial/BerxText';
 
 export interface CreatePostScreenProps {
 	api: BerxApiClient;
@@ -101,7 +102,7 @@ function CreatePostScreenBody({api, pickImage, onCreated}: CreatePostScreenProps
 
 	return (
 		<View style={styles.screen}>
-			<Text style={styles.title}>Новый пост</Text>
+			<BerxText role="heading" style={styles.title}>Новый пост</BerxText>
 			{/* D2 — the composer is one object: what you write, what you
 			    attach and who sees it belong together */}
 			<BerxGlassSurface padding="lg" style={styles.form}>
@@ -128,7 +129,7 @@ function CreatePostScreenBody({api, pickImage, onCreated}: CreatePostScreenProps
 
 			<BerxButton label={pickedPart ? 'Заменить фото' : 'Добавить фото'} variant="secondary" onPress={handlePickImage} />
 
-			<Text style={styles.label}>Кто увидит пост</Text>
+			<BerxText role="micro" emphasis="tertiary">Кто увидит пост</BerxText>
 			{/* the real set: two server visibilities plus every circle the
 			    person actually owns — a variable length, so chips, not a
 			    fixed segmented control */}
@@ -157,13 +158,12 @@ const styles = StyleSheet.create({
 	form: {gap: spacing.md},
 	/* no opaque fill: the scene paints the room this screen stands in */
 	screen: {flex: 1, padding: spacing.lg, gap: spacing.md},
-	title: {color: colors.text, fontSize: typography.sizeXl, fontWeight: typography.weightBold, marginBottom: spacing.sm},
+	title: {marginBottom: spacing.sm},
 	input: {minHeight: 120, textAlignVertical: 'top'},
 	previewWrap: {alignSelf: 'flex-start'},
 	preview: {width: 96, height: 96, borderRadius: radius.md, backgroundColor: colors.graphite},
 	previewRemove: {position: 'absolute', top: -6, right: -6, width: 22, height: 22, borderRadius: 11, backgroundColor: colors.black, alignItems: 'center', justifyContent: 'center'},
 	previewRemoveText: {color: colors.textDim, fontSize: typography.sizeXs},
 	error: {color: colors.danger, fontSize: typography.sizeSm},
-	label: {color: colors.textFaint, fontSize: typography.sizeXs, fontWeight: typography.weightBold, textTransform: 'uppercase'},
 	visRow: {flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs},
 });

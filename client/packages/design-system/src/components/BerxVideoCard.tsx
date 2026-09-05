@@ -9,12 +9,12 @@
  * placeholder with a real play glyph rather than a fabricated
  * thumbnail. Real like/comment counts, never estimated.
  */
-import React from 'react';
-import { View, Text, Pressable, StyleSheet } from 'react-native';
-import { colors, spacing, radius, typography } from '../tokens';
+import { View, Pressable, StyleSheet } from 'react-native';
+import { colors, spacing, radius } from '../tokens';
 import { BerxIcon } from '../icons';
 import { BerxSpatialCard } from '../spatial/BerxSpatialCard';
 import type { BerxVideoPost } from '@berx/api/types';
+import {BerxText} from '../spatial/BerxText';
 
 export interface BerxVideoCardProps {
 	video: BerxVideoPost;
@@ -38,7 +38,7 @@ export function BerxVideoCard({ video, onPress, onOpenProfile }: BerxVideoCardPr
 				</View>
 				{video.video.duration_seconds !== null ? (
 					<View style={styles.durationBadge}>
-						<Text style={styles.durationText}>{formatDuration(video.video.duration_seconds)}</Text>
+						<BerxText role="meta">{formatDuration(video.video.duration_seconds)}</BerxText>
 					</View>
 				) : null}
 			</View>
@@ -46,10 +46,10 @@ export function BerxVideoCard({ video, onPress, onOpenProfile }: BerxVideoCardPr
 				<Pressable
 					disabled={!video.owner_username || !onOpenProfile}
 					onPress={() => video.owner_username && onOpenProfile?.(video.owner_username)}>
-					<Text style={styles.owner}>{video.owner_username ?? 'BERX'}</Text>
+					<BerxText role="label" emphasis="accent">{video.owner_username ?? 'BERX'}</BerxText>
 				</Pressable>
-				{video.text ? <Text style={styles.text} numberOfLines={2}>{video.text}</Text> : null}
-				<Text style={styles.meta}>{video.like_count} нравится · {video.comment_count} комментариев</Text>
+				{video.text ? <BerxText role="meta" numberOfLines={2}>{video.text}</BerxText> : null}
+				<BerxText role="meta" emphasis="tertiary">{video.like_count} нравится · {video.comment_count} комментариев</BerxText>
 			</View>
 		</BerxSpatialCard>
 	);
@@ -66,9 +66,5 @@ const styles = StyleSheet.create({
 	poster: { aspectRatio: 16 / 9, backgroundColor: colors.graphite, alignItems: 'center', justifyContent: 'center' },
 	playBadge: { width: 48, height: 48, borderRadius: radius.pill, backgroundColor: 'rgba(5,5,5,0.55)', alignItems: 'center', justifyContent: 'center' },
 	durationBadge: { position: 'absolute', right: 8, bottom: 8, backgroundColor: 'rgba(5,5,5,0.75)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: radius.sm },
-	durationText: { color: colors.white, fontSize: typography.sizeXs },
 	body: { padding: spacing.sm, gap: 4 },
-	owner: { color: colors.accent, fontSize: typography.sizeSm, fontWeight: typography.weightMedium },
-	text: { color: colors.text, fontSize: typography.sizeSm },
-	meta: { color: colors.textFaint, fontSize: typography.sizeXs },
 });

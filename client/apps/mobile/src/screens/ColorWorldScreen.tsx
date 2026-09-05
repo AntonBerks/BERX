@@ -29,6 +29,7 @@ import {BerxEnergyHalo} from '../../../../packages/design-system/src/spatial/Ber
 import {BerxIcon} from '../../../../packages/design-system/src/icons/BerxIcon';
 import {BerxScreenScene} from '../spatial/BerxScreenScene';
 import {useBerxColorWorld} from '../spatial/BerxColorWorld';
+import {BerxText} from '../../../../packages/design-system/src/spatial/BerxText';
 
 export interface ColorWorldScreenProps {
 	onBack?: () => void;
@@ -52,10 +53,10 @@ function ColorWorldSceneBody({onBack, onContinue}: ColorWorldScreenProps) {
 			<BerxHeader title="Цветовой мир" onBack={onBack} />
 
 			<ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-				<Text style={styles.lead}>
+				<BerxText role="body" emphasis="secondary">
 					Мир меняет атмосферу BERX — свет, фокус, энергию. Тёмная основа и пространственная структура остаются
 					прежними.
-				</Text>
+				</BerxText>
 
 				{available.map(({name, definition}) => {
 					const selected = name === world;
@@ -72,10 +73,10 @@ function ColorWorldSceneBody({onBack, onContinue}: ColorWorldScreenProps) {
 					);
 				})}
 
-				<Text style={styles.note}>
+				<BerxText role="meta" emphasis="tertiary" style={styles.note}>
 					Выбор сохраняется на этом устройстве. BERX пока не хранит настройки оформления в аккаунте — в API нет
 					такого поля, поэтому на другом устройстве мир нужно выбрать заново.
-				</Text>
+				</BerxText>
 
 				{onContinue ? <BerxButton label="Продолжить" onPress={onContinue} fullWidth /> : null}
 			</ScrollView>
@@ -124,8 +125,8 @@ function WorldCard({
 
 				<View style={styles.text}>
 					<Text style={[styles.name, selected ? {color: accent} : null]}>{name}</Text>
-					<Text style={styles.mood}>{mood}</Text>
-					<Text style={styles.energy}>энергия: {energy}</Text>
+					<BerxText role="meta" emphasis="secondary">{mood}</BerxText>
+					<BerxText role="meta" emphasis="tertiary">энергия: {energy}</BerxText>
 				</View>
 
 				{selected ? (
@@ -141,15 +142,12 @@ function WorldCard({
 const styles = StyleSheet.create({
 	screen: {flex: 1},
 	content: {padding: spacing.lg, gap: spacing.md, paddingBottom: spacing.xxxl},
-	lead: {color: colors.textDim, fontSize: typography.sizeBase, lineHeight: typography.sizeBase * 1.45},
 	row: {flexDirection: 'row', alignItems: 'center', gap: spacing.lg},
 	preview: {width: 54, height: 54, alignItems: 'center', justifyContent: 'center'},
 	swatch: {width: 42, height: 42, borderRadius: 21, borderWidth: 2},
 	halo: {position: 'absolute'},
 	text: {flex: 1, gap: 2},
 	name: {color: colors.text, fontSize: typography.sizeLg, fontWeight: typography.weightMedium},
-	mood: {color: colors.textDim, fontSize: typography.sizeSm},
-	energy: {color: colors.textFaint, fontSize: typography.sizeXs},
 	checkSpacer: {width: 22},
-	note: {color: colors.textFaint, fontSize: typography.sizeXs, lineHeight: typography.sizeXs * 1.6, marginTop: spacing.sm},
+	note: {marginTop: spacing.sm},
 });

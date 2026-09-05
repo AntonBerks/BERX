@@ -17,7 +17,8 @@ import {useBerxScene} from './BerxSpatialScene';
 import {BerxDepthLayer} from './BerxDepthLayer';
 import {BerxEnergyHalo} from './BerxEnergyHalo';
 import {BerxNowRail, type BerxNowItem} from './BerxNowRail';
-import {colors, spacing, typography} from '../tokens';
+import {spacing, typography} from '../tokens';
+import {BerxText} from './BerxText';
 
 export interface BerxNowSceneProps {
 	items: readonly BerxNowItem[];
@@ -53,7 +54,7 @@ export function BerxNowScene({items, liveCount, placesWithoutHours, hasLocation,
 						<Text style={[styles.count, {color: scene.accent}]} accessibilityLiveRegion="polite">
 							{liveCount}
 						</Text>
-						<Text style={styles.countLabel}>{liveCount === 1 ? 'событие сейчас' : 'событий сейчас'}</Text>
+						<BerxText role="meta" emphasis="secondary">{liveCount === 1 ? 'событие сейчас' : 'событий сейчас'}</BerxText>
 					</View>
 				</View>
 			</BerxDepthLayer>
@@ -62,15 +63,15 @@ export function BerxNowScene({items, liveCount, placesWithoutHours, hasLocation,
 			{hasLocation ? (
 				<BerxNowRail items={items} />
 			) : (
-				<Text style={styles.note}>Укажите координаты, чтобы увидеть, что происходит рядом.</Text>
+				<BerxText role="meta" emphasis="tertiary" style={styles.note}>Укажите координаты, чтобы увидеть, что происходит рядом.</BerxText>
 			)}
 
 			{/* the honest limit, stated rather than hidden */}
 			{placesWithoutHours > 0 ? (
-				<Text style={styles.note}>
+				<BerxText role="meta" emphasis="tertiary" style={styles.note}>
 					У {placesWithoutHours} мест не указаны часы работы — для них статус «открыто сейчас» неизвестен, и фильтр их
 					не скрывает.
-				</Text>
+				</BerxText>
 			) : null}
 		</View>
 	);
@@ -82,6 +83,5 @@ const styles = StyleSheet.create({
 	pulse: {alignItems: 'center', justifyContent: 'center', height: 96},
 	pulseText: {position: 'absolute', alignItems: 'center'},
 	count: {fontSize: typography.sizeHero, fontWeight: typography.weightBold},
-	countLabel: {color: colors.textDim, fontSize: typography.sizeXs},
-	note: {color: colors.textFaint, fontSize: typography.sizeSm, paddingHorizontal: spacing.lg, lineHeight: typography.sizeSm * 1.5},
+	note: {paddingHorizontal: spacing.lg},
 });

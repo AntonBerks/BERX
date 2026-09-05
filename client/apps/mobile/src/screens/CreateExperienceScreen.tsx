@@ -4,11 +4,11 @@
  * experiences.php). Anchor must be a real place or event — search
  * results come from the real api.searchPlaces()/searchEvents().
  */
-import React, {useState} from 'react';
+import {useState} from 'react';
 import {View, Text, FlatList, Pressable, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxPlaceSearchResult, BerxEventSearchResult, BerxCollectionVisibility} from '@berx/api/types';
-import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
+import {colors, spacing, typography} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
@@ -17,6 +17,7 @@ import {BerxActionShelf} from '../../../../packages/design-system/src/spatial/Be
 import {BerxSegmentTabs} from '../../../../packages/design-system/src/components/BerxBusinessPrimitives';
 import {BerxSpatialCard} from '../../../../packages/design-system/src/spatial/BerxSpatialCard';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
+import {BerxText} from '../../../../packages/design-system/src/spatial/BerxText';
 
 export interface CreateExperienceScreenProps {
 	api: BerxApiClient;
@@ -108,7 +109,7 @@ function CreateExperienceScreenBody({api, onCreated, onBack}: CreateExperienceSc
 					<BerxInput placeholder="Название" value={title} onChangeText={setTitle} />
 					<BerxInput placeholder="Описание (необязательно)" value={description} onChangeText={setDescription} multiline />
 
-					<Text style={styles.label}>Привязать к</Text>
+					<BerxText role="micro" emphasis="tertiary">Привязать к</BerxText>
 					<BerxSegmentTabs
 						options={[
 							{key: 'place', label: 'Место'},
@@ -124,13 +125,13 @@ function CreateExperienceScreenBody({api, onCreated, onBack}: CreateExperienceSc
 					{anchor ? (
 						<BerxSpatialCard depth="D3" padding={spacing.sm} radius={18}>
 							<View style={styles.anchorSelected}>
-								<Text style={styles.anchorSelectedText}>{anchor.title}</Text>
+								<BerxText role="label">{anchor.title}</BerxText>
 								<Pressable
 									onPress={() => setAnchor(null)}
 									accessibilityRole="button"
 									accessibilityLabel={`Изменить привязку, сейчас ${anchor.title}`}
 									hitSlop={8}>
-									<Text style={styles.anchorClear}>Изменить</Text>
+									<BerxText role="meta" emphasis="accent">Изменить</BerxText>
 								</Pressable>
 							</View>
 						</BerxSpatialCard>
@@ -147,7 +148,7 @@ function CreateExperienceScreenBody({api, onCreated, onBack}: CreateExperienceSc
 											accessibilityRole="button"
 											accessibilityLabel={`Привязать к месту ${item.title}`}
 											onPress={() => setAnchor({type: 'place', guid: item.guid, title: item.title})}>
-											<Text style={styles.resultText}>{item.title}</Text>
+											<BerxText role="meta">{item.title}</BerxText>
 										</Pressable>
 									)}
 								/>
@@ -161,7 +162,7 @@ function CreateExperienceScreenBody({api, onCreated, onBack}: CreateExperienceSc
 											accessibilityRole="button"
 											accessibilityLabel={`Привязать к событию ${item.title}`}
 											onPress={() => setAnchor({type: 'event', guid: item.guid, title: item.title})}>
-											<Text style={styles.resultText}>{item.title}</Text>
+											<BerxText role="meta">{item.title}</BerxText>
 										</Pressable>
 									)}
 								/>
@@ -169,7 +170,7 @@ function CreateExperienceScreenBody({api, onCreated, onBack}: CreateExperienceSc
 						</>
 					)}
 
-					<Text style={styles.label}>Доступ</Text>
+					<BerxText role="micro" emphasis="tertiary">Доступ</BerxText>
 					<BerxSegmentTabs
 						options={[
 							{key: 'private', label: 'Приватное'},
@@ -196,12 +197,8 @@ const styles = StyleSheet.create({
 	screen: {flex: 1},
 	body: {padding: spacing.md, gap: spacing.md},
 	form: {gap: spacing.md},
-	label: {fontSize: typography.sizeXs, color: colors.textFaint, fontWeight: typography.weightBold, textTransform: 'uppercase'},
 	row: {flexDirection: 'row', gap: spacing.sm},
 	resultRow: {paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.borderSoft},
-	resultText: {fontSize: typography.sizeSm, color: colors.white},
 	anchorSelected: {flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: spacing.sm},
-	anchorSelectedText: {fontSize: typography.sizeSm, color: colors.white, fontWeight: typography.weightMedium},
-	anchorClear: {fontSize: typography.sizeXs, color: colors.accent},
 	error: {fontSize: typography.sizeSm, color: colors.danger},
 });

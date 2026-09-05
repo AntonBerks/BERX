@@ -8,10 +8,10 @@
  * fake inline player thumbnail — no video preview generation exists
  * in this environment (see BerxMediaViewer's own header for why).
  */
-import React from 'react';
-import { View, Image, Pressable, Text, StyleSheet } from 'react-native';
-import { colors, radius, typography } from '../tokens';
+import { View, Image, Pressable, StyleSheet } from 'react-native';
+import { colors, radius } from '../tokens';
 import { BerxIcon } from '../icons';
+import {BerxText} from '../spatial/BerxText';
 
 export interface BerxMediaGridItem {
 	guid: number;
@@ -41,7 +41,7 @@ export function BerxMediaGrid({ items, columns = 3, onPress, onLongPress }: Berx
 						) : (
 							<View style={styles.fallback}>
 								<BerxIcon name={item.media_type === 'video' ? 'play' : 'music'} size={18} decorative />
-								<Text style={styles.fallbackText}>{item.media_type === 'video' ? 'Видео' : 'Аудио'}</Text>
+								<BerxText role="meta" emphasis="tertiary">{item.media_type === 'video' ? 'Видео' : 'Аудио'}</BerxText>
 							</View>
 						)}
 					</View>
@@ -57,5 +57,4 @@ const styles = StyleSheet.create({
 	tileInner: { flex: 1, backgroundColor: colors.graphite, borderRadius: radius.sm, overflow: 'hidden' },
 	image: { width: '100%', height: '100%' },
 	fallback: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-	fallbackText: { color: colors.textFaint, fontSize: typography.sizeXs },
 });

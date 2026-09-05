@@ -10,7 +10,7 @@ import {useCallback, useEffect, useState} from 'react';
 import {View, Text, ScrollView, Pressable, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxPlace, BerxBusinessSubscription, BerxBusinessType, BerxOpeningInterval} from '@berx/api/types';
-import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
+import {colors, spacing, typography} from '@berx/design-system/tokens';
 import {BerxIcon} from '../../../../../packages/design-system/src/icons';
 import {BerxGlassSurface} from '../../../../../packages/design-system/src/components/BerxGlassSurface';
 import {BerxEyebrow} from '../../../../../packages/design-system/src/components/BerxBusinessPrimitives';
@@ -19,6 +19,7 @@ import {BerxFamilyScene} from '../../spatial/BerxScreenScene';
 import {BerxHeader} from '../../../../../packages/design-system/src/components/BerxHeader';
 import {BerxButton} from '../../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState} from '../../../../../packages/design-system/src/components/BerxStates';
+import {BerxText} from '../../../../../packages/design-system/src/spatial/BerxText';
 
 export interface BusinessSettingsScreenProps {
 	api: BerxApiClient;
@@ -165,7 +166,7 @@ function BusinessSettingsScreenBody({api, placeGuid, onBack}: BusinessSettingsSc
 	return (
 		<ScrollView style={styles.screen} contentContainerStyle={styles.content}>
 			<BerxHeader onBack={onBack} />
-			<Text style={styles.pageTitle}>Настройки бизнеса</Text>
+			<BerxText role="title">Настройки бизнеса</BerxText>
 
 			<BerxEyebrow>Тип бизнеса</BerxEyebrow>
 			<BerxChoiceChips
@@ -200,7 +201,7 @@ function BusinessSettingsScreenBody({api, placeGuid, onBack}: BusinessSettingsSc
 										accessibilityRole="button"
 										accessibilityLabel={`${wd.label}: открытие на час раньше`}
 										onPress={() => adjustHour(wd.key, 'openHour', -1)}>
-										<Text style={styles.hourBtn}>−</Text>
+										<BerxText role="body" emphasis="accent" style={styles.hourBtn}>−</BerxText>
 									</Pressable>
 									<Text
 										accessibilityRole="adjustable"
@@ -212,16 +213,16 @@ function BusinessSettingsScreenBody({api, placeGuid, onBack}: BusinessSettingsSc
 										accessibilityRole="button"
 										accessibilityLabel={`${wd.label}: открытие на час позже`}
 										onPress={() => adjustHour(wd.key, 'openHour', 1)}>
-										<Text style={styles.hourBtn}>+</Text>
+										<BerxText role="body" emphasis="accent" style={styles.hourBtn}>+</BerxText>
 									</Pressable>
-									<Text style={styles.hourDash} accessibilityElementsHidden importantForAccessibility="no">
+									<BerxText role="meta" emphasis="tertiary" decorative>
 										—
-									</Text>
+									</BerxText>
 									<Pressable
 										accessibilityRole="button"
 										accessibilityLabel={`${wd.label}: закрытие на час раньше`}
 										onPress={() => adjustHour(wd.key, 'closeHour', -1)}>
-										<Text style={styles.hourBtn}>−</Text>
+										<BerxText role="body" emphasis="accent" style={styles.hourBtn}>−</BerxText>
 									</Pressable>
 									<Text
 										accessibilityRole="adjustable"
@@ -233,11 +234,11 @@ function BusinessSettingsScreenBody({api, placeGuid, onBack}: BusinessSettingsSc
 										accessibilityRole="button"
 										accessibilityLabel={`${wd.label}: закрытие на час позже`}
 										onPress={() => adjustHour(wd.key, 'closeHour', 1)}>
-										<Text style={styles.hourBtn}>+</Text>
+										<BerxText role="body" emphasis="accent" style={styles.hourBtn}>+</BerxText>
 									</Pressable>
 								</View>
 							) : (
-								<Text style={styles.dayClosedLabel}>Выходной</Text>
+								<BerxText role="meta" emphasis="tertiary">Выходной</BerxText>
 							)}
 						</View>
 					);
@@ -253,9 +254,9 @@ function BusinessSettingsScreenBody({api, placeGuid, onBack}: BusinessSettingsSc
 
 			<BerxEyebrow>Подписка</BerxEyebrow>
 			<BerxGlassSurface elevated style={styles.subCard}>
-				<Text style={styles.subStatus}>{subscription ? STATUS_LABEL[subscription.status] : STATUS_LABEL.none}</Text>
+				<BerxText role="callout">{subscription ? STATUS_LABEL[subscription.status] : STATUS_LABEL.none}</BerxText>
 				{subscription?.monthly_price_rub ? (
-					<Text style={styles.subMeta}>{subscription.monthly_price_rub} ₽ / месяц после пробного периода</Text>
+					<BerxText role="meta" emphasis="secondary">{subscription.monthly_price_rub} ₽ / месяц после пробного периода</BerxText>
 				) : null}
 				{(!subscription || subscription.status === 'none') ? (
 					<BerxButton label="Начать 7-дневный пробный период" onPress={handleStartTrial} loading={trialBusy} fullWidth />
@@ -266,9 +267,9 @@ function BusinessSettingsScreenBody({api, placeGuid, onBack}: BusinessSettingsSc
 			<BerxGlassSurface style={styles.verifyCard}>
 				<View style={styles.verifyStatus}>
 					{place.verified ? <BerxIcon name="verified" size={13} state="active" decorative /> : null}
-					<Text style={styles.verifyStatusText}>{place.verified ? 'Бизнес верифицирован' : 'Не верифицирован'}</Text>
+					<BerxText role="callout">{place.verified ? 'Бизнес верифицирован' : 'Не верифицирован'}</BerxText>
 				</View>
-				<Text style={styles.verifyHint}>Верификацию проводит команда BERX вручную — заявок из этого экрана пока нет.</Text>
+				<BerxText role="meta" emphasis="tertiary">Верификацию проводит команда BERX вручную — заявок из этого экрана пока нет.</BerxText>
 			</BerxGlassSurface>
 		</ScrollView>
 	);
@@ -280,23 +281,16 @@ const styles = StyleSheet.create({
 	dayToggle: {width: 40},
 	dayLabel: {fontSize: typography.sizeSm, color: colors.textFaint, fontWeight: typography.weightMedium},
 	dayLabelActive: {color: colors.accent},
-	dayClosedLabel: {fontSize: typography.sizeSm, color: colors.textFaint},
 	hourControls: {flexDirection: 'row', alignItems: 'center', gap: 6},
-	hourBtn: {fontSize: typography.sizeBase, color: colors.accent, paddingHorizontal: 6},
+	hourBtn: {paddingHorizontal: 6},
 	hourValue: {fontSize: typography.sizeSm, color: colors.white, minWidth: 44, textAlign: 'center'},
-	hourDash: {fontSize: typography.sizeSm, color: colors.textFaint},
 	hoursSavedNote: {flexDirection: 'row', alignItems: 'center', gap: 5},
 	hoursSavedText: {fontSize: typography.sizeXs, color: colors.success},
 	/* no opaque fill: the scene paints the room this screen stands in */
 	screen: {flex: 1},
 	content: {padding: spacing.lg, gap: spacing.md, paddingBottom: spacing.xxxl},
-	pageTitle: {fontSize: typography.sizeTitle, color: colors.white, fontWeight: typography.weightBold},
 	typeGrid: {flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs},
 	subCard: {gap: spacing.sm},
-	subStatus: {fontSize: typography.sizeBase, color: colors.white, fontWeight: typography.weightMedium},
-	subMeta: {fontSize: typography.sizeSm, color: colors.textDim},
 	verifyCard: {gap: 4},
 	verifyStatus: {flexDirection: 'row', alignItems: 'center', gap: 6},
-	verifyStatusText: {fontSize: typography.sizeBase, color: colors.white, fontWeight: typography.weightMedium},
-	verifyHint: {fontSize: typography.sizeXs, color: colors.textFaint},
 });

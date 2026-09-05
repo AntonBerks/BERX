@@ -7,10 +7,10 @@
  * trust. Opening one renders that contract's actual scene.
  */
 import {useMemo, useState} from 'react';
-import {SectionList, StyleSheet, Text, View} from 'react-native';
+import {SectionList, StyleSheet, View} from 'react-native';
 import {BERX_FAMILIES, type BerxFamily} from '@berx/spatial';
 import {BERX_V9_CONTRACTS, getFamilyContracts, getSceneDataBinding} from '@berx/scenes';
-import {colors, spacing, typography} from '@berx/design-system/tokens';
+import {spacing} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxSpatialCard} from '../../../../packages/design-system/src/spatial/BerxSpatialCard';
 import {BerxFilterBar} from '../../../../packages/design-system/src/spatial/BerxFilterBar';
@@ -18,6 +18,7 @@ import {BerxSearchField} from '../../../../packages/design-system/src/spatial/Be
 import {useBerxSceneScroll} from '../../../../packages/design-system/src/spatial/BerxSpatialScene';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 import {BERX_ROUTED_CONTRACTS} from './SceneScreen';
+import {BerxText} from '../../../../packages/design-system/src/spatial/BerxText';
 
 export interface SceneIndexScreenProps {
 	onOpenScene: (screenId: string) => void;
@@ -96,9 +97,9 @@ function SceneIndexBody({onOpenScene, onBack}: SceneIndexScreenProps) {
 				removeClippedSubviews
 				stickySectionHeadersEnabled={false}
 				renderSectionHeader={({section}) => (
-					<Text style={styles.sectionHeader} accessibilityRole="header">
+					<BerxText role="micro" emphasis="tertiary" style={styles.sectionHeader} heading>
 						{section.title} · {section.data.length}
-					</Text>
+					</BerxText>
 				)}
 				renderItem={({item}) => {
 					const kind = kindOf(item.screenId);
@@ -110,12 +111,12 @@ function SceneIndexBody({onOpenScene, onBack}: SceneIndexScreenProps) {
 							radius={16}
 							onPress={() => onOpenScene(item.screenId)}
 							accessibilityLabel={`${item.screenId}, ${item.title}, ${KIND_LABEL[kind]}${routed ? ', есть экран' : ''}`}>
-							<Text style={styles.itemId}>{item.screenId}</Text>
-							<Text style={styles.itemTitle}>{item.title}</Text>
-							<Text style={styles.itemMeta}>
+							<BerxText role="meta" emphasis="tertiary">{item.screenId}</BerxText>
+							<BerxText role="callout" style={styles.itemTitle}>{item.title}</BerxText>
+							<BerxText role="meta" emphasis="secondary" style={styles.itemMeta}>
 								{KIND_LABEL[kind]}
 								{routed ? ' · экран есть' : ''}
-							</Text>
+							</BerxText>
 						</BerxSpatialCard>
 					);
 				}}
@@ -128,15 +129,7 @@ const styles = StyleSheet.create({
 	screen: {flex: 1},
 	toolbar: {paddingHorizontal: spacing.lg, paddingTop: spacing.sm, gap: spacing.sm},
 	list: {padding: spacing.lg, gap: spacing.sm, paddingBottom: spacing.xxxl},
-	sectionHeader: {
-		color: colors.textFaint,
-		fontSize: typography.sizeXs,
-		textTransform: 'uppercase',
-		letterSpacing: 0.5,
-		marginTop: spacing.lg,
-		marginBottom: spacing.xs,
-	},
-	itemId: {color: colors.textFaint, fontSize: typography.sizeXs, letterSpacing: 1},
-	itemTitle: {color: colors.text, fontSize: typography.sizeBase, fontWeight: typography.weightMedium, marginTop: 2},
-	itemMeta: {color: colors.textDim, fontSize: typography.sizeXs, marginTop: 2},
+	sectionHeader: {marginTop: spacing.lg, marginBottom: spacing.xs},
+	itemTitle: {marginTop: 2},
+	itemMeta: {marginTop: 2},
 });

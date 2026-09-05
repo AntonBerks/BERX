@@ -4,17 +4,18 @@
  * pure read over existing OssnWall/OssnAlbums/OssnPhotos). No push —
  * no real push infrastructure exists in this codebase.
  */
-import React, {useCallback, useEffect, useState} from 'react';
-import {View, Text, Image, FlatList, Pressable, StyleSheet} from 'react-native';
+import {useCallback, useEffect, useState} from 'react';
+import {View, Image, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxMemory} from '@berx/api/types';
-import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
+import {colors, spacing, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxSpatialCard} from '../../../../packages/design-system/src/spatial/BerxSpatialCard';
 import {BerxFamilyScene, useBerxSceneAtmosphere} from '../spatial/BerxScreenScene';
 import {BerxEyebrow} from '../../../../packages/design-system/src/components/BerxBusinessPrimitives';
 import {BerxSceneList} from '../../../../packages/design-system/src/spatial/BerxSceneList';
+import {BerxText} from '../../../../packages/design-system/src/spatial/BerxText';
 
 export interface MemoriesScreenProps {
 	api: BerxApiClient;
@@ -123,14 +124,14 @@ function MemoriesScreenBody({api, onOpenPost, onOpenAlbum, onBack}: MemoriesScre
 										<Image source={{uri: m.url}} style={styles.thumb} />
 									) : (
 										<View style={styles.thumbFallback}>
-											<Text style={styles.thumbFallbackText}>✎</Text>
+											<BerxText role="subtitle" emphasis="tertiary">✎</BerxText>
 										</View>
 									)}
 									<View style={styles.rowBody}>
-										{m.text ? <Text style={styles.rowText} numberOfLines={2}>{m.text}</Text> : (
-											<Text style={styles.rowText}>Фото</Text>
+										{m.text ? <BerxText role="meta" numberOfLines={2}>{m.text}</BerxText> : (
+											<BerxText role="meta">Фото</BerxText>
 										)}
-										<Text style={styles.rowMeta}>{fmtDate(m.time)}</Text>
+										<BerxText role="meta" emphasis="tertiary">{fmtDate(m.time)}</BerxText>
 									</View>
 									</View>
 								</BerxSpatialCard>
@@ -154,8 +155,5 @@ const styles = StyleSheet.create({
 	row: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm, padding: spacing.sm},
 	thumb: {width: 56, height: 56, borderRadius: radius.sm},
 	thumbFallback: {width: 56, height: 56, borderRadius: radius.sm, backgroundColor: colors.graphite, alignItems: 'center', justifyContent: 'center'},
-	thumbFallbackText: {color: colors.textFaint, fontSize: typography.sizeLg},
 	rowBody: {flex: 1, gap: 2},
-	rowText: {fontSize: typography.sizeSm, color: colors.white},
-	rowMeta: {fontSize: typography.sizeXs, color: colors.textFaint},
 });

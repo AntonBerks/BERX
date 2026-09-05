@@ -45,6 +45,7 @@ import {useBerxScene} from '../../../../packages/design-system/src/spatial/BerxS
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 import {classifyFailure} from '../spatial/screenState';
 import {useBerxConnectivity} from '../spatial/useBerxConnectivity';
+import {BerxText} from '../../../../packages/design-system/src/spatial/BerxText';
 
 export interface DatingDiscoverScreenProps {
 	api: BerxApiClient;
@@ -186,9 +187,9 @@ function DatingDiscoverSceneBody({api, onMatch, onOpenMatches, onOpenPrivacy}: D
 		<View style={styles.screen}>
 			<View style={styles.topBar}>
 				<BerxButton label="Совпадения" variant="secondary" onPress={onOpenMatches} />
-				<Text style={styles.title} accessibilityRole="header">
+				<BerxText role="subtitle" heading>
 					Знакомства
-				</Text>
+				</BerxText>
 				<BerxButton label="Приватность" variant="secondary" onPress={onOpenPrivacy} />
 			</View>
 
@@ -219,22 +220,22 @@ function DatingDiscoverSceneBody({api, onMatch, onOpenMatches, onOpenPrivacy}: D
 										{current.pseudonym.charAt(0).toUpperCase()}
 									</Text>
 								</View>
-								<Text style={styles.name}>
+								<BerxText role="title">
 									{current.pseudonym}
 									{current.age ? `, ${current.age}` : ''}
-								</Text>
-								{current.city ? <Text style={styles.meta}>{current.city}</Text> : null}
-								{current.goal ? <Text style={styles.meta}>{current.goal}</Text> : null}
+								</BerxText>
+								{current.city ? <BerxText role="meta" emphasis="secondary" style={styles.meta}>{current.city}</BerxText> : null}
+								{current.goal ? <BerxText role="meta" emphasis="secondary" style={styles.meta}>{current.goal}</BerxText> : null}
 								{current.bio ? (
-									<Text style={styles.bio} numberOfLines={5}>
+									<BerxText role="body" emphasis="secondary" numberOfLines={5} style={styles.bio}>
 										{current.bio}
-									</Text>
+									</BerxText>
 								) : null}
-								{current.interests ? <Text style={styles.meta}>{current.interests}</Text> : null}
+								{current.interests ? <BerxText role="meta" emphasis="secondary" style={styles.meta}>{current.interests}</BerxText> : null}
 								{/* the honest limit, stated on the card itself */}
-								<Text style={styles.photoNote}>
+								<BerxText role="meta" emphasis="tertiary" style={styles.photoNote}>
 									Фото в BERX Match открываются по отдельному запросу и здесь не показываются.
-								</Text>
+								</BerxText>
 							</BerxSpatialCard>
 						</Animated.View>
 
@@ -267,16 +268,14 @@ const styles = StyleSheet.create({
 		paddingTop: spacing.md,
 		gap: spacing.sm,
 	},
-	title: {color: colors.text, fontSize: typography.sizeLg, fontWeight: typography.weightBold},
 	body: {flex: 1, justifyContent: 'center'},
 	haloLayer: {position: 'absolute', top: '18%', left: 0, right: 0, alignItems: 'center'},
 	cardWrap: {paddingHorizontal: spacing.lg},
 	initialWrap: {alignItems: 'center', paddingVertical: spacing.xl},
 	initial: {fontSize: 56, fontWeight: typography.weightBold},
-	name: {color: colors.text, fontSize: typography.sizeTitle, fontWeight: typography.weightBold},
-	meta: {color: colors.textDim, fontSize: typography.sizeSm, marginTop: 2},
-	bio: {color: colors.textDim, fontSize: typography.sizeBase, lineHeight: typography.sizeBase * 1.45, marginTop: spacing.sm},
-	photoNote: {color: colors.textFaint, fontSize: typography.sizeXs, marginTop: spacing.lg, lineHeight: typography.sizeXs * 1.5},
+	meta: {marginTop: 2},
+	bio: {marginTop: spacing.sm},
+	photoNote: {marginTop: spacing.lg},
 	notice: {color: colors.danger, fontSize: typography.sizeXs, textAlign: 'center', paddingTop: spacing.sm},
 	actions: {flexDirection: 'row', gap: spacing.sm, justifyContent: 'center', padding: spacing.lg, flexWrap: 'wrap'},
 });

@@ -12,6 +12,7 @@ import {StyleSheet, Text, View} from 'react-native';
 import {rgba} from '@berx/spatial';
 import {useBerxScene} from './BerxSpatialScene';
 import {colors, spacing, typography} from '../tokens';
+import {BerxText} from './BerxText';
 
 /**
  * Exactly the shape /api/v1/business/places/{guid}/hours returns, so
@@ -77,9 +78,9 @@ export function BerxPlaceHours({intervals, rawHours, isOpenNow: serverAnswer, no
 	return (
 		<View testID={testID} style={styles.root}>
 			{open === null ? (
-				<Text style={styles.unknown}>
+				<BerxText role="meta" emphasis="tertiary">
 					{rawHours ? `Часы работы: ${rawHours}` : 'Часы работы не указаны'}
-				</Text>
+				</BerxText>
 			) : (
 				<View
 					accessible
@@ -120,7 +121,6 @@ const styles = StyleSheet.create({
 	root: {gap: spacing.sm},
 	badge: {alignSelf: 'flex-start', paddingHorizontal: spacing.md, paddingVertical: 5, borderRadius: 999, borderWidth: 1},
 	badgeText: {fontSize: typography.sizeXs, fontWeight: typography.weightMedium},
-	unknown: {color: colors.textFaint, fontSize: typography.sizeSm},
 	list: {gap: 2},
 	row: {color: colors.textDim, fontSize: typography.sizeSm},
 });

@@ -24,7 +24,7 @@
  * throwing — the same deliberate fallback BerxGlassSurface makes, for
  * the same reason.
  */
-import React, {useCallback, useState} from 'react';
+import {useCallback, useState} from 'react';
 import {TextInput, StyleSheet, type NativeSyntheticEvent, type TextInputFocusEventData, type TextInputProps} from 'react-native';
 import {colors, radius, spacing, typography} from '../tokens';
 import {useBerxSceneOptional} from '../spatial/BerxSpatialScene';
