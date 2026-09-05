@@ -26,6 +26,7 @@ import {View, Text, Image, Pressable, Animated, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxStoryFeedGroup} from '@berx/api/types';
 import {colors, spacing, typography} from '@berx/design-system/tokens';
+import {BerxIcon} from '../../../../packages/design-system/src/icons';
 import {BerxActionShelf} from '../../../../packages/design-system/src/spatial/BerxActionShelf';
 import {useBerxScene} from '../../../../packages/design-system/src/spatial/BerxSpatialScene';
 import {BerxFocusTarget} from '../../../../packages/design-system/src/spatial/BerxFocusTarget';
@@ -197,7 +198,8 @@ function StoryViewerScreenBody({
 			<BerxFocusTarget id={`story-${current.id}`} focused style={styles.media} testID="story-focus">
 				{current.mime_type === 'video/mp4' ? (
 					<View style={styles.videoFallback}>
-						<Text style={styles.videoFallbackText}>▶ Видео-история</Text>
+						<BerxIcon name="play" size={26} decorative />
+						<Text style={styles.videoFallbackText}>Видео-история</Text>
 						<Text style={styles.videoFallbackHint}>Просмотр видео-историй в приложении пока не поддерживается</Text>
 					</View>
 				) : (

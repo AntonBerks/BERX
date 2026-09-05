@@ -9,6 +9,8 @@ import {useCallback, useEffect, useState} from 'react';
 import {View, Text, ScrollView, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxPlace} from '@berx/api/types';
+import {BerxStars} from '../../../../../packages/design-system/src/spatial/BerxStars';
+import {BerxIcon, type BerxIconName} from '../../../../../packages/design-system/src/icons';
 import {colors, spacing, typography} from '@berx/design-system/tokens';
 import {BerxScrimHero, scrimBadgeStyles} from '../../../../../packages/design-system/src/components/BerxScrimHero';
 import {BerxFamilyScene, useBerxSceneAtmosphere} from '../../spatial/BerxScreenScene';
@@ -29,10 +31,19 @@ const TYPE_LABEL: Record<string, string> = {
 	services: 'Услуги', creators: 'Автор', other: 'Другое',
 };
 
-function InfoRow({icon, label}: {icon: string; label: string}) {
+/**
+ * A contact line, with the icon set's own drawing rather than an
+ * emoji. An emoji is a colour image from the platform's font: it does
+ * not take the scene's colour, does not match the 24 grid or the 1.7
+ * stroke of every other glyph in BERX, and looks different on every
+ * device the app runs on.
+ */
+function InfoRow({icon, label}: {icon: BerxIconName; label: string}) {
 	return (
 		<View style={styles.infoRow}>
-			<Text style={styles.infoIcon}>{icon}</Text>
+			<View style={styles.infoIcon}>
+				<BerxIcon name={icon} size={16} decorative />
+			</View>
 			<Text style={styles.infoText}>{label}</Text>
 		</View>
 	);
@@ -93,10 +104,10 @@ function BusinessProfileScreenBody({api, placeGuid, onBack}: BusinessProfileScre
 
 				<BerxEyebrow>Контакты</BerxEyebrow>
 				<BerxGlassSurface style={styles.infoCard}>
-					{place.address ? <InfoRow icon="📍" label={place.address} /> : null}
-					{place.hours ? <InfoRow icon="🕐" label={place.hours} /> : null}
-					{place.phone ? <InfoRow icon="📞" label={place.phone} /> : null}
-					{place.website ? <InfoRow icon="🔗" label={place.website} /> : null}
+					{place.address ? <InfoRow icon="location" label={place.address} /> : null}
+					{place.hours ? <InfoRow icon="clock" label={place.hours} /> : null}
+					{place.phone ? <InfoRow icon="phone" label={place.phone} /> : null}
+					{place.website ? <InfoRow icon="globe" label={place.website} /> : null}
 					{!place.address && !place.hours && !place.phone && !place.website ? (
 						<Text style={styles.emptyInfo}>Контакты ещё не заполнены.</Text>
 					) : null}
@@ -106,7 +117,7 @@ function BusinessProfileScreenBody({api, placeGuid, onBack}: BusinessProfileScre
 				<BerxGlassSurface style={styles.ratingCard}>
 					<Text style={styles.ratingValue}>{place.rating.toFixed(1)}</Text>
 					<View>
-						<Text style={styles.ratingStars}>{'★'.repeat(Math.round(place.rating))}{'☆'.repeat(5 - Math.round(place.rating))}</Text>
+						<BerxStars value={place.rating} />
 						<Text style={styles.ratingCount}>{place.rating_count} {place.rating_count === 1 ? 'отзыв' : 'отзывов'}</Text>
 					</View>
 				</BerxGlassSurface>
@@ -122,7 +133,8 @@ const styles = StyleSheet.create({
 	description: {fontSize: typography.sizeBase, color: colors.text, lineHeight: typography.sizeBase * typography.lineHeightBase},
 	infoCard: {gap: spacing.sm},
 	infoRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm},
-	infoIcon: {fontSize: typography.sizeBase},
+	/* a fixed column, so contact lines share one left edge */
+	infoIcon: {width: 22, alignItems: 'center'},
 	infoText: {fontSize: typography.sizeSm, color: colors.textDim, flex: 1},
 	emptyInfo: {fontSize: typography.sizeSm, color: colors.textFaint},
 	ratingCard: {flexDirection: 'row', alignItems: 'center', gap: spacing.md},

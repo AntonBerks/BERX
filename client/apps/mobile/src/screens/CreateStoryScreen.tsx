@@ -94,7 +94,7 @@ function CreateStoryScreenBody({api, pickImage, pickVideo, eventGuid, onCreated,
 						<Image source={{uri: previewUri}} style={styles.preview} resizeMode="cover" />
 					) : pickedLabel ? (
 						<View style={styles.placeholder}>
-							<Text style={styles.placeholderText}>▶ {pickedLabel}</Text>
+							<Text style={styles.placeholderText}>{pickedLabel}</Text>
 						</View>
 					) : (
 						<View style={styles.placeholder}>

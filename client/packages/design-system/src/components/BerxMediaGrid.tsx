@@ -11,6 +11,7 @@
 import React from 'react';
 import { View, Image, Pressable, Text, StyleSheet } from 'react-native';
 import { colors, radius, typography } from '../tokens';
+import { BerxIcon } from '../icons';
 
 export interface BerxMediaGridItem {
 	guid: number;
@@ -39,7 +40,8 @@ export function BerxMediaGrid({ items, columns = 3, onPress, onLongPress }: Berx
 							<Image source={{ uri: item.url }} style={styles.image} resizeMode="cover" />
 						) : (
 							<View style={styles.fallback}>
-								<Text style={styles.fallbackText}>{item.media_type === 'video' ? '▶ Видео' : '♪ Аудио'}</Text>
+								<BerxIcon name={item.media_type === 'video' ? 'play' : 'music'} size={18} decorative />
+								<Text style={styles.fallbackText}>{item.media_type === 'video' ? 'Видео' : 'Аудио'}</Text>
 							</View>
 						)}
 					</View>

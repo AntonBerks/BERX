@@ -9,6 +9,7 @@
 import React from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { colors, spacing, radius, typography } from '../tokens';
+import { BerxIcon } from '../icons';
 import { BerxSpatialCard } from '../spatial/BerxSpatialCard';
 import type { BerxTrackPost } from '@berx/api/types';
 
@@ -32,7 +33,7 @@ export function BerxTrackCard({ track, onPress, onOpenProfile }: BerxTrackCardPr
 			style={styles.card}>
 			<View style={styles.row}>
 			<View style={styles.badge}>
-				<Text style={styles.badgeGlyph}>♪</Text>
+				<BerxIcon name="music" size={16} color={colors.white} decorative />
 			</View>
 			<View style={styles.body}>
 				<Pressable
@@ -52,7 +53,6 @@ const styles = StyleSheet.create({
 	card: { marginBottom: spacing.sm },
 	row: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
 	badge: { width: 48, height: 48, borderRadius: radius.md, backgroundColor: colors.graphite, alignItems: 'center', justifyContent: 'center' },
-	badgeGlyph: { color: colors.accent, fontSize: typography.sizeLg },
 	body: { flex: 1, gap: 2 },
 	owner: { color: colors.accent, fontSize: typography.sizeSm, fontWeight: typography.weightMedium },
 	text: { color: colors.text, fontSize: typography.sizeSm },

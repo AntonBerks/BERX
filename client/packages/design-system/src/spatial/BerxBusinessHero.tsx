@@ -10,6 +10,7 @@ import {rgba, sharedElementTag} from '@berx/spatial';
 import {useBerxScene} from './BerxSpatialScene';
 import {BerxSceneHero} from './BerxSceneHero';
 import {typography} from '../tokens';
+import {BerxIcon} from '../icons';
 
 export interface BerxBusinessHeroProps {
 	placeGuid: number;
@@ -42,7 +43,11 @@ export function BerxBusinessHero({placeGuid, name, category, cover, verified, pl
 							accessible
 							accessibilityLabel="Бизнес подтверждён администрацией"
 							style={[styles.badge, {backgroundColor: rgba(scene.accent, 0.14), borderColor: rgba(scene.accent, 0.4)}]}>
-							<Text style={[styles.badgeText, {color: scene.accent}]}>✓ Подтверждён</Text>
+							{/* the verification glyph from the icon set: a check
+							    typed into a string is a different mark at every
+							    font fallback */}
+							<BerxIcon name="verified" size={13} state="active" decorative />
+							<Text style={[styles.badgeText, {color: scene.accent}]}>Подтверждён</Text>
 						</View>
 					) : null}
 					{planLabel ? (
@@ -61,6 +66,6 @@ export function BerxBusinessHero({placeGuid, name, category, cover, verified, pl
 }
 
 const styles = StyleSheet.create({
-	badge: {paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, borderWidth: 1},
+	badge: {flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, borderWidth: 1},
 	badgeText: {fontSize: typography.sizeXs, fontWeight: typography.weightMedium},
 });

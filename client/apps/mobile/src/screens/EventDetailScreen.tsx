@@ -7,10 +7,12 @@
  * client-side guess.
  */
 import {useCallback, useEffect, useState} from 'react';
-import {View, Text, ScrollView, Image, FlatList, StyleSheet} from 'react-native';
+import {View, Text, Pressable, ScrollView, Image, FlatList, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxEvent, BerxEventAttendee} from '@berx/api/types';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
+import {BerxIcon} from '../../../../packages/design-system/src/icons';
+import {BerxText} from '../../../../packages/design-system/src/spatial/BerxText';
 import {BerxEventHero} from '../../../../packages/design-system/src/spatial/BerxEventHero';
 import {BerxActionShelf} from '../../../../packages/design-system/src/spatial/BerxActionShelf';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
@@ -141,16 +143,28 @@ function EventDetailSceneBody({api, guid, myGuid, onOpenPlace, onOpenInvite, onA
 				<Text style={styles.when}>
 					{date.toLocaleDateString('ru-RU', {day: 'numeric', month: 'long'})} · {date.toLocaleTimeString('ru-RU', {hour: '2-digit', minute: '2-digit'})}
 				</Text>
+				{/* where, with the icon set's own pin. The emoji that used
+				    to be here is a colour image from the platform's font:
+				    it ignores the scene's accent and looks different on
+				    every device BERX runs on. */}
 				{event.place ? (
-					<Text
-						style={styles.place}
+					<Pressable
+						style={styles.placeRow}
 						accessibilityRole="button"
 						accessibilityLabel={`Место: ${event.place.title}`}
 						onPress={() => onOpenPlace?.(event.place!.guid)}>
-						📍 {event.place.title}
-					</Text>
+						<BerxIcon name="location" size={15} state="active" decorative />
+						<BerxText role="meta" emphasis="accent">
+							{event.place.title}
+						</BerxText>
+					</Pressable>
 				) : event.location ? (
-					<Text style={styles.place}>📍 {event.location}</Text>
+					<View style={styles.placeRow}>
+						<BerxIcon name="location" size={15} decorative />
+						<BerxText role="meta" emphasis="secondary">
+							{event.location}
+						</BerxText>
+					</View>
 				) : null}
 
 				<BerxActionShelf variant="anchored">
@@ -200,7 +214,8 @@ const styles = StyleSheet.create({
 	heroInitial: {fontSize: typography.sizeHero, color: colors.textFaint},
 	body: {padding: spacing.md, gap: spacing.md},
 	when: {fontSize: typography.sizeSm, color: colors.textDim},
-	place: {fontSize: typography.sizeSm, color: colors.accent},
+	/* 44dp when it navigates; the row is the control, not the word */
+	placeRow: {flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 44},
 	actions: {flexDirection: 'row', gap: spacing.sm},
 	error: {fontSize: typography.sizeSm, color: colors.danger},
 	description: {fontSize: typography.sizeBase, color: colors.text, lineHeight: typography.sizeBase * typography.lineHeightBase},

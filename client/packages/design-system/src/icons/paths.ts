@@ -88,6 +88,9 @@ export const BERX_ICON_PATHS: Record<string, BerxIconGeometry> = {
 	route: {d: 'M7 7.5h6.5a3.5 3.5 0 0 1 0 7H10a3 3 0 0 0 0 6h7', circles: [{cx: 5, cy: 7.5, r: 2.2}, {cx: 19, cy: 20.5, r: 2.2}]},
 	nearby: {d: 'M6.6 6.6a7.6 7.6 0 0 0 0 10.8M17.4 17.4a7.6 7.6 0 0 0 0-10.8M9.2 9.2a3.9 3.9 0 0 0 0 5.6M14.8 14.8a3.9 3.9 0 0 0 0-5.6', dots: [{cx: 12, cy: 12, r: 1.6}]},
 	calendar: {d: 'M4.5 6.8h15a1 1 0 0 1 1 1v11.7a1 1 0 0 1-1 1h-15a1 1 0 0 1-1-1V7.8a1 1 0 0 1 1-1zM8 3.5v4.5M16 3.5v4.5M3.5 11.6h17'},
+	/* the handset, drawn on the same grid as the rest: a place with a
+	   phone number had an emoji beside it until now */
+	phone: {d: 'M7.8 3.9 5 4.9a2 2 0 0 0-1.3 2.2c.6 4 2.4 7.2 5 9.8s5.8 4.4 9.8 5a2 2 0 0 0 2.2-1.3l1-2.8a1.4 1.4 0 0 0-.7-1.7l-3.4-1.6a1.4 1.4 0 0 0-1.6.3l-1.4 1.5a13.4 13.4 0 0 1-5.5-5.5l1.5-1.4a1.4 1.4 0 0 0 .3-1.6L9.5 4.6a1.4 1.4 0 0 0-1.7-.7z'},
 	clock: {d: 'M12 7v5l3.2 2', circles: [{cx: 12, cy: 12, r: 8.5}]},
 	live: {d: 'M7.2 7.2a6.8 6.8 0 0 0 0 9.6M16.8 16.8a6.8 6.8 0 0 0 0-9.6', dots: [{cx: 12, cy: 12, r: 2.6}]},
 	globe: {d: 'M3.5 12h17M12 3.5c2.4 2.5 3.6 5.3 3.6 8.5S14.4 18.5 12 20.5c-2.4-2-3.6-5.3-3.6-8.5S9.6 6 12 3.5z', circles: [{cx: 12, cy: 12, r: 8.5}]},

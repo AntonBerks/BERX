@@ -11,6 +11,7 @@ import {View, Text, ScrollView, Pressable, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxPlace, BerxBusinessSubscription, BerxBusinessType, BerxOpeningInterval} from '@berx/api/types';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
+import {BerxIcon} from '../../../../../packages/design-system/src/icons';
 import {BerxGlassSurface} from '../../../../../packages/design-system/src/components/BerxGlassSurface';
 import {BerxEyebrow} from '../../../../../packages/design-system/src/components/BerxBusinessPrimitives';
 import {BerxChoiceChips} from '../../../../../packages/design-system/src/spatial/BerxChoiceChips';
@@ -241,7 +242,12 @@ function BusinessSettingsScreenBody({api, placeGuid, onBack}: BusinessSettingsSc
 						</View>
 					);
 				})}
-				{hoursSaved ? <Text style={styles.hoursSavedNote}>✓ Сохранено</Text> : null}
+				{hoursSaved ? (
+					<View style={styles.hoursSavedNote}>
+						<BerxIcon name="check" size={13} state="active" decorative />
+						<Text style={styles.hoursSavedText}>Сохранено</Text>
+					</View>
+				) : null}
 				<BerxButton label="Сохранить часы работы" variant="secondary" onPress={handleSaveHours} loading={hoursBusy} fullWidth />
 			</BerxGlassSurface>
 
@@ -258,7 +264,10 @@ function BusinessSettingsScreenBody({api, placeGuid, onBack}: BusinessSettingsSc
 
 			<BerxEyebrow>Верификация</BerxEyebrow>
 			<BerxGlassSurface style={styles.verifyCard}>
-				<Text style={styles.verifyStatus}>{place.verified ? '✓ Бизнес верифицирован' : 'Не верифицирован'}</Text>
+				<View style={styles.verifyStatus}>
+					{place.verified ? <BerxIcon name="verified" size={13} state="active" decorative /> : null}
+					<Text style={styles.verifyStatusText}>{place.verified ? 'Бизнес верифицирован' : 'Не верифицирован'}</Text>
+				</View>
 				<Text style={styles.verifyHint}>Верификацию проводит команда BERX вручную — заявок из этого экрана пока нет.</Text>
 			</BerxGlassSurface>
 		</ScrollView>
@@ -276,7 +285,8 @@ const styles = StyleSheet.create({
 	hourBtn: {fontSize: typography.sizeBase, color: colors.accent, paddingHorizontal: 6},
 	hourValue: {fontSize: typography.sizeSm, color: colors.white, minWidth: 44, textAlign: 'center'},
 	hourDash: {fontSize: typography.sizeSm, color: colors.textFaint},
-	hoursSavedNote: {fontSize: typography.sizeXs, color: colors.success},
+	hoursSavedNote: {flexDirection: 'row', alignItems: 'center', gap: 5},
+	hoursSavedText: {fontSize: typography.sizeXs, color: colors.success},
 	/* no opaque fill: the scene paints the room this screen stands in */
 	screen: {flex: 1},
 	content: {padding: spacing.lg, gap: spacing.md, paddingBottom: spacing.xxxl},
@@ -286,6 +296,7 @@ const styles = StyleSheet.create({
 	subStatus: {fontSize: typography.sizeBase, color: colors.white, fontWeight: typography.weightMedium},
 	subMeta: {fontSize: typography.sizeSm, color: colors.textDim},
 	verifyCard: {gap: 4},
-	verifyStatus: {fontSize: typography.sizeBase, color: colors.white, fontWeight: typography.weightMedium},
+	verifyStatus: {flexDirection: 'row', alignItems: 'center', gap: 6},
+	verifyStatusText: {fontSize: typography.sizeBase, color: colors.white, fontWeight: typography.weightMedium},
 	verifyHint: {fontSize: typography.sizeXs, color: colors.textFaint},
 });

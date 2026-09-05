@@ -16,6 +16,7 @@
 import React, {useState} from 'react';
 import {View, Image, Text, FlatList, Modal, Pressable, Dimensions, StyleSheet} from 'react-native';
 import {colors, spacing, typography, radius} from '../tokens';
+import { BerxIcon } from '../icons';
 import type {BerxMediaAsset} from '@berx/api/types';
 
 export interface BerxMediaViewerProps {
@@ -53,7 +54,8 @@ export function BerxMediaViewer({assets, initialIndex = 0, visible, onClose}: Be
 								<Image source={{uri: item.url}} style={styles.image} resizeMode="contain" />
 							) : (
 								<View style={styles.typeFallback}>
-									<Text style={styles.typeFallbackText}>{item.media_type === 'video' ? '▶ Видео' : '♪ Аудио'}</Text>
+									<BerxIcon name={item.media_type === 'video' ? 'play' : 'music'} size={20} decorative />
+									<Text style={styles.typeFallbackText}>{item.media_type === 'video' ? 'Видео' : 'Аудио'}</Text>
 									<Text style={styles.typeFallbackHint}>Воспроизведение в приложении пока не поддерживается</Text>
 								</View>
 							)}

@@ -24,6 +24,7 @@
 import React from 'react';
 import { View, Text, Pressable, Linking, StyleSheet } from 'react-native';
 import { colors, spacing, radius, typography } from '../tokens';
+import { BerxIcon } from '../icons';
 
 export interface BerxVideoPlayerProps {
 	url: string;
@@ -47,7 +48,7 @@ export function BerxVideoPlayer({ url, widthRatio = 16 / 9, onOpen }: BerxVideoP
 	return (
 		<Pressable style={[styles.frame, { aspectRatio: widthRatio }]} onPress={handleOpen}>
 			<View style={styles.playBadge}>
-				<Text style={styles.playGlyph}>▶</Text>
+				<BerxIcon name="play" size={22} color={colors.white} decorative />
 			</View>
 			<Text style={styles.hint}>Открыть видео</Text>
 		</Pressable>
@@ -57,6 +58,5 @@ export function BerxVideoPlayer({ url, widthRatio = 16 / 9, onOpen }: BerxVideoP
 const styles = StyleSheet.create({
 	frame: { backgroundColor: colors.graphite, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center', gap: spacing.sm },
 	playBadge: { width: 56, height: 56, borderRadius: radius.pill, backgroundColor: 'rgba(5,5,5,0.55)', alignItems: 'center', justifyContent: 'center' },
-	playGlyph: { color: colors.white, fontSize: typography.sizeXl },
 	hint: { color: colors.textDim, fontSize: typography.sizeSm },
 });

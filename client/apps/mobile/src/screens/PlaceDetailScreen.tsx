@@ -12,6 +12,10 @@ import type {BerxApiClient} from '@berx/api/client';
 import type {BerxPlaceHours, BerxPlace, BerxPlaceReview} from '@berx/api/types';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxPlaceHero} from '../../../../packages/design-system/src/spatial/BerxPlaceHero';
+import {BerxIcon} from '../../../../packages/design-system/src/icons';
+import {BerxText} from '../../../../packages/design-system/src/spatial/BerxText';
+import {BerxStars} from '../../../../packages/design-system/src/spatial/BerxStars';
+import {BerxListGroup, BerxListRow} from '../../../../packages/design-system/src/spatial/BerxListGroup';
 import {BerxActionShelf} from '../../../../packages/design-system/src/spatial/BerxActionShelf';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
@@ -242,10 +246,15 @@ function PlaceDetailSceneBody({api, guid, myGuid, onAddToCollection, onOpenBusin
 			<View style={styles.body}>
 				<View style={styles.metaRow}>
 					{place.price ? <Text style={styles.priceText}>{'$'.repeat(place.price)}</Text> : null}
-					{place.is_business && place.verified ? <Text style={styles.verifiedBadge}>✓ Верифицированный бизнес</Text> : null}
+					{place.is_business && place.verified ? (
+						<View style={styles.verifiedBadge}>
+							<BerxIcon name="verified" size={13} state="active" decorative />
+							<BerxText role="micro" emphasis="accent">
+								Верифицированный бизнес
+							</BerxText>
+						</View>
+					) : null}
 				</View>
-
-				{place.phone ? <Text style={styles.address}>{place.phone}</Text> : null}
 
 				<BerxActionShelf variant="anchored">
 					<BerxButton
@@ -272,15 +281,27 @@ function PlaceDetailSceneBody({api, guid, myGuid, onAddToCollection, onOpenBusin
 					</BerxActionShelf>
 				) : null}
 
-				{place.description ? <Text style={styles.description}>{place.description}</Text> : null}
+				{place.description ? (
+					<BerxText role="body" style={styles.description}>
+						{place.description}
+					</BerxText>
+				) : null}
 
-				<View style={styles.infoBlock}>
-					{place.hours ? <Text style={styles.infoLine}>🕐 {place.hours}</Text> : null}
-					{place.phone ? <Text style={styles.infoLine}>📞 {place.phone}</Text> : null}
-					{place.website ? <Text style={styles.infoLine}>🔗 {place.website}</Text> : null}
-				</View>
+				{/* the practical facts about a place, as a real grouped
+				    list with the icon set's own drawings. They were three
+				    lines of grey text prefixed with emoji, and the phone
+				    number appeared twice on the screen. */}
+				{place.hours || place.phone || place.website ? (
+					<BerxListGroup label="Контакты">
+						{place.hours ? <BerxListRow icon="clock" label={place.hours} last={!place.phone && !place.website} /> : null}
+						{place.phone ? <BerxListRow icon="phone" label={place.phone} last={!place.website} /> : null}
+						{place.website ? <BerxListRow icon="globe" label={place.website} last /> : null}
+					</BerxListGroup>
+				) : null}
 
-				<Text style={styles.sectionTitle}>Отзывы ({reviews.length})</Text>
+				<BerxText role="micro" emphasis="tertiary" heading style={styles.sectionTitle}>
+					Отзывы ({reviews.length})
+				</BerxText>
 
 				{!isOwner && !alreadyReviewed ? (
 					<View style={styles.reviewForm}>
@@ -291,8 +312,12 @@ function PlaceDetailSceneBody({api, guid, myGuid, onAddToCollection, onOpenBusin
 									accessibilityRole="radio"
 									accessibilityLabel={`Оценка ${n} из 5`}
 									accessibilityState={{selected: n <= reviewRating}}
-									onPress={() => setReviewRating(n)}>
-									<Text style={[styles.star, n <= reviewRating && styles.starActive]}>★</Text>
+									onPress={() => setReviewRating(n)}
+									style={styles.starTarget}>
+									{/* the icon set's own star, in the state it is in —
+									    cyan is stateful by contract, so an unset star is
+									    neutral rather than a dimmer accent */}
+									<BerxIcon name="star" size={26} state={n <= reviewRating ? 'active' : 'default'} decorative />
 								</Pressable>
 							))}
 						</View>
@@ -300,21 +325,35 @@ function PlaceDetailSceneBody({api, guid, myGuid, onAddToCollection, onOpenBusin
 						<BerxButton label="Отправить" loading={submitting} disabled={reviewText.trim().length === 0} onPress={submitReview} />
 					</View>
 				) : isOwner ? (
-					<Text style={styles.note}>Нельзя оставить отзыв о собственном месте.</Text>
+					<BerxText role="meta" emphasis="tertiary">
+						Нельзя оставить отзыв о собственном месте.
+					</BerxText>
 				) : (
-					<Text style={styles.note}>Вы уже оставили отзыв.</Text>
+					<BerxText role="meta" emphasis="tertiary">
+						Вы уже оставили отзыв.
+					</BerxText>
 				)}
 
 				{reviews.map((r) => (
 					<View key={r.guid} style={styles.reviewRow}>
-						<Text style={styles.reviewAuthor}>{r.author?.fullname ?? 'Пользователь'}</Text>
-						<Text style={styles.reviewStars}>{'★'.repeat(r.rating)}{'☆'.repeat(5 - r.rating)}</Text>
-						{r.text ? <Text style={styles.reviewText}>{r.text}</Text> : null}
+						<View style={styles.reviewHead}>
+							<BerxText role="callout">{r.author?.fullname ?? 'Пользователь'}</BerxText>
+							<BerxStars value={r.rating} />
+						</View>
+						{r.text ? (
+							<BerxText role="body" emphasis="secondary">
+								{r.text}
+							</BerxText>
+						) : null}
 
 						{r.owner_reply ? (
 							<View style={styles.replyBlock}>
-								<Text style={styles.replyLabel}>Ответ владельца</Text>
-								<Text style={styles.replyText}>{r.owner_reply.text}</Text>
+								<BerxText role="micro" emphasis="accent">
+									Ответ владельца
+								</BerxText>
+								<BerxText role="meta" emphasis="secondary">
+									{r.owner_reply.text}
+								</BerxText>
 							</View>
 						) : isOwner ? (
 							<View style={styles.replyForm}>
@@ -354,24 +393,16 @@ const styles = StyleSheet.create({
 	chipText: {fontSize: typography.sizeXs, color: colors.textDim},
 	priceText: {fontSize: typography.sizeXs, color: colors.textFaint, fontWeight: typography.weightBold},
 	ratingText: {fontSize: typography.sizeSm, color: colors.accent, fontWeight: typography.weightMedium},
-	verifiedBadge: {fontSize: typography.sizeXs, color: colors.accent, fontWeight: typography.weightBold},
-	address: {fontSize: typography.sizeSm, color: colors.textDim},
+	verifiedBadge: {flexDirection: 'row', alignItems: 'center', gap: 5},
 	actions: {flexDirection: 'row', gap: spacing.sm},
-	description: {fontSize: typography.sizeBase, color: colors.text, lineHeight: typography.sizeBase * typography.lineHeightBase},
-	infoBlock: {gap: spacing.xs},
-	infoLine: {fontSize: typography.sizeSm, color: colors.textDim},
-	sectionTitle: {fontSize: typography.sizeXs, color: colors.textFaint, fontWeight: typography.weightBold, textTransform: 'uppercase', marginTop: spacing.sm},
+	description: {},
+	sectionTitle: {marginTop: spacing.sm},
 	reviewForm: {gap: spacing.sm},
 	starRow: {flexDirection: 'row', gap: spacing.xs},
-	star: {fontSize: 24, color: colors.border},
-	starActive: {color: colors.accent},
-	note: {fontSize: typography.sizeSm, color: colors.textFaint},
-	reviewRow: {gap: 4, paddingVertical: spacing.sm, borderTopWidth: 1, borderTopColor: colors.borderSoft},
-	reviewAuthor: {fontSize: typography.sizeSm, color: colors.white, fontWeight: typography.weightMedium},
-	reviewStars: {fontSize: typography.sizeXs, color: colors.accent},
-	reviewText: {fontSize: typography.sizeSm, color: colors.textDim},
+	/* 44dp around a 26dp glyph: the target is not the drawing */
+	starTarget: {minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center'},
+	reviewRow: {gap: spacing.xs, paddingVertical: spacing.sm, borderTopWidth: 1, borderTopColor: colors.borderSoft},
+	reviewHead: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm},
 	replyBlock: {marginTop: 4, paddingLeft: spacing.sm, borderLeftWidth: 2, borderLeftColor: colors.accent},
-	replyLabel: {fontSize: typography.sizeXs, color: colors.accent, fontWeight: typography.weightBold},
-	replyText: {fontSize: typography.sizeSm, color: colors.textDim},
 	replyForm: {marginTop: spacing.xs, gap: spacing.xs},
 });

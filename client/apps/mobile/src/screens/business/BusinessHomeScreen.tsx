@@ -12,6 +12,7 @@ import {View, Text, ScrollView, Pressable, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxPlace, BerxBusinessDashboard, BerxBusinessSubscription} from '@berx/api/types';
 import {colors, spacing, typography} from '@berx/design-system/tokens';
+import {BerxIcon} from '../../../../../packages/design-system/src/icons';
 import {BerxScrimHero, scrimBadgeStyles} from '../../../../../packages/design-system/src/components/BerxScrimHero';
 import {BerxGlassSurface} from '../../../../../packages/design-system/src/components/BerxGlassSurface';
 import {BerxStatTile, BerxEyebrow} from '../../../../../packages/design-system/src/components/BerxBusinessPrimitives';
@@ -99,9 +100,10 @@ function BusinessHomeScreenBody({api, placeGuid, onOpenProfile, onOpenDashboard,
 				subtitle={place.category ?? undefined}
 				height={260}
 				badge={
-					<View style={scrimBadgeStyles.badge}>
+					<View style={[scrimBadgeStyles.badge, styles.badgeRow]}>
+						{dashboard.verified ? <BerxIcon name="verified" size={13} state="active" decorative /> : null}
 						<Text style={dashboard.verified ? scrimBadgeStyles.badgeTextAccent : scrimBadgeStyles.badgeText}>
-							{dashboard.verified ? '✓ Верифицированный бизнес' : 'Бизнес-аккаунт'}
+							{dashboard.verified ? 'Верифицированный бизнес' : 'Бизнес-аккаунт'}
 						</Text>
 					</View>
 				}
@@ -139,6 +141,7 @@ function BusinessHomeScreenBody({api, placeGuid, onOpenProfile, onOpenDashboard,
 }
 
 const styles = StyleSheet.create({
+	badgeRow: {flexDirection: 'row', alignItems: 'center', gap: 5},
 	/* no opaque fill: the scene paints the room this screen stands in */
 	screen: {flex: 1},
 	scrollContent: {paddingBottom: spacing.xxxl},

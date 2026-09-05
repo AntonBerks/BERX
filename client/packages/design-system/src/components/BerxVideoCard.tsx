@@ -12,6 +12,7 @@
 import React from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { colors, spacing, radius, typography } from '../tokens';
+import { BerxIcon } from '../icons';
 import { BerxSpatialCard } from '../spatial/BerxSpatialCard';
 import type { BerxVideoPost } from '@berx/api/types';
 
@@ -33,7 +34,7 @@ export function BerxVideoCard({ video, onPress, onOpenProfile }: BerxVideoCardPr
 			style={styles.card}>
 			<View style={styles.poster}>
 				<View style={styles.playBadge}>
-					<Text style={styles.playGlyph}>▶</Text>
+					<BerxIcon name="play" size={18} color={colors.white} decorative />
 				</View>
 				{video.video.duration_seconds !== null ? (
 					<View style={styles.durationBadge}>
@@ -64,7 +65,6 @@ const styles = StyleSheet.create({
 	card: { overflow: 'hidden', marginBottom: spacing.sm },
 	poster: { aspectRatio: 16 / 9, backgroundColor: colors.graphite, alignItems: 'center', justifyContent: 'center' },
 	playBadge: { width: 48, height: 48, borderRadius: radius.pill, backgroundColor: 'rgba(5,5,5,0.55)', alignItems: 'center', justifyContent: 'center' },
-	playGlyph: { color: colors.white, fontSize: typography.sizeLg },
 	durationBadge: { position: 'absolute', right: 8, bottom: 8, backgroundColor: 'rgba(5,5,5,0.75)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: radius.sm },
 	durationText: { color: colors.white, fontSize: typography.sizeXs },
 	body: { padding: spacing.sm, gap: 4 },

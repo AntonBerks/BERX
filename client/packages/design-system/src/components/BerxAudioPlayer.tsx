@@ -21,6 +21,7 @@
 import React from 'react';
 import { View, Text, Pressable, Linking, StyleSheet } from 'react-native';
 import { colors, spacing, radius, typography } from '../tokens';
+import { BerxIcon } from '../icons';
 
 export interface BerxAudioPlayerProps {
 	url: string;
@@ -43,7 +44,7 @@ export function BerxAudioPlayer({ url, onOpen }: BerxAudioPlayerProps) {
 	return (
 		<Pressable style={styles.bar} onPress={handleOpen}>
 			<View style={styles.playBadge}>
-				<Text style={styles.playGlyph}>▶</Text>
+				<BerxIcon name="play" size={16} state="active" decorative />
 			</View>
 			<Text style={styles.hint}>Воспроизвести трек</Text>
 		</Pressable>
@@ -53,6 +54,5 @@ export function BerxAudioPlayer({ url, onOpen }: BerxAudioPlayerProps) {
 const styles = StyleSheet.create({
 	bar: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.graphite, borderRadius: radius.md, padding: spacing.md },
 	playBadge: { width: 40, height: 40, borderRadius: radius.pill, backgroundColor: colors.accentSoft, alignItems: 'center', justifyContent: 'center' },
-	playGlyph: { color: colors.accent, fontSize: typography.sizeBase },
 	hint: { color: colors.textDim, fontSize: typography.sizeSm },
 });
