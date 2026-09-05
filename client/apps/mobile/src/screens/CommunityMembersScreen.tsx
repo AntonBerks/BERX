@@ -10,6 +10,8 @@ import type {BerxCommunityMember} from '@berx/api/types';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
+import {BerxIdentity} from '../../../../packages/design-system/src/spatial/BerxIdentity';
+import {BerxSpatialCard} from '../../../../packages/design-system/src/spatial/BerxSpatialCard';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 
 export interface CommunityMembersScreenProps {
@@ -63,11 +65,17 @@ function CommunityMembersScreenBody({api, guid, onOpenProfile, onBack}: Communit
 					keyExtractor={(m: BerxCommunityMember) => String(m.guid)}
 					contentContainerStyle={styles.list}
 					renderItem={({item}: {item: BerxCommunityMember}) => (
-						<Pressable style={styles.row} onPress={() => onOpenProfile(item.username)}>
-							<Image source={{uri: item.icon}} style={styles.avatar} />
-							<Text style={styles.name} numberOfLines={1}>{item.fullname}</Text>
-							{item.is_owner ? <Text style={styles.ownerBadge}>Владелец</Text> : null}
-						</Pressable>
+						<BerxSpatialCard depth="D3" padding={spacing.md} radius={18}>
+							<BerxIdentity
+								userGuid={item.guid}
+								name={item.fullname}
+								handle={item.username}
+								avatarUrl={item.icon}
+								/* real server field, not an inferred role */
+								subtitle={item.is_owner ? 'Владелец' : undefined}
+								onPress={() => onOpenProfile(item.username)}
+							/>
+						</BerxSpatialCard>
 					)}
 				/>
 			)}

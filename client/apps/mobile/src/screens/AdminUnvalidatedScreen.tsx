@@ -16,6 +16,8 @@ import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
+import {BerxIdentity} from '../../../../packages/design-system/src/spatial/BerxIdentity';
+import {BerxSpatialCard} from '../../../../packages/design-system/src/spatial/BerxSpatialCard';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 
 export interface AdminUnvalidatedScreenProps {
@@ -80,13 +82,21 @@ function AdminUnvalidatedScreenBody({api, onBack}: AdminUnvalidatedScreenProps) 
 					keyExtractor={(u: BerxUnvalidatedUser) => String(u.guid)}
 					contentContainerStyle={styles.list}
 					renderItem={({item}: {item: BerxUnvalidatedUser}) => (
-						<View style={styles.row}>
-							<View style={styles.info}>
-								<Text style={styles.name} numberOfLines={1}>{item.fullname || item.username}</Text>
-								<Text style={styles.meta}>{item.email}</Text>
-							</View>
-							<BerxButton label="Подтвердить" loading={busyGuid === item.guid} onPress={() => validate(item.guid)} />
-						</View>
+						<BerxSpatialCard depth="D3" padding={spacing.md} radius={18}>
+							<BerxIdentity
+								userGuid={item.guid}
+								name={item.fullname || item.username}
+								handle={item.username}
+								subtitle={item.email}
+								trailing={
+									<BerxButton
+										label="Подтвердить"
+										loading={busyGuid === item.guid}
+										onPress={() => validate(item.guid)}
+									/>
+								}
+							/>
+						</BerxSpatialCard>
 					)}
 				/>
 			)}

@@ -8,13 +8,14 @@
  * logins only, honestly, not a fabricated "this device" entry.
  */
 import React, {useCallback, useEffect, useState} from 'react';
-import {View, Text, FlatList, StyleSheet} from 'react-native';
+import {View, ScrollView, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxSession} from '@berx/api/types';
-import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
+import {spacing} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
+import {BerxListGroup, BerxListRow} from '../../../../packages/design-system/src/spatial/BerxListGroup';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 
 export interface DeviceSessionsScreenProps {
@@ -79,21 +80,28 @@ function DeviceSessionsScreenBody({api, onBack}: DeviceSessionsScreenProps) {
 			{items.length === 0 ? (
 				<BerxEmptyState title="Активных устройств нет" />
 			) : (
-				<FlatList
-					data={items}
-					keyExtractor={(s: BerxSession) => String(s.id)}
-					contentContainerStyle={styles.list}
-					renderItem={({item}: {item: BerxSession}) => (
-						<View style={styles.row}>
-							<View style={styles.info}>
-								<Text style={styles.label}>{item.device_label ?? 'Неизвестное устройство'}</Text>
-								<Text style={styles.meta}>Вход: {fmtTime(item.created_at)}</Text>
-								<Text style={styles.meta}>Активность: {fmtTime(item.last_used_at)}</Text>
-							</View>
-							<BerxButton label="Выйти" variant="secondary" loading={busyId === item.id} onPress={() => revoke(item.id)} />
-						</View>
-					)}
-				/>
+				<ScrollView contentContainerStyle={styles.list}>
+					{/* one structural group on D2, its sessions as content rows
+					    on D3, and the revoke control on D4 where it belongs */}
+					<BerxListGroup label={`Активные сессии: ${items.length}`}>
+						{items.map((item: BerxSession, i: number) => (
+							<BerxListRow
+								key={item.id}
+								label={item.device_label ?? 'Неизвестное устройство'}
+								detail={`Вход: ${fmtTime(item.created_at)} · Активность: ${fmtTime(item.last_used_at)}`}
+								last={i === items.length - 1}
+								trailing={
+									<BerxButton
+										label="Выйти"
+										variant="secondary"
+										loading={busyId === item.id}
+										onPress={() => revoke(item.id)}
+									/>
+								}
+							/>
+						))}
+					</BerxListGroup>
+				</ScrollView>
 			)}
 		</View>
 	);
@@ -103,8 +111,4 @@ const styles = StyleSheet.create({
 	/* no opaque fill: the scene paints the room this screen stands in */
 	screen: {flex: 1},
 	list: {padding: spacing.md, gap: spacing.sm},
-	row: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.surface, borderRadius: radius.md, padding: spacing.md, marginBottom: spacing.sm},
-	info: {flex: 1, gap: 2},
-	label: {fontSize: typography.sizeBase, color: colors.white, fontWeight: typography.weightMedium},
-	meta: {fontSize: typography.sizeXs, color: colors.textFaint},
 });

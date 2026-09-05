@@ -8,9 +8,10 @@
  * ProfileScreen's own edit flow, not duplicated here.
  */
 import React from 'react';
-import {View, Text, Pressable, StyleSheet} from 'react-native';
-import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
+import {View, StyleSheet} from 'react-native';
+import {spacing} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
+import {BerxListGroup, BerxListRow} from '../../../../packages/design-system/src/spatial/BerxListGroup';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 
 export interface SettingsScreenProps {
@@ -20,15 +21,6 @@ export interface SettingsScreenProps {
 	onOpenDatingPrivacy: () => void;
 	onOpenCircles?: () => void;
 	onBack?: () => void;
-}
-
-function Row({label, onPress, danger}: {label: string; onPress: () => void; danger?: boolean}) {
-	return (
-		<Pressable style={styles.row} onPress={onPress}>
-			<Text style={[styles.rowLabel, danger && styles.rowLabelDanger]}>{label}</Text>
-			<Text style={styles.chevron}>›</Text>
-		</Pressable>
-	);
 }
 
 export default function SettingsScreen(props: SettingsScreenProps) {
@@ -43,17 +35,17 @@ function SettingsScreenBody({onOpenDeviceSessions, onOpenBlockedUsers, onOpenDel
 	return (
 		<View style={styles.screen}>
 			<BerxHeader title="Настройки" onBack={onBack} />
-			<Text style={styles.sectionLabel}>Приватность и безопасность</Text>
-			<View style={styles.group}>
-				<Row label="Устройства и сессии" onPress={onOpenDeviceSessions} />
-				<Row label="Заблокированные" onPress={onOpenBlockedUsers} />
-				<Row label="Приватность знакомств" onPress={onOpenDatingPrivacy} />
-				{onOpenCircles ? <Row label="Круги" onPress={onOpenCircles} /> : null}
-			</View>
+			<View style={styles.groups}>
+				<BerxListGroup label="Приватность и безопасность">
+					<BerxListRow label="Устройства и сессии" onPress={onOpenDeviceSessions} />
+					<BerxListRow label="Заблокированные" onPress={onOpenBlockedUsers} />
+					<BerxListRow label="Приватность знакомств" onPress={onOpenDatingPrivacy} />
+					{onOpenCircles ? <BerxListRow label="Круги" onPress={onOpenCircles} last /> : null}
+				</BerxListGroup>
 
-			<Text style={styles.sectionLabel}>Аккаунт</Text>
-			<View style={styles.group}>
-				<Row label="Удалить аккаунт" onPress={onOpenDeleteAccount} danger />
+				<BerxListGroup label="Аккаунт">
+					<BerxListRow label="Удалить аккаунт" onPress={onOpenDeleteAccount} danger last />
+				</BerxListGroup>
 			</View>
 		</View>
 	);
@@ -62,10 +54,5 @@ function SettingsScreenBody({onOpenDeviceSessions, onOpenBlockedUsers, onOpenDel
 const styles = StyleSheet.create({
 	/* no opaque fill: the scene paints the room this screen stands in */
 	screen: {flex: 1},
-	sectionLabel: {fontSize: typography.sizeXs, color: colors.textFaint, fontWeight: typography.weightBold, textTransform: 'uppercase', paddingHorizontal: spacing.md, paddingTop: spacing.md, paddingBottom: spacing.xs},
-	group: {marginHorizontal: spacing.md, borderRadius: radius.md, overflow: 'hidden', backgroundColor: colors.surface},
-	row: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.md, paddingVertical: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.borderSoft},
-	rowLabel: {fontSize: typography.sizeBase, color: colors.white},
-	rowLabelDanger: {color: colors.danger},
-	chevron: {fontSize: typography.sizeLg, color: colors.textFaint},
+	groups: {paddingHorizontal: spacing.md, gap: spacing.md},
 });

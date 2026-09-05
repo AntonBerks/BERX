@@ -14,6 +14,8 @@ import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
+import {BerxIdentity} from '../../../../packages/design-system/src/spatial/BerxIdentity';
+import {BerxSpatialCard} from '../../../../packages/design-system/src/spatial/BerxSpatialCard';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 
 export interface CommunityModeratorsScreenProps {
@@ -79,11 +81,22 @@ function CommunityModeratorsScreenBody({api, guid, onBack}: CommunityModeratorsS
 					keyExtractor={(m: BerxGroupModerator) => String(m.guid)}
 					contentContainerStyle={styles.list}
 					renderItem={({item}: {item: BerxGroupModerator}) => (
-						<View style={styles.row}>
-							<Image source={{uri: item.icon}} style={styles.avatar} />
-							<Text style={styles.name} numberOfLines={1}>{item.fullname}</Text>
-							<BerxButton label="Снять" variant="secondary" loading={busyGuid === item.guid} onPress={() => remove(item.guid)} />
-						</View>
+						<BerxSpatialCard depth="D3" padding={spacing.md} radius={18}>
+							<BerxIdentity
+								userGuid={item.guid}
+								name={item.fullname}
+								avatarUrl={item.icon}
+								subtitle="модератор"
+								trailing={
+									<BerxButton
+										label="Снять"
+										variant="secondary"
+										loading={busyGuid === item.guid}
+										onPress={() => remove(item.guid)}
+									/>
+								}
+							/>
+						</BerxSpatialCard>
 					)}
 				/>
 			)}
