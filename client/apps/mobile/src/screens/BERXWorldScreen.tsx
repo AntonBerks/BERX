@@ -20,6 +20,7 @@ import {BerxSpatialCard} from '../../../../packages/design-system/src/spatial/Be
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 import {BerxText} from '../../../../packages/design-system/src/spatial/BerxText';
 import {BerxSceneScroll} from '../../../../packages/design-system/src/spatial/BerxSceneScroll';
+import {BerxIcon, type BerxIconName} from '../../../../packages/design-system/src/icons';
 
 export interface BERXWorldScreenProps {
 	onOpenPlaces: () => void;
@@ -32,7 +33,15 @@ export interface BERXWorldScreenProps {
 	onBack?: () => void;
 }
 
-function WorldCard({label, subtitle, onPress}: {label: string; subtitle: string; onPress: () => void}) {
+/**
+ * A door into the world.
+ *
+ * Each one carries its own glyph. Seven doors that look identical
+ * apart from their words is a menu; the icon set draws every one of
+ * these destinations already, and a column of drawings is what lets
+ * the eye find the one it wants without reading all seven.
+ */
+function WorldCard({icon, label, subtitle, onPress}: {icon: BerxIconName; label: string; subtitle: string; onPress: () => void}) {
 	return (
 		/* D3 — each door into the world is an object standing in it,
 		   lit by the same geographic atmosphere behind them */
@@ -43,8 +52,15 @@ function WorldCard({label, subtitle, onPress}: {label: string; subtitle: string;
 			onPress={onPress}
 			accessibilityLabel={`${label}. ${subtitle}`}
 			style={styles.card}>
-			<BerxText role="heading">{label}</BerxText>
-			<BerxText role="meta" emphasis="secondary">{subtitle}</BerxText>
+			<View style={styles.cardRow}>
+				<View style={styles.cardIcon}>
+					<BerxIcon name={icon} size={22} decorative />
+				</View>
+				<View style={styles.cardText}>
+					<BerxText role="heading">{label}</BerxText>
+					<BerxText role="meta" emphasis="secondary">{subtitle}</BerxText>
+				</View>
+			</View>
 		</BerxSpatialCard>
 	);
 }
@@ -67,13 +83,13 @@ function BERXWorldScreenBody({onOpenPlaces, onOpenEvents, onOpenNearby, onOpenCo
 			    what moves the room. */}
 			<BerxSceneScroll contentContainerStyle={styles.scrollBody}>
 				<View style={styles.grid}>
-					<WorldCard label="Места" subtitle="Кафе, рестораны, бары и не только" onPress={onOpenPlaces} />
-					<WorldCard label="События" subtitle="Концерты, встречи, мероприятия" onPress={onOpenEvents} />
-					<WorldCard label="Рядом" subtitle="Что вокруг вас прямо сейчас" onPress={onOpenNearby} />
-					<WorldCard label="Сообщества" subtitle="Люди с общими интересами" onPress={onOpenCommunities} />
-					<WorldCard label="Видео" subtitle="Смотрите, что снимают вокруг" onPress={onOpenVideo} />
-					<WorldCard label="Музыка" subtitle="Треки, которые загружают другие" onPress={onOpenMusic} />
-					<WorldCard label="Рядом сейчас" subtitle="Реальные места и события поблизости" onPress={onOpenNearbyNow} />
+					<WorldCard icon="places" label="Места" subtitle="Кафе, рестораны, бары и не только" onPress={onOpenPlaces} />
+					<WorldCard icon="calendar" label="События" subtitle="Концерты, встречи, мероприятия" onPress={onOpenEvents} />
+					<WorldCard icon="nearby" label="Рядом" subtitle="Что вокруг вас прямо сейчас" onPress={onOpenNearby} />
+					<WorldCard icon="community" label="Сообщества" subtitle="Люди с общими интересами" onPress={onOpenCommunities} />
+					<WorldCard icon="video" label="Видео" subtitle="Смотрите, что снимают вокруг" onPress={onOpenVideo} />
+					<WorldCard icon="music" label="Музыка" subtitle="Треки, которые загружают другие" onPress={onOpenMusic} />
+					<WorldCard icon="live" label="Рядом сейчас" subtitle="Реальные места и события поблизости" onPress={onOpenNearbyNow} />
 				</View>
 			</BerxSceneScroll>
 		</View>
@@ -84,6 +100,10 @@ const styles = StyleSheet.create({
 	scrollBody: {paddingBottom: 48},
 	/* no opaque fill: the scene paints the room this screen stands in */
 	screen: {flex: 1},
-	grid: {padding: spacing.md, gap: spacing.sm},
-	card: {gap: 4},
+	grid: {paddingHorizontal: spacing.lg, paddingTop: spacing.sm, gap: spacing.md},
+	card: {},
+	cardRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.md},
+	/* a fixed column, so seven doors share one left edge */
+	cardIcon: {width: 28, alignItems: 'center'},
+	cardText: {flex: 1, gap: 2},
 });
