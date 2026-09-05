@@ -7,7 +7,7 @@
  * this screen; not faked as clickable when it wouldn't do anything).
  */
 import {useCallback, useEffect, useState} from 'react';
-import {View, FlatList, Image, Pressable, StyleSheet} from 'react-native';
+import {View, Image, Pressable, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxCollectionDetail, BerxCollectionItem} from '@berx/api/types';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
@@ -17,6 +17,7 @@ import {BerxSpatialCard} from '../../../../packages/design-system/src/spatial/Be
 import {BerxFamilyScene, useBerxSceneAtmosphere} from '../spatial/BerxScreenScene';
 import {BerxIcon} from '../../../../packages/design-system/src/icons';
 import {BerxText} from '../../../../packages/design-system/src/spatial/BerxText';
+import {BerxSceneList} from '../../../../packages/design-system/src/spatial/BerxSceneList';
 
 export interface CollectionDetailScreenProps {
 	api: BerxApiClient;
@@ -95,7 +96,7 @@ function CollectionDetailScreenBody({api, id, onOpenPlace, onOpenEvent, onOpenPo
 			{collection.items.length === 0 ? (
 				<BerxEmptyState title="Пока пусто" subtitle="Добавляйте места и события в эту подборку с их страниц." />
 			) : (
-				<FlatList
+				<BerxSceneList
 					data={collection.items}
 					keyExtractor={(i: BerxCollectionItem) => `${i.item_type}-${i.item_guid}`}
 					contentContainerStyle={styles.list}
@@ -134,7 +135,7 @@ const styles = StyleSheet.create({
 	/* no opaque fill: the scene paints the room this screen stands in */
 	screen: {flex: 1},
 	description: {paddingHorizontal: spacing.md, paddingTop: spacing.sm},
-	list: {padding: spacing.md, gap: spacing.sm},
+	list: {paddingBottom: spacing.xxxl},
 	/* fill removed: a BerxSpatialCard wraps this row and paints the
 	   content plane's own material — an opaque token fill on top of it
 	   hides the surface the card just resolved */

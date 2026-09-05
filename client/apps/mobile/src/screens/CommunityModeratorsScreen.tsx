@@ -7,7 +7,7 @@
  * Owner/admin only, enforced server-side.
  */
 import {useCallback, useEffect, useState} from 'react';
-import {View, FlatList, StyleSheet} from 'react-native';
+import {View, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxGroupModerator} from '@berx/api/types';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
@@ -17,6 +17,7 @@ import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../pack
 import {BerxIdentity} from '../../../../packages/design-system/src/spatial/BerxIdentity';
 import {BerxSpatialCard} from '../../../../packages/design-system/src/spatial/BerxSpatialCard';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
+import {BerxSceneList} from '../../../../packages/design-system/src/spatial/BerxSceneList';
 
 export interface CommunityModeratorsScreenProps {
 	api: BerxApiClient;
@@ -76,7 +77,7 @@ function CommunityModeratorsScreenBody({api, guid, onBack}: CommunityModeratorsS
 			{items.length === 0 ? (
 				<BerxEmptyState title="Модераторов нет" subtitle="Назначьте модератора из списка участников сообщества." />
 			) : (
-				<FlatList
+				<BerxSceneList rows
 					data={items}
 					keyExtractor={(m: BerxGroupModerator) => String(m.guid)}
 					contentContainerStyle={styles.list}
@@ -107,7 +108,7 @@ function CommunityModeratorsScreenBody({api, guid, onBack}: CommunityModeratorsS
 const styles = StyleSheet.create({
 	/* no opaque fill: the scene paints the room this screen stands in */
 	screen: {flex: 1},
-	list: {padding: spacing.md, gap: spacing.sm},
+	list: {paddingBottom: spacing.xxxl},
 	avatar: {width: 40, height: 40, borderRadius: radius.pill, backgroundColor: colors.graphite},
 	name: {flex: 1, fontSize: typography.sizeBase, color: colors.white, fontWeight: typography.weightMedium},
 });

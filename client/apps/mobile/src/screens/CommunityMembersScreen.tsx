@@ -4,7 +4,7 @@
  * communities.php), wraps OssnGroup::getMembers() verbatim.
  */
 import {useCallback, useEffect, useState} from 'react';
-import {View, FlatList, StyleSheet} from 'react-native';
+import {View, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxCommunityMember} from '@berx/api/types';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
@@ -13,6 +13,7 @@ import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../pack
 import {BerxIdentity} from '../../../../packages/design-system/src/spatial/BerxIdentity';
 import {BerxSpatialCard} from '../../../../packages/design-system/src/spatial/BerxSpatialCard';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
+import {BerxSceneList} from '../../../../packages/design-system/src/spatial/BerxSceneList';
 
 export interface CommunityMembersScreenProps {
 	api: BerxApiClient;
@@ -60,7 +61,7 @@ function CommunityMembersScreenBody({api, guid, onOpenProfile, onBack}: Communit
 			{items.length === 0 ? (
 				<BerxEmptyState title="Участников пока нет" />
 			) : (
-				<FlatList
+				<BerxSceneList rows
 					data={items}
 					keyExtractor={(m: BerxCommunityMember) => String(m.guid)}
 					contentContainerStyle={styles.list}
@@ -86,7 +87,7 @@ function CommunityMembersScreenBody({api, guid, onOpenProfile, onBack}: Communit
 const styles = StyleSheet.create({
 	/* no opaque fill: the scene paints the room this screen stands in */
 	screen: {flex: 1},
-	list: {padding: spacing.md, gap: spacing.sm},
+	list: {paddingBottom: spacing.xxxl},
 	avatar: {width: 40, height: 40, borderRadius: radius.pill, backgroundColor: colors.graphite},
 	name: {flex: 1, fontSize: typography.sizeBase, color: colors.white, fontWeight: typography.weightMedium},
 	ownerBadge: {fontSize: typography.sizeXs, color: colors.accent, fontWeight: typography.weightBold},

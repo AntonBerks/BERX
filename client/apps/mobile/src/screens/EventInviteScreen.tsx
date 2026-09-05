@@ -7,7 +7,7 @@
  * actually connected to; the server re-checks this regardless.
  */
 import {useCallback, useEffect, useState} from 'react';
-import {View, FlatList, StyleSheet} from 'react-native';
+import {View, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxFriend} from '@berx/api/types';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
@@ -18,6 +18,7 @@ import {BerxSpatialCard} from '../../../../packages/design-system/src/spatial/Be
 import {BerxIdentity} from '../../../../packages/design-system/src/spatial/BerxIdentity';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 import {BerxText} from '../../../../packages/design-system/src/spatial/BerxText';
+import {BerxSceneList} from '../../../../packages/design-system/src/spatial/BerxSceneList';
 
 export interface EventInviteScreenProps {
 	api: BerxApiClient;
@@ -80,7 +81,7 @@ function EventInviteScreenBody({api, guid, onBack}: EventInviteScreenProps) {
 			{friends.length === 0 ? (
 				<BerxEmptyState title="Друзей пока нет" subtitle="Как только у вас появятся друзья на BERX, вы сможете приглашать их на события." />
 			) : (
-				<FlatList
+				<BerxSceneList rows
 					data={friends}
 					keyExtractor={(f: BerxFriend) => String(f.guid)}
 					contentContainerStyle={styles.list}
@@ -113,7 +114,7 @@ function EventInviteScreenBody({api, guid, onBack}: EventInviteScreenProps) {
 const styles = StyleSheet.create({
 	/* no opaque fill: the scene paints the room this screen stands in */
 	screen: {flex: 1},
-	list: {padding: spacing.md, gap: spacing.sm},
+	list: {paddingBottom: spacing.xxxl},
 	/* fill removed: a BerxSpatialCard wraps this row and paints the
 	   content plane's own material — an opaque token fill on top of it
 	   hides the surface the card just resolved */

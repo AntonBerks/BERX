@@ -10,7 +10,7 @@
  * computed from them.
  */
 import {useCallback, useEffect, useState} from 'react';
-import {View, Text, FlatList, StyleSheet} from 'react-native';
+import {View, Text, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxPointsBalance, BerxPointsHistoryEntry} from '@berx/api/types';
 import {berxCount, relativeTimeLabel} from '@berx/domain';
@@ -25,6 +25,7 @@ import {BerxButton} from '../../../../packages/design-system/src/components/Berx
 import {BerxLoadingState, BerxErrorState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxEyebrow} from '../../../../packages/design-system/src/components/BerxBusinessPrimitives';
 import {BerxText} from '../../../../packages/design-system/src/spatial/BerxText';
+import {BerxSceneList} from '../../../../packages/design-system/src/spatial/BerxSceneList';
 
 export interface PointsScreenProps {
 	api: BerxApiClient;
@@ -115,7 +116,7 @@ function PointsSceneBody({api, onBack}: PointsScreenProps) {
 	return (
 		<View style={styles.screen}>
 			<BerxHeader onBack={onBack} title="Баллы" />
-			<FlatList
+			<BerxSceneList rows
 				data={history}
 				keyExtractor={(item: BerxPointsHistoryEntry, i: number) => `${item.time_created}-${i}`}
 				ListHeaderComponent={

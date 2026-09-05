@@ -8,7 +8,7 @@
  * client-side.
  */
 import {useCallback, useEffect, useState} from 'react';
-import {View, FlatList, Image, StyleSheet} from 'react-native';
+import {View, Image, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxCommunityRequest} from '@berx/api/types';
 import {colors, spacing, radius} from '@berx/design-system/tokens';
@@ -18,6 +18,7 @@ import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../pack
 import {BerxActionShelf} from '../../../../packages/design-system/src/spatial/BerxActionShelf';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 import {BerxText} from '../../../../packages/design-system/src/spatial/BerxText';
+import {BerxSceneList} from '../../../../packages/design-system/src/spatial/BerxSceneList';
 
 export interface CommunityRequestsScreenProps {
 	api: BerxApiClient;
@@ -81,7 +82,7 @@ function CommunityRequestsScreenBody({api, guid, onBack}: CommunityRequestsScree
 			{items.length === 0 ? (
 				<BerxEmptyState title="Заявок нет" subtitle="Новые заявки на вступление появятся здесь." />
 			) : (
-				<FlatList
+				<BerxSceneList rows
 					data={items}
 					keyExtractor={(r: BerxCommunityRequest) => String(r.guid)}
 					contentContainerStyle={styles.list}
@@ -104,7 +105,7 @@ function CommunityRequestsScreenBody({api, guid, onBack}: CommunityRequestsScree
 const styles = StyleSheet.create({
 	/* no opaque fill: the scene paints the room this screen stands in */
 	screen: {flex: 1},
-	list: {padding: spacing.md, gap: spacing.sm},
+	list: {paddingBottom: spacing.xxxl},
 	row: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.borderSoft},
 	avatar: {width: 40, height: 40, borderRadius: radius.pill, backgroundColor: colors.graphite},
 	name: {flex: 1},

@@ -7,7 +7,7 @@
  * bound-parameter LIKE match (not string-concatenated).
  */
 import {useState} from 'react';
-import {View, FlatList, Image, StyleSheet} from 'react-native';
+import {View, Image, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxMessageSearchResult} from '@berx/api/types';
 import {colors, spacing, radius} from '@berx/design-system/tokens';
@@ -17,6 +17,7 @@ import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../pack
 import {BerxSpatialCard} from '../../../../packages/design-system/src/spatial/BerxSpatialCard';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 import {BerxText} from '../../../../packages/design-system/src/spatial/BerxText';
+import {BerxSceneList} from '../../../../packages/design-system/src/spatial/BerxSceneList';
 
 export interface MessageSearchScreenProps {
 	api: BerxApiClient;
@@ -74,7 +75,7 @@ function MessageSearchScreenBody({api, onOpenConversation, onBack}: MessageSearc
 			) : results.length === 0 ? (
 				<BerxEmptyState title="Ничего не найдено" subtitle="Попробуйте другой запрос." />
 			) : (
-				<FlatList
+				<BerxSceneList rows
 					data={results}
 					keyExtractor={(r: BerxMessageSearchResult, i: number) => `${r.user.guid}-${r.time}-${i}`}
 					contentContainerStyle={styles.list}
@@ -103,7 +104,7 @@ const styles = StyleSheet.create({
 	/* no opaque fill: the scene paints the room this screen stands in */
 	screen: {flex: 1},
 	searchBar: {padding: spacing.md},
-	list: {padding: spacing.md, gap: spacing.sm},
+	list: {paddingBottom: spacing.xxxl},
 	/* fill removed: a BerxSpatialCard wraps this row and paints the
 	   content plane's own material — an opaque token fill on top of it
 	   hides the surface the card just resolved */

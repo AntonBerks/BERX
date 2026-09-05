@@ -6,7 +6,7 @@
  * as a picker, not duplicated per source screen.
  */
 import {useCallback, useEffect, useState} from 'react';
-import {View, Text, FlatList, StyleSheet} from 'react-native';
+import {View, Text, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxCollection, BerxCollectionItemType} from '@berx/api/types';
 import {colors, spacing, typography} from '@berx/design-system/tokens';
@@ -16,6 +16,7 @@ import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../pack
 import {BerxSpatialCard} from '../../../../packages/design-system/src/spatial/BerxSpatialCard';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 import {BerxText} from '../../../../packages/design-system/src/spatial/BerxText';
+import {BerxSceneList} from '../../../../packages/design-system/src/spatial/BerxSceneList';
 
 export interface AddToCollectionScreenProps {
 	api: BerxApiClient;
@@ -85,7 +86,7 @@ function AddToCollectionScreenBody({api, myGuid, itemType, itemGuid, onCreateCol
 			{items.length === 0 ? (
 				<BerxEmptyState title="Подборок пока нет" subtitle="Создайте первую, чтобы сохранить это." />
 			) : (
-				<FlatList
+				<BerxSceneList rows
 					data={items}
 					keyExtractor={(c: BerxCollection) => String(c.id)}
 					contentContainerStyle={styles.list}

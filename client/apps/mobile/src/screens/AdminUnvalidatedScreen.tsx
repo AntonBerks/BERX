@@ -9,7 +9,7 @@
  * forwards a search parameter, matching the API's own restriction.
  */
 import {useCallback, useEffect, useState} from 'react';
-import {View, FlatList, StyleSheet} from 'react-native';
+import {View, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxUnvalidatedUser} from '@berx/api/types';
 import {colors, spacing, typography} from '@berx/design-system/tokens';
@@ -19,6 +19,7 @@ import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../pack
 import {BerxIdentity} from '../../../../packages/design-system/src/spatial/BerxIdentity';
 import {BerxSpatialCard} from '../../../../packages/design-system/src/spatial/BerxSpatialCard';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
+import {BerxSceneList} from '../../../../packages/design-system/src/spatial/BerxSceneList';
 
 export interface AdminUnvalidatedScreenProps {
 	api: BerxApiClient;
@@ -77,7 +78,7 @@ function AdminUnvalidatedScreenBody({api, onBack}: AdminUnvalidatedScreenProps) 
 			{items.length === 0 ? (
 				<BerxEmptyState title="Все пользователи подтверждены" />
 			) : (
-				<FlatList
+				<BerxSceneList rows
 					data={items}
 					keyExtractor={(u: BerxUnvalidatedUser) => String(u.guid)}
 					contentContainerStyle={styles.list}
@@ -107,7 +108,7 @@ function AdminUnvalidatedScreenBody({api, onBack}: AdminUnvalidatedScreenProps) 
 const styles = StyleSheet.create({
 	/* no opaque fill: the scene paints the room this screen stands in */
 	screen: {flex: 1},
-	list: {padding: spacing.md, gap: spacing.sm},
+	list: {paddingBottom: spacing.xxxl},
 	info: {flex: 1, gap: 2},
 	name: {fontSize: typography.sizeBase, color: colors.white, fontWeight: typography.weightMedium},
 	meta: {fontSize: typography.sizeXs, color: colors.textFaint},
