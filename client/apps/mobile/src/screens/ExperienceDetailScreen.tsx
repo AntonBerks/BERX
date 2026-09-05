@@ -17,6 +17,7 @@ import {BerxSpatialCard} from '../../../../packages/design-system/src/spatial/Be
 import {BerxFamilyScene, useBerxSceneAtmosphere} from '../spatial/BerxScreenScene';
 import {BerxSection} from '../../../../packages/design-system/src/spatial/BerxSection';
 import {BerxSceneHero} from '../../../../packages/design-system/src/spatial/BerxSceneHero';
+import {BerxSceneScroll} from '../../../../packages/design-system/src/spatial/BerxSceneScroll';
 import {BerxText} from '../../../../packages/design-system/src/spatial/BerxText';
 import {berxCount, berxWhenRange} from '@berx/domain';
 
@@ -108,6 +109,13 @@ function ExperienceDetailScreenBody({api, id, onOpenPlace, onOpenEvent, onBack}:
 			{/* the title lives in the hero, so the way back does not
 			    repeat it */}
 			<BerxHeader onBack={onBack} />
+
+			{/* the scene scrolls. It was laid out in a plain view under a
+			    210px hero, so the anchor, the participants and the invite
+			    picker sat below the fold with nothing to scroll — the
+			    whole lower half of the screen was unreachable. Scrolling
+			    is also what moves the room. */}
+			<BerxSceneScroll contentContainerStyle={styles.scrollBody}>
 
 			{/* the experience as the scene's subject, standing where it
 			    is happening: the anchor's own photograph is real domain
@@ -203,11 +211,13 @@ function ExperienceDetailScreenBody({api, id, onOpenPlace, onOpenEvent, onBack}:
 					))}
 				</BerxSection>
 			</View>
+			</BerxSceneScroll>
 		</View>
 	);
 }
 
 const styles = StyleSheet.create({
+	scrollBody: {paddingBottom: 48},
 	/* no opaque fill: the scene paints the room this screen stands in */
 	screen: {flex: 1},
 	body: {padding: spacing.md, gap: spacing.md},

@@ -5,7 +5,7 @@
  * results come from the real api.searchPlaces()/searchEvents().
  */
 import {useState} from 'react';
-import {View, Text, FlatList, Pressable, StyleSheet} from 'react-native';
+import {View, Text, Pressable, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxPlaceSearchResult, BerxEventSearchResult, BerxCollectionVisibility} from '@berx/api/types';
 import {colors, spacing, typography} from '@berx/design-system/tokens';
@@ -17,6 +17,7 @@ import {BerxActionShelf} from '../../../../packages/design-system/src/spatial/Be
 import {BerxSegmentTabs} from '../../../../packages/design-system/src/components/BerxBusinessPrimitives';
 import {BerxSpatialCard} from '../../../../packages/design-system/src/spatial/BerxSpatialCard';
 import {useBerxScene} from '../../../../packages/design-system/src/spatial/BerxSpatialScene';
+import {BerxSceneScroll} from '../../../../packages/design-system/src/spatial/BerxSceneScroll';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 import {BerxText} from '../../../../packages/design-system/src/spatial/BerxText';
 
@@ -107,6 +108,11 @@ function CreateExperienceScreenBody({api, onCreated, onBack}: CreateExperienceSc
 	return (
 		<View style={styles.screen}>
 			<BerxHeader title="Создать впечатление" onBack={onBack} />
+			{/* the form scrolls. It was laid out in a plain view, so on a
+			    phone the access control and the Create button sat below
+			    the fold with nothing to scroll — a form whose submit you
+			    cannot reach. Scrolling is also what moves the room. */}
+			<BerxSceneScroll contentContainerStyle={styles.scrollBody}>
 			<View style={styles.body}>
 				{/* D2 — the form is a structural object in the room, not
 				    fields floating on the substrate */}
@@ -143,35 +149,31 @@ function CreateExperienceScreenBody({api, onCreated, onBack}: CreateExperienceSc
 					) : (
 						<>
 							<BerxInput placeholder={anchorTab === 'place' ? 'Искать место' : 'Искать событие'} value={anchorQuery} onChangeText={searchAnchor} />
-							{anchorTab === 'place' ? (
-								<FlatList
-									data={places}
-									keyExtractor={(p: BerxPlaceSearchResult) => String(p.guid)}
-									renderItem={({item}: {item: BerxPlaceSearchResult}) => (
+							{/* mapped, not virtualised: a vertical FlatList inside the
+							    screen's own vertical scroller gives two scrollers
+							    fighting for the same gesture, and this is a bounded
+							    search result rather than a feed */}
+							{anchorTab === 'place'
+								? places.map((item: BerxPlaceSearchResult) => (
 										<Pressable
+											key={item.guid}
 											style={[styles.resultRow, {borderBottomColor: dividerColor}]}
 											accessibilityRole="button"
 											accessibilityLabel={`Привязать к месту ${item.title}`}
 											onPress={() => setAnchor({type: 'place', guid: item.guid, title: item.title})}>
 											<BerxText role="meta">{item.title}</BerxText>
 										</Pressable>
-									)}
-								/>
-							) : (
-								<FlatList
-									data={events}
-									keyExtractor={(e: BerxEventSearchResult) => String(e.guid)}
-									renderItem={({item}: {item: BerxEventSearchResult}) => (
+								  ))
+								: events.map((item: BerxEventSearchResult) => (
 										<Pressable
+											key={item.guid}
 											style={[styles.resultRow, {borderBottomColor: dividerColor}]}
 											accessibilityRole="button"
 											accessibilityLabel={`Привязать к событию ${item.title}`}
 											onPress={() => setAnchor({type: 'event', guid: item.guid, title: item.title})}>
 											<BerxText role="meta">{item.title}</BerxText>
 										</Pressable>
-									)}
-								/>
-							)}
+								  ))}
 						</>
 					)}
 
@@ -193,11 +195,13 @@ function CreateExperienceScreenBody({api, onCreated, onBack}: CreateExperienceSc
 					</BerxActionShelf>
 				</BerxGlassSurface>
 			</View>
+			</BerxSceneScroll>
 		</View>
 	);
 }
 
 const styles = StyleSheet.create({
+	scrollBody: {paddingBottom: 48},
 	/* no opaque fill: the scene paints the room this screen stands in */
 	screen: {flex: 1},
 	body: {padding: spacing.md, gap: spacing.md},
