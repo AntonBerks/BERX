@@ -125,7 +125,10 @@ function TrackDetailScreenBody({api, postGuid, myGuid, onOpenProfile, onDeleted,
 			<View style={styles.body}>
 				<BerxAudioPlayer url={track.track.url} />
 
-				<Pressable onPress={() => track.owner_username && onOpenProfile(track.owner_username)}>
+				<Pressable
+					accessibilityRole="button"
+					accessibilityLabel={`Профиль ${track.owner_username ?? 'BERX'}`}
+					onPress={() => track.owner_username && onOpenProfile(track.owner_username)}>
 					<Text style={styles.author}>{track.owner_username ?? 'BERX'}</Text>
 				</Pressable>
 				{track.text ? <Text style={styles.text}>{track.text}</Text> : null}

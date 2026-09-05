@@ -128,7 +128,10 @@ function VideoDetailScreenBody({api, postGuid, myGuid, onOpenProfile, onDeleted,
 			<BerxVideoPlayer url={video.video.url} />
 
 			<View style={styles.body}>
-				<Pressable onPress={() => video.owner_username && onOpenProfile(video.owner_username)}>
+				<Pressable
+					accessibilityRole="button"
+					accessibilityLabel={`Профиль ${video.owner_username ?? 'BERX'}`}
+					onPress={() => video.owner_username && onOpenProfile(video.owner_username)}>
 					<Text style={styles.author}>{video.owner_username ?? 'BERX'}</Text>
 				</Pressable>
 				{video.text ? <Text style={styles.text}>{video.text}</Text> : null}

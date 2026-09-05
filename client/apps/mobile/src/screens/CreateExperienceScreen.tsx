@@ -142,7 +142,11 @@ function CreateExperienceScreenBody({api, onCreated, onBack}: CreateExperienceSc
 									data={places}
 									keyExtractor={(p: BerxPlaceSearchResult) => String(p.guid)}
 									renderItem={({item}: {item: BerxPlaceSearchResult}) => (
-										<Pressable style={styles.resultRow} onPress={() => setAnchor({type: 'place', guid: item.guid, title: item.title})}>
+										<Pressable
+											style={styles.resultRow}
+											accessibilityRole="button"
+											accessibilityLabel={`Привязать к месту ${item.title}`}
+											onPress={() => setAnchor({type: 'place', guid: item.guid, title: item.title})}>
 											<Text style={styles.resultText}>{item.title}</Text>
 										</Pressable>
 									)}
@@ -152,7 +156,11 @@ function CreateExperienceScreenBody({api, onCreated, onBack}: CreateExperienceSc
 									data={events}
 									keyExtractor={(e: BerxEventSearchResult) => String(e.guid)}
 									renderItem={({item}: {item: BerxEventSearchResult}) => (
-										<Pressable style={styles.resultRow} onPress={() => setAnchor({type: 'event', guid: item.guid, title: item.title})}>
+										<Pressable
+											style={styles.resultRow}
+											accessibilityRole="button"
+											accessibilityLabel={`Привязать к событию ${item.title}`}
+											onPress={() => setAnchor({type: 'event', guid: item.guid, title: item.title})}>
 											<Text style={styles.resultText}>{item.title}</Text>
 										</Pressable>
 									)}

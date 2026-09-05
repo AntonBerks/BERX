@@ -129,7 +129,11 @@ function CommunityDetailScreenBody({api, guid, myGuid, onBack, onOpenRequests, o
 				) : null}
 
 				{myGuid && community.owner_guid !== myGuid && onReport ? (
-					<Pressable onPress={() => onReport(guid)} hitSlop={8}>
+					<Pressable
+						accessibilityRole="button"
+						accessibilityLabel="Пожаловаться на сообщество"
+						onPress={() => onReport(guid)}
+						hitSlop={8}>
 						<Text style={styles.reportLink}>Пожаловаться на сообщество</Text>
 					</Pressable>
 				) : null}

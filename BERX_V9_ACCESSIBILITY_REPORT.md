@@ -4,6 +4,23 @@ Target: WCAG 2.2 AA. Verified where it says verified, and not where it
 does not. Reproduce the browser measurements with
 `cd client && npm run verify:v9:web`.
 
+## Controls that announced themselves as nothing
+
+Twenty-nine interactive controls reached assistive technology as
+unnamed nodes — no role, no label. Every one is fixed, and a gate now
+fails the build if another appears.
+
+| Where | What was unreachable |
+|---|---|
+| Story viewer | The two halves of the screen *are* the story's navigation, and neither was announced. The long-press pause was undiscoverable too; both now carry a hint |
+| Business hours | Forty-two identical ± buttons, one per hour per day, each announced as nothing. Each now names its day and which end of the day it moves; the values are adjustable |
+| Post detail | Report post, report comment, delete comment, open commenter's profile — four ✕ and ⚑ glyphs with no name between them |
+| Trip, circle and experience pickers | Adding and removing a person, and the expand/collapse that reveals the picker (now with `expanded` state) |
+| Place review | The five stars were five unnamed controls; they are a radio group now, each naming its value |
+| Collection detail, community detail, create post | Remove-from-collection, report, remove-photo |
+| App shell | The boot retry button |
+
+
 ## Verified in a real browser
 
 | Check | Result |

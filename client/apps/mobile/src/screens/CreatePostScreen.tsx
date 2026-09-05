@@ -115,7 +115,11 @@ function CreatePostScreenBody({api, pickImage, onCreated}: CreatePostScreenProps
 			{previewUri ? (
 				<View style={styles.previewWrap}>
 					<Image source={{uri: previewUri}} style={styles.preview} />
-					<Pressable style={styles.previewRemove} onPress={() => { setPickedPart(null); setPreviewUri(null); }}>
+					<Pressable
+						accessibilityRole="button"
+						accessibilityLabel="Убрать фото из поста"
+						style={styles.previewRemove}
+						onPress={() => { setPickedPart(null); setPreviewUri(null); }}>
 						<Text style={styles.previewRemoveText}>✕</Text>
 					</Pressable>
 				</View>

@@ -135,7 +135,11 @@ function ExperienceDetailScreenBody({api, id, onOpenPlace, onOpenEvent, onBack}:
 				) : null}
 
 				{experience.is_own ? (
-					<Pressable onPress={() => setShowPicker(!showPicker)}>
+					<Pressable
+						accessibilityRole="button"
+						accessibilityState={{expanded: showPicker}}
+						accessibilityLabel={showPicker ? 'Скрыть список друзей' : 'Пригласить друга'}
+						onPress={() => setShowPicker(!showPicker)}>
 						<Text style={styles.toggleText}>{showPicker ? 'Скрыть друзей' : 'Пригласить друга'}</Text>
 					</Pressable>
 				) : null}
@@ -151,7 +155,13 @@ function ExperienceDetailScreenBody({api, id, onOpenPlace, onOpenEvent, onBack}:
 							keyExtractor={(f: BerxFriend) => String(f.guid)}
 							contentContainerStyle={styles.pickerRow}
 							renderItem={({item}: {item: BerxFriend}) => (
-								<Pressable style={styles.pickerItem} onPress={() => invite(item.guid)} disabled={busy}>
+								<Pressable
+									style={styles.pickerItem}
+									accessibilityRole="button"
+									accessibilityLabel={`Пригласить ${item.fullname}`}
+									accessibilityState={{disabled: busy}}
+									onPress={() => invite(item.guid)}
+									disabled={busy}>
 									<Image source={{uri: item.icon}} style={styles.pickerAvatar} />
 									<Text style={styles.pickerName} numberOfLines={1}>{item.fullname}</Text>
 								</Pressable>

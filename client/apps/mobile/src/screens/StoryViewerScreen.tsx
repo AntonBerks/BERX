@@ -201,15 +201,26 @@ function StoryViewerScreenBody({
 				/>
 			)}
 
+			{/* The two halves of the screen are the story's navigation.
+			    They were unlabelled, which made the only way through a
+			    story invisible to a screen reader — the hint names the
+			    long-press pause too, since a gesture nobody is told
+			    about is not an affordance. */}
 			<View style={styles.tapZones}>
 				<Pressable
 					style={styles.tapLeft}
+					accessibilityRole="button"
+					accessibilityLabel="Предыдущая история"
+					accessibilityHint="Удерживайте, чтобы поставить на паузу"
 					onPress={goBack}
 					onLongPress={() => setPaused(true)}
 					onPressOut={() => setPaused(false)}
 				/>
 				<Pressable
 					style={styles.tapRight}
+					accessibilityRole="button"
+					accessibilityLabel="Следующая история"
+					accessibilityHint="Удерживайте, чтобы поставить на паузу"
 					onPress={advance}
 					onLongPress={() => setPaused(true)}
 					onPressOut={() => setPaused(false)}
@@ -238,7 +249,12 @@ function StoryViewerScreenBody({
 				</BerxActionShelf>
 			</View>
 
-			<Pressable style={styles.closeButton} onPress={onClose} hitSlop={12}>
+			<Pressable
+				accessibilityRole="button"
+				accessibilityLabel="Закрыть историю"
+				style={styles.closeButton}
+				onPress={onClose}
+				hitSlop={12}>
 				<Text style={styles.closeText}>✕</Text>
 			</Pressable>
 		</View>

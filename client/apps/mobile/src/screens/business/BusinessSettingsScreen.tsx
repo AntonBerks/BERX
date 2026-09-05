@@ -181,18 +181,59 @@ function BusinessSettingsScreenBody({api, placeGuid, onBack}: BusinessSettingsSc
 					const d = week[wd.key];
 					return (
 						<View key={wd.key} style={styles.dayRow}>
-							<Pressable style={styles.dayToggle} onPress={() => toggleDay(wd.key)}>
+							<Pressable
+								style={styles.dayToggle}
+								accessibilityRole="switch"
+								accessibilityLabel={wd.label}
+								accessibilityState={{checked: d.enabled}}
+								onPress={() => toggleDay(wd.key)}>
 								<Text style={[styles.dayLabel, d.enabled && styles.dayLabelActive]}>{wd.label}</Text>
 							</Pressable>
+							{/* forty-two identical ± controls, one per hour per day,
+							    every one of them announced as nothing. Each now says
+							    which day and which end of the day it moves, and the
+							    values are announced as adjustable. */}
 							{d.enabled ? (
 								<View style={styles.hourControls}>
-									<Pressable onPress={() => adjustHour(wd.key, 'openHour', -1)}><Text style={styles.hourBtn}>−</Text></Pressable>
-									<Text style={styles.hourValue}>{String(d.openHour).padStart(2, '0')}:00</Text>
-									<Pressable onPress={() => adjustHour(wd.key, 'openHour', 1)}><Text style={styles.hourBtn}>+</Text></Pressable>
-									<Text style={styles.hourDash}>—</Text>
-									<Pressable onPress={() => adjustHour(wd.key, 'closeHour', -1)}><Text style={styles.hourBtn}>−</Text></Pressable>
-									<Text style={styles.hourValue}>{String(d.closeHour).padStart(2, '0')}:00</Text>
-									<Pressable onPress={() => adjustHour(wd.key, 'closeHour', 1)}><Text style={styles.hourBtn}>+</Text></Pressable>
+									<Pressable
+										accessibilityRole="button"
+										accessibilityLabel={`${wd.label}: открытие на час раньше`}
+										onPress={() => adjustHour(wd.key, 'openHour', -1)}>
+										<Text style={styles.hourBtn}>−</Text>
+									</Pressable>
+									<Text
+										accessibilityRole="adjustable"
+										accessibilityLabel={`${wd.label}: открытие в ${String(d.openHour).padStart(2, '0')}:00`}
+										style={styles.hourValue}>
+										{String(d.openHour).padStart(2, '0')}:00
+									</Text>
+									<Pressable
+										accessibilityRole="button"
+										accessibilityLabel={`${wd.label}: открытие на час позже`}
+										onPress={() => adjustHour(wd.key, 'openHour', 1)}>
+										<Text style={styles.hourBtn}>+</Text>
+									</Pressable>
+									<Text style={styles.hourDash} accessibilityElementsHidden importantForAccessibility="no">
+										—
+									</Text>
+									<Pressable
+										accessibilityRole="button"
+										accessibilityLabel={`${wd.label}: закрытие на час раньше`}
+										onPress={() => adjustHour(wd.key, 'closeHour', -1)}>
+										<Text style={styles.hourBtn}>−</Text>
+									</Pressable>
+									<Text
+										accessibilityRole="adjustable"
+										accessibilityLabel={`${wd.label}: закрытие в ${String(d.closeHour).padStart(2, '0')}:00`}
+										style={styles.hourValue}>
+										{String(d.closeHour).padStart(2, '0')}:00
+									</Text>
+									<Pressable
+										accessibilityRole="button"
+										accessibilityLabel={`${wd.label}: закрытие на час позже`}
+										onPress={() => adjustHour(wd.key, 'closeHour', 1)}>
+										<Text style={styles.hourBtn}>+</Text>
+									</Pressable>
 								</View>
 							) : (
 								<Text style={styles.dayClosedLabel}>Выходной</Text>

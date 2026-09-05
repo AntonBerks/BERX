@@ -1162,7 +1162,11 @@ function BerxAppRoot() {
 			<View style={styles.bootErrorContainer}>
 				<Text style={styles.comingSoonTitle}>BERX недоступен</Text>
 				<Text style={styles.comingSoonText}>{snapshot.error ?? 'Не удалось подключиться'}</Text>
-				<Pressable style={styles.retryButton} onPress={() => authState.retryBoot()}>
+				<Pressable
+					style={styles.retryButton}
+					accessibilityRole="button"
+					accessibilityLabel="Повторить запуск BERX"
+					onPress={() => authState.retryBoot()}>
 					<Text style={styles.retryButtonText}>Повторить</Text>
 				</Pressable>
 			</View>

@@ -112,7 +112,11 @@ function TripDetailScreenBody({api, id, onOpenPlace, onOpenEvent, onBack}: TripD
 
 			{trip.is_own ? (
 				<View style={styles.toolbar}>
-					<Pressable onPress={() => setShowPicker(!showPicker)}>
+					<Pressable
+						accessibilityRole="button"
+						accessibilityState={{expanded: showPicker}}
+						accessibilityLabel={showPicker ? 'Скрыть список друзей' : 'Пригласить друга в поездку'}
+						onPress={() => setShowPicker(!showPicker)}>
 						<Text style={styles.toggleBtnText}>{showPicker ? 'Скрыть друзей' : 'Пригласить друга'}</Text>
 					</Pressable>
 				</View>
@@ -129,7 +133,13 @@ function TripDetailScreenBody({api, id, onOpenPlace, onOpenEvent, onBack}: TripD
 						keyExtractor={(f: BerxFriend) => String(f.guid)}
 						contentContainerStyle={styles.pickerRow}
 						renderItem={({item}: {item: BerxFriend}) => (
-							<Pressable style={styles.pickerItem} onPress={() => addParticipant(item.guid)} disabled={busy}>
+							<Pressable
+								style={styles.pickerItem}
+								accessibilityRole="button"
+								accessibilityLabel={`Добавить ${item.fullname} в поездку`}
+								accessibilityState={{disabled: busy}}
+								onPress={() => addParticipant(item.guid)}
+								disabled={busy}>
 								<Image source={{uri: item.icon}} style={styles.pickerAvatar} />
 								<Text style={styles.pickerName} numberOfLines={1}>{item.fullname}</Text>
 							</Pressable>

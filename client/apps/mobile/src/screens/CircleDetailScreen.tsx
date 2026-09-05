@@ -92,7 +92,12 @@ function CircleDetailScreenBody({api, id, onBack}: CircleDetailScreenProps) {
 		<View style={styles.screen}>
 			<BerxHeader title={circle.name} onBack={onBack} />
 			<View style={styles.toolbar}>
-				<Pressable style={styles.toggleBtn} onPress={() => setShowPicker(!showPicker)}>
+				<Pressable
+					style={styles.toggleBtn}
+					accessibilityRole="button"
+					accessibilityState={{expanded: showPicker}}
+					accessibilityLabel={showPicker ? 'Скрыть список друзей' : 'Добавить друга в круг'}
+					onPress={() => setShowPicker(!showPicker)}>
 					<Text style={styles.toggleBtnText}>{showPicker ? 'Скрыть список друзей' : 'Добавить друга'}</Text>
 				</Pressable>
 			</View>
@@ -108,7 +113,13 @@ function CircleDetailScreenBody({api, id, onBack}: CircleDetailScreenProps) {
 						keyExtractor={(f: BerxFriend) => String(f.guid)}
 						contentContainerStyle={styles.pickerRow}
 						renderItem={({item}: {item: BerxFriend}) => (
-							<Pressable style={styles.pickerItem} onPress={() => addMember(item.guid)} disabled={busyGuid === item.guid}>
+							<Pressable
+								style={styles.pickerItem}
+								accessibilityRole="button"
+								accessibilityLabel={`Добавить ${item.fullname} в круг`}
+								accessibilityState={{disabled: busyGuid === item.guid}}
+								onPress={() => addMember(item.guid)}
+								disabled={busyGuid === item.guid}>
 								<Image source={{uri: item.icon}} style={styles.pickerAvatar} />
 								<Text style={styles.pickerName} numberOfLines={1}>{item.fullname}</Text>
 							</Pressable>
@@ -129,7 +140,13 @@ function CircleDetailScreenBody({api, id, onBack}: CircleDetailScreenProps) {
 							<View style={styles.row}>
 							<Image source={{uri: item.icon}} style={styles.avatar} />
 							<Text style={styles.name} numberOfLines={1}>{item.fullname}</Text>
-							<Pressable onPress={() => removeMember(item.guid)} hitSlop={8} disabled={busyGuid === item.guid}>
+							<Pressable
+								accessibilityRole="button"
+								accessibilityLabel={`Убрать ${item.fullname} из круга`}
+								accessibilityState={{disabled: busyGuid === item.guid}}
+								onPress={() => removeMember(item.guid)}
+								hitSlop={8}
+								disabled={busyGuid === item.guid}>
 								<Text style={styles.remove}>✕</Text>
 							</Pressable>
 						</View>

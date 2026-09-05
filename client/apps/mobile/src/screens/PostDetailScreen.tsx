@@ -239,7 +239,11 @@ function PostDetailSceneBody({api, postGuid, myGuid, onOpenProfile, onReport, on
 
 				{/* Reporting your own post makes no sense — same real-target-only rule ReportScreen documents for dating/post/comment/user/group. */}
 				{myGuid && post.owner_guid !== myGuid ? (
-					<Pressable onPress={() => onReport('post', post.guid)} hitSlop={8}>
+					<Pressable
+						accessibilityRole="button"
+						accessibilityLabel="Пожаловаться на пост"
+						onPress={() => onReport('post', post.guid)}
+						hitSlop={8}>
 						<Text style={styles.reportLink}>Пожаловаться на пост</Text>
 					</Pressable>
 				) : null}
@@ -264,7 +268,10 @@ function PostDetailSceneBody({api, postGuid, myGuid, onOpenProfile, onReport, on
 						comments.map((c) => (
 							<View key={c.id} style={styles.commentRow}>
 								{c.author ? (
-									<Pressable onPress={() => onOpenProfile(c.author!.username)}>
+									<Pressable
+										accessibilityRole="button"
+										accessibilityLabel={`Профиль ${c.author.fullname || c.author.username}`}
+										onPress={() => onOpenProfile(c.author!.username)}>
 										<Image source={{uri: c.author.icon}} style={styles.commentAvatar} />
 									</Pressable>
 								) : (
@@ -276,11 +283,19 @@ function PostDetailSceneBody({api, postGuid, myGuid, onOpenProfile, onReport, on
 									<Text style={styles.commentTime}>{relativeTimeLabel(c.time)}</Text>
 								</View>
 								{myGuid && c.author?.guid === myGuid ? (
-									<Pressable onPress={() => handleDeleteComment(c.id)} hitSlop={8}>
+									<Pressable
+										accessibilityRole="button"
+										accessibilityLabel="Удалить комментарий"
+										onPress={() => handleDeleteComment(c.id)}
+										hitSlop={8}>
 										<Text style={styles.commentDelete}>✕</Text>
 									</Pressable>
 								) : myGuid && c.author?.guid !== myGuid ? (
-									<Pressable onPress={() => onReport('comment', c.id)} hitSlop={8}>
+									<Pressable
+										accessibilityRole="button"
+										accessibilityLabel="Пожаловаться на комментарий"
+										onPress={() => onReport('comment', c.id)}
+										hitSlop={8}>
 										<Text style={styles.commentDelete}>⚑</Text>
 									</Pressable>
 								) : null}

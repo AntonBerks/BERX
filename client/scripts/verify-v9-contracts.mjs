@@ -337,6 +337,43 @@ gate(
 		? 'no screen defines its own selected-chip style'
 		: handRolledSelection.map((f) => f.file).join(', '),
 );
+/* --- every control announces itself ---------------------------------
+   The archive's accessibility contract is not only contrast and touch
+   targets: a control that reaches assistive technology as an unnamed
+   node is unusable, whatever it looks like. Twenty-nine of them were
+   shipping — including the two halves of the story viewer, which are
+   the only way through a story, and forty-two identical ± buttons in
+   the business hours editor, every one announced as nothing. */
+function unlabelledControls(file) {
+	const src = fs.readFileSync(file, 'utf8');
+	const hits = [];
+	for (const m of src.matchAll(/<Pressable\b/g)) {
+		let i = m.index + m[0].length;
+		let depth = 0;
+		while (i < src.length) {
+			const c = src[i];
+			if (c === '{') depth += 1;
+			else if (c === '}') depth -= 1;
+			else if (c === '>' && depth === 0) break;
+			i += 1;
+		}
+		const tag = src.slice(m.index, i);
+		if (!tag.includes('accessibilityLabel') && !tag.includes('accessibilityRole')) {
+			hits.push(src.slice(0, m.index).split('\n').length);
+		}
+	}
+	return hits;
+}
+const unlabelled = [...walkTsx(path.join(clientRoot, 'apps/mobile/src'))]
+	.map((file) => ({file: path.relative(clientRoot, file), lines: unlabelledControls(file)}))
+	.filter((f) => f.lines.length > 0);
+gate(
+	'every interactive control announces itself',
+	unlabelled.length === 0,
+	unlabelled.length === 0
+		? 'no Pressable without a role or a name'
+		: unlabelled.map((f) => `${f.file}:${f.lines.join(',')}`).join(' | '),
+);
 gate('no probe findings', report.findings.length === 0, report.findings.slice(0, 8).map((f) => `${f.scope}: ${f.message}`).join(' | ') || 'clean');
 
 const failed = gates.filter((g) => !g.pass);

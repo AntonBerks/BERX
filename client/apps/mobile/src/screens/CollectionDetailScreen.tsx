@@ -111,7 +111,11 @@ function CollectionDetailScreenBody({api, id, onOpenPlace, onOpenEvent, onOpenPo
 								<Text style={styles.type}>{item.item_type === 'place' ? 'Место' : item.item_type === 'event' ? 'Событие' : 'Пост'}</Text>
 							</View>
 							{collection.is_own ? (
-								<Pressable onPress={() => removeItem(item)} hitSlop={8}>
+								<Pressable
+									accessibilityRole="button"
+									accessibilityLabel={`Убрать ${item.title} из подборки`}
+									onPress={() => removeItem(item)}
+									hitSlop={8}>
 									<Text style={styles.remove}>✕</Text>
 								</Pressable>
 							) : null}

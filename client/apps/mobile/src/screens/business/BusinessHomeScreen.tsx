@@ -120,7 +120,12 @@ function BusinessHomeScreenBody({api, placeGuid, onOpenProfile, onOpenDashboard,
 				<BerxEyebrow>Управление бизнесом</BerxEyebrow>
 				<View style={styles.grid}>
 					{NAV_CARDS.map((card) => (
-						<Pressable key={card.key} onPress={nav[card.key]} style={styles.cardWrap}>
+						<Pressable
+							key={card.key}
+							accessibilityRole="button"
+							accessibilityLabel={`${card.title}. ${card.subtitle}`}
+							onPress={nav[card.key]}
+							style={styles.cardWrap}>
 							<BerxGlassSurface padding="md" style={styles.card}>
 								<Text style={styles.cardTitle}>{card.title}</Text>
 								<Text style={styles.cardSubtitle}>{card.subtitle}</Text>

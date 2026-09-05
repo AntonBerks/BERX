@@ -286,7 +286,12 @@ function PlaceDetailSceneBody({api, guid, myGuid, onAddToCollection, onOpenBusin
 					<View style={styles.reviewForm}>
 						<View style={styles.starRow}>
 							{[1, 2, 3, 4, 5].map((n) => (
-								<Pressable key={n} onPress={() => setReviewRating(n)}>
+								<Pressable
+									key={n}
+									accessibilityRole="radio"
+									accessibilityLabel={`Оценка ${n} из 5`}
+									accessibilityState={{selected: n <= reviewRating}}
+									onPress={() => setReviewRating(n)}>
 									<Text style={[styles.star, n <= reviewRating && styles.starActive]}>★</Text>
 								</Pressable>
 							))}
