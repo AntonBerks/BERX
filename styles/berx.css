@@ -312,9 +312,13 @@ html[data-motion="full"] .phone{animation:float 8.5s var(--ease-soft) infinite a
 @keyframes float{to{translate:0 -15px}}
 .phone::after{content:"";position:absolute;inset:0;border-radius:44px;pointer-events:none;
   background:linear-gradient(118deg,rgba(255,255,255,.13),transparent 34%,transparent 66%,rgba(255,255,255,.05))}
-.screen{position:relative;height:100%;border-radius:35px;overflow:hidden;background:#06080F;
+/* the substrate the resolved scene actually has, with the old
+   hand-picked near-black as the no-runtime fallback */
+.screen{position:relative;height:100%;border-radius:35px;overflow:hidden;background:var(--berx-bg,#06080F);
   display:grid;grid-template-rows:auto 1fr auto}
-.notch{position:absolute;top:9px;left:50%;translate:-50%;width:33%;height:5px;border-radius:99px;
+/* .screen> so it outranks the generic [data-berx-screen]>* rule, which
+   would otherwise drop the notch out of absolute positioning */
+.screen>.notch{position:absolute;top:9px;left:50%;translate:-50%;width:33%;height:5px;border-radius:99px;
   background:#000;z-index:3}
 .scr{display:none;grid-row:2;overflow:hidden}
 .scr[data-on]{display:block}
@@ -331,7 +335,12 @@ html[data-motion="full"] .phone{animation:float 8.5s var(--ease-soft) infinite a
   font-size:12px;white-space:nowrap;color:var(--text);border:1px solid var(--line);
   background:color-mix(in srgb,var(--obsidian-lift) 82%,transparent);backdrop-filter:blur(12px);
   box-shadow:0 18px 44px -18px #000}
-.chip.a{top:11%;left:-4%}.chip.b{bottom:19%;right:-6%}.chip.c{bottom:5%;left:4%}
+/* the three live notes stand in front of the device, and in front
+   means clear of it: chip c sat on top of the phone's own tab bar,
+   where an object in front of a screen reads as a rendering fault
+   rather than as a plane. Each one now overlaps the device's edge
+   without covering its chrome. */
+.chip.a{top:10%;left:-5%}.chip.b{top:47%;right:-5%}.chip.c{bottom:13%;left:-3%}
 html[data-motion="full"] .chip{animation:chip 7s var(--ease-soft) infinite alternate}
 .chip.b{animation-delay:-2.4s}.chip.c{animation-delay:-4.6s}
 @keyframes chip{to{translate:0 -11px}}

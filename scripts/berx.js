@@ -80,6 +80,10 @@ if (!finished){
    resolved room instead of standing in for one.
    ═══════════════════════════════════════════════════════════════ */
 let heroScene = null;
+let phoneScene = null;
+/** Set once the 5D runtime is up; null without it, and the page is unchanged. */
+let mountPhoneScene = null;
+const phoneScreen = $('.phone .screen');
 (async () => {
   const host = $('#heroScene');
   if (!host) return;
@@ -106,6 +110,7 @@ let heroScene = null;
        tilt, and six scenes each binding scroll and pointer listeners
        would be cost for movement nobody would notice. */
     for (const card of $$('[data-berx-screen]')) {
+      if (card === phoneScreen) continue;   /* mounted below, and re-mounted as it rotates */
       const c = BERX_SITE_CONTRACTS[card.dataset.berxScreen];
       if (!c || !$('.sec-scene', card)) continue;
       /* The card itself is the scene root, not the layer wrapper inside
@@ -115,6 +120,22 @@ let heroScene = null;
          it was resolved. Now the card takes D2, the demo panel inside
          it takes D3, and the two layers in .sec-scene paint D0 and D1. */
       mountBerxScene(card, c, {sampleFrames: false, interactive: false});
+    }
+    /* The phone's own screen. It rotates between three BERX screens,
+       and each one gets the room its family actually has — so the
+       device shows the messages corridor, then the map's ground
+       plane, then the feed, rather than three layouts on one flat
+       black. Re-resolved on each turn: nothing is bound to the
+       pointer or the scroll here, so a turn costs one resolve and a
+       write of custom properties. */
+    if (phoneScreen) {
+      mountPhoneScene = (id) => {
+        const pc = BERX_SITE_CONTRACTS[id];
+        if (!pc) return;
+        phoneScene?.destroy();
+        phoneScene = mountBerxScene(phoneScreen, pc, {sampleFrames: false, interactive: false});
+      };
+      mountPhoneScene('BERX-176');
     }
   } catch {
     /* no 5D runtime available — the page is unchanged, not broken */
@@ -229,12 +250,16 @@ addEventListener('scroll', ()=>{ if(sRaf) return; sRaf = requestAnimationFrame((
 
 /* ротация экранов телефона — продукт показывает себя сам */
 const scrs = $$('.scr'), titles = {msg:'Мессенджер', places:'Места', feed:'Лента'};
+/* each panel's real v9 contract — the room changes with the screen */
+const scrScenes = {msg:'BERX-176', places:'BERX-201', feed:'BERX-031'};
 let si = 0;
 setInterval(()=>{
   if (reduced() || document.hidden) return;
   scrs[si].removeAttribute('data-on'); si = (si+1) % scrs.length;
   scrs[si].setAttribute('data-on','');
-  $('#phTitle').textContent = titles[scrs[si].dataset.screen];
+  const kind = scrs[si].dataset.screen;
+  $('#phTitle').textContent = titles[kind];
+  mountPhoneScene?.(scrScenes[kind]);
 }, 6200);
 
 /* ═══ 6. FEED CONTENT (генерируется, без стоковых картинок) ═══ */

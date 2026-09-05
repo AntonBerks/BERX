@@ -183,7 +183,19 @@
     <div class="stage reveal" style="--d:.5s">
       <div class="halo" aria-hidden="true"></div>
       <div class="phone" id="phone">
-        <div class="screen">
+        <!-- The app, in the app's own room. This screen used to be a
+             hard-coded near-black rectangle: BERX depicting itself as
+             a flat screen inside a 5D shell, which is the one thing
+             the archive forbids outright. It resolves a real scene
+             now, and the scene changes with the panel — the messages
+             corridor, the map's ground plane, the feed's own light —
+             so the phone shows three BERX rooms rather than three
+             layouts on one black. -->
+        <div class="screen berx-scene" data-berx-screen="BERX-176">
+          <div class="sec-scene" aria-hidden="true">
+            <div class="berx-layer" data-berx-depth="D0"><div class="berx-surface" data-berx-depth="D0"></div></div>
+            <div class="berx-layer" data-berx-depth="D1"><div class="berx-surface" data-berx-depth="D1"></div></div>
+          </div>
           <div class="notch" aria-hidden="true"></div>
           <div class="shead"><span class="av" aria-hidden="true"></span><span id="phTitle">Мессенджер</span></div>
 
