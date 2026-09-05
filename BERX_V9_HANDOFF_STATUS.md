@@ -5,8 +5,8 @@ something a probe or a typecheck actually checked. Reproduce with:
 
 ```
 cd client
-npm run verify:v9        # contract + spatial runtime, 19 gates, Node
-npm run verify:v9:web    # the same runtime measured in real Chromium, 18 gates
+npm run verify:v9        # contract + spatial runtime, 26 gates, Node
+npm run verify:v9:web    # the same runtime measured in real Chromium, 23 gates
 npx tsc -p tsconfig.json --noEmit
 node scripts/v9-status.mjs      # the facts these reports are written from
 ```
@@ -30,15 +30,21 @@ and every screen's data layer are untouched.
 | 300 screen contracts resolvable | **DONE** | 300/300 by screenId, route path and route name — Node probe, and again in Chromium |
 | 13 scene families | **DONE** | AUTH 30, HOME 30, EXPLORE 30, NOW 30, PROFILE 30, SOCIAL 25, MESSAGES 25, PLACES 25, EVENTS 20, EXPERIENCE 20, COMMUNITY 15, CREATOR 10, BUSINESS 10 |
 | 5D spatial runtime | **DONE** | `@berx/spatial` — depth, camera, materials, lighting, motion, performance, scene composition. Pure TS, consumed by both platforms |
-| Web 5D runtime | **DONE** | `scripts/berx-5d.runtime.js` + `styles/berx-5d.css`, generated from the same source; 18 browser gates |
+| Web 5D runtime | **DONE** | `scripts/berx-5d.runtime.js` + `styles/berx-5d.css`, generated from the same source; 23 browser gates |
+| The site runs that runtime | **DONE** | berx.online shipped it and loaded none of it. `index.html` now mounts a real BERX-001 scene; the probe loads the actual site and checks it |
+| Content-aware atmosphere | **DONE** | 11 environment kinds, one per kind of meaning, mapped across the 13 families. No two resolve to the same room — gated |
+| Depth survives without blur | **DONE** | Measured on real pixels in CIE L\*: the composed room carries 12.6x the luminance structure of a flat background with `backdrop-filter` off |
+| Every screen on a depth plane | **DONE** | 86/86 screens render at least one plane-resolving component; gated. 54 had been painting an opaque fill over their own scene |
+| D4 actions promoted | **DONE** | `BerxActionShelf` in every screen with actions; a screen that prints an action row on the content plane fails the build |
+| Shared-element transitions | **DONE** | One FLIP planner, two platforms. The browser probe reads the real mid-flight transform, and `fading` under reduced motion |
 | Materials render distinctly | **DONE** | 10 materials, no two producing the same surface signature; verified again on painted pixels in Chromium |
 | Reduced motion | **DONE** | Measured in-browser: parallax offsets 0, tilt ceiling 0deg, ambient animation `none`, every layer and its content still painted |
 | Performance budget | **DONE** | Blur ≤3 layers on every platform; runtime adapts on measured missed frames (15% → 0%) without losing depth, parallax or a layer |
-| Screens on the runtime | **PARTIAL — 13 of 29 named contracts** | See BERX_V9_SCREEN_STATUS.md |
+| Screens on the runtime | **DONE for all 86 screen files** | Every screen resolves a scene and places its content on a depth plane; see BERX_V9_SCREEN_STATUS.md for which of the 29 named contracts carry real bindings |
 | Component resolution | **DONE** | All 50 contract-requested components resolved; 0 unrendered components (gated) |
 | Real data only | **DONE** | Endpoints typed as `keyof BerxApiClient` — an invented endpoint cannot compile |
 | Seven states | **DONE for wired scenes** | `BerxDataBoundary`; contract-only scenes carry the full state set, dataless scenes honestly carry three |
-| Accessibility | **PARTIAL** | See BERX_V9_ACCESSIBILITY_REPORT.md — real defects found and fixed; unconverted screens not yet audited |
+| Accessibility | **PARTIAL** | See BERX_V9_ACCESSIBILITY_REPORT.md. Defects found and fixed since: a period switch built from `<Text onPress>`, long-press-only photo deletion, unnamed ✕ controls, selection announced only by colour. Still no automated audit |
 | Analytics | **PARTIAL / BLOCKED sink** | Contract implemented; BERX has no analytics endpoint, so events go to a bounded local buffer and any attached sink |
 | Automated tests | **MISSING** | No test runner is configured in this repo. The two probes are the executable verification that exists |
 
