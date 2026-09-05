@@ -85,7 +85,8 @@ function CreateTrackScreenBody({api, pickAudio, onCreated, onBack}: CreateTrackS
 }
 
 const styles = StyleSheet.create({
-	screen: {flex: 1, backgroundColor: colors.black},
+	/* no opaque fill: the scene paints the room this screen stands in */
+	screen: {flex: 1},
 	body: {padding: spacing.lg, gap: spacing.md},
 	input: {minHeight: 80, textAlignVertical: 'top'},
 	error: {color: colors.danger, fontSize: typography.sizeSm},

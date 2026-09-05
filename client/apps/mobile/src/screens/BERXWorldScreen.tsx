@@ -65,7 +65,8 @@ function BERXWorldScreenBody({onOpenPlaces, onOpenEvents, onOpenNearby, onOpenCo
 }
 
 const styles = StyleSheet.create({
-	screen: {flex: 1, backgroundColor: colors.bg},
+	/* no opaque fill: the scene paints the room this screen stands in */
+	screen: {flex: 1},
 	grid: {padding: spacing.md, gap: spacing.sm},
 	card: {backgroundColor: colors.surface, borderRadius: radius.md, padding: spacing.md, gap: 4},
 	cardLabel: {fontSize: typography.sizeLg, color: colors.white, fontWeight: typography.weightBold},

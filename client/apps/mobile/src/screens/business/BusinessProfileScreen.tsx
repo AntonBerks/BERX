@@ -116,7 +116,8 @@ function BusinessProfileScreenBody({api, placeGuid, onBack}: BusinessProfileScre
 }
 
 const styles = StyleSheet.create({
-	screen: {flex: 1, backgroundColor: colors.bg},
+	/* no opaque fill: the scene paints the room this screen stands in */
+	screen: {flex: 1},
 	body: {padding: spacing.lg, gap: spacing.md, marginTop: -spacing.lg},
 	description: {fontSize: typography.sizeBase, color: colors.text, lineHeight: typography.sizeBase * typography.lineHeightBase},
 	infoCard: {gap: spacing.sm},

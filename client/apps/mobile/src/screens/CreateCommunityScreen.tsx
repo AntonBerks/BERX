@@ -73,7 +73,8 @@ function CreateCommunityScreenBody({api, onCreated, onBack}: CreateCommunityScre
 }
 
 const styles = StyleSheet.create({
-	screen: {flex: 1, backgroundColor: colors.black},
+	/* no opaque fill: the scene paints the room this screen stands in */
+	screen: {flex: 1},
 	content: {padding: spacing.lg, gap: spacing.md},
 	descInput: {minHeight: 100, textAlignVertical: 'top'},
 	privacyRow: {flexDirection: 'row', gap: spacing.sm},

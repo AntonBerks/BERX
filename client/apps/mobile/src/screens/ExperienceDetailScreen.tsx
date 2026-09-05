@@ -168,7 +168,8 @@ function ExperienceDetailScreenBody({api, id, onOpenPlace, onOpenEvent, onBack}:
 }
 
 const styles = StyleSheet.create({
-	screen: {flex: 1, backgroundColor: colors.bg},
+	/* no opaque fill: the scene paints the room this screen stands in */
+	screen: {flex: 1},
 	body: {padding: spacing.md, gap: spacing.md},
 	when: {fontSize: typography.sizeSm, color: colors.textDim},
 	anchorCard: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.surface, borderRadius: radius.md, padding: spacing.sm},

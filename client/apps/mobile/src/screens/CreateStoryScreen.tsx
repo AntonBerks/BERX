@@ -115,7 +115,8 @@ function CreateStoryScreenBody({api, pickImage, pickVideo, eventGuid, onCreated,
 }
 
 const styles = StyleSheet.create({
-	screen: {flex: 1, backgroundColor: colors.black},
+	/* no opaque fill: the scene paints the room this screen stands in */
+	screen: {flex: 1},
 	content: {padding: spacing.lg, gap: spacing.md},
 	preview: {width: '100%', height: 320, borderRadius: radius.md, backgroundColor: colors.graphite},
 	placeholder: {

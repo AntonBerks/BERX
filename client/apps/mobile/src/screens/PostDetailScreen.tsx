@@ -294,7 +294,8 @@ function PostDetailSceneBody({api, postGuid, myGuid, onOpenProfile, onReport, on
 }
 
 const styles = StyleSheet.create({
-	screen: {flex: 1, backgroundColor: colors.black},
+	/* no opaque fill: the scene paints the room this screen stands in */
+	screen: {flex: 1},
 	container: {flex: 1, padding: spacing.lg, gap: spacing.md},
 	author: {color: colors.accent, fontWeight: typography.weightMedium, fontSize: typography.sizeLg},
 	text: {color: colors.text, fontSize: typography.sizeBase, lineHeight: typography.sizeBase * typography.lineHeightBase},

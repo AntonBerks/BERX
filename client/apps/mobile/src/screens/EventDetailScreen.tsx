@@ -192,7 +192,8 @@ function EventDetailSceneBody({api, guid, myGuid, onOpenPlace, onOpenInvite, onA
 }
 
 const styles = StyleSheet.create({
-	screen: {flex: 1, backgroundColor: colors.bg},
+	/* no opaque fill: the scene paints the room this screen stands in */
+	screen: {flex: 1},
 	hero: {aspectRatio: 1.6, backgroundColor: colors.graphite},
 	heroImage: {width: '100%', height: '100%'},
 	heroFallback: {flex: 1, alignItems: 'center', justifyContent: 'center'},

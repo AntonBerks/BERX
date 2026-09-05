@@ -90,7 +90,8 @@ function DeleteAccountScreenBody({api, onDeleted, onBack}: DeleteAccountScreenPr
 }
 
 const styles = StyleSheet.create({
-	screen: {flex: 1, backgroundColor: colors.bg},
+	/* no opaque fill: the scene paints the room this screen stands in */
+	screen: {flex: 1},
 	body: {padding: spacing.md, gap: spacing.md},
 	warning: {fontSize: typography.sizeSm, color: colors.textDim},
 	list: {gap: 4},

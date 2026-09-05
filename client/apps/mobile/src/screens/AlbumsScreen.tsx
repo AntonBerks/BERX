@@ -82,7 +82,8 @@ function AlbumsScreenBody({api, userGuid, isOwn, onOpenAlbum, onCreate, onBack}:
 }
 
 const styles = StyleSheet.create({
-	screen: {flex: 1, backgroundColor: colors.bg},
+	/* no opaque fill: the scene paints the room this screen stands in */
+	screen: {flex: 1},
 	toolbar: {padding: spacing.md},
 	list: {padding: spacing.lg, gap: spacing.md},
 	card: {flex: 1, margin: spacing.xs, borderRadius: radius.md, overflow: 'hidden', backgroundColor: colors.surface},

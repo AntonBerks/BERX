@@ -181,7 +181,8 @@ function TripDetailScreenBody({api, id, onOpenPlace, onOpenEvent, onBack}: TripD
 }
 
 const styles = StyleSheet.create({
-	screen: {flex: 1, backgroundColor: colors.bg},
+	/* no opaque fill: the scene paints the room this screen stands in */
+	screen: {flex: 1},
 	description: {fontSize: typography.sizeSm, color: colors.textDim, paddingHorizontal: spacing.md, paddingTop: spacing.sm},
 	toolbar: {paddingHorizontal: spacing.md, paddingTop: spacing.sm},
 	toggleBtnText: {fontSize: typography.sizeSm, color: colors.accent, fontWeight: typography.weightMedium},

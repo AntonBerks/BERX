@@ -47,7 +47,8 @@ function BusinessProductsScreenBody({onBack}: BusinessProductsScreenProps) {
 }
 
 const styles = StyleSheet.create({
-	screen: {flex: 1, backgroundColor: colors.bg, padding: spacing.lg, gap: spacing.md},
+	/* no opaque fill: the scene paints the room this screen stands in */
+	screen: {flex: 1, padding: spacing.lg, gap: spacing.md},
 	pageTitle: {fontSize: typography.sizeTitle, color: colors.white, fontWeight: typography.weightBold},
 	emptyCard: {alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.xxl},
 	emptyGlyph: {fontSize: typography.sizeHero, color: colors.accent},

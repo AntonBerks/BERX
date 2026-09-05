@@ -93,7 +93,8 @@ function SavedPlacesScreenBody({api, onOpenPlace, onBack}: SavedPlacesScreenProp
 }
 
 const styles = StyleSheet.create({
-	screen: {flex: 1, backgroundColor: colors.bg},
+	/* no opaque fill: the scene paints the room this screen stands in */
+	screen: {flex: 1},
 	list: {padding: spacing.lg, gap: spacing.md},
 	card: {flex: 1, margin: spacing.xs, borderRadius: radius.md, overflow: 'hidden', backgroundColor: colors.surface},
 	cardImage: {width: '100%', aspectRatio: 1.3},

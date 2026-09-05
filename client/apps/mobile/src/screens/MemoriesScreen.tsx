@@ -136,7 +136,8 @@ function MemoriesScreenBody({api, onOpenPost, onOpenAlbum, onBack}: MemoriesScre
 }
 
 const styles = StyleSheet.create({
-	screen: {flex: 1, backgroundColor: colors.bg},
+	/* no opaque fill: the scene paints the room this screen stands in */
+	screen: {flex: 1},
 	list: {padding: spacing.md},
 	section: {marginBottom: spacing.lg, gap: spacing.sm},
 	sectionTitle: {fontSize: typography.sizeSm, color: colors.accent, fontWeight: typography.weightBold, textTransform: 'uppercase'},

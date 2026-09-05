@@ -108,7 +108,8 @@ function AddToCollectionScreenBody({api, myGuid, itemType, itemGuid, onCreateCol
 }
 
 const styles = StyleSheet.create({
-	screen: {flex: 1, backgroundColor: colors.bg},
+	/* no opaque fill: the scene paints the room this screen stands in */
+	screen: {flex: 1},
 	toolbar: {padding: spacing.md},
 	list: {paddingHorizontal: spacing.md, gap: spacing.sm},
 	row: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: colors.surface, borderRadius: radius.md, padding: spacing.md, marginBottom: spacing.sm},

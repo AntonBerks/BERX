@@ -90,7 +90,8 @@ function CirclesScreenBody({api, onOpenCircle, onCreate, onBack}: CirclesScreenP
 }
 
 const styles = StyleSheet.create({
-	screen: {flex: 1, backgroundColor: colors.bg},
+	/* no opaque fill: the scene paints the room this screen stands in */
+	screen: {flex: 1},
 	toolbar: {padding: spacing.md},
 	list: {padding: spacing.md, gap: spacing.sm},
 	row: {backgroundColor: colors.surface, borderRadius: radius.md, padding: spacing.md, marginBottom: spacing.sm},

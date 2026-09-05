@@ -134,7 +134,8 @@ function AlbumDetailScreenBody({api, guid, authState, pickImage, onBack}: AlbumD
 }
 
 const styles = StyleSheet.create({
-	screen: {flex: 1, backgroundColor: colors.bg},
+	/* no opaque fill: the scene paints the room this screen stands in */
+	screen: {flex: 1},
 	toolbar: {padding: spacing.md, gap: spacing.xs},
 	tileWrap: {width: TILE, height: TILE},
 	tile: {width: TILE, height: TILE, backgroundColor: colors.graphite},

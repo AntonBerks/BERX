@@ -112,7 +112,8 @@ function PlacesNearbyScreenBody({api, onOpenPlace, onBack}: PlacesNearbyScreenPr
 }
 
 const styles = StyleSheet.create({
-	screen: {flex: 1, backgroundColor: colors.bg},
+	/* no opaque fill: the scene paints the room this screen stands in */
+	screen: {flex: 1},
 	form: {padding: spacing.md, gap: spacing.sm},
 	row: {flexDirection: 'row', gap: spacing.sm},
 	half: {flex: 1},

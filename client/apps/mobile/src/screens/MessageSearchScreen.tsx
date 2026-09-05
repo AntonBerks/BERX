@@ -93,7 +93,8 @@ function MessageSearchScreenBody({api, onOpenConversation, onBack}: MessageSearc
 }
 
 const styles = StyleSheet.create({
-	screen: {flex: 1, backgroundColor: colors.bg},
+	/* no opaque fill: the scene paints the room this screen stands in */
+	screen: {flex: 1},
 	searchBar: {padding: spacing.md},
 	list: {padding: spacing.md, gap: spacing.sm},
 	row: {flexDirection: 'row', gap: spacing.sm, paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.borderSoft},

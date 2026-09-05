@@ -63,7 +63,8 @@ function VideoFeedScreenBody({api, userGuid, isOwn, title, onOpenVideo, onOpenPr
 	if (error) return <BerxErrorState message={error} onRetry={load} />;
 
 	return (
-		<View style={{flex: 1, backgroundColor: colors.bg}}>
+		/* no opaque fill: the scene paints the room */
+		<View style={{flex: 1}}>
 			<BerxHeader title={title} onBack={onBack} />
 			{isOwn && onCreate ? (
 				<View style={{padding: 16}}>

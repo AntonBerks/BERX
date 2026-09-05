@@ -127,7 +127,8 @@ function CreatorSettingsScreenBody({api, myUsername, onDisabled, onBack}: Creato
 }
 
 const styles = StyleSheet.create({
-	screen: {flex: 1, backgroundColor: colors.bg},
+	/* no opaque fill: the scene paints the room this screen stands in */
+	screen: {flex: 1},
 	body: {padding: spacing.md, gap: spacing.md},
 	hint: {fontSize: typography.sizeSm, color: colors.textDim},
 	error: {fontSize: typography.sizeSm, color: colors.danger},

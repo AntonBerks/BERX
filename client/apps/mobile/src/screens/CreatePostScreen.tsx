@@ -143,7 +143,8 @@ function CreatePostScreenBody({api, pickImage, onCreated}: CreatePostScreenProps
 }
 
 const styles = StyleSheet.create({
-	screen: {flex: 1, backgroundColor: colors.black, padding: spacing.lg, gap: spacing.md},
+	/* no opaque fill: the scene paints the room this screen stands in */
+	screen: {flex: 1, padding: spacing.lg, gap: spacing.md},
 	title: {color: colors.text, fontSize: typography.sizeXl, fontWeight: typography.weightBold, marginBottom: spacing.sm},
 	input: {minHeight: 120, textAlignVertical: 'top'},
 	previewWrap: {alignSelf: 'flex-start'},

@@ -134,7 +134,8 @@ function BusinessHomeScreenBody({api, placeGuid, onOpenProfile, onOpenDashboard,
 }
 
 const styles = StyleSheet.create({
-	screen: {flex: 1, backgroundColor: colors.bg},
+	/* no opaque fill: the scene paints the room this screen stands in */
+	screen: {flex: 1},
 	scrollContent: {paddingBottom: spacing.xxxl},
 	body: {padding: spacing.lg, gap: spacing.lg, marginTop: -spacing.xl},
 	statsRow: {flexDirection: 'row', gap: spacing.sm},

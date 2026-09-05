@@ -210,7 +210,8 @@ function CreatorProfileSceneBody({api, username, onOpenPost, onOpenAlbum, onOpen
 }
 
 const styles = StyleSheet.create({
-	screen: {flex: 1, backgroundColor: colors.bg},
+	/* no opaque fill: the scene paints the room this screen stands in */
+	screen: {flex: 1},
 	body: {padding: spacing.md, gap: spacing.sm},
 	category: {fontSize: typography.sizeXs, color: colors.accent, fontWeight: typography.weightBold, textTransform: 'uppercase'},
 	bio: {fontSize: typography.sizeSm, color: colors.textDim},

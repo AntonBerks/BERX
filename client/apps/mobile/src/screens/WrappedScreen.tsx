@@ -90,7 +90,8 @@ function WrappedScreenBody({api, onBack}: WrappedScreenProps) {
 }
 
 const styles = StyleSheet.create({
-	screen: {flex: 1, backgroundColor: colors.bg},
+	/* no opaque fill: the scene paints the room this screen stands in */
+	screen: {flex: 1},
 	tabs: {flexDirection: 'row', gap: spacing.sm, padding: spacing.md},
 	tab: {fontSize: typography.sizeSm, color: colors.textFaint, paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: radius.pill, backgroundColor: colors.surface},
 	tabActive: {color: colors.accent, backgroundColor: colors.accentSoft},

@@ -238,7 +238,8 @@ const styles = StyleSheet.create({
 	hourValue: {fontSize: typography.sizeSm, color: colors.white, minWidth: 44, textAlign: 'center'},
 	hourDash: {fontSize: typography.sizeSm, color: colors.textFaint},
 	hoursSavedNote: {fontSize: typography.sizeXs, color: colors.success},
-	screen: {flex: 1, backgroundColor: colors.bg},
+	/* no opaque fill: the scene paints the room this screen stands in */
+	screen: {flex: 1},
 	content: {padding: spacing.lg, gap: spacing.md, paddingBottom: spacing.xxxl},
 	pageTitle: {fontSize: typography.sizeTitle, color: colors.white, fontWeight: typography.weightBold},
 	typeGrid: {flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs},

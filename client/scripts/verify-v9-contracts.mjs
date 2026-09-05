@@ -238,6 +238,26 @@ gate(
 		? `${walkTsx(screensDir).length} screens, every action row on the control plane`
 		: flatActionRows.map((f) => `${f.file} (${f.hits})`).join(', '),
 );
+/* --- no screen may paint over the scene it stands in ---------------
+   Every screen renders inside a resolved scene that paints D0 and D1
+   for it. A screen-level `backgroundColor: colors.bg` covers both:
+   the atmosphere is resolved, the parallax runs, and none of it
+   reaches the viewer. Forty-five screens were doing exactly that,
+   which is the archive's "flat screen inside a 5D shell" in its most
+   literal form. */
+const opaqueScreens = walkTsx(screensDir)
+	.map((file) => ({
+		file: path.relative(clientRoot, file),
+		hits: (fs.readFileSync(file, 'utf8').match(/flex: 1,\s*backgroundColor: colors\.(bg|black|graphite)/g) ?? []).length,
+	}))
+	.filter((f) => f.hits > 0);
+gate(
+	'no screen paints an opaque background over its scene',
+	opaqueScreens.length === 0,
+	opaqueScreens.length === 0
+		? `${walkTsx(screensDir).length} screens, every one standing in its scene`
+		: opaqueScreens.map((f) => `${f.file} (${f.hits})`).join(', '),
+);
 gate('no probe findings', report.findings.length === 0, report.findings.slice(0, 8).map((f) => `${f.scope}: ${f.message}`).join(' | ') || 'clean');
 
 const failed = gates.filter((g) => !g.pass);

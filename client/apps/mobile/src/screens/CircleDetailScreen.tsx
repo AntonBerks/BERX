@@ -139,7 +139,8 @@ function CircleDetailScreenBody({api, id, onBack}: CircleDetailScreenProps) {
 }
 
 const styles = StyleSheet.create({
-	screen: {flex: 1, backgroundColor: colors.bg},
+	/* no opaque fill: the scene paints the room this screen stands in */
+	screen: {flex: 1},
 	toolbar: {padding: spacing.md},
 	toggleBtn: {alignSelf: 'flex-start'},
 	toggleBtnText: {fontSize: typography.sizeSm, color: colors.accent, fontWeight: typography.weightMedium},

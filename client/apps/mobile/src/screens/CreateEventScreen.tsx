@@ -128,7 +128,8 @@ function CreateEventScreenBody({api, onCreated, onBack}: CreateEventScreenProps)
 }
 
 const styles = StyleSheet.create({
-	screen: {flex: 1, backgroundColor: colors.bg},
+	/* no opaque fill: the scene paints the room this screen stands in */
+	screen: {flex: 1},
 	body: {padding: spacing.md, gap: spacing.md},
 	label: {fontSize: typography.sizeXs, color: colors.textFaint, fontWeight: typography.weightBold, textTransform: 'uppercase'},
 	staticValue: {fontSize: typography.sizeBase, color: colors.text},

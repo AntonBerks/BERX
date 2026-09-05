@@ -162,7 +162,8 @@ function VideoDetailScreenBody({api, postGuid, myGuid, onOpenProfile, onDeleted,
 }
 
 const styles = StyleSheet.create({
-	screen: {flex: 1, backgroundColor: colors.black},
+	/* no opaque fill: the scene paints the room this screen stands in */
+	screen: {flex: 1},
 	body: {padding: spacing.lg, gap: spacing.md},
 	author: {color: colors.accent, fontSize: typography.sizeLg, fontWeight: typography.weightMedium},
 	text: {color: colors.text, fontSize: typography.sizeBase},

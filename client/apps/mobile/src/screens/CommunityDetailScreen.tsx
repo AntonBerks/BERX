@@ -127,7 +127,8 @@ function CommunityDetailScreenBody({api, guid, myGuid, onBack, onOpenRequests, o
 }
 
 const styles = StyleSheet.create({
-	screen: {flex: 1, backgroundColor: colors.black},
+	/* no opaque fill: the scene paints the room this screen stands in */
+	screen: {flex: 1},
 	content: {padding: spacing.lg, gap: spacing.md},
 	ownerActions: {gap: spacing.sm, marginTop: spacing.sm},
 	name: {color: colors.text, fontSize: typography.sizeXl, fontWeight: typography.weightBold},
