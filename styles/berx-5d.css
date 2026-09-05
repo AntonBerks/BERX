@@ -190,6 +190,10 @@
 }
 /* the object's own words, standing in its own picture */
 .berx-card-media > :not(.berx-card-stage){position:relative;margin-top:-28%;padding:0 16px 16px;z-index:1}
+/* anything after the object's own words continues on its surface,
+   below the picture, at the card's own rhythm rather than pulled up
+   into the falloff */
+.berx-card-media > :not(.berx-card-stage) ~ *{margin-top:0;padding:0 16px 16px}
 
 /* ── D5 focus field ──────────────────────────────────
    The clearing sits between the content and the controls: above D3,

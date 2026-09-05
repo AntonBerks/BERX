@@ -105,11 +105,17 @@ export function BerxObjectCard({
 								{subtitle}
 							</BerxText>
 						) : null}
-						{facts && facts.length > 0 ? <Facts facts={facts} /> : null}
 					</View>
 				</View>
 			) : null}
-			{!cinematic || body || actions ? (
+			{/* Numbers stand on the card, not in the picture.
+			    A badge is a state — live, open, verified — and it belongs
+			    over the media it qualifies. A fact is a quantity, read as
+			    a figure with a word under it, and three of those stacked
+			    on a photograph beside a title is a caption competing with
+			    itself. They sit on the object's own surface below the
+			    picture, where a figure is read rather than glanced at. */}
+			{!cinematic || body || actions || (facts && facts.length > 0) ? (
 				<View style={cinematic ? styles.tail : styles.body}>
 					{!cinematic && badges ? <View style={styles.badges}>{badges}</View> : null}
 					{!cinematic ? (
@@ -127,7 +133,7 @@ export function BerxObjectCard({
 							{body}
 						</BerxText>
 					) : null}
-					{!cinematic && facts && facts.length > 0 ? <Facts facts={facts} /> : null}
+					{facts && facts.length > 0 ? <Facts facts={facts} /> : null}
 					{/* actions are promoted to the control plane, attached to
 					    the card rather than floating over it — see
 					    BerxActionShelf */}
