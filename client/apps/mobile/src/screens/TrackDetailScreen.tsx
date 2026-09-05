@@ -6,7 +6,7 @@
  * also cleans up the real attached audio file.
  */
 import {useCallback, useEffect, useState} from 'react';
-import {View, Pressable, StyleSheet} from 'react-native';
+import {View, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxTrackPost, BerxPostComment} from '@berx/api/types';
 import {relativeTimeLabel} from '@berx/domain';
@@ -19,6 +19,10 @@ import {BerxLoadingState, BerxErrorState} from '../../../../packages/design-syst
 import {BerxActionShelf} from '../../../../packages/design-system/src/spatial/BerxActionShelf';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 import {BerxText} from '../../../../packages/design-system/src/spatial/BerxText';
+import {BerxSceneScroll} from '../../../../packages/design-system/src/spatial/BerxSceneScroll';
+import {BerxSection} from '../../../../packages/design-system/src/spatial/BerxSection';
+import {BerxIdentity} from '../../../../packages/design-system/src/spatial/BerxIdentity';
+import {berxCount} from '@berx/domain';
 
 export interface TrackDetailScreenProps {
 	api: BerxApiClient;
@@ -121,51 +125,58 @@ function TrackDetailScreenBody({api, postGuid, myGuid, onOpenProfile, onDeleted,
 	const isOwn = myGuid === track.owner_guid;
 
 	return (
-		<View style={styles.screen}>
-			<BerxHeader title={track.owner_username ?? 'Трек'} onBack={onBack} />
+		<BerxSceneScroll style={styles.screen} contentContainerStyle={styles.scroll}>
+			{/* the track is the subject; the way back does not name it twice.
+			    It scrolls now — the comments used to run off the bottom with
+			    nothing to scroll. */}
+			<BerxHeader onBack={onBack} />
 			<View style={styles.body}>
-				<BerxAudioPlayer url={track.track.url} />
+				<BerxSection leading>
+					<BerxAudioPlayer url={track.track.url} />
+					<BerxIdentity
+						userGuid={track.owner_guid}
+						name={track.owner_username ?? 'BERX'}
+						subtitle={relativeTimeLabel(track.time_created)}
+						size={40}
+						onPress={track.owner_username ? () => onOpenProfile(track.owner_username as string) : undefined}
+					/>
+					{track.text ? <BerxText role="body">{track.text}</BerxText> : null}
 
-				<Pressable
-					accessibilityRole="button"
-					accessibilityLabel={`Профиль ${track.owner_username ?? 'BERX'}`}
-					onPress={() => track.owner_username && onOpenProfile(track.owner_username)}>
-					<BerxText role="subtitle" emphasis="accent">{track.owner_username ?? 'BERX'}</BerxText>
-				</Pressable>
-				{track.text ? <BerxText role="body">{track.text}</BerxText> : null}
-				<BerxText role="meta" emphasis="tertiary">{relativeTimeLabel(track.time_created)}</BerxText>
+					<BerxActionShelf variant="anchored">
+						<BerxButton label={liked ? 'Понравилось' : 'Нравится'} variant={liked ? 'secondary' : 'primary'} onPress={handleLike} loading={liking} disabled={liked} />
+						{isOwn ? <BerxButton label="Удалить" variant="danger" onPress={handleDelete} loading={deleting} /> : null}
+					</BerxActionShelf>
+				</BerxSection>
 
-				<BerxActionShelf variant="anchored">
-					<BerxButton label={liked ? 'Понравилось' : 'Нравится'} variant={liked ? 'secondary' : 'primary'} onPress={handleLike} loading={liking} disabled={liked} />
-					{isOwn ? <BerxButton label="Удалить" variant="danger" onPress={handleDelete} loading={deleting} /> : null}
-				</BerxActionShelf>
+				<BerxSection label="Комментарии" detail={comments.length > 0 ? berxCount(comments.length, 'комментарий', 'комментария', 'комментариев') : undefined}>
+					<View style={styles.commentBox}>
+						<BerxInput placeholder="Комментарий..." value={commentText} onChangeText={setCommentText} multiline />
+						<BerxButton label="Отправить" variant="secondary" onPress={handleComment} loading={posting} />
+					</View>
 
-				<View style={styles.commentBox}>
-					<BerxInput placeholder="Комментарий..." value={commentText} onChangeText={setCommentText} multiline />
-					<BerxButton label="Отправить" variant="secondary" onPress={handleComment} loading={posting} />
-				</View>
-
-				{commentsLoading ? (
-					<BerxText role="meta" emphasis="secondary">Загрузка комментариев...</BerxText>
-				) : comments.length === 0 ? (
-					<BerxText role="meta" emphasis="secondary">Комментариев пока нет.</BerxText>
-				) : (
-					comments.map((c) => (
-						<View key={c.id} style={styles.commentRow}>
-							<BerxText role="label">{c.author?.fullname ?? 'Пользователь'}</BerxText>
-							<BerxText role="meta" emphasis="secondary">{c.text}</BerxText>
-						</View>
-					))
-				)}
+					{commentsLoading ? (
+						<BerxText role="meta" emphasis="secondary">Загрузка комментариев...</BerxText>
+					) : comments.length === 0 ? (
+						<BerxText role="meta" emphasis="secondary">Комментариев пока нет.</BerxText>
+					) : (
+						comments.map((c) => (
+							<View key={c.id} style={styles.commentRow}>
+								<BerxText role="label">{c.author?.fullname ?? 'Пользователь'}</BerxText>
+								<BerxText role="meta" emphasis="secondary">{c.text}</BerxText>
+							</View>
+						))
+					)}
+				</BerxSection>
 			</View>
-		</View>
+		</BerxSceneScroll>
 	);
 }
 
 const styles = StyleSheet.create({
 	/* no opaque fill: the scene paints the room this screen stands in */
 	screen: {flex: 1},
-	body: {padding: spacing.lg, gap: spacing.md},
+	scroll: {paddingBottom: spacing.xxxl},
+	body: {paddingHorizontal: spacing.lg},
 	actions: {flexDirection: 'row', gap: spacing.sm},
 	commentBox: {gap: spacing.sm, marginTop: spacing.sm},
 	commentRow: {gap: 2, paddingVertical: spacing.xs, borderTopWidth: 1, borderTopColor: colors.glass1},

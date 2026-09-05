@@ -9,7 +9,7 @@
  * server-side), which also cleans up the real attached video file.
  */
 import {useCallback, useEffect, useState} from 'react';
-import {View, Pressable, StyleSheet} from 'react-native';
+import {View, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxVideoPost, BerxPostComment} from '@berx/api/types';
 import {relativeTimeLabel} from '@berx/domain';
@@ -22,6 +22,10 @@ import {BerxLoadingState, BerxErrorState} from '../../../../packages/design-syst
 import {BerxActionShelf} from '../../../../packages/design-system/src/spatial/BerxActionShelf';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 import {BerxText} from '../../../../packages/design-system/src/spatial/BerxText';
+import {BerxSceneScroll} from '../../../../packages/design-system/src/spatial/BerxSceneScroll';
+import {BerxSection} from '../../../../packages/design-system/src/spatial/BerxSection';
+import {BerxIdentity} from '../../../../packages/design-system/src/spatial/BerxIdentity';
+import {berxCount} from '@berx/domain';
 
 export interface VideoDetailScreenProps {
 	api: BerxApiClient;
@@ -124,51 +128,63 @@ function VideoDetailScreenBody({api, postGuid, myGuid, onOpenProfile, onDeleted,
 	const isOwn = myGuid === video.owner_guid;
 
 	return (
-		<View style={styles.screen}>
-			<BerxHeader title={video.owner_username ?? 'Видео'} onBack={onBack} />
+		<BerxSceneScroll style={styles.screen} contentContainerStyle={styles.scroll}>
+			{/* the player is the subject, so the way back does not name it
+			    a second time */}
+			<BerxHeader onBack={onBack} />
+
+			{/* D3 — the video itself, full-bleed, standing in the immersive
+			    room this family resolves. It scrolls now: comments used to
+			    run off the bottom of the screen with nothing to scroll. */}
 			<BerxVideoPlayer url={video.video.url} />
 
 			<View style={styles.body}>
-				<Pressable
-					accessibilityRole="button"
-					accessibilityLabel={`Профиль ${video.owner_username ?? 'BERX'}`}
-					onPress={() => video.owner_username && onOpenProfile(video.owner_username)}>
-					<BerxText role="subtitle" emphasis="accent">{video.owner_username ?? 'BERX'}</BerxText>
-				</Pressable>
-				{video.text ? <BerxText role="body">{video.text}</BerxText> : null}
-				<BerxText role="meta" emphasis="tertiary">{relativeTimeLabel(video.time_created)}</BerxText>
+				<BerxSection leading>
+					<BerxIdentity
+						userGuid={video.owner_guid}
+						name={video.owner_username ?? 'BERX'}
+						subtitle={relativeTimeLabel(video.time_created)}
+						size={40}
+						onPress={video.owner_username ? () => onOpenProfile(video.owner_username as string) : undefined}
+					/>
+					{video.text ? <BerxText role="body">{video.text}</BerxText> : null}
 
-				<BerxActionShelf variant="anchored">
-					<BerxButton label={liked ? 'Понравилось' : 'Нравится'} variant={liked ? 'secondary' : 'primary'} onPress={handleLike} loading={liking} disabled={liked} />
-					{isOwn ? <BerxButton label="Удалить" variant="danger" onPress={handleDelete} loading={deleting} /> : null}
-				</BerxActionShelf>
+					{/* D4 — what you can do to it */}
+					<BerxActionShelf variant="anchored">
+						<BerxButton label={liked ? 'Понравилось' : 'Нравится'} variant={liked ? 'secondary' : 'primary'} onPress={handleLike} loading={liking} disabled={liked} />
+						{isOwn ? <BerxButton label="Удалить" variant="danger" onPress={handleDelete} loading={deleting} /> : null}
+					</BerxActionShelf>
+				</BerxSection>
 
-				<View style={styles.commentBox}>
-					<BerxInput placeholder="Комментарий..." value={commentText} onChangeText={setCommentText} multiline />
-					<BerxButton label="Отправить" variant="secondary" onPress={handleComment} loading={posting} />
-				</View>
+				<BerxSection label="Комментарии" detail={comments.length > 0 ? berxCount(comments.length, 'комментарий', 'комментария', 'комментариев') : undefined}>
+					<View style={styles.commentBox}>
+						<BerxInput placeholder="Комментарий..." value={commentText} onChangeText={setCommentText} multiline />
+						<BerxButton label="Отправить" variant="secondary" onPress={handleComment} loading={posting} />
+					</View>
 
-				{commentsLoading ? (
-					<BerxText role="meta" emphasis="secondary">Загрузка комментариев...</BerxText>
-				) : comments.length === 0 ? (
-					<BerxText role="meta" emphasis="secondary">Комментариев пока нет.</BerxText>
-				) : (
-					comments.map((c) => (
-						<View key={c.id} style={styles.commentRow}>
-							<BerxText role="label">{c.author?.fullname ?? 'Пользователь'}</BerxText>
-							<BerxText role="meta" emphasis="secondary">{c.text}</BerxText>
-						</View>
-					))
-				)}
+					{commentsLoading ? (
+						<BerxText role="meta" emphasis="secondary">Загрузка комментариев...</BerxText>
+					) : comments.length === 0 ? (
+						<BerxText role="meta" emphasis="secondary">Комментариев пока нет.</BerxText>
+					) : (
+						comments.map((c) => (
+							<View key={c.id} style={styles.commentRow}>
+								<BerxText role="label">{c.author?.fullname ?? 'Пользователь'}</BerxText>
+								<BerxText role="meta" emphasis="secondary">{c.text}</BerxText>
+							</View>
+						))
+					)}
+				</BerxSection>
 			</View>
-		</View>
+		</BerxSceneScroll>
 	);
 }
 
 const styles = StyleSheet.create({
 	/* no opaque fill: the scene paints the room this screen stands in */
 	screen: {flex: 1},
-	body: {padding: spacing.lg, gap: spacing.md},
+	scroll: {paddingBottom: spacing.xxxl},
+	body: {paddingHorizontal: spacing.lg},
 	actions: {flexDirection: 'row', gap: spacing.sm},
 	commentBox: {gap: spacing.sm, marginTop: spacing.sm},
 	commentRow: {gap: 2, paddingVertical: spacing.xs, borderTopWidth: 1, borderTopColor: colors.glass1},
