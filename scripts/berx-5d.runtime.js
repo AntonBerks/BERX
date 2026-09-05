@@ -1516,8 +1516,18 @@ function sceneCustomProperties(scene) {
     "--berx-ambient-ms": `${scene.motion.ambient.durationMs}ms`
   };
   const d2 = scene.layers.D2;
+  props["--berx-card-fall"] = [
+    "to bottom",
+    `${rgbaOf(scene.background, 0)} 0%`,
+    `${rgbaOf(scene.background, 0.18)} 38%`,
+    `${rgbaOf(scene.background, 0.72)} 62%`,
+    `${rgbaOf(scene.background, 0.94)} 82%`,
+    `${rgbaOf(scene.background, 0.99)} 100%`
+  ].join(", ");
   props["--berx-room"] = [
     `linear-gradient(160deg, ${d2.lighting.key.stops[0].color} 0%, ${d2.lighting.key.stops[1].color} 34%, transparent 100%)`,
+    `linear-gradient(to right, ${transparentize(d2.surface.edgeHighlightColor, 0.5)} 0%, transparent 14%)`,
+    `linear-gradient(to left, ${transparentize(d2.surface.backgroundColor, 0.9)} 0%, transparent 14%)`,
     `linear-gradient(to bottom, transparent 68%, ${d2.surface.backgroundColor} 100%)`
   ].join(", ");
   for (const depth of BERX_DEPTH_KEYS) {

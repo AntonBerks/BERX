@@ -435,11 +435,38 @@ export function sceneCustomProperties(scene: BerxSceneRuntime): Record<string, s
 	 * in at the top, along the axis every BERX surface is lit from, and
 	 * from a floor the content stands on. Both from the structure
 	 * plane's own resolved material, so the room changes with the
-	 * colour world rather than being a fixed wash.
+	 * colour world rather than being a fixed wash — and from the two
+	 * walls it is between, which is what gives the scene a width to be
+	 * inside of rather than a flat plane with a lit top and bottom.
+	 * The walls are asymmetric on purpose: the one the key light falls
+	 * on is lighter than the one opposite, because that is what a lit
+	 * room does, and two identical walls read as a vignette rather
+	 * than as architecture.
 	 */
 	const d2 = scene.layers.D2;
+	/**
+	 * The falloff an object made of its own media darkens into.
+	 *
+	 * Emitted as real rgba stops rather than left to the stylesheet's
+	 * color-mix: rendered against a bright photograph, the mixed
+	 * version resolved far weaker than its percentages implied and the
+	 * title sat on a lit image at a contrast that would not pass —
+	 * found by putting a bright picture in a card and looking at it.
+	 * The substrate colour is known here, so the ramp is stated here.
+	 */
+	props['--berx-card-fall'] = [
+		'to bottom',
+		`${rgbaOf(scene.background, 0)} 0%`,
+		`${rgbaOf(scene.background, 0.18)} 38%`,
+		`${rgbaOf(scene.background, 0.72)} 62%`,
+		`${rgbaOf(scene.background, 0.94)} 82%`,
+		`${rgbaOf(scene.background, 0.99)} 100%`,
+	].join(', ');
+
 	props['--berx-room'] = [
 		`linear-gradient(160deg, ${d2.lighting.key.stops[0].color} 0%, ${d2.lighting.key.stops[1].color} 34%, transparent 100%)`,
+		`linear-gradient(to right, ${transparentize(d2.surface.edgeHighlightColor, 0.5)} 0%, transparent 14%)`,
+		`linear-gradient(to left, ${transparentize(d2.surface.backgroundColor, 0.9)} 0%, transparent 14%)`,
 		`linear-gradient(to bottom, transparent 68%, ${d2.surface.backgroundColor} 100%)`,
 	].join(', ');
 
