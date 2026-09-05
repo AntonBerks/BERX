@@ -13,6 +13,7 @@ export * from './BerxSurface';
 export * from './useBerxLayer';
 export * from './BerxDepthLayer';
 export * from './BerxSceneBackdrop';
+export * from './BerxRoomShell';
 export * from './BerxScrim';
 export * from './BerxSpatialCard';
 export * from './BerxFocusRing';

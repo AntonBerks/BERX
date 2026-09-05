@@ -346,6 +346,23 @@ export function sceneCustomProperties(scene: BerxSceneRuntime): Record<string, s
 		'--berx-ambient-ms': `${scene.motion.ambient.durationMs}ms`,
 	};
 
+	/**
+	 * D2 — the room between the atmosphere and the content.
+	 *
+	 * Not a box: a bordered container drawn around the content is the
+	 * generic dashboard the archive rejects, and it would fight the
+	 * cards for the same edge. A room is legible from the light coming
+	 * in at the top, along the axis every BERX surface is lit from, and
+	 * from a floor the content stands on. Both from the structure
+	 * plane's own resolved material, so the room changes with the
+	 * colour world rather than being a fixed wash.
+	 */
+	const d2 = scene.layers.D2;
+	props['--berx-room'] = [
+		`linear-gradient(160deg, ${d2.lighting.key.stops[0].color} 0%, ${d2.lighting.key.stops[1].color} 34%, transparent 100%)`,
+		`linear-gradient(to bottom, transparent 68%, ${d2.surface.backgroundColor} 100%)`,
+	].join(', ');
+
 	for (const depth of BERX_DEPTH_KEYS) {
 		const layer = scene.layers[depth];
 		const k = depth.toLowerCase();

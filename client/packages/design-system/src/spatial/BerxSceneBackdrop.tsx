@@ -26,6 +26,7 @@ import {berxAtmospherePoolBudget, resolveAtmosphere, rgba, type BerxAtmosphereKi
 import {useBerxScene} from './BerxSpatialScene';
 import {BerxDepthLayer} from './BerxDepthLayer';
 import {BerxAtmosphereField} from './BerxAtmosphereField';
+import {BerxRoomShell} from './BerxRoomShell';
 
 export interface BerxSceneBackdropProps {
 	/**
@@ -161,6 +162,34 @@ export function BerxSceneBackdrop({media, kind, scrim = 0}: BerxSceneBackdropPro
 				{totalScrim > 0 ? (
 					<View style={[StyleSheet.absoluteFillObject, {backgroundColor: rgba(scene.background, totalScrim)}]} />
 				) : null}
+			</BerxDepthLayer>
+
+			{/**
+			 * D2 — the room itself.
+			 *
+			 * Until this layer existed, content sat directly on the
+			 * atmosphere: cards on a background rather than objects in a
+			 * space. This is the architecture between them, and it is
+			 * deliberately not a box — a bordered container around the
+			 * content is the generic-dashboard look the archive rejects.
+			 *
+			 * It is the two things a room has that you can see without
+			 * looking at its walls: light entering at the top, where the
+			 * key light of every BERX scene comes from, and a floor the
+			 * content stands on. Both are the structure plane's own
+			 * material and lighting, so a Crimson room and an Obsidian
+			 * room are lit differently, and a family whose atmosphere has
+			 * a ground plane gets a floor that agrees with it.
+			 */}
+			<BerxDepthLayer depth="D2" absoluteFill style={{margin: -overscan}}>
+				<BerxRoomShell
+					width={width + overscan * 2}
+					height={height + overscan * 2}
+					surface={scene.layers.D2.surface}
+					lighting={scene.layers.D2.lighting}
+					grounded={atmosphere.ground !== null}
+					id={`berx-room-${scene.screenId}`}
+				/>
 			</BerxDepthLayer>
 		</>
 	);

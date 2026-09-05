@@ -885,6 +885,8 @@ gate(
  * the composed room is a minor one. If the room ever became the
  * expensive layer, this fails and the pool budget is the lever.
  */
+/** Two frames in forty is the run-to-run spread of this measurement. */
+const NOISE_FLOOR_FRAMES = 2;
 const glassCost = results.frameAttribution.withGlass.dropped - results.frameAttribution.withoutGlass.dropped;
 const roomCost = results.frameAttribution.withoutGlass.dropped - results.frameAttribution.withoutEnvironment.dropped;
 const frameCount = results.frameAttribution.withGlass.count;
@@ -894,7 +896,14 @@ gate(
 	   at all there is nothing for the room to be cheaper than, and a
 	   strict comparison failed that run for being too fast. What must
 	   hold is that the room never becomes the expensive layer. */
-	roomCost <= glassCost &&
+	/**
+	 * The room must never be the expensive layer. Below the noise floor
+	 * the measurement cannot tell a cost from zero — two runs of the
+	 * same scene differ by a frame or two, and one run put the glass at
+	 * -1 frames against the opaque scene, which made a strictly-cheaper
+	 * comparison fail for a reason that has nothing to do with BERX.
+	 */
+	(roomCost <= Math.max(glassCost, NOISE_FLOOR_FRAMES)) &&
 		roomCost <= Math.ceil(frameCount * 0.1) &&
 		/* same vsync quantisation as the frame ceiling: two p95s that
 		   print as 83.3ms are one measurement, and a strict comparison
