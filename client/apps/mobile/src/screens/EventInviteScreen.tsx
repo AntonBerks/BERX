@@ -72,12 +72,31 @@ function EventInviteScreenBody({api, guid, onBack}: EventInviteScreenProps) {
 		}
 	}
 
-	if (loading) return <BerxLoadingState />;
-	if (error && friends.length === 0) return <BerxErrorState message={error} onRetry={load} />;
+	/* hoisted: the way back has to survive loading and failure — it
+	   used to render only once the data arrived, so a failed fetch left
+	   a pushed screen with no exit */
+	const header = (
+		<BerxHeader title="Пригласить друзей" onBack={onBack} />
+	);
+
+	if (loading)
+		return (
+			<View style={{flex: 1}}>
+				{header}
+				<BerxLoadingState />
+			</View>
+		);
+	if (error && friends.length === 0)
+		return (
+			<View style={{flex: 1}}>
+				{header}
+				<BerxErrorState message={error} onRetry={load} />
+			</View>
+		);
 
 	return (
 		<View style={styles.screen}>
-			<BerxHeader title="Пригласить друзей" onBack={onBack} />
+			{header}
 			{friends.length === 0 ? (
 				<BerxEmptyState title="Друзей пока нет" subtitle="Как только у вас появятся друзья на BERX, вы сможете приглашать их на события." />
 			) : (

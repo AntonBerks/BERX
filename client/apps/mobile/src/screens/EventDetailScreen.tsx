@@ -114,8 +114,27 @@ function EventDetailSceneBody({api, guid, myGuid, onOpenPlace, onOpenInvite, onA
 		}
 	}
 
-	if (loading && !event) return <BerxLoadingState />;
-	if (error && !event) return <BerxErrorState message={error} onRetry={load} />;
+	/* The way back stays on screen while the scene is loading and after
+	   it fails. It used to be inside the branch that only rendered once
+	   the data had arrived, so an error left the person on a screen with
+	   no exit — the dead end the archive forbids, on a screen reached by
+	   a push. The name arrives when the data does. */
+	const header = <BerxHeader title={event?.title} onBack={onBack} />;
+
+	if (loading && !event)
+		return (
+			<View style={{flex: 1}}>
+				{header}
+				<BerxLoadingState />
+			</View>
+		);
+	if (error && !event)
+		return (
+			<View style={{flex: 1}}>
+				{header}
+				<BerxErrorState message={error} onRetry={load} />
+			</View>
+		);
 	if (!event) return null;
 
 	const rsvpLabel = event.has_ended ? 'Завершено' : event.is_going ? 'Вы идёте' : event.seats_left === 0 ? 'Мест нет' : 'Пойду';
@@ -123,7 +142,7 @@ function EventDetailSceneBody({api, guid, myGuid, onOpenPlace, onOpenInvite, onA
 
 	return (
 		<BerxSceneScroll style={styles.screen}>
-			<BerxHeader title={event.title} onBack={onBack} />
+			{header}
 			{/**
 			 * A real countdown to the server-recorded start, the real
 			 * attendee count and the real remaining capacity. No ticket:

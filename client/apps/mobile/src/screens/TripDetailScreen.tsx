@@ -122,8 +122,27 @@ function TripDetailScreenBody({api, id, onOpenPlace, onOpenEvent, onBack}: TripD
 		}
 	}
 
-	if (loading) return <BerxLoadingState />;
-	if (error || !trip) return <BerxErrorState message={error ?? 'Поездка не найдена'} onRetry={load} />;
+	/* hoisted: the way back has to survive loading and failure — it
+	   used to render only once the data arrived, so a failed fetch left
+	   a pushed screen with no exit */
+	const header = (
+		<BerxHeader onBack={onBack} />
+	);
+
+	if (loading)
+		return (
+			<View style={{flex: 1}}>
+				{header}
+				<BerxLoadingState />
+			</View>
+		);
+	if (error || !trip)
+		return (
+			<View style={{flex: 1}}>
+				{header}
+				<BerxErrorState message={error ?? 'Поездка не найдена'} onRetry={load} />
+			</View>
+		);
 
 	const days = groupByDay(trip.stops);
 	const participantGuids = new Set(trip.participants.map((p: BerxTripParticipant) => p.guid));
@@ -133,7 +152,7 @@ function TripDetailScreenBody({api, id, onOpenPlace, onOpenEvent, onBack}: TripD
 		<View style={styles.screen}>
 			{/* the title lives in the hero, so the way back does not
 			    repeat it */}
-			<BerxHeader onBack={onBack} />
+			{header}
 
 			{/* the journey as the scene's subject. A trip has no cover in
 			    the API, and the hero is built for that: it renders the

@@ -139,6 +139,9 @@ function FeedSceneBody({api, onOpenPost, onOpenProfile, onCreatePost, onOpenStor
 	 * plane beside it, where it is nearer than the title and never
 	 * over it.
 	 */
+	/* hoisted: the way back has to survive loading and failure — it
+	   used to render only once the data arrived, so a failed fetch left
+	   a pushed screen with no exit */
 	const header = (
 		<BerxSceneHeader
 			mark

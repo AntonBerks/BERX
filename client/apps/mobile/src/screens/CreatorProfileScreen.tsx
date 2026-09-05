@@ -97,14 +97,33 @@ function CreatorProfileSceneBody({api, username, onOpenPost, onOpenAlbum, onOpen
 		load();
 	}, [load]);
 
-	if (loading) return <BerxLoadingState />;
-	if (error || !profile || !content) return <BerxErrorState message={error ?? 'Не найдено'} onRetry={load} />;
+	/* hoisted: the way back has to survive loading and failure — it
+	   used to render only once the data arrived, so a failed fetch left
+	   a pushed screen with no exit */
+	const header = (
+		<BerxHeader title={`@${username}`} onBack={onBack} />
+	);
+
+	if (loading)
+		return (
+			<View style={{flex: 1}}>
+				{header}
+				<BerxLoadingState />
+			</View>
+		);
+	if (error || !profile || !content)
+		return (
+			<View style={{flex: 1}}>
+				{header}
+				<BerxErrorState message={error ?? 'Не найдено'} onRetry={load} />
+			</View>
+		);
 
 	const tabCount = tab === 'posts' ? content.posts.length : tab === 'albums' ? content.albums.length : tab === 'events' ? content.events.length : content.experiences.length;
 
 	return (
 		<View style={styles.screen}>
-			<BerxHeader title={`@${username}`} onBack={onBack} />
+			{header}
 			<View style={styles.body}>
 				{/**
 				 * Real audience numbers from creator.php: friends, total

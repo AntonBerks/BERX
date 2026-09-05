@@ -90,15 +90,34 @@ function CircleDetailScreenBody({api, id, onBack}: CircleDetailScreenProps) {
 		}
 	}
 
-	if (loading) return <BerxLoadingState />;
-	if (error || !circle) return <BerxErrorState message={error ?? 'Круг не найден'} onRetry={load} />;
+	/* The way back stays on screen while the scene is loading and after
+	   it fails. It used to be inside the branch that only rendered once
+	   the data had arrived, so an error left the person on a screen with
+	   no exit — the dead end the archive forbids, on a screen reached by
+	   a push. The name arrives when the data does. */
+	const header = <BerxHeader title={circle?.name} onBack={onBack} />;
+
+	if (loading)
+		return (
+			<View style={{flex: 1}}>
+				{header}
+				<BerxLoadingState />
+			</View>
+		);
+	if (error || !circle)
+		return (
+			<View style={{flex: 1}}>
+				{header}
+				<BerxErrorState message={error ?? 'Круг не найден'} onRetry={load} />
+			</View>
+		);
 
 	const memberGuids = new Set(circle.members.map((m: BerxCircleMember) => m.guid));
 	const availableFriends = friends.filter((f: BerxFriend) => !memberGuids.has(f.guid));
 
 	return (
 		<View style={styles.screen}>
-			<BerxHeader title={circle.name} onBack={onBack} />
+			{header}
 			<View style={styles.toolbar}>
 				<Pressable
 					style={styles.toggleBtn}

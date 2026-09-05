@@ -93,14 +93,33 @@ function MemoriesScreenBody({api, onOpenPost, onOpenAlbum, onBack}: MemoriesScre
 		load();
 	}, [load]);
 
-	if (loading) return <BerxLoadingState />;
-	if (error) return <BerxErrorState message={error} onRetry={load} />;
+	/* hoisted: the way back has to survive loading and failure — it
+	   used to render only once the data arrived, so a failed fetch left
+	   a pushed screen with no exit */
+	const header = (
+		<BerxHeader title="Воспоминания" onBack={onBack} />
+	);
+
+	if (loading)
+		return (
+			<View style={{flex: 1}}>
+				{header}
+				<BerxLoadingState />
+			</View>
+		);
+	if (error)
+		return (
+			<View style={{flex: 1}}>
+				{header}
+				<BerxErrorState message={error} onRetry={load} />
+			</View>
+		);
 
 	const sections = groupByYearsAgo(memories);
 
 	return (
 		<View style={styles.screen}>
-			<BerxHeader title="Воспоминания" onBack={onBack} />
+			{header}
 			{sections.length === 0 ? (
 				<BerxEmptyState title="Пока нет воспоминаний" subtitle="Здесь будут появляться посты и фото, опубликованные в этот день в прошлые годы." />
 			) : (

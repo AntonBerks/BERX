@@ -101,11 +101,24 @@ function CreatorSettingsScreenBody({api, myUsername, onDisabled, onBack}: Creato
 		}
 	}
 
-	if (loading) return <BerxLoadingState />;
+	/* hoisted: the way back has to survive loading and failure — it
+	   used to render only once the data arrived, so a failed fetch left
+	   a pushed screen with no exit */
+	const header = (
+		<BerxHeader title="Режим автора" onBack={onBack} />
+	);
+
+	if (loading)
+		return (
+			<View style={{flex: 1}}>
+				{header}
+				<BerxLoadingState />
+			</View>
+		);
 
 	return (
 		<View style={styles.screen}>
-			<BerxHeader title="Режим автора" onBack={onBack} />
+			{header}
 			{/* the content scrolls. It used to be laid out below the
 			    fold with nothing to scroll, so anything past the first
 			    screenful could not be reached at all. Scrolling is also

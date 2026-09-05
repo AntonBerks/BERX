@@ -222,8 +222,27 @@ function PlaceDetailSceneBody({api, guid, myGuid, onAddToCollection, onOpenBusin
 		}
 	}
 
-	if (loading && !place) return <BerxLoadingState />;
-	if (error && !place) return <BerxErrorState message={error} onRetry={load} />;
+	/* The way back stays on screen while the scene is loading and after
+	   it fails. It used to be inside the branch that only rendered once
+	   the data had arrived, so an error left the person on a screen with
+	   no exit — the dead end the archive forbids, on a screen reached by
+	   a push. The name arrives when the data does. */
+	const header = <BerxHeader title={place?.title} onBack={onBack} />;
+
+	if (loading && !place)
+		return (
+			<View style={{flex: 1}}>
+				{header}
+				<BerxLoadingState />
+			</View>
+		);
+	if (error && !place)
+		return (
+			<View style={{flex: 1}}>
+				{header}
+				<BerxErrorState message={error} onRetry={load} />
+			</View>
+		);
 	if (!place) return null;
 
 	const isOwner = place.owner_guid === myGuid;
@@ -231,7 +250,7 @@ function PlaceDetailSceneBody({api, guid, myGuid, onAddToCollection, onOpenBusin
 
 	return (
 		<BerxSceneScroll style={styles.screen}>
-			<BerxHeader title={place.title} onBack={onBack} />
+			{header}
 
 			{/**
 			 * The hero carries the two facts a place page must lead with

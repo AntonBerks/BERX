@@ -59,19 +59,38 @@ function VideoFeedScreenBody({api, userGuid, isOwn, title, onOpenVideo, onOpenPr
 		load();
 	}, [load]);
 
-	if (loading) return <BerxLoadingState />;
-	if (error) return <BerxErrorState message={error} onRetry={load} />;
+	/* hoisted: the way back has to survive loading and failure — it
+	   used to render only once the data arrived, so a failed fetch left
+	   a pushed screen with no exit */
+	const header = (
+		<BerxHeader
+			title={title}
+			onBack={onBack}
+			actions={isOwn && onCreate ? <BerxIconButton name="upload" accessibilityLabel="Загрузить видео" onPress={onCreate} /> : undefined}
+		/>
+	);
+
+	if (loading)
+		return (
+			<View style={{flex: 1}}>
+				{header}
+				<BerxLoadingState />
+			</View>
+		);
+	if (error)
+		return (
+			<View style={{flex: 1}}>
+				{header}
+				<BerxErrorState message={error} onRetry={load} />
+			</View>
+		);
 
 	return (
 		/* no opaque fill: the scene paints the room */
 		<View style={{flex: 1}}>
 			{/* the upload sits on the control plane beside the scene's
 			    name, not as a full-width bar across the top of the room */}
-			<BerxHeader
-				title={title}
-				onBack={onBack}
-				actions={isOwn && onCreate ? <BerxIconButton name="upload" accessibilityLabel="Загрузить видео" onPress={onCreate} /> : undefined}
-			/>
+			{header}
 			{items.length === 0 ? (
 				<BerxEmptyState title="Видео пока нет" subtitle={isOwn ? 'Загрузите первое видео.' : undefined} />
 			) : (

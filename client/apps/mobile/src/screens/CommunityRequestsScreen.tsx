@@ -78,12 +78,31 @@ function CommunityRequestsScreenBody({api, guid, onBack}: CommunityRequestsScree
 		}
 	}
 
-	if (loading) return <BerxLoadingState />;
-	if (error && items.length === 0) return <BerxErrorState message={error} onRetry={load} />;
+	/* hoisted: the way back has to survive loading and failure — it
+	   used to render only once the data arrived, so a failed fetch left
+	   a pushed screen with no exit */
+	const header = (
+		<BerxHeader title="Заявки на вступление" onBack={onBack} />
+	);
+
+	if (loading)
+		return (
+			<View style={{flex: 1}}>
+				{header}
+				<BerxLoadingState />
+			</View>
+		);
+	if (error && items.length === 0)
+		return (
+			<View style={{flex: 1}}>
+				{header}
+				<BerxErrorState message={error} onRetry={load} />
+			</View>
+		);
 
 	return (
 		<View style={styles.screen}>
-			<BerxHeader title="Заявки на вступление" onBack={onBack} />
+			{header}
 			{items.length === 0 ? (
 				<BerxEmptyState title="Заявок нет" subtitle="Новые заявки на вступление появятся здесь." />
 			) : (

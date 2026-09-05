@@ -79,12 +79,31 @@ function AddToCollectionScreenBody({api, myGuid, itemType, itemGuid, onCreateCol
 		}
 	}
 
-	if (loading) return <BerxLoadingState />;
-	if (error) return <BerxErrorState message={error} onRetry={load} />;
+	/* hoisted: the way back has to survive loading and failure — it
+	   used to render only once the data arrived, so a failed fetch left
+	   a pushed screen with no exit */
+	const header = (
+		<BerxHeader title="Добавить в подборку" onBack={onBack} />
+	);
+
+	if (loading)
+		return (
+			<View style={{flex: 1}}>
+				{header}
+				<BerxLoadingState />
+			</View>
+		);
+	if (error)
+		return (
+			<View style={{flex: 1}}>
+				{header}
+				<BerxErrorState message={error} onRetry={load} />
+			</View>
+		);
 
 	return (
 		<View style={styles.screen}>
-			<BerxHeader title="Добавить в подборку" onBack={onBack} />
+			{header}
 			<View style={styles.toolbar}>
 				<BerxButton label="Новая подборка" variant="secondary" onPress={onCreateCollection} fullWidth />
 			</View>

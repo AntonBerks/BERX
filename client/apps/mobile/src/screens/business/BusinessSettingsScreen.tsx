@@ -166,12 +166,31 @@ function BusinessSettingsScreenBody({api, placeGuid, onBack}: BusinessSettingsSc
 		}
 	}
 
-	if (loading) return <BerxLoadingState />;
-	if (error || !place) return <BerxErrorState message={error ?? 'Не удалось загрузить'} onRetry={load} />;
+	/* hoisted: the way back has to survive loading and failure — it
+	   used to render only once the data arrived, so a failed fetch left
+	   a pushed screen with no exit */
+	const header = (
+		<BerxHeader onBack={onBack} />
+	);
+
+	if (loading)
+		return (
+			<View style={{flex: 1}}>
+				{header}
+				<BerxLoadingState />
+			</View>
+		);
+	if (error || !place)
+		return (
+			<View style={{flex: 1}}>
+				{header}
+				<BerxErrorState message={error ?? 'Не удалось загрузить'} onRetry={load} />
+			</View>
+		);
 
 	return (
 		<BerxSceneScroll style={styles.screen} contentContainerStyle={styles.content}>
-			<BerxHeader onBack={onBack} />
+			{header}
 			<BerxText role="title">Настройки бизнеса</BerxText>
 
 			<BerxEyebrow>Тип бизнеса</BerxEyebrow>

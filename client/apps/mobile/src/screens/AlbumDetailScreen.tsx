@@ -108,13 +108,32 @@ function AlbumDetailScreenBody({api, guid, authState, pickImage, onBack}: AlbumD
 		}
 	}
 
-	if (loading) return <BerxLoadingState />;
-	if (error && !album) return <BerxErrorState message={error} onRetry={load} />;
+	/* The way back stays on screen while the scene is loading and after
+	   it fails. It used to be inside the branch that only rendered once
+	   the data had arrived, so an error left the person on a screen with
+	   no exit — the dead end the archive forbids, on a screen reached by
+	   a push. The name arrives when the data does. */
+	const header = <BerxHeader title={album?.title} onBack={onBack} />;
+
+	if (loading)
+		return (
+			<View style={{flex: 1}}>
+				{header}
+				<BerxLoadingState />
+			</View>
+		);
+	if (error && !album)
+		return (
+			<View style={{flex: 1}}>
+				{header}
+				<BerxErrorState message={error} onRetry={load} />
+			</View>
+		);
 	if (!album) return null;
 
 	return (
 		<View style={styles.screen}>
-			<BerxHeader title={album.title} onBack={onBack} />
+			{header}
 			{isOwn ? (
 				<View style={styles.toolbar}>
 					<BerxButton label="Добавить фото" variant="secondary" loading={uploading} onPress={handleAddPhoto} fullWidth />

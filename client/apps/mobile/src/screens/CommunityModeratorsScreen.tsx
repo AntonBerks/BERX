@@ -68,12 +68,31 @@ function CommunityModeratorsScreenBody({api, guid, onBack}: CommunityModeratorsS
 		}
 	}
 
-	if (loading) return <BerxLoadingState />;
-	if (error && items.length === 0) return <BerxErrorState message={error} onRetry={load} />;
+	/* hoisted: the way back has to survive loading and failure — it
+	   used to render only once the data arrived, so a failed fetch left
+	   a pushed screen with no exit */
+	const header = (
+		<BerxHeader title="Модераторы" onBack={onBack} />
+	);
+
+	if (loading)
+		return (
+			<View style={{flex: 1}}>
+				{header}
+				<BerxLoadingState />
+			</View>
+		);
+	if (error && items.length === 0)
+		return (
+			<View style={{flex: 1}}>
+				{header}
+				<BerxErrorState message={error} onRetry={load} />
+			</View>
+		);
 
 	return (
 		<View style={styles.screen}>
-			<BerxHeader title="Модераторы" onBack={onBack} />
+			{header}
 			{items.length === 0 ? (
 				<BerxEmptyState title="Модераторов нет" subtitle="Назначьте модератора из списка участников сообщества." />
 			) : (

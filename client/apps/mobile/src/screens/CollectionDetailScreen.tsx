@@ -87,12 +87,31 @@ function CollectionDetailScreenBody({api, id, onOpenPlace, onOpenEvent, onOpenPo
 		else onOpenPost(item.item_guid);
 	}
 
-	if (loading) return <BerxLoadingState />;
-	if (error || !collection) return <BerxErrorState message={error ?? 'Подборка не найдена'} onRetry={load} />;
+	/* The way back stays on screen while the scene is loading and after
+	   it fails. It used to be inside the branch that only rendered once
+	   the data had arrived, so an error left the person on a screen with
+	   no exit — the dead end the archive forbids, on a screen reached by
+	   a push. The name arrives when the data does. */
+	const header = <BerxHeader title={collection?.title} onBack={onBack} />;
+
+	if (loading)
+		return (
+			<View style={{flex: 1}}>
+				{header}
+				<BerxLoadingState />
+			</View>
+		);
+	if (error || !collection)
+		return (
+			<View style={{flex: 1}}>
+				{header}
+				<BerxErrorState message={error ?? 'Подборка не найдена'} onRetry={load} />
+			</View>
+		);
 
 	return (
 		<View style={styles.screen}>
-			<BerxHeader title={collection.title} onBack={onBack} />
+			{header}
 			{collection.description ? <BerxText role="meta" emphasis="secondary" style={styles.description}>{collection.description}</BerxText> : null}
 			{collection.items.length === 0 ? (
 				<BerxEmptyState title="Пока пусто" subtitle="Добавляйте места и события в эту подборку с их страниц." />

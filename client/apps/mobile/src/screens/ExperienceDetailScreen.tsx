@@ -98,8 +98,27 @@ function ExperienceDetailScreenBody({api, id, onOpenPlace, onOpenEvent, onBack}:
 		}
 	}
 
-	if (loading) return <BerxLoadingState />;
-	if (error || !experience) return <BerxErrorState message={error ?? 'Впечатление не найдено'} onRetry={load} />;
+	/* hoisted: the way back has to survive loading and failure — it
+	   used to render only once the data arrived, so a failed fetch left
+	   a pushed screen with no exit */
+	const header = (
+		<BerxHeader onBack={onBack} />
+	);
+
+	if (loading)
+		return (
+			<View style={{flex: 1}}>
+				{header}
+				<BerxLoadingState />
+			</View>
+		);
+	if (error || !experience)
+		return (
+			<View style={{flex: 1}}>
+				{header}
+				<BerxErrorState message={error ?? 'Впечатление не найдено'} onRetry={load} />
+			</View>
+		);
 
 	const participantGuids = new Set(experience.participants.map((p: BerxExperienceParticipant) => p.guid));
 	const availableFriends = friends.filter((f: BerxFriend) => !participantGuids.has(f.guid));
@@ -108,7 +127,7 @@ function ExperienceDetailScreenBody({api, id, onOpenPlace, onOpenEvent, onBack}:
 		<View style={styles.screen}>
 			{/* the title lives in the hero, so the way back does not
 			    repeat it */}
-			<BerxHeader onBack={onBack} />
+			{header}
 
 			{/* the scene scrolls. It was laid out in a plain view under a
 			    210px hero, so the anchor, the participants and the invite

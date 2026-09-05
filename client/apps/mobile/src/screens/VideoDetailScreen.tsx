@@ -127,8 +127,27 @@ function VideoDetailScreenBody({api, postGuid, myGuid, onOpenProfile, onDeleted,
 		}
 	}
 
-	if (loading) return <BerxLoadingState />;
-	if (error || !video) return <BerxErrorState message={error ?? 'Видео не найдено'} onRetry={load} />;
+	/* hoisted: the way back has to survive loading and failure — it
+	   used to render only once the data arrived, so a failed fetch left
+	   a pushed screen with no exit */
+	const header = (
+		<BerxHeader onBack={onBack} />
+	);
+
+	if (loading)
+		return (
+			<View style={{flex: 1}}>
+				{header}
+				<BerxLoadingState />
+			</View>
+		);
+	if (error || !video)
+		return (
+			<View style={{flex: 1}}>
+				{header}
+				<BerxErrorState message={error ?? 'Видео не найдено'} onRetry={load} />
+			</View>
+		);
 
 	const isOwn = myGuid === video.owner_guid;
 
@@ -136,7 +155,7 @@ function VideoDetailScreenBody({api, postGuid, myGuid, onOpenProfile, onDeleted,
 		<BerxSceneScroll style={styles.screen} contentContainerStyle={styles.scroll}>
 			{/* the player is the subject, so the way back does not name it
 			    a second time */}
-			<BerxHeader onBack={onBack} />
+			{header}
 
 			{/* D3 — the video itself, full-bleed, standing in the immersive
 			    room this family resolves. It scrolls now: comments used to

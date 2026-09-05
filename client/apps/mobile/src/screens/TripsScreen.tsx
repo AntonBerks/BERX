@@ -60,12 +60,31 @@ function TripsSceneBody({api, userGuid, isOwn, onOpenTrip, onCreate, onBack}: Tr
 		load();
 	}, [load]);
 
-	if (loading) return <BerxLoadingState />;
-	if (error) return <BerxErrorState message={error} onRetry={load} />;
+	/* hoisted: the way back has to survive loading and failure — it
+	   used to render only once the data arrived, so a failed fetch left
+	   a pushed screen with no exit */
+	const header = (
+		<BerxHeader title="Поездки" onBack={onBack} />
+	);
+
+	if (loading)
+		return (
+			<View style={{flex: 1}}>
+				{header}
+				<BerxLoadingState />
+			</View>
+		);
+	if (error)
+		return (
+			<View style={{flex: 1}}>
+				{header}
+				<BerxErrorState message={error} onRetry={load} />
+			</View>
+		);
 
 	return (
 		<View style={styles.screen}>
-			<BerxHeader title="Поездки" onBack={onBack} />
+			{header}
 			{isOwn ? (
 				<View style={styles.toolbar}>
 					<BerxButton label="Спланировать поездку" onPress={onCreate} fullWidth />

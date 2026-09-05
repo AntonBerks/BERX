@@ -61,18 +61,37 @@ function CirclesScreenBody({api, onOpenCircle, onCreate, onBack}: CirclesScreenP
 		load();
 	}, [load]);
 
-	if (loading) return <BerxLoadingState />;
-	if (error) return <BerxErrorState message={error} onRetry={load} />;
+	/* hoisted: the way back has to survive loading and failure — it
+	   used to render only once the data arrived, so a failed fetch left
+	   a pushed screen with no exit */
+	const header = (
+		<BerxHeader
+			title="Круги" onBack={onBack}
+			actions={<BerxIconButton name="plus" accessibilityLabel="Создать круг" onPress={onCreate} />}
+		/>
+	);
+
+	if (loading)
+		return (
+			<View style={{flex: 1}}>
+				{header}
+				<BerxLoadingState />
+			</View>
+		);
+	if (error)
+		return (
+			<View style={{flex: 1}}>
+				{header}
+				<BerxErrorState message={error} onRetry={load} />
+			</View>
+		);
 
 	return (
 		<View style={styles.screen}>
 			{/* one creation control, on the control plane beside the scene's
 			    name — a full-width button across the top of a list is a
 			    banner, and it pushed the first real object off the fold */}
-			<BerxHeader
-				title="Круги" onBack={onBack}
-				actions={<BerxIconButton name="plus" accessibilityLabel="Создать круг" onPress={onCreate} />}
-			/>
+			{header}
 
 			{items.length === 0 ? (
 				<BerxEmptyState title="Кругов пока нет" subtitle="Круги — приватные списки друзей для управления видимостью." />

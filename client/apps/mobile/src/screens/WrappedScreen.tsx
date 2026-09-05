@@ -63,12 +63,31 @@ function WrappedScreenBody({api, onBack}: WrappedScreenProps) {
 		load(period);
 	}, [load, period]);
 
-	if (loading) return <BerxLoadingState />;
-	if (error || !data) return <BerxErrorState message={error ?? 'Не удалось загрузить'} onRetry={() => load(period)} />;
+	/* hoisted: the way back has to survive loading and failure — it
+	   used to render only once the data arrived, so a failed fetch left
+	   a pushed screen with no exit */
+	const header = (
+		<BerxHeader title="BERX Wrapped" onBack={onBack} />
+	);
+
+	if (loading)
+		return (
+			<View style={{flex: 1}}>
+				{header}
+				<BerxLoadingState />
+			</View>
+		);
+	if (error || !data)
+		return (
+			<View style={{flex: 1}}>
+				{header}
+				<BerxErrorState message={error ?? 'Не удалось загрузить'} onRetry={() => load(period)} />
+			</View>
+		);
 
 	return (
 		<View style={styles.screen}>
-			<BerxHeader title="BERX Wrapped" onBack={onBack} />
+			{header}
 			{/* the content scrolls. It used to be laid out below the
 			    fold with nothing to scroll, so anything past the first
 			    screenful could not be reached at all. Scrolling is also
