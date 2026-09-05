@@ -49,7 +49,7 @@ console.log(`built ${path.relative(repoRoot, outFile)} (${(bytes / 1024).toFixed
  * emitted — generated from @berx/scenes, so the site cannot drift
  * from the archive the app is built on.
  */
-const SITE_SCREENS = ['BERX-001', 'BERX-176', 'BERX-201', 'BERX-226', 'BERX-266', 'BERX-031', 'BERX-291'];
+const SITE_SCREENS = ['BERX-001', 'BERX-061', 'BERX-176', 'BERX-201', 'BERX-226', 'BERX-266', 'BERX-031', 'BERX-291'];
 const scenesEntry = path.join(clientRoot, 'scripts', '.site-scenes.entry.ts');
 fs.writeFileSync(
 	scenesEntry,

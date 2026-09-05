@@ -224,6 +224,33 @@ html[data-motion="reduced"] .reveal{transform:none;filter:none;transition-durati
 .sec-scene{position:absolute;inset:0;z-index:0;pointer-events:none;overflow:clip;border-radius:inherit}
 [data-berx-screen]{position:relative;isolation:isolate}
 [data-berx-screen]>:not(.sec-scene){position:relative;z-index:1}
+/* ── a whole section's room ──────────────────────────────────────
+   A card's room ends at the card's edge, which is right for a card
+   and wrong for the page: between the hero and the cards the site
+   fell to flat black, so six lit objects floated on nothing. The
+   feature and entry sections now stand in real rooms too.
+
+   The room is full-bleed. `.sec` is a 1320px content column, and a
+   room that stopped at that column would leave a lit band with a
+   void either side of it — worse than no room at all. It cannot be
+   clipped either: content-visibility's paint containment would cut
+   the bleed back to the column, so a section that paints a room
+   gives that optimisation up. A room you cannot see out of is not a
+   room.
+
+   The section's own content already sits on z-index 1 through the
+   generic [data-berx-screen] rule above. */
+.sec[data-berx-screen]{content-visibility:visible;contain-intrinsic-size:none}
+.sec[data-berx-screen]>.sec-scene{left:50%;right:auto;width:100vw;transform:translateX(-50%);
+  /* Two rooms that meet edge to edge leave a hard line across the
+     page — one atmosphere stopping and a different one starting at
+     the same pixel, which no room does. Each fades out at its own
+     top and bottom, so a section arrives and departs instead of
+     being switched on. It fades toward the page's own substrate,
+     which is the colour behind it either way. */
+  -webkit-mask-image:linear-gradient(to bottom,transparent 0,#000 11%,#000 89%,transparent 100%);
+  mask-image:linear-gradient(to bottom,transparent 0,#000 11%,#000 89%,transparent 100%)}
+
 .env{position:absolute;inset:0;z-index:0;pointer-events:none;overflow:clip}
 .env::before{content:"";position:absolute;inset:0;
   background:radial-gradient(120% 78% at 12% -8%,color-mix(in srgb,var(--aurora-violet) 26%,transparent),transparent 62%),
@@ -338,6 +365,9 @@ html[data-motion="reduced"] .card:hover{transform:none}
   opacity:0;transition:opacity .5s}
 .card:hover::before{opacity:1}
 .card.w3{grid-column:span 3}
+/* the premium panel is the width of the panel it describes: at span 3
+   it left half the last row empty, which reads as a missing card */
+.card.w6{grid-column:span 6}
 .card h3{margin:0;font-size:clamp(17px,1.9vw,21px);font-weight:600;letter-spacing:-.01em}
 .card p{margin:.5em 0 0;font-size:13.5px;line-height:1.58;color:var(--text-2)}
 .demo{position:relative;border-radius:15px;overflow:hidden;min-height:186px;
@@ -345,8 +375,8 @@ html[data-motion="reduced"] .card:hover{transform:none}
 .demo *{animation-play-state:paused}
 .demo[data-live] *{animation-play-state:running}
 html[data-motion="reduced"] .demo *{animation:none!important}
-@media (max-width:980px){.grid6{grid-template-columns:repeat(4,1fr)}.card,.card.w3{grid-column:span 2}}
-@media (max-width:640px){.grid6{grid-template-columns:1fr}.card,.card.w3{grid-column:span 1}}
+@media (max-width:980px){.grid6{grid-template-columns:repeat(4,1fr)}.card,.card.w3{grid-column:span 2}.card.w6{grid-column:span 4}}
+@media (max-width:640px){.grid6{grid-template-columns:1fr}.card,.card.w3,.card.w6{grid-column:span 1}}
 
 /* — messenger — */
 .msg{padding:14px;display:grid;gap:9px;align-content:start}
@@ -434,19 +464,25 @@ html[data-motion="reduced"] .demo *{animation:none!important}
   background:linear-gradient(115deg,color-mix(in srgb,var(--aurora-violet) 34%,transparent),color-mix(in srgb,var(--electric-blue) 26%,transparent))}
 
 /* — business — */
-.dash{padding:14px;display:grid;gap:12px;grid-template-columns:repeat(3,1fr);align-content:start}
+.dash{padding:14px;display:grid;gap:12px;grid-template-columns:repeat(3,1fr);
+  /* the panel fills its frame: at align-content:start the whole
+     dashboard clumped against the top edge and left a third of a
+     premium panel empty */
+  grid-template-rows:auto minmax(66px,1fr) auto;align-content:stretch}
 .kpi{padding:9px 11px;border-radius:11px;border:1px solid var(--line);
   background:color-mix(in srgb,var(--obsidian-lift) 78%,transparent)}
 .kpi s{display:block;font-size:9px;letter-spacing:.13em;text-transform:uppercase;color:var(--text-3)}
 .kpi b{font-size:16px;font-variant-numeric:tabular-nums;
   background:linear-gradient(100deg,#fff,var(--neon-cyan));-webkit-background-clip:text;background-clip:text;color:transparent}
-.bars{grid-column:1/-1;display:flex;align-items:flex-end;gap:6px;height:66px}
+.bars{grid-column:1/-1;display:flex;align-items:flex-end;gap:6px;min-height:66px}
 .bars i{flex:1;border-radius:5px 5px 0 0;transform-origin:bottom;scale:1 0;
   background:linear-gradient(to top,color-mix(in srgb,var(--electric-blue) 88%,transparent),var(--neon-cyan));
   animation:bar 6s var(--ease-cine) infinite both;animation-delay:var(--d)}
 @keyframes bar{0%{scale:1 0}18%,86%{scale:1 var(--h)}98%,100%{scale:1 0}}
-.spark{grid-column:1/-1;height:36px}
-.spark path{fill:none;stroke:var(--neon-cyan);stroke-width:2;stroke-linecap:round;
+/* the trend runs the width of the panel it is the trend of; at
+   the default aspect ratio it drew a small squiggle in one corner */
+.spark{grid-column:1/-1;height:36px;width:100%}
+.spark path{fill:none;stroke:var(--neon-cyan);stroke-width:2;stroke-linecap:round;vector-effect:non-scaling-stroke;
   stroke-dasharray:400;stroke-dashoffset:400;animation:draw 6s var(--ease-cine) infinite both}
 @keyframes draw{0%{stroke-dashoffset:400}30%,88%{stroke-dashoffset:0}100%{stroke-dashoffset:400}}
 

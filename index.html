@@ -228,7 +228,18 @@
 <div class="seam" aria-hidden="true"></div>
 
 <!-- ══════════ LIVE PRODUCT DEMOS ══════════ -->
-<section class="sec" id="product" aria-labelledby="prodH">
+<section class="sec berx-scene" id="product" aria-labelledby="prodH" data-berx-screen="BERX-061">
+  <!-- D0/D1 — the section stands in a real BERX room rather than in
+       the page's void. Everything between the hero and the cards used
+       to be flat black: the cards were lit objects floating on
+       nothing, which is the one thing the archive says a scene must
+       never be. Resolved by the app's own runtime, from the archive's
+       own contract, and full-bleed so the room reaches the window
+       edges instead of ending at the content column. -->
+  <div class="sec-scene" aria-hidden="true">
+    <div class="berx-layer" data-berx-depth="D0"><div class="berx-surface" data-berx-depth="D0"></div></div>
+    <div class="berx-layer" data-berx-depth="D1"><div class="berx-surface" data-berx-depth="D1"></div></div>
+  </div>
   <div class="shd">
     <p class="kicker">Продукт</p>
     <h2 id="prodH">Не читайте о BERX.<br>Посмотрите, как он живёт.</h2>
@@ -344,7 +355,7 @@
     </article>
 
     <!-- BUSINESS -->
-    <article class="card w3 berx-scene" id="business" data-berx-screen="BERX-291">
+    <article class="card w6 berx-scene" id="business" data-berx-screen="BERX-291">
       <!-- D0/D1 — this section stands in its own family's room:
            the conversation is lit as a corridor, the map has a
            ground plane and a horizon, the events sky is read from
@@ -364,8 +375,10 @@
             <i style="--h:.7;--d:.4s"></i><i style="--h:.58;--d:.5s"></i><i style="--h:.86;--d:.6s"></i>
             <i style="--h:.64;--d:.7s"></i><i style="--h:1;--d:.8s"></i>
           </div>
-          <svg class="spark" viewBox="0 0 220 40" aria-hidden="true">
-            <path d="M3 33 L34 26 L62 30 L92 15 L120 21 L150 9 L182 14 L217 4"/>
+          <svg class="spark" viewBox="0 0 220 40" preserveAspectRatio="none" aria-hidden="true">
+            <!-- pathLength normalises the trend to 400 units, so the draw-on
+                 dash covers the whole line at any panel width -->
+            <path pathLength="400" d="M3 33 L34 26 L62 30 L92 15 L120 21 L150 9 L182 14 L217 4"/>
           </svg>
         </div>
       </div>
@@ -374,7 +387,18 @@
 </section>
 
 <!-- ══════════ CTA ══════════ -->
-<section class="sec" id="cta" aria-labelledby="ctaH">
+<section class="sec berx-scene" id="cta" aria-labelledby="ctaH" data-berx-screen="BERX-001">
+  <!-- D0/D1 — the section stands in a real BERX room rather than in
+       the page's void. Everything between the hero and the cards used
+       to be flat black: the cards were lit objects floating on
+       nothing, which is the one thing the archive says a scene must
+       never be. Resolved by the app's own runtime, from the archive's
+       own contract, and full-bleed so the room reaches the window
+       edges instead of ending at the content column. -->
+  <div class="sec-scene" aria-hidden="true">
+    <div class="berx-layer" data-berx-depth="D0"><div class="berx-surface" data-berx-depth="D0"></div></div>
+    <div class="berx-layer" data-berx-depth="D1"><div class="berx-surface" data-berx-depth="D1"></div></div>
+  </div>
   <div class="shd">
     <p class="kicker">Дальше</p>
     <h2 id="ctaH">Войдите в BERX первыми</h2>

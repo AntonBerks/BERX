@@ -132,6 +132,140 @@ export const BERX_SITE_CONTRACTS = {
    "offline"
   ]
  },
+ "BERX-061": {
+  "schemaVersion": "9.0",
+  "screenId": "BERX-061",
+  "title": "Explore",
+  "family": "EXPLORE",
+  "purpose": "Production scene contract for Explore.",
+  "experience": {
+   "mood": "curious",
+   "primaryGoal": "one dominant user goal",
+   "cognitiveLoad": "low-to-medium"
+  },
+  "route": {
+   "name": "explore",
+   "path": "/explore",
+   "params": [
+    "id?"
+   ]
+  },
+  "scene": {
+   "camera": {
+    "perspectivePx": 1200,
+    "fovDeg": 42,
+    "tiltDeg": 0
+   },
+   "depthProfile": {
+    "environment": "D0",
+    "atmosphere": "D1",
+    "structure": "D2",
+    "content": "D3",
+    "controls": "D4",
+    "focus": "D5"
+   },
+   "layerOrder": [
+    "D0",
+    "D1",
+    "D2",
+    "D3",
+    "D4",
+    "D5"
+   ],
+   "focalPoint": "primary-content",
+   "material": "ClearGlass",
+   "lightRecipe": "card",
+   "background": "cinematic-environment"
+  },
+  "layout": {
+   "mobile": "single-column",
+   "tablet": "two-zone",
+   "desktop": "12-column spatial grid",
+   "safeArea": true,
+   "maxContentWidth": 1280,
+   "gutter": 16,
+   "sectionGap": 24
+  },
+  "components": [
+   "BerxSearchField",
+   "BerxHorizontalRail",
+   "BerxSpatialCard",
+   "BerxFilterBar",
+   "BerxMediaCard"
+  ],
+  "states": [
+   "default",
+   "loading",
+   "empty",
+   "error",
+   "success",
+   "disabled",
+   "offline"
+  ],
+  "interaction": {
+   "primaryAction": "explicit",
+   "gestures": [
+    "tap",
+    "swipe",
+    "scroll"
+   ],
+   "spatial": [
+    "micro-parallax",
+    "shared-element-transition"
+   ],
+   "dragAlternative": "required where dragging exists"
+  },
+  "motion": {
+   "enter": "spatialEnter",
+   "exit": "exit",
+   "focus": "focus",
+   "ambient": "ambient",
+   "reducedMotion": "crossFade"
+  },
+  "data": {
+   "source": "BERX domain/API adapter",
+   "serverAuthoritative": true,
+   "fakeDataAllowed": false,
+   "cache": "stale-while-revalidate where appropriate",
+   "domains": [
+    "User",
+    "Place",
+    "Event",
+    "Community"
+   ]
+  },
+  "analytics": {
+   "view": "BERX-061.view",
+   "primaryAction": "BERX-061.primary_action",
+   "error": "BERX-061.error"
+  },
+  "accessibility": {
+   "wcag": "2.2 AA target",
+   "touchTarget": "preferred 44dp; web minimum per applicable WCAG",
+   "focusVisible": true,
+   "reducedMotion": true,
+   "contrastFallback": "opaque surface mode"
+  },
+  "performance": {
+   "fpsTarget": 60,
+   "blurLayersMobile": "<=3",
+   "virtualizeLists": true,
+   "lazyMedia": true,
+   "avoidContinuousLayoutReads": true
+  },
+  "assetRefs": [
+   "ASSET-0061-hero",
+   "ASSET-0061-media"
+  ],
+  "qa": [
+   "visual hierarchy",
+   "spatial continuity",
+   "state completeness",
+   "a11y",
+   "performance",
+   "offline"
+  ]
+ },
  "BERX-176": {
   "schemaVersion": "9.0",
   "screenId": "BERX-176",
