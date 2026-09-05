@@ -12,14 +12,15 @@
  * real screens, and states the one honest limit — post visibility is
  * per-post, and there is no global privacy switch.
  */
-import {ScrollView, StyleSheet, Text, View} from 'react-native';
-import {colors, spacing, typography} from '@berx/design-system/tokens';
+import {ScrollView, StyleSheet, View} from 'react-native';
+import {spacing} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../../packages/design-system/src/components/BerxHeader';
 import {BerxButton} from '../../../../../packages/design-system/src/components/BerxButton';
 import {BerxSpatialCard} from '../../../../../packages/design-system/src/spatial/BerxSpatialCard';
 import {BerxIcon, type BerxIconName} from '../../../../../packages/design-system/src/icons';
 import {BerxActionShelf} from '../../../../../packages/design-system/src/spatial/BerxActionShelf';
 import {BerxScreenScene} from '../../spatial/BerxScreenScene';
+import {BerxText} from '../../../../../packages/design-system/src/spatial/BerxText';
 
 export interface SafetySetupScreenProps {
 	onOpenBlockedUsers?: () => void;
@@ -66,27 +67,27 @@ function SafetySetupSceneBody({onOpenBlockedUsers, onOpenDatingPrivacy, onDone, 
 			<BerxHeader title="Безопасность" onBack={onBack} />
 
 			<ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-				<Text style={styles.lead}>
+				<BerxText role="body" emphasis="secondary">
 					В BERX есть три реальных инструмента. Они работают на сервере, а не только в интерфейсе — стоит знать о них
 					заранее.
-				</Text>
+				</BerxText>
 
 				{ITEMS.map((item) => (
 					<BerxSpatialCard key={item.title} depth="D3" padding={spacing.lg}>
 						<View style={styles.row}>
 							<BerxIcon name={item.icon} size={24} state="active" decorative />
 							<View style={styles.text}>
-								<Text style={styles.title}>{item.title}</Text>
-								<Text style={styles.body}>{item.body}</Text>
+								<BerxText role="subtitle">{item.title}</BerxText>
+								<BerxText role="meta" emphasis="secondary">{item.body}</BerxText>
 							</View>
 						</View>
 					</BerxSpatialCard>
 				))}
 
-				<Text style={styles.note}>
+				<BerxText role="meta" emphasis="tertiary">
 					Общего переключателя приватности у аккаунта нет — в API BERX нет такого ресурса. Видимость задаётся у каждого
 					поста, а приватность анкеты знакомств настраивается отдельно.
-				</Text>
+				</BerxText>
 
 				<BerxActionShelf variant="anchored">
 					{onOpenBlockedUsers ? (
@@ -105,11 +106,7 @@ function SafetySetupSceneBody({onOpenBlockedUsers, onOpenDatingPrivacy, onDone, 
 const styles = StyleSheet.create({
 	screen: {flex: 1},
 	content: {padding: spacing.lg, gap: spacing.md, paddingBottom: spacing.xxxl},
-	lead: {color: colors.textDim, fontSize: typography.sizeBase, lineHeight: typography.sizeBase * 1.45},
 	row: {flexDirection: 'row', gap: spacing.lg, alignItems: 'flex-start'},
 	text: {flex: 1, gap: spacing.xs},
-	title: {color: colors.text, fontSize: typography.sizeLg, fontWeight: typography.weightMedium},
-	body: {color: colors.textDim, fontSize: typography.sizeSm, lineHeight: typography.sizeSm * 1.5},
-	note: {color: colors.textFaint, fontSize: typography.sizeXs, lineHeight: typography.sizeXs * 1.6},
 	actions: {gap: spacing.sm, marginTop: spacing.md},
 });

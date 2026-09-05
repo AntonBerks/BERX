@@ -12,18 +12,20 @@
  * rather than a zero that would read as "you have nothing".
  */
 import {useCallback, useEffect, useState} from 'react';
-import {Animated, StyleSheet, Text, View} from 'react-native';
+import {Animated, StyleSheet, View} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxPointsBalance, BerxUser} from '@berx/api/types';
-import {colors, spacing, typography} from '@berx/design-system/tokens';
+import {spacing} from '@berx/design-system/tokens';
 import {BerxButton} from '../../../../../packages/design-system/src/components/BerxButton';
 import {BerxDepthLayer} from '../../../../../packages/design-system/src/spatial/BerxDepthLayer';
 import {BerxEnergyHalo} from '../../../../../packages/design-system/src/spatial/BerxEnergyHalo';
 import {BerxStatRail, type BerxStat} from '../../../../../packages/design-system/src/spatial/BerxStatRail';
 import {BerxSpatialCard} from '../../../../../packages/design-system/src/spatial/BerxSpatialCard';
-import {useBerxScene, useBerxSceneEnter} from '../../../../../packages/design-system/src/spatial/BerxSpatialScene';
+import {useBerxSceneEnter} from '../../../../../packages/design-system/src/spatial/BerxSpatialScene';
 import {BerxActionShelf} from '../../../../../packages/design-system/src/spatial/BerxActionShelf';
 import {BerxScreenScene} from '../../spatial/BerxScreenScene';
+import {BerxText} from '../../../../../packages/design-system/src/spatial/BerxText';
+import {BerxWordmark} from '../../../../../packages/design-system/src/spatial/BerxWordmark';
 
 export interface OnboardingCompleteScreenProps {
 	api: BerxApiClient;
@@ -39,7 +41,6 @@ export default function OnboardingCompleteScreen(props: OnboardingCompleteScreen
 }
 
 function OnboardingCompleteSceneBody({api, onEnter}: OnboardingCompleteScreenProps) {
-	const {scene} = useBerxScene();
 	const enter = useBerxSceneEnter();
 	const [user, setUser] = useState<BerxUser | null>(null);
 	const [points, setPoints] = useState<BerxPointsBalance | null>(null);
@@ -75,13 +76,13 @@ function OnboardingCompleteSceneBody({api, onEnter}: OnboardingCompleteScreenPro
 			</BerxDepthLayer>
 
 			<Animated.View style={[styles.center, enter]}>
-				<Text style={[styles.kicker, {color: scene.accent}]} accessibilityRole="header">
-					BERX
-				</Text>
-				<Text style={styles.title}>{name ? `Готово, ${name}` : 'Готово'}</Text>
-				<Text style={styles.lead}>
+				<BerxWordmark size={16} />
+				<BerxText role="display" heading style={styles.centered}>
+					{name ? `Готово, ${name}` : 'Готово'}
+				</BerxText>
+				<BerxText role="body" emphasis="secondary" style={styles.centered}>
 					Люди, места, события и впечатления — всё в одном пространстве. Начните с того, что рядом.
-				</Text>
+				</BerxText>
 
 				{stats.length > 0 ? (
 					<BerxSpatialCard depth="D3" padding={spacing.lg} style={styles.statsCard}>
@@ -101,14 +102,7 @@ const styles = StyleSheet.create({
 	screen: {flex: 1, justifyContent: 'space-between', padding: spacing.xl, paddingBottom: spacing.xxl},
 	haloLayer: {position: 'absolute', top: '16%', left: 0, right: 0, alignItems: 'center'},
 	center: {flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.md},
-	kicker: {fontSize: typography.sizeSm, fontWeight: typography.weightBold, letterSpacing: 3},
-	title: {color: colors.text, fontSize: typography.sizeHero, fontWeight: typography.weightBold, textAlign: 'center'},
-	lead: {
-		color: colors.textDim,
-		fontSize: typography.sizeBase,
-		lineHeight: typography.sizeBase * 1.45,
-		textAlign: 'center',
-	},
+	centered: {textAlign: 'center', maxWidth: 340},
 	statsCard: {marginTop: spacing.lg, alignSelf: 'stretch'},
 	actions: {gap: spacing.md},
 });

@@ -23,6 +23,7 @@ import {BerxIcon} from '../../../../../packages/design-system/src/icons/BerxIcon
 import {useBerxScene} from '../../../../../packages/design-system/src/spatial/BerxSpatialScene';
 import {BerxActionShelf} from '../../../../../packages/design-system/src/spatial/BerxActionShelf';
 import {BerxScreenScene} from '../../spatial/BerxScreenScene';
+import {BerxText} from '../../../../../packages/design-system/src/spatial/BerxText';
 
 export interface ProfilePhotoScreenProps {
 	api: BerxApiClient;
@@ -101,12 +102,12 @@ function ProfilePhotoSceneBody({api, pickImage, currentIconUrl, displayName, onD
 						)}
 					</View>
 
-					<Text style={styles.title} accessibilityRole="header">
+					<BerxText role="title" heading style={styles.centered}>
 						Как вас узнают
-					</Text>
-					<Text style={styles.lead}>
+					</BerxText>
+					<BerxText role="body" emphasis="secondary" style={styles.centered}>
 						Фото появляется рядом с вашими моментами, местами и сообщениями. Его можно поменять в любой момент.
-					</Text>
+					</BerxText>
 
 					{error ? (
 						<Text accessibilityLiveRegion="assertive" accessibilityRole="alert" style={styles.error}>
@@ -132,7 +133,7 @@ function ProfilePhotoSceneBody({api, pickImage, currentIconUrl, displayName, onD
 
 					<View style={styles.hintRow}>
 						<BerxIcon name="info" size={16} decorative />
-						<Text style={styles.hint}>Без фото BERX показывает первую букву имени — аккаунт полноценный и так.</Text>
+						<BerxText role="meta" emphasis="tertiary" style={styles.hint}>Без фото BERX показывает первую букву имени — аккаунт полноценный и так.</BerxText>
 					</View>
 				</BerxSpatialCard>
 			</View>
@@ -141,6 +142,7 @@ function ProfilePhotoSceneBody({api, pickImage, currentIconUrl, displayName, onD
 }
 
 const styles = StyleSheet.create({
+	centered: {textAlign: 'center'},
 	screen: {flex: 1},
 	body: {flex: 1, justifyContent: 'center', padding: spacing.lg},
 	haloLayer: {position: 'absolute', top: '12%', left: 0, right: 0, alignItems: 'center'},
@@ -148,17 +150,9 @@ const styles = StyleSheet.create({
 	avatar: {width: 132, height: 132, borderRadius: 66, borderWidth: 2},
 	avatarEmpty: {alignItems: 'center', justifyContent: 'center'},
 	initial: {fontSize: 52, fontWeight: typography.weightBold},
-	title: {color: colors.text, fontSize: typography.sizeTitle, fontWeight: typography.weightBold, textAlign: 'center'},
-	lead: {
-		color: colors.textDim,
-		fontSize: typography.sizeBase,
-		lineHeight: typography.sizeBase * 1.45,
-		textAlign: 'center',
-		marginTop: spacing.sm,
-	},
 	error: {color: colors.danger, fontSize: typography.sizeSm, textAlign: 'center', marginTop: spacing.md},
 	saved: {color: colors.success, fontSize: typography.sizeSm, textAlign: 'center', marginTop: spacing.md},
 	actions: {gap: spacing.sm, marginTop: spacing.xl},
 	hintRow: {flexDirection: 'row', gap: spacing.sm, alignItems: 'flex-start', marginTop: spacing.lg},
-	hint: {flex: 1, color: colors.textFaint, fontSize: typography.sizeXs, lineHeight: typography.sizeXs * 1.5},
+	hint: {flex: 1},
 });
