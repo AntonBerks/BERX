@@ -21,6 +21,16 @@ Status values: `TODO` / `IN_PROGRESS` / `BLOCKED` / `COMPLETE`. Nothing below is
 | Message search REST endpoint | COMPLETE | `api/v1/messagesearch.php` wraps the same `ossn_messagesearch_query()` the web `/messages-search` page uses — one query, two surfaces |
 | Mobile app: real build toolchain (`package.json`, Metro, native `ios`/`android` projects) | BLOCKED | Source tree present, scaffolding absent in this environment — see `BERX_DECISIONS.md` "Known environment limitation" |
 
+## Built server-side, unreachable in the client (an honest gap, not a fake)
+- **Dating private-photo requests.** `requestPhotoAccess` / `respondPhotoAccess` /
+  `revokeAccess` / `listIncomingRequests` are real and complete in
+  `api/v1/dating.php`, and `BerxApiClient` carries all four methods, but no
+  screen calls `datingPhotoRequests()` — so someone can ask for access to your
+  private photos and BERX gives you nowhere to answer. `NotificationsScreen`
+  routes `dating:photo:request` to the Dating tab as the closest real
+  destination, which is honest-but-imprecise rather than a fake one. Recorded
+  here rather than papered over: the capability exists, the way in does not.
+
 ## Explicitly NOT built (real backend gap, not a fake)
 - Table/venue booking with availability — no inventory or locking model exists
 - Event ticket purchase/payment — no payment provider integrated

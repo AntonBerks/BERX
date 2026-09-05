@@ -13,12 +13,13 @@ import {useCallback, useEffect, useState} from 'react';
 import {View, Text, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxPointsBalance, BerxPointsHistoryEntry} from '@berx/api/types';
-import {berxCount, relativeTimeLabel} from '@berx/domain';
+import {berxCount, berxPlural, relativeTimeLabel} from '@berx/domain';
 import {colors, spacing, typography} from '@berx/design-system/tokens';
 import {BerxRewardCard} from '../../../../packages/design-system/src/spatial/BerxRewardCard';
 import {BerxProgressRing} from '../../../../packages/design-system/src/spatial/BerxProgressRing';
 import {BerxStatRail} from '../../../../packages/design-system/src/spatial/BerxStatRail';
 import {BerxSpatialCard} from '../../../../packages/design-system/src/spatial/BerxSpatialCard';
+import {useBerxScene} from '../../../../packages/design-system/src/spatial/BerxSpatialScene';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
@@ -55,6 +56,9 @@ export default function PointsScreen(props: PointsScreenProps) {
 }
 
 function PointsSceneBody({api, onBack}: PointsScreenProps) {
+	/* the rule between two entries belongs to the room they are in, so
+	   it changes with the colour world like every other edge does */
+	const dividerColor = useBerxScene().scene.layers.D2.surface.borderColor;
 	const [balance, setBalance] = useState<BerxPointsBalance | null>(null);
 	const [history, setHistory] = useState<BerxPointsHistoryEntry[]>([]);
 	const [loading, setLoading] = useState(true);
@@ -136,14 +140,25 @@ function PointsSceneBody({api, onBack}: PointsScreenProps) {
 								/>
 								<View style={styles.heroText}>
 									<BerxText role="callout" emphasis="accent">Уровень {balance.level}</BerxText>
-									<Text style={styles.balanceValue}>{balance.balance}</Text>
-									<BerxText role="meta" emphasis="secondary">баллов на счету</BerxText>
+									{/* the balance at display measure, from the type scale
+									    rather than a size this screen picked */}
+									<BerxText role="display">{String(balance.balance)}</BerxText>
+									<BerxText role="meta" emphasis="secondary">
+										{berxPlural(balance.balance, 'балл на счету', 'балла на счету', 'баллов на счету')}
+									</BerxText>
 								</View>
 							</View>
+							{/* What is left, not a fraction.
+							    "8 420 / 9 000" put an absolute total against the
+							    level's ceiling while the ring beside it drew the
+							    server's own level_progress_ratio, so the two could
+							    read as different amounts of the same progress. The
+							    remainder is the number someone actually wants and
+							    it is true whichever way the ratio is measured. */}
 							<BerxText role="meta" emphasis="tertiary" style={styles.progressCaption}>
-								{isMaxLevel
+								{isMaxLevel || balance.level_ceiling === null
 									? 'Максимальный уровень'
-									: `${balance.lifetime_earned} / ${balance.level_ceiling} до уровня ${balance.level + 1}`}
+									: `${berxCount(Math.max(0, balance.level_ceiling - balance.lifetime_earned), 'балл', 'балла', 'баллов')} до уровня ${balance.level + 1}`}
 							</BerxText>
 							<BerxStatRail
 								stats={[
@@ -213,7 +228,7 @@ function PointsSceneBody({api, onBack}: PointsScreenProps) {
 					</View>
 				}
 				renderItem={({item}: {item: BerxPointsHistoryEntry}) => (
-					<View style={styles.historyRow}>
+					<View style={[styles.historyRow, {borderBottomColor: dividerColor}]}>
 						<BerxText role="meta">{REASON_LABELS[item.reason] ?? item.reason}</BerxText>
 						<View style={styles.historyRight}>
 							<Text style={[styles.historyDelta, item.delta < 0 ? styles.historyDeltaNegative : styles.historyDeltaPositive]}>
@@ -235,12 +250,14 @@ const styles = StyleSheet.create({
 	heroText: {flex: 1, gap: 2},
 	/* the scene paints the background now */
 	screen: {flex: 1},
-	balanceValue: {color: colors.text, fontSize: 40, fontWeight: typography.weightBold},
 	progressCaption: {marginTop: spacing.sm},
 	streakCard: {marginHorizontal: spacing.lg},
 	streakRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm},
 	spendSection: {padding: spacing.lg},
 	boostMessage: {color: colors.textDim, fontSize: typography.sizeXs, marginTop: spacing.sm, paddingHorizontal: spacing.sm},
+	/* the rule under a history row is the structure plane's own edge,
+	   passed in below — a fixed grey hairline belongs to no plane and
+	   does not change with the colour world */
 	historyRow: {
 		flexDirection: 'row',
 		alignItems: 'center',
@@ -248,7 +265,6 @@ const styles = StyleSheet.create({
 		paddingHorizontal: spacing.lg,
 		paddingVertical: spacing.md,
 		borderBottomWidth: 1,
-		borderBottomColor: colors.borderSoft,
 	},
 	historyRight: {alignItems: 'flex-end'},
 	historyDelta: {fontSize: typography.sizeSm, fontWeight: typography.weightMedium},
