@@ -254,6 +254,77 @@ var TIME_LIGHT = {
 function pool(x, y, radius, color, depth = 1) {
   return { x: round(x, 3), y: round(y, 3), radius: round(radius, 3), color, depth: round(depth, 2) };
 }
+var KIND_LIGHT = {
+  /* a window, high and to the left; interiors are lamplit */
+  location: { angleDeg: 158, warmth: 0.45, contrast: 1.1 },
+  /* one key light on one face, slightly warm, close and low-contrast */
+  identity: { angleDeg: 196, warmth: 0.3, contrast: 0.85 },
+  /* along the corridor, not down it, and cool */
+  conversational: { angleDeg: 118, warmth: -0.2, contrast: 0.8 },
+  /* the media is the light; the room only frames it */
+  immersive: { angleDeg: 180, warmth: 0, contrast: 1.25 },
+  /* wide, cold, high sun over a lot of ground */
+  geographic: { angleDeg: 172, warmth: -0.55, contrast: 1.3 },
+  /* dusk: the light is behind and to the right, and it is warm */
+  temporal: { angleDeg: 208, warmth: 0.6, contrast: 1.2 },
+  /* a hall with light from both sides */
+  community: { angleDeg: 135, warmth: 0.15, contrast: 0.95 },
+  /* distance: low sun, long throw, cold at the far end */
+  journey: { angleDeg: 165, warmth: -0.35, contrast: 1.35 },
+  /* a display case: raking light across the object */
+  premium: { angleDeg: 142, warmth: 0.25, contrast: 1.15 },
+  /* a steep entrance light from behind the viewer */
+  cinematic: { angleDeg: 214, warmth: -0.1, contrast: 1.4 },
+  /* even, social, slightly warm — a room with people in it */
+  social: { angleDeg: 186, warmth: 0.2, contrast: 0.9 }
+};
+var COLD_LIGHT = "#8FB6FF";
+var WARM_LIGHT = "#FFB27A";
+function applyKindLight(sky, kind) {
+  const signature = KIND_LIGHT[kind];
+  const strength = kindTintStrength(kind);
+  const tint = kindTint(kind);
+  return {
+    angleDeg: signature.angleDeg,
+    stops: sky.stops.map((stop, index) => {
+      const lit = index === 0;
+      const parsed = parseColor(stop.color);
+      const alpha = parsed ? parsed.a : 1;
+      const scaled = clamp(alpha * (lit ? signature.contrast * 1.25 : 1 + (signature.contrast - 1) * 0.5), 0, 0.86);
+      const color = lit && strength > 0 ? mix(stop.color, tint, strength) : stop.color;
+      return { color: rgba(color, round(scaled, 4)), position: stop.position };
+    })
+  };
+}
+function lStar(color) {
+  const y = relativeLuminance(color);
+  return y > 216 / 24389 ? 116 * Math.cbrt(y) - 16 : y * (24389 / 27);
+}
+function capSkyToContent(sky, background, contentColor) {
+  const ceiling = lStar(contentColor) - 1.5;
+  const first = sky.stops[0];
+  const parsed = parseColor(first.color);
+  if (!parsed) return sky;
+  if (lStar(flatten(first.color, background)) <= ceiling) return sky;
+  let low = 0;
+  let high = parsed.a;
+  for (let i = 0; i < 14; i += 1) {
+    const mid = (low + high) / 2;
+    const composited = lStar(flatten(rgba(first.color, mid), background));
+    if (composited > ceiling) high = mid;
+    else low = mid;
+  }
+  return {
+    angleDeg: sky.angleDeg,
+    stops: sky.stops.map((stop, index) => index === 0 ? { color: rgba(stop.color, round(low, 4)), position: stop.position } : stop)
+  };
+}
+function kindTint(kind) {
+  return KIND_LIGHT[kind].warmth >= 0 ? WARM_LIGHT : COLD_LIGHT;
+}
+function kindTintStrength(kind) {
+  return round(Math.min(0.55, Math.abs(KIND_LIGHT[kind].warmth) * 0.62), 4);
+}
 function resolveAtmosphere(input) {
   const accent = input.accent;
   const bg = input.background || BERX_V9_COLOR.bg;
@@ -601,6 +672,13 @@ function resolveAtmosphere(input) {
     ground = null;
     vignette = round(vignette * 0.8, 3);
   }
+  sky = applyKindLight(sky, input.kind);
+  if (input.contentColor) sky = capSkyToContent(sky, bg, input.contentColor);
+  const lampTint = kindTint(input.kind);
+  const lampStrength = kindTintStrength(input.kind) * 0.75;
+  if (lampStrength > 0) {
+    pools = pools.map((p) => ({ ...p, color: mix(p.color, lampTint, lampStrength) }));
+  }
   const poolBudget = Math.max(1, input.maxPools ?? pools.length);
   if (pools.length > poolBudget) {
     pools = [...pools].sort((p1, p2) => alphaOf(p2.color) - alphaOf(p1.color)).slice(0, poolBudget).sort((p1, p2) => p1.depth - p2.depth);
@@ -633,6 +711,73 @@ function fade(color, factor) {
 function alphaOf(color) {
   const m = /rgba\([^,]+,[^,]+,[^,]+,([^)]+)\)/.exec(color.replace(/\s/g, ""));
   return m ? Number(m[1]) : 1;
+}
+function berxIlluminationAt(atmosphere, x, y) {
+  const px = clamp(x, 0, 1);
+  const py = clamp(y, 0, 1);
+  let light = 0;
+  for (const p of atmosphere.pools) {
+    const dx = px - p.x;
+    const dy = py - p.y;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+    const reach = Math.max(1e-3, p.radius);
+    if (distance >= reach) continue;
+    const t = 1 - distance / reach;
+    light += t * t * clamp(p.depth, 0.2, 1);
+  }
+  const cx = px - 0.5;
+  const cy = py - 0.5;
+  const fromCentre = Math.min(1, Math.sqrt(cx * cx + cy * cy) / 0.7071);
+  const walls = atmosphere.vignette * fromCentre * fromCentre;
+  const bounce = atmosphere.ground && py > atmosphere.ground.horizon ? 0.12 * (1 - atmosphere.ground.haze) : 0;
+  return round(clamp(0.5 + light * 0.55 - walls * 0.4 + bounce, 0.15, 1), 4);
+}
+function berxRoomColorAt(atmosphere, background, x, y) {
+  const px = clamp(x, 0, 1);
+  const py = clamp(y, 0, 1);
+  let color = background;
+  const rad = atmosphere.sky.angleDeg * Math.PI / 180;
+  const axis = clamp(0.5 + (px - 0.5) * Math.sin(rad) - (py - 0.5) * Math.cos(rad), 0, 1);
+  const stops = atmosphere.sky.stops;
+  for (let i = 0; i < stops.length - 1; i += 1) {
+    const from = stops[i];
+    const to = stops[i + 1];
+    if (axis > to.position && i < stops.length - 2) continue;
+    const span = Math.max(1e-4, to.position - from.position);
+    const t = clamp((axis - from.position) / span, 0, 1);
+    color = flatten(mixTranslucent(from.color, to.color, t), color);
+    break;
+  }
+  for (const p of atmosphere.pools) {
+    const dx = px - p.x;
+    const dy = py - p.y;
+    const reach = Math.max(1e-3, p.radius);
+    const distance = Math.sqrt(dx * dx + dy * dy);
+    if (distance >= reach) continue;
+    const t = 1 - distance / reach;
+    color = flatten(scaleAlpha(p.color, t * t * clamp(p.depth, 0.2, 1)), color);
+  }
+  if (atmosphere.ground && py > atmosphere.ground.horizon) {
+    const depth = clamp((py - atmosphere.ground.horizon) / Math.max(1e-4, 1 - atmosphere.ground.horizon), 0, 1);
+    color = flatten(scaleAlpha(atmosphere.ground.color, depth * (1 - atmosphere.ground.haze * 0.5)), color);
+  }
+  const cx = px - 0.5;
+  const cy = py - 0.5;
+  const fromCentre = Math.min(1, Math.sqrt(cx * cx + cy * cy) / 0.7071);
+  const wall = atmosphere.vignette * fromCentre * fromCentre;
+  if (wall > 1e-3) color = flatten(rgba("#000000", round(clamp(wall, 0, 0.9), 4)), color);
+  return color;
+}
+function mixTranslucent(from, to, t) {
+  const a = parseColor(from);
+  const b = parseColor(to);
+  if (!a || !b) return from;
+  return rgba(mix(from, to, t), round(a.a + (b.a - a.a) * t, 4));
+}
+function scaleAlpha(color, factor) {
+  const parsed = parseColor(color);
+  if (!parsed) return color;
+  return rgba(color, round(clamp(parsed.a * factor, 0, 1), 4));
 }
 
 // packages/spatial/src/materials.ts
@@ -689,7 +834,8 @@ function resolveMaterial(input) {
     glowRadius: spec.emissive > 0 ? Math.round(clamp(spec.emissive * 64, 0, 42)) : 0,
     opaqueFallback: wantsOpaque,
     textContrast: contrastRatio(BERX_V9_COLOR.textPrimary, effectiveColor),
-    effectiveColor
+    effectiveColor,
+    translucentColor: translucentFill
   };
 }
 function ensureReadableSurface(input) {
@@ -1089,6 +1235,21 @@ function resolveFocus(input) {
   };
 }
 
+// packages/spatial/src/typography.ts
+var SCALE = {
+  display: { fontSize: 34, lineHeight: 1.1, fontWeight: "800", letterSpacing: -0.6, textTransform: "none", plane: "D3", emphasis: "primary" },
+  title: { fontSize: 24, lineHeight: 1.18, fontWeight: "700", letterSpacing: -0.35, textTransform: "none", plane: "D3", emphasis: "primary" },
+  heading: { fontSize: 20, lineHeight: 1.25, fontWeight: "700", letterSpacing: -0.2, textTransform: "none", plane: "D3", emphasis: "primary" },
+  subtitle: { fontSize: 17, lineHeight: 1.3, fontWeight: "600", letterSpacing: -0.1, textTransform: "none", plane: "D3", emphasis: "secondary" },
+  body: { fontSize: 15, lineHeight: 1.5, fontWeight: "400", letterSpacing: 0, textTransform: "none", plane: "D3", emphasis: "primary" },
+  callout: { fontSize: 15, lineHeight: 1.4, fontWeight: "600", letterSpacing: 0, textTransform: "none", plane: "D3", emphasis: "primary" },
+  label: { fontSize: 13, lineHeight: 1.2, fontWeight: "600", letterSpacing: 0.4, textTransform: "none", plane: "D4", emphasis: "primary" },
+  meta: { fontSize: 13, lineHeight: 1.35, fontWeight: "400", letterSpacing: 0.1, textTransform: "none", plane: "D3", emphasis: "secondary" },
+  micro: { fontSize: 11, lineHeight: 1.2, fontWeight: "700", letterSpacing: 1.2, textTransform: "uppercase", plane: "D4", emphasis: "tertiary" },
+  numeric: { fontSize: 20, lineHeight: 1.1, fontWeight: "700", letterSpacing: -0.2, textTransform: "none", plane: "D3", emphasis: "primary" }
+};
+var BERX_TYPE_ROLES = Object.keys(SCALE);
+
 // packages/spatial/src/scene.ts
 function materialForDepth(depth, sceneMaterial) {
   switch (depth) {
@@ -1425,7 +1586,9 @@ function mountBerxScene(root, contract, options = {}) {
       reducedMotion: scene.reducedMotion,
       allowParallax: scene.budget.allowParallax,
       blurred: scene.layers.D1.blurred,
-      maxPools: berxAtmospherePoolBudget(scene.budget.tier)
+      maxPools: berxAtmospherePoolBudget(scene.budget.tier),
+      /* the room may not out-shine the objects standing in it */
+      contentColor: scene.layers.D3.surface.effectiveColor
     });
     const box = root.getBoundingClientRect();
     const bounded = box.height > 0 && box.height < window.innerHeight * 0.85;
@@ -1495,7 +1658,28 @@ function mountBerxScene(root, contract, options = {}) {
       root.appendChild(clearingEl);
     }
   };
+  const lightSurfaces = () => {
+    const box = root.getBoundingClientRect();
+    const w = Math.max(1, box.width);
+    const h = Math.max(1, box.height);
+    for (const el of Array.from(root.querySelectorAll(".berx-surface"))) {
+      const depth = el.dataset.berxDepth;
+      if (depth === "D0" || depth === "D1") continue;
+      const r = el.getBoundingClientRect();
+      if (r.width <= 0 || r.height <= 0) continue;
+      const nx = (r.left + r.width / 2 - box.left) / w;
+      const ny = (r.top + r.height / 2 - box.top) / h;
+      const lit = berxIlluminationAt(atmosphere, nx, ny);
+      el.style.setProperty("--berx-surface-light", String(Math.round((0.45 + lit) * 100) / 100));
+      if (!depth || !(depth in scene.layers)) continue;
+      const layer = scene.layers[depth];
+      if (!layer.surface.opaqueFallback) continue;
+      const behind = berxRoomColorAt(atmosphere, scene.background, nx, ny);
+      el.style.setProperty("--berx-surface-bg", flatten(layer.surface.translucentColor, behind));
+    }
+  };
   build();
+  lightSurfaces();
   const layerEls = () => Array.from(root.querySelectorAll("[data-berx-depth]"));
   let pendingScroll = null;
   const applyParallax = (now) => {
@@ -1550,7 +1734,10 @@ function mountBerxScene(root, contract, options = {}) {
       build();
     }
   };
-  const onResize = () => build();
+  const onResize = () => {
+    build();
+    lightSurfaces();
+  };
   const motionQuery = typeof window.matchMedia === "function" ? window.matchMedia("(prefers-reduced-motion: reduce)") : null;
   const onMotionChange = () => build();
   if (options.interactive !== false) scrollTarget.addEventListener("scroll", onScroll, { passive: true });
@@ -1564,7 +1751,13 @@ function mountBerxScene(root, contract, options = {}) {
     get atmosphere() {
       return atmosphere;
     },
-    refresh: build,
+    refresh: () => {
+      build();
+      lightSurfaces();
+    },
+    /** Re-measures every surface against the room. Call after the
+     *  page adds or moves content. */
+    relight: lightSurfaces,
     setFocus: (target, intensity) => {
       focusTarget = target;
       focusIntensity = intensity;

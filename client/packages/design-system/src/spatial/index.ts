@@ -17,6 +17,7 @@ export * from './BerxRoomShell';
 export * from './BerxScrim';
 export * from './BerxSpatialCard';
 export * from './BerxText';
+export * from './useBerxRoomLight';
 export * from './BerxSceneList';
 export * from './BerxStars';
 export * from './BerxWordmark';

@@ -14,6 +14,7 @@ import React, {useCallback, useRef, useState} from 'react';
 import {Animated, Pressable, StyleSheet, View, type ViewStyle} from 'react-native';
 import {type BerxDepthKey} from '@berx/spatial';
 import {useBerxScene} from './BerxSpatialScene';
+import {useBerxRoomLight} from './useBerxRoomLight';
 import {BerxSurface} from './BerxSurface';
 import {BerxFocusRing} from './BerxFocusRing';
 import {useBerxSharedElementSource} from './BerxSharedElement';
@@ -60,6 +61,12 @@ export function BerxSpatialCard({
 	 */
 	const [focused, setFocused] = useState(false);
 	const {ref: sharedRef, record: recordSharedElement} = useBerxSharedElementSource(sharedTag);
+	/**
+	 * Where this object is standing, and how much of the room's light
+	 * reaches it. Measured once per layout, so a list of cards is lit
+	 * by the room rather than by one repeated highlight.
+	 */
+	const light = useBerxRoomLight();
 	const focusMotion = scene.motion.focus;
 
 	const animate = useCallback(
@@ -85,6 +92,8 @@ export function BerxSpatialCard({
 				lighting={layer.lighting}
 				radius={radius}
 				emissive={depth === 'D5'}
+				illumination={light.illumination}
+				behind={light.behind}
 				testID={testID ? `${testID}-surface` : undefined}>
 				<View style={{padding}}>{children}</View>
 			</BerxSurface>
@@ -93,7 +102,15 @@ export function BerxSpatialCard({
 
 	if (!onPress) {
 		return (
-			<View ref={sharedRef} testID={testID} nativeID={sharedTag} style={[styles.wrapper, style]}>
+			<View
+				ref={(node) => {
+					sharedRef.current = node;
+					light.measure(node);
+				}}
+				testID={testID}
+				nativeID={sharedTag}
+				onLayout={light.onLayout}
+				style={[styles.wrapper, style]}>
 				{body}
 			</View>
 		);
@@ -101,7 +118,11 @@ export function BerxSpatialCard({
 
 	return (
 		<Pressable
-			ref={sharedRef}
+			ref={(node) => {
+				sharedRef.current = node;
+				light.measure(node as unknown as View | null);
+			}}
+			onLayout={light.onLayout}
 			testID={testID}
 			nativeID={sharedTag}
 			accessibilityRole="button"

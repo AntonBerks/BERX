@@ -70,6 +70,23 @@ export interface BerxMaterialSurface {
 	textContrast: number;
 	/** The opaque color this surface actually resolves to on screen. */
 	effectiveColor: string;
+	/**
+	 * The fill before it was flattened onto anything.
+	 *
+	 * A surface that lost its translucency to the budget or to the
+	 * accessibility contract is flattened over the *substrate*, which
+	 * is right only where the substrate is what is actually behind it.
+	 * In a lit room it is not: the room between two cards is many
+	 * times brighter than the substrate, so an opaque card resolved
+	 * against the substrate reads as a hole cut in the wall rather
+	 * than as an object standing in front of it — measured at up to
+	 * 12 L* inverted on a real scene.
+	 *
+	 * Keeping the unflattened fill lets whatever knows what is really
+	 * behind a given surface — the runtime, which has measured the
+	 * room at that point — flatten it against that instead.
+	 */
+	translucentColor: string;
 }
 
 /** WCAG 2.2 AA body text. The v9 contract targets AA; this is the number it means. */
@@ -229,6 +246,7 @@ export function resolveMaterial(input: BerxMaterialSurfaceInput): BerxMaterialSu
 		opaqueFallback: wantsOpaque,
 		textContrast: contrastRatio(BERX_V9_COLOR.textPrimary, effectiveColor),
 		effectiveColor,
+		translucentColor: translucentFill,
 	};
 }
 

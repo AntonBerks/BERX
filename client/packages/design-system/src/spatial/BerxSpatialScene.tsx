@@ -20,6 +20,7 @@ import {
 	type BerxDeviceSignals,
 	type BerxFocusField,
 	type BerxFocusRect,
+	type BerxAtmosphere,
 	type BerxSceneContract,
 	type BerxSceneRuntime,
 } from '@berx/spatial';
@@ -47,6 +48,16 @@ export interface BerxSceneContextValue {
 	/** Live scroll offset in px. Layers read it for parallax. */
 	scrollY: number;
 	setScrollY: (y: number) => void;
+	/**
+	 * The room this scene resolved, once its backdrop has painted it.
+	 *
+	 * Objects standing in the room read it to find out how lit their
+	 * own position is. Null until the backdrop has laid out — a scene
+	 * with no backdrop has no room, and an object in it is lit evenly,
+	 * which is the honest answer rather than an invented one.
+	 */
+	atmosphere: BerxAtmosphere | null;
+	publishAtmosphere: (atmosphere: BerxAtmosphere | null) => void;
 	/** Null when nothing is focused — which is most of the time. */
 	focus: BerxSceneFocus | null;
 	/** The resolved falloff and recession. Null when nothing is focused. */
@@ -102,6 +113,8 @@ export function BerxSpatialScene({
 	const {width, height} = useWindowDimensions();
 	const [scrollY, setScrollY] = useState(0);
 	const [focus, setFocus] = useState<BerxSceneFocus | null>(null);
+	const [atmosphere, setAtmosphere] = useState<BerxAtmosphere | null>(null);
+	const publishAtmosphere = useCallback((next: BerxAtmosphere | null) => setAtmosphere(next), []);
 	/* SVG gradient ids are global to the document and React's id
 	   carries delimiters that do not belong in one. */
 	const sceneId = useId().replace(/[^a-zA-Z0-9]/g, '');
@@ -132,8 +145,8 @@ export function BerxSpatialScene({
 	}, [focus, width, height, scene.background, scene.budget.tier, scene.layers.D5.blurred]);
 
 	const value = useMemo<BerxSceneContextValue>(
-		() => ({scene, scrollY, setScrollY, focus, focusField, setFocus}),
-		[scene, scrollY, focus, focusField],
+		() => ({scene, scrollY, setScrollY, atmosphere, publishAtmosphere, focus, focusField, setFocus}),
+		[scene, scrollY, atmosphere, publishAtmosphere, focus, focusField],
 	);
 
 	return (

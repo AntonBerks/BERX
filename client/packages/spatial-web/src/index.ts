@@ -21,6 +21,9 @@ import {
 	BERX_MAX_TILT_DEG,
 	berxAtmosphereForFamily,
 	berxAtmospherePoolBudget,
+	berxIlluminationAt,
+	berxRoomColorAt,
+	flatten,
 	planSharedElementFlip,
 	parallaxOffset,
 	perspectiveScale,
@@ -85,6 +88,12 @@ export interface BerxWebScene {
 	measuredFps: () => number | null;
 	/** True once the runtime has lowered its own tier from a measurement. */
 	adapted: () => boolean;
+	/**
+	 * Re-measures every surface against the room's light pools and
+	 * writes each one's illumination. Called on mount and resize; call
+	 * it again after the page adds or moves content.
+	 */
+	relight: () => void;
 	/**
 	 * Gives the scene's focus to an element, or releases it with null.
 	 *
@@ -551,6 +560,8 @@ export function mountBerxScene(
 			allowParallax: scene.budget.allowParallax,
 			blurred: scene.layers.D1.blurred,
 			maxPools: berxAtmospherePoolBudget(scene.budget.tier),
+			/* the room may not out-shine the objects standing in it */
+			contentColor: scene.layers.D3.surface.effectiveColor,
 		});
 		/**
 		 * The room is sized to the scene, not to the window.
@@ -664,7 +675,59 @@ export function mountBerxScene(
 		}
 	};
 
+	/**
+	 * The room lights the objects standing in it.
+	 *
+	 * A BERX scene has light sources at real positions, and until this
+	 * every surface in it carried the identical highlight wherever it
+	 * sat — which is precisely what makes a column of cards read as a
+	 * column of rectangles. Each surface is measured against the room
+	 * it is in and told how much of the light reaches its own corner;
+	 * the stylesheet scales that surface's key light and lit edge by
+	 * it, and nothing else. A card in the corner is still the same
+	 * material — it is just not in the light.
+	 *
+	 * Measured on layout, resize and tier change, never per frame: the
+	 * performance contract forbids reading layout inside an animation
+	 * frame, and where an object stands is not something that changes
+	 * sixty times a second.
+	 */
+	const lightSurfaces = () => {
+		const box = root.getBoundingClientRect();
+		const w = Math.max(1, box.width);
+		const h = Math.max(1, box.height);
+		for (const el of Array.from(root.querySelectorAll<HTMLElement>('.berx-surface'))) {
+			const depth = el.dataset.berxDepth;
+			/* the environment planes *are* the light; they do not stand in it */
+			if (depth === 'D0' || depth === 'D1') continue;
+			const r = el.getBoundingClientRect();
+			if (r.width <= 0 || r.height <= 0) continue;
+			const nx = (r.left + r.width / 2 - box.left) / w;
+			const ny = (r.top + r.height / 2 - box.top) / h;
+			const lit = berxIlluminationAt(atmosphere, nx, ny);
+			/* 0.5 is the even wash the stylesheet's own default matches */
+			el.style.setProperty('--berx-surface-light', String(Math.round((0.45 + lit) * 100) / 100));
+
+			/**
+			 * A surface that lost its translucency was flattened over the
+			 * substrate, which is only what is behind it where the room
+			 * is dark. Between two cards in a lit room it is not, and the
+			 * card then reads as a hole cut in the wall — measured at 12
+			 * L* inverted on a real scene. Given the room's colour at
+			 * this point, the surface's own fill is flattened against
+			 * that instead, and an object standing in the light is
+			 * lighter than the wall behind it.
+			 */
+			if (!depth || !(depth in scene.layers)) continue;
+			const layer = scene.layers[depth as BerxDepthKey];
+			if (!layer.surface.opaqueFallback) continue;
+			const behind = berxRoomColorAt(atmosphere, scene.background, nx, ny);
+			el.style.setProperty('--berx-surface-bg', flatten(layer.surface.translucentColor, behind));
+		}
+	};
+
 	build();
+	lightSurfaces();
 
 	/* ---- parallax: transform-only, one write per frame ---- */
 	const layerEls = () => Array.from(root.querySelectorAll<HTMLElement>('[data-berx-depth]'));
@@ -761,7 +824,10 @@ export function mountBerxScene(
 		}
 	};
 
-	const onResize = () => build();
+	const onResize = () => {
+		build();
+		lightSurfaces();
+	};
 	const motionQuery =
 		typeof window.matchMedia === 'function' ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
 	const onMotionChange = () => build();
@@ -778,7 +844,13 @@ export function mountBerxScene(
 		get atmosphere() {
 			return atmosphere;
 		},
-		refresh: build,
+		refresh: () => {
+			build();
+			lightSurfaces();
+		},
+		/** Re-measures every surface against the room. Call after the
+		 *  page adds or moves content. */
+		relight: lightSurfaces,
 		setFocus: (target, intensity) => {
 			focusTarget = target;
 			focusIntensity = intensity;

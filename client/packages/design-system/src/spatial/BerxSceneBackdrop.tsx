@@ -20,7 +20,7 @@
  * the scene so they can never out-shine the content plane.
  */
 
-import {useCallback, useMemo, useState} from 'react';
+import {useCallback, useEffect, useMemo, useState} from 'react';
 import {Image, StyleSheet, View, useWindowDimensions, type ImageSourcePropType, type LayoutChangeEvent} from 'react-native';
 import {berxAtmospherePoolBudget, resolveAtmosphere, rgba, type BerxAtmosphereKind} from '@berx/spatial';
 import {useBerxScene} from './BerxSpatialScene';
@@ -41,7 +41,7 @@ export interface BerxSceneBackdropProps {
 }
 
 export function BerxSceneBackdrop({media, kind, scrim = 0}: BerxSceneBackdropProps) {
-	const {scene, scrollY} = useBerxScene();
+	const {scene, scrollY, publishAtmosphere} = useBerxScene();
 	const window = useWindowDimensions();
 	/**
 	 * The room is sized to the scene it is in, not to the window.
@@ -89,6 +89,8 @@ export function BerxSceneBackdrop({media, kind, scrim = 0}: BerxSceneBackdropPro
 				/* graduated quality: fewer lamps on a weaker device, same room */
 				maxPools: berxAtmospherePoolBudget(scene.budget.tier),
 				bounded,
+				/* the room may not out-shine the objects standing in it */
+				contentColor: scene.layers.D3.surface.effectiveColor,
 			}),
 		[
 			kind,
@@ -101,8 +103,22 @@ export function BerxSceneBackdrop({media, kind, scrim = 0}: BerxSceneBackdropPro
 			d1.contentOpacity,
 			d1.blurred,
 			bounded,
+			scene.layers.D3.surface.effectiveColor,
 		],
 	);
+
+	/**
+	 * The room, published to the objects that will stand in it.
+	 *
+	 * A card does not need to know how the atmosphere was resolved; it
+	 * needs to know how lit its own corner of the room is. Publishing
+	 * the resolved room here is what makes that possible without every
+	 * component re-resolving it.
+	 */
+	useEffect(() => {
+		publishAtmosphere(atmosphere);
+		return () => publishAtmosphere(null);
+	}, [atmosphere, publishAtmosphere]);
 
 	/**
 	 * Overscan.

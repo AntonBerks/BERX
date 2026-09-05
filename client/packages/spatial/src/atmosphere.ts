@@ -25,7 +25,7 @@
  * adapter paints it with react-native-svg, the web adapter with CSS
  * gradients, from this one resolution.
  */
-import {clamp, mix, rgba, round} from './color';
+import {clamp, flatten, mix, parseColor, relativeLuminance, rgba, round} from './color';
 import {BERX_V9_COLOR} from './tokens';
 import type {BerxFamily} from './contract';
 import type {BerxGradient} from './lighting';
@@ -227,6 +227,23 @@ export interface BerxAtmosphereInput {
 	 * that small cannot show.
 	 */
 	bounded?: boolean;
+	/**
+	 * The content plane's own composited colour.
+	 *
+	 * The room is not allowed to out-shine the content standing in it,
+	 * and until now that was enforced only between the *materials* —
+	 * which is a different question. A card's fill can sit correctly
+	 * above the substrate in the material bands and still be darker
+	 * than the lit end of the sky it is painted over, and then the
+	 * scene reads with its planes inverted however well ordered the
+	 * numbers are. Given this, the sky's lit end is capped so the
+	 * content stays the lighter of the two wherever they meet.
+	 *
+	 * Omitted, the sky is left as resolved: a caller that cannot say
+	 * what its content looks like gets the room it asked for rather
+	 * than a guess.
+	 */
+	contentColor?: string;
 }
 
 function pool(x: number, y: number, radius: number, color: string, depth = 1): BerxAtmospherePool {
@@ -241,6 +258,146 @@ function pool(x: number, y: number, radius: number, color: string, depth = 1): B
  * are. That is what makes Messages feel like a lit corridor and
  * Trips feel like distance.
  */
+/**
+ * The light signature of each kind of room.
+ *
+ * The eleven atmospheres already differed in the things that matter
+ * structurally — whether there is a floor, how high the horizon sits,
+ * how close the walls are, how many lamps the room has. What they did
+ * not differ in was the thing the eye reads first: the *direction*
+ * the light comes from and the *temperature* of it. Every sky pointed
+ * within eight degrees of straight down and mixed the same accent at
+ * roughly the same strength, so eleven genuinely different rooms
+ * rendered as one dark teal wash with the furniture rearranged.
+ *
+ * These are the two properties that separate them at a glance:
+ *
+ *   `angleDeg` — where the light enters. A location is lit from high
+ *   and to one side, like a window; a conversation is lit across the
+ *   room, because a corridor is lit along its length; a cinematic
+ *   entrance is lit steeply from behind, which is what makes an
+ *   entrance an entrance.
+ *
+ *   `warmth` — the temperature of that light, −1 cold to +1 warm.
+ *   BERX has one accent per colour world and that is deliberate, so
+ *   this is not a second palette: it is a small shift of the lit end
+ *   of the sky toward daylight or toward lamplight, which is what
+ *   actually distinguishes a bar at night from a map at noon.
+ *
+ * `contrast` widens the sky's own falloff for the rooms that should
+ * read as deep, and flattens it for the ones that should read as
+ * enclosed.
+ */
+const KIND_LIGHT: Record<BerxAtmosphereKind, {angleDeg: number; warmth: number; contrast: number}> = {
+	/* a window, high and to the left; interiors are lamplit */
+	location: {angleDeg: 158, warmth: 0.45, contrast: 1.1},
+	/* one key light on one face, slightly warm, close and low-contrast */
+	identity: {angleDeg: 196, warmth: 0.3, contrast: 0.85},
+	/* along the corridor, not down it, and cool */
+	conversational: {angleDeg: 118, warmth: -0.2, contrast: 0.8},
+	/* the media is the light; the room only frames it */
+	immersive: {angleDeg: 180, warmth: 0, contrast: 1.25},
+	/* wide, cold, high sun over a lot of ground */
+	geographic: {angleDeg: 172, warmth: -0.55, contrast: 1.3},
+	/* dusk: the light is behind and to the right, and it is warm */
+	temporal: {angleDeg: 208, warmth: 0.6, contrast: 1.2},
+	/* a hall with light from both sides */
+	community: {angleDeg: 135, warmth: 0.15, contrast: 0.95},
+	/* distance: low sun, long throw, cold at the far end */
+	journey: {angleDeg: 165, warmth: -0.35, contrast: 1.35},
+	/* a display case: raking light across the object */
+	premium: {angleDeg: 142, warmth: 0.25, contrast: 1.15},
+	/* a steep entrance light from behind the viewer */
+	cinematic: {angleDeg: 214, warmth: -0.1, contrast: 1.4},
+	/* even, social, slightly warm — a room with people in it */
+	social: {angleDeg: 186, warmth: 0.2, contrast: 0.9},
+};
+
+/** Daylight and lamplight, as the two ends the sky's lit end moves between. */
+const COLD_LIGHT = '#8FB6FF';
+const WARM_LIGHT = '#FFB27A';
+
+/**
+ * Applies a kind's light signature to a resolved sky.
+ *
+ * Only the lit end is tinted and only the falloff is stretched: the
+ * dark end of every BERX sky stays the substrate, because the rooms
+ * differ in how they are lit, not in what they are made of.
+ */
+function applyKindLight(sky: BerxGradient, kind: BerxAtmosphereKind): BerxGradient {
+	const signature = KIND_LIGHT[kind];
+	const strength = kindTintStrength(kind);
+	const tint = kindTint(kind);
+	return {
+		angleDeg: signature.angleDeg,
+		stops: sky.stops.map((stop, index) => {
+			const lit = index === 0;
+			const parsed = parseColor(stop.color);
+			const alpha = parsed ? parsed.a : 1;
+			/* the lit end carries the signature; the dark end only
+			   deepens, because the rooms differ in how they are lit and
+			   not in what they are made of */
+			const scaled = clamp(alpha * (lit ? signature.contrast * 1.25 : 1 + (signature.contrast - 1) * 0.5), 0, 0.86);
+			const color = lit && strength > 0 ? mix(stop.color, tint, strength) : stop.color;
+			return {color: rgba(color, round(scaled, 4)), position: stop.position};
+		}),
+	};
+}
+
+/** CIE lightness — the space a brightness difference is visible in. */
+function lStar(color: string): number {
+	const y = relativeLuminance(color);
+	return y > 216 / 24389 ? 116 * Math.cbrt(y) - 16 : y * (24389 / 27);
+}
+
+/**
+ * Holds the sky below the content standing in front of it.
+ *
+ * Only the lit end is capped, and it is capped by scaling its alpha
+ * rather than by recolouring it: the room keeps its temperature and
+ * its direction, it just stops being brighter than the objects in it.
+ * The margin is 1.5 L*, the same step the depth-order gate requires
+ * between the planes a person reads and reaches for.
+ */
+function capSkyToContent(sky: BerxGradient, background: string, contentColor: string): BerxGradient {
+	const ceiling = lStar(contentColor) - 1.5;
+	const first = sky.stops[0];
+	const parsed = parseColor(first.color);
+	if (!parsed) return sky;
+	if (lStar(flatten(first.color, background)) <= ceiling) return sky;
+
+	/* binary search on the alpha: the composite is monotonic in it, and
+	   this converges in a dozen steps to well under a tenth of an L* */
+	let low = 0;
+	let high = parsed.a;
+	for (let i = 0; i < 14; i += 1) {
+		const mid = (low + high) / 2;
+		const composited = lStar(flatten(rgba(first.color, mid), background));
+		if (composited > ceiling) high = mid;
+		else low = mid;
+	}
+	return {
+		angleDeg: sky.angleDeg,
+		stops: sky.stops.map((stop, index) => (index === 0 ? {color: rgba(stop.color, round(low, 4)), position: stop.position} : stop)),
+	};
+}
+
+/** Which end of the light this kind of room sits at. */
+function kindTint(kind: BerxAtmosphereKind): string {
+	return KIND_LIGHT[kind].warmth >= 0 ? WARM_LIGHT : COLD_LIGHT;
+}
+
+/**
+ * How far toward that end.
+ *
+ * Strong enough to be seen at a glance across a dark scene, and
+ * bounded well short of replacing the colour world: this shifts the
+ * temperature of the light, it does not repaint the room.
+ */
+function kindTintStrength(kind: BerxAtmosphereKind): number {
+	return round(Math.min(0.55, Math.abs(KIND_LIGHT[kind].warmth) * 0.62), 4);
+}
+
 export function resolveAtmosphere(input: BerxAtmosphereInput): BerxAtmosphere {
 	const accent = input.accent;
 	const bg = input.background || BERX_V9_COLOR.bg;
@@ -622,6 +779,22 @@ export function resolveAtmosphere(input: BerxAtmosphereInput): BerxAtmosphere {
 	}
 
 	/* Graduated quality: the faintest, most distant lamps go first. */
+	/* The room's own light signature: direction and temperature, the
+	   two things that separate one kind of room from another before
+	   anything is placed in it.
+
+	   The lamps carry the same temperature as the sky they hang in. A
+	   warm room lit by cold lamps is two rooms, and the pools are the
+	   brightest thing in the frame — if the signature does not reach
+	   them it does not reach the eye either. */
+	sky = applyKindLight(sky, input.kind);
+	if (input.contentColor) sky = capSkyToContent(sky, bg, input.contentColor);
+	const lampTint = kindTint(input.kind);
+	const lampStrength = kindTintStrength(input.kind) * 0.75;
+	if (lampStrength > 0) {
+		pools = pools.map((p) => ({...p, color: mix(p.color, lampTint, lampStrength)}));
+	}
+
 	const poolBudget = Math.max(1, input.maxPools ?? pools.length);
 	if (pools.length > poolBudget) {
 		pools = [...pools]
@@ -697,4 +870,147 @@ export function assertAtmosphereDepth(atmosphere: BerxAtmosphere): string[] {
 function alphaOf(color: string): number {
 	const m = /rgba\([^,]+,[^,]+,[^,]+,([^)]+)\)/.exec(color.replace(/\s/g, ''));
 	return m ? Number(m[1]) : 1;
+}
+
+/* ------------------------------------------------------------------ */
+/* Standing in the room                                                */
+/* ------------------------------------------------------------------ */
+
+/**
+ * How lit a point in the scene is, 0..1.
+ *
+ * The room has light sources at real positions — that is what pools
+ * are — and until now nothing standing in the room knew about them.
+ * Every card in a list was lit identically wherever it sat, which is
+ * exactly what makes a list of objects read as a list of rectangles:
+ * one repeated surface, one repeated highlight, no sense that the
+ * objects are anywhere.
+ *
+ * This samples the room at a point, so an object near the window
+ * catches more of the light than one in the corner. It is a falloff
+ * around each pool, plus the vignette pulling the edges of the frame
+ * down, plus the floor's own bounce where a scene has one — the same
+ * three things the atmosphere already paints, read at a point instead
+ * of across the whole plane.
+ *
+ * 0.5 is "as lit as an even wash would have been", so a surface
+ * multiplied by this neither brightens nor darkens on average: the
+ * light is redistributed across the room, not added to it.
+ */
+export function berxIlluminationAt(atmosphere: BerxAtmosphere, x: number, y: number): number {
+	const px = clamp(x, 0, 1);
+	const py = clamp(y, 0, 1);
+
+	let light = 0;
+	for (const p of atmosphere.pools) {
+		const dx = px - p.x;
+		const dy = py - p.y;
+		const distance = Math.sqrt(dx * dx + dy * dy);
+		/* a pool's radius is where it has fallen to nothing; inside it
+		   the falloff is smooth rather than linear, because a linear
+		   ramp reads as a cone of light rather than as a lamp */
+		const reach = Math.max(0.001, p.radius);
+		if (distance >= reach) continue;
+		const t = 1 - distance / reach;
+		/* nearer pools count for more: p.depth is how far back in the
+		   room the resolver put this one */
+		light += t * t * clamp(p.depth, 0.2, 1);
+	}
+
+	/* the walls: the vignette is darkest at the corners, so a point's
+	   distance from the centre of the frame costs it light */
+	const cx = px - 0.5;
+	const cy = py - 0.5;
+	const fromCentre = Math.min(1, Math.sqrt(cx * cx + cy * cy) / 0.7071);
+	const walls = atmosphere.vignette * fromCentre * fromCentre;
+
+	/* the floor bounces: a scene with a ground plane is brighter just
+	   above the horizon than a scene without one */
+	const bounce = atmosphere.ground && py > atmosphere.ground.horizon ? 0.12 * (1 - atmosphere.ground.haze) : 0;
+
+	return round(clamp(0.5 + light * 0.55 - walls * 0.4 + bounce, 0.15, 1), 4);
+}
+
+/**
+ * The room's own colour at a point, composited over the substrate.
+ *
+ * The companion to berxIlluminationAt, and the answer to a defect the
+ * pixels showed rather than the numbers: a surface that has lost its
+ * translucency — every surface on React Native, and every surface on
+ * a device with no backdrop filter — is flattened over the substrate,
+ * which is correct only where the substrate is what is actually
+ * behind it. In a lit room it is not. Measured on a real scene, the
+ * room between two cards read 12 L* brighter than the cards standing
+ * in front of it: the content plane rendered as holes cut in the wall.
+ *
+ * Given what is really behind a surface, the runtime can flatten that
+ * surface's own fill against it instead, and an object standing in
+ * the light is lighter than the wall, which is what standing in the
+ * light means.
+ */
+export function berxRoomColorAt(atmosphere: BerxAtmosphere, background: string, x: number, y: number): string {
+	const px = clamp(x, 0, 1);
+	const py = clamp(y, 0, 1);
+	let color = background;
+
+	/**
+	 * The sky, sampled along its own axis. The gradient's angle is a
+	 * CSS angle — 180° runs straight down — so the position along it
+	 * is the point projected onto that direction, which is what makes
+	 * a sky lit from 118° brighten toward the left rather than toward
+	 * the top.
+	 */
+	const rad = (atmosphere.sky.angleDeg * Math.PI) / 180;
+	const axis = clamp(0.5 + (px - 0.5) * Math.sin(rad) - (py - 0.5) * Math.cos(rad), 0, 1);
+	const stops = atmosphere.sky.stops;
+	for (let i = 0; i < stops.length - 1; i += 1) {
+		const from = stops[i];
+		const to = stops[i + 1];
+		if (axis > to.position && i < stops.length - 2) continue;
+		const span = Math.max(1e-4, to.position - from.position);
+		const t = clamp((axis - from.position) / span, 0, 1);
+		color = flatten(mixTranslucent(from.color, to.color, t), color);
+		break;
+	}
+
+	/* the lamps, in front of the sky, each falling off to nothing at
+	   its own radius */
+	for (const p of atmosphere.pools) {
+		const dx = px - p.x;
+		const dy = py - p.y;
+		const reach = Math.max(0.001, p.radius);
+		const distance = Math.sqrt(dx * dx + dy * dy);
+		if (distance >= reach) continue;
+		const t = 1 - distance / reach;
+		color = flatten(scaleAlpha(p.color, t * t * clamp(p.depth, 0.2, 1)), color);
+	}
+
+	/* the floor, where the scene has one */
+	if (atmosphere.ground && py > atmosphere.ground.horizon) {
+		const depth = clamp((py - atmosphere.ground.horizon) / Math.max(1e-4, 1 - atmosphere.ground.horizon), 0, 1);
+		color = flatten(scaleAlpha(atmosphere.ground.color, depth * (1 - atmosphere.ground.haze * 0.5)), color);
+	}
+
+	/* and the walls, darkest at the corners */
+	const cx = px - 0.5;
+	const cy = py - 0.5;
+	const fromCentre = Math.min(1, Math.sqrt(cx * cx + cy * cy) / 0.7071);
+	const wall = atmosphere.vignette * fromCentre * fromCentre;
+	if (wall > 0.001) color = flatten(rgba('#000000', round(clamp(wall, 0, 0.9), 4)), color);
+
+	return color;
+}
+
+/** Interpolates two translucent colours, alpha included. */
+function mixTranslucent(from: string, to: string, t: number): string {
+	const a = parseColor(from);
+	const b = parseColor(to);
+	if (!a || !b) return from;
+	return rgba(mix(from, to, t), round(a.a + (b.a - a.a) * t, 4));
+}
+
+function scaleAlpha(color: string, factor: number): string {
+	const parsed = parseColor(color);
+	if (!parsed) return color;
+	return rgba(color, round(clamp(parsed.a * factor, 0, 1), 4));
 }

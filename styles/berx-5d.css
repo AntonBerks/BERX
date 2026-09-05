@@ -110,9 +110,18 @@
 .berx-surface[data-berx-depth="D0"]{--berx-surface-bg:var(--berx-d0-bg);--berx-surface-border:var(--berx-d0-border);--berx-surface-blur:var(--berx-d0-blur);--berx-surface-shadow:none;--berx-surface-edge:transparent;--berx-surface-rim:transparent;--berx-surface-rim-width:0px;--berx-surface-key-0:var(--berx-d0-key-0);--berx-surface-key-1:var(--berx-d0-key-1);--berx-surface-key-angle:var(--berx-d0-key-angle);--berx-surface-ambient:var(--berx-d0-ambient);--berx-surface-light-rim:transparent}
 .berx-surface[data-berx-depth="D1"]{--berx-surface-bg:var(--berx-d1-bg);--berx-surface-border:var(--berx-d1-border);--berx-surface-blur:var(--berx-d1-blur);--berx-surface-shadow:none;--berx-surface-edge:transparent;--berx-surface-rim:transparent;--berx-surface-rim-width:0px;--berx-surface-key-0:var(--berx-d1-key-0);--berx-surface-key-1:var(--berx-d1-key-1);--berx-surface-key-angle:var(--berx-d1-key-angle);--berx-surface-ambient:var(--berx-d1-ambient);--berx-surface-light-rim:transparent}
 
-/* ambient wash + key light, from the resolved recipe */
+/* Ambient wash + key light, from the resolved recipe — and only as
+   much of the key light as reaches this corner of the room.
+
+   --berx-surface-light is written by the runtime from the object's own
+   measured position against the atmosphere's light pools. Without it
+   every card in a list carries the identical highlight, which is what
+   makes a list of objects read as a list of rectangles. 0.95 is the
+   even wash, so a surface the runtime has not measured looks exactly
+   as it did. */
 .berx-surface::before{
   content:"";position:absolute;inset:0;pointer-events:none;
+  opacity:var(--berx-surface-light,.95);
   background:
     linear-gradient(var(--berx-surface-key-angle,165deg),
       var(--berx-surface-key-0,transparent) 0%,
@@ -120,9 +129,11 @@
       rgba(255,255,255,0) 100%),
     var(--berx-surface-ambient,transparent);
 }
-/* specular top edge and refractive rim — a lit pane, not a border */
+/* specular top edge and refractive rim — a lit pane, not a border.
+   The edge catches the same amount of light the face does. */
 .berx-surface::after{
   content:"";position:absolute;inset:0;pointer-events:none;
+  opacity:var(--berx-surface-light,.95);
   border-top:1px solid var(--berx-surface-edge,transparent);
   border-left:var(--berx-surface-rim-width,0px) solid var(--berx-surface-rim,transparent);
   border-radius:inherit;

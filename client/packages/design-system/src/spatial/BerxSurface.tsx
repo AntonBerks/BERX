@@ -25,7 +25,7 @@
 import React, {useMemo} from 'react';
 import {StyleSheet, View, type ViewStyle} from 'react-native';
 import Svg, {Defs, LinearGradient, Rect, Stop} from 'react-native-svg';
-import type {BerxLightingSpec, BerxMaterialSurface} from '@berx/spatial';
+import {flatten, type BerxLightingSpec, type BerxMaterialSurface} from '@berx/spatial';
 
 export interface BerxSurfaceProps {
 	surface: BerxMaterialSurface;
@@ -42,6 +42,28 @@ export interface BerxSurfaceProps {
 	 * not repaint a material, it turns its own light up.
 	 */
 	emissiveGain?: number;
+	/**
+	 * How lit this surface's own position in the room is, 0..1, from
+	 * berxIlluminationAt. 0.5 is an even wash, so the default leaves a
+	 * surface exactly as it was.
+	 *
+	 * It scales the key light and the lit edge, and nothing else: an
+	 * object further from the window catches less of the light on its
+	 * face and less of it along its top edge. It does not change the
+	 * material — a glass card in the corner is still glass, it is just
+	 * not in the light.
+	 */
+	illumination?: number;
+	/**
+	 * The room's own colour where this surface stands.
+	 *
+	 * An opaque surface is flattened against this rather than against
+	 * the substrate, so an object standing in the light is lighter than
+	 * the wall behind it — which is what standing in the light means.
+	 * Omitted, the surface keeps the colour the material resolved,
+	 * which is the honest answer when nothing has measured the room.
+	 */
+	behind?: string | null;
 	testID?: string;
 }
 
@@ -61,13 +83,22 @@ function keyAxis(angleDeg: number) {
 	};
 }
 
-export function BerxSurface({surface, lighting, radius, children, style, emissive, emissiveGain = 1, testID}: BerxSurfaceProps) {
+export function BerxSurface({surface, lighting, radius, children, style, emissive, emissiveGain = 1, illumination = 0.5, behind, testID}: BerxSurfaceProps) {
 	const glowing = emissive === true && surface.glowRadius > 0;
 	const glowRadius = surface.glowRadius * Math.max(1, emissiveGain);
 	const axis = useMemo(() => keyAxis(lighting.key.angleDeg), [lighting.key.angleDeg]);
 	/* one gradient id per recipe+depth, so two surfaces in one tree
 	   cannot pick up each other's definitions */
-	const gradientId = `berx-key-${lighting.recipe}-${Math.round(lighting.shadow.radius)}`;
+	/**
+	 * Quantised to sixteenths: the gradient id has to change when the
+	 * light does, and a per-pixel id would put a new <Defs> in the
+	 * document for every object on the screen.
+	 */
+	const lit = Math.round(Math.max(0, Math.min(1, illumination)) * 16) / 16;
+	const fill =
+		behind && surface.opaqueFallback ? flatten(surface.translucentColor, behind) : surface.backgroundColor;
+	const litGain = 0.45 + lit;
+	const gradientId = `berx-key-${lighting.recipe}-${Math.round(lighting.shadow.radius)}-${Math.round(lit * 16)}`;
 
 	return (
 		<View
@@ -75,7 +106,7 @@ export function BerxSurface({surface, lighting, radius, children, style, emissiv
 			style={[
 				styles.base,
 				{
-					backgroundColor: surface.backgroundColor,
+					backgroundColor: fill,
 					borderRadius: radius,
 					borderWidth: surface.borderWidth,
 					borderColor: surface.borderColor,
@@ -96,7 +127,12 @@ export function BerxSurface({surface, lighting, radius, children, style, emissiv
 					<Defs>
 						<LinearGradient id={gradientId} x1={axis.x1} y1={axis.y1} x2={axis.x2} y2={axis.y2}>
 							{lighting.key.stops.map((stop, i) => (
-								<Stop key={i} offset={`${stop.position * 100}%`} stopColor={stop.color} />
+								<Stop
+									key={i}
+									offset={`${stop.position * 100}%`}
+									stopColor={stop.color}
+									stopOpacity={litGain}
+								/>
 							))}
 						</LinearGradient>
 					</Defs>
@@ -104,8 +140,10 @@ export function BerxSurface({surface, lighting, radius, children, style, emissiv
 				</Svg>
 			</View>
 
-			{/* specular top edge — the lit edge of a real pane */}
-			<View pointerEvents="none" style={[styles.edge, {backgroundColor: surface.edgeHighlightColor}]} />
+			{/* specular top edge — the lit edge of a real pane, and it
+			    catches only as much light as reaches this corner of the
+			    room */}
+			<View pointerEvents="none" style={[styles.edge, {backgroundColor: surface.edgeHighlightColor, opacity: litGain}]} />
 
 			{/* refractive rim, only for materials whose ior actually bends light */}
 			{surface.rimWidth > 0 ? (
