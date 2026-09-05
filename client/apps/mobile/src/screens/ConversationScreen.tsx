@@ -40,6 +40,7 @@ import {BerxScreenScene, useBerxScreen} from '../spatial/BerxScreenScene';
 import {classifyFailure} from '../spatial/screenState';
 import {useBerxConnectivity} from '../spatial/useBerxConnectivity';
 import {berxAnalytics} from '../spatial/analytics';
+import {useBerxSceneScroll} from '../../../../packages/design-system/src/spatial/BerxSpatialScene';
 
 export interface ConversationScreenProps {
 	api: BerxApiClient;
@@ -60,6 +61,7 @@ export default function ConversationScreen(props: ConversationScreenProps) {
 }
 
 function ConversationSceneBody({api, myGuid, otherGuid, otherUsername, onBack}: ConversationScreenProps) {
+	const {onScroll, scrollEventThrottle} = useBerxSceneScroll();
 	const screen = useBerxScreen();
 	const [messages, setMessages] = useState<BerxMessage[]>([]);
 	/* a fetch that failed while the device is offline is an offline
@@ -181,10 +183,17 @@ function ConversationSceneBody({api, myGuid, otherGuid, otherUsername, onBack}: 
 				emptyTitle="Здесь пока пусто"
 				emptyBody={`Напишите ${title} первым.`}
 				style={styles.body}>
+				{/* the thread keeps its own list — it holds a ref so a new
+				    message can bring the end into view, and its rhythm is the
+				    conversation's rather than the layout contract's. What it
+				    was missing is the scene: the corridor stood still while
+				    the messages moved through it. */}
 				<FlatList
 					ref={listRef}
 					data={messages}
 					keyExtractor={(m: BerxMessage) => String(m.id)}
+					onScroll={onScroll}
+					scrollEventThrottle={scrollEventThrottle}
 					contentContainerStyle={styles.list}
 					removeClippedSubviews
 					windowSize={Math.max(3, Math.round(screen.scene.budget.listWindowSize / 3))}
