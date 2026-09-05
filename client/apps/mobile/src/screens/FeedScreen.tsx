@@ -33,6 +33,7 @@ import {BerxSpatialCard} from '../../../../packages/design-system/src/spatial/Be
 import {BerxIdentity} from '../../../../packages/design-system/src/spatial/BerxIdentity';
 import {BerxStoryTray} from '../../../../packages/design-system/src/spatial/BerxStoryTray';
 import {useBerxSceneScroll} from '../../../../packages/design-system/src/spatial/BerxSpatialScene';
+import {BerxPartialNotice} from '../../../../packages/design-system/src/spatial/BerxPartialNotice';
 import {BerxScreenScene, useBerxScreen} from '../spatial/BerxScreenScene';
 import {useBerxConnectivity} from '../spatial/useBerxConnectivity';
 import {classifyFailure, type BerxFailure} from '../spatial/screenState';
@@ -71,16 +72,24 @@ function FeedSceneBody({api, onOpenPost, onOpenProfile, onCreatePost, onOpenStor
 	 * app" — never presented as server truth.
 	 */
 	const [openedThisSession, setOpenedThisSession] = useState<ReadonlySet<number>>(new Set());
+	/**
+	 * Stories failing while the feed loads is partial data, not an
+	 * error and not emptiness. An empty rail here used to be
+	 * indistinguishable from nobody having posted a story.
+	 */
+	const [storiesFailed, setStoriesFailed] = useState(false);
 
 	const load = useCallback(async () => {
 		try {
 			const [feedRes, storiesRes] = await Promise.all([
 				api.feed(20, 0),
-				/* stories failing must not take the feed down with it */
-				api.storiesFeed().catch(() => ({feed: []})),
+				/* stories failing must not take the feed down with it —
+				   but it must not pass silently either */
+				api.storiesFeed().catch(() => null),
 			]);
 			setItems(feedRes.items);
-			setStoryGroups(storiesRes.feed);
+			setStoryGroups(storiesRes?.feed ?? []);
+			setStoriesFailed(storiesRes === null);
 			setFailure(null);
 			setState(feedRes.items.length === 0 ? 'empty' : 'default');
 		} catch (e) {
@@ -134,7 +143,11 @@ function FeedSceneBody({api, onOpenPost, onOpenProfile, onCreatePost, onOpenStor
 		</View>
 	);
 
-	const tray = (
+	const tray = storiesFailed ? (
+		/* partial data: the feed is here, the stories are not, and an
+		   empty rail would have said the opposite */
+		<BerxPartialNotice message="Истории не загрузились" onRetry={load} testID="feed-stories-partial" />
+	) : (
 		<BerxStoryTray
 			onCreate={onCreateStory}
 			onOpen={openStories}

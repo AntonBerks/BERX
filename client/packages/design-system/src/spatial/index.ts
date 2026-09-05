@@ -48,6 +48,7 @@ export * from './BerxChoiceChips';
 export * from './BerxSharedElement';
 export * from './BerxListGroup';
 export * from './BerxObjectCard';
+export * from './BerxPartialNotice';
 export * from './BerxExperienceCard';
 export * from './BerxTripCard';
 export * from './BerxCollectionCard';

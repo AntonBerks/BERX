@@ -28,6 +28,7 @@ import {BerxSearchField} from '../../../../packages/design-system/src/spatial/Be
 import {BerxChatRow} from '../../../../packages/design-system/src/spatial/BerxChatRow';
 import {BerxDataBoundary} from '../../../../packages/design-system/src/spatial/BerxDataBoundary';
 import {useBerxSceneScroll} from '../../../../packages/design-system/src/spatial/BerxSpatialScene';
+import {BerxPartialNotice} from '../../../../packages/design-system/src/spatial/BerxPartialNotice';
 import {BerxScreenScene, useBerxScreen} from '../spatial/BerxScreenScene';
 import {berxAnalytics} from '../spatial/analytics';
 
@@ -55,17 +56,22 @@ function ConversationListSceneBody({api, onOpenConversation, onOpenMessageSearch
 	const [state, setState] = useState<BerxScreenState>('loading');
 	const [refreshing, setRefreshing] = useState(false);
 	const [error, setError] = useState<string | null>(null);
-	const [unread, setUnread] = useState(0);
+	/**
+	 * `null` means the count did not load. It used to fall back to 0,
+	 * which is not a degradation — it is a wrong number, and the one
+	 * number on this screen a person acts on.
+	 */
+	const [unread, setUnread] = useState<number | null>(0);
 
 	const load = useCallback(async () => {
 		try {
 			const [res, unreadRes] = await Promise.all([
 				api.conversations(),
 				/* best-effort: a failed count must never stop the list loading */
-				api.unreadMessageCount().catch(() => ({unread_count: 0})),
+				api.unreadMessageCount().catch(() => null),
 			]);
 			setItems(res.conversations);
-			setUnread(unreadRes.unread_count);
+			setUnread(unreadRes ? unreadRes.unread_count : null);
 			setError(null);
 			setState(res.conversations.length === 0 ? 'empty' : 'default');
 		} catch (e) {
@@ -101,8 +107,13 @@ function ConversationListSceneBody({api, onOpenConversation, onOpenMessageSearch
 			<View style={styles.header}>
 				<Text style={styles.title} accessibilityRole="header">
 					Сообщения
-					{unread > 0 ? <Text style={styles.unread}> · {unread} непрочитанных</Text> : null}
+					{unread !== null && unread > 0 ? <Text style={styles.unread}> · {unread} непрочитанных</Text> : null}
 				</Text>
+				{/* the count did not load; showing 0 would be a wrong number
+				    rather than a degraded one */}
+				{unread === null ? (
+					<BerxPartialNotice message="Счётчик непрочитанных недоступен" onRetry={load} testID="conversations-unread-partial" />
+				) : null}
 				{onOpenMessageSearch ? (
 					<Pressable
 						accessibilityRole="button"

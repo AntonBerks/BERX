@@ -24,6 +24,7 @@ import {BerxSpatialCard} from '../../../../packages/design-system/src/spatial/Be
 import {BerxCountdown} from '../../../../packages/design-system/src/spatial/BerxCountdown';
 import {BerxDataBoundary} from '../../../../packages/design-system/src/spatial/BerxDataBoundary';
 import {useBerxSceneScroll} from '../../../../packages/design-system/src/spatial/BerxSpatialScene';
+import {BerxPartialNotice} from '../../../../packages/design-system/src/spatial/BerxPartialNotice';
 import {BerxScreenScene, useBerxScreen} from '../spatial/BerxScreenScene';
 import {berxAnalytics} from '../spatial/analytics';
 
@@ -48,6 +49,8 @@ function StoriesSceneBody({api, onOpenGroup, onCreateStory, onBack}: StoriesRail
 
 	const [groups, setGroups] = useState<BerxStoryFeedGroup[]>([]);
 	const [own, setOwn] = useState<BerxOwnStorySummary[]>([]);
+	/* your own stories failing is not the same as having none */
+	const [ownFailed, setOwnFailed] = useState(false);
 	const [opened, setOpened] = useState<ReadonlySet<number>>(new Set());
 	const [state, setState] = useState<BerxScreenState>('loading');
 	const [error, setError] = useState<string | null>(null);
@@ -58,13 +61,16 @@ function StoriesSceneBody({api, onOpenGroup, onCreateStory, onBack}: StoriesRail
 		try {
 			const [feed, mine] = await Promise.all([
 				api.storiesFeed(),
-				/* own stories are a separate, optional read — a failure here must not hide everyone else's */
-				api.ownStories().catch(() => ({stories: [] as BerxOwnStorySummary[]})),
+				/* own stories are a separate, optional read — a failure here
+				   must not hide everyone else's, and must not be reported
+				   as you having none either */
+				api.ownStories().catch(() => null),
 			]);
 			setGroups(feed.feed);
-			setOwn(mine.stories);
+			setOwn(mine?.stories ?? []);
+			setOwnFailed(mine === null);
 			setError(null);
-			setState(feed.feed.length === 0 && mine.stories.length === 0 ? 'empty' : 'default');
+			setState(feed.feed.length === 0 && (mine?.stories.length ?? 0) === 0 && mine !== null ? 'empty' : 'default');
 		} catch (e) {
 			setError(e instanceof Error ? e.message : 'Не удалось загрузить истории');
 			setState('error');
@@ -131,6 +137,17 @@ function StoriesSceneBody({api, onOpenGroup, onCreateStory, onBack}: StoriesRail
 							seen: opened.has(g.owner_guid) ? true : undefined,
 						}))}
 					/>
+
+					{ownFailed ? (
+						/* partial data: everyone else's stories are here, yours
+						   did not load, and an absent section would have read
+						   as you not having posted one */
+						<BerxPartialNotice
+							message="Ваши истории не загрузились"
+							onRetry={load}
+							testID="stories-own-partial"
+						/>
+					) : null}
 
 					{own.length > 0 ? (
 						<View style={styles.section}>
