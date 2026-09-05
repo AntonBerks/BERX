@@ -14,6 +14,8 @@ import {BerxHeader} from '../../../../packages/design-system/src/components/Berx
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxSpatialCard} from '../../../../packages/design-system/src/spatial/BerxSpatialCard';
 import {BerxFamilyScene, useBerxSceneAtmosphere} from '../spatial/BerxScreenScene';
+import {classifyFailure} from '../spatial/screenState';
+import {useBerxConnectivity} from '../spatial/useBerxConnectivity';
 import {BerxEyebrow} from '../../../../packages/design-system/src/components/BerxBusinessPrimitives';
 import {BerxSceneList} from '../../../../packages/design-system/src/spatial/BerxSceneList';
 import {BerxText} from '../../../../packages/design-system/src/spatial/BerxText';
@@ -69,6 +71,11 @@ function memoryMedia(memories: BerxMemory[]): {uri: string} | undefined {
 }
 
 function MemoriesScreenBody({api, onOpenPost, onOpenAlbum, onBack}: MemoriesScreenProps) {
+	/* a fetch that failed while the device is offline is an offline
+	   state, not a server error — the difference is the whole point */
+	const {offline} = useBerxConnectivity();
+	/* a 403 or a 404 is not transient; a Retry button there is a lie */
+	const [retryable, setRetryable] = useState(true);
 	const [memories, setMemories] = useState<BerxMemory[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
@@ -83,11 +90,17 @@ function MemoriesScreenBody({api, onOpenPost, onOpenAlbum, onBack}: MemoriesScre
 			const res = await api.memories();
 			setMemories(res.memories);
 		} catch (e) {
-			setError(e instanceof Error ? e.message : 'Не удалось загрузить воспоминания');
+			/* the real reason, not one generic error: an expired session,
+			   a forbidden resource and a dead server are different problems,
+			   and being offline is a fourth. A 403 or a 404 also stops
+			   offering a Retry that cannot work. */
+			const failure = classifyFailure(e, offline);
+			setError(failure.message);
+			setRetryable(failure.retryable);
 		} finally {
 			setLoading(false);
 		}
-	}, [api]);
+	}, [api, offline]);
 
 	useEffect(() => {
 		load();
@@ -111,7 +124,7 @@ function MemoriesScreenBody({api, onOpenPost, onOpenAlbum, onBack}: MemoriesScre
 		return (
 			<View style={{flex: 1}}>
 				{header}
-				<BerxErrorState message={error} onRetry={load} />
+				<BerxErrorState message={error} onRetry={retryable ? load : undefined} />
 			</View>
 		);
 

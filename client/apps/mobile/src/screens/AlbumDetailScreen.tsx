@@ -23,6 +23,8 @@ import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../pack
 import {BerxMediaGrid} from '../../../../packages/design-system/src/components/BerxMediaGrid';
 import {BerxActionShelf} from '../../../../packages/design-system/src/spatial/BerxActionShelf';
 import {BerxFamilyScene, useBerxSceneAtmosphere} from '../spatial/BerxScreenScene';
+import {classifyFailure} from '../spatial/screenState';
+import {useBerxConnectivity} from '../spatial/useBerxConnectivity';
 import {BerxText} from '../../../../packages/design-system/src/spatial/BerxText';
 import {BerxSceneScroll} from '../../../../packages/design-system/src/spatial/BerxSceneScroll';
 
@@ -43,6 +45,11 @@ export default function AlbumDetailScreen(props: AlbumDetailScreenProps) {
 }
 
 function AlbumDetailScreenBody({api, guid, authState, pickImage, onBack}: AlbumDetailScreenProps) {
+	/* a fetch that failed while the device is offline is an offline
+	   state, not a server error — the difference is the whole point */
+	const {offline} = useBerxConnectivity();
+	/* a 403 or a 404 is not transient; a Retry button there is a lie */
+	const [retryable, setRetryable] = useState(true);
 	const [album, setAlbum] = useState<BerxAlbumDetail | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
@@ -70,11 +77,17 @@ function AlbumDetailScreenBody({api, guid, authState, pickImage, onBack}: AlbumD
 			const res = await api.getAlbum(guid);
 			setAlbum(res);
 		} catch (e) {
-			setError(e instanceof Error ? e.message : 'Не удалось загрузить альбом');
+			/* the real reason, not one generic error: an expired session,
+			   a forbidden resource and a dead server are different problems,
+			   and being offline is a fourth. A 403 or a 404 also stops
+			   offering a Retry that cannot work. */
+			const failure = classifyFailure(e, offline);
+			setError(failure.message);
+			setRetryable(failure.retryable);
 		} finally {
 			setLoading(false);
 		}
-	}, [api, guid]);
+	}, [api, guid, offline]);
 
 	useEffect(() => {
 		load();
@@ -126,7 +139,7 @@ function AlbumDetailScreenBody({api, guid, authState, pickImage, onBack}: AlbumD
 		return (
 			<View style={{flex: 1}}>
 				{header}
-				<BerxErrorState message={error} onRetry={load} />
+				<BerxErrorState message={error} onRetry={retryable ? load : undefined} />
 			</View>
 		);
 	if (!album) return null;

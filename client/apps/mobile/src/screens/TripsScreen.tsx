@@ -11,6 +11,8 @@ import type {BerxTrip} from '@berx/api/types';
 import {colors, spacing, typography} from '@berx/design-system/tokens';
 import {BerxTripCard} from '../../../../packages/design-system/src/spatial/BerxTripCard';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
+import {classifyFailure} from '../spatial/screenState';
+import {useBerxConnectivity} from '../spatial/useBerxConnectivity';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
@@ -39,6 +41,11 @@ export default function TripsScreen(props: TripsScreenProps) {
 }
 
 function TripsSceneBody({api, userGuid, isOwn, onOpenTrip, onCreate, onBack}: TripsScreenProps) {
+	/* a fetch that failed while the device is offline is an offline
+	   state, not a server error — the difference is the whole point */
+	const {offline} = useBerxConnectivity();
+	/* a 403 or a 404 is not transient; a Retry button there is a lie */
+	const [retryable, setRetryable] = useState(true);
 	const [items, setItems] = useState<BerxTrip[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
@@ -50,11 +57,17 @@ function TripsSceneBody({api, userGuid, isOwn, onOpenTrip, onCreate, onBack}: Tr
 			const res = await api.trips(userGuid);
 			setItems(res.trips);
 		} catch (e) {
-			setError(e instanceof Error ? e.message : 'Не удалось загрузить поездки');
+			/* the real reason, not one generic error: an expired session,
+			   a forbidden resource and a dead server are different problems,
+			   and being offline is a fourth. A 403 or a 404 also stops
+			   offering a Retry that cannot work. */
+			const failure = classifyFailure(e, offline);
+			setError(failure.message);
+			setRetryable(failure.retryable);
 		} finally {
 			setLoading(false);
 		}
-	}, [api, userGuid]);
+	}, [api, userGuid, offline]);
 
 	useEffect(() => {
 		load();
@@ -78,7 +91,7 @@ function TripsSceneBody({api, userGuid, isOwn, onOpenTrip, onCreate, onBack}: Tr
 		return (
 			<View style={{flex: 1}}>
 				{header}
-				<BerxErrorState message={error} onRetry={load} />
+				<BerxErrorState message={error} onRetry={retryable ? load : undefined} />
 			</View>
 		);
 

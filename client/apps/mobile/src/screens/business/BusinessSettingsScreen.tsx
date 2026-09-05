@@ -11,6 +11,8 @@ import {View, Text, Pressable, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxPlace, BerxBusinessSubscription, BerxBusinessType, BerxOpeningInterval} from '@berx/api/types';
 import {colors, spacing, typography} from '@berx/design-system/tokens';
+import {classifyFailure} from '../../spatial/screenState';
+import {useBerxConnectivity} from '../../spatial/useBerxConnectivity';
 import {useBerxScene} from '../../../../../packages/design-system/src/spatial/BerxSpatialScene';
 import {BerxIcon} from '../../../../../packages/design-system/src/icons';
 import {BerxGlassSurface} from '../../../../../packages/design-system/src/components/BerxGlassSurface';
@@ -83,6 +85,11 @@ export default function BusinessSettingsScreen(props: BusinessSettingsScreenProp
 }
 
 function BusinessSettingsScreenBody({api, placeGuid, onBack}: BusinessSettingsScreenProps) {
+	/* a fetch that failed while the device is offline is an offline
+	   state, not a server error — the difference is the whole point */
+	const {offline} = useBerxConnectivity();
+	/* a 403 or a 404 is not transient; a Retry button there is a lie */
+	const [retryable, setRetryable] = useState(true);
 	/* the scene's own accent: the token is one colour in every colour
 	   world, and a mark that ignores the room it stands in is exactly
 	   the flattening the Color World system exists to prevent */
@@ -106,11 +113,17 @@ function BusinessSettingsScreenBody({api, placeGuid, onBack}: BusinessSettingsSc
 			setSubscription(s);
 			setWeek(intervalsToWeek(h.intervals));
 		} catch (e) {
-			setError(e instanceof Error ? e.message : 'Не удалось загрузить настройки');
+			/* the real reason, not one generic error: an expired session,
+			   a forbidden resource and a dead server are different problems,
+			   and being offline is a fourth. A 403 or a 404 also stops
+			   offering a Retry that cannot work. */
+			const failure = classifyFailure(e, offline);
+			setError(failure.message);
+			setRetryable(failure.retryable);
 		} finally {
 			setLoading(false);
 		}
-	}, [api, placeGuid]);
+	}, [api, placeGuid, offline]);
 
 	useEffect(() => {
 		load();
@@ -184,7 +197,7 @@ function BusinessSettingsScreenBody({api, placeGuid, onBack}: BusinessSettingsSc
 		return (
 			<View style={{flex: 1}}>
 				{header}
-				<BerxErrorState message={error ?? 'Не удалось загрузить'} onRetry={load} />
+				<BerxErrorState message={error ?? 'Не удалось загрузить'} onRetry={retryable ? load : undefined} />
 			</View>
 		);
 
