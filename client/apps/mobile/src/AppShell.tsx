@@ -18,15 +18,15 @@
  * BERX_PATCH_CHANGELOG.md for this change.
  */
 import React, {useEffect, useRef, useState} from 'react';
-import {Animated, Easing, View, Text, Pressable, StyleSheet, Platform, useWindowDimensions} from 'react-native';
+import {Animated, Easing, View, StyleSheet, Platform, useWindowDimensions} from 'react-native';
 import {BerxApiClient} from '@berx/api/client';
 import {BERX_PRODUCTION_ENV} from '@berx/core';
 import {BerxSecureTokenStorage} from './platform/secureTokenStorage';
 import {BerxAuthState, BerxAuthSnapshot} from '@berx/auth';
 import {pickImageFromLibrary, pickVideoFromLibrary} from '@berx/platform/mediaPicker';
 import {pickAudioFromDevice} from '@berx/platform/audioPicker';
-import {colors, spacing, typography} from '@berx/design-system/tokens';
-import {BerxLoadingState, BerxErrorState} from '../../../packages/design-system/src/components/BerxStates';
+import {colors} from '@berx/design-system/tokens';
+import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../packages/design-system/src/components/BerxStates';
 import {IconHome, IconSearch, IconPlus, IconMessage, IconMenu} from '../../../packages/design-system/src/components/BerxIcons';
 import {BerxBottomNav, type BerxNavTab} from '../../../packages/design-system/src/spatial/BerxBottomNav';
 import {useBerxLayer} from '../../../packages/design-system/src/spatial/useBerxLayer';
@@ -904,10 +904,11 @@ function RouteRenderer({name, params}: {name: BerxRouteName; params: unknown}) {
 			// honest boundary, not a fake screen.
 			// boundary, not a fake screen.
 			return (
-				<View style={styles.comingSoon}>
-					<Text style={styles.comingSoonTitle}>Скоро</Text>
-					<Text style={styles.comingSoonText}>Раздел «{name}» ещё не подключён к API.</Text>
-				</View>
+				/* the archive's own empty state, not two lines of text in the
+				   middle of a screen: it is an object standing in the room
+				   when there is a room to stand in, it announces itself, and
+				   it says the same honest thing either way */
+				<BerxEmptyState title="Скоро" subtitle={`Раздел «${name}» ещё не подключён к API.`} />
 			);
 	}
 }
@@ -1222,19 +1223,12 @@ function BerxAppRoot() {
 	}
 
 	if (snapshot.status === 'bootError') {
-		return (
-			<View style={styles.bootErrorContainer}>
-				<Text style={styles.comingSoonTitle}>BERX недоступен</Text>
-				<Text style={styles.comingSoonText}>{snapshot.error ?? 'Не удалось подключиться'}</Text>
-				<Pressable
-					style={styles.retryButton}
-					accessibilityRole="button"
-					accessibilityLabel="Повторить запуск BERX"
-					onPress={() => authState.retryBoot()}>
-					<Text style={styles.retryButtonText}>Повторить</Text>
-				</Pressable>
-			</View>
-		);
+		/* the same error object every other failure in BERX renders as —
+		   the server's own reason where it gave one, and a retry that
+		   really re-runs the boot. It was a hand-built panel with its own
+		   colours and its own button, which is the one place a person
+		   meets BERX before anything else has loaded. */
+		return <BerxErrorState message={snapshot.error ?? 'Не удалось подключиться'} onRetry={() => authState.retryBoot()} />;
 	}
 
 	if (snapshot.status === 'authenticated') {
@@ -1271,22 +1265,4 @@ const styles = StyleSheet.create({
 	content: {flex: 1},
 	tabPane: {flex: 1},
 	tabPaneHidden: {display: 'none'},
-	comingSoon: {flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.xl, gap: spacing.sm},
-	comingSoonTitle: {color: colors.accent, fontSize: typography.sizeXl, fontWeight: typography.weightBold},
-	comingSoonText: {color: colors.textDim, fontSize: typography.sizeBase, textAlign: 'center'},
-	bootErrorContainer: {
-		flex: 1,
-		backgroundColor: colors.black,
-		alignItems: 'center',
-		justifyContent: 'center',
-		padding: spacing.xl,
-		gap: spacing.md,
-	},
-	retryButton: {
-		backgroundColor: colors.accent,
-		borderRadius: 999,
-		paddingVertical: spacing.md,
-		paddingHorizontal: spacing.xl,
-	},
-	retryButtonText: {color: colors.black, fontWeight: typography.weightMedium},
 });
