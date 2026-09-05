@@ -8,6 +8,7 @@
 import React from 'react';
 import {View, Text, Pressable, StyleSheet} from 'react-native';
 import {colors, spacing, typography, radius} from '../tokens';
+import {useBerxSceneOptional} from '../spatial/BerxSpatialScene';
 
 export interface BerxStatTileProps {
 	label: string;
@@ -53,13 +54,45 @@ export interface BerxSegmentTabsProps<T extends string> {
 	onChange: (key: T) => void;
 }
 
+/**
+ * The segmented control, lit by the scene.
+ *
+ * It used to paint a fixed `glass1` track with a fixed lighter thumb —
+ * the same two greys in every scene, in every colour world, at every
+ * tier. In v9 the track is the structure plane and the selected
+ * segment is on the control plane, which is exactly what selection
+ * means here: one option has been brought forward. Outside a scene it
+ * keeps its previous static look rather than throwing, for the same
+ * reason BerxGlassSurface does.
+ *
+ * Selection is announced, not just coloured: each segment is a tab
+ * with `selected` state, so a screen-reader user hears which one is
+ * active instead of inferring it from a background.
+ */
 export function BerxSegmentTabs<T extends string>({options, value, onChange}: BerxSegmentTabsProps<T>) {
+	const scene = useBerxSceneOptional();
+	const track = scene ? {backgroundColor: scene.scene.layers.D2.surface.backgroundColor} : null;
+
 	return (
-		<View style={segStyles.row}>
+		<View style={[segStyles.row, track]} accessibilityRole="tablist">
 			{options.map((opt) => {
 				const active = opt.key === value;
+				const activeSurface =
+					active && scene
+						? {
+								backgroundColor: scene.scene.layers.D4.surface.backgroundColor,
+								borderColor: scene.scene.layers.D4.surface.edgeHighlightColor,
+								borderWidth: 1,
+						  }
+						: null;
 				return (
-					<Pressable key={opt.key} style={[segStyles.tab, active && segStyles.tabActive]} onPress={() => onChange(opt.key)}>
+					<Pressable
+						key={opt.key}
+						accessibilityRole="tab"
+						accessibilityState={{selected: active}}
+						accessibilityLabel={opt.label}
+						style={[segStyles.tab, active && segStyles.tabActive, activeSurface]}
+						onPress={() => onChange(opt.key)}>
 						<Text style={[segStyles.tabText, active && segStyles.tabTextActive]}>{opt.label}</Text>
 					</Pressable>
 				);

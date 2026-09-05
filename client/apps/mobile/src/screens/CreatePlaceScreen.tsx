@@ -11,6 +11,8 @@ import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
+import {BerxGlassSurface} from '../../../../packages/design-system/src/components/BerxGlassSurface';
+import {BerxActionShelf} from '../../../../packages/design-system/src/spatial/BerxActionShelf';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 
 export interface CreatePlaceScreenProps {
@@ -61,23 +63,30 @@ function CreatePlaceScreenBody({api, onCreated, onBack}: CreatePlaceScreenProps)
 		<ScrollView style={styles.screen}>
 			<BerxHeader title="Добавить место" onBack={onBack} />
 			<View style={styles.body}>
-				<BerxInput placeholder="Название" value={title} onChangeText={setTitle} />
+				{/* D2 — the form is a structural object in the room, not
+				    fields floating on the substrate */}
+				<BerxGlassSurface padding="lg" style={styles.form}>
+					<BerxInput placeholder="Название" value={title} onChangeText={setTitle} />
 
-				<Text style={styles.label}>Категория</Text>
-				<View style={styles.chipWrap}>
-					{categories.map((c) => (
-						<Pressable key={c.slug} style={[styles.chip, category === c.slug && styles.chipActive]} onPress={() => setCategory(c.slug)}>
-							<Text style={[styles.chipText, category === c.slug && styles.chipTextActive]}>{c.label}</Text>
-						</Pressable>
-					))}
-				</View>
+					<Text style={styles.label}>Категория</Text>
+					<View style={styles.chipWrap}>
+						{categories.map((c) => (
+							<Pressable key={c.slug} style={[styles.chip, category === c.slug && styles.chipActive]} onPress={() => setCategory(c.slug)}>
+								<Text style={[styles.chipText, category === c.slug && styles.chipTextActive]}>{c.label}</Text>
+							</Pressable>
+						))}
+					</View>
 
-				<BerxInput placeholder="Адрес" value={address} onChangeText={setAddress} />
-				<BerxInput placeholder="Описание" value={description} onChangeText={setDescription} multiline />
+					<BerxInput placeholder="Адрес" value={address} onChangeText={setAddress} />
+					<BerxInput placeholder="Описание" value={description} onChangeText={setDescription} multiline />
 
-				{error ? <Text style={styles.error}>{error}</Text> : null}
+					{error ? <Text style={styles.error}>{error}</Text> : null}
 
-				<BerxButton label="Создать" loading={submitting} onPress={submit} fullWidth />
+					{/* D4 — the commit action, promoted onto the control plane */}
+					<BerxActionShelf variant="anchored" align="stack">
+						<BerxButton label="Создать" loading={submitting} onPress={submit} fullWidth />
+					</BerxActionShelf>
+				</BerxGlassSurface>
 			</View>
 		</ScrollView>
 	);
@@ -87,6 +96,7 @@ const styles = StyleSheet.create({
 	/* no opaque fill: the scene paints the room this screen stands in */
 	screen: {flex: 1},
 	body: {padding: spacing.md, gap: spacing.md},
+	form: {gap: spacing.md},
 	label: {fontSize: typography.sizeXs, color: colors.textFaint, fontWeight: typography.weightBold, textTransform: 'uppercase'},
 	chipWrap: {flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs},
 	chip: {paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: radius.pill, backgroundColor: colors.surface},

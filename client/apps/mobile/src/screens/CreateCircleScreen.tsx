@@ -10,6 +10,8 @@ import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
+import {BerxGlassSurface} from '../../../../packages/design-system/src/components/BerxGlassSurface';
+import {BerxActionShelf} from '../../../../packages/design-system/src/spatial/BerxActionShelf';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 
 export interface CreateCircleScreenProps {
@@ -61,20 +63,27 @@ function CreateCircleScreenBody({api, onCreated, onBack}: CreateCircleScreenProp
 		<View style={styles.screen}>
 			<BerxHeader title="Создать круг" onBack={onBack} />
 			<View style={styles.body}>
-				<BerxInput placeholder="Название круга" value={name} onChangeText={setName} />
+				{/* D2 — the form is a structural object in the room, not
+				    fields floating on the substrate */}
+				<BerxGlassSurface padding="lg" style={styles.form}>
+					<BerxInput placeholder="Название круга" value={name} onChangeText={setName} />
 
-				<Text style={styles.label}>Категория</Text>
-				<View style={styles.chipWrap}>
-					{KINDS.map((k) => (
-						<Pressable key={k.label} style={[styles.chip, kind === k.key && styles.chipActive]} onPress={() => setKind(k.key)}>
-							<Text style={[styles.chipText, kind === k.key && styles.chipTextActive]}>{k.label}</Text>
-						</Pressable>
-					))}
-				</View>
+					<Text style={styles.label}>Категория</Text>
+					<View style={styles.chipWrap}>
+						{KINDS.map((k) => (
+							<Pressable key={k.label} style={[styles.chip, kind === k.key && styles.chipActive]} onPress={() => setKind(k.key)}>
+								<Text style={[styles.chipText, kind === k.key && styles.chipTextActive]}>{k.label}</Text>
+							</Pressable>
+						))}
+					</View>
 
-				{error ? <Text style={styles.error}>{error}</Text> : null}
+					{error ? <Text style={styles.error}>{error}</Text> : null}
 
-				<BerxButton label="Создать" loading={submitting} onPress={submit} fullWidth />
+					{/* D4 — the commit action, promoted onto the control plane */}
+					<BerxActionShelf variant="anchored" align="stack">
+						<BerxButton label="Создать" loading={submitting} onPress={submit} fullWidth />
+					</BerxActionShelf>
+				</BerxGlassSurface>
 			</View>
 		</View>
 	);
@@ -84,6 +93,7 @@ const styles = StyleSheet.create({
 	/* no opaque fill: the scene paints the room this screen stands in */
 	screen: {flex: 1},
 	body: {padding: spacing.md, gap: spacing.md},
+	form: {gap: spacing.md},
 	label: {fontSize: typography.sizeXs, color: colors.textFaint, fontWeight: typography.weightBold, textTransform: 'uppercase'},
 	chipWrap: {flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs},
 	chip: {paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: radius.pill, backgroundColor: colors.surface},

@@ -34,8 +34,12 @@ export interface BerxActionShelfProps {
 	children: React.ReactNode;
 	/** How the shelf attaches to what it acts on. */
 	variant?: 'attached' | 'anchored';
-	/** Horizontal arrangement. `spread` puts the primary action at the end. */
-	align?: 'start' | 'spread';
+	/**
+	 * How the actions sit on the shelf. `spread` pushes the primary
+	 * action to the end; `stack` is for a single full-width commit
+	 * action, which is what a form ends in.
+	 */
+	align?: 'start' | 'spread' | 'stack';
 	/** The card padding the shelf must bleed past, for `attached`. */
 	inset?: number;
 	radius?: number;
@@ -61,6 +65,7 @@ export function BerxActionShelf({
 			style={[
 				styles.shelf,
 				align === 'spread' ? styles.spread : null,
+				align === 'stack' ? styles.stack : null,
 				variant === 'attached'
 					? {marginTop: spacing.md, marginHorizontal: -inset, marginBottom: -inset, paddingHorizontal: inset}
 					: {marginTop: spacing.sm, borderRadius: radius, paddingHorizontal: spacing.lg, borderWidth: 1},
@@ -94,5 +99,6 @@ const styles = StyleSheet.create({
 		borderTopWidth: 1,
 	},
 	spread: {justifyContent: 'space-between'},
+	stack: {flexDirection: 'column', alignItems: 'stretch'},
 	edge: {position: 'absolute', top: 0, left: 0, right: 0, height: 1},
 });

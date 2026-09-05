@@ -15,6 +15,8 @@ import {colors, spacing, typography} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
+import {BerxGlassSurface} from '../../../../packages/design-system/src/components/BerxGlassSurface';
+import {BerxActionShelf} from '../../../../packages/design-system/src/spatial/BerxActionShelf';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 
 export interface CreateVideoScreenProps {
@@ -78,13 +80,20 @@ function CreateVideoScreenBody({api, pickVideo, onCreated, onBack}: CreateVideoS
 		<View style={styles.screen}>
 			<BerxHeader title="Новое видео" onBack={onBack} />
 			<View style={styles.body}>
-				<BerxButton label={pickedLabel ?? 'Выбрать видео'} variant="secondary" onPress={handlePickVideo} />
+				{/* D2 — the form is a structural object in the room, not
+				    fields floating on the substrate */}
+				<BerxGlassSurface padding="lg" style={styles.form}>
+					<BerxButton label={pickedLabel ?? 'Выбрать видео'} variant="secondary" onPress={handlePickVideo} />
 
-				<BerxInput placeholder="Подпись (необязательно)" value={text} onChangeText={setText} multiline style={styles.input} />
+					<BerxInput placeholder="Подпись (необязательно)" value={text} onChangeText={setText} multiline style={styles.input} />
 
-				{error ? <Text style={styles.error}>{error}</Text> : null}
+					{error ? <Text style={styles.error}>{error}</Text> : null}
 
-				<BerxButton label="Опубликовать" onPress={handlePost} loading={posting} disabled={!pickedPart} fullWidth />
+					{/* D4 — the commit action, promoted onto the control plane */}
+					<BerxActionShelf variant="anchored" align="stack">
+						<BerxButton label="Опубликовать" onPress={handlePost} loading={posting} disabled={!pickedPart} fullWidth />
+					</BerxActionShelf>
+				</BerxGlassSurface>
 			</View>
 		</View>
 	);
@@ -94,6 +103,7 @@ const styles = StyleSheet.create({
 	/* no opaque fill: the scene paints the room this screen stands in */
 	screen: {flex: 1},
 	body: {padding: spacing.lg, gap: spacing.md},
+	form: {gap: spacing.md},
 	input: {minHeight: 80, textAlignVertical: 'top'},
 	error: {color: colors.danger, fontSize: typography.sizeSm},
 });

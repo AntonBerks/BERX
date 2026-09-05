@@ -12,6 +12,8 @@ import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
+import {BerxGlassSurface} from '../../../../packages/design-system/src/components/BerxGlassSurface';
+import {BerxActionShelf} from '../../../../packages/design-system/src/spatial/BerxActionShelf';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 
 export interface CreateExperienceScreenProps {
@@ -98,64 +100,71 @@ function CreateExperienceScreenBody({api, onCreated, onBack}: CreateExperienceSc
 		<View style={styles.screen}>
 			<BerxHeader title="Создать впечатление" onBack={onBack} />
 			<View style={styles.body}>
-				<BerxInput placeholder="Название" value={title} onChangeText={setTitle} />
-				<BerxInput placeholder="Описание (необязательно)" value={description} onChangeText={setDescription} multiline />
+				{/* D2 — the form is a structural object in the room, not
+				    fields floating on the substrate */}
+				<BerxGlassSurface padding="lg" style={styles.form}>
+					<BerxInput placeholder="Название" value={title} onChangeText={setTitle} />
+					<BerxInput placeholder="Описание (необязательно)" value={description} onChangeText={setDescription} multiline />
 
-				<Text style={styles.label}>Привязать к</Text>
-				<View style={styles.row}>
-					<Pressable style={[styles.chip, anchorTab === 'place' && styles.chipActive]} onPress={() => { setAnchorTab('place'); setAnchor(null); }}>
-						<Text style={[styles.chipText, anchorTab === 'place' && styles.chipTextActive]}>Место</Text>
-					</Pressable>
-					<Pressable style={[styles.chip, anchorTab === 'event' && styles.chipActive]} onPress={() => { setAnchorTab('event'); setAnchor(null); }}>
-						<Text style={[styles.chipText, anchorTab === 'event' && styles.chipTextActive]}>Событие</Text>
-					</Pressable>
-				</View>
-
-				{anchor ? (
-					<View style={styles.anchorSelected}>
-						<Text style={styles.anchorSelectedText}>{anchor.title}</Text>
-						<Pressable onPress={() => setAnchor(null)}><Text style={styles.anchorClear}>Изменить</Text></Pressable>
+					<Text style={styles.label}>Привязать к</Text>
+					<View style={styles.row}>
+						<Pressable style={[styles.chip, anchorTab === 'place' && styles.chipActive]} onPress={() => { setAnchorTab('place'); setAnchor(null); }}>
+							<Text style={[styles.chipText, anchorTab === 'place' && styles.chipTextActive]}>Место</Text>
+						</Pressable>
+						<Pressable style={[styles.chip, anchorTab === 'event' && styles.chipActive]} onPress={() => { setAnchorTab('event'); setAnchor(null); }}>
+							<Text style={[styles.chipText, anchorTab === 'event' && styles.chipTextActive]}>Событие</Text>
+						</Pressable>
 					</View>
-				) : (
-					<>
-						<BerxInput placeholder={anchorTab === 'place' ? 'Искать место' : 'Искать событие'} value={anchorQuery} onChangeText={searchAnchor} />
-						{anchorTab === 'place' ? (
-							<FlatList
-								data={places}
-								keyExtractor={(p: BerxPlaceSearchResult) => String(p.guid)}
-								renderItem={({item}: {item: BerxPlaceSearchResult}) => (
-									<Pressable style={styles.resultRow} onPress={() => setAnchor({type: 'place', guid: item.guid, title: item.title})}>
-										<Text style={styles.resultText}>{item.title}</Text>
-									</Pressable>
-								)}
-							/>
-						) : (
-							<FlatList
-								data={events}
-								keyExtractor={(e: BerxEventSearchResult) => String(e.guid)}
-								renderItem={({item}: {item: BerxEventSearchResult}) => (
-									<Pressable style={styles.resultRow} onPress={() => setAnchor({type: 'event', guid: item.guid, title: item.title})}>
-										<Text style={styles.resultText}>{item.title}</Text>
-									</Pressable>
-								)}
-							/>
-						)}
-					</>
-				)}
 
-				<Text style={styles.label}>Доступ</Text>
-				<View style={styles.row}>
-					<Pressable style={[styles.chip, visibility === 'private' && styles.chipActive]} onPress={() => setVisibility('private')}>
-						<Text style={[styles.chipText, visibility === 'private' && styles.chipTextActive]}>Приватное</Text>
-					</Pressable>
-					<Pressable style={[styles.chip, visibility === 'public' && styles.chipActive]} onPress={() => setVisibility('public')}>
-						<Text style={[styles.chipText, visibility === 'public' && styles.chipTextActive]}>Открытое</Text>
-					</Pressable>
-				</View>
+					{anchor ? (
+						<View style={styles.anchorSelected}>
+							<Text style={styles.anchorSelectedText}>{anchor.title}</Text>
+							<Pressable onPress={() => setAnchor(null)}><Text style={styles.anchorClear}>Изменить</Text></Pressable>
+						</View>
+					) : (
+						<>
+							<BerxInput placeholder={anchorTab === 'place' ? 'Искать место' : 'Искать событие'} value={anchorQuery} onChangeText={searchAnchor} />
+							{anchorTab === 'place' ? (
+								<FlatList
+									data={places}
+									keyExtractor={(p: BerxPlaceSearchResult) => String(p.guid)}
+									renderItem={({item}: {item: BerxPlaceSearchResult}) => (
+										<Pressable style={styles.resultRow} onPress={() => setAnchor({type: 'place', guid: item.guid, title: item.title})}>
+											<Text style={styles.resultText}>{item.title}</Text>
+										</Pressable>
+									)}
+								/>
+							) : (
+								<FlatList
+									data={events}
+									keyExtractor={(e: BerxEventSearchResult) => String(e.guid)}
+									renderItem={({item}: {item: BerxEventSearchResult}) => (
+										<Pressable style={styles.resultRow} onPress={() => setAnchor({type: 'event', guid: item.guid, title: item.title})}>
+											<Text style={styles.resultText}>{item.title}</Text>
+										</Pressable>
+									)}
+								/>
+							)}
+						</>
+					)}
 
-				{error ? <Text style={styles.error}>{error}</Text> : null}
+					<Text style={styles.label}>Доступ</Text>
+					<View style={styles.row}>
+						<Pressable style={[styles.chip, visibility === 'private' && styles.chipActive]} onPress={() => setVisibility('private')}>
+							<Text style={[styles.chipText, visibility === 'private' && styles.chipTextActive]}>Приватное</Text>
+						</Pressable>
+						<Pressable style={[styles.chip, visibility === 'public' && styles.chipActive]} onPress={() => setVisibility('public')}>
+							<Text style={[styles.chipText, visibility === 'public' && styles.chipTextActive]}>Открытое</Text>
+						</Pressable>
+					</View>
 
-				<BerxButton label="Создать" loading={submitting} onPress={submit} fullWidth />
+					{error ? <Text style={styles.error}>{error}</Text> : null}
+
+					{/* D4 — the commit action, promoted onto the control plane */}
+					<BerxActionShelf variant="anchored" align="stack">
+						<BerxButton label="Создать" loading={submitting} onPress={submit} fullWidth />
+					</BerxActionShelf>
+				</BerxGlassSurface>
 			</View>
 		</View>
 	);
@@ -165,6 +174,7 @@ const styles = StyleSheet.create({
 	/* no opaque fill: the scene paints the room this screen stands in */
 	screen: {flex: 1},
 	body: {padding: spacing.md, gap: spacing.md},
+	form: {gap: spacing.md},
 	label: {fontSize: typography.sizeXs, color: colors.textFaint, fontWeight: typography.weightBold, textTransform: 'uppercase'},
 	row: {flexDirection: 'row', gap: spacing.sm},
 	chip: {paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: radius.pill, backgroundColor: colors.surface},

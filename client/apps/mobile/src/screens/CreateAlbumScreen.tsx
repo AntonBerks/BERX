@@ -9,6 +9,9 @@ import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
+import {BerxGlassSurface} from '../../../../packages/design-system/src/components/BerxGlassSurface';
+import {BerxSegmentTabs} from '../../../../packages/design-system/src/components/BerxBusinessPrimitives';
+import {BerxActionShelf} from '../../../../packages/design-system/src/spatial/BerxActionShelf';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 
 export interface CreateAlbumScreenProps {
@@ -52,21 +55,30 @@ function CreateAlbumScreenBody({api, onCreated, onBack}: CreateAlbumScreenProps)
 		<View style={styles.screen}>
 			<BerxHeader title="Создать альбом" onBack={onBack} />
 			<View style={styles.body}>
-				<BerxInput placeholder="Название альбома" value={title} onChangeText={setTitle} />
+				{/* D2 — the form is a structural object in the room, not
+				    fields floating on the substrate */}
+				<BerxGlassSurface padding="lg" style={styles.form}>
+					<BerxInput placeholder="Название альбома" value={title} onChangeText={setTitle} />
 
-				<Text style={styles.label}>Доступ</Text>
-				<View style={styles.row}>
-					<Pressable style={[styles.chip, access === 'public' && styles.chipActive]} onPress={() => setAccess('public')}>
-						<Text style={[styles.chipText, access === 'public' && styles.chipTextActive]}>Открытый</Text>
-					</Pressable>
-					<Pressable style={[styles.chip, access === 'private' && styles.chipActive]} onPress={() => setAccess('private')}>
-						<Text style={[styles.chipText, access === 'private' && styles.chipTextActive]}>Приватный</Text>
-					</Pressable>
-				</View>
+					<Text style={styles.label}>Доступ</Text>
+					{/* the archive's own segmented control, not a second one
+					    hand-rolled per screen */}
+					<BerxSegmentTabs
+						options={[
+							{key: 'public', label: 'Открытый'},
+							{key: 'private', label: 'Приватный'},
+						]}
+						value={access}
+						onChange={setAccess}
+					/>
 
-				{error ? <Text style={styles.error}>{error}</Text> : null}
+					{error ? <Text style={styles.error}>{error}</Text> : null}
 
-				<BerxButton label="Создать" loading={submitting} onPress={submit} fullWidth />
+					{/* D4 — the commit action, promoted onto the control plane */}
+					<BerxActionShelf variant="anchored" align="stack">
+						<BerxButton label="Создать" loading={submitting} onPress={submit} fullWidth />
+					</BerxActionShelf>
+				</BerxGlassSurface>
 			</View>
 		</View>
 	);
@@ -76,6 +88,7 @@ const styles = StyleSheet.create({
 	/* no opaque fill: the scene paints the room this screen stands in */
 	screen: {flex: 1},
 	body: {padding: spacing.md, gap: spacing.md},
+	form: {gap: spacing.md},
 	label: {fontSize: typography.sizeXs, color: colors.textFaint, fontWeight: typography.weightBold, textTransform: 'uppercase'},
 	row: {flexDirection: 'row', gap: spacing.sm},
 	chip: {paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: radius.pill, backgroundColor: colors.surface},
