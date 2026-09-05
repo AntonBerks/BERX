@@ -9,12 +9,20 @@
  * Typing state is reported through the caller (BERX has a real typing
  * endpoint) and throttled here, so keystrokes do not become one
  * request each.
+ *
+ * While you are writing, the composer holds the scene's focus. That
+ * is the most ordinary D5 moment in the product and the truest one:
+ * the thread behind you steps back by each plane's own amount, the
+ * falloff opens around the thing you are typing into, and the
+ * controls stay exactly where they were. Nothing is painted brighter
+ * — the scene makes room. Leaving the field puts it back.
  */
 import {useCallback, useRef, useState} from 'react';
 import {Pressable, StyleSheet, Text, TextInput, View} from 'react-native';
 import {rgba} from '@berx/spatial';
 import {useBerxScene} from './BerxSpatialScene';
 import {BerxSurface} from './BerxSurface';
+import {BerxFocusTarget} from './BerxFocusTarget';
 import {colors, spacing, typography} from '../tokens';
 import {BerxIcon} from '../icons';
 
@@ -51,6 +59,8 @@ export function BerxComposer({
 	const [text, setText] = useState('');
 	const [sending, setSending] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+	/* whether the field has the keyboard — the scene's focus follows it */
+	const [writing, setWriting] = useState(false);
 	const lastTyping = useRef(0);
 
 	const change = useCallback(
@@ -90,6 +100,7 @@ export function BerxComposer({
 					{error}
 				</Text>
 			) : null}
+			<BerxFocusTarget id={`composer-${testID ?? accessibilityLabel ?? 'berx'}`} focused={writing} plane="D4">
 			<BerxSurface surface={layer.surface} lighting={layer.lighting} radius={26}>
 				<View style={styles.row}>
 					{leading}
@@ -103,6 +114,8 @@ export function BerxComposer({
 						editable={!disabled}
 						multiline
 						maxLength={maxLength}
+						onFocus={() => setWriting(true)}
+						onBlur={() => setWriting(false)}
 						style={styles.input}
 					/>
 					<Pressable
@@ -129,6 +142,7 @@ export function BerxComposer({
 					</Pressable>
 				</View>
 			</BerxSurface>
+			</BerxFocusTarget>
 		</View>
 	);
 }
