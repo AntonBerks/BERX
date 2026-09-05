@@ -397,7 +397,10 @@ html[data-motion="reduced"] .card:hover{transform:none}
 .demo *{animation-play-state:paused}
 .demo[data-live] *{animation-play-state:running}
 html[data-motion="reduced"] .demo *{animation:none!important}
-@media (max-width:980px){.grid6{grid-template-columns:repeat(4,1fr)}.card,.card.w3{grid-column:span 2}.card.w6{grid-column:span 4}}
+/* At four columns the six cards fall 2 + 2 + 1, so the feed card sat
+   alone with half a row of nothing beside it — a gap the eye reads as
+   a card that failed to load. It takes the width instead. */
+@media (max-width:980px){.grid6{grid-template-columns:repeat(4,1fr)}.card,.card.w3{grid-column:span 2}.card.w6,.card#feed{grid-column:span 4}}
 @media (max-width:640px){.grid6{grid-template-columns:1fr}.card,.card.w3,.card.w6{grid-column:span 1}}
 
 /* — messenger — */
@@ -543,9 +546,15 @@ html[data-motion="reduced"] .demo *{animation:none!important}
 /* the trend runs the width of the panel it is the trend of; at
    the default aspect ratio it drew a small squiggle in one corner */
 .spark{grid-column:1/-1;height:36px;width:100%}
+/* non-scaling-stroke keeps the line an even 2px through the
+   preserveAspectRatio:none stretch — and it also measures the dash in
+   screen pixels, which is why the dash is 2000 rather than the
+   viewBox's own 400: at 400 the pattern repeated across a wide panel
+   and drew the trend as two disconnected segments. 2000px is past the
+   widest the panel can be. */
 .spark path{fill:none;stroke:var(--neon-cyan);stroke-width:2;stroke-linecap:round;vector-effect:non-scaling-stroke;
-  stroke-dasharray:400;stroke-dashoffset:400;animation:draw 6s var(--ease-cine) infinite both}
-@keyframes draw{0%{stroke-dashoffset:400}30%,88%{stroke-dashoffset:0}100%{stroke-dashoffset:400}}
+  stroke-dasharray:2000;stroke-dashoffset:2000;animation:draw 6s var(--ease-cine) infinite both}
+@keyframes draw{0%{stroke-dashoffset:2000}30%,88%{stroke-dashoffset:0}100%{stroke-dashoffset:2000}}
 
 /* ══════════════ 6. UTIL / MODAL / DEV ══════════════ */
 /* the surround falls toward the page's own substrate, never toward
