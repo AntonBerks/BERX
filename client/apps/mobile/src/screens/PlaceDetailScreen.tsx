@@ -24,6 +24,7 @@ import {BerxInput} from '../../../../packages/design-system/src/components/BerxI
 import {BerxLoadingState, BerxErrorState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxDiscussion} from '../../../../packages/design-system/src/components/BerxDiscussion';
 import {BerxSceneScroll} from '../../../../packages/design-system/src/spatial/BerxSceneScroll';
+import {BerxSection} from '../../../../packages/design-system/src/spatial/BerxSection';
 
 export interface PlaceDetailScreenProps {
 	api: BerxApiClient;
@@ -32,6 +33,20 @@ export interface PlaceDetailScreenProps {
 	onAddToCollection?: () => void;
 	onOpenBusinessDashboard?: (placeGuid: number) => void;
 	onBack?: () => void;
+}
+
+/**
+ * Russian plural agreement on a real count. "1 отзыв", "2 отзыва",
+ * "5 отзывов" are three different words, and a section header that
+ * prints the wrong one looks unfinished however well the room is lit.
+ */
+function reviewCountLabel(count: number): string | undefined {
+	if (count === 0) return undefined;
+	const mod10 = count % 10;
+	const mod100 = count % 100;
+	if (mod10 === 1 && mod100 !== 11) return `${count} отзыв`;
+	if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return `${count} отзыва`;
+	return `${count} отзывов`;
 }
 
 export default function PlaceDetailScreen(props: PlaceDetailScreenProps) {
@@ -283,9 +298,9 @@ function PlaceDetailSceneBody({api, guid, myGuid, onAddToCollection, onOpenBusin
 				) : null}
 
 				{place.description ? (
-					<BerxText role="body" style={styles.description}>
-						{place.description}
-					</BerxText>
+					<BerxSection leading>
+						<BerxText role="body">{place.description}</BerxText>
+					</BerxSection>
 				) : null}
 
 				{/* the practical facts about a place, as a real grouped
@@ -293,17 +308,16 @@ function PlaceDetailSceneBody({api, guid, myGuid, onAddToCollection, onOpenBusin
 				    lines of grey text prefixed with emoji, and the phone
 				    number appeared twice on the screen. */}
 				{place.hours || place.phone || place.website ? (
-					<BerxListGroup label="Контакты">
+					<BerxSection label="Контакты">
+					<BerxListGroup>
 						{place.hours ? <BerxListRow icon="clock" label={place.hours} last={!place.phone && !place.website} /> : null}
 						{place.phone ? <BerxListRow icon="phone" label={place.phone} last={!place.website} /> : null}
 						{place.website ? <BerxListRow icon="globe" label={place.website} last /> : null}
 					</BerxListGroup>
+					</BerxSection>
 				) : null}
 
-				<BerxText role="micro" emphasis="tertiary" heading style={styles.sectionTitle}>
-					Отзывы ({reviews.length})
-				</BerxText>
-
+				<BerxSection label="Отзывы" detail={reviewCountLabel(reviews.length)}>
 				{!isOwner && !alreadyReviewed ? (
 					<View style={styles.reviewForm}>
 						<View style={styles.starRow}>
@@ -375,8 +389,11 @@ function PlaceDetailSceneBody({api, guid, myGuid, onAddToCollection, onOpenBusin
 						) : null}
 					</View>
 				))}
+				</BerxSection>
 
-				<BerxDiscussion api={api} type="place" id={place.guid} myGuid={myGuid || undefined} />
+				<BerxSection label="Обсуждение">
+					<BerxDiscussion api={api} type="place" id={place.guid} myGuid={myGuid || undefined} />
+				</BerxSection>
 			</View>
 		</BerxSceneScroll>
 	);
@@ -389,14 +406,14 @@ const styles = StyleSheet.create({
 	heroImage: {width: '100%', height: '100%'},
 	heroFallback: {flex: 1, alignItems: 'center', justifyContent: 'center'},
 	heroInitial: {fontSize: typography.sizeHero, color: colors.textFaint},
-	body: {padding: spacing.md, gap: spacing.md},
+	/* the sections carry their own rhythm now, so the body only sets
+	   the gutter */
+	body: {paddingHorizontal: spacing.lg, paddingBottom: spacing.xxl},
 	metaRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm},
 	chipText: {fontSize: typography.sizeXs, color: colors.textDim},
 	ratingText: {fontSize: typography.sizeSm, color: colors.accent, fontWeight: typography.weightMedium},
 	verifiedBadge: {flexDirection: 'row', alignItems: 'center', gap: 5},
 	actions: {flexDirection: 'row', gap: spacing.sm},
-	description: {},
-	sectionTitle: {marginTop: spacing.sm},
 	reviewForm: {gap: spacing.sm},
 	starRow: {flexDirection: 'row', gap: spacing.xs},
 	/* 44dp around a 26dp glyph: the target is not the drawing */

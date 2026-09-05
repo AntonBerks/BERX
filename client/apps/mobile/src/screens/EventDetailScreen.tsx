@@ -20,8 +20,8 @@ import {BerxHeader} from '../../../../packages/design-system/src/components/Berx
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxDiscussion} from '../../../../packages/design-system/src/components/BerxDiscussion';
-import {BerxEyebrow} from '../../../../packages/design-system/src/components/BerxBusinessPrimitives';
 import {BerxSceneScroll} from '../../../../packages/design-system/src/spatial/BerxSceneScroll';
+import {BerxSection} from '../../../../packages/design-system/src/spatial/BerxSection';
 
 export interface EventDetailScreenProps {
 	api: BerxApiClient;
@@ -32,6 +32,16 @@ export interface EventDetailScreenProps {
 	onAddToCollection?: () => void;
 	onAddEventStory?: (eventGuid: number) => void;
 	onBack?: () => void;
+}
+
+/** Real Russian plural agreement on the real attendee count. */
+function attendeeCountLabel(count: number): string | undefined {
+	if (count === 0) return undefined;
+	const mod10 = count % 10;
+	const mod100 = count % 100;
+	if (mod10 === 1 && mod100 !== 11) return `${count} участник`;
+	if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return `${count} участника`;
+	return `${count} участников`;
 }
 
 export default function EventDetailScreen(props: EventDetailScreenProps) {
@@ -183,25 +193,33 @@ function EventDetailSceneBody({api, guid, myGuid, onOpenPlace, onOpenInvite, onA
 				</BerxActionShelf>
 				{rsvpError ? <Text style={styles.error}>{rsvpError}</Text> : null}
 
-				{event.description ? <BerxText role="body">{event.description}</BerxText> : null}
+				{event.description ? (
+					<BerxSection leading>
+						<BerxText role="body">{event.description}</BerxText>
+						{event.seats_left !== null ? (
+							<BerxText role="meta" emphasis="tertiary">Свободных мест: {event.seats_left}</BerxText>
+						) : null}
+					</BerxSection>
+				) : null}
 
-				{event.seats_left !== null ? <BerxText role="meta" emphasis="tertiary">Свободных мест: {event.seats_left}</BerxText> : null}
+				<BerxSection label="Участники" detail={attendeeCountLabel(event.attendee_count)}>
+					<FlatList
+						horizontal
+						showsHorizontalScrollIndicator={false}
+						data={attendees}
+						keyExtractor={(a: BerxEventAttendee) => String(a.guid)}
+						renderItem={({item}: {item: BerxEventAttendee}) => (
+							<View style={styles.attendee}>
+								<Image source={{uri: item.icon}} style={styles.attendeeIcon} />
+								<BerxText role="meta" emphasis="secondary" style={styles.attendeeName} numberOfLines={1}>{item.fullname}</BerxText>
+							</View>
+						)}
+					/>
+				</BerxSection>
 
-				<BerxEyebrow tone="quiet">Участники ({event.attendee_count})</BerxEyebrow>
-				<FlatList
-					horizontal
-					showsHorizontalScrollIndicator={false}
-					data={attendees}
-					keyExtractor={(a: BerxEventAttendee) => String(a.guid)}
-					renderItem={({item}: {item: BerxEventAttendee}) => (
-						<View style={styles.attendee}>
-							<Image source={{uri: item.icon}} style={styles.attendeeIcon} />
-							<BerxText role="meta" emphasis="secondary" style={styles.attendeeName} numberOfLines={1}>{item.fullname}</BerxText>
-						</View>
-					)}
-				/>
-
-				<BerxDiscussion api={api} type="event" id={event.guid} myGuid={myGuid} />
+				<BerxSection label="Обсуждение">
+					<BerxDiscussion api={api} type="event" id={event.guid} myGuid={myGuid} />
+				</BerxSection>
 			</View>
 		</BerxSceneScroll>
 	);
@@ -214,7 +232,8 @@ const styles = StyleSheet.create({
 	heroImage: {width: '100%', height: '100%'},
 	heroFallback: {flex: 1, alignItems: 'center', justifyContent: 'center'},
 	heroInitial: {fontSize: typography.sizeHero, color: colors.textFaint},
-	body: {padding: spacing.md, gap: spacing.md},
+	/* the sections carry the rhythm; the body only sets the gutter */
+	body: {paddingHorizontal: spacing.lg, paddingBottom: spacing.xxl},
 	/* 44dp when it navigates; the row is the control, not the word */
 	placeRow: {flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 44},
 	actions: {flexDirection: 'row', gap: spacing.sm},
