@@ -10,13 +10,15 @@ import {useCallback, useEffect, useState} from 'react';
 import {View, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxWrapped, BerxWrappedPeriod} from '@berx/api/types';
-import {colors, spacing, typography} from '@berx/design-system/tokens';
+import {spacing} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxStatRail} from '../../../../packages/design-system/src/spatial/BerxStatRail';
 import {BerxSegmentTabs} from '../../../../packages/design-system/src/components/BerxBusinessPrimitives';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 import {BerxSceneScroll} from '../../../../packages/design-system/src/spatial/BerxSceneScroll';
+import {BerxSection} from '../../../../packages/design-system/src/spatial/BerxSection';
+import {BerxText} from '../../../../packages/design-system/src/spatial/BerxText';
 
 export interface WrappedScreenProps {
 	api: BerxApiClient;
@@ -90,8 +92,23 @@ function WrappedScreenBody({api, onBack}: WrappedScreenProps) {
 					<BerxEmptyState title="Пока маловато активности" subtitle="Как только вы больше сделаете в BERX, здесь появится ваш реальный итог." />
 				) : (
 					<View style={styles.list}>
+						{/* the period, said once at the size a summary deserves.
+						    A year in review that opens on a row of small numbers
+						    is a table; this is the one line the screen is about,
+						    and it is the real selected period rather than a
+						    headline invented to fill the space. */}
+						<BerxSection leading>
+							<BerxText role="display" heading>
+								{period === 'week' ? 'Ваша неделя' : 'Ваш месяц'}
+							</BerxText>
+							<BerxText role="body" emphasis="secondary">
+								Только то, что BERX действительно посчитал.
+							</BerxText>
+						</BerxSection>
+
 						{/* the archive's own stat rail: real counts only, and a
 						    zero is omitted rather than shown as an achievement */}
+						<BerxSection label="Итоги">
 						<BerxStatRail
 							stats={ROWS.map((row) => {
 								const value = data[row.key];
@@ -102,6 +119,7 @@ function WrappedScreenBody({api, onBack}: WrappedScreenProps) {
 								};
 							})}
 						/>
+						</BerxSection>
 					</View>
 				)}
 			</BerxSceneScroll>
@@ -114,8 +132,5 @@ const styles = StyleSheet.create({
 	/* no opaque fill: the scene paints the room this screen stands in */
 	screen: {flex: 1},
 	tabs: {flexDirection: 'row', gap: spacing.sm, padding: spacing.md},
-	tabActive: {color: colors.accent, backgroundColor: colors.accentSoft},
-	list: {padding: spacing.md, gap: spacing.sm},
-	value: {fontSize: typography.sizeXl, color: colors.white, fontWeight: typography.weightBold},
-	label: {fontSize: typography.sizeSm, color: colors.textDim},
+	list: {paddingHorizontal: spacing.lg},
 });
