@@ -24,6 +24,7 @@ import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../pack
 import {BerxStatRail} from '../../../../packages/design-system/src/spatial/BerxStatRail';
 import {BerxActionShelf} from '../../../../packages/design-system/src/spatial/BerxActionShelf';
 import {BerxText} from '../../../../packages/design-system/src/spatial/BerxText';
+import {BerxSceneList} from '../../../../packages/design-system/src/spatial/BerxSceneList';
 
 export interface CreatorProfileScreenProps {
 	api: BerxApiClient;
@@ -164,7 +165,7 @@ function CreatorProfileSceneBody({api, username, onOpenPost, onOpenAlbum, onOpen
 			{tabCount === 0 ? (
 				<BerxEmptyState title="Пока ничего нет" />
 			) : tab === 'posts' ? (
-				<FlatList
+				<BerxSceneList rows
 					data={content.posts}
 					keyExtractor={(p: BerxCreatorPostItem) => String(p.guid)}
 					contentContainerStyle={styles.list}
@@ -260,7 +261,7 @@ const styles = StyleSheet.create({
 	tabActive: {backgroundColor: colors.accentSoft},
 	tabText: {fontSize: typography.sizeSm, color: colors.textDim},
 	tabTextActive: {color: colors.accent, fontWeight: typography.weightMedium},
-	list: {padding: spacing.md, gap: spacing.sm},
+	list: {paddingBottom: spacing.xxxl},
 
 	grid: {padding: spacing.sm},
 	gridCard: {flex: 1, margin: spacing.xs, aspectRatio: 1.3, justifyContent: 'flex-end'},

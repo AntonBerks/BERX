@@ -24,7 +24,7 @@
  * ship.
  */
 import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
-import {FlatList, StyleSheet, View} from 'react-native';
+import {StyleSheet, View} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxFriend} from '@berx/api/types';
 import type {BerxScreenState} from '@berx/spatial';
@@ -41,6 +41,7 @@ import {BerxScreenScene, useBerxScreen} from '../spatial/BerxScreenScene';
 import {classifyFailure} from '../spatial/screenState';
 import {useBerxConnectivity} from '../spatial/useBerxConnectivity';
 import {berxAnalytics} from '../spatial/analytics';
+import {BerxSceneList} from '../../../../packages/design-system/src/spatial/BerxSceneList';
 
 interface SearchResultUser {
 	guid: number;
@@ -192,6 +193,7 @@ function ConnectionsSceneBody({api, onOpenProfile, onMessage, onBack}: Connectio
 	);
 
 	const listProps = {
+		screen,
 		onScroll,
 		scrollEventThrottle,
 		contentContainerStyle: styles.list,
@@ -249,7 +251,7 @@ function ConnectionsSceneBody({api, onOpenProfile, onMessage, onBack}: Connectio
 				emptyAction={tab === 'friends' ? {label: 'Найти людей', onPress: () => switchTab('search')} : undefined}
 				style={styles.body}>
 				{tab === 'friends' ? (
-					<FlatList
+					<BerxSceneList rows
 						{...listProps}
 						data={friends}
 						keyExtractor={(f: BerxFriend) => String(f.guid)}
@@ -284,7 +286,7 @@ function ConnectionsSceneBody({api, onOpenProfile, onMessage, onBack}: Connectio
 						)}
 					/>
 				) : (
-					<FlatList
+					<BerxSceneList rows
 						{...listProps}
 						data={results}
 						keyExtractor={(u: SearchResultUser) => String(u.guid)}
@@ -322,6 +324,6 @@ const styles = StyleSheet.create({
 	toolbar: {paddingTop: spacing.sm, gap: spacing.sm},
 	search: {paddingHorizontal: spacing.lg},
 	body: {flex: 1},
-	list: {padding: spacing.lg, gap: spacing.md},
+	list: {paddingBottom: spacing.xxxl},
 	rowActions: {flexDirection: 'row', gap: spacing.sm},
 });

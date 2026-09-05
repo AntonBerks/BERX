@@ -18,7 +18,7 @@
  * ad-hoc branches.
  */
 import {useCallback, useRef, useState} from 'react';
-import {FlatList, StyleSheet, View} from 'react-native';
+import {StyleSheet, View} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxPlaceSearchResult, BerxEventSearchResult, BerxCommunitySearchResult} from '@berx/api/types';
 import type {BerxScreenState} from '@berx/spatial';
@@ -36,6 +36,7 @@ import {BerxScreenScene, useBerxScreen} from '../spatial/BerxScreenScene';
 import {classifyFailure} from '../spatial/screenState';
 import {useBerxConnectivity} from '../spatial/useBerxConnectivity';
 import {berxAnalytics} from '../spatial/analytics';
+import {BerxSceneList} from '../../../../packages/design-system/src/spatial/BerxSceneList';
 
 interface SearchResultUser {
 	guid: number;
@@ -161,8 +162,11 @@ function SearchSceneBody({api, onOpenProfile, onOpenPlace, onOpenEvent, onOpenCo
 		tab === 'users' ? users.length : tab === 'places' ? places.length : tab === 'events' ? events.length : communities.length;
 
 	const listProps = {
+		screen,
 		onScroll,
 		scrollEventThrottle,
+		/* the gutter and the rhythm come from the layout contract; only
+		   the room for the floating tab bar is this screen's business */
 		contentContainerStyle: styles.list,
 		removeClippedSubviews: true,
 		windowSize: Math.max(3, Math.round(screen.scene.budget.listWindowSize / 3)),
@@ -208,7 +212,7 @@ function SearchSceneBody({api, onOpenProfile, onOpenPlace, onOpenEvent, onOpenCo
 				}
 				style={styles.body}>
 				{tab === 'users' ? (
-					<FlatList
+					<BerxSceneList
 						{...listProps}
 						data={users}
 						keyExtractor={(u: SearchResultUser) => String(u.guid)}
@@ -224,7 +228,7 @@ function SearchSceneBody({api, onOpenProfile, onOpenPlace, onOpenEvent, onOpenCo
 						)}
 					/>
 				) : tab === 'places' ? (
-					<FlatList
+					<BerxSceneList
 						{...listProps}
 						data={places}
 						keyExtractor={(p: BerxPlaceSearchResult) => String(p.guid)}
@@ -242,7 +246,7 @@ function SearchSceneBody({api, onOpenProfile, onOpenPlace, onOpenEvent, onOpenCo
 						)}
 					/>
 				) : tab === 'events' ? (
-					<FlatList
+					<BerxSceneList
 						{...listProps}
 						data={events}
 						keyExtractor={(e: BerxEventSearchResult) => String(e.guid)}
@@ -257,7 +261,7 @@ function SearchSceneBody({api, onOpenProfile, onOpenPlace, onOpenEvent, onOpenCo
 						)}
 					/>
 				) : (
-					<FlatList
+					<BerxSceneList
 						{...listProps}
 						data={communities}
 						keyExtractor={(c: BerxCommunitySearchResult) => String(c.guid)}
@@ -280,5 +284,5 @@ const styles = StyleSheet.create({
 	screen: {flex: 1},
 	controls: {paddingHorizontal: spacing.lg, paddingTop: spacing.md, gap: spacing.sm},
 	body: {flex: 1},
-	list: {padding: spacing.lg, gap: spacing.md},
+	list: {paddingBottom: spacing.xxxl},
 });
