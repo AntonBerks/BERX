@@ -15,11 +15,13 @@
  * register link is a real 44dp control instead of an 8px hit-slop.
  */
 import {useState} from 'react';
-import {Pressable, StyleSheet, Text, View} from 'react-native';
+import {Pressable, StyleSheet, View} from 'react-native';
 import type {BerxAuthState} from '@berx/auth';
-import {colors, spacing, typography} from '@berx/design-system/tokens';
+import {colors, spacing} from '@berx/design-system/tokens';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
+import {BerxText} from '../../../../packages/design-system/src/spatial/BerxText';
+import {BerxWordmark} from '../../../../packages/design-system/src/spatial/BerxWordmark';
 import {BerxSpatialCard} from '../../../../packages/design-system/src/spatial/BerxSpatialCard';
 import {BerxScreenScene} from '../spatial/BerxScreenScene';
 
@@ -61,9 +63,14 @@ function LoginSceneBody({authState, onGoToRegister}: LoginScreenProps) {
 
 	return (
 		<View style={styles.screen}>
-			<Text style={styles.title} accessibilityRole="header">
-				BER<Text style={styles.titleAccent}>X</Text>
-			</Text>
+			{/* the mark, then what this screen is. The mark alone at the
+			    top of a form leaves the screen unnamed. */}
+			<View style={styles.masthead}>
+				<BerxWordmark size={38} />
+				<BerxText role="heading" heading>
+					Вход
+				</BerxText>
+			</View>
 
 			<BerxSpatialCard depth="D2" padding={spacing.xl}>
 				<BerxInput
@@ -84,9 +91,12 @@ function LoginSceneBody({authState, onGoToRegister}: LoginScreenProps) {
 
 				{snapshot.status === 'authError' ? (
 					/* assertive: a failed sign-in must interrupt, not wait to be noticed */
-					<Text accessibilityLiveRegion="assertive" accessibilityRole="alert" style={styles.error}>
-						Неверный логин или пароль
-					</Text>
+					/* assertive: a failed sign-in must interrupt, not wait to be noticed */
+					<View accessibilityLiveRegion="assertive" accessibilityRole="alert" style={styles.error}>
+						<BerxText role="callout" style={styles.errorText}>
+							Неверный логин или пароль
+						</BerxText>
+					</View>
 				) : null}
 
 				<BerxButton
@@ -104,7 +114,9 @@ function LoginSceneBody({authState, onGoToRegister}: LoginScreenProps) {
 					accessibilityRole="button"
 					accessibilityLabel="Нет аккаунта? Зарегистрироваться"
 					style={styles.registerLink}>
-					<Text style={styles.registerLinkText}>Нет аккаунта? Зарегистрироваться</Text>
+					<BerxText role="label" emphasis="accent">
+						Нет аккаунта? Зарегистрироваться
+					</BerxText>
 				</Pressable>
 			) : null}
 		</View>
@@ -113,17 +125,10 @@ function LoginSceneBody({authState, onGoToRegister}: LoginScreenProps) {
 
 const styles = StyleSheet.create({
 	screen: {flex: 1, justifyContent: 'center', paddingHorizontal: spacing.xl, gap: spacing.xl},
-	title: {
-		color: colors.text,
-		fontSize: typography.sizeHero,
-		fontWeight: typography.weightBold,
-		textAlign: 'center',
-		letterSpacing: 2,
-	},
-	titleAccent: {color: colors.accent},
+	masthead: {alignItems: 'center', gap: spacing.sm},
 	input: {marginBottom: spacing.md},
-	error: {color: colors.danger, marginBottom: spacing.md, fontSize: typography.sizeSm},
+	error: {marginBottom: spacing.md},
+	errorText: {color: colors.danger},
 	/* 44dp, per the accessibility contract — it was an 8px hit-slop link */
 	registerLink: {minHeight: 44, alignItems: 'center', justifyContent: 'center'},
-	registerLinkText: {color: colors.accent, fontSize: typography.sizeSm},
 });

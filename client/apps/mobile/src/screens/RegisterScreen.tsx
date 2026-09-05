@@ -20,6 +20,8 @@ import {BerxApiError} from '@berx/core';
 import {colors, spacing, typography} from '@berx/design-system/tokens';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
+import {BerxText} from '../../../../packages/design-system/src/spatial/BerxText';
+import {BerxWordmark} from '../../../../packages/design-system/src/spatial/BerxWordmark';
 import {BerxSpatialCard} from '../../../../packages/design-system/src/spatial/BerxSpatialCard';
 import {BerxScreenScene} from '../spatial/BerxScreenScene';
 
@@ -95,14 +97,20 @@ function RegisterSceneBody({api, onRegistered, onBack}: RegisterScreenProps) {
 	if (done) {
 		return (
 			<View style={styles.screen}>
-				<Text style={styles.title} accessibilityRole="header">
-					Почти готово
-				</Text>
+				<View style={styles.masthead}>
+					<BerxWordmark size={34} />
+					<BerxText role="heading" heading>
+						Почти готово
+					</BerxText>
+				</View>
 				<BerxSpatialCard depth="D2" padding={spacing.xl}>
 					{/* the server's own instruction, announced, not just drawn */}
-					<Text accessibilityLiveRegion="polite" style={styles.doneText}>
-						{done}
-					</Text>
+					{/* the server's own instruction, announced, not just drawn */}
+					<View accessibilityLiveRegion="polite" style={styles.doneText}>
+						<BerxText role="body" emphasis="secondary" style={styles.centered}>
+							{done}
+						</BerxText>
+					</View>
 					<BerxButton label="К входу" onPress={onRegistered} fullWidth />
 				</BerxSpatialCard>
 			</View>
@@ -111,6 +119,9 @@ function RegisterSceneBody({api, onRegistered, onBack}: RegisterScreenProps) {
 
 	return (
 		<View style={styles.screen}>
+			<View style={styles.masthead}>
+				<BerxWordmark size={34} />
+			</View>
 			<Text style={styles.title} accessibilityRole="header">
 				Создать аккаунт
 			</Text>
@@ -140,9 +151,11 @@ function RegisterSceneBody({api, onRegistered, onBack}: RegisterScreenProps) {
 
 const styles = StyleSheet.create({
 	screen: {flex: 1, padding: spacing.xl, justifyContent: 'center', gap: spacing.md},
+	masthead: {alignItems: 'center', gap: spacing.sm, marginBottom: spacing.md},
+	centered: {textAlign: 'center'},
 	title: {fontSize: typography.sizeXl, fontWeight: typography.weightBold, color: colors.text, textAlign: 'center', marginBottom: spacing.md},
 	/* the inputs sit inside one glass pane now, so they need their own rhythm */
 	input: {marginBottom: spacing.md},
 	error: {color: colors.danger, fontSize: typography.sizeSm, textAlign: 'center'},
-	doneText: {color: colors.textDim, fontSize: typography.sizeBase, textAlign: 'center', marginBottom: spacing.lg},
+	doneText: {marginBottom: spacing.lg},
 });

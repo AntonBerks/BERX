@@ -14,8 +14,10 @@
  * lighting rather than a borrowed photograph — an honest empty D1 is
  * better than an unlicensed full one.
  */
-import {Animated, StyleSheet, Text, View} from 'react-native';
-import {colors, spacing, typography} from '@berx/design-system/tokens';
+import {Animated, StyleSheet, View} from 'react-native';
+import {spacing} from '@berx/design-system/tokens';
+import {BerxText} from '../../../../packages/design-system/src/spatial/BerxText';
+import {BerxWordmark} from '../../../../packages/design-system/src/spatial/BerxWordmark';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxDepthLayer} from '../../../../packages/design-system/src/spatial/BerxDepthLayer';
 import {BerxEnergyHalo} from '../../../../packages/design-system/src/spatial/BerxEnergyHalo';
@@ -37,8 +39,19 @@ export default function WelcomeScreen(props: WelcomeScreenProps) {
 }
 
 function WelcomeSceneBody({onLogin, onRegister}: WelcomeScreenProps) {
-	/* the scene's own enter motion — cross-fade under reduced motion */
-	const enter = useBerxSceneEnter();
+	/**
+	 * A reveal, not an appearance.
+	 *
+	 * The scene's own enter preset runs three times with the same
+	 * duration and the same distance, offset so the room arrives
+	 * before the mark, the mark before the line, the line before the
+	 * doors. Under reduced motion resolveMotion has already made it a
+	 * cross-fade and the offsets collapse — nothing travels and
+	 * nothing waits.
+	 */
+	const enterMark = useBerxSceneEnter(0);
+	const enterLine = useBerxSceneEnter(160);
+	const enterActions = useBerxSceneEnter(280);
 
 	return (
 		<View style={styles.screen}>
@@ -47,17 +60,27 @@ function WelcomeSceneBody({onLogin, onRegister}: WelcomeScreenProps) {
 				<BerxEnergyHalo size={280} intensity={0.5} />
 			</BerxDepthLayer>
 
-			<Animated.View style={[styles.center, enter]}>
-				<Text style={styles.wordmark} accessibilityRole="header">
-					BER<Text style={styles.wordmarkAccent}>X</Text>
-				</Text>
-				<Text style={styles.tagline}>Место, где люди находят впечатления</Text>
-			</Animated.View>
+			<View style={styles.center}>
+				{/* the mark, set the way BERX's own identity sets it: wide
+				    tracking, weight held back, the last letter carrying the
+				    colour world's accent. This is the one place in the
+				    product where type is the image. */}
+				<Animated.View style={enterMark}>
+					<BerxWordmark size={46} heading />
+				</Animated.View>
+				<Animated.View style={enterLine}>
+					<BerxText role="subtitle" emphasis="secondary" style={styles.tagline}>
+						Место, где люди находят впечатления
+					</BerxText>
+				</Animated.View>
+			</View>
 
-			<BerxActionShelf variant="anchored">
-				<BerxButton label="Войти" onPress={onLogin} fullWidth />
-				<BerxButton label="Регистрация" variant="secondary" onPress={onRegister} fullWidth />
-			</BerxActionShelf>
+			<Animated.View style={enterActions}>
+				<BerxActionShelf variant="anchored">
+					<BerxButton label="Войти" onPress={onLogin} fullWidth />
+					<BerxButton label="Регистрация" variant="secondary" onPress={onRegister} fullWidth />
+				</BerxActionShelf>
+			</Animated.View>
 		</View>
 	);
 }
@@ -65,9 +88,7 @@ function WelcomeSceneBody({onLogin, onRegister}: WelcomeScreenProps) {
 const styles = StyleSheet.create({
 	screen: {flex: 1, justifyContent: 'space-between', padding: spacing.xl, paddingBottom: spacing.xxl},
 	haloLayer: {position: 'absolute', top: '18%', left: 0, right: 0, alignItems: 'center'},
-	center: {flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.md},
-	wordmark: {fontSize: 40, fontWeight: typography.weightBold, color: colors.text, letterSpacing: 2},
-	wordmarkAccent: {color: colors.accent},
-	tagline: {fontSize: typography.sizeBase, color: colors.textDim, textAlign: 'center'},
+	center: {flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.xl},
+	tagline: {textAlign: 'center', maxWidth: 320},
 	actions: {gap: spacing.md},
 });

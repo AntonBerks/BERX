@@ -180,16 +180,31 @@ export function useBerxSceneScroll() {
  * and a normal one gets the spatial enter, with no per-screen
  * branching.
  */
-export function useBerxSceneEnter() {
+export function useBerxSceneEnter(delayMs = 0) {
 	const {scene} = useBerxScene();
 	const progress = useRef(new Animated.Value(0)).current;
 	const started = useRef(false);
 
+	/**
+	 * A stagger, not a second animation.
+	 *
+	 * Every element still runs the scene's own enter preset — same
+	 * duration, same distance, same easing — and the only thing the
+	 * delay changes is when it starts. That is what makes a reveal
+	 * read as one movement through a room rather than as three
+	 * components animating independently.
+	 *
+	 * Under reduced motion resolveMotion has already replaced the
+	 * preset with a cross-fade, and a staggered cross-fade is still a
+	 * cross-fade: nothing travels, so nothing here needs a second
+	 * branch.
+	 */
 	if (!started.current) {
 		started.current = true;
 		Animated.timing(progress, {
 			toValue: 1,
 			duration: scene.motion.enter.durationMs,
+			delay: scene.reducedMotion ? 0 : delayMs,
 			useNativeDriver: true,
 		}).start();
 	}
