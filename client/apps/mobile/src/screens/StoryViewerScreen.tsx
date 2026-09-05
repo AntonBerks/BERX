@@ -267,7 +267,7 @@ function StoryViewerScreenBody({
 				style={styles.closeButton}
 				onPress={onClose}
 				hitSlop={12}>
-				<Text style={styles.closeText}>✕</Text>
+				<BerxIcon name="close" size={18} decorative />
 			</Pressable>
 		</View>
 	);

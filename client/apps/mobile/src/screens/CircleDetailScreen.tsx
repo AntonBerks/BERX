@@ -15,6 +15,7 @@ import {BerxHeader} from '../../../../packages/design-system/src/components/Berx
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxSpatialCard} from '../../../../packages/design-system/src/spatial/BerxSpatialCard';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
+import {BerxIcon} from '../../../../packages/design-system/src/icons';
 
 export interface CircleDetailScreenProps {
 	api: BerxApiClient;
@@ -147,7 +148,7 @@ function CircleDetailScreenBody({api, id, onBack}: CircleDetailScreenProps) {
 								onPress={() => removeMember(item.guid)}
 								hitSlop={8}
 								disabled={busyGuid === item.guid}>
-								<Text style={styles.remove}>✕</Text>
+								<BerxIcon name="close" size={15} decorative />
 							</Pressable>
 						</View>
 						</BerxSpatialCard>

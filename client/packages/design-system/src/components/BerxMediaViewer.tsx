@@ -37,7 +37,7 @@ export function BerxMediaViewer({assets, initialIndex = 0, visible, onClose}: Be
 		<Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
 			<View style={styles.backdrop}>
 				<Pressable style={styles.closeBtn} onPress={onClose} hitSlop={12}>
-					<Text style={styles.closeText}>✕</Text>
+					<BerxIcon name="close" size={18} color={colors.white} decorative />
 				</Pressable>
 
 				<FlatList

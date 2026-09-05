@@ -112,7 +112,7 @@ export function BerxListRow({
 					</BerxText>
 				) : null}
 			</View>
-			{trailing ?? (onPress ? <Text style={[styles.chevron, {color: controls.surface.edgeHighlightColor}]}>›</Text> : null)}
+			{trailing ?? (onPress ? <BerxIcon name="chevronRight" size={16} color={controls.surface.edgeHighlightColor} decorative /> : null)}
 		</>
 	);
 

@@ -16,6 +16,7 @@ import {FlatList, Pressable, StyleSheet, Text, View, type ListRenderItem, type V
 import {rgba} from '@berx/spatial';
 import {useBerxScene} from './BerxSpatialScene';
 import {typography, spacing} from '../tokens';
+import {BerxIcon, type BerxIconName} from '../icons';
 
 export interface BerxHorizontalRailProps<T> {
 	data: readonly T[];
@@ -84,14 +85,14 @@ export function BerxHorizontalRail<T>({
 				<View style={styles.controls}>
 					<RailControl
 						label={`${accessibilityLabel}: назад`}
-						glyph="‹"
+						icon="chevronLeft"
 						disabled={atStart}
 						accent={scene.accent}
 						onPress={() => page(-1)}
 					/>
 					<RailControl
 						label={`${accessibilityLabel}: вперёд`}
-						glyph="›"
+						icon="chevronRight"
 						disabled={atEnd}
 						accent={scene.accent}
 						onPress={() => page(1)}
@@ -104,13 +105,13 @@ export function BerxHorizontalRail<T>({
 
 function RailControl({
 	label,
-	glyph,
+	icon,
 	disabled,
 	accent,
 	onPress,
 }: {
 	label: string;
-	glyph: string;
+	icon: BerxIconName;
 	disabled: boolean;
 	accent: string;
 	onPress: () => void;
@@ -123,7 +124,7 @@ function RailControl({
 			disabled={disabled}
 			onPress={onPress}
 			style={[styles.control, {borderColor: rgba(accent, disabled ? 0.14 : 0.4)}, disabled ? styles.controlDisabled : null]}>
-			<Text style={[styles.controlGlyph, {color: disabled ? rgba(accent, 0.3) : accent}]}>{glyph}</Text>
+			<BerxIcon name={icon} size={18} color={disabled ? rgba(accent, 0.3) : accent} decorative />
 		</Pressable>
 	);
 }
@@ -134,5 +135,4 @@ const styles = StyleSheet.create({
 	/* 44dp minimum touch target, per the v9 accessibility contract */
 	control: {width: 44, height: 44, borderRadius: 22, borderWidth: 1, alignItems: 'center', justifyContent: 'center'},
 	controlDisabled: {opacity: 0.6},
-	controlGlyph: {fontSize: typography.sizeXl, lineHeight: typography.sizeXl + 4, fontWeight: typography.weightMedium},
 });

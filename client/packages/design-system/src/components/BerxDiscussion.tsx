@@ -18,6 +18,7 @@ import type {BerxObjectComment, BerxCommentableType} from '@berx/api/types';
 import {colors, spacing, typography, radius} from '../tokens';
 import {BerxInput} from './BerxInput';
 import {BerxButton} from './BerxButton';
+import {BerxIcon} from '../icons';
 
 interface Props {
 	api: BerxApiClient;
@@ -97,7 +98,7 @@ export function BerxDiscussion({api, type, id, myGuid}: Props) {
 						</View>
 						{myGuid && c.author?.guid === myGuid ? (
 							<Pressable onPress={() => remove(c.id)} hitSlop={8}>
-								<Text style={styles.deleteLink}>✕</Text>
+								<BerxIcon name="close" size={14} decorative />
 							</Pressable>
 						) : null}
 					</View>

@@ -34,6 +34,7 @@ import {BerxReactionPicker} from '../../../../packages/design-system/src/spatial
 import {BerxSpatialCard} from '../../../../packages/design-system/src/spatial/BerxSpatialCard';
 import {BerxIdentity} from '../../../../packages/design-system/src/spatial/BerxIdentity';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
+import {BerxIcon} from '../../../../packages/design-system/src/icons';
 
 export interface PostDetailScreenProps {
 	api: BerxApiClient;
@@ -288,7 +289,7 @@ function PostDetailSceneBody({api, postGuid, myGuid, onOpenProfile, onReport, on
 										accessibilityLabel="Удалить комментарий"
 										onPress={() => handleDeleteComment(c.id)}
 										hitSlop={8}>
-										<Text style={styles.commentDelete}>✕</Text>
+										<BerxIcon name="close" size={14} decorative />
 									</Pressable>
 								) : myGuid && c.author?.guid !== myGuid ? (
 									<Pressable

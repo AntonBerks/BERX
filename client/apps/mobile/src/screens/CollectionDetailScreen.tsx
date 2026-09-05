@@ -15,6 +15,7 @@ import {BerxHeader} from '../../../../packages/design-system/src/components/Berx
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxSpatialCard} from '../../../../packages/design-system/src/spatial/BerxSpatialCard';
 import {BerxFamilyScene, useBerxSceneAtmosphere} from '../spatial/BerxScreenScene';
+import {BerxIcon} from '../../../../packages/design-system/src/icons';
 
 export interface CollectionDetailScreenProps {
 	api: BerxApiClient;
@@ -116,7 +117,7 @@ function CollectionDetailScreenBody({api, id, onOpenPlace, onOpenEvent, onOpenPo
 									accessibilityLabel={`Убрать ${item.title} из подборки`}
 									onPress={() => removeItem(item)}
 									hitSlop={8}>
-									<Text style={styles.remove}>✕</Text>
+									<BerxIcon name="close" size={15} decorative />
 								</Pressable>
 							) : null}
 						</View>

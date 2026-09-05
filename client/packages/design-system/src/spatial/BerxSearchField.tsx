@@ -11,6 +11,7 @@ import {Pressable, StyleSheet, Text, TextInput, View} from 'react-native';
 import {rgba} from '@berx/spatial';
 import {useBerxScene} from './BerxSpatialScene';
 import {BerxSurface} from './BerxSurface';
+import {BerxIcon} from '../icons';
 import {colors, spacing, typography} from '../tokens';
 
 export interface BerxSearchFieldProps {
@@ -42,9 +43,11 @@ export function BerxSearchField({
 		<View style={styles.root}>
 			<BerxSurface surface={layer.surface} lighting={layer.lighting} radius={999}>
 				<View style={styles.row}>
-					<Text style={[styles.glyph, {color: colors.textDim}]} accessibilityElementsHidden importantForAccessibility="no">
-						⌕
-					</Text>
+					{/* the set's own magnifier: ⌕ is a mathematical character
+					    that most system fonts have no good drawing for, so the
+					    search field opened with whatever the fallback chain
+					    produced */}
+					<BerxIcon name="search" size={18} decorative />
 					<TextInput
 						testID={testID}
 						value={value}
@@ -64,7 +67,7 @@ export function BerxSearchField({
 							accessibilityLabel="Очистить поиск"
 							onPress={() => onChangeText('')}
 							style={[styles.clear, {backgroundColor: rgba(scene.accent, 0.12)}]}>
-							<Text style={[styles.clearGlyph, {color: scene.accent}]}>✕</Text>
+							<BerxIcon name="close" size={14} state="active" decorative />
 						</Pressable>
 					) : null}
 				</View>
@@ -81,9 +84,7 @@ export function BerxSearchField({
 const styles = StyleSheet.create({
 	root: {gap: spacing.xs},
 	row: {flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing.lg, minHeight: 48, gap: spacing.sm},
-	glyph: {fontSize: typography.sizeLg},
 	input: {flex: 1, color: colors.text, fontSize: typography.sizeBase, paddingVertical: spacing.md},
 	clear: {width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center'},
-	clearGlyph: {fontSize: typography.sizeSm, fontWeight: typography.weightMedium},
 	count: {color: colors.textDim, fontSize: typography.sizeXs, paddingHorizontal: spacing.lg},
 });

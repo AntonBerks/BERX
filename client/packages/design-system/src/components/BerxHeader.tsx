@@ -32,6 +32,7 @@ import {spacing} from '../tokens';
 import {BerxText} from '../spatial/BerxText';
 import {BerxSurface} from '../spatial/BerxSurface';
 import {useBerxSceneOptional} from '../spatial/BerxSpatialScene';
+import {BerxIcon} from '../icons';
 
 export interface BerxHeaderProps {
 	title?: string;
@@ -68,14 +69,10 @@ export function BerxHeader({title, onBack, subtitle, leading, actions}: BerxHead
 							lighting={controls.lighting}
 							radius={22}
 							style={styles.backSurface}>
-							<BerxText role="label" emphasis="accent" style={styles.chevron}>
-								‹
-							</BerxText>
+							<BerxIcon name="chevronLeft" size={18} state="active" decorative />
 						</BerxSurface>
 					) : (
-						<BerxText role="label" emphasis="accent" style={styles.chevron}>
-							‹
-						</BerxText>
+						<BerxIcon name="chevronLeft" size={18} state="active" decorative />
 					)}
 				</Pressable>
 			) : null}
@@ -110,9 +107,6 @@ const styles = StyleSheet.create({
 	   the target is what you hit */
 	backTarget: {width: 44, height: 44, alignItems: 'center', justifyContent: 'center'},
 	backSurface: {width: 40, height: 40, alignItems: 'center', justifyContent: 'center'},
-	/* the chevron is optically low in its own box; this puts it back
-	   on the centre line */
-	chevron: {marginTop: -2, fontSize: 22, lineHeight: 22},
 	leading: {flexShrink: 0},
 	text: {flex: 1, gap: 1},
 	actions: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm},

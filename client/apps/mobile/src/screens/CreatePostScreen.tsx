@@ -22,6 +22,7 @@ import {BerxChoiceChips} from '../../../../packages/design-system/src/spatial/Be
 import {BerxGlassSurface} from '../../../../packages/design-system/src/components/BerxGlassSurface';
 import {BerxActionShelf} from '../../../../packages/design-system/src/spatial/BerxActionShelf';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
+import {BerxIcon} from '../../../../packages/design-system/src/icons';
 
 export interface CreatePostScreenProps {
 	api: BerxApiClient;
@@ -120,7 +121,7 @@ function CreatePostScreenBody({api, pickImage, onCreated}: CreatePostScreenProps
 						accessibilityLabel="Убрать фото из поста"
 						style={styles.previewRemove}
 						onPress={() => { setPickedPart(null); setPreviewUri(null); }}>
-						<Text style={styles.previewRemoveText}>✕</Text>
+						<BerxIcon name="close" size={12} decorative />
 					</Pressable>
 				</View>
 			) : null}
