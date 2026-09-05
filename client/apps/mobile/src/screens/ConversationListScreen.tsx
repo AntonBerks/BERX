@@ -30,6 +30,8 @@ import {BerxDataBoundary} from '../../../../packages/design-system/src/spatial/B
 import {useBerxSceneScroll} from '../../../../packages/design-system/src/spatial/BerxSpatialScene';
 import {BerxPartialNotice} from '../../../../packages/design-system/src/spatial/BerxPartialNotice';
 import {BerxScreenScene, useBerxScreen} from '../spatial/BerxScreenScene';
+import {classifyFailure} from '../spatial/screenState';
+import {useBerxConnectivity} from '../spatial/useBerxConnectivity';
 import {berxAnalytics} from '../spatial/analytics';
 
 export interface ConversationListScreenProps {
@@ -53,9 +55,14 @@ function ConversationListSceneBody({api, onOpenConversation, onOpenMessageSearch
 
 	const [items, setItems] = useState<BerxConversationSummary[]>([]);
 	const [query, setQuery] = useState('');
+	/* a fetch that failed while the device is offline is an offline
+	   state, not a server error — the difference is the whole point */
+	const {offline} = useBerxConnectivity();
 	const [state, setState] = useState<BerxScreenState>('loading');
 	const [refreshing, setRefreshing] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+	/* a 403 or a 404 is not transient; a Retry button there is a lie */
+	const [retryable, setRetryable] = useState(true);
 	/**
 	 * `null` means the count did not load. It used to fall back to 0,
 	 * which is not a degradation — it is a wrong number, and the one
@@ -75,13 +82,18 @@ function ConversationListSceneBody({api, onOpenConversation, onOpenMessageSearch
 			setError(null);
 			setState(res.conversations.length === 0 ? 'empty' : 'default');
 		} catch (e) {
-			setError(e instanceof Error ? e.message : 'Не удалось загрузить диалоги');
-			setState('error');
+			/* the real reason, not one generic error: an expired session,
+			   a forbidden resource and a dead server are different
+			   problems, and being offline is a fourth */
+			const failure = classifyFailure(e, offline);
+			setError(failure.message);
+			setRetryable(failure.retryable);
+			setState(failure.state);
 			berxAnalytics.error(screen, 'conversations');
 		} finally {
 			setRefreshing(false);
 		}
-	}, [api, screen]);
+	}, [api, screen, offline]);
 
 	useEffect(() => {
 		load();
@@ -140,6 +152,8 @@ function ConversationListSceneBody({api, onOpenConversation, onOpenMessageSearch
 				state={listState}
 				onRetry={load}
 				errorMessage={error ?? undefined}
+				/* a forbidden or missing resource cannot be retried into existence */
+				retryable={retryable}
 				emptyTitle={filteredToNothing ? 'Никого не нашлось' : 'Пока нет диалогов'}
 				emptyBody={
 					filteredToNothing

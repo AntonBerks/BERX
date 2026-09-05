@@ -31,6 +31,8 @@ import {BerxDataBoundary} from '../../../../packages/design-system/src/spatial/B
 import {useBerxSceneScroll} from '../../../../packages/design-system/src/spatial/BerxSpatialScene';
 import {BerxActionShelf} from '../../../../packages/design-system/src/spatial/BerxActionShelf';
 import {BerxScreenScene, useBerxScreen, useBerxSceneAtmosphere} from '../spatial/BerxScreenScene';
+import {classifyFailure} from '../spatial/screenState';
+import {useBerxConnectivity} from '../spatial/useBerxConnectivity';
 import {berxAnalytics} from '../spatial/analytics';
 
 export interface PlacesListScreenProps {
@@ -65,8 +67,13 @@ function PlacesSceneBody({api, onOpenPlace, onCreate, onOpenNearby, onOpenSaved,
 	const [categories, setCategories] = useState<BerxPlaceCategory[]>([]);
 	const [items, setItems] = useState<BerxPlace[]>([]);
 	const [savedGuids, setSavedGuids] = useState<ReadonlySet<number>>(new Set());
+	/* a fetch that failed while the device is offline is an offline
+	   state, not a server error — the difference is the whole point */
+	const {offline} = useBerxConnectivity();
 	const [state, setState] = useState<BerxScreenState>('loading');
 	const [error, setError] = useState<string | null>(null);
+	/* a 403 or a 404 is not transient; a Retry button there is a lie */
+	const [retryable, setRetryable] = useState(true);
 
 	useEffect(() => {
 		/* the real server whitelist; a failure just means no filter bar */
@@ -92,11 +99,16 @@ function PlacesSceneBody({api, onOpenPlace, onCreate, onOpenNearby, onOpenSaved,
 			setItems(res.places);
 			setState(res.places.length === 0 ? 'empty' : 'default');
 		} catch (e) {
-			setError(e instanceof Error ? e.message : 'Не удалось загрузить места');
-			setState('error');
+			/* the real reason, not one generic error: an expired session,
+			   a forbidden resource and a dead server are different
+			   problems, and being offline is a fourth */
+			const failure = classifyFailure(e, offline);
+			setError(failure.message);
+			setRetryable(failure.retryable);
+			setState(failure.state);
 			berxAnalytics.error(screen, 'places');
 		}
-	}, [api, query, category, screen]);
+	}, [api, query, category, screen, offline]);
 
 	useEffect(() => {
 		load();
@@ -156,6 +168,8 @@ function PlacesSceneBody({api, onOpenPlace, onCreate, onOpenNearby, onOpenSaved,
 				state={state}
 				onRetry={load}
 				errorMessage={error ?? undefined}
+				/* a forbidden or missing resource cannot be retried into existence */
+				retryable={retryable}
 				emptyTitle="Мест не найдено"
 				emptyBody="Попробуйте другой запрос или добавьте первое место."
 				emptyAction={{label: 'Добавить место', onPress: onCreate}}

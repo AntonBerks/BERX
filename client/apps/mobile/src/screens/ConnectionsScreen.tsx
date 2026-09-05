@@ -38,6 +38,8 @@ import {BerxSpatialCard} from '../../../../packages/design-system/src/spatial/Be
 import {BerxDataBoundary} from '../../../../packages/design-system/src/spatial/BerxDataBoundary';
 import {useBerxSceneScroll} from '../../../../packages/design-system/src/spatial/BerxSpatialScene';
 import {BerxScreenScene, useBerxScreen} from '../spatial/BerxScreenScene';
+import {classifyFailure} from '../spatial/screenState';
+import {useBerxConnectivity} from '../spatial/useBerxConnectivity';
 import {berxAnalytics} from '../spatial/analytics';
 
 interface SearchResultUser {
@@ -74,8 +76,13 @@ function ConnectionsSceneBody({api, onOpenProfile, onMessage, onBack}: Connectio
 	const [query, setQuery] = useState('');
 	const [results, setResults] = useState<SearchResultUser[]>([]);
 	const [searched, setSearched] = useState(false);
+	/* a fetch that failed while the device is offline is an offline
+	   state, not a server error — the difference is the whole point */
+	const {offline} = useBerxConnectivity();
 	const [state, setState] = useState<BerxScreenState>('loading');
 	const [error, setError] = useState<string | null>(null);
+	/* a 403 or a 404 is not transient; a Retry button there is a lie */
+	const [retryable, setRetryable] = useState(true);
 	const [busyGuid, setBusyGuid] = useState<number | null>(null);
 	const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -87,11 +94,16 @@ function ConnectionsSceneBody({api, onOpenProfile, onMessage, onBack}: Connectio
 			setFriends(res.friends);
 			setState(res.friends.length === 0 ? 'empty' : 'default');
 		} catch (e) {
-			setError(e instanceof Error ? e.message : 'Не удалось загрузить друзей');
-			setState('error');
+			/* the real reason, not one generic error: an expired session,
+			   a forbidden resource and a dead server are different
+			   problems, and being offline is a fourth */
+			const failure = classifyFailure(e, offline);
+			setError(failure.message);
+			setRetryable(failure.retryable);
+			setState(failure.state);
 			berxAnalytics.error(screen, 'friends');
 		}
-	}, [api, screen]);
+	}, [api, screen, offline]);
 
 	useEffect(() => {
 		loadFriends();
@@ -116,14 +128,19 @@ function ConnectionsSceneBody({api, onOpenProfile, onMessage, onBack}: Connectio
 				setError(null);
 				setState(res.users.length === 0 ? 'empty' : 'default');
 			} catch (e) {
-				setError(e instanceof Error ? e.message : 'Не удалось выполнить поиск');
-				setState('error');
+				/* the real reason, not one generic error: an expired session,
+				   a forbidden resource and a dead server are different
+				   problems, and being offline is a fourth */
+				const failure = classifyFailure(e, offline);
+				setError(failure.message);
+				setRetryable(failure.retryable);
+				setState(failure.state);
 				berxAnalytics.error(screen, 'search-users');
 			} finally {
 				setSearched(true);
 			}
 		},
-		[api, screen],
+		[api, screen, offline],
 	);
 
 	const changeQuery = useCallback(
@@ -217,6 +234,8 @@ function ConnectionsSceneBody({api, onOpenProfile, onMessage, onBack}: Connectio
 				state={state}
 				onRetry={tab === 'friends' ? loadFriends : () => runSearch(query)}
 				errorMessage={error ?? undefined}
+				/* a forbidden or missing resource cannot be retried into existence */
+				retryable={retryable}
 				emptyTitle={
 					tab === 'friends' ? 'Пока никого' : searchedToNothing ? 'Никого не нашлось' : 'Кого вы ищете?'
 				}

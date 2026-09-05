@@ -44,6 +44,8 @@ import {BerxPlaceRating} from '../../../../packages/design-system/src/spatial/Be
 import {BerxDataBoundary} from '../../../../packages/design-system/src/spatial/BerxDataBoundary';
 import {useBerxSceneScroll} from '../../../../packages/design-system/src/spatial/BerxSpatialScene';
 import {BerxScreenScene, useBerxScreen, useBerxSceneAtmosphere} from '../spatial/BerxScreenScene';
+import {classifyFailure} from '../spatial/screenState';
+import {useBerxConnectivity} from '../spatial/useBerxConnectivity';
 import {berxAnalytics} from '../spatial/analytics';
 
 export interface BusinessDashboardScreenProps {
@@ -83,8 +85,13 @@ function BusinessDashboardSceneBody({api, placeGuid, onBack}: BusinessDashboardS
 	const [subscription, setSubscription] = useState<BerxBusinessSubscription | null>(null);
 	const [team, setTeam] = useState<BerxBusinessTeamMember[]>([]);
 	const [moments, setMoments] = useState<BerxBusinessMoment[]>([]);
+	/* a fetch that failed while the device is offline is an offline
+	   state, not a server error — the difference is the whole point */
+	const {offline} = useBerxConnectivity();
 	const [state, setState] = useState<BerxScreenState>('loading');
 	const [error, setError] = useState<string | null>(null);
+	/* a 403 or a 404 is not transient; a Retry button there is a lie */
+	const [retryable, setRetryable] = useState(true);
 	const [trialBusy, setTrialBusy] = useState(false);
 	const [momentText, setMomentText] = useState('');
 	const [momentBusy, setMomentBusy] = useState(false);
@@ -114,11 +121,16 @@ function BusinessDashboardSceneBody({api, placeGuid, onBack}: BusinessDashboardS
 			setMoments(momentsRes.moments);
 			setState('default');
 		} catch (e) {
-			setError(e instanceof Error ? e.message : 'Панель недоступна');
-			setState('error');
+			/* the real reason, not one generic error: an expired session,
+			   a forbidden resource and a dead server are different
+			   problems, and being offline is a fourth */
+			const failure = classifyFailure(e, offline);
+			setError(failure.message);
+			setRetryable(failure.retryable);
+			setState(failure.state);
 			berxAnalytics.error(screen, 'business-dashboard');
 		}
-	}, [api, placeGuid, screen]);
+	}, [api, placeGuid, screen, offline]);
 
 	useEffect(() => {
 		load();
@@ -177,6 +189,8 @@ function BusinessDashboardSceneBody({api, placeGuid, onBack}: BusinessDashboardS
 				state={state}
 				onRetry={load}
 				errorMessage={error ?? undefined}
+				/* a forbidden or missing resource cannot be retried into existence */
+				retryable={retryable}
 				emptyTitle="Панель недоступна"
 				style={styles.body}>
 				{data ? (

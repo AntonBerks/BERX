@@ -36,6 +36,8 @@ import {BerxComposer} from '../../../../packages/design-system/src/spatial/BerxC
 import {BerxTypingIndicator} from '../../../../packages/design-system/src/spatial/BerxTypingIndicator';
 import {BerxDataBoundary} from '../../../../packages/design-system/src/spatial/BerxDataBoundary';
 import {BerxScreenScene, useBerxScreen} from '../spatial/BerxScreenScene';
+import {classifyFailure} from '../spatial/screenState';
+import {useBerxConnectivity} from '../spatial/useBerxConnectivity';
 import {berxAnalytics} from '../spatial/analytics';
 
 export interface ConversationScreenProps {
@@ -59,8 +61,13 @@ export default function ConversationScreen(props: ConversationScreenProps) {
 function ConversationSceneBody({api, myGuid, otherGuid, otherUsername, onBack}: ConversationScreenProps) {
 	const screen = useBerxScreen();
 	const [messages, setMessages] = useState<BerxMessage[]>([]);
+	/* a fetch that failed while the device is offline is an offline
+	   state, not a server error — the difference is the whole point */
+	const {offline} = useBerxConnectivity();
 	const [state, setState] = useState<BerxScreenState>('loading');
 	const [error, setError] = useState<string | null>(null);
+	/* a 403 or a 404 is not transient; a Retry button there is a lie */
+	const [retryable, setRetryable] = useState(true);
 	const [otherTyping, setOtherTyping] = useState(false);
 	const [deletingId, setDeletingId] = useState<number | null>(null);
 	const listRef = useRef<FlatList<BerxMessage>>(null);
@@ -71,19 +78,23 @@ function ConversationSceneBody({api, myGuid, otherGuid, otherUsername, onBack}: 
 			setMessages(res.messages);
 			setError(null);
 			setState(res.messages.length === 0 ? 'empty' : 'default');
-		} catch {
+		} catch (e) {
 			/**
 			 * Real ambiguity this screen cannot resolve: the API returns
 			 * the same generic failure whether the thread is empty, the
 			 * other user blocked you, or the network failed
-			 * (API_SECURITY_MATRIX.md). One honest message beats a
-			 * specific reason the API never gave us.
+			 * (API_SECURITY_MATRIX.md). What the classifier can still
+			 * tell apart is the transport: an expired session, a dead
+			 * server and a device with no connection are distinguishable
+			 * without the API resolving the ambiguity above.
 			 */
-			setError('Не удалось загрузить переписку');
-			setState('error');
+			const failure = classifyFailure(e, offline);
+			setError(failure.message);
+			setRetryable(failure.retryable);
+			setState(failure.state);
 			berxAnalytics.error(screen, 'conversation');
 		}
-	}, [api, otherGuid, screen]);
+	}, [api, otherGuid, screen, offline]);
 
 	useEffect(() => {
 		load();
@@ -156,6 +167,8 @@ function ConversationSceneBody({api, myGuid, otherGuid, otherUsername, onBack}: 
 				state={state}
 				onRetry={load}
 				errorMessage={error ?? undefined}
+				/* a forbidden or missing resource cannot be retried into existence */
+				retryable={retryable}
 				emptyTitle="Здесь пока пусто"
 				emptyBody={`Напишите ${title} первым.`}
 				style={styles.body}>

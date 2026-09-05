@@ -42,6 +42,8 @@ import {useBerxSceneScroll} from '../../../../packages/design-system/src/spatial
 import {BerxTwoZone} from '../../../../packages/design-system/src/spatial/BerxResponsive';
 import {ProfileTabs} from './ProfileTabs';
 import {BerxScreenScene, useBerxScreen} from '../spatial/BerxScreenScene';
+import {classifyFailure} from '../spatial/screenState';
+import {useBerxConnectivity} from '../spatial/useBerxConnectivity';
 import {berxAnalytics} from '../spatial/analytics';
 
 interface ProfileData {
@@ -140,6 +142,9 @@ function ProfileSceneBody(props: ProfileScreenProps) {
 	const isOwn = !username;
 	const [profile, setProfile] = useState<ProfileData | null>(null);
 	const [stats, setStats] = useState<BerxStat[]>([]);
+	/* a fetch that failed while the device is offline is an offline
+	   state, not a server error — the difference is the whole point */
+	const {offline} = useBerxConnectivity();
 	const [state, setState] = useState<BerxScreenState>('loading');
 	const [error, setError] = useState<string | null>(null);
 	const [friendBusy, setFriendBusy] = useState(false);

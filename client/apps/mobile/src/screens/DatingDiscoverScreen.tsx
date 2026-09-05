@@ -43,6 +43,8 @@ import {BerxDataBoundary} from '../../../../packages/design-system/src/spatial/B
 import {BerxActionShelf} from '../../../../packages/design-system/src/spatial/BerxActionShelf';
 import {useBerxScene} from '../../../../packages/design-system/src/spatial/BerxSpatialScene';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
+import {classifyFailure} from '../spatial/screenState';
+import {useBerxConnectivity} from '../spatial/useBerxConnectivity';
 
 export interface DatingDiscoverScreenProps {
 	api: BerxApiClient;
@@ -64,6 +66,9 @@ export default function DatingDiscoverScreen(props: DatingDiscoverScreenProps) {
 function DatingDiscoverSceneBody({api, onMatch, onOpenMatches, onOpenPrivacy}: DatingDiscoverScreenProps) {
 	const {scene} = useBerxScene();
 	const [profiles, setProfiles] = useState<BerxDatingProfileCard[]>([]);
+	/* a fetch that failed while the device is offline is an offline
+	   state, not a server error — the difference is the whole point */
+	const {offline} = useBerxConnectivity();
 	const [state, setState] = useState<BerxScreenState>('loading');
 	const [error, setError] = useState<string | null>(null);
 	const [acting, setActing] = useState(false);

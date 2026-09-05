@@ -22,6 +22,8 @@ import {BerxDataBoundary} from '../../../../packages/design-system/src/spatial/B
 import {useBerxSceneScroll} from '../../../../packages/design-system/src/spatial/BerxSpatialScene';
 import {BerxActionShelf} from '../../../../packages/design-system/src/spatial/BerxActionShelf';
 import {BerxScreenScene, useBerxScreen} from '../spatial/BerxScreenScene';
+import {classifyFailure} from '../spatial/screenState';
+import {useBerxConnectivity} from '../spatial/useBerxConnectivity';
 import {berxAnalytics} from '../spatial/analytics';
 
 export interface CommunitiesListScreenProps {
@@ -45,8 +47,13 @@ function CommunitiesSceneBody({api, onOpenCommunity, onCreate, onBack}: Communit
 
 	const [scope, setScope] = useState<'all' | 'mine'>('all');
 	const [items, setItems] = useState<BerxCommunity[]>([]);
+	/* a fetch that failed while the device is offline is an offline
+	   state, not a server error — the difference is the whole point */
+	const {offline} = useBerxConnectivity();
 	const [state, setState] = useState<BerxScreenState>('loading');
 	const [error, setError] = useState<string | null>(null);
+	/* a 403 or a 404 is not transient; a Retry button there is a lie */
+	const [retryable, setRetryable] = useState(true);
 	const [busy, setBusy] = useState<number | null>(null);
 
 	const load = useCallback(async () => {
@@ -57,11 +64,16 @@ function CommunitiesSceneBody({api, onOpenCommunity, onCreate, onBack}: Communit
 			setItems(res.communities);
 			setState(res.communities.length === 0 ? 'empty' : 'default');
 		} catch (e) {
-			setError(e instanceof Error ? e.message : 'Не удалось загрузить сообщества');
-			setState('error');
+			/* the real reason, not one generic error: an expired session,
+			   a forbidden resource and a dead server are different
+			   problems, and being offline is a fourth */
+			const failure = classifyFailure(e, offline);
+			setError(failure.message);
+			setRetryable(failure.retryable);
+			setState(failure.state);
 			berxAnalytics.error(screen, 'communities');
 		}
-	}, [api, scope, screen]);
+	}, [api, scope, screen, offline]);
 
 	useEffect(() => {
 		load();
@@ -115,6 +127,8 @@ function CommunitiesSceneBody({api, onOpenCommunity, onCreate, onBack}: Communit
 				state={state}
 				onRetry={load}
 				errorMessage={error ?? undefined}
+				/* a forbidden or missing resource cannot be retried into existence */
+				retryable={retryable}
 				emptyTitle={scope === 'mine' ? 'Вы пока никуда не вступили' : 'Сообществ пока нет'}
 				emptyBody={
 					scope === 'mine'

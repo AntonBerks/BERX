@@ -32,6 +32,8 @@ import {BerxSpatialCard} from '../../../../packages/design-system/src/spatial/Be
 import {BerxObjectCard} from '../../../../packages/design-system/src/spatial/BerxObjectCard';
 import {useBerxSceneScroll} from '../../../../packages/design-system/src/spatial/BerxSpatialScene';
 import {BerxScreenScene, useBerxScreen} from '../spatial/BerxScreenScene';
+import {classifyFailure} from '../spatial/screenState';
+import {useBerxConnectivity} from '../spatial/useBerxConnectivity';
 import {berxAnalytics} from '../spatial/analytics';
 
 interface SearchResultUser {
@@ -76,8 +78,13 @@ function SearchSceneBody({api, onOpenProfile, onOpenPlace, onOpenEvent, onOpenCo
 	const [places, setPlaces] = useState<BerxPlaceSearchResult[]>([]);
 	const [events, setEvents] = useState<BerxEventSearchResult[]>([]);
 	const [communities, setCommunities] = useState<BerxCommunitySearchResult[]>([]);
+	/* a fetch that failed while the device is offline is an offline
+	   state, not a server error — the difference is the whole point */
+	const {offline} = useBerxConnectivity();
 	const [state, setState] = useState<BerxScreenState>('empty');
 	const [error, setError] = useState<string | null>(null);
+	/* a 403 or a 404 is not transient; a Retry button there is a lie */
+	const [retryable, setRetryable] = useState(true);
 	const [searched, setSearched] = useState(false);
 	const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -116,14 +123,19 @@ function SearchSceneBody({api, onOpenProfile, onOpenPlace, onOpenEvent, onOpenCo
 				setError(null);
 				setState(count === 0 ? 'empty' : 'default');
 			} catch (e) {
-				setError(e instanceof Error ? e.message : 'Не удалось выполнить поиск');
-				setState('error');
+				/* the real reason, not one generic error: an expired session,
+				   a forbidden resource and a dead server are different
+				   problems, and being offline is a fourth */
+				const failure = classifyFailure(e, offline);
+				setError(failure.message);
+				setRetryable(failure.retryable);
+				setState(failure.state);
 				berxAnalytics.error(screen, `search:${activeTab}`);
 			} finally {
 				setSearched(true);
 			}
 		},
-		[api, screen],
+		[api, screen, offline],
 	);
 
 	const handleChange = useCallback(
@@ -181,6 +193,8 @@ function SearchSceneBody({api, onOpenProfile, onOpenPlace, onOpenEvent, onOpenCo
 				state={state}
 				onRetry={() => runSearch(query, tab)}
 				errorMessage={error ?? undefined}
+				/* a forbidden or missing resource cannot be retried into existence */
+				retryable={retryable}
 				emptyTitle={searched ? 'Ничего не найдено' : 'Что вы ищете?'}
 				emptyBody={
 					searched

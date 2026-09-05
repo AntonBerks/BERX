@@ -26,6 +26,8 @@ import {BerxDataBoundary} from '../../../../packages/design-system/src/spatial/B
 import {useBerxSceneScroll} from '../../../../packages/design-system/src/spatial/BerxSpatialScene';
 import {BerxPartialNotice} from '../../../../packages/design-system/src/spatial/BerxPartialNotice';
 import {BerxScreenScene, useBerxScreen} from '../spatial/BerxScreenScene';
+import {classifyFailure} from '../spatial/screenState';
+import {useBerxConnectivity} from '../spatial/useBerxConnectivity';
 import {berxAnalytics} from '../spatial/analytics';
 
 export interface StoriesRailScreenProps {
@@ -52,8 +54,13 @@ function StoriesSceneBody({api, onOpenGroup, onCreateStory, onBack}: StoriesRail
 	/* your own stories failing is not the same as having none */
 	const [ownFailed, setOwnFailed] = useState(false);
 	const [opened, setOpened] = useState<ReadonlySet<number>>(new Set());
+	/* a fetch that failed while the device is offline is an offline
+	   state, not a server error — the difference is the whole point */
+	const {offline} = useBerxConnectivity();
 	const [state, setState] = useState<BerxScreenState>('loading');
 	const [error, setError] = useState<string | null>(null);
+	/* a 403 or a 404 is not transient; a Retry button there is a lie */
+	const [retryable, setRetryable] = useState(true);
 	const [deletingId, setDeletingId] = useState<number | null>(null);
 
 	const load = useCallback(async () => {
@@ -72,11 +79,16 @@ function StoriesSceneBody({api, onOpenGroup, onCreateStory, onBack}: StoriesRail
 			setError(null);
 			setState(feed.feed.length === 0 && (mine?.stories.length ?? 0) === 0 && mine !== null ? 'empty' : 'default');
 		} catch (e) {
-			setError(e instanceof Error ? e.message : 'Не удалось загрузить истории');
-			setState('error');
+			/* the real reason, not one generic error: an expired session,
+			   a forbidden resource and a dead server are different
+			   problems, and being offline is a fourth */
+			const failure = classifyFailure(e, offline);
+			setError(failure.message);
+			setRetryable(failure.retryable);
+			setState(failure.state);
 			berxAnalytics.error(screen, 'stories');
 		}
-	}, [api, screen]);
+	}, [api, screen, offline]);
 
 	useEffect(() => {
 		load();
@@ -117,6 +129,8 @@ function StoriesSceneBody({api, onOpenGroup, onCreateStory, onBack}: StoriesRail
 				state={state}
 				onRetry={load}
 				errorMessage={error ?? undefined}
+				/* a forbidden or missing resource cannot be retried into existence */
+				retryable={retryable}
 				emptyTitle="Пока нет активных историй"
 				emptyBody="Истории живут 24 часа с момента публикации."
 				emptyAction={{label: 'Создать историю', onPress: onCreateStory}}

@@ -32,6 +32,8 @@ import {BerxFilterBar} from '../../../../packages/design-system/src/spatial/Berx
 import {BerxNowScene} from '../../../../packages/design-system/src/spatial/BerxNowScene';
 import type {BerxNowItem} from '../../../../packages/design-system/src/spatial/BerxNowRail';
 import {BerxScreenScene, useBerxScreen} from '../spatial/BerxScreenScene';
+import {classifyFailure} from '../spatial/screenState';
+import {useBerxConnectivity} from '../spatial/useBerxConnectivity';
 import {berxAnalytics} from '../spatial/analytics';
 
 export interface NearbyNowScreenProps {
@@ -60,8 +62,13 @@ function NearbyNowSceneBody({api, onOpenPlace, onOpenEvent, onBack}: NearbyNowSc
 	const [filters, setFilters] = useState<string[]>([]);
 	const [places, setPlaces] = useState<BerxNearbyPlaceItem[] | null>(null);
 	const [events, setEvents] = useState<BerxNearbyEventItem[]>([]);
+	/* a fetch that failed while the device is offline is an offline
+	   state, not a server error — the difference is the whole point */
+	const {offline} = useBerxConnectivity();
 	const [state, setState] = useState<BerxScreenState>('empty');
 	const [error, setError] = useState<string | null>(null);
+	/* a 403 or a 404 is not transient; a Retry button there is a lie */
+	const [retryable, setRetryable] = useState(true);
 
 	const today = filters.includes('today');
 	const openNow = filters.includes('open');
@@ -83,11 +90,16 @@ function NearbyNowSceneBody({api, onOpenPlace, onOpenEvent, onBack}: NearbyNowSc
 			setState(res.places.length + res.events.length === 0 ? 'empty' : 'default');
 			berxAnalytics.primaryAction(screen);
 		} catch (e) {
-			setError(e instanceof Error ? e.message : 'Не удалось загрузить');
-			setState('error');
+			/* the real reason, not one generic error: an expired session,
+			   a forbidden resource and a dead server are different
+			   problems, and being offline is a fourth */
+			const failure = classifyFailure(e, offline);
+			setError(failure.message);
+			setRetryable(failure.retryable);
+			setState(failure.state);
 			berxAnalytics.error(screen, 'nearby');
 		}
-	}, [lat, lng, today, openNow, api, screen]);
+	}, [lat, lng, today, openNow, api, screen, offline]);
 
 	const toggle = useCallback((key: string) => {
 		setFilters((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]));
@@ -158,6 +170,8 @@ function NearbyNowSceneBody({api, onOpenPlace, onOpenEvent, onBack}: NearbyNowSc
 				state={state}
 				onRetry={search}
 				errorMessage={error ?? undefined}
+				/* a forbidden or missing resource cannot be retried into existence */
+				retryable={retryable}
 				emptyTitle={places === null ? 'Что происходит рядом' : 'Рядом ничего не найдено'}
 				emptyBody={
 					places === null

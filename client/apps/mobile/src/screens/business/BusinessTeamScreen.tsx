@@ -27,6 +27,8 @@ import {BerxIdentity} from '../../../../../packages/design-system/src/spatial/Be
 import {BerxSpatialCard} from '../../../../../packages/design-system/src/spatial/BerxSpatialCard';
 import {BerxDataBoundary} from '../../../../../packages/design-system/src/spatial/BerxDataBoundary';
 import {BerxFamilyScene} from '../../spatial/BerxScreenScene';
+import {classifyFailure} from '../../spatial/screenState';
+import {useBerxConnectivity} from '../../spatial/useBerxConnectivity';
 
 interface SearchResultUser {
 	guid: number;
@@ -54,8 +56,13 @@ export default function BusinessTeamScreen(props: BusinessTeamScreenProps) {
 
 function BusinessTeamSceneBody({api, placeGuid, onBack}: BusinessTeamScreenProps) {
 	const [team, setTeam] = useState<BerxBusinessTeamMember[]>([]);
+	/* a fetch that failed while the device is offline is an offline
+	   state, not a server error — the difference is the whole point */
+	const {offline} = useBerxConnectivity();
 	const [state, setState] = useState<BerxScreenState>('loading');
 	const [error, setError] = useState<string | null>(null);
+	/* a 403 or a 404 is not transient; a Retry button there is a lie */
+	const [retryable, setRetryable] = useState(true);
 
 	const [query, setQuery] = useState('');
 	const [results, setResults] = useState<SearchResultUser[]>([]);
@@ -75,10 +82,15 @@ function BusinessTeamSceneBody({api, placeGuid, onBack}: BusinessTeamScreenProps
 			setTeam(res.team);
 			setState(res.team.length === 0 ? 'empty' : 'default');
 		} catch (e) {
-			setError(e instanceof Error ? e.message : 'Не удалось загрузить команду');
-			setState('error');
+			/* the real reason, not one generic error: an expired session,
+			   a forbidden resource and a dead server are different
+			   problems, and being offline is a fourth */
+			const failure = classifyFailure(e, offline);
+			setError(failure.message);
+			setRetryable(failure.retryable);
+			setState(failure.state);
 		}
-	}, [api, placeGuid]);
+	}, [api, placeGuid, offline]);
 
 	useEffect(() => {
 		load();
@@ -221,6 +233,8 @@ function BusinessTeamSceneBody({api, placeGuid, onBack}: BusinessTeamScreenProps
 					state={state}
 					onRetry={load}
 					errorMessage={error ?? undefined}
+					/* a forbidden or missing resource cannot be retried into existence */
+					retryable={retryable}
 					emptyTitle="Пока только вы"
 					emptyBody="Найдите человека выше, чтобы добавить его в команду этого места.">
 					<View style={styles.list}>

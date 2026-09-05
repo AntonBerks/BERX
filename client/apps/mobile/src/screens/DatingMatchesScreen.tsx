@@ -23,6 +23,8 @@ import {BerxDataBoundary} from '../../../../packages/design-system/src/spatial/B
 import {useBerxSceneScroll} from '../../../../packages/design-system/src/spatial/BerxSpatialScene';
 import {BerxActionShelf} from '../../../../packages/design-system/src/spatial/BerxActionShelf';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
+import {classifyFailure} from '../spatial/screenState';
+import {useBerxConnectivity} from '../spatial/useBerxConnectivity';
 
 export interface DatingMatchesScreenProps {
 	api: BerxApiClient;
@@ -41,8 +43,13 @@ export default function DatingMatchesScreen(props: DatingMatchesScreenProps) {
 function DatingMatchesSceneBody({api, onOpenConversation, onBack}: DatingMatchesScreenProps) {
 	const {onScroll, scrollEventThrottle} = useBerxSceneScroll();
 	const [matches, setMatches] = useState<BerxDatingMatch[]>([]);
+	/* a fetch that failed while the device is offline is an offline
+	   state, not a server error — the difference is the whole point */
+	const {offline} = useBerxConnectivity();
 	const [state, setState] = useState<BerxScreenState>('loading');
 	const [error, setError] = useState<string | null>(null);
+	/* a 403 or a 404 is not transient; a Retry button there is a lie */
+	const [retryable, setRetryable] = useState(true);
 	const [busy, setBusy] = useState<number | null>(null);
 
 	const load = useCallback(async () => {
@@ -53,10 +60,15 @@ function DatingMatchesSceneBody({api, onOpenConversation, onBack}: DatingMatches
 			setError(null);
 			setState(res.matches.length === 0 ? 'empty' : 'default');
 		} catch (e) {
-			setError(e instanceof Error ? e.message : 'Не удалось загрузить совпадения');
-			setState('error');
+			/* the real reason, not one generic error: an expired session,
+			   a forbidden resource and a dead server are different
+			   problems, and being offline is a fourth */
+			const failure = classifyFailure(e, offline);
+			setError(failure.message);
+			setRetryable(failure.retryable);
+			setState(failure.state);
 		}
-	}, [api]);
+	}, [api, offline]);
 
 	useEffect(() => {
 		load();
@@ -85,6 +97,8 @@ function DatingMatchesSceneBody({api, onOpenConversation, onBack}: DatingMatches
 				state={state}
 				onRetry={load}
 				errorMessage={error ?? undefined}
+				/* a forbidden or missing resource cannot be retried into existence */
+				retryable={retryable}
 				emptyTitle="Пока нет совпадений"
 				emptyBody="Лайкните кого-то в разделе «Знакомства» — совпадение появится, когда симпатия окажется взаимной."
 				style={styles.body}>
