@@ -40,6 +40,7 @@ import {BerxSpatialCard} from '../../../../packages/design-system/src/spatial/Be
 import type {BerxStat} from '../../../../packages/design-system/src/spatial/BerxStatRail';
 import {useBerxSceneScroll} from '../../../../packages/design-system/src/spatial/BerxSpatialScene';
 import {BerxTwoZone} from '../../../../packages/design-system/src/spatial/BerxResponsive';
+import {ProfileTabs} from './ProfileTabs';
 import {BerxScreenScene, useBerxScreen} from '../spatial/BerxScreenScene';
 import {berxAnalytics} from '../spatial/analytics';
 
@@ -272,6 +273,23 @@ function ProfileSceneBody(props: ProfileScreenProps) {
 							}
 						/>
 							}
+						/>
+
+						{/* BERX-122…127 — the archive's six profile tabs, on the
+						    profile they belong to rather than as six
+						    destinations. Real data per tab, and a stated
+						    dependency where the API cannot answer for
+						    someone else's profile. */}
+						<ProfileTabs
+							api={api}
+							profile={profile}
+							isOwn={isOwn}
+							onOpenAlbum={props.onOpenAlbums ? () => props.onOpenAlbums?.(profile.guid ?? 0, isOwn) : undefined}
+							onOpenPlace={props.onOpenPlaces}
+							onOpenExperience={
+								props.onOpenExperiences ? () => props.onOpenExperiences?.(profile.guid ?? 0, isOwn) : undefined
+							}
+							onOpenProfile={props.onOpenConnections ? () => props.onOpenConnections?.() : undefined}
 						/>
 
 						{/* the phone path: the two-zone layout renders only its primary
