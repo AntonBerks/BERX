@@ -29,12 +29,23 @@
  * FlatList cannot change numColumns on an existing instance.
  */
 import {useMemo} from 'react';
-import {FlatList, StyleSheet, View, type FlatListProps, type ViewStyle} from 'react-native';
-import type {BerxResolvedScreen} from '@berx/scenes';
+import {FlatList, StyleSheet, View, useWindowDimensions, type FlatListProps, type ViewStyle} from 'react-native';
+import {BERX_V9_CONTRACT_DEFAULTS, resolveLayoutMode, type BerxResolvedScreen} from '@berx/scenes';
 import {useBerxResponsive} from './BerxResponsive';
 
 export interface BerxSceneListProps<T> extends Omit<FlatListProps<T>, 'numColumns' | 'columnWrapperStyle'> {
-	screen: BerxResolvedScreen;
+	/**
+	 * The resolved screen, when the caller has one.
+	 *
+	 * Optional, and the fallback is exact rather than approximate: the
+	 * layout mode is a pure function of the viewport width, and the
+	 * width limit, gutter and section gap are contract *defaults* —
+	 * identical across all 300 archive contracts, and checked against
+	 * the archive by the verifier. A list that cannot reach its screen
+	 * therefore lays out exactly as it would with one, instead of
+	 * being left as a stretched phone column.
+	 */
+	screen?: BerxResolvedScreen;
 	/**
 	 * Forces a single column for content that is a row rather than a
 	 * card — a conversation list, a settings list, a comment thread.
@@ -46,7 +57,9 @@ export interface BerxSceneListProps<T> extends Omit<FlatListProps<T>, 'numColumn
 }
 
 export function BerxSceneList<T>({screen, rows = false, style, contentContainerStyle, renderItem, ...rest}: BerxSceneListProps<T>) {
-	const {columns, maxContentWidth, gutter, sectionGap} = useBerxResponsive(screen);
+	const {width} = useWindowDimensions();
+	const resolved = useBerxResponsive(screen ?? fallbackScreen(width));
+	const {columns, maxContentWidth, gutter, sectionGap} = resolved;
 	const count = rows ? 1 : columns;
 
 	/**
@@ -83,6 +96,20 @@ export function BerxSceneList<T>({screen, rows = false, style, contentContainerS
 			</View>
 		</View>
 	);
+}
+
+/**
+ * The layout half of a resolved screen, from the width and the
+ * archive's own defaults. Only the fields useBerxResponsive reads are
+ * filled; nothing here is invented, and nothing else is claimed.
+ */
+function fallbackScreen(width: number): BerxResolvedScreen {
+	return {
+		layoutMode: resolveLayoutMode(width),
+		maxContentWidth: BERX_V9_CONTRACT_DEFAULTS.layout.maxContentWidth,
+		gutter: BERX_V9_CONTRACT_DEFAULTS.layout.gutter,
+		sectionGap: BERX_V9_CONTRACT_DEFAULTS.layout.sectionGap,
+	} as BerxResolvedScreen;
 }
 
 const styles = StyleSheet.create({

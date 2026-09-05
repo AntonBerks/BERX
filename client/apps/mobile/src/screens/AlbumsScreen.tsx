@@ -13,6 +13,7 @@ import {BerxButton} from '../../../../packages/design-system/src/components/Berx
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 import {BerxObjectCard} from '../../../../packages/design-system/src/spatial/BerxObjectCard';
+import {BerxSceneList} from '../../../../packages/design-system/src/spatial/BerxSceneList';
 
 export interface AlbumsScreenProps {
 	api: BerxApiClient;
@@ -67,7 +68,7 @@ function AlbumsScreenBody({api, userGuid, isOwn, onOpenAlbum, onCreate, onBack}:
 			{items.length === 0 ? (
 				<BerxEmptyState title="Альбомов пока нет" subtitle={isOwn ? 'Создайте первый альбом.' : undefined} />
 			) : (
-				<FlatList
+				<BerxSceneList
 					data={items}
 					keyExtractor={(a: BerxAlbum) => String(a.guid)}
 					contentContainerStyle={styles.list}
@@ -85,7 +86,7 @@ const styles = StyleSheet.create({
 	/* no opaque fill: the scene paints the room this screen stands in */
 	screen: {flex: 1},
 	toolbar: {padding: spacing.md},
-	list: {padding: spacing.lg, gap: spacing.md},
+	list: {paddingBottom: spacing.xxxl},
 	cardMedia: {width: '100%', aspectRatio: 1, backgroundColor: colors.graphite, alignItems: 'center', justifyContent: 'center'},
 	cardInitial: {fontSize: typography.sizeXl, color: colors.textFaint},
 	cardTitle: {fontSize: typography.sizeSm, color: colors.white, fontWeight: typography.weightMedium, padding: spacing.sm},

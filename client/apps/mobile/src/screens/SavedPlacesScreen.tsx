@@ -12,6 +12,7 @@ import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../pack
 import {BerxFamilyScene, useBerxSceneAtmosphere} from '../spatial/BerxScreenScene';
 import {BerxPlaceCard} from '../../../../packages/design-system/src/spatial/BerxPlaceCard';
 import {useBerxSceneScroll} from '../../../../packages/design-system/src/spatial/BerxSpatialScene';
+import {BerxSceneList} from '../../../../packages/design-system/src/spatial/BerxSceneList';
 
 export interface SavedPlacesScreenProps {
 	api: BerxApiClient;
@@ -68,7 +69,7 @@ function SavedPlacesScreenBody({api, onOpenPlace, onBack}: SavedPlacesScreenProp
 			{items.length === 0 ? (
 				<BerxEmptyState title="Ничего не сохранено" subtitle="Нажмите «Сохранить» на странице места, чтобы вернуться к нему позже." />
 			) : (
-				<FlatList
+				<BerxSceneList
 					data={items}
 					keyExtractor={(p: BerxPlace) => String(p.guid)}
 					onScroll={onScroll}
@@ -95,7 +96,7 @@ function SavedPlacesScreenBody({api, onOpenPlace, onBack}: SavedPlacesScreenProp
 const styles = StyleSheet.create({
 	/* no opaque fill: the scene paints the room this screen stands in */
 	screen: {flex: 1},
-	list: {padding: spacing.lg, gap: spacing.md},
+	list: {paddingBottom: spacing.xxxl},
 	cardImage: {width: '100%', aspectRatio: 1.3},
 	cardImageFallback: {width: '100%', aspectRatio: 1.3, backgroundColor: colors.graphite},
 	cardTitle: {fontSize: typography.sizeSm, color: colors.white, fontWeight: typography.weightMedium, padding: spacing.sm},

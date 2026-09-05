@@ -14,6 +14,7 @@ import {BerxButton} from '../../../../packages/design-system/src/components/Berx
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 import {BerxObjectCard} from '../../../../packages/design-system/src/spatial/BerxObjectCard';
+import {BerxSceneList} from '../../../../packages/design-system/src/spatial/BerxSceneList';
 
 export interface CirclesScreenProps {
 	api: BerxApiClient;
@@ -71,7 +72,7 @@ function CirclesScreenBody({api, onOpenCircle, onCreate, onBack}: CirclesScreenP
 			{items.length === 0 ? (
 				<BerxEmptyState title="Кругов пока нет" subtitle="Круги — приватные списки друзей для управления видимостью." />
 			) : (
-				<FlatList
+				<BerxSceneList
 					data={items}
 					keyExtractor={(c: BerxCircle) => String(c.id)}
 					contentContainerStyle={styles.list}
@@ -93,7 +94,7 @@ const styles = StyleSheet.create({
 	/* no opaque fill: the scene paints the room this screen stands in */
 	screen: {flex: 1},
 	toolbar: {padding: spacing.md},
-	list: {padding: spacing.md, gap: spacing.sm},
+	list: {paddingBottom: spacing.xxxl},
 	rowBody: {gap: 2},
 	title: {fontSize: typography.sizeBase, color: colors.white, fontWeight: typography.weightMedium},
 	meta: {fontSize: typography.sizeXs, color: colors.textFaint},

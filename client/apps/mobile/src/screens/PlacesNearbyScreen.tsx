@@ -21,6 +21,7 @@ import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../pack
 import {BerxSpatialCard} from '../../../../packages/design-system/src/spatial/BerxSpatialCard';
 import {BerxChoiceChips} from '../../../../packages/design-system/src/spatial/BerxChoiceChips';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
+import {BerxSceneList} from '../../../../packages/design-system/src/spatial/BerxSceneList';
 
 export interface PlacesNearbyScreenProps {
 	api: BerxApiClient;
@@ -93,7 +94,7 @@ function PlacesNearbyScreenBody({api, onOpenPlace, onBack}: PlacesNearbyScreenPr
 			) : items.length === 0 ? (
 				<BerxEmptyState title="Рядом ничего нет" subtitle="Попробуйте увеличить радиус." />
 			) : (
-				<FlatList
+				<BerxSceneList
 					data={items}
 					keyExtractor={(p: BerxNearbyPlace) => String(p.guid)}
 					contentContainerStyle={styles.list}
@@ -123,7 +124,7 @@ const styles = StyleSheet.create({
 	form: {padding: spacing.md, gap: spacing.sm},
 	row: {flexDirection: 'row', gap: spacing.sm},
 	half: {flex: 1},
-	list: {padding: spacing.md, gap: spacing.sm},
+	list: {paddingBottom: spacing.xxxl},
 	/* fill removed: a BerxSpatialCard wraps this row and paints the
 	   content plane's own material — an opaque token fill on top of it
 	   hides the surface the card just resolved */

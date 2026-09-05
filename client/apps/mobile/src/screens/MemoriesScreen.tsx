@@ -14,6 +14,7 @@ import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../pack
 import {BerxSpatialCard} from '../../../../packages/design-system/src/spatial/BerxSpatialCard';
 import {BerxFamilyScene, useBerxSceneAtmosphere} from '../spatial/BerxScreenScene';
 import {BerxEyebrow} from '../../../../packages/design-system/src/components/BerxBusinessPrimitives';
+import {BerxSceneList} from '../../../../packages/design-system/src/spatial/BerxSceneList';
 
 export interface MemoriesScreenProps {
 	api: BerxApiClient;
@@ -102,7 +103,7 @@ function MemoriesScreenBody({api, onOpenPost, onOpenAlbum, onBack}: MemoriesScre
 			{sections.length === 0 ? (
 				<BerxEmptyState title="Пока нет воспоминаний" subtitle="Здесь будут появляться посты и фото, опубликованные в этот день в прошлые годы." />
 			) : (
-				<FlatList
+				<BerxSceneList
 					data={sections}
 					keyExtractor={(s: Section) => String(s.yearsAgo)}
 					contentContainerStyle={styles.list}
@@ -145,7 +146,7 @@ function MemoriesScreenBody({api, onOpenPost, onOpenAlbum, onBack}: MemoriesScre
 const styles = StyleSheet.create({
 	/* no opaque fill: the scene paints the room this screen stands in */
 	screen: {flex: 1},
-	list: {padding: spacing.md},
+	list: {paddingBottom: spacing.xxxl},
 	section: {marginBottom: spacing.lg, gap: spacing.sm},
 	/* fill removed: a BerxSpatialCard wraps this row and paints the
 	   content plane's own material — an opaque token fill on top of it

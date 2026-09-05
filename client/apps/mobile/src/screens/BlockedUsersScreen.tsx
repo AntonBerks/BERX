@@ -14,6 +14,7 @@ import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../pack
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 import {BerxSpatialCard} from '../../../../packages/design-system/src/spatial/BerxSpatialCard';
 import {BerxIdentity} from '../../../../packages/design-system/src/spatial/BerxIdentity';
+import {BerxSceneList} from '../../../../packages/design-system/src/spatial/BerxSceneList';
 
 export interface BlockedUsersScreenProps {
 	api: BerxApiClient;
@@ -72,7 +73,7 @@ function BlockedUsersScreenBody({api, onBack}: BlockedUsersScreenProps) {
 			{items.length === 0 ? (
 				<BerxEmptyState title="Никого не заблокировано" />
 			) : (
-				<FlatList
+				<BerxSceneList rows
 					data={items}
 					keyExtractor={(u: BerxBlockedUser) => String(u.guid)}
 					contentContainerStyle={styles.list}
@@ -103,7 +104,7 @@ function BlockedUsersScreenBody({api, onBack}: BlockedUsersScreenProps) {
 const styles = StyleSheet.create({
 	/* no opaque fill: the scene paints the room this screen stands in */
 	screen: {flex: 1},
-	list: {padding: spacing.md, gap: spacing.sm},
+	list: {paddingBottom: spacing.xxxl},
 	row: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.borderSoft},
 	avatar: {width: 40, height: 40, borderRadius: radius.pill, backgroundColor: colors.graphite},
 	name: {flex: 1, fontSize: typography.sizeBase, color: colors.white, fontWeight: typography.weightMedium},

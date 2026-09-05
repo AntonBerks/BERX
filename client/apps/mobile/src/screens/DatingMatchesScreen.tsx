@@ -25,6 +25,7 @@ import {BerxActionShelf} from '../../../../packages/design-system/src/spatial/Be
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 import {classifyFailure} from '../spatial/screenState';
 import {useBerxConnectivity} from '../spatial/useBerxConnectivity';
+import {BerxSceneList} from '../../../../packages/design-system/src/spatial/BerxSceneList';
 
 export interface DatingMatchesScreenProps {
 	api: BerxApiClient;
@@ -102,7 +103,7 @@ function DatingMatchesSceneBody({api, onOpenConversation, onBack}: DatingMatches
 				emptyTitle="Пока нет совпадений"
 				emptyBody="Лайкните кого-то в разделе «Знакомства» — совпадение появится, когда симпатия окажется взаимной."
 				style={styles.body}>
-				<FlatList
+				<BerxSceneList
 					data={matches}
 					keyExtractor={(m: BerxDatingMatch) => String(m.guid)}
 					onScroll={onScroll}
@@ -142,6 +143,6 @@ function DatingMatchesSceneBody({api, onOpenConversation, onBack}: DatingMatches
 const styles = StyleSheet.create({
 	screen: {flex: 1},
 	body: {flex: 1},
-	list: {padding: spacing.lg, gap: spacing.md},
+	list: {paddingBottom: spacing.xxxl},
 	actions: {flexDirection: 'row', gap: spacing.sm},
 });

@@ -14,6 +14,7 @@ import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
+import {BerxSceneList} from '../../../../packages/design-system/src/spatial/BerxSceneList';
 
 export interface TripsScreenProps {
 	api: BerxApiClient;
@@ -73,7 +74,7 @@ function TripsSceneBody({api, userGuid, isOwn, onOpenTrip, onCreate, onBack}: Tr
 			{items.length === 0 ? (
 				<BerxEmptyState title="Поездок пока нет" subtitle={isOwn ? 'Соберите места и события в единый маршрут.' : undefined} />
 			) : (
-				<FlatList
+				<BerxSceneList
 					data={items}
 					keyExtractor={(t: BerxTrip) => String(t.id)}
 					contentContainerStyle={styles.list}
@@ -105,7 +106,7 @@ const styles = StyleSheet.create({
 	/* no opaque fill: the scene paints the room this screen stands in */
 	screen: {flex: 1},
 	toolbar: {padding: spacing.md},
-	list: {padding: spacing.md, gap: spacing.sm},
+	list: {paddingBottom: spacing.xxxl},
 	title: {fontSize: typography.sizeBase, color: colors.white, fontWeight: typography.weightMedium},
 	meta: {fontSize: typography.sizeXs, color: colors.textFaint},
 });

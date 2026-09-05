@@ -29,6 +29,7 @@ import {BerxActionShelf} from '../../../../packages/design-system/src/spatial/Be
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 import {classifyFailure} from '../spatial/screenState';
 import {useBerxConnectivity} from '../spatial/useBerxConnectivity';
+import {BerxSceneList} from '../../../../packages/design-system/src/spatial/BerxSceneList';
 
 export interface NotificationsScreenProps {
 	api: BerxApiClient;
@@ -162,7 +163,7 @@ function NotificationsScreenBody({api, onOpenConversation, onOpenDating, onOpenP
 				emptyTitle="Пока нет уведомлений"
 				emptyBody="Здесь появятся отклики на ваши места, события, знакомства и сообщения."
 				style={styles.body}>
-				<FlatList
+				<BerxSceneList rows
 					data={items}
 					keyExtractor={(n: BerxNotification) => String(n.guid)}
 					onScroll={onScroll}
@@ -212,7 +213,7 @@ const styles = StyleSheet.create({
 	/* the scene paints the ground now */
 	screen: {flex: 1},
 	body: {flex: 1},
-	list: {padding: spacing.lg, gap: spacing.sm},
+	list: {paddingBottom: spacing.xxxl},
 	/* were 8px hit-slop links; now real 44dp controls */
 	actionsRow: {flexDirection: 'row', gap: spacing.sm, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm},
 	marker: {width: 16, alignItems: 'center'},

@@ -15,6 +15,7 @@ import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
+import {BerxSceneList} from '../../../../packages/design-system/src/spatial/BerxSceneList';
 
 export interface CollectionsScreenProps {
 	api: BerxApiClient;
@@ -69,7 +70,7 @@ function CollectionsSceneBody({api, userGuid, isOwn, onOpenCollection, onCreate,
 			{items.length === 0 ? (
 				<BerxEmptyState title="Подборок пока нет" subtitle={isOwn ? 'Соберите места, события и посты в одну подборку.' : undefined} />
 			) : (
-				<FlatList
+				<BerxSceneList
 					data={items}
 					keyExtractor={(c: BerxCollection) => String(c.id)}
 					contentContainerStyle={styles.list}
@@ -94,7 +95,7 @@ const styles = StyleSheet.create({
 	/* no opaque fill: the scene paints the room this screen stands in */
 	screen: {flex: 1},
 	toolbar: {padding: spacing.md},
-	list: {padding: spacing.md, gap: spacing.sm},
+	list: {paddingBottom: spacing.xxxl},
 	rowBody: {gap: 2},
 	title: {fontSize: typography.sizeBase, color: colors.white, fontWeight: typography.weightMedium},
 	meta: {fontSize: typography.sizeXs, color: colors.textFaint},

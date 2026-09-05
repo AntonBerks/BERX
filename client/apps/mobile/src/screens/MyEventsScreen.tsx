@@ -12,6 +12,7 @@ import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../pack
 import {BerxFamilyScene, useBerxSceneAtmosphere} from '../spatial/BerxScreenScene';
 import {BerxObjectCard} from '../../../../packages/design-system/src/spatial/BerxObjectCard';
 import {BerxCountdown} from '../../../../packages/design-system/src/spatial/BerxCountdown';
+import {BerxSceneList} from '../../../../packages/design-system/src/spatial/BerxSceneList';
 
 export interface MyEventsScreenProps {
 	api: BerxApiClient;
@@ -67,7 +68,7 @@ function MyEventsScreenBody({api, onOpenEvent, onBack}: MyEventsScreenProps) {
 			{items.length === 0 ? (
 				<BerxEmptyState title="Вы никуда не записаны" subtitle="Нажмите «Пойду» на странице события, чтобы оно появилось здесь." />
 			) : (
-				<FlatList
+				<BerxSceneList
 					data={items}
 					keyExtractor={(e: BerxEvent) => String(e.guid)}
 					contentContainerStyle={styles.list}
@@ -95,7 +96,7 @@ function MyEventsScreenBody({api, onOpenEvent, onBack}: MyEventsScreenProps) {
 const styles = StyleSheet.create({
 	/* no opaque fill: the scene paints the room this screen stands in */
 	screen: {flex: 1},
-	list: {padding: spacing.md, gap: spacing.sm},
+	list: {paddingBottom: spacing.xxxl},
 	cardImage: {width: 56, height: 56, borderRadius: radius.sm},
 	cardImageFallback: {width: 56, height: 56, borderRadius: radius.sm, backgroundColor: colors.graphite},
 	cardBody: {flex: 1},
