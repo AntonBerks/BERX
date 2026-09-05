@@ -12,6 +12,7 @@ import { BerxIcon } from '../icons';
 import { BerxSpatialCard } from '../spatial/BerxSpatialCard';
 import type { BerxTrackPost } from '@berx/api/types';
 import {BerxText} from '../spatial/BerxText';
+import { berxCount, berxPlural } from '@berx/domain';
 
 export interface BerxTrackCardProps {
 	track: BerxTrackPost;
@@ -42,7 +43,10 @@ export function BerxTrackCard({ track, onPress, onOpenProfile }: BerxTrackCardPr
 					<BerxText role="label" emphasis="accent">{track.owner_username ?? 'BERX'}</BerxText>
 				</Pressable>
 				{track.text ? <BerxText role="meta" numberOfLines={1}>{track.text}</BerxText> : null}
-				<BerxText role="meta" emphasis="tertiary">{track.like_count} нравится · {track.comment_count} комментариев</BerxText>
+				{/* real counts, with the word that agrees with them */}
+				<BerxText role="meta" emphasis="tertiary">
+					{`${track.like_count} ${berxPlural(track.like_count, 'отметка', 'отметки', 'отметок')} · ${berxCount(track.comment_count, 'комментарий', 'комментария', 'комментариев')}`}
+				</BerxText>
 			</View>
 			</View>
 		</BerxSpatialCard>

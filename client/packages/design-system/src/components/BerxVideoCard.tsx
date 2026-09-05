@@ -15,6 +15,7 @@ import { BerxIcon } from '../icons';
 import { BerxSpatialCard } from '../spatial/BerxSpatialCard';
 import type { BerxVideoPost } from '@berx/api/types';
 import {BerxText} from '../spatial/BerxText';
+import { berxCount, berxPlural } from '@berx/domain';
 
 export interface BerxVideoCardProps {
 	video: BerxVideoPost;
@@ -49,7 +50,10 @@ export function BerxVideoCard({ video, onPress, onOpenProfile }: BerxVideoCardPr
 					<BerxText role="label" emphasis="accent">{video.owner_username ?? 'BERX'}</BerxText>
 				</Pressable>
 				{video.text ? <BerxText role="meta" numberOfLines={2}>{video.text}</BerxText> : null}
-				<BerxText role="meta" emphasis="tertiary">{video.like_count} нравится · {video.comment_count} комментариев</BerxText>
+				{/* real counts, with the word that agrees with them */}
+				<BerxText role="meta" emphasis="tertiary">
+					{`${video.like_count} ${berxPlural(video.like_count, 'отметка', 'отметки', 'отметок')} · ${berxCount(video.comment_count, 'комментарий', 'комментария', 'комментариев')}`}
+				</BerxText>
 			</View>
 		</BerxSpatialCard>
 	);
