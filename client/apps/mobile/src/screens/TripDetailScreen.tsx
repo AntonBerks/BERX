@@ -5,7 +5,7 @@
  * day_number client-side from the flat list the server returns
  * (already ordered by day, sort_order) — no separate per-day fetch.
  */
-import React, {useCallback, useEffect, useState} from 'react';
+import {useCallback, useEffect, useState} from 'react';
 import {View, Text, FlatList, Image, Pressable, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxTripDetail, BerxTripStop, BerxTripParticipant, BerxFriend} from '@berx/api/types';
@@ -15,6 +15,10 @@ import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../pack
 import {BerxSpatialCard} from '../../../../packages/design-system/src/spatial/BerxSpatialCard';
 import {BerxFamilyScene, useBerxSceneAtmosphere} from '../spatial/BerxScreenScene';
 import {BerxIcon} from '../../../../packages/design-system/src/icons';
+import {BerxSceneHero} from '../../../../packages/design-system/src/spatial/BerxSceneHero';
+import {BerxAvatarCluster} from '../../../../packages/design-system/src/spatial/BerxAvatarCluster';
+import {BerxText} from '../../../../packages/design-system/src/spatial/BerxText';
+import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 
 export interface TripDetailScreenProps {
 	api: BerxApiClient;
@@ -31,6 +35,27 @@ function groupByDay(stops: BerxTripStop[]): [number, BerxTripStop[]][] {
 		map.get(s.day_number)!.push(s);
 	}
 	return Array.from(map.entries()).sort((a, b) => a[0] - b[0]);
+}
+
+/**
+ * The two facts a trip actually has: how many stops it holds and when
+ * it runs. Never a third one invented to fill the line.
+ */
+function tripMeta(trip: {stop_count: number; start_date: number | null; end_date: number | null}): string | undefined {
+	const parts: string[] = [];
+	if (trip.stop_count > 0) {
+		const n = trip.stop_count;
+		const mod10 = n % 10;
+		const mod100 = n % 100;
+		const word = mod10 === 1 && mod100 !== 11 ? 'точка' : mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14) ? 'точки' : 'точек';
+		parts.push(`${n} ${word}`);
+	}
+	if (trip.start_date) {
+		const from = new Date(trip.start_date * 1000).toLocaleDateString('ru-RU', {day: 'numeric', month: 'short'});
+		const to = trip.end_date ? new Date(trip.end_date * 1000).toLocaleDateString('ru-RU', {day: 'numeric', month: 'short'}) : null;
+		parts.push(to && to !== from ? `${from} — ${to}` : from);
+	}
+	return parts.length > 0 ? parts.join(' · ') : undefined;
 }
 
 export default function TripDetailScreen(props: TripDetailScreenProps) {
@@ -108,19 +133,35 @@ function TripDetailScreenBody({api, id, onOpenPlace, onOpenEvent, onBack}: TripD
 
 	return (
 		<View style={styles.screen}>
-			<BerxHeader title={trip.title} onBack={onBack} />
-			{trip.description ? <Text style={styles.description}>{trip.description}</Text> : null}
+			{/* the title lives in the hero, so the way back does not
+			    repeat it */}
+			<BerxHeader onBack={onBack} />
 
-			{trip.is_own ? (
-				<View style={styles.toolbar}>
-					<Pressable
-						accessibilityRole="button"
-						accessibilityState={{expanded: showPicker}}
-						accessibilityLabel={showPicker ? 'Скрыть список друзей' : 'Пригласить друга в поездку'}
-						onPress={() => setShowPicker(!showPicker)}>
-						<Text style={styles.toggleBtnText}>{showPicker ? 'Скрыть друзей' : 'Пригласить друга'}</Text>
-					</Pressable>
-				</View>
+			{/* the journey as the scene's subject. A trip has no cover in
+			    the API, and the hero is built for that: it renders the
+			    room's own lit surface rather than a borrowed photograph.
+			    Its meta is the two real facts a trip has — how many stops
+			    it holds and when it runs. */}
+			<BerxSceneHero
+				title={trip.title}
+				meta={tripMeta(trip)}
+				height={190}
+				actions={
+					trip.is_own ? (
+						<BerxButton
+							label={showPicker ? 'Скрыть друзей' : 'Пригласить друга'}
+							variant="secondary"
+							onPress={() => setShowPicker(!showPicker)}
+							accessibilityState={{expanded: showPicker}}
+						/>
+					) : undefined
+				}
+			/>
+
+			{trip.description ? (
+				<BerxText role="body" emphasis="secondary" style={styles.description}>
+					{trip.description}
+				</BerxText>
 			) : null}
 
 			{showPicker ? (
@@ -149,11 +190,19 @@ function TripDetailScreenBody({api, id, onOpenPlace, onOpenEvent, onBack}: TripD
 				)
 			) : null}
 
+			{/* who is on the trip, as one addressable object that
+			    announces the names rather than a row of unlabelled
+			    circles */}
 			{trip.participants.length > 0 ? (
 				<View style={styles.participantsRow}>
-					{trip.participants.map((p: BerxTripParticipant) => (
-						<Image key={p.guid} source={{uri: p.icon}} style={styles.participantAvatar} />
-					))}
+					<BerxAvatarCluster
+						members={trip.participants.map((p: BerxTripParticipant) => ({
+							guid: p.guid,
+							name: p.fullname,
+							avatarUrl: p.icon,
+						}))}
+						contextLabel="участники поездки"
+					/>
 				</View>
 			) : null}
 
@@ -204,16 +253,13 @@ function TripDetailScreenBody({api, id, onOpenPlace, onOpenEvent, onBack}: TripD
 const styles = StyleSheet.create({
 	/* no opaque fill: the scene paints the room this screen stands in */
 	screen: {flex: 1},
-	description: {fontSize: typography.sizeSm, color: colors.textDim, paddingHorizontal: spacing.md, paddingTop: spacing.sm},
-	toolbar: {paddingHorizontal: spacing.md, paddingTop: spacing.sm},
-	toggleBtnText: {fontSize: typography.sizeSm, color: colors.accent, fontWeight: typography.weightMedium},
+	description: {paddingHorizontal: spacing.lg, paddingTop: spacing.md},
 	hint: {fontSize: typography.sizeSm, color: colors.textFaint, paddingHorizontal: spacing.md, paddingBottom: spacing.sm},
 	pickerRow: {paddingHorizontal: spacing.md, paddingVertical: spacing.sm, gap: spacing.sm},
 	pickerItem: {alignItems: 'center', width: 64, marginRight: spacing.sm},
 	pickerAvatar: {width: 48, height: 48, borderRadius: radius.pill, backgroundColor: colors.graphite},
 	pickerName: {fontSize: typography.sizeXs, color: colors.textDim, marginTop: 4},
-	participantsRow: {flexDirection: 'row', paddingHorizontal: spacing.md, paddingVertical: spacing.sm, gap: -8},
-	participantAvatar: {width: 32, height: 32, borderRadius: radius.pill, backgroundColor: colors.graphite, borderWidth: 2, borderColor: colors.bg, marginRight: -8},
+	participantsRow: {paddingHorizontal: spacing.lg, paddingVertical: spacing.sm},
 	list: {padding: spacing.md, gap: spacing.md},
 	dayBlock: {gap: spacing.sm, marginBottom: spacing.md},
 	dayLabel: {fontSize: typography.sizeXs, color: colors.textFaint, fontWeight: typography.weightBold, textTransform: 'uppercase'},

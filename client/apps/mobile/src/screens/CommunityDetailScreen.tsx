@@ -6,7 +6,7 @@
  * only wires join/leave/view, consistent with "add what's actually
  * built and tested, not a guessed full feature set."
  */
-import React, {useEffect, useState} from 'react';
+import {useEffect, useState} from 'react';
 import {View, Text, Pressable, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxCommunity} from '@berx/api/types';
@@ -14,9 +14,10 @@ import {colors, spacing, typography} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState} from '../../../../packages/design-system/src/components/BerxStates';
-import {BerxSpatialCard} from '../../../../packages/design-system/src/spatial/BerxSpatialCard';
 import {BerxActionShelf} from '../../../../packages/design-system/src/spatial/BerxActionShelf';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
+import {BerxSceneHero} from '../../../../packages/design-system/src/spatial/BerxSceneHero';
+import {BerxText} from '../../../../packages/design-system/src/spatial/BerxText';
 
 export interface CommunityDetailScreenProps {
 	api: BerxApiClient;
@@ -95,29 +96,40 @@ function CommunityDetailScreenBody({api, guid, myGuid, onBack, onOpenRequests, o
 
 	return (
 		<View style={styles.screen}>
-			<BerxHeader onBack={onBack} title={community.name} />
-			<View style={styles.content}>
-				{/* D3 — who this community is. The API carries no cover or
-				    icon for a community, so its identity is its name,
-				    its openness and what it says about itself — stated,
-				    not padded out with a stock image. */}
-				<BerxSpatialCard depth="D3" padding={spacing.lg} radius={22}>
-					<Text style={styles.name}>{community.name}</Text>
-					<Text style={styles.privacy}>{community.privacy === 'private' ? 'Закрытое сообщество' : 'Открытое сообщество'}</Text>
-					{community.description ? <Text style={styles.description}>{community.description}</Text> : null}
+			{/* the name lives in the hero now, so the way back does not
+			    say it a second time */}
+			<BerxHeader onBack={onBack} />
 
-					{/* D4 — the membership decision, on the control plane */}
-					<BerxActionShelf variant="anchored" align="stack">
+			{/* The community as the scene's subject rather than as the
+			    first card in a stack.
+			    The API carries no cover or icon for a community, so the
+			    hero has no media — and it is built for that: it renders
+			    the room's own lit surface rather than a stock photograph.
+			    Its identity here is its name, its openness and what it
+			    says about itself, at the sizes those things deserve. */}
+			<BerxSceneHero
+				title={community.name}
+				meta={community.privacy === 'private' ? 'Закрытое сообщество' : 'Открытое сообщество'}
+				height={200}
+				actions={
+					<>
 						<BerxButton
-							label={community.is_member ? 'Покинуть сообщество' : 'Вступить'}
+							label={community.is_member ? 'Покинуть' : 'Вступить'}
 							variant={community.is_member ? 'secondary' : 'primary'}
 							onPress={handleJoinLeave}
 							loading={acting}
-							fullWidth
 						/>
-						{onOpenMembers ? <BerxButton label="Участники" variant="secondary" onPress={() => onOpenMembers(guid)} fullWidth /> : null}
-					</BerxActionShelf>
-				</BerxSpatialCard>
+						{onOpenMembers ? <BerxButton label="Участники" variant="secondary" onPress={() => onOpenMembers(guid)} /> : null}
+					</>
+				}
+			/>
+
+			<View style={styles.content}>
+				{community.description ? (
+					<BerxText role="body" emphasis="secondary">
+						{community.description}
+					</BerxText>
+				) : null}
 
 				{myGuid && community.owner_guid === myGuid ? (
 					/* the owner's tools are a separate object: managing the
@@ -147,8 +159,5 @@ const styles = StyleSheet.create({
 	screen: {flex: 1},
 	content: {padding: spacing.lg, gap: spacing.md},
 	ownerActions: {gap: spacing.sm, marginTop: spacing.sm},
-	name: {color: colors.text, fontSize: typography.sizeXl, fontWeight: typography.weightBold},
-	privacy: {color: colors.accent, fontSize: typography.sizeSm},
-	description: {color: colors.textDim, fontSize: typography.sizeBase},
 	reportLink: {color: colors.textFaint, fontSize: typography.sizeXs, textDecorationLine: 'underline', textAlign: 'center', marginTop: spacing.sm},
 });
