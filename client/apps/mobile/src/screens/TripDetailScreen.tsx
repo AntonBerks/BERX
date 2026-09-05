@@ -20,6 +20,7 @@ import {BerxAvatarCluster} from '../../../../packages/design-system/src/spatial/
 import {BerxText} from '../../../../packages/design-system/src/spatial/BerxText';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {berxCount} from '@berx/domain';
+import {BerxSceneList} from '../../../../packages/design-system/src/spatial/BerxSceneList';
 
 export interface TripDetailScreenProps {
 	api: BerxApiClient;
@@ -204,7 +205,7 @@ function TripDetailScreenBody({api, id, onOpenPlace, onOpenEvent, onBack}: TripD
 			{days.length === 0 ? (
 				<BerxEmptyState title="Маршрут пока пуст" subtitle="Добавляйте места и события со страниц Places/Events." />
 			) : (
-				<FlatList
+				<BerxSceneList rows
 					data={days}
 					keyExtractor={([day]: [number, BerxTripStop[]]) => String(day)}
 					contentContainerStyle={styles.list}
@@ -255,7 +256,7 @@ const styles = StyleSheet.create({
 	pickerAvatar: {width: 48, height: 48, borderRadius: radius.pill, backgroundColor: colors.graphite},
 	pickerName: {marginTop: 4},
 	participantsRow: {paddingHorizontal: spacing.lg, paddingVertical: spacing.sm},
-	list: {padding: spacing.md, gap: spacing.md},
+	list: {paddingBottom: spacing.xxxl},
 	dayBlock: {gap: spacing.sm, marginBottom: spacing.md},
 	/* fill removed: a BerxSpatialCard wraps this row and paints the
 	   content plane's own material — an opaque token fill on top of it

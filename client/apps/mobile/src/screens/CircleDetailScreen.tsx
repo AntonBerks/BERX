@@ -17,6 +17,7 @@ import {BerxSpatialCard} from '../../../../packages/design-system/src/spatial/Be
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 import {BerxIcon} from '../../../../packages/design-system/src/icons';
 import {BerxText} from '../../../../packages/design-system/src/spatial/BerxText';
+import {BerxSceneList} from '../../../../packages/design-system/src/spatial/BerxSceneList';
 
 export interface CircleDetailScreenProps {
 	api: BerxApiClient;
@@ -133,7 +134,7 @@ function CircleDetailScreenBody({api, id, onBack}: CircleDetailScreenProps) {
 			{circle.members.length === 0 ? (
 				<BerxEmptyState title="В круге пока никого нет" subtitle="Добавьте друзей выше." />
 			) : (
-				<FlatList
+				<BerxSceneList rows
 					data={circle.members}
 					keyExtractor={(m: BerxCircleMember) => String(m.guid)}
 					contentContainerStyle={styles.list}
@@ -170,7 +171,7 @@ const styles = StyleSheet.create({
 	pickerItem: {alignItems: 'center', width: 64, marginRight: spacing.sm},
 	pickerAvatar: {width: 48, height: 48, borderRadius: radius.pill, backgroundColor: colors.graphite},
 	pickerName: {marginTop: 4},
-	list: {padding: spacing.md, gap: spacing.sm},
+	list: {paddingBottom: spacing.xxxl},
 	/* fill removed: a BerxSpatialCard wraps this row and paints the
 	   content plane's own material — an opaque token fill on top of it
 	   hides the surface the card just resolved */
