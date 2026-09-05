@@ -31,12 +31,12 @@ import {BerxMediaGrid} from '../../../../packages/design-system/src/components/B
 import {BerxMediaViewer} from '../../../../packages/design-system/src/components/BerxMediaViewer';
 import {BerxReactionPicker} from '../../../../packages/design-system/src/spatial/BerxReactionPicker';
 import {BerxSpatialCard} from '../../../../packages/design-system/src/spatial/BerxSpatialCard';
+import {BerxMediaWell} from '../../../../packages/design-system/src/spatial/BerxMediaWell';
 import {BerxIdentity} from '../../../../packages/design-system/src/spatial/BerxIdentity';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 import {BerxIcon} from '../../../../packages/design-system/src/icons';
 import {BerxText} from '../../../../packages/design-system/src/spatial/BerxText';
 import {BerxSceneScroll} from '../../../../packages/design-system/src/spatial/BerxSceneScroll';
-import {useBerxScene} from '../../../../packages/design-system/src/spatial/BerxSpatialScene';
 
 export interface PostDetailScreenProps {
 	api: BerxApiClient;
@@ -84,11 +84,6 @@ export default function PostDetailScreen(props: PostDetailScreenProps) {
 }
 
 function PostDetailSceneBody({api, postGuid, myGuid, onOpenProfile, onReport, onBack}: PostDetailScreenProps) {
-	/* the divider is the structure plane's own edge, not a flat grey
-	   hairline: a rule between two comments belongs to the room they
-	   are in, so it changes with the colour world like everything
-	   else does */
-	const dividerColor = useBerxScene().scene.layers.D2.surface.borderColor;
 	const [post, setPost] = useState<BerxPostDetail | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
@@ -272,7 +267,10 @@ function PostDetailSceneBody({api, postGuid, myGuid, onOpenProfile, onReport, on
 							<BerxText role="meta" emphasis="secondary">Комментариев пока нет.</BerxText>
 						) : (
 							comments.map((c) => (
-								<View key={c.id} style={[styles.commentRow, {borderColor: dividerColor}]}>
+								/* D3 — what someone said is an object standing in the
+								   room, not a paragraph between two hairlines */
+								<BerxSpatialCard key={c.id} depth="D3" padding={spacing.md} radius={16}>
+								<View style={styles.commentRow}>
 									{c.author ? (
 										<Pressable
 											accessibilityRole="button"
@@ -281,7 +279,7 @@ function PostDetailSceneBody({api, postGuid, myGuid, onOpenProfile, onReport, on
 											<Image source={{uri: c.author.icon}} style={styles.commentAvatar} />
 										</Pressable>
 									) : (
-										<View style={styles.commentAvatar} />
+										<BerxMediaWell radius={radius.pill} style={styles.commentAvatar} />
 									)}
 									<View style={styles.commentBody}>
 										<BerxText role="label">{c.author?.fullname ?? 'Пользователь'}</BerxText>
@@ -302,10 +300,24 @@ function PostDetailSceneBody({api, postGuid, myGuid, onOpenProfile, onReport, on
 											accessibilityLabel="Пожаловаться на комментарий"
 											onPress={() => onReport('comment', c.id)}
 											hitSlop={8}>
-											<BerxText role="meta" emphasis="tertiary" style={styles.commentDelete}>⚑</BerxText>
+											<BerxIcon name="warning" size={14} decorative />
 										</Pressable>
 									) : null}
 								</View>
+								{/* the photograph the server returns on the comment
+								    itself — real media BERX was fetching and never
+								    drawing, so a comment that was a picture showed
+								    up as its caption or as nothing at all */}
+								{c.photo_url ? (
+									<Image
+										source={{uri: c.photo_url}}
+										style={styles.commentPhoto}
+										resizeMode="cover"
+										accessibilityRole="image"
+										accessibilityLabel={`Фото в комментарии от ${c.author?.fullname ?? 'пользователя'}`}
+									/>
+								) : null}
+								</BerxSpatialCard>
 							))
 						)}
 					</View>
@@ -326,7 +338,10 @@ const styles = StyleSheet.create({
 	commentBox: {marginTop: spacing.lg},
 	reportLink: {textDecorationLine: 'underline'},
 	commentsList: {marginTop: spacing.md, gap: spacing.sm},
-	commentRow: {flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, paddingVertical: spacing.sm, borderTopWidth: 1, borderTopColor: colors.borderSoft},
+	commentRow: {flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm},
+	/* the photo runs the width of the comment it belongs to, inside
+	   the object's own radius */
+	commentPhoto: {width: '100%', aspectRatio: 4 / 3, borderRadius: 12, marginTop: spacing.sm},
 	commentAvatar: {width: 32, height: 32, borderRadius: radius.pill, backgroundColor: colors.glass2},
 	commentBody: {flex: 1, gap: 2},
 	commentDelete: {padding: 4},

@@ -9,10 +9,11 @@
  * placeholder with a real play glyph rather than a fabricated
  * thumbnail. Real like/comment counts, never estimated.
  */
-import { View, Pressable, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { colors, spacing, radius } from '../tokens';
 import { BerxIcon } from '../icons';
 import { BerxSpatialCard } from '../spatial/BerxSpatialCard';
+import { BerxIdentity } from '../spatial/BerxIdentity';
 import { BerxMediaWell } from '../spatial/BerxMediaWell';
 import type { BerxVideoPost } from '@berx/api/types';
 import {BerxText} from '../spatial/BerxText';
@@ -47,11 +48,19 @@ export function BerxVideoCard({ video, onPress, onOpenProfile }: BerxVideoCardPr
 				) : null}
 			</BerxMediaWell>
 			<View style={styles.body}>
-				<Pressable
-					disabled={!video.owner_username || !onOpenProfile}
-					onPress={() => video.owner_username && onOpenProfile?.(video.owner_username)}>
-					<BerxText role="label" emphasis="accent">{video.owner_username ?? 'BERX'}</BerxText>
-				</Pressable>
+				{/* the author, as a person. videos.php returns owner_icon on
+				    every row and the card drew only the name — so whoever
+				    made this read as a text label rather than as someone
+				    you could recognise. BerxIdentity is one control, so a
+				    screen reader gets one action rather than a tappable
+				    picture beside untappable words. */}
+				<BerxIdentity
+					userGuid={video.owner_guid}
+					name={video.owner_username ?? 'BERX'}
+					avatarUrl={video.owner_icon ?? undefined}
+					size={28}
+					onPress={video.owner_username && onOpenProfile ? () => onOpenProfile(video.owner_username as string) : undefined}
+				/>
 				{video.text ? <BerxText role="meta" numberOfLines={2}>{video.text}</BerxText> : null}
 				{/* real counts, with the word that agrees with them */}
 				<BerxText role="meta" emphasis="tertiary">
