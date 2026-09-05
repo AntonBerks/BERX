@@ -17,4 +17,5 @@ export * from './camera';
 export * from './motion';
 export * from './performance';
 export * from './focus';
+export * from './typography';
 export * from './scene';

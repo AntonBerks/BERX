@@ -15,11 +15,12 @@
  *    indicator, and never silently pretends to be live.
  */
 import React from 'react';
-import {ActivityIndicator, Pressable, StyleSheet, Text, View, type ViewStyle} from 'react-native';
+import {ActivityIndicator, Pressable, StyleSheet, View, type ViewStyle} from 'react-native';
 import {rgba, type BerxScreenState} from '@berx/spatial';
 import {useBerxScene} from './BerxSpatialScene';
 import {BerxSurface} from './BerxSurface';
-import {colors, spacing, typography} from '../tokens';
+import {colors, spacing} from '../tokens';
+import {BerxText} from './BerxText';
 
 export interface BerxDataBoundaryProps {
 	state: BerxScreenState;
@@ -87,11 +88,11 @@ export function BerxDataBoundary({
 	if (state === 'error') {
 		return (
 			<BoundaryCard testID={testID} style={style} tone="danger">
-				<Text style={styles.title} accessibilityRole="header">
+				<BerxText role="heading" heading>
 					Не удалось загрузить
-				</Text>
+				</BerxText>
 				{/* the real error, not a placeholder — an unexplained failure is unactionable */}
-				<Text style={styles.body}>{errorMessage ?? 'Сервер не вернул ответ.'}</Text>
+				<BerxText role="body" emphasis="secondary">{errorMessage ?? 'Сервер не вернул ответ.'}</BerxText>
 				{onSignIn ? <BoundaryAction label="Войти снова" onPress={onSignIn} accent={scene.accent} /> : null}
 				{onRetry && retryable ? <BoundaryAction label="Повторить" onPress={onRetry} accent={scene.accent} /> : null}
 			</BoundaryCard>
@@ -101,10 +102,10 @@ export function BerxDataBoundary({
 	if (state === 'empty') {
 		return (
 			<BoundaryCard testID={testID} style={style}>
-				<Text style={styles.title} accessibilityRole="header">
+				<BerxText role="heading" heading>
 					{emptyTitle ?? 'Пока пусто'}
-				</Text>
-				{emptyBody ? <Text style={styles.body}>{emptyBody}</Text> : null}
+				</BerxText>
+				{emptyBody ? <BerxText role="body" emphasis="secondary">{emptyBody}</BerxText> : null}
 				{emptyAction ? <BoundaryAction label={emptyAction.label} onPress={emptyAction.onPress} accent={scene.accent} /> : null}
 			</BoundaryCard>
 		);
@@ -113,10 +114,10 @@ export function BerxDataBoundary({
 	if (state === 'disabled') {
 		return (
 			<BoundaryCard testID={testID} style={style}>
-				<Text style={styles.title} accessibilityRole="header">
+				<BerxText role="heading" heading>
 					Недоступно
-				</Text>
-				<Text style={styles.body}>{disabledReason ?? 'Это действие сейчас недоступно.'}</Text>
+				</BerxText>
+				<BerxText role="body" emphasis="secondary">{disabledReason ?? 'Это действие сейчас недоступно.'}</BerxText>
 			</BoundaryCard>
 		);
 	}
@@ -129,16 +130,16 @@ export function BerxDataBoundary({
 					accessibilityRole="alert"
 					accessibilityLabel="Нет соединения. Показаны сохранённые данные."
 					style={[styles.offlineBar, {backgroundColor: rgba(colors.textDim, 0.12), borderColor: structure.surface.borderColor}]}>
-					<Text style={styles.offlineText}>Нет соединения — показаны сохранённые данные</Text>
+					<BerxText role="meta" emphasis="secondary">Нет соединения — показаны сохранённые данные</BerxText>
 				</View>
 				{hasCachedContent ? (
 					children
 				) : (
 					<BoundaryCard>
-						<Text style={styles.title} accessibilityRole="header">
+						<BerxText role="heading" heading>
 							Нет соединения
-						</Text>
-						<Text style={styles.body}>Сохранённых данных для этого экрана нет.</Text>
+						</BerxText>
+						<BerxText role="body" emphasis="secondary">Сохранённых данных для этого экрана нет.</BerxText>
 						{onRetry ? <BoundaryAction label="Повторить" onPress={onRetry} accent={scene.accent} /> : null}
 					</BoundaryCard>
 				)}
@@ -154,7 +155,7 @@ export function BerxDataBoundary({
 					accessibilityRole="alert"
 					accessibilityLabel={successMessage}
 					style={[styles.successBar, {backgroundColor: rgba(colors.success, 0.12), borderColor: rgba(colors.success, 0.32)}]}>
-					<Text style={[styles.offlineText, {color: colors.success}]}>{successMessage}</Text>
+					<BerxText role="meta" style={{color: colors.success}}>{successMessage}</BerxText>
 				</View>
 				{children}
 			</View>
@@ -199,7 +200,7 @@ function BoundaryAction({label, onPress, accent}: {label: string; onPress: () =>
 			accessibilityLabel={label}
 			onPress={onPress}
 			style={[styles.action, {borderColor: rgba(accent, 0.42), backgroundColor: rgba(accent, 0.1)}]}>
-			<Text style={[styles.actionLabel, {color: accent}]}>{label}</Text>
+			<BerxText role="label" style={{color: accent}}>{label}</BerxText>
 		</Pressable>
 	);
 }
@@ -230,8 +231,6 @@ function DefaultSkeleton() {
 const styles = StyleSheet.create({
 	cardWrap: {margin: spacing.lg},
 	card: {padding: spacing.xl, gap: spacing.sm},
-	title: {color: colors.text, fontSize: typography.sizeLg, fontWeight: typography.weightMedium},
-	body: {color: colors.textDim, fontSize: typography.sizeBase, lineHeight: typography.sizeBase * 1.45},
 	action: {
 		marginTop: spacing.md,
 		minHeight: 44,
@@ -242,7 +241,6 @@ const styles = StyleSheet.create({
 		justifyContent: 'center',
 		alignSelf: 'flex-start',
 	},
-	actionLabel: {fontSize: typography.sizeBase, fontWeight: typography.weightMedium},
 	offlineBar: {
 		paddingVertical: spacing.sm,
 		paddingHorizontal: spacing.lg,
@@ -250,7 +248,6 @@ const styles = StyleSheet.create({
 		borderColor: 'transparent',
 	},
 	successBar: {paddingVertical: spacing.sm, paddingHorizontal: spacing.lg, borderBottomWidth: 1},
-	offlineText: {color: colors.textDim, fontSize: typography.sizeSm},
 	skeleton: {padding: spacing.lg, gap: spacing.md},
 	skeletonRow: {flexDirection: 'row', gap: spacing.md, padding: spacing.lg, borderRadius: 22, borderWidth: 1},
 	skeletonAvatar: {width: 44, height: 44, borderRadius: 22},

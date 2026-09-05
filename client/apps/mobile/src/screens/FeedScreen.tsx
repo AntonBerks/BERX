@@ -21,13 +21,15 @@
  *    detail scene, where like_count is real.
  */
 import {useCallback, useEffect, useState} from 'react';
-import {FlatList, RefreshControl, StyleSheet, Text, View, Pressable} from 'react-native';
+import {FlatList, RefreshControl, StyleSheet, View, Pressable} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxFeedItem, BerxStoryFeedGroup} from '@berx/api/types';
 import {relativeTimeLabel} from '@berx/domain';
 import type {BerxScreenState} from '@berx/spatial';
-import {colors, spacing, typography} from '@berx/design-system/tokens';
+import {colors, spacing} from '@berx/design-system/tokens';
 import {IconPlus} from '../../../../packages/design-system/src/components/BerxIcons';
+import {BerxSceneHeader} from '../../../../packages/design-system/src/spatial/BerxSceneHeader';
+import {BerxText} from '../../../../packages/design-system/src/spatial/BerxText';
 import {BerxDataBoundary} from '../../../../packages/design-system/src/spatial/BerxDataBoundary';
 import {BerxSpatialCard} from '../../../../packages/design-system/src/spatial/BerxSpatialCard';
 import {BerxIdentity} from '../../../../packages/design-system/src/spatial/BerxIdentity';
@@ -46,6 +48,19 @@ interface Props {
 	onCreatePost: () => void;
 	onOpenStoryGroup: (group: BerxStoryFeedGroup) => void;
 	onCreateStory: () => void;
+}
+
+/**
+ * Real Russian plural agreement on a real count. "5 постов" and "1
+ * пост" are different words, and a screen that prints the wrong one
+ * looks unfinished in a way no amount of depth compensates for.
+ */
+function postCountLabel(count: number): string {
+	const mod10 = count % 10;
+	const mod100 = count % 100;
+	if (mod10 === 1 && mod100 !== 11) return `${count} пост на вашей стене`;
+	if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return `${count} поста на вашей стене`;
+	return `${count} постов на вашей стене`;
 }
 
 export default function FeedScreen(props: Props) {
@@ -128,19 +143,30 @@ function FeedSceneBody({api, onOpenPost, onOpenProfile, onCreatePost, onOpenStor
 		[storyGroups, onOpenStoryGroup, screen],
 	);
 
+	/**
+	 * The scene names itself instead of wearing a title bar: the
+	 * wordmark as the overline, the screen's own name at display size,
+	 * and a real count underneath — not a slogan, and not a number the
+	 * feed does not have. The compose action sits on the control
+	 * plane beside it, where it is nearer than the title and never
+	 * over it.
+	 */
 	const header = (
-		<View style={styles.header}>
-			<Text style={styles.headerTitle} accessibilityRole="header">
-				BER<Text style={styles.headerAccent}>X</Text>
-			</Text>
-			<Pressable
-				onPress={onCreatePost}
-				accessibilityRole="button"
-				accessibilityLabel="Создать пост"
-				style={styles.headerAction}>
-				<IconPlus size={20} color={colors.accent} />
-			</Pressable>
-		</View>
+		<BerxSceneHeader
+			overline="BERX"
+			title="Лента"
+			subtitle={items.length > 0 ? postCountLabel(items.length) : undefined}
+			actions={
+				<Pressable
+					onPress={onCreatePost}
+					accessibilityRole="button"
+					accessibilityLabel="Создать пост"
+					style={styles.headerAction}>
+					<IconPlus size={20} color={colors.accent} />
+				</Pressable>
+			}
+			testID="feed-header"
+		/>
 	);
 
 	const tray = storiesFailed ? (
@@ -202,7 +228,13 @@ function FeedSceneBody({api, onOpenPost, onOpenProfile, onCreatePost, onOpenStor
 								/* the author was tappable before v9 and still is */
 								onPress={item.owner_username ? () => onOpenProfile(item.owner_username as string) : undefined}
 							/>
-							<Text style={styles.postText}>{item.text}</Text>
+							{/* the post itself reads at body measure, with the
+							    space above it doing the separating — a rule
+							    across the card would be a second border inside
+							    an object that already has one edge */}
+							<BerxText role="body" style={styles.postText}>
+								{item.text}
+							</BerxText>
 						</BerxSpatialCard>
 					)}
 				/>
@@ -214,22 +246,10 @@ function FeedSceneBody({api, onOpenPost, onOpenProfile, onCreatePost, onOpenStor
 const styles = StyleSheet.create({
 	screen: {flex: 1},
 	body: {flex: 1},
-	header: {
-		flexDirection: 'row',
-		alignItems: 'center',
-		justifyContent: 'space-between',
-		paddingHorizontal: spacing.lg,
-		paddingVertical: spacing.md,
-	},
-	headerTitle: {color: colors.text, fontSize: typography.sizeXl, fontWeight: typography.weightBold, letterSpacing: 1},
-	headerAccent: {color: colors.accent},
 	/* 44dp, per the v9 accessibility contract — it was a bare icon before */
 	headerAction: {minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center'},
-	list: {padding: spacing.lg, gap: spacing.md},
-	postText: {
-		color: colors.text,
-		fontSize: typography.sizeBase,
-		lineHeight: typography.sizeBase * typography.lineHeightBase,
-		marginTop: spacing.sm,
-	},
+	/* the gap between cards is where the room shows through, so it is
+	   larger than the padding inside them */
+	list: {paddingHorizontal: spacing.lg, paddingTop: spacing.sm, paddingBottom: spacing.xxl, gap: spacing.lg},
+	postText: {marginTop: spacing.sm},
 });

@@ -2,10 +2,24 @@
  * BerxBottomNav — the D4 control layer's home.
  *
  * Extracted from AppShell, where it lived inline with no focus
- * handling and no badge semantics. It now sits on the control layer
+ * handling and no badge semantics. It sits on the control layer
  * (legible over any background media by contract), has 44dp targets,
  * announces the selected tab, and reports unread counts as real
  * numbers from the server rather than a decorative dot.
+ *
+ * It is an object, not a bar. Edge-to-edge with square corners it
+ * read as a strip laid over the bottom of every scene, cutting the
+ * room off at the ankles — the same flat-layer-above-the-scene
+ * mistake the header made at the top. Inset from the edges and
+ * rounded, it becomes what D4 is supposed to be: a control surface
+ * floating nearer than the content, with the room continuing behind
+ * and under it. The scene it floats over is what makes it read as
+ * near, which is why it carries no fill of its own beyond the
+ * control plane's own material.
+ *
+ * The selected tab is marked by the accent underneath rather than a
+ * bar across the top: an indicator that touches the object's own edge
+ * turns the object back into a bar.
  */
 import {Pressable, StyleSheet, Text, View} from 'react-native';
 import {rgba} from '@berx/spatial';
@@ -48,7 +62,7 @@ export function BerxBottomNav<T extends string>({tabs, active, onSelect, showLab
 
 	return (
 		<View testID={testID} style={styles.root}>
-			<BerxSurface surface={layer.surface} lighting={layer.lighting} radius={0}>
+			<BerxSurface surface={layer.surface} lighting={layer.lighting} radius={26}>
 				<View accessibilityRole="tablist" style={styles.row}>
 					{tabs.map((tab) => {
 						const selected = tab.key === active;
@@ -84,14 +98,16 @@ export function BerxBottomNav<T extends string>({tabs, active, onSelect, showLab
 }
 
 const styles = StyleSheet.create({
-	root: {},
+	/* inset, so the room runs behind and past it on every side */
+	root: {marginHorizontal: spacing.lg, marginBottom: spacing.md},
 	row: {flexDirection: 'row'},
 	/* 44dp minimum. Whether the label is drawn is the caller's call; the
 	   accessible name is not optional either way. */
 	tab: {flex: 1, minHeight: 56, alignItems: 'center', justifyContent: 'center', gap: 2, paddingVertical: spacing.sm},
 	iconWrap: {},
 	label: {fontSize: typography.sizeXs, fontWeight: typography.weightMedium},
-	indicator: {position: 'absolute', top: 0, width: 24, height: 2, borderRadius: 1, shadowOpacity: 1, shadowRadius: 6},
+	/* under the icon, not across the object's edge */
+	indicator: {position: 'absolute', bottom: 8, width: 18, height: 2, borderRadius: 1, shadowOpacity: 1, shadowRadius: 6},
 	badge: {
 		position: 'absolute',
 		top: -4,
