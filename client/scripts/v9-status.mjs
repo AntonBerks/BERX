@@ -27,8 +27,23 @@ const screens = walk(screensDir);
 const wired = [];
 for (const file of screens) {
 	const src = fs.readFileSync(file, 'utf8');
-	const m = /screenId="(BERX-\d+)"/.exec(src);
-	if (m) wired.push({file: path.relative(clientRoot, file), screenId: m[1]});
+	/**
+	 * A screen is wired to a contract when it renders a scene for it.
+	 * The literal form covers most screens; the profile's tabs pass a
+	 * mapped id instead, and six real contracts resolving through one
+	 * component are six wired contracts, not none. Only files that
+	 * actually render a scene are scanned for the mapped form, so a
+	 * contract id mentioned in a comment never counts.
+	 */
+	const literal = /screenId="(BERX-\d+)"/.exec(src);
+	if (literal) {
+		wired.push({file: path.relative(clientRoot, file), screenId: literal[1]});
+		continue;
+	}
+	if (!/<BerxScreenScene[\s>]/.test(src)) continue;
+	for (const m of src.matchAll(/'(BERX-\d+)'/g)) {
+		wired.push({file: path.relative(clientRoot, file), screenId: m[1]});
+	}
 }
 
 const spatialDir = path.join(clientRoot, 'packages/design-system/src/spatial');

@@ -2,6 +2,28 @@
 
 Regenerate the facts behind this file with `cd client && node scripts/v9-status.mjs`.
 
+## The 29 named contracts
+
+26 of the 29 screens the archive actually describes are wired to a real
+screen that resolves their contract at runtime. The three that are not
+are absent on purpose, each for a reason the API makes plain:
+
+| Contract | Why it is absent |
+|---|---|
+| BERX-005 Interests | No interest-tag resource exists. `/dating/interests` records a dating like, not a tag list |
+| BERX-007 Permissions | An OS grant, not a BERX resource — and the app has no camera or location module to request one for |
+| BERX-008 Privacy Setup | No account-wide privacy resource. The dating privacy screen covers the one privacy surface that is real |
+
+A step that configures nothing does not belong in a sequence that
+claims to set the account up.
+
+BERX-122 to BERX-127 are tabs on the profile rather than six
+destinations, which is what the archive describes. Each resolves its
+own contract — its own material, light recipe and depth profile — in a
+room bounded by its panel.
+
+Regenerate this count with `cd client && node scripts/v9-status.mjs`.
+
 ## The 300 contracts
 
 All 300 resolve — by screenId, by route path and by route name — in Node

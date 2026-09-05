@@ -12,7 +12,7 @@
  * layer reaches by translating in z.
  */
 import React, {useMemo} from 'react';
-import {StyleSheet, View, type ViewStyle} from 'react-native';
+import {StyleSheet, View, type LayoutChangeEvent, type ViewStyle} from 'react-native';
 import {parallaxOffset, perspectiveScale, type BerxDepthKey} from '@berx/spatial';
 import {useBerxScene} from './BerxSpatialScene';
 import {BerxSurface} from './BerxSurface';
@@ -26,6 +26,8 @@ export interface BerxDepthLayerProps {
 	/** Fills the scene — used for D0/D1 environment and atmosphere. */
 	absoluteFill?: boolean;
 	style?: ViewStyle;
+	/** Lets a layer measure its own box — the environment sizes to its scene. */
+	onLayout?: (event: LayoutChangeEvent) => void;
 	testID?: string;
 	accessible?: boolean;
 	accessibilityLabel?: string;
@@ -43,6 +45,7 @@ export function BerxDepthLayer({
 	radius = 22,
 	absoluteFill = false,
 	style,
+	onLayout,
 	testID,
 	accessible,
 	accessibilityLabel,
@@ -70,6 +73,7 @@ export function BerxDepthLayer({
 	return (
 		<View
 			testID={testID}
+			onLayout={onLayout}
 			accessible={isDecorative ? false : accessible}
 			accessibilityLabel={isDecorative ? undefined : accessibilityLabel}
 			accessibilityElementsHidden={isDecorative}

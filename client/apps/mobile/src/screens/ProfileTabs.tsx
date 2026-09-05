@@ -36,6 +36,7 @@ import type {BerxAlbum, BerxExperience, BerxFriend, BerxPlace} from '@berx/api/t
 import type {BerxScreenState} from '@berx/spatial';
 import {colors, spacing, typography} from '@berx/design-system/tokens';
 import {BerxSegmentTabs} from '../../../../packages/design-system/src/components/BerxBusinessPrimitives';
+import {BerxScreenScene} from '../spatial/BerxScreenScene';
 import {BerxDataBoundary} from '../../../../packages/design-system/src/spatial/BerxDataBoundary';
 import {BerxIdentity} from '../../../../packages/design-system/src/spatial/BerxIdentity';
 import {BerxSpatialCard} from '../../../../packages/design-system/src/spatial/BerxSpatialCard';
@@ -155,6 +156,18 @@ export function ProfileTabs({
 				onChange={(key) => setTab(key as BerxProfileTab)}
 			/>
 
+			{/**
+			 * Each tab is its own v9 contract, resolved for real: the
+			 * archive gives BERX-122…127 their own material, light
+			 * recipe and depth profile, and rendering all six inside
+			 * the overview's scene would mean five contracts that
+			 * resolve nowhere. The scene is bounded by this panel, so
+			 * it is a room inside the profile's room rather than a
+			 * second full-screen environment, and each tab view is a
+			 * real screen view in the archive's own analytics terms.
+			 */}
+			<View style={styles.panel}>
+			<BerxScreenScene screenId={TAB_CONTRACT[tab]} testID={`profile-tab-${tab}`}>
 			<BerxDataBoundary
 				state={state}
 				onRetry={load}
@@ -249,6 +262,8 @@ export function ProfileTabs({
 					</View>
 				)}
 			</BerxDataBoundary>
+			</BerxScreenScene>
+			</View>
 		</View>
 	);
 }
@@ -285,6 +300,9 @@ function disabledReasonFor(tab: BerxProfileTab, isOwn: boolean): string {
 
 const styles = StyleSheet.create({
 	root: {gap: spacing.md, paddingHorizontal: spacing.lg},
+	/* the tab's room is bounded by its panel and clipped to it: a room
+	   inside a room, not a second full-screen environment */
+	panel: {borderRadius: 22, overflow: 'hidden', minHeight: 160},
 	body: {minHeight: 120},
 	list: {gap: spacing.sm},
 	itemTitle: {color: colors.text, fontSize: typography.sizeBase, fontWeight: typography.weightMedium},

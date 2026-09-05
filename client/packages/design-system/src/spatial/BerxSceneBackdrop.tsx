@@ -20,8 +20,8 @@
  * the scene so they can never out-shine the content plane.
  */
 
-import {useMemo} from 'react';
-import {Image, StyleSheet, View, useWindowDimensions, type ImageSourcePropType} from 'react-native';
+import {useCallback, useMemo, useState} from 'react';
+import {Image, StyleSheet, View, useWindowDimensions, type ImageSourcePropType, type LayoutChangeEvent} from 'react-native';
 import {berxAtmospherePoolBudget, resolveAtmosphere, rgba, type BerxAtmosphereKind} from '@berx/spatial';
 import {useBerxScene} from './BerxSpatialScene';
 import {BerxDepthLayer} from './BerxDepthLayer';
@@ -41,7 +41,23 @@ export interface BerxSceneBackdropProps {
 
 export function BerxSceneBackdrop({media, kind, scrim = 0}: BerxSceneBackdropProps) {
 	const {scene, scrollY} = useBerxScene();
-	const {width, height} = useWindowDimensions();
+	const window = useWindowDimensions();
+	/**
+	 * The room is sized to the scene it is in, not to the window.
+	 *
+	 * Most scenes fill the screen and the two are the same. A bounded
+	 * one is not — the profile's tabs each open their own contract's
+	 * room inside a panel — and a window-sized field painted into a
+	 * 160px box would put every light source outside the opening. The
+	 * window is the first-paint fallback, before layout has happened.
+	 */
+	const [box, setBox] = useState<{width: number; height: number} | null>(null);
+	const onLayout = useCallback((e: LayoutChangeEvent) => {
+		const {width: w, height: h} = e.nativeEvent.layout;
+		setBox((prev) => (prev && prev.width === w && prev.height === h ? prev : {width: w, height: h}));
+	}, []);
+	const width = box?.width ?? window.width;
+	const height = box?.height ?? window.height;
 	const d1 = scene.layers.D1;
 
 	const atmosphere = useMemo(
@@ -96,7 +112,7 @@ export function BerxSceneBackdrop({media, kind, scrim = 0}: BerxSceneBackdropPro
 	return (
 		<>
 			<BerxDepthLayer depth="D0" absoluteFill surface radius={0} style={{margin: -overscan}} />
-			<BerxDepthLayer depth="D1" absoluteFill style={{margin: -overscan}}>
+			<BerxDepthLayer depth="D1" absoluteFill style={{margin: -overscan}} onLayout={onLayout}>
 				{/**
 				 * Order is the whole point. Sky, then media, then the
 				 * light that falls on it, then the walls, then the
