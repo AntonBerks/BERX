@@ -17,8 +17,8 @@
  * PLATFORM_STORAGE.md for that placeholder's original rationale and
  * BERX_PATCH_CHANGELOG.md for this change.
  */
-import React, {useEffect, useState} from 'react';
-import {View, Text, Pressable, StyleSheet, Platform, useWindowDimensions} from 'react-native';
+import React, {useEffect, useRef, useState} from 'react';
+import {Animated, Easing, View, Text, Pressable, StyleSheet, Platform, useWindowDimensions} from 'react-native';
 import {BerxApiClient} from '@berx/api/client';
 import {BERX_PRODUCTION_ENV} from '@berx/core';
 import {BerxSecureTokenStorage} from './platform/secureTokenStorage';
@@ -32,6 +32,7 @@ import {BerxBottomNav, type BerxNavTab} from '../../../packages/design-system/sr
 import {BerxNavRail} from '../../../packages/design-system/src/spatial/BerxNavRail';
 import {resolveNavShell} from '@berx/scenes';
 import {BerxColorWorldProvider} from './spatial/BerxColorWorld';
+import {useBerxAccessibility} from './spatial/useBerxAccessibility';
 import {BerxNavigator, useBerxNavigation} from './navigation/BerxNavigator';
 import {BERX_BOTTOM_TABS, BerxRouteName} from './navigation/routes';
 import FeedScreen from './screens/FeedScreen';
@@ -1135,9 +1136,64 @@ function TabIcon({tab, color}: {tab: BerxRouteName; color: string}) {
 	}
 }
 
-/** Keeps its children mounted always; only toggles RN's real `display: none` style — this is what makes tab-switch preserve each tab's own navigation stack. */
+/**
+ * A tab, and the move between tabs.
+ *
+ * Children stay mounted always — only the visibility changes — which
+ * is what makes a tab switch preserve that tab's own navigation
+ * stack. What was missing is that the switch itself had no motion at
+ * all: the most frequent transition in the whole product was an
+ * instant `display: none` swap, one flat screen replaced by another,
+ * in an app whose entire premise is that screens are places.
+ *
+ * So the arriving tab performs the archive's own enter: it fades up
+ * and comes forward the last few per cent of its travel, on the
+ * scene's own duration. Under reduced motion the OS setting is
+ * honoured directly here — this sits above every scene, so there is
+ * no resolved scene to ask — and the pane cross-fades without
+ * travelling.
+ *
+ * `display: none` is applied only once the outgoing pane has finished
+ * leaving, because a hidden view cannot animate, and pointer events
+ * are off the moment it starts to go, so a fading pane can never
+ * catch a tap meant for the one arriving.
+ */
 function TabPane({visible, children}: {visible: boolean; children: React.ReactNode}) {
-	return <View style={[styles.tabPane, !visible && styles.tabPaneHidden]}>{children}</View>;
+	const reducedMotion = useBerxAccessibility().reducedMotion;
+	const progress = useRef(new Animated.Value(visible ? 1 : 0)).current;
+	const [rendered, setRendered] = useState(visible);
+
+	useEffect(() => {
+		if (visible) setRendered(true);
+		const animation = Animated.timing(progress, {
+			toValue: visible ? 1 : 0,
+			duration: reducedMotion ? 160 : 240,
+			easing: Easing.bezier(0.16, 1, 0.3, 1),
+			useNativeDriver: true,
+		});
+		animation.start(({finished}) => {
+			if (finished && !visible) setRendered(false);
+		});
+		return () => animation.stop();
+	}, [visible, reducedMotion, progress]);
+
+	if (!visible && !rendered) return <View style={[styles.tabPane, styles.tabPaneHidden]}>{children}</View>;
+
+	return (
+		<Animated.View
+			pointerEvents={visible ? 'auto' : 'none'}
+			style={[
+				styles.tabPane,
+				{
+					opacity: progress,
+					transform: reducedMotion
+						? []
+						: [{scale: progress.interpolate({inputRange: [0, 1], outputRange: [0.985, 1]})}],
+				},
+			]}>
+			{children}
+		</Animated.View>
+	);
 }
 
 export default function AppShell() {
