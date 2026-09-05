@@ -37,6 +37,7 @@ import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 import {BerxIcon} from '../../../../packages/design-system/src/icons';
 import {BerxText} from '../../../../packages/design-system/src/spatial/BerxText';
 import {BerxSceneScroll} from '../../../../packages/design-system/src/spatial/BerxSceneScroll';
+import {useBerxScene} from '../../../../packages/design-system/src/spatial/BerxSpatialScene';
 
 export interface PostDetailScreenProps {
 	api: BerxApiClient;
@@ -84,6 +85,11 @@ export default function PostDetailScreen(props: PostDetailScreenProps) {
 }
 
 function PostDetailSceneBody({api, postGuid, myGuid, onOpenProfile, onReport, onBack}: PostDetailScreenProps) {
+	/* the divider is the structure plane's own edge, not a flat grey
+	   hairline: a rule between two comments belongs to the room they
+	   are in, so it changes with the colour world like everything
+	   else does */
+	const dividerColor = useBerxScene().scene.layers.D2.surface.borderColor;
 	const [post, setPost] = useState<BerxPostDetail | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
@@ -274,7 +280,7 @@ function PostDetailSceneBody({api, postGuid, myGuid, onOpenProfile, onReport, on
 							<BerxText role="meta" emphasis="secondary">Комментариев пока нет.</BerxText>
 						) : (
 							comments.map((c) => (
-								<View key={c.id} style={styles.commentRow}>
+								<View key={c.id} style={[styles.commentRow, {borderColor: dividerColor}]}>
 									{c.author ? (
 										<Pressable
 											accessibilityRole="button"

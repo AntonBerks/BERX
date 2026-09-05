@@ -26,6 +26,7 @@ import {BerxDiscussion} from '../../../../packages/design-system/src/components/
 import {BerxSceneScroll} from '../../../../packages/design-system/src/spatial/BerxSceneScroll';
 import {BerxSection} from '../../../../packages/design-system/src/spatial/BerxSection';
 import {berxCount} from '@berx/domain';
+import {useBerxScene} from '../../../../packages/design-system/src/spatial/BerxSpatialScene';
 
 export interface PlaceDetailScreenProps {
 	api: BerxApiClient;
@@ -76,6 +77,11 @@ export default function PlaceDetailScreen(props: PlaceDetailScreenProps) {
 }
 
 function PlaceDetailSceneBody({api, guid, myGuid, onAddToCollection, onOpenBusinessDashboard, onBack}: PlaceDetailScreenProps) {
+	/* the divider is the structure plane's own edge, not a flat grey
+	   hairline: a rule between two comments belongs to the room they
+	   are in, so it changes with the colour world like everything
+	   else does */
+	const dividerColor = useBerxScene().scene.layers.D2.surface.borderColor;
 	const [place, setPlace] = useState<BerxPlace | null>(null);
 	/** Structured opening hours — the endpoint this screen never called. */
 	const [hours, setHours] = useState<BerxPlaceHours | null>(null);
@@ -337,7 +343,7 @@ function PlaceDetailSceneBody({api, guid, myGuid, onAddToCollection, onOpenBusin
 				)}
 
 				{reviews.map((r) => (
-					<View key={r.guid} style={styles.reviewRow}>
+					<View key={r.guid} style={[styles.reviewRow, {borderColor: dividerColor}]}>
 						<View style={styles.reviewHead}>
 							<BerxText role="callout">{r.author?.fullname ?? 'Пользователь'}</BerxText>
 							<BerxStars value={r.rating} />

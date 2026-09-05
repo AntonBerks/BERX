@@ -21,6 +21,7 @@ import {BerxButton} from './BerxButton';
 import {BerxIcon} from '../icons';
 import {BerxEyebrow} from './BerxBusinessPrimitives';
 import {BerxText} from '../spatial/BerxText';
+import {useBerxScene} from '../spatial/BerxSpatialScene';
 
 interface Props {
 	api: BerxApiClient;
@@ -30,6 +31,11 @@ interface Props {
 }
 
 export function BerxDiscussion({api, type, id, myGuid}: Props) {
+	/* the divider is the structure plane's own edge, not a flat grey
+	   hairline: a rule between two comments belongs to the room they
+	   are in, so it changes with the colour world like everything
+	   else does */
+	const dividerColor = useBerxScene().scene.layers.D2.surface.borderColor;
 	const [comments, setComments] = useState<BerxObjectComment[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [text, setText] = useState('');
@@ -92,7 +98,7 @@ export function BerxDiscussion({api, type, id, myGuid}: Props) {
 				<BerxText role="meta" emphasis="tertiary">Комментариев пока нет.</BerxText>
 			) : (
 				comments.map((c) => (
-					<View key={c.id} style={styles.row}>
+					<View key={c.id} style={[styles.row, {borderColor: dividerColor}]}>
 						{c.author ? <Image source={{uri: c.author.icon}} style={styles.avatar} /> : <View style={styles.avatarFallback} />}
 						<View style={styles.body}>
 							<BerxText role="label">{c.author?.fullname ?? 'Пользователь'}</BerxText>
