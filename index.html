@@ -127,12 +127,21 @@
   </div>
 </header>
 
-<div id="sheet" hidden>
+<div id="sheet" class="berx-scene" data-berx-screen="BERX-061" hidden>
+  <!-- D0/D1 — the menu is a BERX surface, not a black sheet dropped
+       over one. It was the last flat plane on the page: a full-screen
+       fill with six links on it, in a product whose whole argument is
+       that a surface belongs to a space. -->
+  <div class="sec-scene" aria-hidden="true">
+    <div class="berx-layer" data-berx-depth="D0"><div class="berx-surface" data-berx-depth="D0"></div></div>
+    <div class="berx-layer" data-berx-depth="D1"><div class="berx-surface" data-berx-depth="D1"></div></div>
+  </div>
+  <p class="sheet-brand" aria-hidden="true">BERX</p>
   <nav aria-label="Мобильная навигация">
     <a href="#messenger">Мессенджер</a><a href="#places">Места</a><a href="#events">События</a>
     <a href="#communities">Сообщества</a><a href="#feed">Лента</a><a href="#business">Бизнес</a>
   </nav>
-  <div style="padding:var(--pad);display:grid;gap:10px">
+  <div class="sheet-actions">
     <a class="btn btn-p" href="#cta">Войти в BERX</a>
     <button class="btn btn-s" type="button" data-close-sheet>Закрыть</button>
   </div>

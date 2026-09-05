@@ -1007,8 +1007,15 @@ gate(
 	`hero mounts ${results.site.screenId} (${results.site.family}, ${results.site.atmosphere}) with ${results.site.gradients} real gradients; ${results.site.errors} page errors${results.site.errorSample.length ? `: ${results.site.errorSample.join(' | ')}` : ''}`,
 );
 gate(
-	'each site section stands in its own family room',
-	results.site.sections.length === 6 &&
+	/* Counted, not enumerated: the page had exactly six scene hosts
+	   when this was written, and pinning the number meant the gate
+	   failed the moment the sections, the phone's own screen and the
+	   menu stood in rooms too. What it is actually for is that every
+	   host the page declares really resolves a room — a host that
+	   silently failed to mount paints no gradients — and that the page
+	   does not collapse into one environment repeated. */
+	'every site scene host stands in its own family room',
+	results.site.sections.length >= 6 &&
 		results.site.sections.every((s) => s.gradients >= 3) &&
 		new Set(results.site.sections.map((s) => s.atmosphere)).size >= 4,
 	results.site.sections.map((s) => `${s.screen}:${s.atmosphere}(${s.gradients})`).join(' '),

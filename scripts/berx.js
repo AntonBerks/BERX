@@ -101,6 +101,17 @@ const phoneScreen = $('.phone .screen');
     });
     H.dataset.berx5d = heroScene.scene.budget.tier;
 
+    /* Page chrome that belongs to no section — the modal's scrim, and
+       anything else that has to fall toward the room rather than
+       toward black — reads the resolved substrate and accent from the
+       document. Custom properties inherit downward only, so a scene
+       mounted on the hero cannot be read by a fixed element that is a
+       sibling of it. */
+    for (const prop of ['--berx-bg', '--berx-accent']) {
+      const v = getComputedStyle($('#heroScene')).getPropertyValue(prop);
+      if (v) H.style.setProperty(prop, v.trim());
+    }
+
     /* Each feature section stands in its own family's room: the
        conversation lit as a corridor, the map with a ground plane and
        a horizon, the events sky read from the real clock. Same
