@@ -106,10 +106,8 @@ const styles = StyleSheet.create({
 	/* no opaque fill: the scene paints the room this screen stands in */
 	screen: {flex: 1},
 	tabs: {flexDirection: 'row', gap: spacing.sm, padding: spacing.md},
-	tab: {fontSize: typography.sizeSm, color: colors.textFaint, paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: radius.pill, backgroundColor: colors.surface},
 	tabActive: {color: colors.accent, backgroundColor: colors.accentSoft},
 	list: {padding: spacing.md, gap: spacing.sm},
-	row: {backgroundColor: colors.surface, borderRadius: radius.md, padding: spacing.md, flexDirection: 'row', alignItems: 'baseline', gap: spacing.sm},
 	value: {fontSize: typography.sizeXl, color: colors.white, fontWeight: typography.weightBold},
 	label: {fontSize: typography.sizeSm, color: colors.textDim},
 });

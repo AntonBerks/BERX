@@ -211,7 +211,6 @@ const styles = StyleSheet.create({
 		borderBottomColor: colors.borderSoft,
 		gap: spacing.sm,
 	},
-	rowUnread: {backgroundColor: colors.glass1},
 	dot: {width: 8, height: 8, borderRadius: 4, backgroundColor: colors.accent},
 	rowText: {flex: 1},
 	label: {color: colors.text, fontSize: typography.sizeBase},

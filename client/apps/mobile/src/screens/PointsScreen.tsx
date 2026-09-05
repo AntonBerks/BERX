@@ -161,13 +161,15 @@ function PointsSceneBody({api, onBack}: PointsScreenProps) {
 						</BerxSpatialCard>
 
 						{balance.current_streak > 0 ? (
-							<View style={styles.streakRow}>
+							<BerxSpatialCard depth="D3" padding={spacing.md} radius={18} style={styles.streakCard}>
+					<View style={styles.streakRow}>
 								<Text style={styles.streakGlyph}>🔥</Text>
 								<View>
 									<Text style={styles.streakValue}>{balance.current_streak} {balance.current_streak === 1 ? 'день' : 'дней'} подряд</Text>
 									<Text style={styles.streakCaption}>Лучший результат: {balance.longest_streak}</Text>
 								</View>
 							</View>
+				</BerxSpatialCard>
 						) : null}
 
 						<View style={styles.spendSection}>
@@ -233,7 +235,8 @@ const styles = StyleSheet.create({
 	balanceValue: {color: colors.text, fontSize: 40, fontWeight: typography.weightBold},
 	balanceCaption: {color: colors.textDim, fontSize: typography.sizeSm},
 	progressCaption: {color: colors.textFaint, fontSize: typography.sizeXs, marginTop: spacing.sm},
-	streakRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginHorizontal: spacing.lg, backgroundColor: colors.surface, borderRadius: radius.md, padding: spacing.md},
+	streakCard: {marginHorizontal: spacing.lg},
+	streakRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm},
 	streakGlyph: {fontSize: typography.sizeXl},
 	streakValue: {fontSize: typography.sizeBase, color: colors.white, fontWeight: typography.weightBold},
 	streakCaption: {fontSize: typography.sizeXs, color: colors.textFaint},

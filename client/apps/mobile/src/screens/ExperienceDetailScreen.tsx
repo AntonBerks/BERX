@@ -12,6 +12,7 @@ import {BerxHeader} from '../../../../packages/design-system/src/components/Berx
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxActionShelf} from '../../../../packages/design-system/src/spatial/BerxActionShelf';
+import {BerxSpatialCard} from '../../../../packages/design-system/src/spatial/BerxSpatialCard';
 import {BerxFamilyScene, useBerxSceneAtmosphere} from '../spatial/BerxScreenScene';
 
 export interface ExperienceDetailScreenProps {
@@ -108,15 +109,20 @@ function ExperienceDetailScreenBody({api, id, onOpenPlace, onOpenEvent, onBack}:
 				<Text style={styles.when}>{fmtWhen(experience.scheduled_start)}</Text>
 
 				{experience.anchor ? (
-					<Pressable
-						style={styles.anchorCard}
+					<BerxSpatialCard
+						depth="D3"
+						padding={spacing.sm}
+						radius={18}
+						accessibilityLabel={`${experience.anchor.title}, ${experience.anchor.type === 'place' ? 'место' : 'событие'}`}
 						onPress={() => (experience.anchor!.type === 'place' ? onOpenPlace(experience.anchor!.guid) : onOpenEvent(experience.anchor!.guid))}>
+						<View style={styles.anchorCard}>
 						{experience.anchor.image_url ? <Image source={{uri: experience.anchor.image_url}} style={styles.anchorImage} /> : <View style={styles.anchorImageFallback} />}
 						<View style={styles.anchorBody}>
 							<Text style={styles.anchorTitle} numberOfLines={1}>{experience.anchor.title}</Text>
 							<Text style={styles.anchorType}>{experience.anchor.type === 'place' ? 'Место' : 'Событие'}</Text>
 						</View>
-					</Pressable>
+						</View>
+					</BerxSpatialCard>
 				) : null}
 
 				{experience.description ? <Text style={styles.description}>{experience.description}</Text> : null}
@@ -172,7 +178,7 @@ const styles = StyleSheet.create({
 	screen: {flex: 1},
 	body: {padding: spacing.md, gap: spacing.md},
 	when: {fontSize: typography.sizeSm, color: colors.textDim},
-	anchorCard: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.surface, borderRadius: radius.md, padding: spacing.sm},
+	anchorCard: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm, padding: spacing.sm},
 	anchorImage: {width: 56, height: 56, borderRadius: radius.sm},
 	anchorImageFallback: {width: 56, height: 56, borderRadius: radius.sm, backgroundColor: colors.graphite},
 	anchorBody: {flex: 1, gap: 2},

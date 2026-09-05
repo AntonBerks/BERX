@@ -15,6 +15,8 @@ import type {BerxApiClient} from '@berx/api/client';
 import type {BerxCreatorProfile, BerxCreatorContent, BerxCreatorPostItem, BerxCreatorAlbumItem, BerxCreatorEventItem, BerxCreatorExperienceItem} from '@berx/api/types';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxCreatorCard} from '../../../../packages/design-system/src/spatial/BerxCreatorCard';
+import {BerxSegmentTabs} from '../../../../packages/design-system/src/components/BerxBusinessPrimitives';
+import {BerxSpatialCard} from '../../../../packages/design-system/src/spatial/BerxSpatialCard';
 import {BerxScreenScene, useBerxSceneAtmosphere} from '../spatial/BerxScreenScene';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
@@ -139,13 +141,18 @@ function CreatorProfileSceneBody({api, username, onOpenPost, onOpenAlbum, onOpen
 			</View>
 
 			<View style={styles.tabRow}>
-				{(['posts', 'albums', 'events', 'experiences'] as Tab[]).map((t) => (
-					<Pressable key={t} style={[styles.tab, tab === t && styles.tabActive]} onPress={() => setTab(t)}>
-						<Text style={[styles.tabText, tab === t && styles.tabTextActive]}>
-							{t === 'posts' ? 'Посты' : t === 'albums' ? 'Альбомы' : t === 'events' ? 'События' : 'Впечатления'}
-						</Text>
-					</Pressable>
-				))}
+				{/* BerxProfileTabs in the archive aliases the same segmented
+				    control every other BERX surface uses */}
+				<BerxSegmentTabs
+					options={[
+						{key: 'posts', label: 'Посты'},
+						{key: 'albums', label: 'Альбомы'},
+						{key: 'events', label: 'События'},
+						{key: 'experiences', label: 'Впечатления'},
+					]}
+					value={tab}
+					onChange={(key) => setTab(key as Tab)}
+				/>
 			</View>
 
 			{tabCount === 0 ? (
@@ -156,10 +163,16 @@ function CreatorProfileSceneBody({api, username, onOpenPost, onOpenAlbum, onOpen
 					keyExtractor={(p: BerxCreatorPostItem) => String(p.guid)}
 					contentContainerStyle={styles.list}
 					renderItem={({item}: {item: BerxCreatorPostItem}) => (
-						<Pressable style={styles.row} onPress={() => onOpenPost(item.guid)}>
+						<BerxSpatialCard
+							depth="D3"
+							padding={spacing.md}
+							radius={18}
+							onPress={() => onOpenPost(item.guid)}
+							accessibilityLabel={`${item.text}, ${fmtDate(item.time)}`}
+							style={styles.listItem}>
 							<Text style={styles.rowText} numberOfLines={2}>{item.text}</Text>
 							<Text style={styles.rowMeta}>{fmtDate(item.time)}</Text>
-						</Pressable>
+						</BerxSpatialCard>
 					)}
 				/>
 			) : tab === 'albums' ? (
@@ -169,9 +182,15 @@ function CreatorProfileSceneBody({api, username, onOpenPost, onOpenAlbum, onOpen
 					numColumns={2}
 					contentContainerStyle={styles.grid}
 					renderItem={({item}: {item: BerxCreatorAlbumItem}) => (
-						<Pressable style={styles.gridCard} onPress={() => onOpenAlbum(item.guid)}>
+						<BerxSpatialCard
+							depth="D3"
+							padding={spacing.md}
+							radius={18}
+							onPress={() => onOpenAlbum(item.guid)}
+							accessibilityLabel={item.title}
+							style={styles.gridCard}>
 							<Text style={styles.gridTitle} numberOfLines={1}>{item.title}</Text>
-						</Pressable>
+						</BerxSpatialCard>
 					)}
 				/>
 			) : tab === 'events' ? (
@@ -180,13 +199,21 @@ function CreatorProfileSceneBody({api, username, onOpenPost, onOpenAlbum, onOpen
 					keyExtractor={(e: BerxCreatorEventItem) => String(e.guid)}
 					contentContainerStyle={styles.list}
 					renderItem={({item}: {item: BerxCreatorEventItem}) => (
-						<Pressable style={styles.mediaRow} onPress={() => onOpenEvent(item.guid)}>
+						<BerxSpatialCard
+							depth="D3"
+							padding={spacing.sm}
+							radius={18}
+							onPress={() => onOpenEvent(item.guid)}
+							accessibilityLabel={item.title}
+							style={styles.listItem}>
+							<View style={styles.mediaRow}>
 							{item.image_url ? <Image source={{uri: item.image_url}} style={styles.thumb} /> : <View style={styles.thumbFallback} />}
 							<View style={styles.mediaBody}>
 								<Text style={styles.rowText} numberOfLines={1}>{item.title}</Text>
 								<Text style={styles.rowMeta}>{fmtDate(item.starts)}</Text>
+								</View>
 							</View>
-						</Pressable>
+						</BerxSpatialCard>
 					)}
 				/>
 			) : (
@@ -195,13 +222,21 @@ function CreatorProfileSceneBody({api, username, onOpenPost, onOpenAlbum, onOpen
 					keyExtractor={(e: BerxCreatorExperienceItem) => String(e.id)}
 					contentContainerStyle={styles.list}
 					renderItem={({item}: {item: BerxCreatorExperienceItem}) => (
-						<Pressable style={styles.mediaRow} onPress={() => onOpenExperience(item.id)}>
+						<BerxSpatialCard
+							depth="D3"
+							padding={spacing.sm}
+							radius={18}
+							onPress={() => onOpenExperience(item.id)}
+							accessibilityLabel={item.title}
+							style={styles.listItem}>
+							<View style={styles.mediaRow}>
 							{item.image_url ? <Image source={{uri: item.image_url}} style={styles.thumb} /> : <View style={styles.thumbFallback} />}
 							<View style={styles.mediaBody}>
 								<Text style={styles.rowText} numberOfLines={1}>{item.title}</Text>
 								<Text style={styles.rowMeta}>{item.anchor_title ?? ''} · {fmtDate(item.scheduled_start)}</Text>
+								</View>
 							</View>
-						</Pressable>
+						</BerxSpatialCard>
 					)}
 				/>
 			)}
@@ -220,18 +255,19 @@ const styles = StyleSheet.create({
 	statValue: {fontSize: typography.sizeLg, color: colors.white, fontWeight: typography.weightBold},
 	statLabel: {fontSize: typography.sizeXs, color: colors.textFaint},
 	tabRow: {flexDirection: 'row', gap: spacing.xs, paddingHorizontal: spacing.md, paddingBottom: spacing.sm},
-	tab: {paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: radius.pill, backgroundColor: colors.surface},
+
 	tabActive: {backgroundColor: colors.accentSoft},
 	tabText: {fontSize: typography.sizeSm, color: colors.textDim},
 	tabTextActive: {color: colors.accent, fontWeight: typography.weightMedium},
 	list: {padding: spacing.md, gap: spacing.sm},
-	row: {backgroundColor: colors.surface, borderRadius: radius.md, padding: spacing.md, marginBottom: spacing.sm, gap: 4},
+
 	rowText: {fontSize: typography.sizeBase, color: colors.white},
 	rowMeta: {fontSize: typography.sizeXs, color: colors.textFaint},
 	grid: {padding: spacing.sm},
-	gridCard: {flex: 1, margin: spacing.xs, borderRadius: radius.md, backgroundColor: colors.surface, padding: spacing.md, aspectRatio: 1.3, justifyContent: 'flex-end'},
+	gridCard: {flex: 1, margin: spacing.xs, aspectRatio: 1.3, justifyContent: 'flex-end'},
+	listItem: {marginBottom: spacing.sm},
 	gridTitle: {fontSize: typography.sizeSm, color: colors.white, fontWeight: typography.weightMedium},
-	mediaRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.surface, borderRadius: radius.md, padding: spacing.sm, marginBottom: spacing.sm},
+	mediaRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm},
 	thumb: {width: 48, height: 48, borderRadius: radius.sm},
 	thumbFallback: {width: 48, height: 48, borderRadius: radius.sm, backgroundColor: colors.graphite},
 	mediaBody: {flex: 1, gap: 2},

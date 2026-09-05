@@ -86,7 +86,6 @@ const styles = StyleSheet.create({
 	screen: {flex: 1},
 	toolbar: {padding: spacing.md},
 	list: {padding: spacing.lg, gap: spacing.md},
-	card: {flex: 1, margin: spacing.xs, borderRadius: radius.md, overflow: 'hidden', backgroundColor: colors.surface},
 	cardMedia: {width: '100%', aspectRatio: 1, backgroundColor: colors.graphite, alignItems: 'center', justifyContent: 'center'},
 	cardInitial: {fontSize: typography.sizeXl, color: colors.textFaint},
 	cardTitle: {fontSize: typography.sizeSm, color: colors.white, fontWeight: typography.weightMedium, padding: spacing.sm},

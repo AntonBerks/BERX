@@ -346,7 +346,6 @@ const styles = StyleSheet.create({
 	heroInitial: {fontSize: typography.sizeHero, color: colors.textFaint},
 	body: {padding: spacing.md, gap: spacing.md},
 	metaRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm},
-	chip: {paddingHorizontal: spacing.sm, paddingVertical: 2, borderRadius: radius.pill, backgroundColor: colors.surface2},
 	chipText: {fontSize: typography.sizeXs, color: colors.textDim},
 	priceText: {fontSize: typography.sizeXs, color: colors.textFaint, fontWeight: typography.weightBold},
 	ratingText: {fontSize: typography.sizeSm, color: colors.accent, fontWeight: typography.weightMedium},

@@ -96,7 +96,6 @@ const styles = StyleSheet.create({
 	/* no opaque fill: the scene paints the room this screen stands in */
 	screen: {flex: 1},
 	list: {padding: spacing.lg, gap: spacing.md},
-	card: {flex: 1, margin: spacing.xs, borderRadius: radius.md, overflow: 'hidden', backgroundColor: colors.surface},
 	cardImage: {width: '100%', aspectRatio: 1.3},
 	cardImageFallback: {width: '100%', aspectRatio: 1.3, backgroundColor: colors.graphite},
 	cardTitle: {fontSize: typography.sizeSm, color: colors.white, fontWeight: typography.weightMedium, padding: spacing.sm},

@@ -15,6 +15,7 @@ import {BerxButton} from '../../../../packages/design-system/src/components/Berx
 import {BerxGlassSurface} from '../../../../packages/design-system/src/components/BerxGlassSurface';
 import {BerxActionShelf} from '../../../../packages/design-system/src/spatial/BerxActionShelf';
 import {BerxSegmentTabs} from '../../../../packages/design-system/src/components/BerxBusinessPrimitives';
+import {BerxSpatialCard} from '../../../../packages/design-system/src/spatial/BerxSpatialCard';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 
 export interface CreateExperienceScreenProps {
@@ -121,10 +122,18 @@ function CreateExperienceScreenBody({api, onCreated, onBack}: CreateExperienceSc
 					/>
 
 					{anchor ? (
-						<View style={styles.anchorSelected}>
-							<Text style={styles.anchorSelectedText}>{anchor.title}</Text>
-							<Pressable onPress={() => setAnchor(null)}><Text style={styles.anchorClear}>Изменить</Text></Pressable>
-						</View>
+						<BerxSpatialCard depth="D3" padding={spacing.sm} radius={18}>
+							<View style={styles.anchorSelected}>
+								<Text style={styles.anchorSelectedText}>{anchor.title}</Text>
+								<Pressable
+									onPress={() => setAnchor(null)}
+									accessibilityRole="button"
+									accessibilityLabel={`Изменить привязку, сейчас ${anchor.title}`}
+									hitSlop={8}>
+									<Text style={styles.anchorClear}>Изменить</Text>
+								</Pressable>
+							</View>
+						</BerxSpatialCard>
 					) : (
 						<>
 							<BerxInput placeholder={anchorTab === 'place' ? 'Искать место' : 'Искать событие'} value={anchorQuery} onChangeText={searchAnchor} />
@@ -183,7 +192,7 @@ const styles = StyleSheet.create({
 	row: {flexDirection: 'row', gap: spacing.sm},
 	resultRow: {paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.borderSoft},
 	resultText: {fontSize: typography.sizeSm, color: colors.white},
-	anchorSelected: {flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: colors.surface, borderRadius: radius.md, padding: spacing.sm},
+	anchorSelected: {flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: spacing.sm},
 	anchorSelectedText: {fontSize: typography.sizeSm, color: colors.white, fontWeight: typography.weightMedium},
 	anchorClear: {fontSize: typography.sizeXs, color: colors.accent},
 	error: {fontSize: typography.sizeSm, color: colors.danger},
