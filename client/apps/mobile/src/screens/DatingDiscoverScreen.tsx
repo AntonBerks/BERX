@@ -46,6 +46,8 @@ import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 import {classifyFailure} from '../spatial/screenState';
 import {useBerxConnectivity} from '../spatial/useBerxConnectivity';
 import {BerxText} from '../../../../packages/design-system/src/spatial/BerxText';
+import {BerxSceneHeader} from '../../../../packages/design-system/src/spatial/BerxSceneHeader';
+import {BerxIconButton} from '../../../../packages/design-system/src/icons';
 
 export interface DatingDiscoverScreenProps {
 	api: BerxApiClient;
@@ -185,13 +187,20 @@ function DatingDiscoverSceneBody({api, onMatch, onOpenMatches, onOpenPrivacy}: D
 
 	return (
 		<View style={styles.screen}>
-			<View style={styles.topBar}>
-				<BerxButton label="Совпадения" variant="secondary" onPress={onOpenMatches} />
-				<BerxText role="subtitle" heading>
-					Знакомства
-				</BerxText>
-				<BerxButton label="Приватность" variant="secondary" onPress={onOpenPrivacy} />
-			</View>
+			{/* the scene names itself and its controls sit on the control
+			    plane beside it, rather than a title squeezed between two
+			    buttons — which is a toolbar, and this is a room */}
+			<BerxSceneHeader
+				overline="BERX"
+				title="Знакомства"
+				actions={
+					<>
+						<BerxIconButton name="heart" accessibilityLabel="Совпадения" onPress={onOpenMatches} />
+						<BerxIconButton name="privacy" accessibilityLabel="Приватность знакомств" onPress={onOpenPrivacy} />
+					</>
+				}
+				testID="dating-header"
+			/>
 
 			<BerxDataBoundary
 				state={state}
@@ -260,14 +269,6 @@ function DatingDiscoverSceneBody({api, onMatch, onOpenMatches, onOpenPrivacy}: D
 
 const styles = StyleSheet.create({
 	screen: {flex: 1},
-	topBar: {
-		flexDirection: 'row',
-		alignItems: 'center',
-		justifyContent: 'space-between',
-		paddingHorizontal: spacing.lg,
-		paddingTop: spacing.md,
-		gap: spacing.sm,
-	},
 	body: {flex: 1, justifyContent: 'center'},
 	haloLayer: {position: 'absolute', top: '18%', left: 0, right: 0, alignItems: 'center'},
 	cardWrap: {paddingHorizontal: spacing.lg},
