@@ -18,17 +18,19 @@
  * that cannot place a call.
  */
 import {useCallback, useEffect, useMemo, useState} from 'react';
-import {FlatList, Pressable, RefreshControl, StyleSheet, Text, View} from 'react-native';
+import {FlatList, RefreshControl, StyleSheet, View} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxConversationSummary} from '@berx/api/types';
 import {relativeTimeLabel} from '@berx/domain';
 import type {BerxScreenState} from '@berx/spatial';
-import {colors, spacing, typography} from '@berx/design-system/tokens';
+import {colors, spacing} from '@berx/design-system/tokens';
 import {BerxSearchField} from '../../../../packages/design-system/src/spatial/BerxSearchField';
 import {BerxChatRow} from '../../../../packages/design-system/src/spatial/BerxChatRow';
 import {BerxDataBoundary} from '../../../../packages/design-system/src/spatial/BerxDataBoundary';
 import {useBerxSceneScroll} from '../../../../packages/design-system/src/spatial/BerxSpatialScene';
 import {BerxPartialNotice} from '../../../../packages/design-system/src/spatial/BerxPartialNotice';
+import {BerxSceneHeader} from '../../../../packages/design-system/src/spatial/BerxSceneHeader';
+import {BerxIconButton} from '../../../../packages/design-system/src/icons';
 import {BerxScreenScene, useBerxScreen} from '../spatial/BerxScreenScene';
 import {classifyFailure} from '../spatial/screenState';
 import {useBerxConnectivity} from '../spatial/useBerxConnectivity';
@@ -116,27 +118,33 @@ function ConversationListSceneBody({api, onOpenConversation, onOpenMessageSearch
 
 	return (
 		<View style={styles.screen}>
-			<View style={styles.header}>
-				<Text style={styles.title} accessibilityRole="header">
-					Сообщения
-					{unread !== null && unread > 0 ? <Text style={styles.unread}> · {unread} непрочитанных</Text> : null}
-				</Text>
-				{/* the count did not load; showing 0 would be a wrong number
-				    rather than a degraded one */}
-				{unread === null ? (
+			{/* the scene names itself: where you are as the overline, the
+			    room's own name at display size, and the real unread count
+			    as context under it — never a zero standing in for a count
+			    that did not load */}
+			<BerxSceneHeader
+				overline="BERX"
+				title="Сообщения"
+				subtitle={unread !== null && unread > 0 ? `${unread} непрочитанных` : undefined}
+				actions={
+					onOpenMessageSearch ? (
+						<BerxIconButton
+							name="search"
+							accessibilityLabel="Поиск по всем сообщениям"
+							accessibilityHint="Ищет по тексту сообщений во всех диалогах"
+							onPress={onOpenMessageSearch}
+						/>
+					) : null
+				}
+				testID="conversations-header"
+			/>
+			{/* the count did not load; showing 0 would be a wrong number
+			    rather than a degraded one */}
+			{unread === null ? (
+				<View style={styles.headerNotice}>
 					<BerxPartialNotice message="Счётчик непрочитанных недоступен" onRetry={load} testID="conversations-unread-partial" />
-				) : null}
-				{onOpenMessageSearch ? (
-					<Pressable
-						accessibilityRole="button"
-						accessibilityLabel="Поиск по всем сообщениям"
-						accessibilityHint="Ищет по тексту сообщений во всех диалогах"
-						onPress={onOpenMessageSearch}
-						style={styles.searchAll}>
-						<Text style={styles.searchAllLabel}>Поиск по сообщениям</Text>
-					</Pressable>
-				) : null}
-			</View>
+				</View>
+			) : null}
 
 			<View style={styles.filter}>
 				<BerxSearchField
@@ -197,19 +205,7 @@ function ConversationListSceneBody({api, onOpenConversation, onOpenMessageSearch
 
 const styles = StyleSheet.create({
 	screen: {flex: 1},
-	header: {
-		flexDirection: 'row',
-		alignItems: 'center',
-		justifyContent: 'space-between',
-		paddingHorizontal: spacing.lg,
-		paddingTop: spacing.md,
-		gap: spacing.md,
-	},
-	title: {color: colors.text, fontSize: typography.sizeXl, fontWeight: typography.weightBold, flexShrink: 1},
-	unread: {color: colors.accent, fontSize: typography.sizeSm, fontWeight: typography.weightMedium},
-	/* was an 8px hit-slop link; now a real 44dp control */
-	searchAll: {minHeight: 44, justifyContent: 'center'},
-	searchAllLabel: {color: colors.accent, fontSize: typography.sizeXs, fontWeight: typography.weightMedium},
+	headerNotice: {paddingHorizontal: spacing.lg},
 	filter: {paddingHorizontal: spacing.lg, paddingTop: spacing.sm},
 	body: {flex: 1},
 	list: {padding: spacing.lg, gap: spacing.sm},

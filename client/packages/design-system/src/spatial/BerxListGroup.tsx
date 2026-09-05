@@ -22,7 +22,9 @@
 import React from 'react';
 import {Pressable, StyleSheet, Text, View, type ViewStyle} from 'react-native';
 import {BERX_V9_TOUCH} from '@berx/spatial';
-import {colors, radius, spacing, typography} from '../tokens';
+import {colors, radius, spacing} from '../tokens';
+import {BerxText} from './BerxText';
+import {BerxIcon, type BerxIconName} from '../icons';
 import {useBerxScene} from './BerxSpatialScene';
 import {BerxGlassSurface} from '../components/BerxGlassSurface';
 
@@ -38,9 +40,9 @@ export function BerxListGroup({children, label, style, testID}: BerxListGroupPro
 	return (
 		<View style={[styles.wrap, style]} testID={testID}>
 			{label ? (
-				<Text style={styles.label} accessibilityRole="header">
+				<BerxText role="micro" emphasis="tertiary" heading style={styles.label}>
 					{label}
-				</Text>
+				</BerxText>
 			) : null}
 			{/* D2 — structure. The group is architecture, not content. */}
 			<BerxGlassSurface padding={0} style={styles.group}>
@@ -52,6 +54,15 @@ export function BerxListGroup({children, label, style, testID}: BerxListGroupPro
 
 export interface BerxListRowProps {
 	label: string;
+	/**
+	 * The row's own glyph, from the icon set.
+	 *
+	 * One per destination or nothing at all: a column of identical
+	 * icons teaches the eye that the column carries no information,
+	 * and it then stops reading the column entirely. Decorative by
+	 * contract — the row already carries the accessible name.
+	 */
+	icon?: BerxIconName;
 	/** Second line: a device, a date, a status. Real values only. */
 	detail?: string;
 	/** Trailing content — a switch, a badge, a count. */
@@ -68,6 +79,7 @@ export interface BerxListRowProps {
 
 export function BerxListRow({
 	label,
+	icon,
 	detail,
 	trailing,
 	onPress,
@@ -83,11 +95,22 @@ export function BerxListRow({
 
 	const body = (
 		<>
+			{icon ? (
+				<View style={styles.rowIcon}>
+					<BerxIcon name={icon} size={18} decorative />
+				</View>
+			) : null}
 			<View style={styles.rowText}>
-				<Text style={[styles.rowLabel, danger ? styles.rowLabelDanger : null, disabled ? styles.rowDisabled : null]}>
+				<BerxText
+					role="callout"
+					style={danger ? styles.rowLabelDanger : disabled ? styles.rowDisabled : undefined}>
 					{label}
-				</Text>
-				{detail ? <Text style={styles.rowDetail}>{detail}</Text> : null}
+				</BerxText>
+				{detail ? (
+					<BerxText role="meta" emphasis="secondary">
+						{detail}
+					</BerxText>
+				) : null}
 			</View>
 			{trailing ?? (onPress ? <Text style={[styles.chevron, {color: controls.surface.edgeHighlightColor}]}>›</Text> : null)}
 		</>
@@ -130,14 +153,7 @@ export function BerxListRow({
 
 const styles = StyleSheet.create({
 	wrap: {gap: spacing.xs},
-	label: {
-		fontSize: typography.sizeXs,
-		color: colors.textFaint,
-		fontWeight: typography.weightBold,
-		textTransform: 'uppercase',
-		paddingHorizontal: spacing.md,
-		paddingTop: spacing.md,
-	},
+	label: {paddingHorizontal: spacing.md, paddingTop: spacing.md},
 	group: {borderRadius: radius.lg, overflow: 'hidden'},
 	row: {
 		flexDirection: 'row',
@@ -148,11 +164,13 @@ const styles = StyleSheet.create({
 		paddingVertical: spacing.md,
 		minHeight: BERX_V9_TOUCH.preferredDp,
 	},
+	/* a fixed column, so the labels line up whether a row has a glyph
+	   or not — a ragged left edge is what makes a menu look assembled
+	   rather than designed */
+	rowIcon: {width: 24, alignItems: 'center'},
 	rowText: {flex: 1, gap: 2},
-	rowLabel: {fontSize: typography.sizeBase, color: colors.text},
 	rowLabelDanger: {color: colors.danger},
-	rowDetail: {fontSize: typography.sizeXs, color: colors.textDim},
 	rowDisabled: {opacity: 0.5},
-	chevron: {fontSize: typography.sizeLg},
+	chevron: {fontSize: 18},
 	divider: {position: 'absolute', left: spacing.lg, right: 0, bottom: 0, height: 1},
 });

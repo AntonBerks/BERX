@@ -24,6 +24,7 @@ import type {BerxPlaceSearchResult, BerxEventSearchResult, BerxCommunitySearchRe
 import type {BerxScreenState} from '@berx/spatial';
 import {spacing} from '@berx/design-system/tokens';
 import {BerxDataBoundary} from '../../../../packages/design-system/src/spatial/BerxDataBoundary';
+import {BerxSceneHeader} from '../../../../packages/design-system/src/spatial/BerxSceneHeader';
 import {BerxSearchField} from '../../../../packages/design-system/src/spatial/BerxSearchField';
 import {BerxFilterBar} from '../../../../packages/design-system/src/spatial/BerxFilterBar';
 import {BerxPlaceCard} from '../../../../packages/design-system/src/spatial/BerxPlaceCard';
@@ -170,6 +171,10 @@ function SearchSceneBody({api, onOpenProfile, onOpenPlace, onOpenEvent, onOpenCo
 
 	return (
 		<View style={styles.screen}>
+			{/* the explore scene names itself before it asks a question:
+			    a search field alone at the top of a room reads as a
+			    widget, not as a place */}
+			<BerxSceneHeader overline="BERX" title="Поиск" testID="explore-header" />
 			<View style={styles.controls}>
 				<BerxSearchField
 					value={query}

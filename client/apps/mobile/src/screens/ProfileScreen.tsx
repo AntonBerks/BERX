@@ -17,7 +17,7 @@
  * has none to show, and inventing them here would be the one thing
  * this screen has always refused to do.
  */
-import React, {useCallback, useEffect, useState} from 'react';
+import {useCallback, useEffect, useState} from 'react';
 import {ScrollView, StyleSheet, Text, View, Pressable} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxAuthState} from '@berx/auth';
@@ -25,18 +25,14 @@ import type {BerxScreenState} from '@berx/spatial';
 import {colors, spacing, typography} from '@berx/design-system/tokens';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
+import type {BerxIconName} from '../../../../packages/design-system/src/icons';
 import {
-	IconHeart,
-	IconLock,
-	IconBell,
-	IconStar,
-	IconUsers,
-	IconChevronRight,
-} from '../../../../packages/design-system/src/components/BerxIcons';
+	BerxListGroup,
+	BerxListRow,
+} from '../../../../packages/design-system/src/spatial/BerxListGroup';
 import {BerxProfileHero} from '../../../../packages/design-system/src/spatial/BerxProfileHero';
 import {BerxShareSheet} from '../../../../packages/design-system/src/spatial/BerxShareSheet';
 import {BerxDataBoundary} from '../../../../packages/design-system/src/spatial/BerxDataBoundary';
-import {BerxSpatialCard} from '../../../../packages/design-system/src/spatial/BerxSpatialCard';
 import type {BerxStat} from '../../../../packages/design-system/src/spatial/BerxStatRail';
 import {useBerxSceneScroll} from '../../../../packages/design-system/src/spatial/BerxSpatialScene';
 import {BerxTwoZone} from '../../../../packages/design-system/src/spatial/BerxResponsive';
@@ -234,6 +230,9 @@ function ProfileSceneBody(props: ProfileScreenProps) {
 				state={state}
 				onRetry={load}
 				errorMessage={error ?? undefined}
+				/* a 403 or a 404 cannot be retried into existence; the flag
+				   was already being computed and never passed on */
+				retryable={retryable}
 				emptyTitle="Профиль не найден"
 				style={styles.body}>
 				{profile ? (
@@ -367,7 +366,18 @@ function ProfileActions({
 interface SectionItem {
 	key: string;
 	label: string;
-	icon: React.ReactNode;
+	/**
+	 * One glyph per destination, by name.
+	 *
+	 * Every row in this menu used to be the same star. The icon set
+	 * has a real drawing for each of these — a route for trips, a
+	 * palette for the colour world, a reward for points, a community
+	 * for communities — and repeating one glyph beside twelve
+	 * destinations is worse than drawing none: it teaches the eye that
+	 * the column carries no information, so the column stops being
+	 * read at all.
+	 */
+	icon: BerxIconName;
 	onPress: () => void;
 }
 
@@ -377,54 +387,67 @@ interface SectionItem {
  * does not render at all — the same rule the old menu followed, kept
  * intact through the redesign.
  */
+/**
+ * One glyph per destination.
+ *
+ * Every row in this menu used to be a star. The icon set has real
+ * drawings for every one of these — a route for trips, a palette for
+ * the colour world, a reward for points, a community for communities
+ * — and drawing the same star beside twelve different destinations
+ * is worse than drawing nothing: it teaches the eye that the column
+ * of icons carries no information, so it stops being read at all.
+ *
+ * Decorative by contract: the row itself carries the accessible name,
+ * and an icon that announced itself as well would say it twice.
+ */
 function ProfileSections(props: ProfileScreenProps & {profile: ProfileData; isOwn: boolean}) {
 	const {profile, isOwn} = props;
 	const guid = profile.guid;
 
 	const content: SectionItem[] = [];
 	if (guid && props.onOpenAlbums) {
-		content.push({key: 'albums', label: 'Альбомы', icon: <IconStar size={18} color={colors.text} />, onPress: () => props.onOpenAlbums?.(guid, isOwn)});
+		content.push({key: 'albums', label: 'Альбомы', icon: 'gallery', onPress: () => props.onOpenAlbums?.(guid, isOwn)});
 	}
 	if (guid && props.onOpenCollections) {
-		content.push({key: 'collections', label: 'Подборки', icon: <IconStar size={18} color={colors.text} />, onPress: () => props.onOpenCollections?.(guid, isOwn)});
+		content.push({key: 'collections', label: 'Подборки', icon: 'bookmark', onPress: () => props.onOpenCollections?.(guid, isOwn)});
 	}
 	if (guid && props.onOpenTrips) {
-		content.push({key: 'trips', label: 'Поездки', icon: <IconUsers size={18} color={colors.text} />, onPress: () => props.onOpenTrips?.(guid, isOwn)});
+		content.push({key: 'trips', label: 'Поездки', icon: 'route', onPress: () => props.onOpenTrips?.(guid, isOwn)});
 	}
 	if (guid && props.onOpenExperiences) {
-		content.push({key: 'experiences', label: 'Впечатления', icon: <IconStar size={18} color={colors.text} />, onPress: () => props.onOpenExperiences?.(guid, isOwn)});
+		content.push({key: 'experiences', label: 'Впечатления', icon: 'experiences', onPress: () => props.onOpenExperiences?.(guid, isOwn)});
 	}
 	if (guid && props.onOpenMyVideos) {
-		content.push({key: 'videos', label: isOwn ? 'Мои видео' : 'Видео', icon: <IconStar size={18} color={colors.text} />, onPress: () => props.onOpenMyVideos?.(guid, isOwn)});
+		content.push({key: 'videos', label: isOwn ? 'Мои видео' : 'Видео', icon: 'video', onPress: () => props.onOpenMyVideos?.(guid, isOwn)});
 	}
 	if (guid && props.onOpenMyTracks) {
-		content.push({key: 'tracks', label: isOwn ? 'Мои треки' : 'Треки', icon: <IconStar size={18} color={colors.text} />, onPress: () => props.onOpenMyTracks?.(guid, isOwn)});
+		content.push({key: 'tracks', label: isOwn ? 'Мои треки' : 'Треки', icon: 'music', onPress: () => props.onOpenMyTracks?.(guid, isOwn)});
 	}
 	if (isOwn && props.onOpenCreatorSettings) {
-		content.push({key: 'creator-settings', label: 'Режим автора', icon: <IconStar size={18} color={colors.text} />, onPress: props.onOpenCreatorSettings});
+		content.push({key: 'creator-settings', label: 'Режим автора', icon: 'creator', onPress: props.onOpenCreatorSettings});
 	}
 	if (!isOwn && profile.is_creator && props.onOpenCreatorProfile) {
-		content.push({key: 'creator', label: 'Профиль автора', icon: <IconStar size={18} color={colors.text} />, onPress: props.onOpenCreatorProfile});
+		content.push({key: 'creator', label: 'Профиль автора', icon: 'verified', onPress: props.onOpenCreatorProfile});
 	}
 
 	const dating: SectionItem[] = [];
 	const world: SectionItem[] = [];
 	const activity: SectionItem[] = [];
 	if (isOwn) {
-		if (props.onOpenDating) dating.push({key: 'dating', label: 'Discover', icon: <IconHeart size={18} color={colors.text} />, onPress: props.onOpenDating});
-		if (props.onOpenDatingPrivacy) dating.push({key: 'dating-privacy', label: 'Приватность', icon: <IconLock size={18} color={colors.text} />, onPress: props.onOpenDatingPrivacy});
-		if (props.onOpenBERXWorld) world.push({key: 'world', label: 'Обзор', icon: <IconUsers size={18} color={colors.text} />, onPress: props.onOpenBERXWorld});
-		if (props.onOpenPlaces) world.push({key: 'places', label: 'Места', icon: <IconUsers size={18} color={colors.text} />, onPress: props.onOpenPlaces});
-		if (props.onOpenEvents) world.push({key: 'events', label: 'События', icon: <IconStar size={18} color={colors.text} />, onPress: props.onOpenEvents});
-		if (props.onOpenCommunities) world.push({key: 'communities', label: 'Сообщества', icon: <IconUsers size={18} color={colors.text} />, onPress: props.onOpenCommunities});
-		if (props.onOpenConnections) world.push({key: 'connections', label: 'Связи', icon: <IconUsers size={18} color={colors.text} />, onPress: props.onOpenConnections});
-		if (props.onOpenNotifications) activity.push({key: 'notifications', label: 'Уведомления', icon: <IconBell size={18} color={colors.text} />, onPress: props.onOpenNotifications});
-		if (props.onOpenPoints) activity.push({key: 'points', label: 'Баллы и уровень', icon: <IconStar size={18} color={colors.text} />, onPress: props.onOpenPoints});
-		if (props.onOpenMemories) activity.push({key: 'memories', label: 'Воспоминания', icon: <IconStar size={18} color={colors.text} />, onPress: props.onOpenMemories});
-		if (props.onOpenWrapped) activity.push({key: 'wrapped', label: 'BERX Wrapped', icon: <IconStar size={18} color={colors.text} />, onPress: props.onOpenWrapped});
-		if (props.onOpenColorWorld) activity.push({key: 'color-world', label: 'Цветовой мир', icon: <IconStar size={18} color={colors.text} />, onPress: props.onOpenColorWorld});
-		if (props.onOpenSettings) activity.push({key: 'settings', label: 'Настройки', icon: <IconLock size={18} color={colors.text} />, onPress: props.onOpenSettings});
-		if (props.onOpenScenes) activity.push({key: 'scenes', label: 'Сцены BERX', icon: <IconStar size={18} color={colors.text} />, onPress: props.onOpenScenes});
+		if (props.onOpenDating) dating.push({key: 'dating', label: 'Discover', icon: 'dating', onPress: props.onOpenDating});
+		if (props.onOpenDatingPrivacy) dating.push({key: 'dating-privacy', label: 'Приватность', icon: 'privacy', onPress: props.onOpenDatingPrivacy});
+		if (props.onOpenBERXWorld) world.push({key: 'world', label: 'Обзор', icon: 'globe', onPress: props.onOpenBERXWorld});
+		if (props.onOpenPlaces) world.push({key: 'places', label: 'Места', icon: 'places', onPress: props.onOpenPlaces});
+		if (props.onOpenEvents) world.push({key: 'events', label: 'События', icon: 'calendar', onPress: props.onOpenEvents});
+		if (props.onOpenCommunities) world.push({key: 'communities', label: 'Сообщества', icon: 'community', onPress: props.onOpenCommunities});
+		if (props.onOpenConnections) world.push({key: 'connections', label: 'Связи', icon: 'users', onPress: props.onOpenConnections});
+		if (props.onOpenNotifications) activity.push({key: 'notifications', label: 'Уведомления', icon: 'bell', onPress: props.onOpenNotifications});
+		if (props.onOpenPoints) activity.push({key: 'points', label: 'Баллы и уровень', icon: 'reward', onPress: props.onOpenPoints});
+		if (props.onOpenMemories) activity.push({key: 'memories', label: 'Воспоминания', icon: 'memories', onPress: props.onOpenMemories});
+		if (props.onOpenWrapped) activity.push({key: 'wrapped', label: 'BERX Wrapped', icon: 'trend', onPress: props.onOpenWrapped});
+		if (props.onOpenColorWorld) activity.push({key: 'color-world', label: 'Цветовой мир', icon: 'palette', onPress: props.onOpenColorWorld});
+		if (props.onOpenSettings) activity.push({key: 'settings', label: 'Настройки', icon: 'settings', onPress: props.onOpenSettings});
+		if (props.onOpenScenes) activity.push({key: 'scenes', label: 'Сцены BERX', icon: 'spatial', onPress: props.onOpenScenes});
 	}
 
 	return (
@@ -437,28 +460,29 @@ function ProfileSections(props: ProfileScreenProps & {profile: ProfileData; isOw
 	);
 }
 
+/**
+ * The profile's navigation, as the grouped list the design system
+ * already has rather than a fourth hand-rolled copy of one.
+ *
+ * BerxListGroup is the structural surface, its rows are content, and
+ * the dividers are the structure plane's own edge highlight — so a
+ * section here is lit the same way a settings section is, and both
+ * change with the colour world instead of sharing one grey hairline.
+ */
 function Section({title, items}: {title: string; items: SectionItem[]}) {
 	if (items.length === 0) return null;
 	return (
-		<View style={styles.section}>
-			<Text style={styles.sectionLabel} accessibilityRole="header">
-				{title}
-			</Text>
-			<BerxSpatialCard depth="D2" padding={0} radius={18}>
-				{items.map((item, index) => (
-					<Pressable
-						key={item.key}
-						accessibilityRole="button"
-						accessibilityLabel={item.label}
-						onPress={item.onPress}
-						style={({pressed}) => [styles.row, index > 0 ? styles.rowDivider : null, {opacity: pressed ? 0.7 : 1}]}>
-						<View style={styles.rowIcon}>{item.icon}</View>
-						<Text style={styles.rowLabel}>{item.label}</Text>
-						<IconChevronRight size={16} color={colors.textFaint} />
-					</Pressable>
-				))}
-			</BerxSpatialCard>
-		</View>
+		<BerxListGroup label={title}>
+			{items.map((item, index) => (
+				<BerxListRow
+					key={item.key}
+					icon={item.icon}
+					label={item.label}
+					onPress={item.onPress}
+					last={index === items.length - 1}
+				/>
+			))}
+		</BerxListGroup>
 	);
 }
 
@@ -467,20 +491,7 @@ const styles = StyleSheet.create({
 	body: {flex: 1},
 	/* the screen genuinely scrolls now — the menu used to run off the bottom */
 	scroll: {paddingBottom: spacing.xxxl},
-	sections: {paddingHorizontal: spacing.lg, paddingTop: spacing.lg, gap: spacing.lg},
-	section: {gap: spacing.sm},
-	sectionLabel: {
-		color: colors.textFaint,
-		fontSize: typography.sizeXs,
-		marginLeft: spacing.xs,
-		textTransform: 'uppercase',
-		letterSpacing: 0.5,
-	},
-	/* 44dp rows */
-	row: {flexDirection: 'row', alignItems: 'center', gap: spacing.md, minHeight: 48, paddingHorizontal: spacing.lg},
-	rowDivider: {borderTopWidth: 1, borderTopColor: colors.borderSoft},
-	rowIcon: {width: 24, alignItems: 'center'},
-	rowLabel: {flex: 1, color: colors.text, fontSize: typography.sizeSm},
+	sections: {paddingHorizontal: spacing.lg, paddingTop: spacing.lg, gap: spacing.xl},
 	reportRow: {minHeight: 44, alignItems: 'center', justifyContent: 'center', marginTop: spacing.lg},
 	reportLink: {color: colors.textFaint, fontSize: typography.sizeXs, textDecorationLine: 'underline'},
 	logoutWrap: {paddingHorizontal: spacing.lg, marginTop: spacing.xl},
