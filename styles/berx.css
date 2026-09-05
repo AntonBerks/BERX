@@ -183,6 +183,12 @@ html[data-motion="reduced"] .reveal{transform:none;filter:none;transition-durati
    deepest thing on the page: the site's own beams, haze and dust are
    painted inside it, not instead of it. */
 #heroScene{position:absolute;inset:0;z-index:0;pointer-events:none;overflow:clip}
+/* A feature card's own room. It sits behind the card's content and
+   inside the card's rounded edge — the section stands in the room, it
+   is not a rectangle laid on top of one. */
+.sec-scene{position:absolute;inset:0;z-index:0;pointer-events:none;overflow:clip;border-radius:inherit}
+[data-berx-screen]{position:relative;isolation:isolate}
+[data-berx-screen]>:not(.sec-scene){position:relative;z-index:1}
 .env{position:absolute;inset:0;z-index:0;pointer-events:none;overflow:clip}
 .env::before{content:"";position:absolute;inset:0;
   background:radial-gradient(120% 78% at 12% -8%,color-mix(in srgb,var(--aurora-violet) 26%,transparent),transparent 62%),

@@ -96,6 +96,20 @@ let heroScene = null;
       sampleFrames: false,
     });
     H.dataset.berx5d = heroScene.scene.budget.tier;
+
+    /* Each feature section stands in its own family's room: the
+       conversation lit as a corridor, the map with a ground plane and
+       a horizon, the events sky read from the real clock. Same
+       resolver, same eleven environments the app uses.
+
+       These are painted, not driven: a card does not need parallax or
+       tilt, and six scenes each binding scroll and pointer listeners
+       would be cost for movement nobody would notice. */
+    for (const card of $$('[data-berx-screen]')) {
+      const host = $('.sec-scene', card);
+      const c = BERX_SITE_CONTRACTS[card.dataset.berxScreen];
+      if (host && c) mountBerxScene(host, c, {sampleFrames: false, interactive: false});
+    }
   } catch {
     /* no 5D runtime available — the page is unchanged, not broken */
   }

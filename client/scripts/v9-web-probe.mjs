@@ -705,6 +705,15 @@ async function luminanceStructure(page, screenshot) {
 			atmosphere: host ? host.dataset.berxAtmosphere ?? null : null,
 			gradients: (bg.match(/gradient/g) ?? []).length,
 			heroIntact: Boolean(document.querySelector('#hero .wrap')),
+			/* every feature section stands in its own family's room */
+			sections: [...document.querySelectorAll('[data-berx-screen] .sec-scene')].map((el) => {
+				const layer = el.querySelector('.berx-surface[data-berx-depth="D1"]');
+				return {
+					screen: el.dataset.berxScene ?? null,
+					atmosphere: el.dataset.berxAtmosphere ?? null,
+					gradients: ((layer ? getComputedStyle(layer).backgroundImage : '').match(/gradient/g) ?? []).length,
+				};
+			}),
 			errors: 0,
 		};
 	});
@@ -983,6 +992,13 @@ gate(
 		results.site.heroIntact === true &&
 		results.site.errors === 0,
 	`hero mounts ${results.site.screenId} (${results.site.family}, ${results.site.atmosphere}) with ${results.site.gradients} real gradients; ${results.site.errors} page errors${results.site.errorSample.length ? `: ${results.site.errorSample.join(' | ')}` : ''}`,
+);
+gate(
+	'each site section stands in its own family room',
+	results.site.sections.length === 6 &&
+		results.site.sections.every((s) => s.gradients >= 3) &&
+		new Set(results.site.sections.map((s) => s.atmosphere)).size >= 4,
+	results.site.sections.map((s) => `${s.screen}:${s.atmosphere}(${s.gradients})`).join(' '),
 );
 gate('no page errors or console errors', findings.filter((f) => f.scope === 'page' || f.scope === 'console').length === 0, 'clean');
 

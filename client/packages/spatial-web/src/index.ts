@@ -53,6 +53,16 @@ export interface BerxWebSceneOptions {
 	/** Real domain media for D1. Omitted when the page has none. */
 	atmosphereMediaUrl?: string;
 	/**
+	 * Binds parallax and tilt to real input. On by default.
+	 *
+	 * A page can hold several scenes at once — the site's sections are
+	 * one per family — and every one of them binding scroll and
+	 * pointer listeners is cost for movement the viewer will not
+	 * notice on a card. Passing false resolves and paints the scene,
+	 * including its environment, and leaves the input alone.
+	 */
+	interactive?: boolean;
+	/**
 	 * Live frame sampling. On by default: the scene measures the
 	 * frames it actually produces while the user is scrolling and
 	 * lowers its own tier if it cannot hold the budget. Pass false
@@ -570,9 +580,9 @@ export function mountBerxScene(
 		typeof window.matchMedia === 'function' ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
 	const onMotionChange = () => build();
 
-	scrollTarget.addEventListener('scroll', onScroll, {passive: true});
+	if (options.interactive !== false) scrollTarget.addEventListener('scroll', onScroll, {passive: true});
 	window.addEventListener('resize', onResize, {passive: true});
-	window.addEventListener('pointermove', onPointerMove, {passive: true});
+	if (options.interactive !== false) window.addEventListener('pointermove', onPointerMove, {passive: true});
 	motionQuery?.addEventListener?.('change', onMotionChange);
 
 	return {

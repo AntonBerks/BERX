@@ -1362,9 +1362,9 @@ function mountBerxScene(root, contract, options = {}) {
   const onResize = () => build();
   const motionQuery = typeof window.matchMedia === "function" ? window.matchMedia("(prefers-reduced-motion: reduce)") : null;
   const onMotionChange = () => build();
-  scrollTarget.addEventListener("scroll", onScroll, { passive: true });
+  if (options.interactive !== false) scrollTarget.addEventListener("scroll", onScroll, { passive: true });
   window.addEventListener("resize", onResize, { passive: true });
-  window.addEventListener("pointermove", onPointerMove, { passive: true });
+  if (options.interactive !== false) window.addEventListener("pointermove", onPointerMove, { passive: true });
   motionQuery?.addEventListener?.("change", onMotionChange);
   return {
     get scene() {
