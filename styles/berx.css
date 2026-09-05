@@ -183,6 +183,41 @@ html[data-motion="reduced"] .reveal{transform:none;filter:none;transition-durati
    deepest thing on the page: the site's own beams, haze and dust are
    painted inside it, not instead of it. */
 #heroScene{position:absolute;inset:0;z-index:0;pointer-events:none;overflow:clip}
+/* A card that carries a BERX room must not paint over it. The hand-written
+   obsidian gradient is the fill for every other card; here the resolved
+   scene is the fill — substrate on D0, atmosphere on D1 — and the card
+   keeps only its edge and its radius.
+
+   Both selectors below are deliberately specific. `.card` sets the
+   background later in this file, and `.berx-scene` sets position in
+   berx-5d.css, which loads after this one — a plain `.sec-scene` rule
+   lost both fights and left the room a zero-height element behind an
+   opaque gradient. */
+.card[data-berx-screen]{background:none}
+.card[data-berx-screen]>h3,
+.card[data-berx-screen]>div:not(.sec-scene),
+.card[data-berx-screen]>p{position:relative;z-index:1}
+.sec-scene{position:absolute;inset:0;z-index:0;pointer-events:none;overflow:clip;border-radius:inherit}
+
+/* ── the card is D2, the demo panel inside it is D3 ──────────────
+   The section cards used to carry a hand-written border and a hover
+   tint: the same two values on every card, in every colour world, at
+   every tier. They take the runtime's own structure-plane material
+   now — its border, its lit top edge, its depth shadow — so a BERX
+   card on the site is the same object as a BERX card in the app. */
+.card[data-berx-screen]{
+  border-color:var(--berx-d2-border,var(--line));
+  box-shadow:var(--berx-d2-shadow,none);
+}
+.card[data-berx-screen]::after{
+  content:"";position:absolute;inset:0 0 auto 0;height:1px;z-index:2;
+  background:var(--berx-d2-edge,transparent);pointer-events:none;
+}
+.card[data-berx-screen] .demo{
+  background:var(--berx-d3-bg,color-mix(in srgb,#000 46%,transparent));
+  border-color:var(--berx-d3-border,var(--line));
+  box-shadow:var(--berx-d3-shadow,none);
+}
 /* A feature card's own room. It sits behind the card's content and
    inside the card's rounded edge — the section stands in the room, it
    is not a rectangle laid on top of one. */

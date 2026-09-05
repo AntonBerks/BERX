@@ -597,6 +597,10 @@ function resolveAtmosphere(input) {
       description = "social \u2014 an evenly lit room that recedes behind heterogeneous content";
       break;
   }
+  if (input.bounded) {
+    ground = null;
+    vignette = round(vignette * 0.8, 3);
+  }
   const poolBudget = Math.max(1, input.maxPools ?? pools.length);
   if (pools.length > poolBudget) {
     pools = [...pools].sort((p1, p2) => alphaOf(p2.color) - alphaOf(p1.color)).slice(0, poolBudget).sort((p1, p2) => p1.depth - p2.depth);
@@ -893,8 +897,26 @@ var WATCH_BUDGET = {
   listWindowSize: 8,
   lazyMedia: true
 };
+var ARVR_BUDGET = {
+  tier: "medium",
+  /* 72Hz is the floor across current standalone headsets */
+  targetFps: 72,
+  frameBudgetMs: 13.9,
+  /* screen-space blur is the first thing a stereo renderer cannot afford */
+  maxBlurLayers: 0,
+  allow3D: true,
+  allowAmbientMotion: false,
+  allowParallax: true,
+  maxConcurrentVideo: 1,
+  max3DObjects: BERX_V9_PERFORMANCE.simultaneous3DObjectsMobile,
+  listWindowSize: 10,
+  lazyMedia: true
+};
 function resolvePerformanceTier(signals) {
   if (signals.platform === "watch") return { tier: "low", reason: "watch platform: depth is simulated, never composited" };
+  if (signals.platform === "arvr") {
+    return { tier: "medium", reason: "headset: real volumetric depth, but two eyes at 72Hz+" };
+  }
   if (signals.measuredFps !== void 0 && signals.measuredFps > 0) {
     if (signals.measuredFps < 45) return { tier: "low", reason: `measured ${Math.round(signals.measuredFps)}fps below 45` };
     if (signals.measuredFps < 55) return { tier: "medium", reason: `measured ${Math.round(signals.measuredFps)}fps below 55` };
@@ -919,6 +941,9 @@ function resolvePerformanceTier(signals) {
 function resolvePerformanceBudget(signals) {
   if (signals.platform === "watch") {
     return { ...WATCH_BUDGET, reason: "watch platform: depth is simulated, never composited" };
+  }
+  if (signals.platform === "arvr") {
+    return { ...ARVR_BUDGET, reason: "headset: depth kept in full, screen-space effects dropped for the frame budget" };
   }
   const { tier, reason } = resolvePerformanceTier(signals);
   const reduced = signals.prefersReducedMotion === true;
@@ -1276,6 +1301,8 @@ function mountBerxScene(root, contract, options = {}) {
     applyProps(root, sceneCustomProperties(scene));
     atmosphere = resolveAtmosphere({
       kind: options.atmosphereKind ?? berxAtmosphereForFamily(scene.family),
+      /* a room inside a card has no horizon to show */
+      bounded: root.getBoundingClientRect().height > 0 && root.getBoundingClientRect().height < window.innerHeight * 0.85,
       accent: scene.accent,
       background: scene.background,
       hasMedia: options.atmosphereMediaUrl !== void 0,
@@ -1285,10 +1312,12 @@ function mountBerxScene(root, contract, options = {}) {
       blurred: scene.layers.D1.blurred,
       maxPools: berxAtmospherePoolBudget(scene.budget.tier)
     });
-    applyProps(
-      root,
-      atmosphereCustomProperties(atmosphere, window.innerWidth, window.innerHeight, options.atmosphereMediaUrl)
-    );
+    const box = root.getBoundingClientRect();
+    const bounded = box.height > 0 && box.height < window.innerHeight * 0.85;
+    const envWidth = Math.max(1, Math.round(bounded ? box.width : window.innerWidth));
+    const envHeight = Math.max(1, Math.round(bounded ? box.height : window.innerHeight));
+    applyProps(root, atmosphereCustomProperties(atmosphere, envWidth, envHeight, options.atmosphereMediaUrl));
+    root.dataset.berxBounded = String(bounded);
     root.dataset.berxAtmosphere = atmosphere.kind;
     root.dataset.berxAtmosphereDepth = String(
       atmosphere.sky.stops.length + atmosphere.pools.length + (atmosphere.ground ? 2 : 0)

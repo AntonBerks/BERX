@@ -215,6 +215,18 @@ export interface BerxAtmosphereInput {
 	 * resolvers put the faintest and most distant ones.
 	 */
 	maxPools?: number;
+	/**
+	 * True when the scene is a room inside a room — a card, a panel, a
+	 * tab — rather than the whole view.
+	 *
+	 * A bounded room has no horizon. A ground plane and a horizon line
+	 * are cues about distance, and there is no distance to describe
+	 * inside a 360px card: painted there they read as a stray band
+	 * across a box, which is what the site's section cards showed. The
+	 * sky, the light and the walls stay; the floor is what a window
+	 * that small cannot show.
+	 */
+	bounded?: boolean;
 }
 
 function pool(x: number, y: number, radius: number, color: string, depth = 1): BerxAtmospherePool {
@@ -601,6 +613,12 @@ export function resolveAtmosphere(input: BerxAtmosphereInput): BerxAtmosphere {
 			drift = 3;
 			description = 'social — an evenly lit room that recedes behind heterogeneous content';
 			break;
+	}
+
+	/* A room inside a card has no horizon to show. */
+	if (input.bounded) {
+		ground = null;
+		vignette = round(vignette * 0.8, 3);
 	}
 
 	/* Graduated quality: the faintest, most distant lamps go first. */

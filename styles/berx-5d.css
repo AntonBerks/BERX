@@ -235,3 +235,11 @@
 .berx-scene[data-berx-parallax="false"] .berx-layer[data-berx-depth="D1"]{
   top:-40px;left:-40px;right:-40px;height:calc(100vh + 80px);
 }
+/* A scene bounded by its own element — a card, a panel, a tab — is a
+   room inside a room. Its environment fills that element rather than a
+   viewport it is not the size of, and it does not overscan, because
+   there is nothing outside it to reveal. */
+[data-berx-bounded="true"] .berx-layer[data-berx-depth="D0"],
+[data-berx-bounded="true"] .berx-layer[data-berx-depth="D1"]{
+  top:0;left:0;right:0;bottom:0;height:auto;
+}

@@ -106,9 +106,15 @@ let heroScene = null;
        tilt, and six scenes each binding scroll and pointer listeners
        would be cost for movement nobody would notice. */
     for (const card of $$('[data-berx-screen]')) {
-      const host = $('.sec-scene', card);
       const c = BERX_SITE_CONTRACTS[card.dataset.berxScreen];
-      if (host && c) mountBerxScene(host, c, {sampleFrames: false, interactive: false});
+      if (!c || !$('.sec-scene', card)) continue;
+      /* The card itself is the scene root, not the layer wrapper inside
+         it. Custom properties inherit downward only, so mounting on an
+         inner element left the card unable to read its own scene's
+         material — it kept a hand-written border while the room behind
+         it was resolved. Now the card takes D2, the demo panel inside
+         it takes D3, and the two layers in .sec-scene paint D0 and D1. */
+      mountBerxScene(card, c, {sampleFrames: false, interactive: false});
     }
   } catch {
     /* no 5D runtime available — the page is unchanged, not broken */

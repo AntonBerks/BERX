@@ -706,7 +706,8 @@ async function luminanceStructure(page, screenshot) {
 			gradients: (bg.match(/gradient/g) ?? []).length,
 			heroIntact: Boolean(document.querySelector('#hero .wrap')),
 			/* every feature section stands in its own family's room */
-			sections: [...document.querySelectorAll('[data-berx-screen] .sec-scene')].map((el) => {
+			/* the card itself is the scene root — the layers live inside it */
+			sections: [...document.querySelectorAll('[data-berx-screen]')].map((el) => {
 				const layer = el.querySelector('.berx-surface[data-berx-depth="D1"]');
 				return {
 					screen: el.dataset.berxScene ?? null,

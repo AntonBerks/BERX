@@ -449,6 +449,8 @@ export function mountBerxScene(
 		 */
 		atmosphere = resolveAtmosphere({
 			kind: options.atmosphereKind ?? berxAtmosphereForFamily(scene.family),
+			/* a room inside a card has no horizon to show */
+			bounded: root.getBoundingClientRect().height > 0 && root.getBoundingClientRect().height < window.innerHeight * 0.85,
 			accent: scene.accent,
 			background: scene.background,
 			hasMedia: options.atmosphereMediaUrl !== undefined,
@@ -458,10 +460,31 @@ export function mountBerxScene(
 			blurred: scene.layers.D1.blurred,
 			maxPools: berxAtmospherePoolBudget(scene.budget.tier),
 		});
-		applyProps(
-			root,
-			atmosphereCustomProperties(atmosphere, window.innerWidth, window.innerHeight, options.atmosphereMediaUrl),
-		);
+		/**
+		 * The room is sized to the scene, not to the window.
+		 *
+		 * A pool of light with a radius set from the viewport, painted
+		 * into a 360px card, covers the whole card at one flat
+		 * intensity — the falloff that makes it read as a light source
+		 * happens outside the element. Six section cards on the site
+		 * looked identical for exactly this reason.
+		 *
+		 * A scene that fills the page keeps the viewport-anchored
+		 * behaviour with its overscan; a bounded one is its own box.
+		 */
+		const box = root.getBoundingClientRect();
+		const bounded = box.height > 0 && box.height < window.innerHeight * 0.85;
+		/**
+		 * Sized to the box the environment plane actually occupies, not
+		 * to the root. A page-level scene's D1 layer is one viewport
+		 * tall however long the document is, so sizing its light to a
+		 * 2400px root put the falloff below the fold; a bounded scene's
+		 * layer is its own element.
+		 */
+		const envWidth = Math.max(1, Math.round(bounded ? box.width : window.innerWidth));
+		const envHeight = Math.max(1, Math.round(bounded ? box.height : window.innerHeight));
+		applyProps(root, atmosphereCustomProperties(atmosphere, envWidth, envHeight, options.atmosphereMediaUrl));
+		root.dataset.berxBounded = String(bounded);
 		root.dataset.berxAtmosphere = atmosphere.kind;
 		root.dataset.berxAtmosphereDepth = String(
 			atmosphere.sky.stops.length + atmosphere.pools.length + (atmosphere.ground ? 2 : 0),
