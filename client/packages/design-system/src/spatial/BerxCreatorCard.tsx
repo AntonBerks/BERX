@@ -23,7 +23,13 @@ export interface BerxCreatorCardProps {
 	trackCount?: number;
 	viewCount?: number;
 	verified?: boolean;
-	onPress: () => void;
+	/**
+	 * Optional on purpose. A creator card in a list opens that creator;
+	 * the same card at the top of their own hub opens nothing, and a
+	 * button whose press does nothing is a dead control — so it is not
+	 * a button there at all.
+	 */
+	onPress?: () => void;
 	actions?: React.ReactNode;
 	testID?: string;
 }

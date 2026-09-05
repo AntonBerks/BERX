@@ -114,7 +114,6 @@ function CreatorProfileSceneBody({api, username, onOpenPost, onOpenAlbum, onOpen
 					tagline={profile.bio ?? undefined}
 					postCount={content.posts.length}
 					viewCount={profile.audience.total_views}
-					onPress={() => undefined}
 					actions={
 						profile.category ? <Text style={styles.category}>{profile.category}</Text> : undefined
 					}

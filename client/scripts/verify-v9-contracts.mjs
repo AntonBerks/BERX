@@ -374,6 +374,25 @@ gate(
 		? 'no Pressable without a role or a name'
 		: unlabelled.map((f) => `${f.file}:${f.lines.join(',')}`).join(' | '),
 );
+/* --- no dead controls ----------------------------------------------
+   "Never leave dead buttons" is a rule, so it is checked. A press
+   handler that does nothing is a control that lies about being one —
+   the creator hub had its own card pressable at the top of the page
+   it already was. */
+const deadControls = [
+	...walkTsx(path.join(clientRoot, 'apps/mobile/src')),
+	...walkTsx(path.join(clientRoot, 'packages/design-system/src')),
+]
+	.map((file) => ({
+		file: path.relative(clientRoot, file),
+		hits: (fs.readFileSync(file, 'utf8').match(/onPress=\{\(\) => (undefined|\{\})\}/g) ?? []).length,
+	}))
+	.filter((f) => f.hits > 0);
+gate(
+	'no dead controls',
+	deadControls.length === 0,
+	deadControls.length === 0 ? 'no press handler that does nothing' : deadControls.map((f) => `${f.file} (${f.hits})`).join(', '),
+);
 gate('no probe findings', report.findings.length === 0, report.findings.slice(0, 8).map((f) => `${f.scope}: ${f.message}`).join(' | ') || 'clean');
 
 const failed = gates.filter((g) => !g.pass);
