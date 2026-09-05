@@ -14,7 +14,7 @@
  * problem.
  */
 import {useCallback, useEffect, useRef, useState} from 'react';
-import {ScrollView, StyleSheet, Text, View} from 'react-native';
+import {StyleSheet, Text, View} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxBusinessTeamMember, BerxBusinessTeamRole} from '@berx/api/types';
 import type {BerxScreenState} from '@berx/spatial';
@@ -30,6 +30,7 @@ import {BerxFamilyScene} from '../../spatial/BerxScreenScene';
 import {classifyFailure} from '../../spatial/screenState';
 import {useBerxConnectivity} from '../../spatial/useBerxConnectivity';
 import {BerxText} from '../../../../../packages/design-system/src/spatial/BerxText';
+import {BerxSceneScroll} from '../../../../../packages/design-system/src/spatial/BerxSceneScroll';
 
 interface SearchResultUser {
 	guid: number;
@@ -169,7 +170,7 @@ function BusinessTeamSceneBody({api, placeGuid, onBack}: BusinessTeamScreenProps
 	return (
 		<View style={styles.screen}>
 			<BerxHeader onBack={onBack} title="Команда" />
-			<ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+			<BerxSceneScroll contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
 				<BerxText role="micro" emphasis="tertiary" style={styles.sectionTitle} heading>
 					Добавить сотрудника
 				</BerxText>
@@ -260,7 +261,7 @@ function BusinessTeamSceneBody({api, placeGuid, onBack}: BusinessTeamScreenProps
 						))}
 					</View>
 				</BerxDataBoundary>
-			</ScrollView>
+			</BerxSceneScroll>
 		</View>
 	);
 }

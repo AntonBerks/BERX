@@ -19,7 +19,7 @@
  * device-local. Inventing an endpoint to sync it is exactly what the
  * constitution forbids.
  */
-import {ScrollView, StyleSheet, Text, View} from 'react-native';
+import {StyleSheet, Text, View} from 'react-native';
 import {rgba, type BerxColorWorldName} from '@berx/spatial';
 import {colors, spacing, typography} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
@@ -30,6 +30,7 @@ import {BerxIcon} from '../../../../packages/design-system/src/icons/BerxIcon';
 import {BerxScreenScene} from '../spatial/BerxScreenScene';
 import {useBerxColorWorld} from '../spatial/BerxColorWorld';
 import {BerxText} from '../../../../packages/design-system/src/spatial/BerxText';
+import {BerxSceneScroll} from '../../../../packages/design-system/src/spatial/BerxSceneScroll';
 
 export interface ColorWorldScreenProps {
 	onBack?: () => void;
@@ -52,7 +53,7 @@ function ColorWorldSceneBody({onBack, onContinue}: ColorWorldScreenProps) {
 		<View style={styles.screen}>
 			<BerxHeader title="Цветовой мир" onBack={onBack} />
 
-			<ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+			<BerxSceneScroll contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
 				<BerxText role="body" emphasis="secondary">
 					Мир меняет атмосферу BERX — свет, фокус, энергию. Тёмная основа и пространственная структура остаются
 					прежними.
@@ -79,7 +80,7 @@ function ColorWorldSceneBody({onBack, onContinue}: ColorWorldScreenProps) {
 				</BerxText>
 
 				{onContinue ? <BerxButton label="Продолжить" onPress={onContinue} fullWidth /> : null}
-			</ScrollView>
+			</BerxSceneScroll>
 		</View>
 	);
 }

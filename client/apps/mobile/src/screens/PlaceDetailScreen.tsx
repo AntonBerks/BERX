@@ -7,7 +7,7 @@
  * BERX_DECISIONS.md).
  */
 import {useCallback, useEffect, useState} from 'react';
-import {View, ScrollView, Pressable, Linking, StyleSheet} from 'react-native';
+import {View, Pressable, Linking, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxPlaceHours, BerxPlace, BerxPlaceReview} from '@berx/api/types';
 import {colors, spacing, typography} from '@berx/design-system/tokens';
@@ -23,6 +23,7 @@ import {BerxButton} from '../../../../packages/design-system/src/components/Berx
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {BerxLoadingState, BerxErrorState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxDiscussion} from '../../../../packages/design-system/src/components/BerxDiscussion';
+import {BerxSceneScroll} from '../../../../packages/design-system/src/spatial/BerxSceneScroll';
 
 export interface PlaceDetailScreenProps {
 	api: BerxApiClient;
@@ -218,7 +219,7 @@ function PlaceDetailSceneBody({api, guid, myGuid, onAddToCollection, onOpenBusin
 	const alreadyReviewed = reviews.some((r) => r.author?.guid === myGuid);
 
 	return (
-		<ScrollView style={styles.screen}>
+		<BerxSceneScroll style={styles.screen}>
 			<BerxHeader title={place.title} onBack={onBack} />
 
 			{/**
@@ -377,7 +378,7 @@ function PlaceDetailSceneBody({api, guid, myGuid, onAddToCollection, onOpenBusin
 
 				<BerxDiscussion api={api} type="place" id={place.guid} myGuid={myGuid || undefined} />
 			</View>
-		</ScrollView>
+		</BerxSceneScroll>
 	);
 }
 

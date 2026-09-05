@@ -7,7 +7,7 @@
  * client-side guess.
  */
 import {useCallback, useEffect, useState} from 'react';
-import {View, Text, Pressable, ScrollView, Image, FlatList, StyleSheet} from 'react-native';
+import {View, Text, Pressable, Image, FlatList, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxEvent, BerxEventAttendee} from '@berx/api/types';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
@@ -21,6 +21,7 @@ import {BerxButton} from '../../../../packages/design-system/src/components/Berx
 import {BerxLoadingState, BerxErrorState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxDiscussion} from '../../../../packages/design-system/src/components/BerxDiscussion';
 import {BerxEyebrow} from '../../../../packages/design-system/src/components/BerxBusinessPrimitives';
+import {BerxSceneScroll} from '../../../../packages/design-system/src/spatial/BerxSceneScroll';
 
 export interface EventDetailScreenProps {
 	api: BerxApiClient;
@@ -121,7 +122,7 @@ function EventDetailSceneBody({api, guid, myGuid, onOpenPlace, onOpenInvite, onA
 	const rsvpDisabled = event.has_ended || (event.seats_left === 0 && !event.is_going);
 
 	return (
-		<ScrollView style={styles.screen}>
+		<BerxSceneScroll style={styles.screen}>
 			<BerxHeader title={event.title} onBack={onBack} />
 			{/**
 			 * A real countdown to the server-recorded start, the real
@@ -202,7 +203,7 @@ function EventDetailSceneBody({api, guid, myGuid, onOpenPlace, onOpenInvite, onA
 
 				<BerxDiscussion api={api} type="event" id={event.guid} myGuid={myGuid} />
 			</View>
-		</ScrollView>
+		</BerxSceneScroll>
 	);
 }
 

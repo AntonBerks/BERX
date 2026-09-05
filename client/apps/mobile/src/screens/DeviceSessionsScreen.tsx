@@ -8,7 +8,7 @@
  * logins only, honestly, not a fabricated "this device" entry.
  */
 import {useCallback, useEffect, useState} from 'react';
-import {View, ScrollView, StyleSheet} from 'react-native';
+import {View, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxSession} from '@berx/api/types';
 import {spacing} from '@berx/design-system/tokens';
@@ -17,6 +17,7 @@ import {BerxButton} from '../../../../packages/design-system/src/components/Berx
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxListGroup, BerxListRow} from '../../../../packages/design-system/src/spatial/BerxListGroup';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
+import {BerxSceneScroll} from '../../../../packages/design-system/src/spatial/BerxSceneScroll';
 
 export interface DeviceSessionsScreenProps {
 	api: BerxApiClient;
@@ -80,7 +81,7 @@ function DeviceSessionsScreenBody({api, onBack}: DeviceSessionsScreenProps) {
 			{items.length === 0 ? (
 				<BerxEmptyState title="Активных устройств нет" />
 			) : (
-				<ScrollView contentContainerStyle={styles.list}>
+				<BerxSceneScroll contentContainerStyle={styles.list}>
 					{/* one structural group on D2, its sessions as content rows
 					    on D3, and the revoke control on D4 where it belongs */}
 					<BerxListGroup label={`Активные сессии: ${items.length}`}>
@@ -101,7 +102,7 @@ function DeviceSessionsScreenBody({api, onBack}: DeviceSessionsScreenProps) {
 							/>
 						))}
 					</BerxListGroup>
-				</ScrollView>
+				</BerxSceneScroll>
 			)}
 		</View>
 	);

@@ -6,7 +6,7 @@
  * hours/website/category), presented with the Spatial Glass language.
  */
 import {useCallback, useEffect, useState} from 'react';
-import {View, Text, ScrollView, StyleSheet} from 'react-native';
+import {View, Text, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxPlace} from '@berx/api/types';
 import {BerxStars} from '../../../../../packages/design-system/src/spatial/BerxStars';
@@ -19,6 +19,7 @@ import {BerxGlassSurface} from '../../../../../packages/design-system/src/compon
 import {BerxEyebrow} from '../../../../../packages/design-system/src/components/BerxBusinessPrimitives';
 import {BerxLoadingState, BerxErrorState} from '../../../../../packages/design-system/src/components/BerxStates';
 import {BerxText} from '../../../../../packages/design-system/src/spatial/BerxText';
+import {BerxSceneScroll} from '../../../../../packages/design-system/src/spatial/BerxSceneScroll';
 
 export interface BusinessProfileScreenProps {
 	api: BerxApiClient;
@@ -86,7 +87,7 @@ function BusinessProfileScreenBody({api, placeGuid, onBack}: BusinessProfileScre
 	if (error || !place) return <BerxErrorState message={error ?? 'Профиль недоступен'} onRetry={load} />;
 
 	return (
-		<ScrollView style={styles.screen}>
+		<BerxSceneScroll style={styles.screen}>
 			<BerxHeader onBack={onBack} />
 			<BerxScrimHero
 				imageUrl={place.cover_url}
@@ -123,7 +124,7 @@ function BusinessProfileScreenBody({api, placeGuid, onBack}: BusinessProfileScre
 					</View>
 				</BerxGlassSurface>
 			</View>
-		</ScrollView>
+		</BerxSceneScroll>
 	);
 }
 

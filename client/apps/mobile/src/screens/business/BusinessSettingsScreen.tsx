@@ -7,7 +7,7 @@
  * BusinessDashboardScreen's existing, established honesty.
  */
 import {useCallback, useEffect, useState} from 'react';
-import {View, Text, ScrollView, Pressable, StyleSheet} from 'react-native';
+import {View, Text, Pressable, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxPlace, BerxBusinessSubscription, BerxBusinessType, BerxOpeningInterval} from '@berx/api/types';
 import {colors, spacing, typography} from '@berx/design-system/tokens';
@@ -20,6 +20,7 @@ import {BerxHeader} from '../../../../../packages/design-system/src/components/B
 import {BerxButton} from '../../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState} from '../../../../../packages/design-system/src/components/BerxStates';
 import {BerxText} from '../../../../../packages/design-system/src/spatial/BerxText';
+import {BerxSceneScroll} from '../../../../../packages/design-system/src/spatial/BerxSceneScroll';
 
 export interface BusinessSettingsScreenProps {
 	api: BerxApiClient;
@@ -164,7 +165,7 @@ function BusinessSettingsScreenBody({api, placeGuid, onBack}: BusinessSettingsSc
 	if (error || !place) return <BerxErrorState message={error ?? 'Не удалось загрузить'} onRetry={load} />;
 
 	return (
-		<ScrollView style={styles.screen} contentContainerStyle={styles.content}>
+		<BerxSceneScroll style={styles.screen} contentContainerStyle={styles.content}>
 			<BerxHeader onBack={onBack} />
 			<BerxText role="title">Настройки бизнеса</BerxText>
 
@@ -271,7 +272,7 @@ function BusinessSettingsScreenBody({api, placeGuid, onBack}: BusinessSettingsSc
 				</View>
 				<BerxText role="meta" emphasis="tertiary">Верификацию проводит команда BERX вручную — заявок из этого экрана пока нет.</BerxText>
 			</BerxGlassSurface>
-		</ScrollView>
+		</BerxSceneScroll>
 	);
 }
 

@@ -12,7 +12,7 @@
  * prop; this screen owns everything after a file is selected.
  */
 import {useCallback, useEffect, useState} from 'react';
-import {View, Text, ScrollView, StyleSheet} from 'react-native';
+import {View, Text, StyleSheet} from 'react-native';
 import type {BerxApiClient, BerxFilePart} from '@berx/api/client';
 import type {BerxAlbumDetail, BerxAlbumPhoto} from '@berx/api/types';
 import type {BerxAuthState} from '@berx/auth';
@@ -24,6 +24,7 @@ import {BerxMediaGrid} from '../../../../packages/design-system/src/components/B
 import {BerxActionShelf} from '../../../../packages/design-system/src/spatial/BerxActionShelf';
 import {BerxFamilyScene, useBerxSceneAtmosphere} from '../spatial/BerxScreenScene';
 import {BerxText} from '../../../../packages/design-system/src/spatial/BerxText';
+import {BerxSceneScroll} from '../../../../packages/design-system/src/spatial/BerxSceneScroll';
 
 export interface AlbumDetailScreenProps {
 	api: BerxApiClient;
@@ -123,7 +124,7 @@ function AlbumDetailScreenBody({api, guid, authState, pickImage, onBack}: AlbumD
 			{album.photos.length === 0 ? (
 				<BerxEmptyState title="Фотографий пока нет" />
 			) : (
-				<ScrollView contentContainerStyle={styles.gridPad}>
+				<BerxSceneScroll contentContainerStyle={styles.gridPad}>
 					{/* the archive's own media grid, over the album domain */}
 					<BerxMediaGrid
 						items={album.photos.map((p: BerxAlbumPhoto) => ({
@@ -134,7 +135,7 @@ function AlbumDetailScreenBody({api, guid, authState, pickImage, onBack}: AlbumD
 						columns={3}
 						onPress={isOwn ? (item) => setSelected(item.guid === selected ? null : item.guid) : undefined}
 					/>
-				</ScrollView>
+				</BerxSceneScroll>
 			)}
 			{isOwn && selected !== null ? (
 				/* D4 — the destructive control, brought forward for the

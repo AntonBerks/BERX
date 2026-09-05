@@ -167,6 +167,35 @@ export function BerxSpatialScene({
  * contract forbids — so the offset arrives from the scroll event and
  * is throttled to roughly one update per frame at 60fps.
  */
+/**
+ * The scroll handler, for anything that may render outside a scene.
+ *
+ * Returns null rather than throwing, so a list component can report
+ * the scroll when it is inside a BERX scene and stay a plain list
+ * when it is not.
+ */
+export function useBerxSceneScrollOptional() {
+	const value = useBerxSceneOptional();
+	const last = useRef(0);
+	const enabled = value?.scene.budget.allowParallax === true;
+	const setScrollY = value?.setScrollY;
+
+	const onScroll = useCallback(
+		(e: NativeSyntheticEvent<NativeScrollEvent>) => {
+			if (!enabled || !setScrollY) return;
+			const y = e.nativeEvent.contentOffset.y;
+			const now = Date.now();
+			if (now - last.current < 16) return;
+			last.current = now;
+			setScrollY(y);
+		},
+		[enabled, setScrollY],
+	);
+
+	if (!value) return null;
+	return {onScroll, scrollEventThrottle: 16, parallaxEnabled: enabled};
+}
+
 export function useBerxSceneScroll() {
 	const {setScrollY, scene} = useBerxScene();
 	const last = useRef(0);

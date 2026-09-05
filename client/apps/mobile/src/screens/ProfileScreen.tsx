@@ -18,7 +18,7 @@
  * this screen has always refused to do.
  */
 import {useCallback, useEffect, useState} from 'react';
-import {ScrollView, StyleSheet, View, Pressable} from 'react-native';
+import {Pressable, ScrollView, StyleSheet, View} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxAuthState} from '@berx/auth';
 import type {BerxScreenState} from '@berx/spatial';

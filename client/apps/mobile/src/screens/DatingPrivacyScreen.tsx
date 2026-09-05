@@ -19,7 +19,7 @@
  * cannot silently switch something off that was on.
  */
 import {useCallback, useState} from 'react';
-import {ScrollView, StyleSheet, Switch, Text, View} from 'react-native';
+import {StyleSheet, Switch, Text, View} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import {colors, spacing, typography} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
@@ -28,6 +28,7 @@ import {BerxSpatialCard} from '../../../../packages/design-system/src/spatial/Be
 import {useBerxScene} from '../../../../packages/design-system/src/spatial/BerxSpatialScene';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 import {BerxText} from '../../../../packages/design-system/src/spatial/BerxText';
+import {BerxSceneScroll} from '../../../../packages/design-system/src/spatial/BerxSceneScroll';
 
 export interface DatingPrivacyScreenProps {
 	api: BerxApiClient;
@@ -88,7 +89,7 @@ function DatingPrivacySceneBody({api, onBack}: DatingPrivacyScreenProps) {
 	return (
 		<View style={styles.screen}>
 			<BerxHeader onBack={onBack} title="Приватность знакомств" />
-			<ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+			<BerxSceneScroll contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
 				<BerxSpatialCard depth="D2" padding={spacing.lg}>
 					<BerxText role="meta" emphasis="secondary">
 						BERX не отдаёт текущие настройки приватности через API — их можно только записать. Поэтому переключатели
@@ -137,7 +138,7 @@ function DatingPrivacySceneBody({api, onBack}: DatingPrivacyScreenProps) {
 						{status.text}
 					</Text>
 				) : null}
-			</ScrollView>
+			</BerxSceneScroll>
 		</View>
 	);
 }

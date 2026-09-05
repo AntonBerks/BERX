@@ -4,7 +4,7 @@
  * POST /places). Category select uses the real server whitelist.
  */
 import {useEffect, useState} from 'react';
-import {View, Text, ScrollView, StyleSheet} from 'react-native';
+import {View, Text, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxPlaceCategory} from '@berx/api/types';
 import {colors, spacing, typography} from '@berx/design-system/tokens';
@@ -16,6 +16,7 @@ import {BerxActionShelf} from '../../../../packages/design-system/src/spatial/Be
 import {BerxChoiceChips} from '../../../../packages/design-system/src/spatial/BerxChoiceChips';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 import {BerxText} from '../../../../packages/design-system/src/spatial/BerxText';
+import {BerxSceneScroll} from '../../../../packages/design-system/src/spatial/BerxSceneScroll';
 
 export interface CreatePlaceScreenProps {
 	api: BerxApiClient;
@@ -62,7 +63,7 @@ function CreatePlaceScreenBody({api, onCreated, onBack}: CreatePlaceScreenProps)
 	}
 
 	return (
-		<ScrollView style={styles.screen}>
+		<BerxSceneScroll style={styles.screen}>
 			<BerxHeader title="Добавить место" onBack={onBack} />
 			<View style={styles.body}>
 				{/* D2 — the form is a structural object in the room, not
@@ -91,7 +92,7 @@ function CreatePlaceScreenBody({api, onCreated, onBack}: CreatePlaceScreenProps)
 					</BerxActionShelf>
 				</BerxGlassSurface>
 			</View>
-		</ScrollView>
+		</BerxSceneScroll>
 	);
 }
 

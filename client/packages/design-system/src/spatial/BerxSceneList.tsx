@@ -24,14 +24,32 @@
  *   and spaces them on the contract's own gutter and section gap
  *   rather than on a number each screen picked.
  *
+ * It also moves the room. Parallax is the most legible depth cue BERX
+ * has, and it only happens when something tells the scene where the
+ * viewer has scrolled to — which fifteen of the fifty-two scrolling
+ * screens did. On the other thirty-seven the environment sat still
+ * behind moving content, so the room read as wallpaper. A list is
+ * the thing that scrolls, so the list reports it, and a screen no
+ * longer has to remember. A caller's own onScroll still runs.
+ *
  * The virtualization window still comes from the scene's performance
  * budget, and the column count is part of the list's key, because
  * FlatList cannot change numColumns on an existing instance.
  */
-import {useMemo} from 'react';
-import {FlatList, StyleSheet, View, useWindowDimensions, type FlatListProps, type ViewStyle} from 'react-native';
+import {useCallback, useMemo} from 'react';
+import {
+	FlatList,
+	StyleSheet,
+	View,
+	useWindowDimensions,
+	type FlatListProps,
+	type NativeScrollEvent,
+	type NativeSyntheticEvent,
+	type ViewStyle,
+} from 'react-native';
 import {BERX_V9_CONTRACT_DEFAULTS, resolveLayoutMode, type BerxResolvedScreen} from '@berx/scenes';
 import {useBerxResponsive} from './BerxResponsive';
+import {useBerxSceneScrollOptional} from './BerxSpatialScene';
 
 export interface BerxSceneListProps<T> extends Omit<FlatListProps<T>, 'numColumns' | 'columnWrapperStyle'> {
 	/**
@@ -56,8 +74,9 @@ export interface BerxSceneListProps<T> extends Omit<FlatListProps<T>, 'numColumn
 	style?: ViewStyle;
 }
 
-export function BerxSceneList<T>({screen, rows = false, style, contentContainerStyle, renderItem, ...rest}: BerxSceneListProps<T>) {
+export function BerxSceneList<T>({screen, rows = false, style, contentContainerStyle, renderItem, onScroll, ...rest}: BerxSceneListProps<T>) {
 	const {width} = useWindowDimensions();
+	const scene = useBerxSceneScrollOptional();
 	const resolved = useBerxResponsive(screen ?? fallbackScreen(width));
 	const {columns, maxContentWidth, gutter, sectionGap} = resolved;
 	const count = rows ? 1 : columns;
@@ -80,6 +99,15 @@ export function BerxSceneList<T>({screen, rows = false, style, contentContainerS
 		[gutter, sectionGap, contentContainerStyle],
 	);
 
+	/* the room moves with the viewer; the caller's own handler still runs */
+	const handleScroll = useCallback(
+		(event: NativeSyntheticEvent<NativeScrollEvent>) => {
+			scene?.onScroll(event);
+			onScroll?.(event);
+		},
+		[scene, onScroll],
+	);
+
 	return (
 		<View style={[styles.outer, style]}>
 			<View style={[styles.inner, {maxWidth: maxContentWidth}]}>
@@ -91,6 +119,8 @@ export function BerxSceneList<T>({screen, rows = false, style, contentContainerS
 					columnWrapperStyle={count > 1 ? {gap: sectionGap} : undefined}
 					contentContainerStyle={container}
 					renderItem={renderCell}
+					onScroll={handleScroll}
+					scrollEventThrottle={scene?.scrollEventThrottle ?? 16}
 					{...rest}
 				/>
 			</View>

@@ -8,7 +8,7 @@
  * silently.
  */
 import {useCallback, useEffect, useState} from 'react';
-import {View, Text, ScrollView, Pressable, StyleSheet} from 'react-native';
+import {View, Text, Pressable, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxPlace, BerxBusinessDashboard, BerxBusinessSubscription} from '@berx/api/types';
 import {spacing} from '@berx/design-system/tokens';
@@ -19,6 +19,7 @@ import {BerxStatTile, BerxEyebrow} from '../../../../../packages/design-system/s
 import {BerxLoadingState, BerxErrorState} from '../../../../../packages/design-system/src/components/BerxStates';
 import {BerxFamilyScene, useBerxSceneAtmosphere} from '../../spatial/BerxScreenScene';
 import {BerxText} from '../../../../../packages/design-system/src/spatial/BerxText';
+import {BerxSceneScroll} from '../../../../../packages/design-system/src/spatial/BerxSceneScroll';
 
 export interface BusinessHomeScreenProps {
 	api: BerxApiClient;
@@ -94,7 +95,7 @@ function BusinessHomeScreenBody({api, placeGuid, onOpenProfile, onOpenDashboard,
 	if (error || !place || !dashboard) return <BerxErrorState message={error ?? 'Не удалось загрузить'} onRetry={load} />;
 
 	return (
-		<ScrollView style={styles.screen} contentContainerStyle={styles.scrollContent}>
+		<BerxSceneScroll style={styles.screen} contentContainerStyle={styles.scrollContent}>
 			<BerxScrimHero
 				imageUrl={place.cover_url}
 				title={place.title}
@@ -137,7 +138,7 @@ function BusinessHomeScreenBody({api, placeGuid, onOpenProfile, onOpenDashboard,
 					))}
 				</View>
 			</View>
-		</ScrollView>
+		</BerxSceneScroll>
 	);
 }
 
