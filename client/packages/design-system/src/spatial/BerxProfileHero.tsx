@@ -11,6 +11,7 @@
 import {Image, StyleSheet, Text, View, type ImageSourcePropType} from 'react-native';
 import {rgba, sharedElementTag} from '@berx/spatial';
 import {useBerxScene} from './BerxSpatialScene';
+import {BerxScrim} from './BerxScrim';
 import {BerxActionShelf} from './BerxActionShelf';
 import {BerxAvatar} from '../components/BerxAvatar';
 import {BerxStatRail, type BerxStat} from './BerxStatRail';
@@ -54,7 +55,15 @@ export function BerxProfileHero({
 				importantForAccessibility="no-hide-descendants"
 				style={[styles.cover, {opacity: atmosphere.contentOpacity}]}>
 				{cover ? <Image source={cover} resizeMode="cover" style={StyleSheet.absoluteFillObject} /> : null}
-				<View style={[StyleSheet.absoluteFillObject, {backgroundColor: rgba(scene.background, cover ? 0.45 : 0.9)}]} />
+				{/* the cover is clear at the top and ramps into the room where
+				    the avatar and the name sit — the person's own photograph
+				    stays a photograph */}
+				<BerxScrim
+					color={scene.background}
+					strength={cover ? 0.92 : 0.9}
+					textStart={cover ? 0.62 : 0.24}
+					id={`berx-profile-scrim-${userGuid}`}
+				/>
 				<View style={[StyleSheet.absoluteFillObject, {backgroundColor: atmosphere.lighting.accentGlow}]} />
 			</View>
 

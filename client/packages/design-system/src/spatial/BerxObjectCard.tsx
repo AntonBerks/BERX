@@ -13,6 +13,8 @@
 import {Image, StyleSheet, Text, View, type ImageSourcePropType} from 'react-native';
 import {BerxSpatialCard} from './BerxSpatialCard';
 import {BerxActionShelf} from './BerxActionShelf';
+import {BerxScrim} from './BerxScrim';
+import {useBerxScene} from './BerxSpatialScene';
 import {colors, spacing, typography} from '../tokens';
 
 export interface BerxObjectCardFact {
@@ -51,6 +53,7 @@ export function BerxObjectCard({
 	accessibilityLabel,
 	testID,
 }: BerxObjectCardProps) {
+	const {scene} = useBerxScene();
 	const label =
 		accessibilityLabel ??
 		[title, subtitle, ...(facts ?? []).map((f) => `${f.label}: ${f.value}`)].filter(Boolean).join(', ');
@@ -58,7 +61,19 @@ export function BerxObjectCard({
 	return (
 		<BerxSpatialCard depth="D3" onPress={onPress} accessibilityLabel={onPress ? label : undefined} padding={0} sharedTag={sharedTag} testID={testID}>
 			{media ? (
-				<Image source={media} resizeMode="cover" accessible={mediaAlt !== undefined} accessibilityLabel={mediaAlt} style={styles.media} />
+				/* the image belongs to the object rather than sitting on it:
+				   it ramps into the card's own surface at its lower edge, so
+				   the title below reads as the same thing continuing */
+				<View style={styles.mediaWrap}>
+					<Image
+						source={media}
+						resizeMode="cover"
+						accessible={mediaAlt !== undefined}
+						accessibilityLabel={mediaAlt}
+						style={styles.media}
+					/>
+					<BerxScrim color={scene.background} strength={0.82} textStart={0.72} id={`berx-card-scrim-${testID ?? title}`} />
+				</View>
 			) : null}
 			<View style={styles.body}>
 				{badges ? <View style={styles.badges}>{badges}</View> : null}
@@ -91,7 +106,8 @@ export function BerxObjectCard({
 }
 
 const styles = StyleSheet.create({
-	media: {width: '100%', height: 148},
+	mediaWrap: {width: '100%', height: 148},
+	media: {...StyleSheet.absoluteFillObject},
 	body: {padding: spacing.lg, gap: spacing.xs},
 	badges: {flexDirection: 'row', gap: spacing.sm, flexWrap: 'wrap', marginBottom: 2},
 	title: {color: colors.text, fontSize: typography.sizeLg, fontWeight: typography.weightMedium},

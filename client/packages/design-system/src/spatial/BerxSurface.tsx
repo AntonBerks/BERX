@@ -13,13 +13,18 @@
  *    already substituted an opaque surface at the same elevation.
  *    Nothing is blurred badly; it is simply solid, and it says so via
  *    `surface.opaqueFallback`.
- *  - React Native has no gradients without a library, so the key
- *    light is painted as stacked translucent bands along the light's
- *    axis. That is a real approximation of the resolved gradient
- *    stops, not a decorative overlay.
+ *  - The key light is a real gradient. It used to be two stacked
+ *    translucent bands at 38% and 30% height, which put two visible
+ *    horizontal steps across every surface in the app — a light that
+ *    arrives in stripes is not a light. react-native-svg is a real
+ *    dependency (the icon system and the atmosphere field both use
+ *    it), so the recipe's own gradient stops are painted along the
+ *    recipe's own 165° axis, which is what makes a surface read as
+ *    lit rather than as tinted.
  */
-import React from 'react';
+import React, {useMemo} from 'react';
 import {StyleSheet, View, type ViewStyle} from 'react-native';
+import Svg, {Defs, LinearGradient, Rect, Stop} from 'react-native-svg';
 import type {BerxLightingSpec, BerxMaterialSurface} from '@berx/spatial';
 
 export interface BerxSurfaceProps {
@@ -33,8 +38,28 @@ export interface BerxSurfaceProps {
 	testID?: string;
 }
 
+/**
+ * The recipe's CSS-convention angle (0° = to top, 180° = to bottom)
+ * as SVG's two-point form.
+ */
+function keyAxis(angleDeg: number) {
+	const rad = (angleDeg * Math.PI) / 180;
+	const dx = Math.sin(rad);
+	const dy = -Math.cos(rad);
+	return {
+		x1: `${(0.5 - dx / 2) * 100}%`,
+		y1: `${(0.5 - dy / 2) * 100}%`,
+		x2: `${(0.5 + dx / 2) * 100}%`,
+		y2: `${(0.5 + dy / 2) * 100}%`,
+	};
+}
+
 export function BerxSurface({surface, lighting, radius, children, style, emissive, testID}: BerxSurfaceProps) {
 	const glowing = emissive === true && surface.glowRadius > 0;
+	const axis = useMemo(() => keyAxis(lighting.key.angleDeg), [lighting.key.angleDeg]);
+	/* one gradient id per recipe+depth, so two surfaces in one tree
+	   cannot pick up each other's definitions */
+	const gradientId = `berx-key-${lighting.recipe}-${Math.round(lighting.shadow.radius)}`;
 
 	return (
 		<View
@@ -57,9 +82,19 @@ export function BerxSurface({surface, lighting, radius, children, style, emissiv
 			{/* ambient wash — the environment's own contribution, uniform by definition */}
 			<View pointerEvents="none" style={[styles.fill, {backgroundColor: lighting.ambientColor, borderRadius: radius}]} />
 
-			{/* key light, as bands along the 165° axis the recipe resolves to */}
-			<View pointerEvents="none" style={[styles.keyTop, {backgroundColor: lighting.key.stops[0].color}]} />
-			<View pointerEvents="none" style={[styles.keyMid, {backgroundColor: lighting.key.stops[1].color}]} />
+			{/* key light — the recipe's own gradient, along the recipe's own axis */}
+			<View pointerEvents="none" style={StyleSheet.absoluteFillObject}>
+				<Svg width="100%" height="100%">
+					<Defs>
+						<LinearGradient id={gradientId} x1={axis.x1} y1={axis.y1} x2={axis.x2} y2={axis.y2}>
+							{lighting.key.stops.map((stop, i) => (
+								<Stop key={i} offset={`${stop.position * 100}%`} stopColor={stop.color} />
+							))}
+						</LinearGradient>
+					</Defs>
+					<Rect x={0} y={0} width="100%" height="100%" fill={`url(#${gradientId})`} />
+				</Svg>
+			</View>
 
 			{/* specular top edge — the lit edge of a real pane */}
 			<View pointerEvents="none" style={[styles.edge, {backgroundColor: surface.edgeHighlightColor}]} />
@@ -91,8 +126,6 @@ export function BerxSurface({surface, lighting, radius, children, style, emissiv
 const styles = StyleSheet.create({
 	base: {overflow: 'hidden'},
 	fill: {...StyleSheet.absoluteFillObject},
-	keyTop: {position: 'absolute', top: 0, left: 0, right: 0, height: '38%'},
-	keyMid: {position: 'absolute', top: '38%', left: 0, right: 0, height: '30%'},
 	edge: {position: 'absolute', top: 0, left: 0, right: 0, height: 1},
 	rim: {position: 'absolute', bottom: 0, left: 0, right: 0},
 	leadingRim: {position: 'absolute', top: 0, bottom: 0, left: 0},

@@ -12,6 +12,7 @@ import {rgba} from '@berx/spatial';
 import {useBerxScene} from './BerxSpatialScene';
 import {BerxActionShelf} from './BerxActionShelf';
 import {BerxSharedElementTarget} from './BerxSharedElement';
+import {BerxScrim} from './BerxScrim';
 import {colors, spacing, typography} from '../tokens';
 
 export interface BerxSceneHeroProps {
@@ -53,10 +54,16 @@ export function BerxSceneHero({
 				{media ? (
 					<Image source={media} resizeMode="cover" accessible={mediaAlt !== undefined} accessibilityLabel={mediaAlt} style={StyleSheet.absoluteFillObject} />
 				) : null}
-				{/* scrim strong enough that D3/D4 text keeps its contrast over any image */}
-				<View style={[StyleSheet.absoluteFillObject, {backgroundColor: rgba(scene.background, media ? 0.55 : 0.86)}]} />
+				{/* the media is clear where nothing is written on it and ramps
+				    to the room's own colour where the title sits — a falloff,
+				    not a sheet laid over the photograph */}
+				<BerxScrim
+					color={scene.background}
+					strength={media ? 0.94 : 0.88}
+					textStart={media ? 0.5 : 0.2}
+					id={`berx-hero-scrim-${scene.screenId}`}
+				/>
 				<View style={[StyleSheet.absoluteFillObject, {backgroundColor: atmosphere.lighting.accentGlow}]} />
-				<View style={[styles.bottomScrim, {backgroundColor: rgba(scene.background, 0.92)}]} />
 			</View>
 
 			{/* D3 — content */}
@@ -76,7 +83,6 @@ export function BerxSceneHero({
 
 const styles = StyleSheet.create({
 	root: {justifyContent: 'flex-end', overflow: 'hidden'},
-	bottomScrim: {position: 'absolute', left: 0, right: 0, bottom: 0, height: '52%', opacity: 0.85},
 	content: {padding: spacing.lg, gap: spacing.sm},
 	badges: {flexDirection: 'row', gap: spacing.sm, flexWrap: 'wrap'},
 	title: {color: colors.text, fontSize: typography.sizeHero, fontWeight: typography.weightBold, lineHeight: typography.sizeHero * 1.15},
