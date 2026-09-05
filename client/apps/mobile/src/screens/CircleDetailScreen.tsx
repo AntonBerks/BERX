@@ -14,6 +14,7 @@ import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxSpatialCard} from '../../../../packages/design-system/src/spatial/BerxSpatialCard';
+import {useBerxScene} from '../../../../packages/design-system/src/spatial/BerxSpatialScene';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 import {BerxIcon} from '../../../../packages/design-system/src/icons';
 import {BerxText} from '../../../../packages/design-system/src/spatial/BerxText';
@@ -34,6 +35,10 @@ export default function CircleDetailScreen(props: CircleDetailScreenProps) {
 }
 
 function CircleDetailScreenBody({api, id, onBack}: CircleDetailScreenProps) {
+	/* the rule between two entries is the structure plane's own edge:
+	   a fixed grey hairline belongs to no plane and does not change
+	   with the colour world */
+	const dividerColor = useBerxScene().scene.layers.D2.surface.borderColor;
 	const [circle, setCircle] = useState<BerxCircleDetail | null>(null);
 	const [friends, setFriends] = useState<BerxFriend[]>([]);
 	const [loading, setLoading] = useState(true);
@@ -140,7 +145,7 @@ function CircleDetailScreenBody({api, id, onBack}: CircleDetailScreenProps) {
 					contentContainerStyle={styles.list}
 					renderItem={({item}: {item: BerxCircleMember}) => (
 						<BerxSpatialCard depth="D3" padding={spacing.md} radius={18}>
-							<View style={styles.row}>
+							<View style={[styles.row, {borderBottomColor: dividerColor}]}>
 							<Image source={{uri: item.icon}} style={styles.avatar} />
 							<BerxText role="callout" style={styles.name} numberOfLines={1}>{item.fullname}</BerxText>
 							<Pressable
@@ -175,7 +180,7 @@ const styles = StyleSheet.create({
 	/* fill removed: a BerxSpatialCard wraps this row and paints the
 	   content plane's own material — an opaque token fill on top of it
 	   hides the surface the card just resolved */
-	row: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.borderSoft},
+	row: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.sm, borderBottomWidth: 1},
 	avatar: {width: 40, height: 40, borderRadius: radius.pill, backgroundColor: colors.graphite},
 	name: {flex: 1},
 	remove: {fontSize: typography.sizeSm, color: colors.textFaint, padding: 4},

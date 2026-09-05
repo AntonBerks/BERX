@@ -16,6 +16,7 @@ import {BerxGlassSurface} from '../../../../packages/design-system/src/component
 import {BerxActionShelf} from '../../../../packages/design-system/src/spatial/BerxActionShelf';
 import {BerxSegmentTabs} from '../../../../packages/design-system/src/components/BerxBusinessPrimitives';
 import {BerxSpatialCard} from '../../../../packages/design-system/src/spatial/BerxSpatialCard';
+import {useBerxScene} from '../../../../packages/design-system/src/spatial/BerxSpatialScene';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 import {BerxText} from '../../../../packages/design-system/src/spatial/BerxText';
 
@@ -36,6 +37,10 @@ export default function CreateExperienceScreen(props: CreateExperienceScreenProp
 }
 
 function CreateExperienceScreenBody({api, onCreated, onBack}: CreateExperienceScreenProps) {
+	/* the rule between two entries is the structure plane's own edge:
+	   a fixed grey hairline belongs to no plane and does not change
+	   with the colour world */
+	const dividerColor = useBerxScene().scene.layers.D2.surface.borderColor;
 	const [title, setTitle] = useState('');
 	const [description, setDescription] = useState('');
 	const [anchorQuery, setAnchorQuery] = useState('');
@@ -144,7 +149,7 @@ function CreateExperienceScreenBody({api, onCreated, onBack}: CreateExperienceSc
 									keyExtractor={(p: BerxPlaceSearchResult) => String(p.guid)}
 									renderItem={({item}: {item: BerxPlaceSearchResult}) => (
 										<Pressable
-											style={styles.resultRow}
+											style={[styles.resultRow, {borderBottomColor: dividerColor}]}
 											accessibilityRole="button"
 											accessibilityLabel={`Привязать к месту ${item.title}`}
 											onPress={() => setAnchor({type: 'place', guid: item.guid, title: item.title})}>
@@ -158,7 +163,7 @@ function CreateExperienceScreenBody({api, onCreated, onBack}: CreateExperienceSc
 									keyExtractor={(e: BerxEventSearchResult) => String(e.guid)}
 									renderItem={({item}: {item: BerxEventSearchResult}) => (
 										<Pressable
-											style={styles.resultRow}
+											style={[styles.resultRow, {borderBottomColor: dividerColor}]}
 											accessibilityRole="button"
 											accessibilityLabel={`Привязать к событию ${item.title}`}
 											onPress={() => setAnchor({type: 'event', guid: item.guid, title: item.title})}>
@@ -198,7 +203,7 @@ const styles = StyleSheet.create({
 	body: {padding: spacing.md, gap: spacing.md},
 	form: {gap: spacing.md},
 	row: {flexDirection: 'row', gap: spacing.sm},
-	resultRow: {paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.borderSoft},
+	resultRow: {paddingVertical: spacing.sm, borderBottomWidth: 1},
 	anchorSelected: {flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: spacing.sm},
 	error: {fontSize: typography.sizeSm, color: colors.danger},
 });

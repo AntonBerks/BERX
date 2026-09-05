@@ -12,6 +12,7 @@ import {View, Image, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxCommunityRequest} from '@berx/api/types';
 import {colors, spacing, radius} from '@berx/design-system/tokens';
+import {useBerxScene} from '../../../../packages/design-system/src/spatial/BerxSpatialScene';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
@@ -35,6 +36,10 @@ export default function CommunityRequestsScreen(props: CommunityRequestsScreenPr
 }
 
 function CommunityRequestsScreenBody({api, guid, onBack}: CommunityRequestsScreenProps) {
+	/* the rule between two entries is the structure plane's own edge:
+	   a fixed grey hairline belongs to no plane and does not change
+	   with the colour world */
+	const dividerColor = useBerxScene().scene.layers.D2.surface.borderColor;
 	const [items, setItems] = useState<BerxCommunityRequest[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
@@ -87,7 +92,7 @@ function CommunityRequestsScreenBody({api, guid, onBack}: CommunityRequestsScree
 					keyExtractor={(r: BerxCommunityRequest) => String(r.guid)}
 					contentContainerStyle={styles.list}
 					renderItem={({item}: {item: BerxCommunityRequest}) => (
-						<View style={styles.row}>
+						<View style={[styles.row, {borderBottomColor: dividerColor}]}>
 							<Image source={{uri: item.icon}} style={styles.avatar} />
 							<BerxText role="callout" style={styles.name} numberOfLines={1}>{item.fullname}</BerxText>
 							<BerxActionShelf variant="anchored">
@@ -106,7 +111,7 @@ const styles = StyleSheet.create({
 	/* no opaque fill: the scene paints the room this screen stands in */
 	screen: {flex: 1},
 	list: {paddingBottom: spacing.xxxl},
-	row: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.borderSoft},
+	row: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.sm, borderBottomWidth: 1},
 	avatar: {width: 40, height: 40, borderRadius: radius.pill, backgroundColor: colors.graphite},
 	name: {flex: 1},
 	actions: {flexDirection: 'row', gap: spacing.xs},

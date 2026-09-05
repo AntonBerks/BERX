@@ -13,7 +13,8 @@ import {View, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxVideoPost, BerxPostComment} from '@berx/api/types';
 import {relativeTimeLabel} from '@berx/domain';
-import {colors, spacing} from '@berx/design-system/tokens';
+import {spacing} from '@berx/design-system/tokens';
+import {useBerxScene} from '../../../../packages/design-system/src/spatial/BerxSpatialScene';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
@@ -45,6 +46,10 @@ export default function VideoDetailScreen(props: VideoDetailScreenProps) {
 }
 
 function VideoDetailScreenBody({api, postGuid, myGuid, onOpenProfile, onDeleted, onBack}: VideoDetailScreenProps) {
+	/* the rule between two entries is the structure plane's own edge:
+	   a fixed grey hairline belongs to no plane and does not change
+	   with the colour world */
+	const dividerColor = useBerxScene().scene.layers.D2.surface.borderColor;
 	const [video, setVideo] = useState<BerxVideoPost | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
@@ -168,7 +173,7 @@ function VideoDetailScreenBody({api, postGuid, myGuid, onOpenProfile, onDeleted,
 						<BerxText role="meta" emphasis="secondary">Комментариев пока нет.</BerxText>
 					) : (
 						comments.map((c) => (
-							<View key={c.id} style={styles.commentRow}>
+							<View key={c.id} style={[styles.commentRow, {borderTopColor: dividerColor}]}>
 								<BerxText role="label">{c.author?.fullname ?? 'Пользователь'}</BerxText>
 								<BerxText role="meta" emphasis="secondary">{c.text}</BerxText>
 							</View>
@@ -187,5 +192,5 @@ const styles = StyleSheet.create({
 	body: {paddingHorizontal: spacing.lg},
 	actions: {flexDirection: 'row', gap: spacing.sm},
 	commentBox: {gap: spacing.sm, marginTop: spacing.sm},
-	commentRow: {gap: 2, paddingVertical: spacing.xs, borderTopWidth: 1, borderTopColor: colors.glass1},
+	commentRow: {gap: 2, paddingVertical: spacing.xs, borderTopWidth: 1},
 });

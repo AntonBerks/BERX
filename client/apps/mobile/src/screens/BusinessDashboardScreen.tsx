@@ -43,7 +43,7 @@ import {BerxSpatialCard} from '../../../../packages/design-system/src/spatial/Be
 import {BerxIdentity} from '../../../../packages/design-system/src/spatial/BerxIdentity';
 import {BerxPlaceRating} from '../../../../packages/design-system/src/spatial/BerxPlaceRating';
 import {BerxDataBoundary} from '../../../../packages/design-system/src/spatial/BerxDataBoundary';
-import {useBerxSceneScroll} from '../../../../packages/design-system/src/spatial/BerxSpatialScene';
+import {useBerxScene, useBerxSceneScroll} from '../../../../packages/design-system/src/spatial/BerxSpatialScene';
 import {BerxScreenScene, useBerxScreen, useBerxSceneAtmosphere} from '../spatial/BerxScreenScene';
 import {classifyFailure} from '../spatial/screenState';
 import {useBerxConnectivity} from '../spatial/useBerxConnectivity';
@@ -79,6 +79,10 @@ export default function BusinessDashboardScreen(props: BusinessDashboardScreenPr
 }
 
 function BusinessDashboardSceneBody({api, placeGuid, onBack}: BusinessDashboardScreenProps) {
+	/* the rule between two entries is the structure plane's own edge:
+	   a fixed grey hairline belongs to no plane and does not change
+	   with the colour world */
+	const dividerColor = useBerxScene().scene.layers.D2.surface.borderColor;
 	const screen = useBerxScreen();
 	const {onScroll, scrollEventThrottle} = useBerxSceneScroll();
 
@@ -325,7 +329,7 @@ function BusinessDashboardSceneBody({api, placeGuid, onBack}: BusinessDashboardS
 										</View>
 										{r.text ? <BerxText role="meta" emphasis="secondary" style={styles.reviewText}>{r.text}</BerxText> : null}
 										{r.owner_reply ? (
-											<View style={styles.reply}>
+											<View style={[styles.reply, {borderLeftColor: dividerColor}]}>
 												<BerxText role="label" emphasis="accent">Ваш ответ</BerxText>
 												<BerxText role="meta" emphasis="secondary" style={styles.reviewText}>{r.owner_reply.text}</BerxText>
 											</View>
@@ -363,5 +367,5 @@ const styles = StyleSheet.create({
 	momentText: {},
 	reviewHead: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm},
 	reviewText: {marginTop: 4},
-	reply: {marginTop: spacing.sm, paddingLeft: spacing.md, borderLeftWidth: 2, borderLeftColor: colors.borderSoft},
+	reply: {marginTop: spacing.sm, paddingLeft: spacing.md, borderLeftWidth: 2},
 });

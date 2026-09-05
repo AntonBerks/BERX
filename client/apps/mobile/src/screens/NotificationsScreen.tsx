@@ -219,12 +219,14 @@ const styles = StyleSheet.create({
 	actionsRow: {flexDirection: 'row', gap: spacing.sm, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm},
 	marker: {width: 16, alignItems: 'center'},
 	labelRead: {color: colors.textDim, fontWeight: typography.weightRegular},
+	/* no rule under the row: each notification is already a card with
+	   its own edge, and a hairline inside an object gives that object
+	   a second border. This is a leftover from when the screen was a
+	   plain list rather than a set of objects on the content plane.
+	   The card supplies the padding too. */
 	row: {
 		flexDirection: 'row',
 		alignItems: 'center',
-		padding: spacing.lg,
-		borderBottomWidth: 1,
-		borderBottomColor: colors.borderSoft,
 		gap: spacing.sm,
 	},
 	dot: {width: 8, height: 8, borderRadius: 4, backgroundColor: colors.accent},

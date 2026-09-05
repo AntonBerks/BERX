@@ -81,7 +81,10 @@ function PlaceDetailSceneBody({api, guid, myGuid, onAddToCollection, onOpenBusin
 	   hairline: a rule between two comments belongs to the room they
 	   are in, so it changes with the colour world like everything
 	   else does */
-	const dividerColor = useBerxScene().scene.layers.D2.surface.borderColor;
+	const {scene: placeScene} = useBerxScene();
+	const dividerColor = placeScene.layers.D2.surface.borderColor;
+	/* the scene's own accent, which changes with the colour world */
+	const accent = placeScene.accent;
 	const [place, setPlace] = useState<BerxPlace | null>(null);
 	/** Structured opening hours — the endpoint this screen never called. */
 	const [hours, setHours] = useState<BerxPlaceHours | null>(null);
@@ -343,7 +346,7 @@ function PlaceDetailSceneBody({api, guid, myGuid, onAddToCollection, onOpenBusin
 				)}
 
 				{reviews.map((r) => (
-					<View key={r.guid} style={[styles.reviewRow, {borderColor: dividerColor}]}>
+					<View key={r.guid} style={[styles.reviewRow, {borderTopColor: dividerColor}]}>
 						<View style={styles.reviewHead}>
 							<BerxText role="callout">{r.author?.fullname ?? 'Пользователь'}</BerxText>
 							<BerxStars value={r.rating} />
@@ -355,7 +358,7 @@ function PlaceDetailSceneBody({api, guid, myGuid, onAddToCollection, onOpenBusin
 						) : null}
 
 						{r.owner_reply ? (
-							<View style={styles.replyBlock}>
+							<View style={[styles.replyBlock, {borderLeftColor: accent}]}>
 								<BerxText role="micro" emphasis="accent">
 									Ответ владельца
 								</BerxText>
@@ -411,8 +414,10 @@ const styles = StyleSheet.create({
 	starRow: {flexDirection: 'row', gap: spacing.xs},
 	/* 44dp around a 26dp glyph: the target is not the drawing */
 	starTarget: {minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center'},
-	reviewRow: {gap: spacing.xs, paddingVertical: spacing.sm, borderTopWidth: 1, borderTopColor: colors.borderSoft},
+	reviewRow: {gap: spacing.xs, paddingVertical: spacing.sm, borderTopWidth: 1},
 	reviewHead: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm},
-	replyBlock: {marginTop: 4, paddingLeft: spacing.sm, borderLeftWidth: 2, borderLeftColor: colors.accent},
+	/* the owner's reply is marked by the scene's own accent, passed
+	   in below — the token accent is one colour in every colour world */
+	replyBlock: {marginTop: 4, paddingLeft: spacing.sm, borderLeftWidth: 2},
 	replyForm: {marginTop: spacing.xs, gap: spacing.xs},
 });
