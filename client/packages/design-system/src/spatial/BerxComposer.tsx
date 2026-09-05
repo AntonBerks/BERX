@@ -16,6 +16,7 @@ import {rgba} from '@berx/spatial';
 import {useBerxScene} from './BerxSpatialScene';
 import {BerxSurface} from './BerxSurface';
 import {colors, spacing, typography} from '../tokens';
+import {BerxIcon} from '../icons';
 
 export interface BerxComposerProps {
 	/** Must resolve only after the server confirms, and reject on failure. */
@@ -117,7 +118,14 @@ export function BerxComposer({
 								borderColor: canSend ? rgba(scene.accent, 0.5) : layer.surface.borderColor,
 							},
 						]}>
-						<Text style={[styles.sendGlyph, {color: canSend ? scene.accent : colors.textFaint}]}>{sending ? '…' : '↑'}</Text>
+						{/* the set's own send mark; ↑ is a typographic arrow whose
+						    weight and shape change with the resolved font */}
+						<BerxIcon
+							name={sending ? 'loading' : 'send'}
+							size={18}
+							color={canSend ? scene.accent : colors.textFaint}
+							decorative
+						/>
 					</Pressable>
 				</View>
 			</BerxSurface>
@@ -129,6 +137,5 @@ const styles = StyleSheet.create({
 	row: {flexDirection: 'row', alignItems: 'flex-end', gap: spacing.sm, paddingHorizontal: spacing.md, paddingVertical: spacing.sm},
 	input: {flex: 1, color: colors.text, fontSize: typography.sizeBase, maxHeight: 120, paddingVertical: spacing.sm, minHeight: 44},
 	send: {width: 44, height: 44, borderRadius: 22, borderWidth: 1, alignItems: 'center', justifyContent: 'center'},
-	sendGlyph: {fontSize: typography.sizeLg, fontWeight: typography.weightMedium},
 	error: {color: colors.danger, fontSize: typography.sizeXs, paddingHorizontal: spacing.lg, paddingBottom: 4},
 });
