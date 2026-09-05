@@ -393,6 +393,35 @@ gate(
 	deadControls.length === 0,
 	deadControls.length === 0 ? 'no press handler that does nothing' : deadControls.map((f) => `${f.file} (${f.hits})`).join(', '),
 );
+/* --- failures are classified, not flattened ------------------------
+   The archive lists unauthorized and permission-denied alongside
+   error, and the API distinguishes them for real. A screen that sets
+   `error` directly has thrown that away: an expired session, a
+   forbidden resource, a dead server and a phone with no signal all
+   become one sentence and one useless Retry. */
+const flattenedFailures = walkTsx(screensDir)
+	.map((file) => {
+		const src = fs.readFileSync(file, 'utf8');
+		const lines = src.split('\n');
+		const hits = [];
+		lines.forEach((line, i) => {
+			if (!line.includes("setState('error')")) return;
+			/* Only failures count. A validation error — bad coordinates
+			   typed into a form — is genuinely `error` and has nothing
+			   to classify, so it is not what this gate is about. */
+			const inCatch = lines.slice(Math.max(0, i - 8), i).some((l) => /\bcatch\s*[({]/.test(l));
+			if (inCatch) hits.push(i + 1);
+		});
+		return {file: path.relative(clientRoot, file), hits};
+	})
+	.filter((f) => f.hits.length > 0);
+gate(
+	'screens classify their failures instead of flattening them',
+	flattenedFailures.length === 0,
+	flattenedFailures.length === 0
+		? 'every screen routes failures through classifyFailure'
+		: flattenedFailures.map((f) => `${f.file}:${f.hits.join(',')}`).join(', '),
+);
 gate('no probe findings', report.findings.length === 0, report.findings.slice(0, 8).map((f) => `${f.scope}: ${f.message}`).join(' | ') || 'clean');
 
 const failed = gates.filter((g) => !g.pass);

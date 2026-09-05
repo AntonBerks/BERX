@@ -37,6 +37,8 @@ import type {BerxScreenState} from '@berx/spatial';
 import {colors, spacing, typography} from '@berx/design-system/tokens';
 import {BerxSegmentTabs} from '../../../../packages/design-system/src/components/BerxBusinessPrimitives';
 import {BerxScreenScene} from '../spatial/BerxScreenScene';
+import {classifyFailure} from '../spatial/screenState';
+import {useBerxConnectivity} from '../spatial/useBerxConnectivity';
 import {BerxDataBoundary} from '../../../../packages/design-system/src/spatial/BerxDataBoundary';
 import {BerxIdentity} from '../../../../packages/design-system/src/spatial/BerxIdentity';
 import {BerxSpatialCard} from '../../../../packages/design-system/src/spatial/BerxSpatialCard';
@@ -95,7 +97,11 @@ export function ProfileTabs({
 	onOpenProfile,
 }: ProfileTabsProps) {
 	const [tab, setTab] = useState<BerxProfileTab>('moments');
+	/* offline is a state of its own, not a server error */
+	const {offline} = useBerxConnectivity();
 	const [state, setState] = useState<BerxScreenState>('loading');
+	/* a 403 or a 404 is not transient; a Retry button there is a lie */
+	const [retryable, setRetryable] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 	const [albums, setAlbums] = useState<BerxAlbum[]>([]);
 	const [places, setPlaces] = useState<BerxPlace[]>([]);
@@ -139,10 +145,12 @@ export function ProfileTabs({
 				setState(res.friends.length === 0 ? 'empty' : 'default');
 			}
 		} catch (e) {
-			setError(e instanceof Error ? e.message : 'Не удалось загрузить');
-			setState('error');
+			const failure = classifyFailure(e, offline);
+			setError(failure.message);
+			setRetryable(failure.retryable);
+			setState(failure.state);
 		}
-	}, [api, tab, profile.guid, isOwn]);
+	}, [api, tab, profile.guid, isOwn, offline]);
 
 	useEffect(() => {
 		load();
@@ -175,7 +183,7 @@ export function ProfileTabs({
 				emptyTitle={emptyTitleFor(tab, isOwn)}
 				disabledReason={disabledReasonFor(tab, isOwn)}
 				/* a 403-shaped absence: retrying cannot make an endpoint exist */
-				retryable={state !== 'disabled'}
+				retryable={state !== 'disabled' && retryable}
 				style={styles.body}>
 				{tab === 'about' ? (
 					<BerxSpatialCard depth="D3" padding={spacing.lg} radius={18}>

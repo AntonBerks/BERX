@@ -147,6 +147,8 @@ function ProfileSceneBody(props: ProfileScreenProps) {
 	const {offline} = useBerxConnectivity();
 	const [state, setState] = useState<BerxScreenState>('loading');
 	const [error, setError] = useState<string | null>(null);
+	/* a 403 or a 404 is not transient; a Retry button there is a lie */
+	const [retryable, setRetryable] = useState(true);
 	const [friendBusy, setFriendBusy] = useState(false);
 
 	const load = useCallback(async () => {
@@ -182,11 +184,13 @@ function ProfileSceneBody(props: ProfileScreenProps) {
 				setStats([]);
 			}
 		} catch (e) {
-			setError(e instanceof Error ? e.message : isOwn ? 'Не удалось загрузить профиль' : 'Профиль недоступен');
-			setState('error');
+			const failure = classifyFailure(e, offline);
+			setError(failure.message);
+			setRetryable(failure.retryable);
+			setState(failure.state);
 			berxAnalytics.error(screen, 'profile');
 		}
-	}, [api, isOwn, username, screen]);
+	}, [api, isOwn, username, screen, offline]);
 
 	useEffect(() => {
 		load();

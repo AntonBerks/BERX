@@ -89,9 +89,12 @@ function DatingDiscoverSceneBody({api, onMatch, onOpenMatches, onOpenPrivacy}: D
 					? e.message
 					: 'Не удалось загрузить анкеты. Возможно, у вас ещё нет анкеты знакомств.',
 			);
-			setState('error');
+			const failure = classifyFailure(e, offline);
+			/* the profile-less case is real and specific: keep the server's
+			   own words when it gave them, and the classifier's otherwise */
+			setState(failure.state);
 		}
-	}, [api]);
+	}, [api, offline]);
 
 	useEffect(() => {
 		load();
