@@ -6,6 +6,12 @@
  * machine-readable report. This is what makes "300/300 resolve" a
  * measurement rather than a claim.
  */
+/** CIE lightness — the space a brightness difference is actually visible in. */
+function lStar(color: string): number {
+	const y = relativeLuminance(color);
+	return y > 216 / 24389 ? 116 * Math.cbrt(y) - 16 : y * (24389 / 27);
+}
+
 import {
 	BERX_ATMOSPHERE_KINDS,
 	BERX_DEPTH_KEYS,
@@ -13,6 +19,8 @@ import {
 	BERX_MIN_TEXT_CONTRAST,
 	assertAtmosphereDepth,
 	assertContrastHierarchy,
+	relativeLuminance,
+	resolveScene,
 	berxAtmosphereForFamily,
 	resolveAtmosphere,
 	contrastRatio,
@@ -143,6 +151,8 @@ export interface ProbeReport {
 	unresolvedComponents: string[];
 	boundScenes: number;
 	materials: Record<string, {blurPx: number; fill: string; contrast: number; opaqueFallback: boolean; glowRadius: number}>;
+	/** Depth read as lightness: inversions and the smallest step a person must see. */
+	depthOrder: {inversions: number; smallestContentStepLStar: number};
 	/**
 	 * The environment each atmosphere kind resolves to, measured
 	 * unblurred — the condition the visual-acceptance rule cares
@@ -382,6 +392,34 @@ export function runProbe(): ProbeReport {
 		};
 	}
 
+	/* --- the planes must be visibly ordered, on every contract ---
+	   Depth is only depth if you can see it. Two failures made that
+	   false: a layer that lost its blur fell *behind* the layer it sits
+	   in front of, and a scene whose contract names a dense material
+	   got a structure plane brighter than its own content. Both are
+	   measured here, on every contract and both platforms, in CIE L*
+	   because that is the space a difference is visible in. */
+	let planeInversions = 0;
+	let smallestContentStep = Infinity;
+	for (const c of BERX_V9_CONTRACTS) {
+		for (const device of [
+			{platform: 'ios', supportsBackdropBlur: false},
+			{platform: 'desktop', supportsBackdropBlur: true},
+		] as BerxDeviceSignals[]) {
+			const scene = resolveScene(c, {device, viewportWidth: 430, viewportHeight: 932});
+			const lightness = BERX_DEPTH_KEYS.map((d) => lStar(scene.layers[d].surface.effectiveColor));
+			for (let i = 1; i < lightness.length; i += 1) {
+				const step = lightness[i] - lightness[i - 1];
+				if (step <= 0) planeInversions += 1;
+				/* D2→D3→D4 are the planes a person reads and reaches for */
+				if (i >= 3 && i <= 4) smallestContentStep = Math.min(smallestContentStep, step);
+			}
+		}
+	}
+	if (planeInversions > 0) {
+		findings.push({severity: 'error', scope: 'depth:order', message: `${planeInversions} plane inversions across the contract set`});
+	}
+
 	/* --- the environment, measured with blur taken away ---
 	   The v9 acceptance rule is that removing blur must not flatten a
 	   scene, so every kind is resolved in exactly that condition and
@@ -468,6 +506,10 @@ export function runProbe(): ProbeReport {
 		unresolvedComponents,
 		boundScenes: BERX_BOUND_SCENE_IDS.length,
 		materials,
+		depthOrder: {
+			inversions: planeInversions,
+			smallestContentStepLStar: smallestContentStep === Infinity ? 0 : Math.round(smallestContentStep * 100) / 100,
+		},
 		atmospheres,
 		transitionSample: sampleA && sampleB ? planTransition(sampleA, sampleB, 42) : null,
 		findings,

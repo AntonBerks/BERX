@@ -431,6 +431,11 @@ gate(
 		? 'every screen routes failures through classifyFailure'
 		: flattenedFailures.map((f) => `${f.file}:${f.hits.join(',')}`).join(', '),
 );
+gate(
+	'the depth planes are visibly ordered on every contract',
+	report.depthOrder.inversions === 0 && report.depthOrder.smallestContentStepLStar >= 1.5,
+	`no inversions across 300 contracts x 2 platforms; smallest step between the planes a person reads and reaches for: ${report.depthOrder.smallestContentStepLStar} L*`,
+);
 gate('no probe findings', report.findings.length === 0, report.findings.slice(0, 8).map((f) => `${f.scope}: ${f.message}`).join(' | ') || 'clean');
 
 const failed = gates.filter((g) => !g.pass);

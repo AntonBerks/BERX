@@ -702,6 +702,18 @@ export function createBerxCard(options: BerxCardOptions = {}): HTMLElement {
 
 	const el = document.createElement(interactive ? 'button' : 'div');
 	el.className = ['berx-surface', interactive ? 'berx-focusable' : '', options.className].filter(Boolean).join(' ');
+	if (interactive) {
+		/**
+		 * A card that acts is a <button>, and a button does not inherit
+		 * the page's colour or font: rendered as one, a BERX card's own
+		 * title came out in the user agent's dark button text on a dark
+		 * surface — invisible, while the body text beside it was fine.
+		 * Found by looking at a rendered scene rather than at the DOM.
+		 */
+		el.style.color = 'inherit';
+		el.style.font = 'inherit';
+		el.style.textAlign = 'inherit';
+	}
 	el.dataset.berxDepth = depth;
 
 	if (interactive) {

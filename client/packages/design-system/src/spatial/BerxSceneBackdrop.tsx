@@ -58,6 +58,13 @@ export function BerxSceneBackdrop({media, kind, scrim = 0}: BerxSceneBackdropPro
 	}, []);
 	const width = box?.width ?? window.width;
 	const height = box?.height ?? window.height;
+	/**
+	 * A room inside a room — a profile tab's panel, a card's scene —
+	 * has no horizon: a ground plane is a cue about distance, and
+	 * there is no distance to describe inside a 160px panel. Measured
+	 * rather than declared, so a screen cannot get it wrong.
+	 */
+	const bounded = box !== null && box.height < window.height * 0.85;
 	const d1 = scene.layers.D1;
 
 	const atmosphere = useMemo(
@@ -80,6 +87,7 @@ export function BerxSceneBackdrop({media, kind, scrim = 0}: BerxSceneBackdropPro
 				blurred: d1.blurred,
 				/* graduated quality: fewer lamps on a weaker device, same room */
 				maxPools: berxAtmospherePoolBudget(scene.budget.tier),
+				bounded,
 			}),
 		[
 			kind,
@@ -91,6 +99,7 @@ export function BerxSceneBackdrop({media, kind, scrim = 0}: BerxSceneBackdropPro
 			media,
 			d1.contentOpacity,
 			d1.blurred,
+			bounded,
 		],
 	);
 

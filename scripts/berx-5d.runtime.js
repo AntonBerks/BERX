@@ -668,9 +668,11 @@ function resolveMaterial(input) {
   const blurPx = blurAvailable ? blurRadius(spec) : 0;
   const wantsOpaque = input.forceOpaque === true || spec.transmission <= 0 || blurPx === 0 && spec.transmission > 0;
   const lift = clamp(input.elevation ?? 0.6, 0, 1);
-  const tint = round(clamp(fillAlpha(spec) * (0.55 + lift * 0.9), 0.015, 0.4));
+  const elevationTint = 0.028 + lift * 0.128;
+  const materialShift = 0.94 + Math.min(fillAlpha(spec), 0.34) / 0.34 * 0.12;
+  const tint = round(clamp(elevationTint * materialShift, 0.015, 0.44), 4);
   const translucentFill = rgba(BERX_V9_COLOR.textPrimary, tint);
-  const opaqueFill = mix(ground, BERX_V9_COLOR.surface, round(clamp(0.12 + lift * 0.88, 0, 1)));
+  const opaqueFill = flatten(translucentFill, ground);
   const backgroundColor = wantsOpaque ? opaqueFill : translucentFill;
   const effectiveColor = wantsOpaque ? opaqueFill : flatten(translucentFill, ground);
   const r = rim(spec);
@@ -1438,6 +1440,11 @@ function createBerxCard(options = {}) {
   const interactive = typeof options.onPress === "function";
   const el = document.createElement(interactive ? "button" : "div");
   el.className = ["berx-surface", interactive ? "berx-focusable" : "", options.className].filter(Boolean).join(" ");
+  if (interactive) {
+    el.style.color = "inherit";
+    el.style.font = "inherit";
+    el.style.textAlign = "inherit";
+  }
   el.dataset.berxDepth = depth;
   if (interactive) {
     el.type = "button";

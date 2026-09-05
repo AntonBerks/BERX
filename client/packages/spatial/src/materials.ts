@@ -138,9 +138,77 @@ export function resolveMaterial(input: BerxMaterialSurfaceInput): BerxMaterialSu
 	const wantsOpaque = input.forceOpaque === true || spec.transmission <= 0 || (blurPx === 0 && spec.transmission > 0);
 
 	const lift = clamp(input.elevation ?? 0.6, 0, 1);
-	const tint = round(clamp(fillAlpha(spec) * (0.55 + lift * 0.9), 0.015, 0.4));
+	/**
+	 * Elevation orders the planes; the material colours them.
+	 *
+	 * Two failures came from letting the material set the brightness
+	 * outright. The content plane and the control plane resolved 0.4
+	 * L* apart on a dark scene — a difference no eye resolves, which
+	 * is why controls never read as being in front of the content they
+	 * act on. And a scene whose contract names a dense material got a
+	 * structure plane *brighter* than the content standing on it:
+	 * BERX-176 resolved D2 at 16.6 L* against D3 at 12.1.
+	 *
+	 * So elevation now sets the band — roughly 3 L* per plane, which is
+	 * a step you can see without being told to look for it — and the
+	 * material may shift its own surface within ±6% of that band.
+	 *
+	 * The ±6% is not a taste: adjacent planes are 31% apart in tint, so
+	 * a shift of ±10% left a worst case (a dense material one plane
+	 * down, a clear one above it) with only 0.4 L* between them, which
+	 * the probe measured and rejected. At ±6% the smallest step any of
+	 * the 300 contracts can produce stays visible on both platforms.
+	 */
+	const elevationTint = 0.028 + lift * 0.128;
+	/* fillAlpha returns 1 for a material with no transmission, which is
+	   a statement about coverage rather than a point on this scale —
+	   left unclamped it pushed the shift to +29% and flipped adjacent
+	   planes on the contracts that name a metal. */
+	const materialShift = 0.94 + (Math.min(fillAlpha(spec), 0.34) / 0.34) * 0.12;
+	const tint = round(clamp(elevationTint * materialShift, 0.015, 0.44), 4);
 	const translucentFill = rgba(BERX_V9_COLOR.textPrimary, tint);
-	const opaqueFill = mix(ground, BERX_V9_COLOR.surface, round(clamp(0.12 + lift * 0.88, 0, 1)));
+
+	/**
+	 * The opaque fallback is the colour the glass would have made.
+	 *
+	 * It used to be computed independently — a mix from the substrate
+	 * toward the surface colour, scaled by elevation — and the two
+	 * scales did not agree. A place scene resolved D2 as glass at
+	 * rgb(23,24,26) and D3, which had lost the blur draw, as an opaque
+	 * rgb(13,14,18): the content plane landed *behind* the structure
+	 * it is supposed to sit in front of, and every screen on React
+	 * Native — where nothing has blur — inherited that inversion.
+	 *
+	 * Flattening the layer's own translucent fill over the substrate
+	 * gives exactly the value the glass composites to, so losing blur
+	 * changes what a surface is made of and never where it sits in the
+	 * hierarchy.
+	 */
+	/**
+	 * One scale for every surface.
+	 *
+	 * The opaque fill is the colour this layer's own veil composites to
+	 * over the substrate. That is deliberate for both kinds of
+	 * material, and it took two failures to get here.
+	 *
+	 * A glass layer that loses its blur used to be mixed on an
+	 * independent scale, so it fell *behind* the layer it sits in front
+	 * of — every screen on React Native, where nothing has blur.
+	 *
+	 * A material with no transmission — DarkMetal, Carbon — used to be
+	 * mixed from the substrate toward the surface token, and that token
+	 * is only marginally lighter than the substrate: BERX-291 resolved
+	 * its structure and content planes at 3.6 and 4.0 L*, half a step
+	 * apart, while a glass scene put the same two planes at 9 and 11.
+	 * Two scales, one of which cannot reach the top of the range.
+	 *
+	 * So lightness comes from elevation for everything, and the
+	 * material shows itself where it actually differs: blur, edge,
+	 * rim, roughness, glow. A metal pane and a glass pane at the same
+	 * height read as the same distance away, which is what being at the
+	 * same height means.
+	 */
+	const opaqueFill = flatten(translucentFill, ground);
 
 	const backgroundColor = wantsOpaque ? opaqueFill : translucentFill;
 	const effectiveColor = wantsOpaque ? opaqueFill : flatten(translucentFill, ground);
