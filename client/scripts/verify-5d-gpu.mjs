@@ -407,6 +407,79 @@ try {
 		`right → ${keyboard.afterRight}, left → ${keyboard.afterLeft}; announced "${keyboard.announcement}"`,
 	);
 
+	/* --- sound has a position, measured by rendering it ---
+	   An OfflineAudioContext renders a known test tone through the real
+	   PannerNode the backend builds. The tone is a test signal and is
+	   labelled as one: BERX ships no audio, and a runtime that carried
+	   its own sounds would be inventing content. What is measured is
+	   the panning — a source to the right is louder on the right — and
+	   the falloff, which is the world's, not the browser's. */
+	const audio = await page.evaluate(async () => {
+		const {berxAudioAttenuation, berxListenerFromCamera} = window.BERX_5D;
+		const spec = (id, gain = 1) => ({
+			id, objectId: 'person:1', uri: 'test://tone', gain, loop: false,
+			refDistance: 1, maxDistance: 12,
+		});
+
+		/* the world's own falloff, independent of any platform */
+		const listener = {x: 0, y: 0, z: 0};
+		const falloff = {
+			atRef: berxAudioAttenuation(spec('a'), listener, {x: 1, y: 0, z: 0}),
+			mid: berxAudioAttenuation(spec('a'), listener, {x: 6, y: 0, z: 0}),
+			atMax: berxAudioAttenuation(spec('a'), listener, {x: 12, y: 0, z: 0}),
+			beyond: berxAudioAttenuation(spec('a'), listener, {x: 40, y: 0, z: 0}),
+		};
+
+		/* and the real panner, rendered offline */
+		const ctx = new OfflineAudioContext({numberOfChannels: 2, length: 4410, sampleRate: 44100});
+		const tone = ctx.createOscillator();
+		tone.frequency.value = 440;
+		const panner = ctx.createPanner();
+		panner.panningModel = 'HRTF';
+		panner.distanceModel = 'inverse';
+		panner.refDistance = 1;
+		panner.maxDistance = 12;
+		if (panner.positionX) {
+			panner.positionX.value = 4;
+			panner.positionY.value = 0;
+			panner.positionZ.value = 0;
+		} else panner.setPosition(4, 0, 0);
+		tone.connect(panner).connect(ctx.destination);
+		tone.start();
+		const rendered = await ctx.startRendering();
+		const rms = (channel) => {
+			const d = rendered.getChannelData(channel);
+			let sum = 0;
+			for (let i = 0; i < d.length; i++) sum += d[i] * d[i];
+			return Math.sqrt(sum / d.length);
+		};
+		const left = rms(0), right = rms(1);
+
+		/* the backend's listener follows the camera */
+		const backend = new window.BERX_5D.BerxWebSpatialAudio(new OfflineAudioContext({numberOfChannels: 2, length: 128, sampleRate: 44100}));
+		const pose = berxListenerFromCamera({x: 0, y: 0, z: 8}, {x: 0, y: 0, z: 0});
+		backend.setListener(pose);
+		const spatial = backend.spatial;
+		backend.dispose();
+		return {falloff, left, right, spatial, forward: pose.forward};
+	});
+	gate(
+		'a sound to the right is louder on the right',
+		audio.right > audio.left * 1.2 && audio.right > 0,
+		`source at x=+4: left RMS ${audio.left.toFixed(4)}, right RMS ${audio.right.toFixed(4)}`,
+	);
+	gate(
+		'distance is the world\'s, and a sound really stops',
+		audio.falloff.atRef === 1 && audio.falloff.mid > 0 && audio.falloff.mid < 1 &&
+			audio.falloff.atMax === 0 && audio.falloff.beyond === 0,
+		`gain at ref ${audio.falloff.atRef}, mid ${audio.falloff.mid.toFixed(3)}, at max ${audio.falloff.atMax}, beyond ${audio.falloff.beyond}`,
+	);
+	gate(
+		'the listener is the camera',
+		audio.spatial === true && Math.abs(audio.forward.z + 1) < 1e-6,
+		`backend reports spatial=${audio.spatial}; a camera at z=8 looking at the origin faces ${JSON.stringify(audio.forward)}`,
+	);
+
 	/* --- reduced motion is a decision, not a measurement --- */
 	const reduced = await page.evaluate(() => {
 		const q = window.BERX_5D.resolveSpatialQuality;

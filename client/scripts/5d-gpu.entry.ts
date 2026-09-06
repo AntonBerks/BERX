@@ -7,6 +7,8 @@
  */
 import {createBerx5DWebHost} from '@berx/spatial-web/runtime5d';
 import {resolveSpatialQuality} from '@berx/spatial-web/runtimeQuality';
+import {BerxWebSpatialAudio} from '@berx/spatial-web/spatialAudioWeb';
+import {berxAudioAttenuation, berxListenerFromCamera} from '@berx/spatial';
 import {
 	berxSpatialId,
 	mapEventToSpatial,
@@ -25,6 +27,9 @@ declare global {
 const api = {
 	createBerx5DWebHost,
 	resolveSpatialQuality,
+	BerxWebSpatialAudio,
+	berxAudioAttenuation,
+	berxListenerFromCamera,
 	berxSpatialId,
 	mapEventToSpatial,
 	mapFeedItemToSpatial,

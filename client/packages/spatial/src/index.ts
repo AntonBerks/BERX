@@ -15,6 +15,7 @@ export * from './temporal';
 export * from './relational';
 export * from './worldLighting';
 export * from './worldMaterials';
+export * from './spatialAudio';
 export * from './platform';
 export * from './worldApp';
 export * from './world';

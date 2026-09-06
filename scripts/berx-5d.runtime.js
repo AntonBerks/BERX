@@ -1563,6 +1563,16 @@ function berxWorldMaterial(name) {
   return BERX_WORLD_MATERIALS[name] ?? BERX_WORLD_MATERIALS.ceramic;
 }
 
+// packages/spatial/src/spatialAudio.ts
+function berxAudioAttenuation(source, listener, at) {
+  const d = Math.hypot(at.x - listener.x, at.y - listener.y, at.z - listener.z);
+  if (d >= source.maxDistance) return 0;
+  if (d <= source.refDistance) return source.gain;
+  const inverse = source.refDistance / d;
+  const window2 = 1 - (d - source.refDistance) / (source.maxDistance - source.refDistance);
+  return source.gain * inverse * window2;
+}
+
 // packages/spatial/src/spatialCamera.ts
 var clamp2 = (v, min, max) => Math.max(min, Math.min(max, v));
 var lerp = (a, b, t) => a + (b - a) * t;
@@ -3961,6 +3971,140 @@ function createBerx5DWebHost(options = {}) {
   };
 }
 
+// packages/spatial-web/src/spatialAudioWeb.ts
+var BerxWebSpatialAudio = class {
+  /**
+   * Any real audio context. An `OfflineAudioContext` is one — it is
+   * how the verification renders sound deterministically — and it has
+   * no `resume` or `close`, which is why both are guarded rather than
+   * assumed.
+   */
+  constructor(context) {
+    this.spatial = true;
+    this.playing = /* @__PURE__ */ new Map();
+    this.buffers = /* @__PURE__ */ new Map();
+    this.listener = {
+      position: { x: 0, y: 0, z: 0 },
+      forward: { x: 0, y: 0, z: -1 },
+      up: { x: 0, y: 1, z: 0 }
+    };
+    this.context = context ?? new AudioContext();
+  }
+  /** Running only after a gesture. Reported, never assumed. */
+  get running() {
+    return this.context.state === "running";
+  }
+  /** Call from a real user gesture. Browsers require one; this is honest about it. */
+  async resume() {
+    const context = this.context;
+    if (context.state !== "running" && typeof context.resume === "function") await context.resume();
+  }
+  setListener(listener) {
+    this.listener = listener;
+    const l = this.context.listener;
+    if (l.positionX) {
+      l.positionX.value = listener.position.x;
+      l.positionY.value = listener.position.y;
+      l.positionZ.value = listener.position.z;
+      l.forwardX.value = listener.forward.x;
+      l.forwardY.value = listener.forward.y;
+      l.forwardZ.value = listener.forward.z;
+      l.upX.value = listener.up.x;
+      l.upY.value = listener.up.y;
+      l.upZ.value = listener.up.z;
+    } else {
+      l.setPosition(listener.position.x, listener.position.y, listener.position.z);
+      l.setOrientation(
+        listener.forward.x,
+        listener.forward.y,
+        listener.forward.z,
+        listener.up.x,
+        listener.up.y,
+        listener.up.z
+      );
+    }
+  }
+  async buffer(uri) {
+    const cached = this.buffers.get(uri);
+    if (cached) return cached;
+    const response = await fetch(uri, { mode: "cors" });
+    if (!response.ok) throw new Error(`BERX 5D audio: ${uri} answered ${response.status}`);
+    const decoded = await this.context.decodeAudioData(await response.arrayBuffer());
+    this.buffers.set(uri, decoded);
+    return decoded;
+  }
+  async play(spec, at) {
+    this.stop(spec.id);
+    const buffer = await this.buffer(spec.uri);
+    const source = this.context.createBufferSource();
+    source.buffer = buffer;
+    source.loop = spec.loop;
+    const panner = this.context.createPanner();
+    panner.panningModel = "HRTF";
+    panner.distanceModel = "inverse";
+    panner.refDistance = spec.refDistance;
+    panner.maxDistance = spec.maxDistance;
+    panner.rolloffFactor = 1;
+    if (spec.orientation) {
+      panner.coneInnerAngle = spec.coneInnerAngle ?? 60;
+      panner.coneOuterAngle = spec.coneOuterAngle ?? 180;
+      panner.coneOuterGain = 0.2;
+    }
+    setPannerPosition(panner, at, spec.orientation);
+    const gain = this.context.createGain();
+    gain.gain.value = berxAudioAttenuation(spec, this.listener.position, at) > 0 ? spec.gain : 0;
+    source.connect(panner).connect(gain).connect(this.context.destination);
+    source.start();
+    source.onended = () => this.stop(spec.id);
+    this.playing.set(spec.id, { source, panner, gain, spec });
+  }
+  move(sourceId, to) {
+    const entry = this.playing.get(sourceId);
+    if (!entry) return;
+    setPannerPosition(entry.panner, to, entry.spec.orientation);
+    entry.gain.gain.value = berxAudioAttenuation(entry.spec, this.listener.position, to) > 0 ? entry.spec.gain : 0;
+  }
+  stop(sourceId) {
+    const entry = this.playing.get(sourceId);
+    if (!entry) return;
+    this.playing.delete(sourceId);
+    try {
+      entry.source.onended = null;
+      entry.source.stop();
+    } catch {
+    }
+    entry.source.disconnect();
+    entry.panner.disconnect();
+    entry.gain.disconnect();
+  }
+  stopAll() {
+    for (const id of [...this.playing.keys()]) this.stop(id);
+  }
+  dispose() {
+    this.stopAll();
+    this.buffers.clear();
+    const context = this.context;
+    if (typeof context.close === "function") void context.close();
+  }
+};
+function setPannerPosition(panner, at, orientation) {
+  if (panner.positionX) {
+    panner.positionX.value = at.x;
+    panner.positionY.value = at.y;
+    panner.positionZ.value = at.z;
+    if (orientation) {
+      panner.orientationX.value = orientation.x;
+      panner.orientationY.value = orientation.y;
+      panner.orientationZ.value = orientation.z;
+    }
+  } else {
+    panner.setPosition(at.x, at.y, at.z);
+    if (orientation) {
+      panner.setOrientation(orientation.x, orientation.y, orientation.z);
+    }
+  }
+}
+
 // packages/spatial-web/src/appShell.ts
 function describe(world) {
   const frame = world.latestFrame;
@@ -4049,6 +4193,7 @@ export {
   BerxMediaTextureCache,
   BerxSpatialTextAtlas,
   BerxThreeRuntimeRenderer,
+  BerxWebSpatialAudio,
   atmosphereBackground,
   atmosphereCustomProperties,
   berxLayerContent,
