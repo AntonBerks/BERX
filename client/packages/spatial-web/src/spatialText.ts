@@ -77,7 +77,7 @@ export class BerxSpatialTextAtlas {
 			hit.lastUsedFrame = this.frame;
 			return hit;
 		}
-		const raster = rasterise(label, this.pixelHeight);
+		const raster = berxRasteriseLabel(label, this.pixelHeight);
 		if (!raster) return undefined;
 		const gl = this.gl;
 		const texture = gl.createTexture();
@@ -138,10 +138,14 @@ export class BerxSpatialTextAtlas {
  * One line of real text on a canvas, at a power-of-two-ish size the GPU
  * is happy to mipmap.
  *
+ * Exported because the WebGPU atlas rasterises the same way: two text
+ * paths would mean two different sets of glyphs, and the cross-renderer
+ * comparison would be measuring the font rather than the renderers.
+ *
  * Long labels are cut rather than wrapped: a name that needs two lines
  * in the world is a name that should be read by going closer to it.
  */
-function rasterise(text: string, pixelHeight: number): {canvas: HTMLCanvasElement; aspect: number} | undefined {
+export function berxRasteriseLabel(text: string, pixelHeight: number): {canvas: HTMLCanvasElement; aspect: number} | undefined {
 	const canvas = document.createElement('canvas');
 	const context = canvas.getContext('2d');
 	if (!context) return undefined;

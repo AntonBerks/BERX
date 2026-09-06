@@ -12,7 +12,9 @@
     "./appShell": "./src/appShell.ts",
     "./spatialText": "./src/spatialText.ts",
     "./spatialAudioWeb": "./src/spatialAudioWeb.ts",
-    "./webgpuRuntime": "./src/webgpuRuntime.ts"
+    "./webgpuRuntime": "./src/webgpuRuntime.ts",
+    "./webgpuMediaTextures": "./src/webgpuMediaTextures.ts",
+    "./webgpuText": "./src/webgpuText.ts"
   },
   "sideEffects": false,
   "main": "./src/index.ts",

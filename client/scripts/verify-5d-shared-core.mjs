@@ -134,16 +134,23 @@ if (fs.existsSync(nativeDir)) {
    supposed to be comparable have quietly started drawing differently. */
 const shaderDir = path.join(clientRoot, 'packages/spatial-shaders');
 if (fs.existsSync(shaderDir)) {
-	const wgsl = fs.readFileSync(path.join(shaderDir, 'world.wgsl'), 'utf8');
 	const mirrorTs = fs.readFileSync(path.join(shaderDir, 'src/index.ts'), 'utf8');
-	const literal = mirrorTs.slice(mirrorTs.indexOf('BERX_WORLD_WGSL = ') + 'BERX_WORLD_WGSL = '.length).trim().replace(/;\s*$/, '');
-	let mirrored = '';
-	try { mirrored = JSON.parse(literal); } catch { mirrored = ''; }
-	gate('one WGSL shader, mirrored without drift',
-		mirrored === wgsl,
-		mirrored === wgsl
-			? `${wgsl.length} bytes, identical in world.wgsl and src/index.ts`
-			: 'packages/spatial-shaders/src/index.ts is stale — run npm run generate:shaders');
+	const stale = [];
+	let mirroredBytes = 0;
+	for (const [file, name] of [['world.wgsl', 'BERX_WORLD_WGSL'], ['label.wgsl', 'BERX_LABEL_WGSL']]) {
+		const wgsl = fs.readFileSync(path.join(shaderDir, file), 'utf8');
+		const at = mirrorTs.indexOf(`${name} = `);
+		const literal = at < 0 ? '' : mirrorTs.slice(at + `${name} = `.length).split('\nexport ')[0].trim().replace(/;\s*$/, '');
+		let mirrored = '';
+		try { mirrored = JSON.parse(literal); } catch { mirrored = ''; }
+		if (mirrored === wgsl) mirroredBytes += wgsl.length;
+		else stale.push(file);
+	}
+	gate('every WGSL shader is mirrored without drift',
+		stale.length === 0,
+		stale.length === 0
+			? `${mirroredBytes} bytes across world.wgsl and label.wgsl, identical in src/index.ts`
+			: `stale in src/index.ts: ${stale.join(', ')} — run npm run generate:shaders`);
 
 	const nativeUses = fs.existsSync(path.join(clientRoot, 'packages/spatial-native/src/lib.rs')) &&
 		/include_str!\("\.\.\/\.\.\/spatial-shaders\/world\.wgsl"\)/.test(fs.readFileSync(path.join(clientRoot, 'packages/spatial-native/src/lib.rs'), 'utf8'));

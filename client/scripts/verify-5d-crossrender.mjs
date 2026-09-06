@@ -95,10 +95,20 @@ fs.writeFileSync(path.join(dir, 'index.html'),
 <style>html,body{margin:0;background:#07080A}canvas{display:block}</style></head>
 <body><canvas id="world"></canvas><canvas id="gpu"></canvas><script type="module" src="./world.js"></script></body></html>`);
 
-const types = {'.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8'};
+/* a real BERX photograph from the repository, not a generated swatch:
+   the media path has to survive a real decode, a real aspect ratio and a
+   real upload, and a flat colour would pass a test that a photograph
+   would not */
+const MEDIA_ASSET = path.resolve(clientRoot, '../assets/media/atmosphere/berx-atmosphere-wallpaper-01.jpg');
+
+const types = {'.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.jpg': 'image/jpeg'};
 const server = http.createServer((req, res) => {
 	const name = (req.url ?? '/').split('?')[0];
 	if (name === '/favicon.ico') return void res.writeHead(204).end();
+	if (name === '/media.jpg') {
+		res.writeHead(200, {'content-type': 'image/jpeg'});
+		return void fs.createReadStream(MEDIA_ASSET).pipe(res);
+	}
 	const file = path.join(dir, name === '/' ? 'index.html' : path.normalize(name).replace(/^(\.\.[/\\])+/, ''));
 	if (!file.startsWith(dir) || !fs.existsSync(file)) return void res.writeHead(404).end();
 	res.writeHead(200, {'content-type': types[path.extname(file)] ?? 'application/octet-stream'});
@@ -119,7 +129,9 @@ try {
 		const drawList = window.BERX_CROSS.drawList();
 		const rendered = window.BERX_CROSS.render();
 		const webgpu = await window.BERX_CROSS.renderWebGPU();
-		return {drawList, rendered, webgpu};
+		const media = await window.BERX_CROSS.renderMedia(new URL('/media.jpg', location.href).href);
+		const labelled = await window.BERX_CROSS.renderLabelled();
+		return {drawList, rendered, webgpu, media, labelled};
 	});
 	if (errors.length > 0) gate('the web backend renders the shared frame without errors', false, errors.join(' | '));
 } finally {
@@ -223,7 +235,17 @@ function compare(a, b) {
 	};
 }
 
-function agree(name, a, b, detail) {
+/**
+ * `worstTile` is 6/255 by default: two rasterisers put edge pixels in
+ * slightly different places, and on solid forms that is all the
+ * difference there is. The name pass gets 10, because a glyph is
+ * one-pixel-wide strokes where every filtering difference lands on the
+ * ink rather than being averaged against a surface — the WebGL2 mipmap
+ * chain is built by the driver from non-premultiplied pixels and the
+ * WebGPU one on the CPU from alpha-weighted ones, and that shows up on
+ * a letter's edge and nowhere else.
+ */
+function agree(name, a, b, detail, worstTile = 6) {
 	if (!a || !b) { failures.push(name); console.log(`FAIL  ${name}`); console.log(`      one of the two images is missing`); return; }
 	if (a.length !== width * height * 4 || b.length !== width * height * 4) {
 		failures.push(name); console.log(`FAIL  ${name}`);
@@ -231,7 +253,7 @@ function agree(name, a, b, detail) {
 		return;
 	}
 	const c = compare(a, b);
-	gate(name, c.tiles > 0 && c.worst <= 6 && c.mean <= 1 && c.overlap >= 0.97,
+	gate(name, c.tiles > 0 && c.worst <= worstTile && c.mean <= 1 && c.overlap >= 0.97,
 		`${detail} · ${c.tiles} of ${c.total} tiles hold the world: mean ${c.mean.toFixed(2)}/255, worst ${c.worst.toFixed(1)}/255 at ${c.worstAt} · ${(c.overlap * 100).toFixed(2)}% silhouette IoU (${c.aOnly}/${c.bOnly} disagreeing pixels of ${c.either})`);
 	return c;
 }
@@ -240,21 +262,92 @@ const nativeRgba = native ? new Uint8Array(fs.readFileSync(path.join(dir, 'nativ
 const webglRgba = web?.rendered ? Uint8Array.from(web.rendered.rgba) : undefined;
 const webgpuRgba = web?.webgpu?.available ? Uint8Array.from(web.webgpu.rgba) : undefined;
 
+if (process.env.BERX_DEBUG_DUMP) {
+	for (const [name, buf] of [['native', nativeRgba], ['webgl', webglRgba], ['webgpu', webgpuRgba]]) {
+		if (buf) fs.writeFileSync(path.join(process.env.BERX_DEBUG_DUMP, `${name}.rgba`), Buffer.from(buf));
+	}
+	console.log(`dumped to ${process.env.BERX_DEBUG_DUMP}`);
+}
+
 const nativeVsWebgl = agree('the native (wgpu) and WebGL2 renderers draw the same world', nativeRgba, webglRgba, 'Vulkan vs WebGL2');
 
 if (webgpuRgba) {
+	gate('the WebGPU backend reported no device errors',
+		web.webgpu.errors.length === 0,
+		web.webgpu.errors.length === 0 ? 'no uncaptured validation or out-of-memory errors' : web.webgpu.errors.join(' | '));
 	gate('a WebGPU backend of BERX rendered the world',
 		web.webgpu.kind === 'webgpu' && web.webgpu.stats.drawCalls === list.items.length && web.webgpu.stats.triangles > 0,
 		`${web.webgpu.stats.drawCalls} draw calls · ${web.webgpu.stats.triangles} triangles · ${web.webgpu.stats.meshVariants} mesh variants`);
 	gate('the WebGPU backend reports only what it implements',
 		web.webgpu.capabilities.shadows === false && web.webgpu.capabilities.postProcessing === false &&
-		web.webgpu.capabilities.mediaSurfaces === false && web.webgpu.capabilities.worldSpaceLabels === false &&
-		web.webgpu.capabilities.physicallyLitMaterials === true,
-		'perspective, depth and physically lit materials true; shadows, post, media and labels false');
+		web.webgpu.capabilities.mediaMipmaps === true && web.webgpu.capabilities.labelMipmaps === true &&
+		web.webgpu.capabilities.worldSpaceLabels === true &&
+		web.webgpu.capabilities.mediaSurfaces === true && web.webgpu.capabilities.physicallyLitMaterials === true,
+		'perspective, depth, physically lit materials, media surfaces, world-space labels and mipmapped textures true; shadows and post false');
 	agree('the WebGPU and WebGL2 renderers draw the same world', webgpuRgba, webglRgba, 'WebGPU vs WebGL2');
 	agree('the WebGPU and native renderers draw the same world', webgpuRgba, nativeRgba, 'WebGPU vs Vulkan — the same WGSL, two implementations');
 } else {
 	blocked('webgpu-backend-render', `packages/spatial-web/src/webgpuRuntime.ts exists and is exercised, but this browser gave it no device: ${web?.webgpu?.reason ?? 'renderWebGPU() returned nothing'}`);
+}
+
+/* ---- 3b. the media path, on its own ---- */
+const media = web?.media;
+if (media?.available) {
+	const glMedia = Uint8Array.from(media.webgl.rgba);
+	const gpuMedia = Uint8Array.from(media.webgpu.rgba);
+	gate('both web backends uploaded the real photograph',
+		media.webgl.residentTextures === 1 && media.webgpu.residentTextures === 1 && media.errors.length === 0,
+		`${media.webgl.residentTextures} texture resident on WebGL2, ${media.webgpu.residentTextures} on WebGPU, ${media.errors.length} device errors`);
+
+	/* the picture is actually on the surface: the frame with media must
+	   differ from the same frame without it, and only where the surface is */
+	const changed = (a, b) => {
+		let n = 0;
+		for (let i = 0; i < a.length; i += 4) {
+			if (Math.abs(a[i] - b[i]) > 6 || Math.abs(a[i + 1] - b[i + 1]) > 6 || Math.abs(a[i + 2] - b[i + 2]) > 6) n++;
+		}
+		return n;
+	};
+	const glChanged = webglRgba ? changed(glMedia, webglRgba) : 0;
+	const gpuChanged = webgpuRgba ? changed(gpuMedia, webgpuRgba) : 0;
+	gate('the photograph reaches the surface in both backends',
+		glChanged > 2000 && gpuChanged > 2000,
+		`${glChanged} pixels changed on WebGL2 and ${gpuChanged} on WebGPU when ${media.objectId} was given a picture`);
+
+	agree('the WebGPU and WebGL2 media surfaces show the same photograph', gpuMedia, glMedia,
+		'writeTexture from decoded pixels vs texImage2D');
+} else if (media) {
+	blocked('webgpu-media-render', `the media comparison could not run: ${media.reason}`);
+}
+
+/* ---- 3c. the names, on their own ---- */
+const labelled = web?.labelled;
+if (labelled?.available) {
+	const glLabels = Uint8Array.from(labelled.webgl.rgba);
+	const gpuLabels = Uint8Array.from(labelled.webgpu.rgba);
+	gate('both web backends rasterised the same names',
+		labelled.placed.length > 0 &&
+		labelled.webgl.residentLabels === labelled.webgpu.residentLabels &&
+		labelled.errors.length === 0,
+		`${labelled.placed.length} names placed by the shared core (${labelled.placed.map((l) => l.text).join(', ')}); ${labelled.webgl.residentLabels} glyph textures resident on WebGL2, ${labelled.webgpu.residentLabels} on WebGPU`);
+
+	const changedPixels = (a, b) => {
+		let n = 0;
+		for (let i = 0; i < a.length; i += 4) {
+			if (Math.abs(a[i] - b[i]) > 6 || Math.abs(a[i + 1] - b[i + 1]) > 6 || Math.abs(a[i + 2] - b[i + 2]) > 6) n++;
+		}
+		return n;
+	};
+	const glDrew = webglRgba ? changedPixels(glLabels, webglRgba) : 0;
+	const gpuDrew = webgpuRgba ? changedPixels(gpuLabels, webgpuRgba) : 0;
+	gate('the names actually reach the frame in both backends',
+		glDrew > 500 && gpuDrew > 500,
+		`${glDrew} pixels changed on WebGL2 and ${gpuDrew} on WebGPU when the world was given its names`);
+
+	agree('the WebGPU and WebGL2 name passes put the same words in the same place', gpuLabels, glLabels,
+		'one rasteriser, one set of placements, two GPU APIs', 10);
+} else if (labelled) {
+	blocked('webgpu-label-render', `the name comparison could not run: ${labelled.reason}`);
 }
 
 if (nativeVsWebgl) {
@@ -264,9 +357,9 @@ if (nativeVsWebgl) {
 }
 
 /* ---- 4. what these backends still cannot do ---- */
-blocked('wgsl-media', 'neither WGSL backend uploads media: packages/spatial-native has no image decoder, and copyExternalImageToTexture is unsupported on the driver these gates run against. The WebGL2 backend remains the only one that draws a photograph');
-blocked('wgsl-labels', 'neither WGSL backend has a text rasteriser: world-space labels are drawn only by WebGL2, and the frame compared here carries none');
-blocked('webgpu-product', 'the WebGPU backend draws the world pass and agrees with WebGL2, but it has no media, label, action-ring or picking path, so packages/spatial-web/src/runtimeHost5d.ts still runs WebGL2 and no end-to-end product session renders through WebGPU');
+blocked('native-media', 'packages/spatial-native has no image decoder: a draw item carrying a media surface is counted and left undrawn rather than substituted. The shader has the path; this backend has nothing to put in it');
+blocked('native-labels', 'packages/spatial-native has no text rasteriser: the shared core places names for it, and it draws none. The three-way comparison therefore runs on a world with no names, and the WebGPU name pass is compared against WebGL2 separately');
+blocked('webgpu-product', 'the WebGPU backend draws the world, its media and its names and agrees with WebGL2, but it has no action-ring or picking path, so packages/spatial-web/src/runtimeHost5d.ts still runs WebGL2 and no end-to-end product session renders through WebGPU');
 blocked('desktop-window', 'packages/spatial-native renders offscreen and reads back; there is no windowing/input layer, no installer, and no display is reachable from this environment to verify one');
 
 console.log('');

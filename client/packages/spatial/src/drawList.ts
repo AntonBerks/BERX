@@ -78,6 +78,35 @@ export interface BerxDrawItem {
 	distance: number;
 }
 
+/**
+ * Where a name stands, decided once for every backend.
+ *
+ * A label is not a HUD element: it has a real height in metres, stands
+ * at its entity's own top so a larger object carries its name higher,
+ * is occluded by anything in front of it, and fades out with distance
+ * rather than growing to stay legible. All of that is a property of the
+ * world, so it is settled here — a backend only rasterises the glyphs
+ * and draws the quad.
+ */
+export interface BerxLabelPlacement {
+	/** The entity this name belongs to. */
+	id: string;
+	text: string;
+	/** Centre of the quad, already lifted above the object. */
+	position: BerxVec3;
+	/** Half-height in metres. The width comes from the rasterised aspect. */
+	halfHeight: number;
+	/** Distance fade, already multiplied by the object's own opacity. */
+	alpha: number;
+	distance: number;
+}
+
+/** A name's height in the world, in metres. */
+export const BERX_LABEL_HEIGHT = 0.34;
+/** Metres at which names begin to fade, and at which they are gone. */
+export const BERX_LABEL_FADE_START = 14;
+export const BERX_LABEL_FADE_END = 26;
+
 export interface BerxDrawStats {
 	/** Entities the world holds and that are marked visible. */
 	visible: number;
@@ -102,6 +131,15 @@ export interface BerxDrawList {
 	key: {direction: BerxVec3; colour: BerxShaderRgb3; intensity: number};
 	/** In draw order: opaque focus-first and near-to-far, then blended far-to-near. */
 	items: BerxDrawItem[];
+	/**
+	 * The names, far to near, so the ones in front composite over the
+	 * ones behind. Empty when the camera looks straight up or down and
+	 * has no usable right vector — a degenerate basis is reported as no
+	 * labels rather than as labels in the wrong place.
+	 */
+	labels: BerxLabelPlacement[];
+	/** The camera's right and up, for the quads that face it. */
+	basis?: {right: BerxVec3; up: BerxVec3};
 	stats: BerxDrawStats;
 }
 
@@ -259,6 +297,37 @@ export function berxBuildDrawList(frame: Berx5DFrame, options: BerxDrawListOptio
 		};
 	});
 
+	/* the names, decided here so both backends put them in the same place */
+	const basis = cameraBasis(c);
+	const labels: BerxLabelPlacement[] = [];
+	if (basis) {
+		const named = drawn.filter((o) => o.label !== undefined && o.label.trim().length > 0);
+		for (const o of named.sort((a, b) => distanceTo(eye, b) - distanceTo(eye, a))) {
+			const distance = distanceTo(eye, o);
+			/* out of reading range: not placed at all, rather than placed as
+			   an unreadable smear that still costs a draw call */
+			if (distance > BERX_LABEL_FADE_END) continue;
+			const halfHeight = BERX_LABEL_HEIGHT * 0.5;
+			/* the entity's own top, so a name belongs to its object */
+			const above = o.transform.scale.y * 0.5 + halfHeight * 1.6;
+			const fade = distance <= BERX_LABEL_FADE_START
+				? 1
+				: 1 - (distance - BERX_LABEL_FADE_START) / (BERX_LABEL_FADE_END - BERX_LABEL_FADE_START);
+			labels.push({
+				id: o.id,
+				text: o.label!,
+				position: {
+					x: o.transform.position.x + basis.up.x * above,
+					y: o.transform.position.y + basis.up.y * above,
+					z: o.transform.position.z + basis.up.z * above,
+				},
+				halfHeight,
+				alpha: fade * o.material.opacity,
+				distance,
+			});
+		}
+	}
+
 	return {
 		width,
 		height,
@@ -277,6 +346,8 @@ export function berxBuildDrawList(frame: Berx5DFrame, options: BerxDrawListOptio
 			intensity: lighting.key.intensity * (options.ambientMotion === false ? 0.85 : 1),
 		},
 		items,
+		labels,
+		basis: basis ? {right: {...basis.right}, up: {...basis.up}} : undefined,
 		stats: {
 			visible: all.length,
 			inFrustum: inFrustum.length,

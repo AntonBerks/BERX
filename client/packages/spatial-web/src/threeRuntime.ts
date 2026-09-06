@@ -22,11 +22,9 @@ import {
   berxActionRing,
   berxBuildDrawList,
   BERX_WORLD_CLEAR,
-  berxLookAt,
-  berxPerspective,
+  type BerxDrawList,
   berxWorldLighting,
   BERX_MAX_POINT_LIGHTS,
-  type BerxSpatialObject,
   type BerxSpatialRenderer,
   type BerxActionSlot,
   type BerxSpatialAffordance,
@@ -188,9 +186,6 @@ function gpuMesh(gl:WebGL2RenderingContext,mesh:BerxPrimitiveMesh):GpuMesh { con
  */
 function meshFor(kind:ReturnType<typeof geometryForEntity>['kind'],lod:0|1):BerxPrimitiveMesh { const far=lod===1; switch(kind){case'orb':return createSphere(.5,far?10:24,far?7:16);case'ring':return createRing(.62,.42,far?16:48);case'frame':return createFrame(1,1,.12);case'surface':return createBox(1,1,.06);case'portal':return createFrame(1,1.2,.16);case'node':return createSphere(.58,far?9:20,far?6:12);case'stack':return createBox(1,1,.32);case'message':return createBox(1,.46,.12);case'create':return createSphere(.58,far?11:28,far?7:18);} }
 
-/** Metres from the camera at which names begin to fade, and are gone. */
-const LABEL_FADE_START=14;
-const LABEL_FADE_END=26;
 
 export interface BerxSpatialRenderOptions {
 	maxObjects?:number;
@@ -217,7 +212,7 @@ export class BerxThreeRuntimeRenderer implements BerxSpatialRenderer {
  private readonly labelQuad:{vao:WebGLVertexArrayObject;vbo:WebGLBuffer};
  private readonly LP:Loc;private readonly LV:Loc;private readonly LC:Loc;private readonly LR:Loc;private readonly LU:Loc;private readonly LS:Loc;private readonly LA:Loc;private readonly LT:Loc;
  /** Metres tall a label stands. A real size in the world, not a screen size. */
- private readonly labelHeight=0.34;
+ 
  /** The world's standing light. Replaceable, so a region can relight itself. */
  private lighting:BerxWorldLighting=berxWorldLighting();
  /**
@@ -322,11 +317,7 @@ export class BerxThreeRuntimeRenderer implements BerxSpatialRenderer {
    else gl.uniform1f(this.HT,0);
    gl.drawElements(gl.TRIANGLES,mesh.count,gl.UNSIGNED_SHORT,0);drawCalls++;triangles+=mesh.count/3;}
   gl.bindVertexArray(null);gl.bindTexture(gl.TEXTURE_2D,null);
-  /* the label pass needs the entities themselves — a name belongs to an
-     object's own height, not to a matrix */
-  const byId=new Map(frame.world.objects.map(o=>[o.id,o] as const));
-  const drawnObjects=list.items.map(i=>byId.get(i.id)).filter((o):o is BerxSpatialObject=>o!==undefined);
-  const labelCalls=this.renderLabels(frame,drawnObjects,width,height);
+  const labelCalls=this.renderLabels(frame,list);
   this.stats={
    visible:list.stats.visible,
    inFrustum:list.stats.inFrustum,
@@ -352,9 +343,9 @@ export class BerxThreeRuntimeRenderer implements BerxSpatialRenderer {
   * They fade with distance rather than growing to stay readable. A
   * label that keeps its screen size is a HUD; this is a world.
   */
- private renderLabels(frame:Berx5DFrame,objects:readonly BerxSpatialObject[],width:number,height:number):number{
+ private renderLabels(frame:Berx5DFrame,list:BerxDrawList):number{
   const gl=this.gl,c=frame.camera;
-  const basis=cameraBasis(c);
+  const basis=list.basis;
   if(!basis)return 0;
   let calls=0;
   this.labels.beginFrame();
@@ -363,32 +354,19 @@ export class BerxThreeRuntimeRenderer implements BerxSpatialRenderer {
   gl.depthMask(false);
   gl.disable(gl.CULL_FACE);
   gl.activeTexture(gl.TEXTURE0);gl.uniform1i(this.LT,0);
-  gl.uniformMatrix4fv(this.LP,false,berxPerspective(c.fov,width/height,c.near,c.far));
-  gl.uniformMatrix4fv(this.LV,false,berxLookAt(c.position,c.target));
+  gl.uniformMatrix4fv(this.LP,false,new Float32Array(list.projection));
+  gl.uniformMatrix4fv(this.LV,false,new Float32Array(list.view));
   gl.uniform3f(this.LR,basis.right.x,basis.right.y,basis.right.z);
   gl.uniform3f(this.LU,basis.up.x,basis.up.y,basis.up.z);
-  const eye=c.position;
-  const withLabels=objects.filter(o=>o.label&&o.label.trim().length>0);
-  const distance=(o:BerxSpatialObject)=>Math.hypot(o.transform.position.x-eye.x,o.transform.position.y-eye.y,o.transform.position.z-eye.z);
-  for(const o of withLabels.slice().sort((a,b)=>distance(b)-distance(a))){
-   const d=distance(o);
-   /* out of reading range: not drawn at all, rather than drawn as an
-      unreadable smear that still costs a draw call */
-   if(d>LABEL_FADE_END)continue;
-   const entry=this.labels.get(o.label!);
+  /* where each name stands is decided in @berx/spatial, so the WebGPU
+     backend puts it in exactly the same place */
+  for(const placement of list.labels){
+   const entry=this.labels.get(placement.text);
    if(!entry)continue;
-   const alpha=d<=LABEL_FADE_START?1:1-(d-LABEL_FADE_START)/(LABEL_FADE_END-LABEL_FADE_START);
-   /* the entity's own top, so a label belongs to its object and a
-      larger object carries its name higher */
-   const halfHeight=this.labelHeight*.5;
-   const above=o.transform.scale.y*.5+halfHeight*1.6;
    gl.bindTexture(gl.TEXTURE_2D,entry.texture);
-   gl.uniform3f(this.LC,
-    o.transform.position.x+basis.up.x*above,
-    o.transform.position.y+basis.up.y*above,
-    o.transform.position.z+basis.up.z*above);
-   gl.uniform2f(this.LS,halfHeight*entry.aspect,halfHeight);
-   gl.uniform1f(this.LA,alpha*o.material.opacity);
+   gl.uniform3f(this.LC,placement.position.x,placement.position.y,placement.position.z);
+   gl.uniform2f(this.LS,placement.halfHeight*entry.aspect,placement.halfHeight);
+   gl.uniform1f(this.LA,placement.alpha);
    gl.drawArrays(gl.TRIANGLES,0,6);calls++;
   }
   /* the ring, in the same pass: it is made of the same material as a

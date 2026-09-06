@@ -12,12 +12,16 @@
 // be image-based lighting. There is no shadow map and no post chain here,
 // and both backends' reported capabilities say so.
 //
-// Two things differ from the GLSL source. WGSL depth runs 0..1 where GL runs
-// -1..1, so the host hands this shader a projection already remapped. And
-// there is no media path: neither WGSL backend has a working image upload —
-// the native crate has no decoder, and copyExternalImageToTexture is
-// unsupported on the driver the WebGPU gates run against — so media surfaces
-// are reported as a gap rather than approximated with a colour.
+// One thing differs from the GLSL source, and it is a clip-space convention
+// rather than shading: WGSL depth runs 0..1 where GL runs -1..1, so the host
+// hands this shader a projection already remapped.
+//
+// Media is a planar projection onto the face that points at you, exactly as
+// in the GLSL pass: object-space position and normal give the UVs from the
+// local XY extent, and the texture is applied only where the surface faces
+// +Z, so an avatar on an orb reads as a face rather than as a photograph
+// smeared around a ball. A backend with no image to bind binds a 1x1 texture
+// and leaves the flag at zero; nothing is approximated with a colour.
 
 struct Globals {
   proj: mat4x4<f32>,
@@ -30,21 +34,27 @@ struct Globals {
 
 struct Draw {
   model: mat4x4<f32>,
-  base: vec4<f32>,
-  emissive: vec4<f32>,
-  surface: vec4<f32>,       // metalness, roughness, opacity, transmission
+  base: vec4<f32>,              // rgb base colour, w = local half-extent in X
+  emissive: vec4<f32>,          // rgb emission,    w = local half-extent in Y
+  surface: vec4<f32>,           // metalness, roughness, opacity, transmission
   pl_pos: array<vec4<f32>, 4>,  // xyz position, w range
   pl_col: array<vec4<f32>, 4>,  // rgb colour, w intensity
-  counts: vec4<f32>,            // x = point light count
+  // x = point light count, yz = UV cover/contain correction, w = has texture
+  counts: vec4<f32>,
 };
 
 @group(0) @binding(0) var<uniform> g: Globals;
 @group(1) @binding(0) var<uniform> d: Draw;
+@group(2) @binding(0) var media_sampler: sampler;
+@group(2) @binding(1) var media_texture: texture_2d<f32>;
 
 struct VsOut {
   @builtin(position) clip: vec4<f32>,
   @location(0) n: vec3<f32>,
   @location(1) w: vec3<f32>,
+  // object space, so media projects onto the form rather than the screen
+  @location(2) local: vec3<f32>,
+  @location(3) local_n: vec3<f32>,
 };
 
 @vertex
@@ -53,6 +63,8 @@ fn vs(@location(0) p: vec3<f32>, @location(1) n: vec3<f32>) -> VsOut {
   let w = d.model * vec4<f32>(p, 1.0);
   o.w = w.xyz;
   o.n = (mat3x3<f32>(d.model[0].xyz, d.model[1].xyz, d.model[2].xyz)) * n;
+  o.local = p;
+  o.local_n = n;
   o.clip = g.proj * g.view * w;
   return o;
 }
@@ -98,7 +110,19 @@ fn shade(n: vec3<f32>, v: vec3<f32>, l: vec3<f32>, radiance: vec3<f32>,
 
 @fragment
 fn fs(i: VsOut) -> @location(0) vec4<f32> {
-  let base = d.base.rgb;
+  // Media is a planar projection onto the face that points at you.
+  //
+  // The sample is taken unconditionally and then selected, rather than
+  // taken inside the test: textureSample needs uniform control flow, and
+  // whether a fragment is on the front face and inside the picture is a
+  // per-fragment fact. A backend with nothing to show binds a 1x1
+  // texture and leaves counts.w at zero, so the sample is discarded.
+  let half_extent = vec2<f32>(max(d.base.w, 1e-4), max(d.emissive.w, 1e-4));
+  let uv = (i.local.xy / half_extent) * 0.5 * d.counts.yz + vec2<f32>(0.5);
+  let sampled = textureSample(media_texture, media_sampler, vec2<f32>(uv.x, 1.0 - uv.y)).rgb;
+  let inside = uv.x >= 0.0 && uv.x <= 1.0 && uv.y >= 0.0 && uv.y <= 1.0;
+  let facing = normalize(i.local_n).z > 0.5;
+  let base = select(d.base.rgb, sampled, d.counts.w > 0.5 && facing && inside);
   let n = normalize(i.n);
   let v = normalize(g.camera.xyz - i.w);
   let a = max(d.surface.y * d.surface.y, 1e-3);

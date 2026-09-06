@@ -134,6 +134,11 @@ pub struct NativeRenderer {
     pipeline: wgpu::RenderPipeline,
     globals_layout: wgpu::BindGroupLayout,
     draw_layout: wgpu::BindGroupLayout,
+    /* a 1x1 texture and a sampler, bound for every draw. The shader's
+       media path is shared with the WebGPU backend; this crate has no
+       decoder, so it leaves the flag at zero and binds this rather than
+       carrying a second shader without the path in it. */
+    media_bind: wgpu::BindGroup,
     meshes: HashMap<String, GpuMesh>,
     adapter_name: String,
     backend: String,
@@ -196,9 +201,68 @@ impl NativeRenderer {
                 count: None,
             }],
         });
+        let media_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: Some("berx-media"),
+            entries: &[
+                wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                    count: None,
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 1,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Texture {
+                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                        view_dimension: wgpu::TextureViewDimension::D2,
+                        multisampled: false,
+                    },
+                    count: None,
+                },
+            ],
+        });
+        let placeholder = device.create_texture(&wgpu::TextureDescriptor {
+            label: Some("berx-media-placeholder"),
+            size: wgpu::Extent3d { width: 1, height: 1, depth_or_array_layers: 1 },
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Rgba8Unorm,
+            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+            view_formats: &[],
+        });
+        /* one defined white pixel: unused where the flag is zero, but a
+           texture is never left with undefined contents */
+        queue.write_texture(
+            wgpu::ImageCopyTexture {
+                texture: &placeholder,
+                mip_level: 0,
+                origin: wgpu::Origin3d::ZERO,
+                aspect: wgpu::TextureAspect::All,
+            },
+            &[255u8, 255, 255, 255],
+            wgpu::ImageDataLayout { offset: 0, bytes_per_row: Some(4), rows_per_image: Some(1) },
+            wgpu::Extent3d { width: 1, height: 1, depth_or_array_layers: 1 },
+        );
+        let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+            label: Some("berx-media"),
+            mag_filter: wgpu::FilterMode::Linear,
+            min_filter: wgpu::FilterMode::Linear,
+            ..Default::default()
+        });
+        let media_bind = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("berx-media"),
+            layout: &media_layout,
+            entries: &[
+                wgpu::BindGroupEntry { binding: 0, resource: wgpu::BindingResource::Sampler(&sampler) },
+                wgpu::BindGroupEntry { binding: 1, resource: wgpu::BindingResource::TextureView(&placeholder.create_view(&Default::default())) },
+            ],
+        });
+
         let layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("berx-world"),
-            bind_group_layouts: &[&globals_layout, &draw_layout],
+            bind_group_layouts: &[&globals_layout, &draw_layout, &media_layout],
             push_constant_ranges: &[],
         });
 
@@ -257,6 +321,7 @@ impl NativeRenderer {
             pipeline,
             globals_layout,
             draw_layout,
+            media_bind,
             meshes: HashMap::new(),
             adapter_name: info.name,
             backend: format!("{:?}", info.backend),
@@ -340,8 +405,10 @@ impl NativeRenderer {
             }
             draws.push(Draw {
                 model: item.model,
-                base: [item.base[0], item.base[1], item.base[2], 0.0],
-                emissive: [item.emissive[0], item.emissive[1], item.emissive[2], 0.0],
+                /* the half-extents the shader's media path needs; this
+                   backend never sets the flag, so they go unread */
+                base: [item.base[0], item.base[1], item.base[2], 0.5],
+                emissive: [item.emissive[0], item.emissive[1], item.emissive[2], 0.5],
                 surface: [item.metalness, item.roughness, item.opacity, item.transmission],
                 pl_pos,
                 pl_col,
@@ -451,6 +518,7 @@ impl NativeRenderer {
             });
             pass.set_pipeline(&self.pipeline);
             pass.set_bind_group(0, &globals_bind, &[]);
+            pass.set_bind_group(2, &self.media_bind, &[]);
             for (i, (key, count)) in plan.iter().enumerate() {
                 let m = self.meshes.get(key).expect("planned");
                 pass.set_bind_group(1, &draw_bind, &[(i as u64 * DRAW_STRIDE) as u32]);

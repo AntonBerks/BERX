@@ -16,12 +16,16 @@
  *
  * Two things are deliberately removed from the frame:
  *
- *   - labels, because the native backend has no text rasteriser yet
- *   - media, because it has no image decoder yet
+ *   - labels, because the native backend has no text rasteriser. Pass
+ *     `{labels: true}` to keep them when comparing the two web backends,
+ *     which both draw names.
+ *   - media, because the native backend has no image decoder. The media
+ *     path is compared separately, web backend against web backend.
  *
- * Both are real gaps and both are reported as gaps. Leaving them in
- * would make the two renderers differ for a reason that has nothing to
- * do with whether they agree about the world.
+ * Both are real gaps in the native backend and both are reported as
+ * gaps. Leaving them in by default would make the renderers differ for
+ * a reason that has nothing to do with whether they agree about the
+ * world.
  */
 import {Berx5DWorldApp, berxTemporalCursor, type Berx5DFrame} from '@berx/spatial';
 import {
@@ -77,7 +81,7 @@ const experience = {
  * camera pose, and a relational layout the world gate already proves
  * lands in the same place every time.
  */
-export function berxCrossRendererFrame(): Berx5DFrame {
+export function berxCrossRendererFrame(options: {labels?: boolean} = {}): Berx5DFrame {
 	const app = new Berx5DWorldApp({
 		viewerId: berxSpatialId('person', PERSON),
 		cursor: berxTemporalCursor(NOW_SECONDS),
@@ -98,10 +102,15 @@ export function berxCrossRendererFrame(): Berx5DFrame {
 		...frame,
 		world: {
 			...frame.world,
-			/* the world pass only: no names, because one backend can draw
-			   text and the other cannot yet, and that difference is a
-			   reported gap rather than a rendering disagreement */
-			objects: frame.world.objects.map((o) => ({...o, label: undefined})),
+			/* By default the world pass only, with no names: the native
+			   backend has no text rasteriser, and comparing it against one
+			   that does would report a difference that is a known gap
+			   rather than a rendering disagreement. `labels: true` keeps
+			   them, for comparing the two web backends against each
+			   other — both of those do draw names. */
+			objects: options.labels === true
+				? frame.world.objects
+				: frame.world.objects.map((o) => ({...o, label: undefined})),
 		},
 		/* a still frame: ambient motion would make two runs differ */
 		reducedMotion: true,

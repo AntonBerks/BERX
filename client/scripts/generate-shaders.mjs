@@ -14,16 +14,20 @@ import {fileURLToPath} from 'node:url';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const pkg = path.resolve(here, '../packages/spatial-shaders');
-const wgsl = fs.readFileSync(path.join(pkg, 'world.wgsl'), 'utf8');
+const SHADERS = [
+	['world.wgsl', 'BERX_WORLD_WGSL'],
+	['label.wgsl', 'BERX_LABEL_WGSL'],
+];
 
+const sources = SHADERS.map(([file, name]) => [name, file, fs.readFileSync(path.join(pkg, file), 'utf8')]);
 const module = `/**
- * GENERATED FROM world.wgsl BY scripts/generate-shaders.mjs — DO NOT EDIT.
+ * GENERATED FROM the .wgsl files BY scripts/generate-shaders.mjs — DO NOT EDIT.
  *
- * Edit packages/spatial-shaders/world.wgsl and run
+ * Edit packages/spatial-shaders/*.wgsl and run
  * \`npm run generate:shaders\`. The shared-core gate fails if this file
  * and the .wgsl it mirrors ever disagree.
  */
-export const BERX_WORLD_WGSL = ${JSON.stringify(wgsl)};
+${sources.map(([name, , text]) => `export const ${name} = ${JSON.stringify(text)};`).join('\n')}
 `;
 fs.writeFileSync(path.join(pkg, 'src/index.ts'), module);
-console.log(`packages/spatial-shaders/src/index.ts regenerated from world.wgsl (${wgsl.length} bytes)`);
+console.log(`packages/spatial-shaders/src/index.ts regenerated from ${sources.map(([, file, text]) => `${file} (${text.length} bytes)`).join(', ')}`);

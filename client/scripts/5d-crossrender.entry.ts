@@ -27,9 +27,7 @@ const api = {
 	},
 	/** The same frame, rendered by the real WebGL2 backend, read back as RGBA8. */
 	render() {
-		const canvas = document.getElementById('world') as HTMLCanvasElement;
-		canvas.width = BERX_CROSS_RENDERER_VIEWPORT.width;
-		canvas.height = BERX_CROSS_RENDERER_VIEWPORT.height;
+		const canvas = freshCanvas(BERX_CROSS_RENDERER_VIEWPORT.width, BERX_CROSS_RENDERER_VIEWPORT.height);
 		const renderer = new BerxThreeRuntimeRenderer(canvas);
 		renderer.resize(canvas.width, canvas.height);
 		renderer.render(berxCrossRendererFrame());
@@ -47,15 +45,122 @@ const api = {
 		};
 	},
 	/**
+	 * The same world with its names on, drawn by both web backends.
+	 *
+	 * Names are left out of the three-way comparison because the native
+	 * backend has no text rasteriser. Both web backends do, and they
+	 * share the rasteriser and take their placement from the same draw
+	 * list, so this checks that a name lands in the same place with the
+	 * same glyphs in both — and that it is drawn at all, by comparing
+	 * against the same world without names.
+	 */
+	async renderLabelled() {
+		const list = api.drawList();
+		const frame = berxCrossRendererFrame({labels: true});
+		const withLabels = berxBuildDrawList(frame, {width: list.width, height: list.height});
+
+		const glCanvas = freshCanvas(list.width, list.height);
+		const gl2 = new BerxThreeRuntimeRenderer(glCanvas);
+		gl2.resize(list.width, list.height);
+		gl2.render(frame);
+		const glContext = glCanvas.getContext('webgl2');
+		if (!glContext) throw new Error('no WebGL2 context');
+		const glPixels = new Uint8Array(list.width * list.height * 4);
+		glContext.readPixels(0, 0, list.width, list.height, glContext.RGBA, glContext.UNSIGNED_BYTE, glPixels);
+		const glStats = gl2.frameStats;
+
+		const gpuCanvas = freshCanvas(list.width, list.height);
+		const gpu = await BerxWebGPURuntimeRenderer.create(gpuCanvas);
+		if (!gpu) return {available: false as const, reason: 'navigator.gpu granted no adapter or device in this browser'};
+		gpu.resize(list.width, list.height);
+		gpu.draw(withLabels, true);
+		const gpuPixels = await gpu.readback();
+		const result = {
+			available: true as const,
+			placed: withLabels.labels.map((l) => ({id: l.id, text: l.text, alpha: l.alpha})),
+			webgl: {rgba: Array.from(flipRows(glPixels, list.width, list.height)), residentLabels: glStats.residentLabels, drawCalls: glStats.drawCalls},
+			webgpu: {rgba: Array.from(gpuPixels), residentLabels: gpu.frameStats.residentLabels, drawCalls: gpu.frameStats.drawCalls},
+			errors: [...gpu.errors],
+		};
+		gpu.dispose();
+		gl2.dispose();
+		return result;
+	},
+
+	/**
+	 * The same world with a real BERX photograph on its moment surface,
+	 * drawn by both web backends.
+	 *
+	 * Media is the one part of the frame the cross-renderer comparison
+	 * deliberately leaves out, because the two paths to the GPU are
+	 * different: WebGL2 uploads through texImage2D, WebGPU through
+	 * writeTexture from decoded pixels. So it is checked here instead,
+	 * on its own, against the same image — and against the same world
+	 * without it, so "the picture is on the surface" is measured rather
+	 * than assumed.
+	 */
+	async renderMedia(uri: string) {
+		const wait = () => new Promise<void>((r) => requestAnimationFrame(() => r()));
+		const list = api.drawList();
+		const frame = berxCrossRendererFrame();
+		const target = frame.world.objects.find((o) => o.kind === 'moment');
+		if (!target) throw new Error('the cross-renderer world has no moment to put a picture on');
+
+		const glCanvas = freshCanvas(list.width, list.height);
+		const gl2 = new BerxThreeRuntimeRenderer(glCanvas);
+		gl2.resize(list.width, list.height);
+		gl2.setObjectMedia(target.id, [{uri}]);
+		/* the image has to decode and upload before it can be drawn; the
+		   renderer reports how many textures are resident, so this waits
+		   on that fact rather than on a timeout */
+		for (let i = 0; i < 240 && gl2.frameStats.residentTextures === 0; i++) {
+			gl2.render(frame);
+			await wait();
+		}
+		gl2.render(frame);
+		const glContext = glCanvas.getContext('webgl2');
+		if (!glContext) throw new Error('no WebGL2 context');
+		const glPixels = new Uint8Array(list.width * list.height * 4);
+		glContext.readPixels(0, 0, list.width, list.height, glContext.RGBA, glContext.UNSIGNED_BYTE, glPixels);
+		const glResident = gl2.frameStats.residentTextures;
+
+		const gpuCanvas = freshCanvas(list.width, list.height);
+		const gpu = await BerxWebGPURuntimeRenderer.create(gpuCanvas);
+		if (!gpu) return {available: false as const, reason: 'navigator.gpu granted no adapter or device in this browser'};
+		gpu.resize(list.width, list.height);
+		gpu.setObjectMedia(target.id, [{uri}]);
+		for (let i = 0; i < 240 && gpu.frameStats.residentTextures === 0; i++) {
+			gpu.draw(berxBuildDrawList(frame, {
+				width: list.width, height: list.height,
+				mediaFor: (id) => (id === target.id ? uri : undefined),
+			}), true);
+			await wait();
+		}
+		gpu.draw(berxBuildDrawList(frame, {
+			width: list.width, height: list.height,
+			mediaFor: (id) => (id === target.id ? uri : undefined),
+		}), true);
+		const gpuPixels = await gpu.readback();
+		const result = {
+			available: true as const,
+			objectId: target.id,
+			webgl: {rgba: Array.from(flipRows(glPixels, list.width, list.height)), residentTextures: glResident},
+			webgpu: {rgba: Array.from(gpuPixels), residentTextures: gpu.frameStats.residentTextures},
+			errors: [...gpu.errors],
+		};
+		gpu.dispose();
+		gl2.dispose();
+		return result;
+	},
+
+	/**
 	 * The same frame through the WebGPU backend, read back off the GPU.
 	 *
 	 * Returns a reason rather than throwing when this browser has no
 	 * WebGPU device: absent is a fact to report, not a failure to hide.
 	 */
 	async renderWebGPU() {
-		const canvas = document.getElementById('gpu') as HTMLCanvasElement;
-		canvas.width = BERX_CROSS_RENDERER_VIEWPORT.width;
-		canvas.height = BERX_CROSS_RENDERER_VIEWPORT.height;
+		const canvas = freshCanvas(BERX_CROSS_RENDERER_VIEWPORT.width, BERX_CROSS_RENDERER_VIEWPORT.height);
 		const renderer = await BerxWebGPURuntimeRenderer.create(canvas);
 		if (!renderer) return {available: false as const, reason: 'navigator.gpu granted no adapter or device in this browser'};
 		renderer.resize(canvas.width, canvas.height);
@@ -68,12 +173,29 @@ const api = {
 			rgba: Array.from(rgba),
 			stats: renderer.frameStats,
 			capabilities: {...renderer.capabilities, ...renderer.extendedCapabilities},
+			errors: [...renderer.errors],
 			kind: renderer.kind,
 		};
 		renderer.dispose();
 		return result;
 	},
 };
+
+/**
+ * A canvas per renderer.
+ *
+ * Each pass below builds its own backend and disposes it afterwards,
+ * and a disposed WebGL2 or WebGPU context cannot be handed to the next
+ * one — reusing a single canvas made the second renderer fail to
+ * compile its shaders against a context that was already gone.
+ */
+function freshCanvas(width: number, height: number): HTMLCanvasElement {
+	const canvas = document.createElement('canvas');
+	canvas.width = width;
+	canvas.height = height;
+	document.body.appendChild(canvas);
+	return canvas;
+}
 
 function flipRows(px: Uint8Array, width: number, height: number): Uint8Array {
 	const row = width * 4;

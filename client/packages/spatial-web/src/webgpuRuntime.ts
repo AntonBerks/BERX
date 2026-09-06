@@ -12,12 +12,12 @@
  *
  * What it does not do is reported rather than implied. There is no
  * shadow map, no image-based lighting and no post chain, the same as on
- * WebGL2. There is also no media path and no label pass yet: WGSL media
- * upload goes through `copyExternalImageToTexture`, which the software
- * driver these gates run against does not support, so rather than
- * approximate a photograph with a colour this backend declares the
- * capability false and the WebGL2 backend remains the one that draws
- * media and names.
+ * WebGL2, and `capabilities` says so. Media is drawn: not through
+ * `copyExternalImageToTexture`, which this driver does not support, but
+ * through `writeTexture` from decoded pixels — see webgpuMediaTextures.
+ * Media textures carry no mipmap chain here, because WebGPU has no
+ * generateMipmap and the downsample passes are not written yet, so a
+ * distant photograph is softer than on WebGL2.
  */
 import {
 	berxBuildDrawList,
@@ -25,13 +25,18 @@ import {
 	type BerxDrawList,
 	type BerxSpatialRenderer,
 } from '@berx/spatial';
-import {BERX_WORLD_WGSL} from '@berx/spatial-shaders';
+import {BERX_LABEL_WGSL, BERX_WORLD_WGSL} from '@berx/spatial-shaders';
 import {createBox, createSphere, createRing, createFrame, type BerxPrimitiveMesh} from './primitiveGeometry';
+import {BerxWebGPUMediaTextures} from './webgpuMediaTextures';
+import {BerxWebGPUTextAtlas} from './webgpuText';
 import type {BerxFrameStats, BerxSpatialRenderOptions} from './threeRuntime';
 
 /** Bytes per draw item. The struct is exactly this, and it is also the alignment. */
 const DRAW_STRIDE = 256;
 const GLOBALS_BYTES = 192;
+/** Bytes per label. One dynamic offset each, at the alignment the API wants. */
+const LABEL_STRIDE = 256;
+const LABEL_GLOBALS_BYTES = 160;
 /** Matches the WebGL2 canvas's `antialias: true`, so the two agree at edges. */
 const SAMPLE_COUNT = 4;
 
@@ -66,7 +71,14 @@ function glToWgpuDepth(projection: readonly number[]): Float32Array {
 	return m;
 }
 
-interface GpuMesh {vertices: GPUBuffer; indices: GPUBuffer; count: number}
+interface GpuMesh {
+	vertices: GPUBuffer;
+	indices: GPUBuffer;
+	count: number;
+	/** local XY half-extent, measured from the vertices themselves */
+	halfX: number;
+	halfY: number;
+}
 
 export class BerxWebGPURuntimeRenderer implements BerxSpatialRenderer {
 	readonly kind = 'webgpu' as const;
@@ -78,8 +90,15 @@ export class BerxWebGPURuntimeRenderer implements BerxSpatialRenderer {
 		shadows: false,
 		postProcessing: false,
 	} as const;
-	/** Media and labels stay on WebGL2; this says so rather than faking them. */
-	readonly extendedCapabilities = {mediaSurfaces: false, worldSpaceLabels: false, multisample: SAMPLE_COUNT} as const;
+	/** What this backend has, beyond the renderer interface's own list. */
+	readonly extendedCapabilities = {
+		mediaSurfaces: true,
+		/** Built on the CPU, since WebGPU has no generateMipmap of its own. */
+		mediaMipmaps: true,
+		worldSpaceLabels: true,
+		labelMipmaps: true,
+		multisample: SAMPLE_COUNT,
+	} as const;
 
 	private readonly meshes = new Map<string, GpuMesh>();
 	private readonly globals: GPUBuffer;
@@ -87,6 +106,23 @@ export class BerxWebGPURuntimeRenderer implements BerxSpatialRenderer {
 	private drawBuffer?: GPUBuffer;
 	private drawBind?: GPUBindGroup;
 	private drawCapacity = 0;
+	private readonly textures: BerxWebGPUMediaTextures;
+	/** objectId -> the one media URI drawn on its face */
+	private readonly media = new Map<string, string>();
+	private readonly mediaSampler: GPUSampler;
+	private readonly mediaLayout: GPUBindGroupLayout;
+	/** bound where an object has no picture, so the flag alone decides */
+	private readonly blankBind: GPUBindGroup;
+	private readonly mediaBinds = new Map<string, GPUBindGroup>();
+	private readonly labels: BerxWebGPUTextAtlas;
+	private readonly labelGlobals: GPUBuffer;
+	private readonly labelGlobalsBind: GPUBindGroup;
+	private labelBuffer?: GPUBuffer;
+	private labelBind?: GPUBindGroup;
+	private labelCapacity = 0;
+	private readonly labelBinds = new Map<string, GPUBindGroup>();
+	/** Every uncaptured device error since this renderer was created. */
+	errors: string[] = [];
 	private offscreen?: GPUTexture;
 	private msaa?: GPUTexture;
 	private depth?: GPUTexture;
@@ -104,7 +140,35 @@ export class BerxWebGPURuntimeRenderer implements BerxSpatialRenderer {
 		private readonly format: GPUTextureFormat,
 		private readonly pipeline: GPURenderPipeline,
 		private readonly drawLayout: GPUBindGroupLayout,
+		mediaLayout: GPUBindGroupLayout,
+		private readonly labelPipeline: GPURenderPipeline,
+		private readonly labelLayout: GPUBindGroupLayout,
+		options: {textureBudget?: number; labelBudget?: number; onMediaError?: (uri: string, error: unknown) => void},
 	) {
+		this.labels = new BerxWebGPUTextAtlas(device, {budget: options.labelBudget});
+		this.labelGlobals = device.createBuffer({size: LABEL_GLOBALS_BYTES, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST});
+		this.labelGlobalsBind = device.createBindGroup({
+			layout: labelPipeline.getBindGroupLayout(0),
+			entries: [{binding: 0, resource: {buffer: this.labelGlobals}}],
+		});
+		this.mediaLayout = mediaLayout;
+		this.textures = new BerxWebGPUMediaTextures(device, {budget: options.textureBudget, onError: options.onMediaError});
+		this.mediaSampler = device.createSampler({magFilter: 'linear', minFilter: 'linear'});
+		const blank = device.createTexture({
+			size: {width: 1, height: 1},
+			format: 'rgba8unorm',
+			usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,
+		});
+		/* one defined white pixel: unused where the flag is zero, but a
+		   texture is never left with undefined contents */
+		device.queue.writeTexture({texture: blank}, new Uint8Array([255, 255, 255, 255]), {bytesPerRow: 4, rowsPerImage: 1}, {width: 1, height: 1});
+		this.blankBind = device.createBindGroup({
+			layout: mediaLayout,
+			entries: [
+				{binding: 0, resource: this.mediaSampler},
+				{binding: 1, resource: blank.createView()},
+			],
+		});
 		this.globals = device.createBuffer({size: GLOBALS_BYTES, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST});
 		this.globalsBind = device.createBindGroup({
 			layout: pipeline.getBindGroupLayout(0),
@@ -119,12 +183,23 @@ export class BerxWebGPURuntimeRenderer implements BerxSpatialRenderer {
 	 * for the better renderer and keep the working one when the answer
 	 * is no.
 	 */
-	static async create(canvas: HTMLCanvasElement): Promise<BerxWebGPURuntimeRenderer | undefined> {
+	static async create(
+		canvas: HTMLCanvasElement,
+		options: {textureBudget?: number; labelBudget?: number; onMediaError?: (uri: string, error: unknown) => void} = {},
+	): Promise<BerxWebGPURuntimeRenderer | undefined> {
 		const gpu = (navigator as Navigator & {gpu?: GPU}).gpu;
 		if (!gpu) return undefined;
 		const adapter = await gpu.requestAdapter({powerPreference: 'high-performance'});
 		if (!adapter) return undefined;
 		const device = await adapter.requestDevice();
+		/* A WebGPU validation error does not throw: it is reported and the
+		   offending work is dropped, which looks exactly like a renderer
+		   that drew nothing. Capturing them is what makes that difference
+		   visible instead of silent. */
+		const errors: string[] = [];
+		device.onuncapturederror = (event) => {
+			errors.push((event as GPUUncapturedErrorEvent).error.message);
+		};
 		const context = canvas.getContext('webgpu') as GPUCanvasContext | null;
 		if (!context) return undefined;
 		/* rgba8unorm, not the preferred srgb format: the WebGL2 backend
@@ -149,6 +224,12 @@ export class BerxWebGPURuntimeRenderer implements BerxSpatialRenderer {
 				buffer: {type: 'uniform', hasDynamicOffset: true, minBindingSize: DRAW_STRIDE},
 			}],
 		});
+		const mediaLayout = device.createBindGroupLayout({
+			entries: [
+				{binding: 0, visibility: GPUShaderStage.FRAGMENT, sampler: {type: 'filtering'}},
+				{binding: 1, visibility: GPUShaderStage.FRAGMENT, texture: {sampleType: 'float', viewDimension: '2d'}},
+			],
+		});
 		const globalsLayout = device.createBindGroupLayout({
 			entries: [{
 				binding: 0,
@@ -157,7 +238,7 @@ export class BerxWebGPURuntimeRenderer implements BerxSpatialRenderer {
 			}],
 		});
 		const pipeline = device.createRenderPipeline({
-			layout: device.createPipelineLayout({bindGroupLayouts: [globalsLayout, drawLayout]}),
+			layout: device.createPipelineLayout({bindGroupLayouts: [globalsLayout, drawLayout, mediaLayout]}),
 			vertex: {
 				module, entryPoint: 'vs',
 				buffers: [{
@@ -183,7 +264,44 @@ export class BerxWebGPURuntimeRenderer implements BerxSpatialRenderer {
 			depthStencil: {format: 'depth32float', depthWriteEnabled: true, depthCompare: 'less'},
 			multisample: {count: SAMPLE_COUNT},
 		});
-		return new BerxWebGPURuntimeRenderer(canvas, device, context, format, pipeline, drawLayout);
+		/* the label pass: its own pipeline, its own quad, its own atlas.
+		   Depth-tested against the world so a name behind a place is
+		   hidden by it, with depth writes off so names never occlude each
+		   other into flicker. */
+		const labelModule = device.createShaderModule({code: BERX_LABEL_WGSL});
+		const labelGlobalsLayout = device.createBindGroupLayout({
+			entries: [{binding: 0, visibility: GPUShaderStage.VERTEX, buffer: {type: 'uniform', minBindingSize: LABEL_GLOBALS_BYTES}}],
+		});
+		const labelLayout = device.createBindGroupLayout({
+			entries: [{
+				binding: 0,
+				visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
+				buffer: {type: 'uniform', hasDynamicOffset: true, minBindingSize: LABEL_STRIDE},
+			}],
+		});
+		const labelPipeline = device.createRenderPipeline({
+			layout: device.createPipelineLayout({bindGroupLayouts: [labelGlobalsLayout, labelLayout, mediaLayout]}),
+			vertex: {module: labelModule, entryPoint: 'vs'},
+			fragment: {
+				module: labelModule, entryPoint: 'fs',
+				targets: [{
+					format,
+					blend: {
+						color: {srcFactor: 'src-alpha', dstFactor: 'one-minus-src-alpha', operation: 'add'},
+						alpha: {srcFactor: 'src-alpha', dstFactor: 'one-minus-src-alpha', operation: 'add'},
+					},
+				}],
+			},
+			/* two-sided: a name has no back, and culling one would make it
+			   vanish when the camera crossed behind its plane */
+			primitive: {topology: 'triangle-list', cullMode: 'none'},
+			depthStencil: {format: 'depth32float', depthWriteEnabled: false, depthCompare: 'less'},
+			multisample: {count: SAMPLE_COUNT},
+		});
+
+		const renderer = new BerxWebGPURuntimeRenderer(canvas, device, context, format, pipeline, drawLayout, mediaLayout, labelPipeline, labelLayout, options);
+		renderer.errors = errors;
+		return renderer;
 	}
 
 	get frameStats(): BerxFrameStats {return {...this.stats};}
@@ -233,7 +351,12 @@ export class BerxWebGPURuntimeRenderer implements BerxSpatialRenderer {
 			const indexBytes = Math.ceil(source.indices.byteLength / 4) * 4;
 			const indices = this.device.createBuffer({size: indexBytes, usage: GPUBufferUsage.INDEX | GPUBufferUsage.COPY_DST});
 			this.device.queue.writeBuffer(indices, 0, source.indices);
-			m = {vertices, indices, count: source.indices.length};
+			let halfX = 0, halfY = 0;
+			for (let i = 0; i < source.vertices.length; i += 6) {
+				halfX = Math.max(halfX, Math.abs(source.vertices[i]));
+				halfY = Math.max(halfY, Math.abs(source.vertices[i + 1]));
+			}
+			m = {vertices, indices, count: source.indices.length, halfX: halfX || .5, halfY: halfY || .5};
 			this.meshes.set(key, m);
 		}
 		return m;
@@ -244,6 +367,7 @@ export class BerxWebGPURuntimeRenderer implements BerxSpatialRenderer {
 			width: this.width, height: this.height,
 			maxObjects: options.maxObjects,
 			ambientMotion: options.ambientMotion,
+			mediaFor: (id) => this.media.get(id),
 		}));
 	}
 
@@ -277,19 +401,41 @@ export class BerxWebGPURuntimeRenderer implements BerxSpatialRenderer {
 				entries: [{binding: 0, resource: {buffer: this.drawBuffer, size: DRAW_STRIDE}}],
 			});
 		}
+		this.textures.beginFrame();
+		/* meshes and textures first: the uniform for an item carries its
+		   mesh's own half-extent and the picture's real aspect ratio, so
+		   both have to be resolved before the buffer is written */
+		const resolved = list.items.map((item) => {
+			const mesh = this.mesh(item.primitive, item.lod);
+			const uri = item.media;
+			const loaded = uri ? this.textures.get(uri) : undefined;
+			return {item, mesh, uri, loaded};
+		});
+
 		const draws = new Float32Array(count * (DRAW_STRIDE / 4));
-		list.items.forEach((item, i) => {
+		resolved.forEach(({item, mesh, loaded}, i) => {
 			const o = i * (DRAW_STRIDE / 4);
 			draws.set(item.model, o);
-			draws.set([item.base[0], item.base[1], item.base[2], 0], o + 16);
-			draws.set([item.emissive[0], item.emissive[1], item.emissive[2], 0], o + 20);
+			/* base.w and emissive.w carry the local half-extent the shader's
+			   planar media projection needs */
+			draws.set([item.base[0], item.base[1], item.base[2], mesh.halfX], o + 16);
+			draws.set([item.emissive[0], item.emissive[1], item.emissive[2], mesh.halfY], o + 20);
 			draws.set([item.metalness, item.roughness, item.opacity, item.transmission], o + 24);
 			const near = item.pointLights.slice(0, 4);
 			near.forEach((light, k) => {
 				draws.set([light.position.x, light.position.y, light.position.z, light.range], o + 28 + k * 4);
 				draws.set([light.colour[0], light.colour[1], light.colour[2], light.intensity], o + 44 + k * 4);
 			});
-			draws[o + 60] = near.length;
+			/* the same cover/contain correction the GLSL pass applies, from
+			   the image's real decoded aspect ratio */
+			const face = mesh.halfX / mesh.halfY;
+			const fit = loaded ? loaded.aspectRatio / face : 1;
+			draws.set([
+				near.length,
+				loaded ? (fit > 1 ? 1 / fit : 1) : 1,
+				loaded ? (fit > 1 ? 1 : fit) : 1,
+				loaded ? 1 : 0,
+			], o + 60);
 		});
 		device.queue.writeBuffer(this.drawBuffer!, 0, draws);
 
@@ -309,15 +455,16 @@ export class BerxWebGPURuntimeRenderer implements BerxSpatialRenderer {
 		pass.setPipeline(this.pipeline);
 		pass.setBindGroup(0, this.globalsBind);
 		let drawCalls = 0, triangles = 0;
-		list.items.forEach((item, i) => {
-			const mesh = this.mesh(item.primitive, item.lod);
+		resolved.forEach(({mesh, uri, loaded}, i) => {
 			pass.setBindGroup(1, this.drawBind!, [i * DRAW_STRIDE]);
+			pass.setBindGroup(2, loaded && uri ? this.mediaBind(uri, loaded.view) : this.blankBind);
 			pass.setVertexBuffer(0, mesh.vertices);
 			pass.setIndexBuffer(mesh.indices, 'uint16');
 			pass.drawIndexed(mesh.count);
 			drawCalls++;
 			triangles += mesh.count / 3;
 		});
+		drawCalls += this.drawLabels(pass, list);
 		pass.end();
 		device.queue.submit([encoder.finish()]);
 
@@ -328,12 +475,107 @@ export class BerxWebGPURuntimeRenderer implements BerxSpatialRenderer {
 			triangles,
 			lodReduced: list.stats.lodReduced,
 			budgetCut: list.stats.budgetCut,
-			/* no media and no label path here; both are zero because both
-			   are absent, not because nothing was resident */
-			residentTextures: 0,
-			residentLabels: 0,
+			residentTextures: this.textures.residentCount,
+			residentLabels: this.labels.residentCount,
 			meshVariants: this.meshes.size,
 		};
+	}
+
+	/**
+	 * The names, where the shared core put them.
+	 *
+	 * Far to near, so the ones in front composite over the ones behind,
+	 * and inside the world pass so the depth buffer already holds
+	 * everything solid. The placement — position, height, fade — is not
+	 * decided here; it arrives in the draw list, which is what makes
+	 * this pass comparable to the WebGL2 one.
+	 */
+	private drawLabels(pass: GPURenderPassEncoder, list: BerxDrawList): number {
+		if (!list.basis || list.labels.length === 0) return 0;
+		this.labels.beginFrame();
+		const resolved = list.labels
+			.map((placement) => ({placement, glyphs: this.labels.get(placement.text)}))
+			.filter((entry): entry is {placement: typeof list.labels[number]; glyphs: NonNullable<ReturnType<BerxWebGPUTextAtlas['get']>>} => entry.glyphs !== undefined);
+		if (resolved.length === 0) return 0;
+
+		const globals = new Float32Array(LABEL_GLOBALS_BYTES / 4);
+		globals.set(glToWgpuDepth(list.projection), 0);
+		globals.set(list.view, 16);
+		globals.set([list.basis.right.x, list.basis.right.y, list.basis.right.z, 0], 32);
+		globals.set([list.basis.up.x, list.basis.up.y, list.basis.up.z, 0], 36);
+		this.device.queue.writeBuffer(this.labelGlobals, 0, globals);
+
+		if (!this.labelBuffer || this.labelCapacity < resolved.length) {
+			this.labelBuffer?.destroy();
+			this.labelBuffer = this.device.createBuffer({
+				size: resolved.length * LABEL_STRIDE,
+				usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+			});
+			this.labelCapacity = resolved.length;
+			this.labelBind = this.device.createBindGroup({
+				layout: this.labelLayout,
+				entries: [{binding: 0, resource: {buffer: this.labelBuffer, size: LABEL_STRIDE}}],
+			});
+		}
+		const data = new Float32Array(resolved.length * (LABEL_STRIDE / 4));
+		resolved.forEach(({placement, glyphs}, i) => {
+			const o = i * (LABEL_STRIDE / 4);
+			data.set([placement.position.x, placement.position.y, placement.position.z, 0], o);
+			data.set([placement.halfHeight * glyphs.aspect, placement.halfHeight, placement.alpha, 0], o + 4);
+		});
+		this.device.queue.writeBuffer(this.labelBuffer!, 0, data);
+
+		pass.setPipeline(this.labelPipeline);
+		pass.setBindGroup(0, this.labelGlobalsBind);
+		let calls = 0;
+		resolved.forEach(({placement, glyphs}, i) => {
+			pass.setBindGroup(1, this.labelBind!, [i * LABEL_STRIDE]);
+			pass.setBindGroup(2, this.glyphBind(placement.text, glyphs.view));
+			pass.draw(6);
+			calls++;
+		});
+		return calls;
+	}
+
+	private glyphBind(text: string, view: GPUTextureView): GPUBindGroup {
+		let bind = this.labelBinds.get(text);
+		if (!bind) {
+			bind = this.device.createBindGroup({
+				layout: this.mediaLayout,
+				entries: [{binding: 0, resource: this.mediaSampler}, {binding: 1, resource: view}],
+			});
+			this.labelBinds.set(text, bind);
+		}
+		return bind;
+	}
+
+	private mediaBind(uri: string, view: GPUTextureView): GPUBindGroup {
+		let bind = this.mediaBinds.get(uri);
+		if (!bind) {
+			bind = this.device.createBindGroup({
+				layout: this.mediaLayout,
+				entries: [{binding: 0, resource: this.mediaSampler}, {binding: 1, resource: view}],
+			});
+			this.mediaBinds.set(uri, bind);
+		}
+		return bind;
+	}
+
+	/**
+	 * The one media surface an object shows.
+	 *
+	 * Only URIs the server actually sent ever reach here; an object with
+	 * none keeps its material colour, which is what "no picture" looks
+	 * like rather than a placeholder.
+	 */
+	setObjectMedia(objectId: string, media: readonly {uri: string}[]): void {
+		const first = media.find((m) => m.uri)?.uri;
+		if (first) this.media.set(objectId, first);
+		else this.media.delete(objectId);
+	}
+
+	forgetObjectMedia(objectId: string): void {
+		this.media.delete(objectId);
 	}
 
 	/**
@@ -378,6 +620,12 @@ export class BerxWebGPURuntimeRenderer implements BerxSpatialRenderer {
 			mesh.indices.destroy();
 		}
 		this.meshes.clear();
+		this.mediaBinds.clear();
+		this.labelBinds.clear();
+		this.labels.dispose();
+		this.labelBuffer?.destroy();
+		this.labelGlobals.destroy();
+		this.textures.dispose();
 		this.drawBuffer?.destroy();
 		this.globals.destroy();
 		this.msaa?.destroy();

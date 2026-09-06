@@ -65,17 +65,10 @@ const BLOCKERS = [
 		evidence: () =>
 			/BerxWebGPURuntimeRenderer/.test(host)
 				? undefined
-				: 'packages/spatial-web/src/webgpuRuntime.ts draws the world pass and agrees with WebGL2 pixel for pixel, but it has no media, label, action-ring or picking path, so runtimeHost5d.ts constructs the WebGL2 backend and no end-to-end session renders through WebGPU',
+				: 'packages/spatial-web/src/webgpuRuntime.ts draws the world, its media and its names and agrees with WebGL2 pixel for pixel, but it has no action-ring or picking path, so runtimeHost5d.ts constructs the WebGL2 backend and no end-to-end session renders through WebGPU',
 		claimed: () => /kind\s*=\s*'webgpu'/.test(renderer),
 	},
-	{
-		what: 'Media upload in the WebGPU backend',
-		evidence: () =>
-			webgpuRenderer && /mediaSurfaces:\s*false/.test(webgpuRenderer)
-				? 'copyExternalImageToTexture is unsupported on the driver these gates run against, so the WebGPU backend declares mediaSurfaces false rather than approximating a photograph with a colour'
-				: undefined,
-		claimed: () => /mediaSurfaces:\s*true/.test(webgpuRenderer),
-	},
+
 	{
 		what: 'Reading a WebGPU canvas texture back',
 		evidence: () =>
