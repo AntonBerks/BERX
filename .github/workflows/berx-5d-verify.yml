@@ -28,6 +28,8 @@ jobs:
         run: npm run verify:static
       - name: Executable 5D runtime invariants
         run: npm run verify:5d-runtime
+      - name: 5D geometry and quality invariants
+        run: npm run verify:5d-geometry
       - name: V9 contracts
         run: npm run verify:v9
       - name: Build spatial web
