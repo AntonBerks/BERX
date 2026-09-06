@@ -5,11 +5,13 @@ import { execFileSync } from 'node:child_process';
 
 const root = path.resolve(new URL('..', import.meta.url).pathname);
 const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'berx-5d-geometry-'));
-const entry = path.join(temp, 'verify.mjs');
+const entry = path.join(temp, 'verify.ts');
+const geometry = path.resolve(root, 'packages/spatial-web/src/primitiveGeometry.ts').replaceAll('\\', '/');
+const quality = path.resolve(root, 'packages/spatial-web/src/runtimeQuality.ts').replaceAll('\\', '/');
 
 const source = `
-${fs.readFileSync(path.join(root, 'packages/spatial-web/src/primitiveGeometry.ts'), 'utf8')}
-${fs.readFileSync(path.join(root, 'packages/spatial-web/src/runtimeQuality.ts'), 'utf8')}
+import { createBox, createSphere, createRing, createFrame } from ${JSON.stringify(geometry)};
+import { resolveSpatialQuality } from ${JSON.stringify(quality)};
 
 const meshes = [
   ['box', createBox()],
@@ -31,15 +33,7 @@ if (reduced.maxObjects > 40) throw new Error('5D quality invariant: reduced moti
 console.log('BERX 5D geometry/quality invariants passed: ' + meshes.length + ' meshes, quality tiers verified.');
 `;
 
-const shim = source
-  .replace(/^export interface /gm, 'interface ')
-  .replace(/^export type /gm, 'type ')
-  .replace(/^export function /gm, 'function ')
-  .replace(/^export const /gm, 'const ')
-  .replace(/^export class /gm, 'class ')
-  .replace(/^export \{.*$/gm, '');
-
-fs.writeFileSync(entry, shim);
+fs.writeFileSync(entry, source);
 const out = execFileSync('npx', ['--yes', 'esbuild', entry, '--bundle', '--platform=node', '--format=esm', '--outfile=' + path.join(temp, 'bundle.mjs')], { cwd: root, encoding: 'utf8' });
 if (!out) throw new Error('5D geometry verification bundle failed');
 execFileSync('node', [path.join(temp, 'bundle.mjs')], { cwd: root, stdio: 'inherit' });
