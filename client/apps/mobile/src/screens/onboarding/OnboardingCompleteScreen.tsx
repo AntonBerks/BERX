@@ -10,11 +10,20 @@
  * gives the real starting level, balance and streak. If points fail to
  * load the screen still completes — it simply shows fewer facts,
  * rather than a zero that would read as "you have nothing".
+ *
+ * The moment and the facts have different fates. The congratulation,
+ * the halo and the way in never depend on a request — finishing
+ * onboarding must not be blocked by a server. The facts do depend on
+ * one, so they carry a real state: a skeleton while the account is in
+ * flight, and the true reason when it does not arrive. A 403 here is
+ * not the same failure as a dead network, and neither is the same as
+ * "you have no points", so none of the three renders as another.
  */
 import {useCallback, useEffect, useState} from 'react';
 import {Animated, StyleSheet, View} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxPointsBalance, BerxUser} from '@berx/api/types';
+import type {BerxScreenState} from '@berx/spatial';
 import {spacing} from '@berx/design-system/tokens';
 import {BerxButton} from '../../../../../packages/design-system/src/components/BerxButton';
 import {BerxDepthLayer} from '../../../../../packages/design-system/src/spatial/BerxDepthLayer';
@@ -23,7 +32,9 @@ import {BerxStatRail, type BerxStat} from '../../../../../packages/design-system
 import {BerxSpatialCard} from '../../../../../packages/design-system/src/spatial/BerxSpatialCard';
 import {useBerxSceneEnter} from '../../../../../packages/design-system/src/spatial/BerxSpatialScene';
 import {BerxActionShelf} from '../../../../../packages/design-system/src/spatial/BerxActionShelf';
+import {BerxDataBoundary} from '../../../../../packages/design-system/src/spatial/BerxDataBoundary';
 import {BerxScreenScene} from '../../spatial/BerxScreenScene';
+import {classifyFailure, type BerxFailure} from '../../spatial/screenState';
 import {useBerxConnectivity} from '../../spatial/useBerxConnectivity';
 import {BerxText} from '../../../../../packages/design-system/src/spatial/BerxText';
 import {BerxWordmark} from '../../../../../packages/design-system/src/spatial/BerxWordmark';
@@ -43,32 +54,41 @@ export default function OnboardingCompleteScreen(props: OnboardingCompleteScreen
 
 function OnboardingCompleteSceneBody({api, onEnter}: OnboardingCompleteScreenProps) {
 	const enter = useBerxSceneEnter();
-	/* A dead network is not "you have no points".
-	 *
-	 * This screen greeted people by name and showed their level before
-	 * either had arrived, so a slow or absent connection produced a
-	 * congratulation addressed to nobody with nothing in it. It waits
-	 * for the answer now, and says so when the answer is that there is
-	 * no connection — while still letting anyone through, because
-	 * finishing onboarding must never depend on the points service. */
+	/* A dead network is not "you have no points", and a 403 is not a
+	 * dead network. This screen greeted people by name and showed a
+	 * level before either had arrived, so a slow or absent connection
+	 * produced a congratulation addressed to nobody with nothing in
+	 * it — identical to the congratulation of someone whose account
+	 * the server genuinely refused. The facts carry a real state now.
+	 * The way in never does: finishing onboarding must not depend on
+	 * the points service, or on any request at all. */
 	const {offline} = useBerxConnectivity();
-	const [ready, setReady] = useState(false);
+	const [state, setState] = useState<BerxScreenState>('loading');
+	const [failure, setFailure] = useState<BerxFailure | null>(null);
 	const [user, setUser] = useState<BerxUser | null>(null);
 	const [points, setPoints] = useState<BerxPointsBalance | null>(null);
 
 	const load = useCallback(async () => {
-		setReady(false);
-		const [me, balance] = await Promise.all([
-			api.me().catch(() => null),
-			/* best-effort: the moment must not depend on the points
-			   service, and a missing balance is omitted rather than shown
-			   as a zero someone has not earned */
-			api.pointsBalance().catch(() => null),
-		]);
+		setState('loading');
+		setFailure(null);
+		let me: BerxUser;
+		try {
+			me = await api.me();
+		} catch (e) {
+			/* the account is what the facts are about: when it does not
+			   arrive, say which of the three reasons it was */
+			const f = classifyFailure(e, offline);
+			setFailure(f);
+			setState(f.state);
+			return;
+		}
 		setUser(me);
-		setPoints(balance);
-		setReady(true);
-	}, [api]);
+		/* best-effort: the moment must not depend on the points service,
+		   and a missing balance is omitted rather than shown as a zero
+		   someone has not earned */
+		setPoints(await api.pointsBalance().catch(() => null));
+		setState('success');
+	}, [api, offline]);
 
 	useEffect(() => {
 		load();
@@ -95,20 +115,38 @@ function OnboardingCompleteSceneBody({api, onEnter}: OnboardingCompleteScreenPro
 				<BerxText role="display" heading style={styles.centered}>
 					{name ? `Готово, ${name}` : 'Готово'}
 				</BerxText>
-				{ready && !user && offline ? (
-					<BerxText role="meta" emphasis="secondary" liveRegion="polite" style={styles.centered}>
-						Нет соединения — ваш профиль и баллы появятся, когда связь вернётся. Войти можно уже сейчас.
-					</BerxText>
-				) : null}
 				<BerxText role="body" emphasis="secondary" style={styles.centered}>
 					Люди, места, события и впечатления — всё в одном пространстве. Начните с того, что рядом.
 				</BerxText>
 
-				{stats.length > 0 ? (
-					<BerxSpatialCard depth="D3" padding={spacing.lg} style={styles.statsCard}>
-						<BerxStatRail stats={stats} />
-					</BerxSpatialCard>
-				) : null}
+				{/* The facts, and only the facts, wait on the server. The
+				    skeleton keeps the card's shape so nothing jumps when the
+				    level lands; a refusal says it is a refusal and offers no
+				    retry, because retrying a permission fails identically
+				    every time. */}
+				<BerxDataBoundary
+					state={state}
+					style={styles.facts}
+					errorMessage={failure?.message}
+					retryable={failure?.retryable ?? true}
+					onRetry={load}
+					privateTitle="Профиль закрыт"
+					privateReason={failure?.message}
+					loadingSkeleton={
+						<BerxSpatialCard depth="D3" padding={spacing.lg} style={styles.statsCard}>
+							<View style={styles.skeletonRail}>
+								<View style={styles.skeletonStat} />
+								<View style={styles.skeletonStat} />
+							</View>
+						</BerxSpatialCard>
+					}
+					testID="berx-010-facts">
+					{stats.length > 0 ? (
+						<BerxSpatialCard depth="D3" padding={spacing.lg} style={styles.statsCard}>
+							<BerxStatRail stats={stats} />
+						</BerxSpatialCard>
+					) : null}
+				</BerxDataBoundary>
 			</Animated.View>
 
 			<BerxActionShelf variant="anchored">
@@ -123,6 +161,10 @@ const styles = StyleSheet.create({
 	haloLayer: {position: 'absolute', top: '16%', left: 0, right: 0, alignItems: 'center'},
 	center: {flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.md},
 	centered: {textAlign: 'center', maxWidth: 340},
+	facts: {alignSelf: 'stretch'},
 	statsCard: {marginTop: spacing.lg, alignSelf: 'stretch'},
+	/* the skeleton stands where the two real stats will stand */
+	skeletonRail: {flexDirection: 'row', gap: spacing.xl, justifyContent: 'center'},
+	skeletonStat: {width: 64, height: 44, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.06)'},
 	actions: {gap: spacing.md},
 });

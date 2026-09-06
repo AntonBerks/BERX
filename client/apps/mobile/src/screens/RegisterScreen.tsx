@@ -8,6 +8,13 @@
  * that might not match what the user has to do. Field-level errors
  * are mapped from the API's real error codes.
  *
+ * Everything the server refuses for a reason of its own — the whole
+ * account system switched off (403), too many attempts (429), BERX
+ * being down (500) — used to arrive as one interchangeable "не удалось
+ * зарегистрироваться", so a wait-and-retry looked exactly like a
+ * never-going-to-work. Those go through classifyFailure now, and the
+ * screen says when trying again cannot change the answer.
+ *
  * v9 puts the form on the structure plane of the AUTH hero scene,
  * makes the error and the success announcement real live regions, and
  * disables submit until every required field is filled instead of
@@ -24,8 +31,22 @@ import {BerxText} from '../../../../packages/design-system/src/spatial/BerxText'
 import {BerxWordmark} from '../../../../packages/design-system/src/spatial/BerxWordmark';
 import {BerxSpatialCard} from '../../../../packages/design-system/src/spatial/BerxSpatialCard';
 import {BerxScreenScene} from '../spatial/BerxScreenScene';
+import {classifyFailure} from '../spatial/screenState';
 import {useBerxConnectivity} from '../spatial/useBerxConnectivity';
 import {BerxSceneScroll} from '../../../../packages/design-system/src/spatial/BerxSceneScroll';
+
+/**
+ * The error codes auth.php actually returns for a field, and what each
+ * one means to the person typing. Anything not in this table is not a
+ * field problem and must not be reported as one.
+ */
+const FIELD_ERROR: Record<string, string> = {
+	username_taken: 'Этот логин уже занят',
+	invalid_username: 'Логин недопустим',
+	email_taken: 'Этот email уже используется',
+	invalid_password: 'Пароль слишком простой',
+	invalid_email: 'Некорректный email',
+};
 
 export interface RegisterScreenProps {
 	api: BerxApiClient;
@@ -58,6 +79,11 @@ function RegisterSceneBody({api, onRegistered, onBack}: RegisterScreenProps) {
 	const [password, setPassword] = useState('');
 	const [submitting, setSubmitting] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+	/* false where pressing the button again fails identically — a
+	   refused capability or a resource that is not there. The button
+	   stays (the form above it can still change), but the screen says
+	   so instead of inviting a pointless second attempt. */
+	const [retryable, setRetryable] = useState(true);
 	const [done, setDone] = useState<string | null>(null);
 
 	async function handleSubmit() {
@@ -67,6 +93,7 @@ function RegisterSceneBody({api, onRegistered, onBack}: RegisterScreenProps) {
 		}
 		setSubmitting(true);
 		setError(null);
+		setRetryable(true);
 		try {
 			const res = await api.register({
 				username: username.trim(),
@@ -82,15 +109,22 @@ function RegisterSceneBody({api, onRegistered, onBack}: RegisterScreenProps) {
 			// that might not match what actually needs to happen next.
 			setDone(res.message);
 		} catch (e) {
-			if (e instanceof BerxApiError) {
-				if (e.code === 'username_taken') setError('Этот логин уже занят');
-				else if (e.code === 'invalid_username') setError('Логин недопустим');
-				else if (e.code === 'email_taken') setError('Этот email уже используется');
-				else if (e.code === 'invalid_password') setError('Пароль слишком простой');
-				else if (e.code === 'invalid_email') setError('Некорректный email');
-				else setError('Не удалось зарегистрироваться');
+			/* A field the server named is the most actionable answer there
+			   is, so it wins: the fix is one edit away in the form above. */
+			const field = e instanceof BerxApiError ? FIELD_ERROR[e.code] : undefined;
+			if (field) {
+				setError(field);
 			} else {
-				setError('Не удалось подключиться');
+				/* everything else is about the request, not the form: a
+				   refusal, a rate limit, a dead server and a dead network
+				   are four different things and now read as four */
+				const failure = classifyFailure(e, offline);
+				setError(
+					failure.kind === 'forbidden'
+						? 'Регистрация сейчас закрыта на сервере.'
+						: failure.message,
+				);
+				setRetryable(failure.retryable);
 			}
 		} finally {
 			setSubmitting(false);
@@ -115,7 +149,6 @@ function RegisterSceneBody({api, onRegistered, onBack}: RegisterScreenProps) {
 					</BerxText>
 				</View>
 				<BerxSpatialCard depth="D2" padding={spacing.xl}>
-					{/* the server's own instruction, announced, not just drawn */}
 					{/* the server's own instruction, announced, not just drawn */}
 					<View accessibilityLiveRegion="polite" style={styles.doneText}>
 						<BerxText role="body" emphasis="secondary" style={styles.centered}>
@@ -146,9 +179,12 @@ function RegisterSceneBody({api, onRegistered, onBack}: RegisterScreenProps) {
 				<BerxInput placeholder="Email" autoCapitalize="none" keyboardType="email-address" value={email} onChangeText={setEmail} style={styles.input} />
 				<BerxInput placeholder="Пароль" secureTextEntry value={password} onChangeText={setPassword} style={styles.input} />
 				{error ? (
-					<Text accessibilityLiveRegion="assertive" accessibilityRole="alert" style={styles.error}>
-						{error}
-					</Text>
+					<View accessibilityLiveRegion="assertive" accessibilityRole="alert" style={styles.errorBlock}>
+						<Text style={styles.error}>{error}</Text>
+						{!retryable ? (
+							<Text style={styles.errorHint}>Повторная попытка ничего не изменит.</Text>
+						) : null}
+					</View>
 				) : null}
 				{offline ? (
 					<View accessibilityLiveRegion="polite" accessibilityRole="alert" style={styles.offlineNotice}>
@@ -185,6 +221,8 @@ const styles = StyleSheet.create({
 	title: {textAlign: 'center', marginBottom: spacing.md},
 	/* the inputs sit inside one glass pane now, so they need their own rhythm */
 	input: {marginBottom: spacing.md},
+	errorBlock: {gap: 2, marginBottom: spacing.sm},
 	error: {color: colors.danger, fontSize: typography.sizeSm, textAlign: 'center'},
+	errorHint: {color: colors.textDim, fontSize: typography.sizeSm, textAlign: 'center'},
 	doneText: {marginBottom: spacing.lg},
 });
