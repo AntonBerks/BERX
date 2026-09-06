@@ -21,7 +21,6 @@ const read = (p) => (fs.existsSync(p) ? fs.readFileSync(p, 'utf8') : '');
 const renderer = read(path.join(clientRoot, 'packages/spatial-web/src/threeRuntime.ts'));
 const nativeRenderer = read(path.join(clientRoot, 'packages/spatial-native/src/lib.rs'));
 const webgpuRenderer = read(path.join(clientRoot, 'packages/spatial-web/src/webgpuRuntime.ts'));
-const host = read(path.join(clientRoot, 'packages/spatial-web/src/runtimeHost5d.ts'));
 
 /**
  * A blocker is real when its evidence still holds. `claimed` is the
@@ -59,14 +58,6 @@ const BLOCKERS = [
 				? 'packages/spatial-native renders offscreen and reads pixels back; there is no windowing or input layer, no installer and no signing target, and no display is reachable from this environment to verify one'
 				: undefined,
 		claimed: () => /winit|raw_window_handle::HasWindowHandle|create_surface\(/.test(nativeRenderer),
-	},
-	{
-		what: 'WebGPU as the renderer a product session runs on',
-		evidence: () =>
-			/BerxWebGPURuntimeRenderer/.test(host)
-				? undefined
-				: 'packages/spatial-web/src/webgpuRuntime.ts draws the world, its media and its names and agrees with WebGL2 pixel for pixel, but it has no action-ring or picking path, so runtimeHost5d.ts constructs the WebGL2 backend and no end-to-end session renders through WebGPU',
-		claimed: () => /kind\s*=\s*'webgpu'/.test(renderer),
 	},
 
 	{

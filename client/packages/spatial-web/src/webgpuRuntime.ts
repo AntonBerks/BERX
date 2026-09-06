@@ -21,9 +21,18 @@
  */
 import {
 	berxBuildDrawList,
+	berxEyeCamera,
+	berxWorldLighting,
+	pickSpatialObject,
+	rayFromNdc,
+	BERX_WORLD_CLEAR,
 	type Berx5DFrame,
+	type BerxActionSlot,
 	type BerxDrawList,
+	type BerxHit,
+	type BerxSpatialAffordance,
 	type BerxSpatialRenderer,
+	type BerxWorldLighting,
 } from '@berx/spatial';
 import {BERX_LABEL_WGSL, BERX_WORLD_WGSL} from '@berx/spatial-shaders';
 import {createBox, createSphere, createRing, createFrame, type BerxPrimitiveMesh} from './primitiveGeometry';
@@ -123,6 +132,11 @@ export class BerxWebGPURuntimeRenderer implements BerxSpatialRenderer {
 	private readonly labelBinds = new Map<string, GPUBindGroup>();
 	/** Every uncaptured device error since this renderer was created. */
 	errors: string[] = [];
+	private affordances: readonly BerxSpatialAffordance[] = [];
+	private slots: readonly BerxActionSlot[] = [];
+	private lighting: BerxWorldLighting = berxWorldLighting();
+	/** Resolves when the device is lost, with the reason it was lost. */
+	private lost?: string;
 	private offscreen?: GPUTexture;
 	private msaa?: GPUTexture;
 	private depth?: GPUTexture;
@@ -305,6 +319,45 @@ export class BerxWebGPURuntimeRenderer implements BerxSpatialRenderer {
 	}
 
 	get frameStats(): BerxFrameStats {return {...this.stats};}
+	/** What can be done to the focused entity. State, not a constant. */
+	setAffordances(affordances: readonly BerxSpatialAffordance[]): void {this.affordances = affordances;}
+	/** Where the ring stood in the last drawn frame. */
+	get actionSlots(): readonly BerxActionSlot[] {return this.slots;}
+	/** Relight the world. Lights are state, not constants baked into a shader. */
+	setLighting(lighting: BerxWorldLighting): void {this.lighting = lighting;}
+	get worldLighting(): BerxWorldLighting {return this.lighting;}
+	get residentTextureCount(): number {return this.textures.residentCount;}
+	get residentLabelCount(): number {return this.labels.residentCount;}
+	/** Why the GPU device went away, if it has. Undefined while it is alive. */
+	get deviceLost(): string | undefined {return this.lost;}
+
+	/**
+	 * What the viewer is pointing at.
+	 *
+	 * The same shared-core ray cast the WebGL2 backend uses, against the
+	 * same world objects: a spatial identity picked here is the same
+	 * identity picked there. `x`/`y` are in backing-store pixels, the
+	 * space the frame was drawn in.
+	 */
+	pick(frame: Berx5DFrame, x: number, y: number): BerxHit | undefined {
+		const ray = rayFromNdc(frame.camera, (x / this.width) * 2 - 1, 1 - (y / this.height) * 2, this.width / this.height);
+		return ray ? pickSpatialObject(ray, frame.world.objects) : undefined;
+	}
+
+	/**
+	 * A lost WebGPU device invalidates every handle at once.
+	 *
+	 * There is no equivalent of WebGL's context-restored event: the
+	 * device is gone and a new one must be requested, which is the
+	 * host's decision rather than this object's. All this does is stop
+	 * the renderer from calling into a dead device and record why.
+	 */
+	handleContextLost(reason = 'device lost'): void {
+		this.lost = reason;
+		this.meshes.clear();
+		this.mediaBinds.clear();
+		this.labelBinds.clear();
+	}
 
 	resize(width: number, height: number): void {
 		this.width = Math.max(1, Math.floor(width));
@@ -363,12 +416,35 @@ export class BerxWebGPURuntimeRenderer implements BerxSpatialRenderer {
 	}
 
 	render(frame: Berx5DFrame, options: BerxSpatialRenderOptions = {}): void {
-		this.draw(berxBuildDrawList(frame, {
-			width: this.width, height: this.height,
+		if (this.lost) return;
+		const listFor = (eye: Berx5DFrame, width: number, height: number) => berxBuildDrawList(eye, {
+			width, height,
 			maxObjects: options.maxObjects,
 			ambientMotion: options.ambientMotion,
+			lighting: this.lighting,
 			mediaFor: (id) => this.media.get(id),
-		}));
+			affordances: this.affordances,
+		});
+		if (options.stereo) {
+			/* the same world, the same lights and the same budget, drawn
+			   twice from cameras a real interpupillary distance apart —
+			   not a second rendering path */
+			const half = Math.max(1, Math.floor(this.width / 2));
+			this.draw(
+				listFor({...frame, camera: berxEyeCamera(frame.camera, options.stereo.ipd, -1)}, half, this.height),
+				false,
+				{x: 0, width: half},
+				{clear: true, keep: true},
+			);
+			this.draw(
+				listFor({...frame, camera: berxEyeCamera(frame.camera, options.stereo.ipd, 1)}, half, this.height),
+				false,
+				{x: half, width: half},
+				{clear: false, keep: false},
+			);
+			return;
+		}
+		this.draw(listFor(frame, this.width, this.height));
 	}
 
 	/**
@@ -379,7 +455,13 @@ export class BerxWebGPURuntimeRenderer implements BerxSpatialRenderer {
 	 * shader and the same draw list; the cross-renderer gate uses it
 	 * because this driver cannot copy out of a canvas texture.
 	 */
-	draw(list: BerxDrawList, offscreen = false): void {
+	draw(
+		list: BerxDrawList,
+		offscreen = false,
+		viewport?: {x: number; width: number},
+		pass_?: {clear: boolean; keep: boolean},
+	): void {
+		if (this.lost) return;
 		const device = this.device;
 
 		const globals = new Float32Array(GLOBALS_BYTES / 4);
@@ -444,14 +526,15 @@ export class BerxWebGPURuntimeRenderer implements BerxSpatialRenderer {
 			colorAttachments: [{
 				view: this.msaa!.createView(),
 				resolveTarget: (offscreen ? this.offscreen! : this.context.getCurrentTexture()).createView(),
-				clearValue: {r: list.clearColor[0], g: list.clearColor[1], b: list.clearColor[2], a: 1},
-				loadOp: 'clear', storeOp: 'store',
+				clearValue: {r: BERX_WORLD_CLEAR[0], g: BERX_WORLD_CLEAR[1], b: BERX_WORLD_CLEAR[2], a: 1},
+				loadOp: pass_?.clear === false ? 'load' : 'clear', storeOp: 'store',
 			}],
 			depthStencilAttachment: {
 				view: this.depth!.createView(),
-				depthClearValue: 1, depthLoadOp: 'clear', depthStoreOp: 'store',
+				depthClearValue: 1, depthLoadOp: pass_?.clear === false ? 'load' : 'clear', depthStoreOp: 'store',
 			},
 		});
+		if (viewport) pass.setViewport(viewport.x, 0, viewport.width, this.height, 0, 1);
 		pass.setPipeline(this.pipeline);
 		pass.setBindGroup(0, this.globalsBind);
 		let drawCalls = 0, triangles = 0;
@@ -464,11 +547,24 @@ export class BerxWebGPURuntimeRenderer implements BerxSpatialRenderer {
 			drawCalls++;
 			triangles += mesh.count / 3;
 		});
+		/* names and the action ring, in the same pass and of the same
+		   material — a word standing in the world beside its object */
 		drawCalls += this.drawLabels(pass, list);
 		pass.end();
 		device.queue.submit([encoder.finish()]);
 
-		this.stats = {
+		this.slots = list.actionSlots;
+		const accumulate = pass_?.keep === true;
+		this.stats = accumulate ? {
+			...this.stats,
+			visible: list.stats.visible,
+			inFrustum: list.stats.inFrustum,
+			drawCalls,
+			triangles,
+			lodReduced: list.stats.lodReduced,
+			budgetCut: list.stats.budgetCut,
+			meshVariants: this.meshes.size,
+		} : {
 			visible: list.stats.visible,
 			inFrustum: list.stats.inFrustum,
 			drawCalls,
@@ -479,24 +575,66 @@ export class BerxWebGPURuntimeRenderer implements BerxSpatialRenderer {
 			residentLabels: this.labels.residentCount,
 			meshVariants: this.meshes.size,
 		};
+		if (!accumulate && pass_?.clear === false) {
+			/* the second eye: its counts add to the first's rather than
+			   replacing them, so frameStats describes the whole frame */
+			this.stats.drawCalls += this.stereoCarry.drawCalls;
+			this.stats.triangles += this.stereoCarry.triangles;
+			this.stats.inFrustum += this.stereoCarry.inFrustum;
+			this.stats.lodReduced += this.stereoCarry.lodReduced;
+			this.stats.budgetCut += this.stereoCarry.budgetCut;
+		}
+		if (accumulate) {
+			this.stereoCarry = {
+				drawCalls, triangles,
+				inFrustum: list.stats.inFrustum,
+				lodReduced: list.stats.lodReduced,
+				budgetCut: list.stats.budgetCut,
+			};
+		}
 	}
 
+	private stereoCarry = {drawCalls: 0, triangles: 0, inFrustum: 0, lodReduced: 0, budgetCut: 0};
+
 	/**
-	 * The names, where the shared core put them.
+	 * The names and the action ring, where the shared core put them.
 	 *
-	 * Far to near, so the ones in front composite over the ones behind,
-	 * and inside the world pass so the depth buffer already holds
-	 * everything solid. The placement — position, height, fade — is not
-	 * decided here; it arrives in the draw list, which is what makes
-	 * this pass comparable to the WebGL2 one.
+	 * One pass, one pipeline and one buffer, because they are the same
+	 * kind of thing — a word standing in the world beside the object it
+	 * belongs to. Names go far to near so the ones in front composite
+	 * over the ones behind; the ring follows, on top of them. The
+	 * placement — position, height, fade — is not decided here: it
+	 * arrives in the draw list, which is what makes this pass comparable
+	 * to the WebGL2 one.
+	 *
+	 * Capacity is settled before anything is recorded. Growing the
+	 * buffer between two draws in the same pass would destroy the buffer
+	 * the earlier draws are bound to.
 	 */
 	private drawLabels(pass: GPURenderPassEncoder, list: BerxDrawList): number {
-		if (!list.basis || list.labels.length === 0) return 0;
 		this.labels.beginFrame();
-		const resolved = list.labels
-			.map((placement) => ({placement, glyphs: this.labels.get(placement.text)}))
-			.filter((entry): entry is {placement: typeof list.labels[number]; glyphs: NonNullable<ReturnType<BerxWebGPUTextAtlas['get']>>} => entry.glyphs !== undefined);
-		if (resolved.length === 0) return 0;
+		if (!list.basis) return 0;
+
+		const named = list.labels
+			.map((placement) => ({
+				position: placement.position,
+				halfHeight: placement.halfHeight,
+				alpha: placement.alpha,
+				text: placement.text,
+				glyphs: this.labels.get(placement.text),
+			}))
+			.filter((entry) => entry.glyphs !== undefined);
+		const ring = list.actionSlots
+			.map((slot) => ({
+				position: slot.position,
+				halfHeight: slot.halfHeight,
+				alpha: 1,
+				text: slot.affordance.label,
+				glyphs: this.labels.get(slot.affordance.label),
+			}))
+			.filter((entry) => entry.glyphs !== undefined);
+		const quads = [...named, ...ring];
+		if (quads.length === 0) return 0;
 
 		const globals = new Float32Array(LABEL_GLOBALS_BYTES / 4);
 		globals.set(glToWgpuDepth(list.projection), 0);
@@ -505,36 +643,43 @@ export class BerxWebGPURuntimeRenderer implements BerxSpatialRenderer {
 		globals.set([list.basis.up.x, list.basis.up.y, list.basis.up.z, 0], 36);
 		this.device.queue.writeBuffer(this.labelGlobals, 0, globals);
 
-		if (!this.labelBuffer || this.labelCapacity < resolved.length) {
-			this.labelBuffer?.destroy();
-			this.labelBuffer = this.device.createBuffer({
-				size: resolved.length * LABEL_STRIDE,
-				usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
-			});
-			this.labelCapacity = resolved.length;
-			this.labelBind = this.device.createBindGroup({
-				layout: this.labelLayout,
-				entries: [{binding: 0, resource: {buffer: this.labelBuffer, size: LABEL_STRIDE}}],
-			});
-		}
-		const data = new Float32Array(resolved.length * (LABEL_STRIDE / 4));
-		resolved.forEach(({placement, glyphs}, i) => {
+		this.ensureLabelCapacity(quads.length);
+		const data = new Float32Array(quads.length * (LABEL_STRIDE / 4));
+		quads.forEach((quad, i) => {
 			const o = i * (LABEL_STRIDE / 4);
-			data.set([placement.position.x, placement.position.y, placement.position.z, 0], o);
-			data.set([placement.halfHeight * glyphs.aspect, placement.halfHeight, placement.alpha, 0], o + 4);
+			data.set([quad.position.x, quad.position.y, quad.position.z, 0], o);
+			data.set([quad.halfHeight * quad.glyphs!.aspect, quad.halfHeight, quad.alpha, 0], o + 4);
 		});
 		this.device.queue.writeBuffer(this.labelBuffer!, 0, data);
 
 		pass.setPipeline(this.labelPipeline);
 		pass.setBindGroup(0, this.labelGlobalsBind);
-		let calls = 0;
-		resolved.forEach(({placement, glyphs}, i) => {
+		quads.forEach((quad, i) => {
 			pass.setBindGroup(1, this.labelBind!, [i * LABEL_STRIDE]);
-			pass.setBindGroup(2, this.glyphBind(placement.text, glyphs.view));
+			pass.setBindGroup(2, this.glyphBind(quad.text, quad.glyphs!.view));
 			pass.draw(6);
-			calls++;
 		});
-		return calls;
+		return quads.length;
+	}
+
+	/**
+	 * Room for `count` label quads.
+	 *
+	 * Sized before the pass records anything, because growing it after a
+	 * draw is bound to the old buffer would destroy a buffer in use.
+	 */
+	private ensureLabelCapacity(count: number): void {
+		if (this.labelBuffer && this.labelCapacity >= count) return;
+		this.labelBuffer?.destroy();
+		this.labelBuffer = this.device.createBuffer({
+			size: Math.max(1, count) * LABEL_STRIDE,
+			usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+		});
+		this.labelCapacity = Math.max(1, count);
+		this.labelBind = this.device.createBindGroup({
+			layout: this.labelLayout,
+			entries: [{binding: 0, resource: {buffer: this.labelBuffer, size: LABEL_STRIDE}}],
+		});
 	}
 
 	private glyphBind(text: string, view: GPUTextureView): GPUBindGroup {

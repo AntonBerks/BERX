@@ -124,6 +124,8 @@ await new Promise((r) => server.listen(0, '127.0.0.1', r));
 const base = `http://127.0.0.1:${server.address().port}/`;
 
 const failures = [];
+/** Which GPU backend the product session actually ran on. Reported, not assumed. */
+let backend = 'unknown';
 const gate = (name, ok, detail) => {
 	console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}`);
 	if (detail) console.log(`      ${detail}`);
@@ -161,15 +163,19 @@ try {
 	}
 	gate('sign-in is a form, and the world replaces it', formBefore === 1 && (await page.evaluate(() => document.querySelectorAll('form').length)) === 0, `${formBefore} form before, 0 after`);
 
-	/* --- the world booted, on a real GPU, holding real entities --- */
+	/* --- the world booted, on a real GPU, holding real entities ---
+	   Either GPU API counts, and which one is reported rather than
+	   assumed: the shell asks for the best backend this browser has, so
+	   pinning this to WebGL2 would fail the moment a browser had
+	   WebGPU — which is not a regression, it is the better renderer. */
 	await page.waitForFunction(() => {
 		const c = document.querySelector('canvas');
-		return c && c.width > 0 && c.getContext('webgl2') !== null;
+		return c && c.width > 0 && window.__berxHost?.renderer?.kind !== undefined;
 	}, undefined, {timeout: 15000});
 
 	const shape = await page.evaluate(() => {
 		const canvas = document.querySelector('canvas');
-		const gl = canvas.getContext('webgl2');
+		const backend = window.__berxHost?.renderer?.kind;
 		/* every element the document actually contains, so a 2D product
 		   UI cannot hide behind a class name */
 		const tags = {};
@@ -178,7 +184,9 @@ try {
 		}
 		return {
 			canvases: document.querySelectorAll('canvas').length,
-			webgl2: gl !== null,
+			backend,
+			gpu: backend === 'webgl2' || backend === 'webgpu',
+			capabilities: {...(window.__berxHost?.renderer?.capabilities ?? {})},
 			backing: {w: canvas.width, h: canvas.height},
 			role: canvas.getAttribute('role'),
 			tabIndex: canvas.tabIndex,
@@ -205,7 +213,28 @@ try {
 			elementCount: document.body.querySelectorAll('*').length,
 		};
 	});
-	gate('the world is a real GPU surface', shape.canvases === 1 && shape.webgl2 && shape.backing.w > 0, `1 canvas, WebGL2, ${shape.backing.w}x${shape.backing.h} backing store`);
+	gate('the world is a real GPU surface',
+		shape.canvases === 1 && shape.gpu && shape.capabilities.depthBuffer === true && shape.capabilities.perspective === true && shape.backing.w > 0,
+		`1 canvas, ${shape.backend}, perspective and depth, ${shape.backing.w}x${shape.backing.h} backing store`);
+	/* Which backend a product session really ended up on, and whether
+	   that was the best one available. The shell asks for WebGPU and
+	   falls back to WebGL2; a browser that has a device and still ran
+	   WebGL2 means the preference silently stopped working. */
+	const gpuAvailable = await page.evaluate(async () => {
+		if (!navigator.gpu) return false;
+		try {
+			return (await navigator.gpu.requestAdapter()) !== null;
+		} catch {
+			return false;
+		}
+	});
+	backend = shape.backend;
+	gate('the product session runs on the best GPU this browser has',
+		gpuAvailable ? shape.backend === 'webgpu' : shape.backend === 'webgl2',
+		gpuAvailable
+			? `a WebGPU device exists and the session is on ${shape.backend}`
+			: `no WebGPU device here; the session is on ${shape.backend}, which is the fallback`);
+
 	gate('the world is focusable and announced', shape.role === 'application' && shape.tabIndex === 0 && shape.liveRegions >= 1, `role=${shape.role} tabIndex=${shape.tabIndex}, ${shape.liveRegions} live regions`);
 
 	/* --- ZERO FLAT: the DOM owns no product UI --- */
@@ -664,4 +693,4 @@ if (failures.length > 0) {
 	console.log(`${failures.length} APP-SHELL GATES FAILED`);
 	process.exit(1);
 }
-console.log('ALL APP-SHELL GATES PASS');
+console.log(`ALL APP-SHELL GATES PASS (backend ${backend})`);

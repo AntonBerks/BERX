@@ -19,7 +19,6 @@ import {
   geometryForEntity,
   type Berx5DFrame,
   type BerxHit,
-  berxActionRing,
   berxBuildDrawList,
   BERX_WORLD_CLEAR,
   type BerxDrawList,
@@ -281,6 +280,7 @@ export class BerxThreeRuntimeRenderer implements BerxSpatialRenderer {
    ambientMotion:options.ambientMotion,
    lighting:this.lighting,
    mediaFor:(id)=>this.media.get(id),
+   affordances:this.affordances,
   });
   if(clear){gl.clearColor(list.clearColor[0],list.clearColor[1],list.clearColor[2],1);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);}
   gl.uniformMatrix4fv(this.P,false,new Float32Array(list.projection));
@@ -317,7 +317,7 @@ export class BerxThreeRuntimeRenderer implements BerxSpatialRenderer {
    else gl.uniform1f(this.HT,0);
    gl.drawElements(gl.TRIANGLES,mesh.count,gl.UNSIGNED_SHORT,0);drawCalls++;triangles+=mesh.count/3;}
   gl.bindVertexArray(null);gl.bindTexture(gl.TEXTURE_2D,null);
-  const labelCalls=this.renderLabels(frame,list);
+  const labelCalls=this.renderLabels(list);
   this.stats={
    visible:list.stats.visible,
    inFrustum:list.stats.inFrustum,
@@ -343,8 +343,8 @@ export class BerxThreeRuntimeRenderer implements BerxSpatialRenderer {
   * They fade with distance rather than growing to stay readable. A
   * label that keeps its screen size is a HUD; this is a world.
   */
- private renderLabels(frame:Berx5DFrame,list:BerxDrawList):number{
-  const gl=this.gl,c=frame.camera;
+ private renderLabels(list:BerxDrawList):number{
+  const gl=this.gl;
   const basis=list.basis;
   if(!basis)return 0;
   let calls=0;
@@ -371,9 +371,9 @@ export class BerxThreeRuntimeRenderer implements BerxSpatialRenderer {
   }
   /* the ring, in the same pass: it is made of the same material as a
      name, because it is the same kind of thing — a word standing in
-     the world beside the object it belongs to */
-  const focusedObject=frame.world.objects.find(o=>o.id===frame.world.activeObjectId);
-  this.slots=berxActionRing(focusedObject,c,this.affordances);
+     the world beside the object it belongs to. Where its slots stand is
+     decided in @berx/spatial with everything else about the frame. */
+  this.slots=list.actionSlots;
   for(const slot of this.slots){
    const entry=this.labels.get(slot.affordance.label);
    if(!entry)continue;

@@ -19,6 +19,7 @@
  * one place: the same culler, the same sort, the same budget, the same
  * LOD distance, the same material and light resolution.
  */
+import {berxActionRing, type BerxActionSlot} from './actionRing';
 import {berxFrustumPlanes, berxLookAt, berxMultiplyMat4, berxPerspective, berxSphereInFrustum} from './frustum';
 import {geometryForEntity, type BerxGeometryKind} from './geometry';
 import {cameraBasis} from './spatialInteraction';
@@ -34,6 +35,7 @@ import {
 } from './worldLighting';
 import type {Berx5DFrame} from './runtime5d';
 import type {BerxSpatialCameraState} from './spatialCamera';
+import type {BerxSpatialAffordance} from './socialActions';
 import type {BerxSpatialEntityKind, BerxSpatialObject, BerxVec3} from './world';
 
 /**
@@ -138,6 +140,14 @@ export interface BerxDrawList {
 	 * labels rather than as labels in the wrong place.
 	 */
 	labels: BerxLabelPlacement[];
+	/**
+	 * The ring of actions around whatever is focused, if anything is.
+	 *
+	 * Drawn as the same kind of quad as a name, because it is the same
+	 * kind of thing — a word standing in the world beside the object it
+	 * belongs to. Empty when nothing is focused or nothing is offered.
+	 */
+	actionSlots: BerxActionSlot[];
 	/** The camera's right and up, for the quads that face it. */
 	basis?: {right: BerxVec3; up: BerxVec3};
 	stats: BerxDrawStats;
@@ -154,6 +164,8 @@ export interface BerxDrawListOptions {
 	lighting?: BerxWorldLighting;
 	/** The media surface an object carries, resolved by the host. */
 	mediaFor?: (objectId: string) => string | undefined;
+	/** What can be done to the focused entity, from the world application. */
+	affordances?: readonly BerxSpatialAffordance[];
 }
 
 const modelMatrix = (p: BerxVec3, s: BerxVec3, r: {x: number; y: number; z: number}): number[] => {
@@ -347,6 +359,11 @@ export function berxBuildDrawList(frame: Berx5DFrame, options: BerxDrawListOptio
 		},
 		items,
 		labels,
+		actionSlots: berxActionRing(
+			frame.world.objects.find((o) => o.id === frame.world.activeObjectId),
+			c,
+			options.affordances ?? [],
+		),
 		basis: basis ? {right: {...basis.right}, up: {...basis.up}} : undefined,
 		stats: {
 			visible: all.length,

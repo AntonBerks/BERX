@@ -135,7 +135,20 @@ if (noNative) {
 	blocked('packaging', 'client/packages/spatial-native builds and renders, but it is a renderer library with no windowing, no installer and no signing target, so there is nothing to package for a user yet', 'client/packages/spatial-native', 'repository');
 	blocked('real-device-verification', 'no physical iPhone, Android device, Apple Watch or headset is reachable from this environment', 'environment', 'device');
 }
-blocked('webgpu', "packages/spatial-web/src/webgpuRuntime.ts is a real WebGPU backend: it consumes the shared draw list, runs the same WGSL as the native crate, draws real media and real names, and its frame agrees with the WebGL2 one to a mean of 0.02/255 (verify:5d-crossrender). It is still not what the product runs — no action-ring or picking path — so runtimeHost5d.ts stays on WebGL2 and no end-to-end session renders through WebGPU", 'npm run verify:5d-crossrender', 'browser');
+/* WebGPU is only verified where a product session really ran on it.
+   The app-shell run reports the backend it ended up on, and a browser
+   with no WebGPU device correctly falls back to WebGL2 — which is a
+   working product and an unproven requirement, not a passing one. */
+const shellOnWebGPU = shell.status === 'verified' && /backend webgpu/.test(shell.evidence);
+if (shellOnWebGPU) {
+	records.push(berxEvidence({
+		requirement: 'webgpu', status: 'verified',
+		evidence: `a full product session — sign-in, real server entities, camera navigation, media, names and a reload that restores the pose — ran end to end on WebGPU (verify:5d-app-shell), and the same frame through that backend matches the WebGL2 one to a mean of 0.02/255 with 99.93% silhouette agreement (verify:5d-crossrender)`,
+		observedAt: now(), source: 'browser', origin: 'npm run verify:5d-app-shell',
+	}));
+} else {
+	blocked('webgpu', `packages/spatial-web/src/webgpuRuntime.ts is a real WebGPU backend and the shell asks for it first, but this environment granted no WebGPU device, so the session fell back to WebGL2 and nothing of the product rendered through WebGPU here: ${shell.evidence}`, 'npm run verify:5d-app-shell', 'browser');
+}
 blocked('gpu-recovery', 'WebGL context loss is handled and the meshes rebuild, but a real device loss cannot be forced in this environment, so recovery is unproven end to end', 'packages/spatial-web/src/runtimeHost5d.ts', 'browser');
 
 const noBackend = !fs.existsSync(path.join(repoRoot, 'backend/opensource-socialnetwork-master/components/OssnApi'));

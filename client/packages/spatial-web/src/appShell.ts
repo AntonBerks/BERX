@@ -24,6 +24,7 @@
  */
 import {Berx5DWorldApp, berxTemporalCursor, type BerxSocialAction, type BerxSpatialObject, type BerxWorldIngest, type BerxWorldPersistence, type BerxWorldPosition} from '@berx/spatial';
 import {createBerx5DWebHost, type Berx5DWebHost} from './runtimeHost5d';
+import {createBerxWebRenderer} from './webRenderer';
 
 export interface BerxAppShellOptions {
 	/** Where the world is drawn. Created and appended when omitted. */
@@ -36,6 +37,15 @@ export interface BerxAppShellOptions {
 	load: () => Promise<{entries: BerxWorldIngest[]; viewerId?: string; failures: {source: string; message: string}[]}>;
 	reducedMotion?: boolean;
 	textureBudget?: number;
+	/**
+	 * Which GPU backend to run on.
+	 *
+	 * The default asks for the best one this browser has — WebGPU where
+	 * it grants a device, WebGL2 where it does not. Naming one is for
+	 * verification, which has to be able to say which backend a
+	 * measurement came from.
+	 */
+	renderer?: 'auto' | 'webgl2' | 'webgpu';
 	/** Told what the viewer is looking at, for the accessibility outline. */
 	onPositionChange?: (position: BerxWorldPosition) => void;
 	/**
@@ -163,9 +173,19 @@ export async function startBerxApp(options: BerxAppShellOptions): Promise<BerxAp
 	outline.style.cssText = 'position:absolute;width:1px;height:1px;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap';
 	mount.appendChild(outline);
 
+	/* the best GPU this browser actually has, asked for rather than
+	   assumed: requesting a WebGPU adapter is asynchronous, and guessing
+	   from navigator.gpu is how a page ends up with a renderer it cannot
+	   use */
+	const renderer = await createBerxWebRenderer(canvas, {
+		textureBudget: options.textureBudget,
+		prefer: options.renderer ?? 'auto',
+	});
+
 	const host = createBerx5DWebHost({
 		canvas,
 		world,
+		renderer,
 		reducedMotion: options.reducedMotion,
 		textureBudget: options.textureBudget,
 	});

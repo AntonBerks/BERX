@@ -359,7 +359,6 @@ if (nativeVsWebgl) {
 /* ---- 4. what these backends still cannot do ---- */
 blocked('native-media', 'packages/spatial-native has no image decoder: a draw item carrying a media surface is counted and left undrawn rather than substituted. The shader has the path; this backend has nothing to put in it');
 blocked('native-labels', 'packages/spatial-native has no text rasteriser: the shared core places names for it, and it draws none. The three-way comparison therefore runs on a world with no names, and the WebGPU name pass is compared against WebGL2 separately');
-blocked('webgpu-product', 'the WebGPU backend draws the world, its media and its names and agrees with WebGL2, but it has no action-ring or picking path, so packages/spatial-web/src/runtimeHost5d.ts still runs WebGL2 and no end-to-end product session renders through WebGPU');
 blocked('desktop-window', 'packages/spatial-native renders offscreen and reads back; there is no windowing/input layer, no installer, and no display is reachable from this environment to verify one');
 
 console.log('');

@@ -26,6 +26,7 @@
  */
 import { Berx5DRuntime, Berx5DWorldApp, cameraBasis, pickActionSlot, rayFromNdc, type BerxSpatialObject, type BerxWorldIngest } from '@berx/spatial';
 import { BerxThreeRuntimeRenderer } from './threeRuntime';
+import type { BerxWebRendererBackend } from './webRenderer';
 import { resolveSpatialQuality, type BerxSpatialQualityResult } from './runtimeQuality';
 
 export interface Berx5DWebHostOptions {
@@ -54,6 +55,17 @@ export interface Berx5DWebHostOptions {
 	textureBudget?: number;
 	/** A real media URL that would not load. Reported, never substituted. */
 	onMediaError?: (uri: string, error: unknown) => void;
+	/**
+	 * The GPU backend to draw with.
+	 *
+	 * Omitted, the host builds the WebGL2 one, which is what every
+	 * synchronous caller gets and has always got. A caller that can wait
+	 * — `startBerxApp` does — builds one with `createBerxWebRenderer`
+	 * and passes it here, which is how a session ends up on WebGPU where
+	 * the browser has it. The host does not care which it is: everything
+	 * about the world is decided in @berx/spatial either way.
+	 */
+	renderer?: BerxWebRendererBackend;
 }
 
 export interface Berx5DWebHost {
@@ -63,7 +75,7 @@ export interface Berx5DWebHost {
 	readonly world?: Berx5DWorldApp;
 	/** Put real entities into the world. Requires a world. */
 	ingest(entries: readonly BerxWorldIngest[]): void;
-	readonly renderer: BerxThreeRuntimeRenderer;
+	readonly renderer: BerxWebRendererBackend;
 	readonly quality: BerxSpatialQualityResult;
 	/** False while the GPU context is lost; the world state survives. */
 	readonly contextAlive: boolean;
@@ -163,7 +175,8 @@ export function createBerx5DWebHost(options: Berx5DWebHostOptions = {}): Berx5DW
 	const world = options.world;
 	const runtime = world?.runtime ?? new Berx5DRuntime({reducedMotion, deviceMotionEnabled: options.deviceMotion !== false});
 	world?.setAccessibility({reducedMotion});
-	const renderer = new BerxThreeRuntimeRenderer(canvas, {textureBudget: options.textureBudget, onMediaError: options.onMediaError});
+	const renderer: BerxWebRendererBackend = options.renderer
+		?? new BerxThreeRuntimeRenderer(canvas, {textureBudget: options.textureBudget, onMediaError: options.onMediaError});
 	const pixelRatioCap = Math.max(1, options.pixelRatioCap ?? 2);
 
 	let quality: BerxSpatialQualityResult = {quality: 'balanced', pixelRatio: 1, maxObjects: 80, ambientMotion: true};
