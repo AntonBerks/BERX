@@ -5,7 +5,14 @@ export * from './contract';
 export * from './atmosphere';
 export * from './materials';
 export * from './lighting';
-export * from './camera';
+export {
+  type BerxCameraContract,
+  type BerxCameraRuntime,
+  depthUnitPx,
+  resolveCamera,
+  perspectiveScale,
+  tiltFromPointer,
+} from './camera';
 export * from './motion';
 export * from './performance';
 export * from './focus';
