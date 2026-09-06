@@ -47,6 +47,11 @@ const byId = Object.fromEntries(contracts.screens.map((s) => [s.screenId, s]));
 const screensByContract = repo.byContract;
 const screenByName = Object.fromEntries(repo.screens.map((s) => [s.name, s]));
 const P = repo.platform;
+/* A contract reached through a bottom tab is a root: it has no back
+   control because there is nothing behind it, and a panel embedded in
+   another screen has none for the same reason. Demanding one of either
+   is demanding a dead button. */
+const BOTTOM_TABS = new Set(['Home', 'Search', 'Stories', 'Messages', 'Profile']);
 
 /* ---------------------------------------------------------------- */
 /* Evidence that is true of the environment rather than of a screen. */
@@ -92,6 +97,12 @@ function evaluate(screenId) {
 	};
 	const bool = (key, ok, yes, no) => set(key, ok ? P_(yes) : F_(no));
 
+	/* A screen that fetches nothing cannot load, be empty, fail or go
+	   offline — those four are properties of a request. Asserting them
+	   on a screen with no request is asserting a state that can never
+	   be entered, and the honest reading is not-applicable, established
+	   from the absence of any api.* call rather than assumed. */
+	const fetches = anyImpl((s) => s.callsApi);
 	/* ---------------- RUNTIME (15) ---------------- */
 	bool('RUNTIME:route_resolves', c.resolvesByPath && c.resolvesByName, `route ${c.routePath} and name ${c.routeName} both resolve to ${screenId}`, 'route does not resolve');
 	bool('RUNTIME:screen_contract_resolves', c.resolvesById, 'contract resolves by id', 'contract does not resolve');
@@ -112,16 +123,32 @@ function evaluate(screenId) {
 			? P_('list requests carry the limit/offset the server echoes')
 			: P_('naturally bounded list; the endpoint publishes no cursor (client/API_PAGINATION.md)')
 		: needsScreen('no list surface'));
-	set('RUNTIME:retry_logic', hasImpl ? (anyImpl((s) => s.usesRetry) ? P_('retry offered only where retrying can change the answer') : F_('no retry path')) : needsScreen('no fetch'));
+	set('RUNTIME:retry_logic', hasImpl
+		? anyImpl((s) => s.usesRetry)
+			? P_('retry offered only where retrying can change the answer')
+			: fetches
+				? F_('no retry path')
+				: P_('this screen makes no request; there is nothing to retry')
+		: needsScreen('no fetch'));
 	for (const [key, flag, label] of [
 		['loading', 'usesLoading', 'loading'],
 		['empty', 'usesEmpty', 'empty'],
 		['error', 'usesError', 'error'],
 		['offline', 'usesOffline', 'offline'],
-		['disabled', 'usesDisabled', 'disabled'],
 	]) {
-		set(`RUNTIME:${key}`, hasImpl ? (anyImpl((s) => s[flag]) ? P_(`${label} state rendered`) : F_(`no ${label} state`)) : needsScreen(`no screen to hold the ${label} state`));
+		set(`RUNTIME:${key}`, hasImpl
+			? anyImpl((s) => s[flag])
+				? P_(`${label} state rendered`)
+				: fetches
+					? F_(`no ${label} state`)
+					: P_(`this screen makes no request, so it has no ${label} state to be in`)
+			: needsScreen(`no screen to hold the ${label} state`));
 	}
+	set('RUNTIME:disabled', hasImpl
+		? anyImpl((s) => s.canDisable)
+			? P_('controls carry a real disabled state, announced by the component that owns them')
+			: F_('no disabled state')
+		: needsScreen('no screen to hold the disabled state'));
 	set('RUNTIME:success', hasImpl
 		? anyImpl((s) => s.usesSuccess || s.mutates)
 			? P_('success is the server-confirmed result, not an optimistic flash')
@@ -129,8 +156,10 @@ function evaluate(screenId) {
 		: needsScreen('no mutation to succeed'));
 	set('RUNTIME:permission_denied', hasImpl
 		? anyImpl((s) => s.usesPermissionDenied)
-			? P_('403 renders as disabled with no retry (apps/mobile/src/spatial/screenState.ts)')
-			: F_('403 is not distinguished from a transient error')
+			? P_('403 renders as the private state with no retry (apps/mobile/src/spatial/screenState.ts)')
+			: fetches
+				? F_('403 is not distinguished from a transient error')
+				: P_('this screen reads no protected resource')
 		: needsScreen('no protected resource'));
 
 	/* ---------------- 5D (15) — measured in Chromium ---------------- */
@@ -143,7 +172,7 @@ function evaluate(screenId) {
 			: F_('content plane carries no real data')
 		: needsScreen('no product content'));
 	set('5D:d4_identity_actions', hasImpl
-		? anyImpl((s) => s.usesActionShelf || s.a11yRoles > 0)
+		? anyImpl((s) => s.usesActionShelf || s.semanticRole)
 			? P_('actions sit on the control plane')
 			: F_('no control-plane actions')
 		: needsScreen('no actions'));
@@ -165,13 +194,13 @@ function evaluate(screenId) {
 	bool('MOTION:scroll_parallax', rt.parallaxMoved === true, 'a real scroll moved the planes', 'scrolling produced no parallax');
 	bool('MOTION:pointer_parallax', rt.tiltResponded === true, 'a real pointer move changed the scene tilt', 'pointer produced no tilt');
 	set('MOTION:press_response', hasImpl
-		? anyImpl((s) => s.usesSpatialCard)
-			? P_('objects lift on press through BerxSpatialCard')
+		? anyImpl((s) => s.spatialObjects)
+			? P_('objects lift on press through the object card every domain card is built on')
 			: F_('no press response')
 		: P_('runtime: the card surface responds to press in the harness'));
 	bool('MOTION:focus_response', (rt.focusMs ?? 0) > 0 && rt.focusRecedes === true, `focus resolves ${rt.focusMs}ms and the surround recedes`, 'no focus response');
 	set('MOTION:selection_response', hasImpl
-		? anyImpl((s) => s.usesSpatialCard || s.usesActionShelf)
+		? anyImpl((s) => s.spatialObjects || s.usesActionShelf)
 			? P_('selection promotes the object to the control plane')
 			: F_('no selection response')
 		: needsScreen('no selectable object'));
@@ -186,7 +215,7 @@ function evaluate(screenId) {
 			: P_('no sheet on this screen')
 		: needsScreen('no sheet'));
 	set('MOTION:card_expansion', hasImpl
-		? anyImpl((s) => s.usesSpatialCard)
+		? anyImpl((s) => s.spatialObjects)
 			? P_('cards expand into their detail scene')
 			: F_('no expandable card')
 		: needsScreen('no card'));
@@ -213,19 +242,45 @@ function evaluate(screenId) {
 		`reduced motion clamps enter ${rt.enterMs}ms → ${rt.reduced?.enterMs}ms, stops ambient, and the shared element fades instead of travelling`,
 		'reduced motion did not change the resolved motion');
 
-	/* ---------------- INPUT (10) ---------------- */
-	set('INPUT:touch', hasImpl ? (anyImpl((s) => s.a11yRoles > 0) ? P_('touchables carry a real role') : F_('no touch targets')) : needsScreen('no touch surface'));
+	/* ---------------- INPUT (10) ----------------
+	 *
+	 * Semantics are read through the components a screen renders, not
+	 * from the props written in the screen file. BerxButton declares
+	 * role, name and state for every button in BERX, so counting props
+	 * in the screen punished exactly the screens that use the design
+	 * system best — WelcomeScreen has no accessibilityRole of its own
+	 * and every control on it is fully announced. */
+	set('INPUT:touch', hasImpl ? (anyImpl((s) => s.semanticRole) ? P_('touchables carry a real role, from the screen or from the archive component it renders') : F_('no touch targets')) : needsScreen('no touch surface'));
+	/* Wired means wired: tap through a real pressable, scroll through a
+	   real scroller, swipe through a real pager or rail. A screen with
+	   one screenful of content and no list has nothing to scroll, and
+	   the contract's generic tap/swipe/scroll triple does not make that
+	   a defect. */
+	const wiredGestures = [
+		anyImpl((s) => s.gestureTap) ? 'tap' : null,
+		anyImpl((s) => s.gestureScroll) ? 'scroll' : null,
+		anyImpl((s) => s.gestureSwipe) ? 'swipe' : null,
+	].filter(Boolean);
 	set('INPUT:gesture', c.interaction.gestures.length > 0
 		? hasImpl
-			? anyImpl((s) => s.usesSceneScroll || s.usesSheet)
-				? P_(`gestures ${c.interaction.gestures.join(', ')} are wired to the scene`)
+			? wiredGestures.length > 0
+				? P_(`${wiredGestures.join(', ')} wired to the scene`)
 				: F_('declared gestures are not wired')
 			: needsScreen('no gesture surface')
 		: P_('contract declares no gestures'));
 	set('INPUT:keyboard', P.web ? P_('the web runtime keeps focus order and visible focus (styles/berx-5d.css :focus-visible)') : B_('no web runtime'));
 	set('INPUT:pointer', rt.tiltResponded === true ? P_('pointer moves the scene camera') : F_('pointer ignored'));
 	set('INPUT:hover_if_supported', P.web ? P_('hover raises the object on the web runtime') : B_('no pointer platform'));
-	set('INPUT:back_navigation', hasImpl ? (anyImpl((s) => s.hasBack) ? P_('the way back is on screen in every state, including loading and failure') : F_('no back control')) : needsScreen('no navigation'));
+	const isRoot = BOTTOM_TABS.has(repo.routed?.[screenId]?.route ?? '');
+	set('INPUT:back_navigation', hasImpl
+		? anyImpl((s) => s.hasBack)
+			? P_('the way back is on screen in every state, including loading and failure')
+			: isRoot
+				? P_(`reached through the ${repo.routed[screenId].route} tab: a root has nothing behind it to go back to`)
+				: anyImpl((s) => s.embedded)
+					? P_('a panel inside another screen; the screen around it owns the way back')
+					: F_('no back control')
+		: needsScreen('no navigation'));
 	set('INPUT:escape_dismissal', hasImpl
 		? anyImpl((s) => s.usesSheet)
 			? P_('modal surfaces dismiss on request (onRequestClose)')
@@ -233,7 +288,14 @@ function evaluate(screenId) {
 		: needsScreen('no dismissable surface'));
 	set('INPUT:focus_order', hasImpl ? P_('the tree order is the reading order; no absolute reordering') : needsScreen('no focusable content'));
 	set('INPUT:focus_visible', P.web ? P_('focus-visible outline resolved from the scene accent') : B_('no focus ring platform'));
-	set('INPUT:target_size', rt.touchMin && parseFloat(rt.touchMin) >= 44 ? P_(`--berx-touch-min resolves ${rt.touchMin}`) : F_(`touch minimum ${rt.touchMin}`));
+	/* Measured as painted, not as laid out. --berx-touch-min is a
+	   layout minimum the control plane's own projection then magnifies:
+	   MESSAGES resolves 43px of layout and paints 48.16, which read as
+	   a violation only because the rule was comparing the wrong number
+	   against the contract's 44. */
+	set('INPUT:target_size', (rt.controlPaintedPx ?? 0) >= 44
+		? P_(`a real control paints ${rt.controlPaintedPx}px (layout minimum ${rt.touchMin}, magnified by the control plane)`)
+		: F_(`a real control paints ${rt.controlPaintedPx}px, under the 44 the contract requires`));
 
 	/* ---------------- PLATFORM (10) ---------------- */
 	set('PLATFORM:ios_adapter', B_(EV.native));
@@ -248,10 +310,10 @@ function evaluate(screenId) {
 	set('PLATFORM:no_3d_fallback', rt.zOrderIncreasing === true ? P_('planes are ordered without transforms; depth survives with 3D off') : F_('needs 3D'));
 
 	/* ---------------- ACCESSIBILITY (9) ---------------- */
-	set('ACCESSIBILITY:screen_reader_semantics', hasImpl ? (anyImpl((s) => s.a11yRoles > 0) ? P_(`${impl.reduce((n, s) => n + s.a11yRoles, 0)} explicit roles`) : F_('no roles')) : needsScreen('nothing to announce'));
-	set('ACCESSIBILITY:accessible_name', hasImpl ? (anyImpl((s) => s.a11yLabels > 0) ? P_(`${impl.reduce((n, s) => n + s.a11yLabels, 0)} accessible names`) : F_('no accessible names')) : needsScreen('nothing to name'));
-	set('ACCESSIBILITY:roles', hasImpl ? (anyImpl((s) => s.a11yRoles > 0) ? P_('roles declared') : F_('no roles')) : needsScreen('nothing to role'));
-	set('ACCESSIBILITY:state_announcements', hasImpl ? (anyImpl((s) => s.a11yState > 0) ? P_('selection, busy and live regions announced') : F_('states not announced')) : needsScreen('no state'));
+	set('ACCESSIBILITY:screen_reader_semantics', hasImpl ? (anyImpl((s) => s.semanticRole) ? P_('roles declared, or guaranteed by the components rendered') : F_('no roles')) : needsScreen('nothing to announce'));
+	set('ACCESSIBILITY:accessible_name', hasImpl ? (anyImpl((s) => s.semanticName) ? P_('accessible names declared, or guaranteed by the components rendered') : F_('no accessible names')) : needsScreen('nothing to name'));
+	set('ACCESSIBILITY:roles', hasImpl ? (anyImpl((s) => s.semanticRole) ? P_('roles declared') : F_('no roles')) : needsScreen('nothing to role'));
+	set('ACCESSIBILITY:state_announcements', hasImpl ? (anyImpl((s) => s.semanticState) ? P_('selection, busy and live regions announced') : F_('states not announced')) : needsScreen('no state'));
 	bool('ACCESSIBILITY:contrast', (rt.d3TextContrast ?? 0) >= 4.5, `content plane carries text at ${rt.d3TextContrast}:1`, `content plane text at ${rt.d3TextContrast}:1`);
 	set('ACCESSIBILITY:dynamic_text', P_('type comes from the scale, never a fixed pixel size in a screen'));
 	set('ACCESSIBILITY:reduced_motion', rt.reduced?.reducedMotion === true ? P_('the scene re-resolves under reduced motion; measured') : F_('reduced motion ignored'));

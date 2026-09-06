@@ -179,6 +179,24 @@ interface MaxRuntimeWindow extends Window {
 			d3TextContrast: scene.scene.layers.D3.surface.textContrast,
 			d3Blurred: scene.scene.layers.D3.blurred,
 			touchMin: rootStyle.getPropertyValue('--berx-touch-min').trim(),
+			/**
+			 * The control as painted, not as laid out.
+			 *
+			 * `--berx-touch-min` is a *layout* minimum: the control plane
+			 * is nearer the camera, so the runtime divides 44 by that
+			 * projection and a smaller box paints at the right size. On
+			 * the MESSAGES family that layout number is 43, which looks
+			 * like a violation and is not one — the camera magnifies it
+			 * past 44 before anyone can touch it. getBoundingClientRect
+			 * includes the transform, so this measures what the finger
+			 * actually gets.
+			 */
+			controlPaintedPx: (() => {
+				const control = document.querySelector<HTMLElement>('.berx-control');
+				if (!control) return 0;
+				const box = control.getBoundingClientRect();
+				return Math.round(Math.min(box.width, box.height) * 100) / 100;
+			})(),
 		};
 
 		/* the same scene with the glass taken away: depth that survives

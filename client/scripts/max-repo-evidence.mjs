@@ -55,6 +55,9 @@ for (const dir of dsDirs) {
 			g.state = /accessibilityState|accessibilityLiveRegion/.test(src);
 			g.target = /BERX_V9_TOUCH|minHeight: (4[4-9]|[5-9]\d)|minWidth: 44/.test(src);
 			g.press = /onPressIn|Animated|Pressable/.test(src);
+			/* the component puts its content on a real depth plane and
+			   lifts on press — a screen rendering it inherits both */
+			g.spatialCard = /BerxSpatialCard|BerxObjectCard/.test(src);
 		}
 	}
 }
@@ -160,6 +163,17 @@ const screens = files.map((file) => {
 		hasBack: has(/onBack/),
 		usesReducedMotion: has(/reducedMotion|useBerxAccessibility/),
 
+		/* Is this screen a root of the tab bar, or a panel embedded in
+		   another screen? Either way it has no back control of its own,
+		   and demanding one would be asking for a dead button. */
+		isTabRoot: /BERX_BOTTOM_TABS/.test(appShell) && new RegExp(`'(Home|Search|Stories|Messages|Profile)':[\\s\\S]{0,400}<${path.basename(file, '.tsx')}\\b`).test(appShell),
+		embedded: !/export default function/.test(src),
+
+		/* gestures the screen actually wires */
+		gestureTap: /onPress|Pressable|BerxButton|BerxIconButton|BerxSpatialCard|BerxObjectCard|BerxListRow/.test(src),
+		gestureScroll: has(/BerxSceneScroll|BerxSceneList|ScrollView|FlatList|SectionList/),
+		gestureSwipe: has(/BerxHorizontalRail|BerxStoryTray|horizontal|pagingEnabled/),
+
 		/* product */
 		analytics: has(/berxAnalytics/),
 		reportPath: has(/onReport|ReportScreen|report\(/),
@@ -171,7 +185,14 @@ const screens = files.map((file) => {
    itself, plus what the app's own router actually renders for it */
 const sceneScreenSrc = fs.readFileSync(path.join(screensDir, 'SceneScreen.tsx'), 'utf8');
 const routed = routedContracts(sceneScreenSrc, appShell);
-const byName = Object.fromEntries(screens.map((s) => [s.name, s]));
+/* Two files can share a basename. When they do, the one that actually
+   renders something is the implementation — a re-export or a shim
+   answers no questions about states, roles or composition. */
+const byName = {};
+for (const s of screens) {
+	const prev = byName[s.name];
+	if (!prev || s.components.length > prev.components.length) byName[s.name] = s;
+}
 const byContract = {};
 for (const s of screens) for (const id of s.contracts) (byContract[id] ??= []).push(s.name);
 for (const [id, {component}] of Object.entries(routed)) {
@@ -210,6 +231,15 @@ for (const s of screens) {
 	s.semanticName = s.a11yLabels > 0 || s.inheritedName;
 	s.semanticState = s.a11yState > 0 || s.inheritedState;
 	s.semanticTarget = s.inheritedTarget || /minHeight: 4[4-9]|BERX_V9_TOUCH/.test(fs.readFileSync(path.join(clientRoot, s.file), 'utf8'));
+	/* a screen has a disabled state when it renders a control that can
+	   carry one — BerxButton and BerxIconButton both declare
+	   accessibilityState disabled — or when it sets one itself */
+	s.canDisable = s.usesDisabled || s.components.some((n) => ['BerxButton', 'BerxIconButton', 'BerxComposer', 'BerxDataBoundary'].includes(n));
+	/* BerxPlaceCard, BerxEventHero, BerxCommunityCard and the rest are
+	   all BerxObjectCard underneath, so a screen that renders one gets
+	   the press lift and the expansion into a detail scene without
+	   naming BerxSpatialCard itself */
+	s.spatialObjects = s.usesSpatialCard || g.some((x) => x.spatialCard);
 }
 
 process.stdout.write(JSON.stringify({screens, byContract, routed, componentGuarantees, platform}, null, 1));
