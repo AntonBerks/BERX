@@ -32,6 +32,7 @@ import {
 } from '../../../../packages/design-system/src/spatial/BerxListGroup';
 import {BerxProfileHero} from '../../../../packages/design-system/src/spatial/BerxProfileHero';
 import {BerxShareSheet} from '../../../../packages/design-system/src/spatial/BerxShareSheet';
+import {BerxConfirm} from '../../../../packages/design-system/src/spatial/BerxConfirm';
 import {BerxDataBoundary} from '../../../../packages/design-system/src/spatial/BerxDataBoundary';
 import type {BerxStat} from '../../../../packages/design-system/src/spatial/BerxStatRail';
 import {useBerxSceneScroll} from '../../../../packages/design-system/src/spatial/BerxSpatialScene';
@@ -193,6 +194,65 @@ function ProfileSceneBody(props: ProfileScreenProps) {
 		load();
 	}, [load]);
 
+	/**
+	 * Whether this person is blocked, read from the server rather than
+	 * assumed.
+	 *
+	 * `/profiles/{username}` carries no block flag, and BERX has been
+	 * shipping `blockUser` with no way to reach it and no way to know:
+	 * the blocked list was viewable and unblocking worked, but nothing
+	 * in the product could block anyone. The caller-scoped `/block`
+	 * list is the real answer to "have I blocked them", so it is asked
+	 * once per foreign profile instead of guessed.
+	 */
+	const [blocked, setBlocked] = useState<boolean | null>(null);
+	const [blockBusy, setBlockBusy] = useState(false);
+	const [confirmBlock, setConfirmBlock] = useState(false);
+
+	useEffect(() => {
+		if (isOwn || !profile?.guid) return;
+		let cancelled = false;
+		api
+			.blockedUsers()
+			.then((res) => {
+				if (!cancelled) setBlocked(res.blocked.some((b) => b.guid === profile.guid));
+			})
+			/* unknown is not false: leaving it null keeps the control out
+			   rather than offering "block" to someone already blocked */
+			.catch(() => undefined);
+		return () => {
+			cancelled = true;
+		};
+	}, [api, isOwn, profile?.guid]);
+
+	const toggleBlock = useCallback(async () => {
+		if (!profile?.guid) return;
+		setBlockBusy(true);
+		berxAnalytics.mutationStart(screen, profile.guid);
+		const started = Date.now();
+		try {
+			if (blocked) {
+				await api.unblockUser(profile.guid);
+				setBlocked(false);
+			} else {
+				await api.blockUser(profile.guid);
+				setBlocked(true);
+				/* blocking ends the friendship server-side; re-read rather
+				   than deciding here what the server did */
+				await load();
+			}
+			setConfirmBlock(false);
+			berxAnalytics.mutationSuccess(screen, Date.now() - started, profile.guid);
+		} catch (e) {
+			berxAnalytics.mutationError(screen, 'block');
+			/* rethrown so the confirmation keeps the question open with
+			   the real reason instead of closing as though it worked */
+			throw e;
+		} finally {
+			setBlockBusy(false);
+		}
+	}, [api, blocked, profile, load, screen]);
+
 	const toggleFriend = useCallback(async () => {
 		if (!profile?.guid) return;
 		setFriendBusy(true);
@@ -261,8 +321,11 @@ function ProfileSceneBody(props: ProfileScreenProps) {
 										profile={profile}
 										isOwn={isOwn}
 										friendBusy={friendBusy}
+										blocked={blocked}
+										blockBusy={blockBusy}
 										onMessage={onMessage}
 										onToggleFriend={toggleFriend}
+										onBlock={() => (blocked ? toggleBlock() : setConfirmBlock(true))}
 									/>
 									{/**
 									 * profile_url is the one canonical, publicly
@@ -282,6 +345,21 @@ function ProfileSceneBody(props: ProfileScreenProps) {
 							}
 						/>
 							}
+						/>
+
+						{/* Blocking asks before it acts, on the focus plane: the
+						    room falls back and the question comes forward. It
+						    stays open if the server refuses, with the real
+						    reason under it. */}
+						<BerxConfirm
+							visible={confirmBlock}
+							title={`Заблокировать ${profile.fullname || profile.username}?`}
+							body="Этот человек больше не сможет писать вам и видеть ваш профиль. Вы перестанете быть друзьями. Разблокировать можно в настройках в любой момент."
+							confirmLabel="Заблокировать"
+							destructive
+							onConfirm={toggleBlock}
+							onCancel={() => setConfirmBlock(false)}
+							testID="profile-block-confirm"
 						/>
 
 						{/* BERX-122…127 — the archive's six profile tabs, on the
@@ -339,27 +417,47 @@ function ProfileActions({
 	profile,
 	isOwn,
 	friendBusy,
+	blocked,
+	blockBusy,
 	onMessage,
 	onToggleFriend,
+	onBlock,
 }: {
 	profile: ProfileData;
 	isOwn: boolean;
 	friendBusy: boolean;
+	/** Null until the server has answered; the control waits rather than guesses. */
+	blocked: boolean | null;
+	blockBusy: boolean;
 	onMessage?: (guid: number, username: string) => void;
 	onToggleFriend: () => void;
+	onBlock: () => void;
 }) {
 	if (isOwn || !profile.guid) return null;
 	return (
 		<>
-			{onMessage ? (
+			{onMessage && !blocked ? (
 				<BerxButton label="Написать" onPress={() => onMessage(profile.guid as number, profile.username)} />
 			) : null}
-			<BerxButton
-				label={profile.is_friend ? 'Удалить из друзей' : 'Добавить в друзья'}
-				variant="secondary"
-				loading={friendBusy}
-				onPress={onToggleFriend}
-			/>
+			{!blocked ? (
+				<BerxButton
+					label={profile.is_friend ? 'Удалить из друзей' : 'Добавить в друзья'}
+					variant="secondary"
+					loading={friendBusy}
+					onPress={onToggleFriend}
+				/>
+			) : null}
+			{/* the safety control BERX has been missing. Blocking asks
+			    first; unblocking does not, because it only ever restores
+			    what the person already had. */}
+			{blocked === null ? null : (
+				<BerxButton
+					label={blocked ? 'Разблокировать' : 'Заблокировать'}
+					variant={blocked ? 'secondary' : 'danger'}
+					loading={blockBusy}
+					onPress={onBlock}
+				/>
+			)}
 		</>
 	);
 }
