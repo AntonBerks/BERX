@@ -15,7 +15,12 @@ for f in \
 done
 
 grep -q "BerxSecureTokenStorage" "$ROOT/apps/mobile/src/AppShell.tsx"
-grep -q "#8b5cf6" "$ROOT/packages/design-system/src/tokens/index.ts"
-grep -q "#ec4899" "$ROOT/packages/design-system/src/tokens/index.ts"
+grep -qi "#07080A" "$ROOT/packages/design-system/src/tokens/index.ts"
+grep -qi "#C9B58A" "$ROOT/packages/design-system/src/tokens/index.ts"
+
+if grep -Eqi "#8b5cf6|#ec4899" "$ROOT/packages/design-system/src/tokens/index.ts"; then
+  echo "FORBIDDEN LEGACY PURPLE/PINK ACCENT FOUND"
+  exit 1
+fi
 
 echo "[BERX] Static checks passed."
