@@ -24,5 +24,6 @@ export * from './runtime5d';
 export * from './renderer';
 export * from './spatialInteraction';
 export * from './socialActions';
+export * from './spatialAffordances';
 export * from './geometry';
 export * from './mediaSurface';
