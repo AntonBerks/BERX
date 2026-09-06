@@ -31,13 +31,20 @@ export interface BerxRenderOptions {
   ambientMotion?: boolean;
 }
 
-/**
- * Single renderer boundary for every BERX platform.
- * It consumes the authoritative Berx5DFrame and never owns a second world.
- */
+export interface BerxCapabilityProbe {
+  readonly capability: keyof BerxRendererCapabilities;
+  readonly supported: boolean;
+  readonly verified: boolean;
+  readonly evidence: string;
+  readonly timestamp: number;
+}
+
+/** Single renderer boundary for every BERX platform. */
 export interface BerxSpatialRenderer {
   readonly kind: BerxGpuKind;
+  /** Implementations must return only capabilities they have runtime evidence for. */
   readonly capabilities: BerxRendererCapabilities;
+  readonly capabilityEvidence?: readonly BerxCapabilityProbe[];
   readonly isDeviceLost: boolean;
 
   initialize(): Promise<boolean>;
