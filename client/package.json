@@ -19,7 +19,8 @@
     "verify:5d-gpu": "node ./scripts/verify-5d-gpu.mjs",
     "verify:5d-shared-core": "node ./scripts/verify-5d-shared-core.mjs",
     "verify:5d-world": "node ./scripts/verify-5d-world.mjs",
-    "verify:5d-app-shell": "node ./scripts/verify-5d-app-shell.mjs"
+    "verify:5d-app-shell": "node ./scripts/verify-5d-app-shell.mjs",
+    "verify:5d-lighting": "node ./scripts/verify-5d-lighting.mjs"
   },
   "engines": {
     "node": ">=20"

@@ -92,7 +92,7 @@ try {
 		'the renderer claims only what it implements',
 		context.capabilities.perspective === true &&
 			context.capabilities.depthBuffer === true &&
-			context.capabilities.physicallyLitMaterials === false &&
+			context.capabilities.physicallyLitMaterials === true &&
 			context.capabilities.shadows === false &&
 			context.capabilities.postProcessing === false,
 		JSON.stringify(context.capabilities),

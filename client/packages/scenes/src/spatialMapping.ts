@@ -42,6 +42,7 @@ import type {
 	BerxUser,
 } from '@berx/api/types';
 import {
+	berxWorldMaterial,
 	createMediaSurface,
 	geometryForEntity,
 	geometryScale,
@@ -51,6 +52,7 @@ import {
 	type BerxSpatialObject,
 	type BerxSpatialRelation,
 	type BerxVec3,
+	type BerxWorldMaterialName,
 } from '@berx/spatial';
 
 /**
@@ -83,25 +85,39 @@ export interface BerxSpatialMapping {
 }
 
 /**
- * The material an object is made of, per kind.
+ * What each kind is made of.
  *
- * These are surface properties the shader reads — how rough it is, how
- * metallic, how much light passes through — not colours. Colour is the
- * Visual DNA in @berx/spatial's presentation layer, and nothing here
- * duplicates it.
+ * A name, not a set of numbers: the physical parameters live once in
+ * @berx/spatial's material table, and this says which of them a person
+ * or a place is. Two copies of "roughness 0.34" in two packages is how
+ * a world ends up lit two different ways.
  */
-const MATERIAL: Record<BerxSpatialEntityKind, BerxSpatialObject['material']> = {
-	person: {material: 'pearl', emissive: 0, roughness: 0.34, metalness: 0.12, opacity: 1, transmission: 0},
-	moment: {material: 'glass', emissive: 0, roughness: 0.18, metalness: 0.04, opacity: 0.94, transmission: 0.2},
-	place: {material: 'stone', emissive: 0, roughness: 0.62, metalness: 0.06, opacity: 1, transmission: 0},
-	event: {material: 'brass', emissive: 0, roughness: 0.28, metalness: 0.48, opacity: 1, transmission: 0},
-	experience: {material: 'brass', emissive: 0, roughness: 0.36, metalness: 0.3, opacity: 1, transmission: 0},
-	community: {material: 'pearl', emissive: 0, roughness: 0.44, metalness: 0.1, opacity: 1, transmission: 0},
-	business: {material: 'stone', emissive: 0, roughness: 0.52, metalness: 0.18, opacity: 1, transmission: 0},
-	collection: {material: 'stone', emissive: 0, roughness: 0.58, metalness: 0.08, opacity: 1, transmission: 0},
-	message: {material: 'glass', emissive: 0, roughness: 0.22, metalness: 0.02, opacity: 0.92, transmission: 0.24},
-	create: {material: 'brass', emissive: 0, roughness: 0.3, metalness: 0.4, opacity: 1, transmission: 0},
+const MATERIAL_NAME: Record<BerxSpatialEntityKind, BerxWorldMaterialName> = {
+	person: 'pearl',
+	moment: 'dark-glass',
+	place: 'graphite',
+	event: 'soft-gold',
+	experience: 'champagne',
+	community: 'ceramic',
+	business: 'metal',
+	collection: 'fabric',
+	message: 'dark-glass',
+	create: 'energy',
 };
+
+function materialStateFor(kind: BerxSpatialEntityKind): BerxSpatialObject['material'] {
+	const name = MATERIAL_NAME[kind];
+	const physical = berxWorldMaterial(name);
+	return {
+		material: name,
+		/* emission is the material's, scaled by real energy at draw time */
+		emissive: physical.emission[0] + physical.emission[1] + physical.emission[2] > 0 ? 1 : 0,
+		roughness: physical.roughness,
+		metalness: physical.metalness,
+		opacity: physical.opacity,
+		transmission: physical.transmission,
+	};
+}
 
 /** D3, the content plane, unless the caller places it elsewhere. */
 const DEFAULT_DEPTH = 3;
@@ -135,7 +151,7 @@ function baseObject(
 			   message is message-shaped without every caller knowing that */
 			scale: geometryScale(geometryForEntity(kind)),
 		},
-		material: {...MATERIAL[kind]},
+		material: materialStateFor(kind),
 		visible: placement.visible ?? true,
 		interactive: placement.interactive ?? true,
 		focusable: placement.focusable ?? true,

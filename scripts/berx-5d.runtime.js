@@ -1491,6 +1491,78 @@ function berxRelationalWeight(id, relations) {
   return total === 0 ? 0 : 1 - 1 / (1 + total);
 }
 
+// packages/spatial/src/worldLighting.ts
+var rgb = (hex) => {
+  const c = parseColor(hex);
+  if (!c) throw new Error(`BERX 5D lighting: ${hex} is not a colour`);
+  return [c.r / 255, c.g / 255, c.b / 255];
+};
+var BERX_MAX_POINT_LIGHTS = 4;
+var normalise = (v) => {
+  const l = Math.hypot(v.x, v.y, v.z) || 1;
+  return { x: v.x / l, y: v.y / l, z: v.z / l };
+};
+function berxWorldLighting() {
+  return {
+    /* #15191E: the room, bounced */
+    ambient: rgb("#15191E"),
+    ambientIntensity: 1.35,
+    key: {
+      direction: normalise({ x: 0.45, y: 0.72, z: 0.9 }),
+      /* #F2F0EB: daylight-neutral pearl, not white */
+      colour: rgb("#F2F0EB"),
+      intensity: 1
+    },
+    points: []
+  };
+}
+function berxResolvePointLights(lighting, at) {
+  return lighting.points.map((light) => ({
+    light,
+    d: Math.hypot(light.position.x - at.x, light.position.y - at.y, light.position.z - at.z)
+  })).filter(({ light, d }) => d <= light.range).sort((a, b) => a.d - b.d).slice(0, BERX_MAX_POINT_LIGHTS).map(({ light }) => light);
+}
+function berxEnergyLight(position, energy) {
+  const e = Math.max(0, Math.min(1, energy));
+  if (e <= 0.01) return void 0;
+  return {
+    position: { ...position },
+    colour: rgb("#4FD6E8"),
+    intensity: e * 1.6,
+    range: 4 + e * 6
+  };
+}
+
+// packages/spatial/src/worldMaterials.ts
+var rgb2 = (hex) => {
+  const c = parseColor(hex);
+  if (!c) throw new Error(`BERX 5D material: ${hex} is not a colour`);
+  return [c.r / 255, c.g / 255, c.b / 255];
+};
+var NONE = [0, 0, 0];
+var BERX_WORLD_MATERIALS = {
+  /* the ground itself: near-black, smooth, and it holds a reflection */
+  obsidian: { baseColor: rgb2("#07080A"), metalness: 0.08, roughness: 0.18, emission: NONE, opacity: 1, transmission: 0, ior: 1.5 },
+  graphite: { baseColor: rgb2("#15191E"), metalness: 0.12, roughness: 0.52, emission: NONE, opacity: 1, transmission: 0, ior: 1.5 },
+  /* people: bright, faintly waxy, not a mirror and not chalk */
+  pearl: { baseColor: rgb2("#F2F0EB"), metalness: 0.04, roughness: 0.34, emission: NONE, opacity: 1, transmission: 0, ior: 1.5 },
+  champagne: { baseColor: rgb2("#C9B58A"), metalness: 0.25, roughness: 0.3, emission: NONE, opacity: 1, transmission: 0, ior: 1.5 },
+  /* a real metal: its own tint, no diffuse term */
+  "soft-gold": { baseColor: rgb2("#C9B58A"), metalness: 0.92, roughness: 0.28, emission: NONE, opacity: 1, transmission: 0, ior: 1.5 },
+  "dark-glass": { baseColor: rgb2("#0D1014"), metalness: 0, roughness: 0.08, emission: NONE, opacity: 0.68, transmission: 0.55, ior: 1.5 },
+  ceramic: { baseColor: rgb2("#A7ADB4"), metalness: 0, roughness: 0.42, emission: NONE, opacity: 1, transmission: 0, ior: 1.45 },
+  metal: { baseColor: rgb2("#6F767E"), metalness: 0.96, roughness: 0.24, emission: NONE, opacity: 1, transmission: 0, ior: 1.5 },
+  /* cloth scatters: rough, dielectric, no visible highlight */
+  fabric: { baseColor: rgb2("#1C2228"), metalness: 0, roughness: 0.88, emission: NONE, opacity: 1, transmission: 0, ior: 1.45 },
+  /* a photograph is its own colour; the surface under it must not tint it */
+  media: { baseColor: rgb2("#F2F0EB"), metalness: 0, roughness: 0.62, emission: NONE, opacity: 1, transmission: 0, ior: 1.5 },
+  /* the only material that emits at rest, and only where energy puts it */
+  energy: { baseColor: rgb2("#1C2228"), metalness: 0.1, roughness: 0.3, emission: rgb2("#4FD6E8"), opacity: 1, transmission: 0, ior: 1.5 }
+};
+function berxWorldMaterial(name) {
+  return BERX_WORLD_MATERIALS[name] ?? BERX_WORLD_MATERIALS.ceramic;
+}
+
 // packages/spatial/src/spatialCamera.ts
 var clamp2 = (v, min, max) => Math.max(min, Math.min(max, v));
 var lerp = (a, b, t) => a + (b - a) * t;
@@ -2230,8 +2302,8 @@ function rgbaOf(color, alpha) {
     const n = parseInt(hex[1], 16);
     return `rgba(${n >> 16 & 255}, ${n >> 8 & 255}, ${n & 255}, ${alpha})`;
   }
-  const rgb = /^rgba?\(([^,]+),([^,]+),([^,)]+)(?:,([^)]+))?\)$/.exec(color.replace(/\s/g, ""));
-  if (rgb) return `rgba(${rgb[1]}, ${rgb[2]}, ${rgb[3]}, ${alpha})`;
+  const rgb3 = /^rgba?\(([^,]+),([^,]+),([^,)]+)(?:,([^)]+))?\)$/.exec(color.replace(/\s/g, ""));
+  if (rgb3) return `rgba(${rgb3[1]}, ${rgb3[2]}, ${rgb3[3]}, ${alpha})`;
   throw new Error(`BERX: focus surround colour "${color}" is not a colour this runtime can fade.`);
 }
 function focusCustomProperties(field) {
@@ -2946,7 +3018,87 @@ function rasterise(text, pixelHeight) {
 var V = `#version 300 es
 precision highp float;layout(location=0)in vec3 p;layout(location=1)in vec3 n;uniform mat4 P,V,M;out vec3 N,W,L,LN;void main(){vec4 w=M*vec4(p,1.);W=w.xyz;N=mat3(M)*n;L=p;LN=n;gl_Position=P*V*w;}`;
 var F = `#version 300 es
-precision highp float;in vec3 N,W,L,LN;uniform vec3 B,E;uniform float ES,ME,R,O,HT;uniform vec4 TS;uniform sampler2D TEX;out vec4 C;void main(){vec3 n=normalize(N),k=normalize(vec3(.45,.72,.9));float d=max(dot(n,k),0.),s=pow(max(dot(reflect(-k,n),normalize(-W)),0.),mix(64.,8.,R));vec3 base=B;if(HT>.5&&normalize(LN).z>.5){vec2 uv=(L.xy/TS.xy)*.5*TS.zw+.5;if(uv.x>=0.&&uv.x<=1.&&uv.y>=0.&&uv.y<=1.)base=texture(TEX,uv).rgb;}vec3 lit=base*(.16+d*.72)+base*s*(.12+ME*.42)+E*ES;C=vec4(lit,clamp(O,.02,1.));}`;
+precision highp float;
+in vec3 N,W,L,LN;
+uniform vec3 CAM;                 // camera position, world space
+uniform vec3 AMB;                 // ambient colour * intensity
+uniform vec3 KEY_DIR, KEY_COL;    // directional key
+uniform float KEY_I;
+uniform vec3 PL_POS[4], PL_COL[4];
+uniform float PL_I[4], PL_R[4];
+uniform int PL_N;
+uniform vec3 BASE, EMIT;
+uniform float MET, ROUGH, OPAC, TRANS, HT;
+uniform vec4 TS;
+uniform sampler2D TEX;
+out vec4 C;
+
+const float PI = 3.14159265359;
+
+// GGX / Trowbridge-Reitz normal distribution.
+float D_GGX(float NoH, float a){ float a2=a*a; float d=NoH*NoH*(a2-1.)+1.; return a2/max(PI*d*d,1e-7); }
+// Smith height-correlated visibility, already divided by 4*NoL*NoV.
+float V_Smith(float NoV, float NoL, float a){
+  float a2=a*a;
+  float v=NoL*sqrt(NoV*NoV*(1.-a2)+a2);
+  float l=NoV*sqrt(NoL*NoL*(1.-a2)+a2);
+  return .5/max(v+l,1e-7);
+}
+vec3 F_Schlick(vec3 f0, float u){ float m=clamp(1.-u,0.,1.); float m2=m*m; return f0+(1.-f0)*(m2*m2*m); }
+
+vec3 shade(vec3 n, vec3 v, vec3 l, vec3 radiance, vec3 diffuseColor, vec3 f0, float a){
+  vec3 h=normalize(v+l);
+  float NoL=max(dot(n,l),0.);
+  if(NoL<=0.) return vec3(0.);
+  float NoV=max(dot(n,v),1e-4);
+  float NoH=max(dot(n,h),0.);
+  float VoH=max(dot(v,h),0.);
+  vec3 F=F_Schlick(f0,VoH);
+  float Vis=V_Smith(NoV,NoL,a);
+  float D=D_GGX(NoH,a);
+  vec3 spec=F*(D*Vis);
+  // energy that was not reflected is the only energy left to scatter
+  vec3 kd=(1.-F);
+  vec3 diff=kd*diffuseColor/PI;
+  return (diff+spec)*radiance*NoL;
+}
+
+void main(){
+  vec3 base=BASE;
+  // media is a planar projection onto the face that points at you
+  if(HT>.5 && normalize(LN).z>.5){
+    vec2 uv=(L.xy/TS.xy)*.5*TS.zw+.5;
+    if(uv.x>=0.&&uv.x<=1.&&uv.y>=0.&&uv.y<=1.) base=texture(TEX,uv).rgb;
+  }
+  vec3 n=normalize(N);
+  vec3 v=normalize(CAM-W);
+  float a=max(ROUGH*ROUGH,1e-3);
+  // metals have no diffuse term and tint their reflection; dielectrics
+  // reflect 4% white and keep their colour in the diffuse lobe
+  vec3 diffuseColor=base*(1.-MET);
+  vec3 f0=mix(vec3(.04),base,MET);
+
+  vec3 lit=shade(n,v,normalize(KEY_DIR),KEY_COL*KEY_I,diffuseColor,f0,a);
+  for(int i=0;i<4;i++){
+    if(i>=PL_N) break;
+    vec3 d=PL_POS[i]-W;
+    float dist=length(d);
+    if(dist>PL_R[i]) continue;
+    // inverse-square, windowed so a light ends where its range says
+    float win=clamp(1.-pow(dist/PL_R[i],4.),0.,1.);
+    float atten=win*win/max(dist*dist,1e-4);
+    lit+=shade(n,v,d/max(dist,1e-4),PL_COL[i]*PL_I[i]*atten,diffuseColor,f0,a);
+  }
+  // ambient stands in for the bounced room. It is not image-based
+  // lighting and does not pretend to be: one term, applied to the
+  // diffuse colour and to the grazing reflection.
+  vec3 amb=AMB*(diffuseColor+f0*pow(1.-max(dot(n,v),0.),5.));
+  vec3 colour=lit+amb+EMIT;
+  // transmission lets the ground through a glass surface rather than
+  // fading it to nothing
+  float alpha=clamp(OPAC*(1.-TRANS*.55),.02,1.);
+  C=vec4(colour,alpha);
+}`;
 var TV = `#version 300 es
 precision highp float;layout(location=0)in vec2 q;uniform mat4 P,V;uniform vec3 C,R,U;uniform vec2 S;out vec2 T;void main(){T=q*.5+.5;vec3 w=C+R*(q.x*S.x)+U*(q.y*S.y);gl_Position=P*V*vec4(w,1.);}`;
 var TF = `#version 300 es
@@ -3083,7 +3235,7 @@ var BerxThreeRuntimeRenderer = class {
   constructor(canvas, options = {}) {
     this.kind = "webgl2";
     /* what this backend really does, and nothing it does not */
-    this.capabilities = { perspective: true, depthBuffer: true, physicallyLitMaterials: false, shadows: false, postProcessing: false };
+    this.capabilities = { perspective: true, depthBuffer: true, physicallyLitMaterials: true, shadows: false, postProcessing: false };
     this.meshes = /* @__PURE__ */ new Map();
     /** objectId -> the one media URI drawn on its face */
     this.media = /* @__PURE__ */ new Map();
@@ -3091,6 +3243,8 @@ var BerxThreeRuntimeRenderer = class {
     this.height = 1;
     /** Metres tall a label stands. A real size in the world, not a screen size. */
     this.labelHeight = 0.34;
+    /** The world's standing light. Replaceable, so a region can relight itself. */
+    this.lighting = berxWorldLighting();
     const gl = canvas.getContext("webgl2", { antialias: true, alpha: false, depth: true, powerPreference: "high-performance" });
     if (!gl) throw Error("BERX 5D requires WebGL2");
     this.gl = gl;
@@ -3098,12 +3252,22 @@ var BerxThreeRuntimeRenderer = class {
     this.P = gl.getUniformLocation(this.program, "P");
     this.V = gl.getUniformLocation(this.program, "V");
     this.M = gl.getUniformLocation(this.program, "M");
-    this.B = gl.getUniformLocation(this.program, "B");
-    this.E = gl.getUniformLocation(this.program, "E");
-    this.ES = gl.getUniformLocation(this.program, "ES");
-    this.ME = gl.getUniformLocation(this.program, "ME");
-    this.R = gl.getUniformLocation(this.program, "R");
-    this.O = gl.getUniformLocation(this.program, "O");
+    this.BASE = gl.getUniformLocation(this.program, "BASE");
+    this.EMIT = gl.getUniformLocation(this.program, "EMIT");
+    this.CAM = gl.getUniformLocation(this.program, "CAM");
+    this.AMB = gl.getUniformLocation(this.program, "AMB");
+    this.KEY_DIR = gl.getUniformLocation(this.program, "KEY_DIR");
+    this.KEY_COL = gl.getUniformLocation(this.program, "KEY_COL");
+    this.KEY_I = gl.getUniformLocation(this.program, "KEY_I");
+    this.PL_POS = gl.getUniformLocation(this.program, "PL_POS");
+    this.PL_COL = gl.getUniformLocation(this.program, "PL_COL");
+    this.PL_I = gl.getUniformLocation(this.program, "PL_I");
+    this.PL_R = gl.getUniformLocation(this.program, "PL_R");
+    this.PL_N = gl.getUniformLocation(this.program, "PL_N");
+    this.MET = gl.getUniformLocation(this.program, "MET");
+    this.ROUGH = gl.getUniformLocation(this.program, "ROUGH");
+    this.OPAC = gl.getUniformLocation(this.program, "OPAC");
+    this.TRANS = gl.getUniformLocation(this.program, "TRANS");
     this.HT = gl.getUniformLocation(this.program, "HT");
     this.TS = gl.getUniformLocation(this.program, "TS");
     this.TEX = gl.getUniformLocation(this.program, "TEX");
@@ -3167,16 +3331,47 @@ var BerxThreeRuntimeRenderer = class {
     this.textures.beginFrame();
     gl.activeTexture(gl.TEXTURE0);
     gl.uniform1i(this.TEX, 0);
+    const lighting = this.lighting;
+    const energyLights = [];
+    for (const o of visible) {
+      const light = berxEnergyLight(o.transform.position, o.energy);
+      if (light) energyLights.push(light);
+    }
+    const litWorld = { ...lighting, points: [...lighting.points, ...energyLights] };
+    gl.uniform3f(this.CAM, c.position.x, c.position.y, c.position.z);
+    gl.uniform3f(this.AMB, lighting.ambient[0] * lighting.ambientIntensity, lighting.ambient[1] * lighting.ambientIntensity, lighting.ambient[2] * lighting.ambientIntensity);
+    gl.uniform3f(this.KEY_DIR, lighting.key.direction.x, lighting.key.direction.y, lighting.key.direction.z);
+    gl.uniform3f(this.KEY_COL, ...lighting.key.colour);
+    gl.uniform1f(this.KEY_I, lighting.key.intensity * (options.ambientMotion === false ? 0.85 : 1));
     for (const o of ordered.slice(0, max)) {
-      const spec = geometryForEntity(o.kind), presentation = presentationForKind(o.kind, o), mesh = this.getMesh(spec.kind);
+      const spec = geometryForEntity(o.kind), presentation = presentationForKind(o.kind, o), material = berxWorldMaterial(o.material.material), mesh = this.getMesh(spec.kind);
       gl.bindVertexArray(mesh.vao);
       gl.uniformMatrix4fv(this.M, false, model(o.transform.position, o.transform.scale, o.transform.rotation));
-      gl.uniform3f(this.B, ...presentation.base);
-      gl.uniform3f(this.E, ...presentation.emissive);
-      gl.uniform1f(this.ES, options.ambientMotion === false ? 0.85 : 1);
-      gl.uniform1f(this.ME, o.material.metalness);
-      gl.uniform1f(this.R, o.material.roughness);
-      gl.uniform1f(this.O, o.material.opacity);
+      gl.uniform3f(this.BASE, ...presentation.base);
+      gl.uniform3f(this.EMIT, presentation.emissive[0] + material.emission[0] * o.energy, presentation.emissive[1] + material.emission[1] * o.energy, presentation.emissive[2] + material.emission[2] * o.energy);
+      gl.uniform1f(this.MET, o.material.metalness);
+      gl.uniform1f(this.ROUGH, o.material.roughness);
+      gl.uniform1f(this.OPAC, o.material.opacity);
+      gl.uniform1f(this.TRANS, o.material.transmission);
+      const near = berxResolvePointLights(litWorld, o.transform.position);
+      gl.uniform1i(this.PL_N, near.length);
+      if (near.length > 0) {
+        const pos = new Float32Array(BERX_MAX_POINT_LIGHTS * 3), col = new Float32Array(BERX_MAX_POINT_LIGHTS * 3), ints = new Float32Array(BERX_MAX_POINT_LIGHTS), ranges = new Float32Array(BERX_MAX_POINT_LIGHTS);
+        near.forEach((light, i) => {
+          pos[i * 3] = light.position.x;
+          pos[i * 3 + 1] = light.position.y;
+          pos[i * 3 + 2] = light.position.z;
+          col[i * 3] = light.colour[0];
+          col[i * 3 + 1] = light.colour[1];
+          col[i * 3 + 2] = light.colour[2];
+          ints[i] = light.intensity;
+          ranges[i] = light.range;
+        });
+        gl.uniform3fv(this.PL_POS, pos);
+        gl.uniform3fv(this.PL_COL, col);
+        gl.uniform1fv(this.PL_I, ints);
+        gl.uniform1fv(this.PL_R, ranges);
+      }
       const uri = this.media.get(o.id), loaded = uri ? this.textures.get(uri) : void 0;
       if (loaded) {
         gl.bindTexture(gl.TEXTURE_2D, loaded.texture);
@@ -3248,6 +3443,13 @@ var BerxThreeRuntimeRenderer = class {
   /** How many label textures are resident. Real, for a host reporting budgets. */
   get residentLabelCount() {
     return this.labels.residentCount;
+  }
+  /** Relight the world. Lights are state, not constants baked into a shader. */
+  setLighting(lighting) {
+    this.lighting = lighting;
+  }
+  get worldLighting() {
+    return this.lighting;
   }
   /**
    * The media an object carries, from the mapping layer.

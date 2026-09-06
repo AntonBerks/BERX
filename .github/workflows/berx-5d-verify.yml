@@ -41,6 +41,8 @@ jobs:
         run: npm run verify:5d-world
       - name: 5D GPU world in a real browser
         run: npm run verify:5d-gpu
+      - name: 5D lighting and materials, measured in pixels
+        run: npm run verify:5d-lighting
       - name: The world is the application (zero flat)
         run: npm run verify:5d-app-shell
       - name: V9 contracts

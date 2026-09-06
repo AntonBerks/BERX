@@ -13,6 +13,8 @@ export * from './typography';
 export * from './scene';
 export * from './temporal';
 export * from './relational';
+export * from './worldLighting';
+export * from './worldMaterials';
 export * from './platform';
 export * from './worldApp';
 export * from './world';
