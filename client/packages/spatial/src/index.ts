@@ -1,11 +1,8 @@
 /**
- * @berx/spatial — the BERX 5D ULTIMATE v9 spatial runtime.
+ * @berx/spatial — BERX MAX living spatial runtime.
  *
- * Pure TypeScript, no React, no React Native, no DOM. Both the
- * mobile adapters (packages/design-system/src/spatial) and the web
- * adapter (scripts/berx-5d.runtime.js, generated from this source)
- * consume it, which is what keeps one BERX scene feeling like one
- * BERX scene on every platform.
+ * The shared layer is renderer-agnostic: web/native renderers project the
+ * same persistent world, camera and transition state into GPU scenes.
  */
 export * from './tokens';
 export * from './color';
@@ -19,3 +16,6 @@ export * from './performance';
 export * from './focus';
 export * from './typography';
 export * from './scene';
+export * from './world';
+export * from './spatialCamera';
+export * from './runtime5d';
