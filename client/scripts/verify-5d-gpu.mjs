@@ -340,6 +340,49 @@ try {
 		`3 real images, budget 2: ${textures.resident} resident, ${textures.afterDestroy} after destroy`,
 	);
 
+	/* --- the world scales: culling, LOD, and a budget that is met --- */
+	const scale = await page.evaluate(async () => {
+		const host = window.__host;
+		const {mapUserToSpatial} = window.BERX_5D;
+		const draw = async () => {
+			host.start();
+			await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+			host.stop();
+			return {...host.renderer.frameStats};
+		};
+		const clear = () => {
+			for (const o of host.runtime.latestFrame.world.objects) host.removeObject(o.id);
+		};
+		const person = (guid, position) =>
+			({...mapUserToSpatial({guid, username: `u${guid}`, fullname: `U${guid}`, email: '', icon_url: '', profile_url: '', time_created: 0}, {position}).object, label: undefined});
+
+		/* half in front of the camera, half directly behind it */
+		clear();
+		for (let i = 0; i < 12; i++) host.addObject(person(300 + i, {x: (i % 4) - 1.5, y: 0, z: 2}));
+		for (let i = 0; i < 12; i++) host.addObject(person(400 + i, {x: (i % 4) - 1.5, y: 0, z: 40}));
+		const mixed = await draw();
+
+		/* far enough that the mesh drops to its cheaper form */
+		clear();
+		for (let i = 0; i < 6; i++) host.addObject(person(500 + i, {x: i - 3, y: 0, z: 3}));
+		const near = await draw();
+		clear();
+		for (let i = 0; i < 6; i++) host.addObject(person(600 + i, {x: (i - 3) * 4, y: 0, z: -22}));
+		const far = await draw();
+		return {mixed, near, far};
+	});
+	gate(
+		'the camera only pays for what it can see',
+		scale.mixed.visible === 24 && scale.mixed.inFrustum > 0 && scale.mixed.inFrustum < 24,
+		`${scale.mixed.visible} entities in the world, ${scale.mixed.inFrustum} inside the frustum, ${scale.mixed.drawCalls} draw calls`,
+	);
+	gate(
+		'distant entities stay entities and get cheaper',
+		scale.far.lodReduced === 6 && scale.near.lodReduced === 0 && scale.far.inFrustum === 6 &&
+			scale.far.triangles < scale.near.triangles,
+		`near: ${scale.near.triangles} triangles, ${scale.near.lodReduced} reduced; far: ${scale.far.triangles} triangles, ${scale.far.lodReduced} reduced, still ${scale.far.inFrustum} entities in view`,
+	);
+
 	/* --- keyboard moves between objects in world space --- */
 	const keyboard = await page.evaluate(async () => {
 		const host = window.__host;

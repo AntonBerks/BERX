@@ -322,6 +322,24 @@ try {
 		`cursor +${((temporal.after.cursor - temporal.before.cursor) / 86400).toFixed(0)} days; the moment moved ${(temporal.after.moment - temporal.before.moment).toFixed(2)} in depth, the person (timeless) did not`,
 	);
 
+	/* --- the real product frame, measured while it runs --- */
+	const perf = await page.evaluate(async () => {
+		const host = window.__berxHost;
+		/* two seconds of real frames, so the p95 is over a real window */
+		for (let i = 0; i < 120; i++) await new Promise((r) => requestAnimationFrame(r));
+		return {...host.performance};
+	});
+	gate(
+		'the running product reports what it really costs',
+		perf.drawCalls > 0 && perf.triangles > 0 && perf.frameMs > 0 && perf.p95Ms > 0 && perf.visible >= 7,
+		`${perf.visible} entities, ${perf.inFrustum} in frustum, ${perf.drawCalls} draw calls, ${perf.triangles} triangles, ${perf.lodReduced} at reduced detail, ${perf.budgetCut} cut by budget; ${perf.frameMs.toFixed(1)}ms last frame, p95 ${perf.p95Ms.toFixed(1)}ms, quality ${perf.quality}`,
+	);
+	gate(
+		'the budget is spent on what the camera can see',
+		perf.inFrustum <= perf.visible && perf.drawCalls <= perf.inFrustum * 2,
+		`${perf.inFrustum} of ${perf.visible} entities inside the frustum; ${perf.drawCalls} draw calls including labels`,
+	);
+
 	gate('no page or console errors', pageErrors.length === 0, pageErrors.slice(0, 3).join(' | ') || 'clean');
 } finally {
 	await browser.close();

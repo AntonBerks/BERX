@@ -3187,6 +3187,39 @@ function model(p, s, r) {
   m[15] = 1;
   return m;
 }
+function frustumPlanes(vp) {
+  const p = new Float32Array(24);
+  const m = (r, c) => vp[c * 4 + r];
+  const set = (i, a, b, c, d) => {
+    const l = Math.hypot(a, b, c) || 1;
+    p[i * 4] = a / l;
+    p[i * 4 + 1] = b / l;
+    p[i * 4 + 2] = c / l;
+    p[i * 4 + 3] = d / l;
+  };
+  set(0, m(3, 0) + m(0, 0), m(3, 1) + m(0, 1), m(3, 2) + m(0, 2), m(3, 3) + m(0, 3));
+  set(1, m(3, 0) - m(0, 0), m(3, 1) - m(0, 1), m(3, 2) - m(0, 2), m(3, 3) - m(0, 3));
+  set(2, m(3, 0) + m(1, 0), m(3, 1) + m(1, 1), m(3, 2) + m(1, 2), m(3, 3) + m(1, 3));
+  set(3, m(3, 0) - m(1, 0), m(3, 1) - m(1, 1), m(3, 2) - m(1, 2), m(3, 3) - m(1, 3));
+  set(4, m(3, 0) + m(2, 0), m(3, 1) + m(2, 1), m(3, 2) + m(2, 2), m(3, 3) + m(2, 3));
+  set(5, m(3, 0) - m(2, 0), m(3, 1) - m(2, 1), m(3, 2) - m(2, 2), m(3, 3) - m(2, 3));
+  return p;
+}
+function sphereVisible(planes, x, y, z, r) {
+  for (let i = 0; i < 6; i++) {
+    if (planes[i * 4] * x + planes[i * 4 + 1] * y + planes[i * 4 + 2] * z + planes[i * 4 + 3] < -r) return false;
+  }
+  return true;
+}
+function multiply(a, b) {
+  const o = new Float32Array(16);
+  for (let c = 0; c < 4; c++) for (let r = 0; r < 4; r++) {
+    let v = 0;
+    for (let k = 0; k < 4; k++) v += a[k * 4 + r] * b[c * 4 + k];
+    o[c * 4 + r] = v;
+  }
+  return o;
+}
 function gpuMesh(gl, mesh) {
   const vao = gl.createVertexArray(), vbo = gl.createBuffer(), ibo = gl.createBuffer();
   if (!vao || !vbo || !ibo) throw Error("BERX 5D mesh allocation failed");
@@ -3207,12 +3240,13 @@ function gpuMesh(gl, mesh) {
   }
   return { vao, vbo, ibo, count: mesh.indices.length, halfX: halfX || 0.5, halfY: halfY || 0.5 };
 }
-function meshFor(kind) {
+function meshFor(kind, lod) {
+  const far = lod === 1;
   switch (kind) {
     case "orb":
-      return createSphere(0.5, 24, 16);
+      return createSphere(0.5, far ? 10 : 24, far ? 7 : 16);
     case "ring":
-      return createRing(0.62, 0.42, 48);
+      return createRing(0.62, 0.42, far ? 16 : 48);
     case "frame":
       return createFrame(1, 1, 0.12);
     case "surface":
@@ -3220,15 +3254,16 @@ function meshFor(kind) {
     case "portal":
       return createFrame(1, 1.2, 0.16);
     case "node":
-      return createSphere(0.58, 20, 12);
+      return createSphere(0.58, far ? 9 : 20, far ? 6 : 12);
     case "stack":
       return createBox(1, 1, 0.32);
     case "message":
       return createBox(1, 0.46, 0.12);
     case "create":
-      return createSphere(0.58, 28, 18);
+      return createSphere(0.58, far ? 11 : 28, far ? 7 : 18);
   }
 }
+var LOD_DISTANCE = 18;
 var LABEL_FADE_START = 14;
 var LABEL_FADE_END = 26;
 var BerxThreeRuntimeRenderer = class {
@@ -3245,6 +3280,8 @@ var BerxThreeRuntimeRenderer = class {
     this.labelHeight = 0.34;
     /** The world's standing light. Replaceable, so a region can relight itself. */
     this.lighting = berxWorldLighting();
+    /** What the last frame actually cost. Measured during the draw. */
+    this.stats = { visible: 0, inFrustum: 0, drawCalls: 0, triangles: 0, lodReduced: 0, budgetCut: 0, residentTextures: 0, residentLabels: 0, meshVariants: 0 };
     const gl = canvas.getContext("webgl2", { antialias: true, alpha: false, depth: true, powerPreference: "high-performance" });
     if (!gl) throw Error("BERX 5D requires WebGL2");
     this.gl = gl;
@@ -3303,11 +3340,12 @@ var BerxThreeRuntimeRenderer = class {
     this.height = Math.max(1, h);
     this.gl.viewport(0, 0, this.width, this.height);
   }
-  getMesh(kind) {
-    let m = this.meshes.get(kind);
+  getMesh(kind, lod) {
+    const key = `${kind}:${lod}`;
+    let m = this.meshes.get(key);
     if (!m) {
-      m = gpuMesh(this.gl, meshFor(kind));
-      this.meshes.set(kind, m);
+      m = gpuMesh(this.gl, meshFor(kind, lod));
+      this.meshes.set(key, m);
     }
     return m;
   }
@@ -3316,10 +3354,14 @@ var BerxThreeRuntimeRenderer = class {
     gl.useProgram(this.program);
     gl.clearColor(0.027, 0.031, 0.039, 1);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-    gl.uniformMatrix4fv(this.P, false, perspective(c.fov, this.width / this.height, c.near, c.far));
-    gl.uniformMatrix4fv(this.V, false, lookAt(c.position, c.target));
-    const visible = frame.world.objects.filter((o) => o.visible);
+    const proj = perspective(c.fov, this.width / this.height, c.near, c.far), view = lookAt(c.position, c.target);
+    gl.uniformMatrix4fv(this.P, false, proj);
+    gl.uniformMatrix4fv(this.V, false, view);
+    const planes = frustumPlanes(multiply(proj, view));
+    const all = frame.world.objects.filter((o) => o.visible);
     const focused = frame.world.activeObjectId;
+    const radiusOf = (o) => Math.max(o.transform.scale.x, o.transform.scale.y, o.transform.scale.z) * 0.75;
+    const visible = all.filter((o) => sphereVisible(planes, o.transform.position.x, o.transform.position.y, o.transform.position.z, radiusOf(o)));
     const eye = c.position, distance = (o) => Math.hypot(o.transform.position.x - eye.x, o.transform.position.y - eye.y, o.transform.position.z - eye.z);
     const opaque = visible.filter((o) => o.material.opacity >= 1).sort((a, b) => {
       if (a.id === focused) return -1;
@@ -3328,6 +3370,8 @@ var BerxThreeRuntimeRenderer = class {
     });
     const blended = visible.filter((o) => o.material.opacity < 1).sort((a, b) => distance(b) - distance(a));
     const ordered = [...opaque, ...blended];
+    const drawn = ordered.slice(0, max);
+    let drawCalls = 0, triangles = 0, lodReduced = 0;
     this.textures.beginFrame();
     gl.activeTexture(gl.TEXTURE0);
     gl.uniform1i(this.TEX, 0);
@@ -3343,8 +3387,11 @@ var BerxThreeRuntimeRenderer = class {
     gl.uniform3f(this.KEY_DIR, lighting.key.direction.x, lighting.key.direction.y, lighting.key.direction.z);
     gl.uniform3f(this.KEY_COL, ...lighting.key.colour);
     gl.uniform1f(this.KEY_I, lighting.key.intensity * (options.ambientMotion === false ? 0.85 : 1));
-    for (const o of ordered.slice(0, max)) {
-      const spec = geometryForEntity(o.kind), presentation = presentationForKind(o.kind, o), material = berxWorldMaterial(o.material.material), mesh = this.getMesh(spec.kind);
+    for (const o of drawn) {
+      const spec = geometryForEntity(o.kind), presentation = presentationForKind(o.kind, o), material = berxWorldMaterial(o.material.material);
+      const far = Math.hypot(o.transform.position.x - c.position.x, o.transform.position.y - c.position.y, o.transform.position.z - c.position.z) > LOD_DISTANCE;
+      if (far) lodReduced++;
+      const mesh = this.getMesh(spec.kind, far ? 1 : 0);
       gl.bindVertexArray(mesh.vao);
       gl.uniformMatrix4fv(this.M, false, model(o.transform.position, o.transform.scale, o.transform.rotation));
       gl.uniform3f(this.BASE, ...presentation.base);
@@ -3380,10 +3427,23 @@ var BerxThreeRuntimeRenderer = class {
         gl.uniform4f(this.TS, mesh.halfX, mesh.halfY, fit > 1 ? 1 / fit : 1, fit > 1 ? 1 : fit);
       } else gl.uniform1f(this.HT, 0);
       gl.drawElements(gl.TRIANGLES, mesh.count, gl.UNSIGNED_SHORT, 0);
+      drawCalls++;
+      triangles += mesh.count / 3;
     }
     gl.bindVertexArray(null);
     gl.bindTexture(gl.TEXTURE_2D, null);
-    this.renderLabels(frame, ordered.slice(0, max));
+    const labelCalls = this.renderLabels(frame, drawn);
+    this.stats = {
+      visible: all.length,
+      inFrustum: visible.length,
+      drawCalls: drawCalls + labelCalls,
+      triangles,
+      lodReduced,
+      budgetCut: Math.max(0, visible.length - drawn.length),
+      residentTextures: this.textures.residentCount,
+      residentLabels: this.labels.residentCount,
+      meshVariants: this.meshes.size
+    };
   }
   /**
    * The names, standing where their entities stand.
@@ -3401,7 +3461,8 @@ var BerxThreeRuntimeRenderer = class {
   renderLabels(frame, objects) {
     const gl = this.gl, c = frame.camera;
     const basis = cameraBasis(c);
-    if (!basis) return;
+    if (!basis) return 0;
+    let calls = 0;
     this.labels.beginFrame();
     gl.useProgram(this.labelProgram);
     gl.bindVertexArray(this.labelQuad.vao);
@@ -3434,11 +3495,13 @@ var BerxThreeRuntimeRenderer = class {
       gl.uniform2f(this.LS, halfHeight * entry.aspect, halfHeight);
       gl.uniform1f(this.LA, alpha * o.material.opacity);
       gl.drawArrays(gl.TRIANGLES, 0, 6);
+      calls++;
     }
     gl.depthMask(true);
     gl.enable(gl.CULL_FACE);
     gl.bindVertexArray(null);
     gl.bindTexture(gl.TEXTURE_2D, null);
+    return calls;
   }
   /** How many label textures are resident. Real, for a host reporting budgets. */
   get residentLabelCount() {
@@ -3450,6 +3513,10 @@ var BerxThreeRuntimeRenderer = class {
   }
   get worldLighting() {
     return this.lighting;
+  }
+  /** What the last frame actually cost. Read it, do not estimate it. */
+  get frameStats() {
+    return { ...this.stats };
   }
   /**
    * The media an object carries, from the mapping layer.
@@ -3581,6 +3648,8 @@ function createBerx5DWebHost(options = {}) {
   let pinchDistance;
   let cssWidth = 1, cssHeight = 1;
   let lastAnnouncedId;
+  const frameTimes = [];
+  let lastFrameMs = 0;
   const visibleObjects = () => (world ? world.latestFrame : runtime.latestFrame).world.objects.filter((o) => o.visible);
   const applySize = () => {
     const nativeDpr = (typeof window !== "undefined" ? window.devicePixelRatio : 1) || 1;
@@ -3618,7 +3687,10 @@ function createBerx5DWebHost(options = {}) {
   const frame = (now) => {
     if (!running) return;
     const dt = Math.min(0.05, Math.max(0, (now - last) / 1e3));
+    lastFrameMs = now - last;
     last = now;
+    frameTimes.push(lastFrameMs);
+    if (frameTimes.length > 120) frameTimes.shift();
     if (contextAlive) {
       syncQualityToLoad();
       renderer.render(world ? world.frame(dt) : runtime.frame(dt), { maxObjects: quality.maxObjects, ambientMotion: quality.ambientMotion });
@@ -3812,6 +3884,23 @@ function createBerx5DWebHost(options = {}) {
     get contextAlive() {
       return contextAlive;
     },
+    get performance() {
+      const sorted = [...frameTimes].sort((a, b) => a - b);
+      const stats = renderer.frameStats;
+      return {
+        frameMs: lastFrameMs,
+        p95Ms: sorted.length > 0 ? sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * 0.95))] : 0,
+        visible: stats.visible,
+        inFrustum: stats.inFrustum,
+        drawCalls: stats.drawCalls,
+        triangles: stats.triangles,
+        lodReduced: stats.lodReduced,
+        budgetCut: stats.budgetCut,
+        residentTextures: stats.residentTextures,
+        residentLabels: stats.residentLabels,
+        quality: quality.quality
+      };
+    },
     world,
     ingest: (entries) => {
       if (!world) throw new Error("BERX 5D: this host has no world to ingest into");
@@ -3937,6 +4026,7 @@ async function startBerxApp(options) {
   await pull();
   host.start();
   globalThis.__berxWorld = world;
+  globalThis.__berxHost = host;
   return {
     host,
     world,
@@ -3944,6 +4034,7 @@ async function startBerxApp(options) {
     refresh: pull,
     destroy: () => {
       delete globalThis.__berxWorld;
+      delete globalThis.__berxHost;
       host.destroy();
       notice.remove();
       outline.remove();

@@ -68,6 +68,26 @@ export interface Berx5DWebHost {
 	/** False while the GPU context is lost; the world state survives. */
 	readonly contextAlive: boolean;
 	/**
+	 * What the last frame actually cost, plus how long it took.
+	 *
+	 * Measured during the draw and during the loop — never estimated
+	 * from the object count, which is the number culling and the budget
+	 * exist to stop mattering.
+	 */
+	readonly performance: {
+		frameMs: number;
+		p95Ms: number;
+		visible: number;
+		inFrustum: number;
+		drawCalls: number;
+		triangles: number;
+		lodReduced: number;
+		budgetCut: number;
+		residentTextures: number;
+		residentLabels: number;
+		quality: BerxSpatialQualityResult['quality'];
+	};
+	/**
 	 * `media` is whatever the mapping layer produced for this object —
 	 * real URIs the server sent, and nothing when it sent none. The
 	 * structural shape keeps this package independent of @berx/scenes.
@@ -157,6 +177,9 @@ export function createBerx5DWebHost(options: Berx5DWebHostOptions = {}): Berx5DW
 	/* the last size the observer reported, in CSS pixels */
 	let cssWidth = 1, cssHeight = 1;
 	let lastAnnouncedId: string | undefined;
+	/* a rolling window of real frame times, for a p95 that means something */
+	const frameTimes: number[] = [];
+	let lastFrameMs = 0;
 
 	const visibleObjects = () => (world ? world.latestFrame : runtime.latestFrame).world.objects.filter((o) => o.visible);
 
@@ -203,7 +226,12 @@ export function createBerx5DWebHost(options: Berx5DWebHostOptions = {}): Berx5DW
 	const frame = (now: number) => {
 		if (!running) return;
 		const dt = Math.min(0.05, Math.max(0, (now - last) / 1000));
+		lastFrameMs = now - last;
 		last = now;
+		/* 120 frames is two seconds at 60fps: long enough for a p95 to
+		   mean something, short enough to reflect what is happening now */
+		frameTimes.push(lastFrameMs);
+		if (frameTimes.length > 120) frameTimes.shift();
 		if (contextAlive) {
 			syncQualityToLoad();
 			renderer.render(world ? world.frame(dt) : runtime.frame(dt), {maxObjects: quality.maxObjects, ambientMotion: quality.ambientMotion});
@@ -427,6 +455,23 @@ export function createBerx5DWebHost(options: Berx5DWebHostOptions = {}): Berx5DW
 		},
 		get contextAlive() {
 			return contextAlive;
+		},
+		get performance() {
+			const sorted = [...frameTimes].sort((a, b) => a - b);
+			const stats = renderer.frameStats;
+			return {
+				frameMs: lastFrameMs,
+				p95Ms: sorted.length > 0 ? sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * 0.95))] : 0,
+				visible: stats.visible,
+				inFrustum: stats.inFrustum,
+				drawCalls: stats.drawCalls,
+				triangles: stats.triangles,
+				lodReduced: stats.lodReduced,
+				budgetCut: stats.budgetCut,
+				residentTextures: stats.residentTextures,
+				residentLabels: stats.residentLabels,
+				quality: quality.quality,
+			};
 		},
 		world,
 		ingest: (entries) => {

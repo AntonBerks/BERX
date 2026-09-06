@@ -143,6 +143,8 @@ export async function startBerxApp(options: BerxAppShellOptions): Promise<BerxAp
 	 * embedder, a native bridge. There is nothing else to reach, which
 	 * is the point: the world is the whole application. */
 	(globalThis as unknown as {__berxWorld?: Berx5DWorldApp}).__berxWorld = world;
+	/* and the host, which is where the real frame cost is measured */
+	(globalThis as unknown as {__berxHost?: Berx5DWebHost}).__berxHost = host;
 
 	return {
 		host,
@@ -151,6 +153,7 @@ export async function startBerxApp(options: BerxAppShellOptions): Promise<BerxAp
 		refresh: pull,
 		destroy: () => {
 			delete (globalThis as unknown as {__berxWorld?: Berx5DWorldApp}).__berxWorld;
+			delete (globalThis as unknown as {__berxHost?: Berx5DWebHost}).__berxHost;
 			host.destroy();
 			notice.remove();
 			outline.remove();
