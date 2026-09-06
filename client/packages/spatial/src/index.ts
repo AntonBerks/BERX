@@ -5,14 +5,7 @@ export * from './contract';
 export * from './atmosphere';
 export * from './materials';
 export * from './lighting';
-export {
-  type BerxCameraContract,
-  type BerxCameraRuntime,
-  depthUnitPx,
-  resolveCamera,
-  perspectiveScale,
-  tiltFromPointer,
-} from './camera';
+export { type BerxCameraContract, type BerxCameraRuntime, depthUnitPx, resolveCamera, perspectiveScale, tiltFromPointer } from './camera';
 export * from './motion';
 export * from './performance';
 export * from './focus';
@@ -27,5 +20,4 @@ export * from './spatialInteraction';
 export * from './socialActions';
 export * from './spatialAffordances';
 export * from './geometry';
-export * from './spatialPresentation';
 export * from './mediaSurface';
