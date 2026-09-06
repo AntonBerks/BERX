@@ -8,6 +8,6 @@ export class BerxWebGL2Renderer implements BerxSpatialRenderer {
   private readonly backend:BerxThreeRuntimeRenderer;
   constructor(canvas:HTMLCanvasElement){this.backend=new BerxThreeRuntimeRenderer(canvas);}
   resize(width:number,height:number){this.backend.resize(width,height);}
-  render(frame:Berx5DFrame){this.backend.sync(frame);}
+  render(frame:Berx5DFrame){this.backend.render(frame);}
   dispose(){this.backend.dispose();}
 }
