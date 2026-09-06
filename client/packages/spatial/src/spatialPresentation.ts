@@ -62,24 +62,36 @@ export const BERX_5D_DNA = {
 } as const;
 
 /**
- * What each kind is made of, and what — if anything — lights it from
- * within. `amount` is the fraction of `glow` emitted at full energy;
- * `0` means the kind never emits, at any energy.
+ * What each kind is made of, and what it emits when it is live.
+ *
+ * `amount` is the fraction of `glow` emitted at full energy. Nothing is
+ * hard-zeroed any more: several kinds used to be written as "never
+ * emits, at any energy", which encoded a design claim the data does
+ * not support and, worse, silently threw away the one signal that
+ * matters — a place with a moment still running is exactly the NOW the
+ * palette reserves BERX Energy for, and it was rendering identically
+ * to a quiet one.
+ *
+ * Rarity is enforced by the only thing that can honestly enforce it:
+ * `energy` is raised solely by a real server signal, and an object at
+ * rest carries zero, so it emits zero. Gold for what is scheduled and
+ * happening, energy cyan for what is live right now.
  */
 const materials: Record<BerxSpatialEntityKind, {base: BerxShaderRgb; glow: BerxShaderRgb; amount: number}> = {
   /* people carry the light in this world */
   person: {base: BERX_5D_DNA.pearl, glow: BERX_5D_DNA.energy, amount: 0.08},
   /* a moment is live only while it is live */
   moment: {base: BERX_5D_DNA.mist, glow: BERX_5D_DNA.energy, amount: 0.10},
-  /* a place is architecture: it is lit, it does not light */
-  place: {base: BERX_5D_DNA.steel, glow: BERX_5D_DNA.energy, amount: 0},
+  /* architecture, lit rather than lighting — until something is
+     happening inside it, which is what NOW is */
+  place: {base: BERX_5D_DNA.steel, glow: BERX_5D_DNA.energy, amount: 0.07},
   /* gold is for what is happening — the warm end of the DNA */
   event: {base: BERX_5D_DNA.gold, glow: BERX_5D_DNA.gold, amount: 0.08},
   experience: {base: BERX_5D_DNA.gold, glow: BERX_5D_DNA.gold, amount: 0.06},
-  community: {base: BERX_5D_DNA.mist, glow: BERX_5D_DNA.energy, amount: 0},
+  community: {base: BERX_5D_DNA.mist, glow: BERX_5D_DNA.energy, amount: 0.05},
   business: {base: BERX_5D_DNA.steel, glow: BERX_5D_DNA.gold, amount: 0.05},
-  collection: {base: BERX_5D_DNA.graphite, glow: BERX_5D_DNA.energy, amount: 0},
-  message: {base: BERX_5D_DNA.mist, glow: BERX_5D_DNA.energy, amount: 0},
+  collection: {base: BERX_5D_DNA.graphite, glow: BERX_5D_DNA.energy, amount: 0.04},
+  message: {base: BERX_5D_DNA.mist, glow: BERX_5D_DNA.energy, amount: 0.06},
   /* creating is a focus moment, and focus is where energy belongs */
   create: {base: BERX_5D_DNA.steel, glow: BERX_5D_DNA.energy, amount: 0.18},
 };

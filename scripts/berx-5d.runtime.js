@@ -1683,15 +1683,16 @@ var materials = {
   person: { base: BERX_5D_DNA.pearl, glow: BERX_5D_DNA.energy, amount: 0.08 },
   /* a moment is live only while it is live */
   moment: { base: BERX_5D_DNA.mist, glow: BERX_5D_DNA.energy, amount: 0.1 },
-  /* a place is architecture: it is lit, it does not light */
-  place: { base: BERX_5D_DNA.steel, glow: BERX_5D_DNA.energy, amount: 0 },
+  /* architecture, lit rather than lighting — until something is
+     happening inside it, which is what NOW is */
+  place: { base: BERX_5D_DNA.steel, glow: BERX_5D_DNA.energy, amount: 0.07 },
   /* gold is for what is happening — the warm end of the DNA */
   event: { base: BERX_5D_DNA.gold, glow: BERX_5D_DNA.gold, amount: 0.08 },
   experience: { base: BERX_5D_DNA.gold, glow: BERX_5D_DNA.gold, amount: 0.06 },
-  community: { base: BERX_5D_DNA.mist, glow: BERX_5D_DNA.energy, amount: 0 },
+  community: { base: BERX_5D_DNA.mist, glow: BERX_5D_DNA.energy, amount: 0.05 },
   business: { base: BERX_5D_DNA.steel, glow: BERX_5D_DNA.gold, amount: 0.05 },
-  collection: { base: BERX_5D_DNA.graphite, glow: BERX_5D_DNA.energy, amount: 0 },
-  message: { base: BERX_5D_DNA.mist, glow: BERX_5D_DNA.energy, amount: 0 },
+  collection: { base: BERX_5D_DNA.graphite, glow: BERX_5D_DNA.energy, amount: 0.04 },
+  message: { base: BERX_5D_DNA.mist, glow: BERX_5D_DNA.energy, amount: 0.06 },
   /* creating is a focus moment, and focus is where energy belongs */
   create: { base: BERX_5D_DNA.steel, glow: BERX_5D_DNA.energy, amount: 0.18 }
 };
@@ -2362,15 +2363,34 @@ var BerxMediaTextureCache = class {
       this.pending.delete(uri);
     }
   }
-  /** Least recently drawn go first, and only down to the budget. */
+  /**
+   * Least recently drawn go first, down to the budget — and the budget
+   * is met, not merely aimed at.
+   *
+   * Preferring to keep whatever is in the frame being composed is
+   * right, and it cannot be absolute: with more textures visible at
+   * once than the budget allows, every resident one is in use and
+   * nothing is ever evictable, so the cap silently stops capping. The
+   * budget exists to bound memory, so it wins: unused textures go
+   * first, and if that is not enough the oldest in-use ones go too.
+   * That thrashes — they reload next frame — which is the honest
+   * symptom of a budget set below what the world is showing, and is
+   * still preferable to unbounded GPU memory.
+   */
   evict() {
     if (this.loaded.size <= this.budget) return;
     const byAge = [...this.loaded.entries()].sort((a, b) => a[1].lastUsedFrame - b[1].lastUsedFrame);
-    for (const [uri, entry] of byAge) {
-      if (this.loaded.size <= this.budget) break;
-      if (entry.lastUsedFrame === this.frame) continue;
+    const drop = (uri, entry) => {
       this.gl.deleteTexture(entry.texture);
       this.loaded.delete(uri);
+    };
+    for (const [uri, entry] of byAge) {
+      if (this.loaded.size <= this.budget) return;
+      if (entry.lastUsedFrame !== this.frame) drop(uri, entry);
+    }
+    for (const [uri, entry] of byAge) {
+      if (this.loaded.size <= this.budget) return;
+      if (this.loaded.has(uri)) drop(uri, entry);
     }
   }
   /** How many textures are resident. Real, for a host that reports budgets. */

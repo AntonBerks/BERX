@@ -124,16 +124,34 @@ export class BerxMediaTextureCache {
 		}
 	}
 
-	/** Least recently drawn go first, and only down to the budget. */
+	/**
+	 * Least recently drawn go first, down to the budget — and the budget
+	 * is met, not merely aimed at.
+	 *
+	 * Preferring to keep whatever is in the frame being composed is
+	 * right, and it cannot be absolute: with more textures visible at
+	 * once than the budget allows, every resident one is in use and
+	 * nothing is ever evictable, so the cap silently stops capping. The
+	 * budget exists to bound memory, so it wins: unused textures go
+	 * first, and if that is not enough the oldest in-use ones go too.
+	 * That thrashes — they reload next frame — which is the honest
+	 * symptom of a budget set below what the world is showing, and is
+	 * still preferable to unbounded GPU memory.
+	 */
 	private evict(): void {
 		if (this.loaded.size <= this.budget) return;
 		const byAge = [...this.loaded.entries()].sort((a, b) => a[1].lastUsedFrame - b[1].lastUsedFrame);
-		for (const [uri, entry] of byAge) {
-			if (this.loaded.size <= this.budget) break;
-			/* never evict something drawn in the frame being composed */
-			if (entry.lastUsedFrame === this.frame) continue;
+		const drop = (uri: string, entry: BerxLoadedTexture) => {
 			this.gl.deleteTexture(entry.texture);
 			this.loaded.delete(uri);
+		};
+		for (const [uri, entry] of byAge) {
+			if (this.loaded.size <= this.budget) return;
+			if (entry.lastUsedFrame !== this.frame) drop(uri, entry);
+		}
+		for (const [uri, entry] of byAge) {
+			if (this.loaded.size <= this.budget) return;
+			if (this.loaded.has(uri)) drop(uri, entry);
 		}
 	}
 

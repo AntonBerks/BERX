@@ -15,7 +15,8 @@
     "verify:5d-geometry": "node ./scripts/verify-5d-geometry.mjs",
     "generate:v9": "node ./scripts/generate-v9-scenes.mjs",
     "verify:v9:web": "node ./scripts/v9-web-probe.mjs",
-    "build:spatial-web": "node ./scripts/build-spatial-web.mjs"
+    "build:spatial-web": "node ./scripts/build-spatial-web.mjs",
+    "verify:5d-gpu": "node ./scripts/verify-5d-gpu.mjs"
   },
   "engines": {
     "node": ">=20"

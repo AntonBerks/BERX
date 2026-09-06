@@ -21,7 +21,7 @@ import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
-import {chromium} from 'playwright';
+import {launchChromium} from './lib/chromium.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const clientRoot = path.resolve(here, '..');
@@ -88,54 +88,7 @@ await new Promise((r) => server.listen(0, '127.0.0.1', r));
 const base = `http://127.0.0.1:${server.address().port}/`;
 
 /* ---------------- measure ---------------- */
-/**
- * Find a Chromium wherever this machine actually keeps one.
- *
- * This used to hardcode /opt/pw-browsers/chromium — a path that exists
- * in one development sandbox and nowhere else — so every CI run died
- * at the last step with "executable doesn't exist" no matter what the
- * code under test did. Hardcoding the other way round would only move
- * the failure: the sandbox's browser is a different build number than
- * the pinned Playwright expects, so its own resolution misses too.
- *
- * So: ask Playwright first, since that is right on a clean runner, and
- * fall back to whatever is really installed under
- * PLAYWRIGHT_BROWSERS_PATH when the pinned build is not there.
- * BERX_CHROMIUM_PATH short-circuits both for a machine that keeps its
- * browser somewhere else entirely.
- */
-function installedChromium() {
-	const root = process.env.PLAYWRIGHT_BROWSERS_PATH;
-	if (!root || !fs.existsSync(root)) return undefined;
-	/* the symlink a sandbox usually leaves pointing at the real build */
-	const direct = path.join(root, 'chromium');
-	if (fs.existsSync(direct) && fs.statSync(direct).isFile()) return direct;
-	/* otherwise the highest chromium-<build> that has a binary in it */
-	const builds = fs
-		.readdirSync(root)
-		.filter((name) => /^chromium-\d+$/.test(name))
-		.sort((a, b) => Number(b.split('-')[1]) - Number(a.split('-')[1]));
-	for (const build of builds) {
-		const binary = path.join(root, build, 'chrome-linux', 'chrome');
-		if (fs.existsSync(binary)) return binary;
-	}
-	return undefined;
-}
-
-async function launchChromium() {
-	const override = process.env.BERX_CHROMIUM_PATH;
-	if (override) return chromium.launch({executablePath: override});
-	try {
-		return await chromium.launch();
-	} catch (error) {
-		const found = installedChromium();
-		/* no browser anywhere is a real failure, and the original error
-		   says more about why than anything this could invent */
-		if (!found) throw error;
-		return chromium.launch({executablePath: found});
-	}
-}
-
+/* one Chromium finder, shared with verify:5d-runtime */
 const browser = await launchChromium();
 const findings = [];
 const results = {};

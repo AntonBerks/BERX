@@ -35,6 +35,8 @@ jobs:
         run: npm run verify:5d-runtime
       - name: 5D geometry and quality invariants
         run: npm run verify:5d-geometry
+      - name: 5D GPU world in a real browser
+        run: npm run verify:5d-gpu
       - name: V9 contracts
         run: npm run verify:v9
       - name: Build spatial web
