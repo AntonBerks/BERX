@@ -26,12 +26,12 @@
   "dependencies": {
     "@react-native-async-storage/async-storage": "^2.1.0",
     "@react-native-community/netinfo": "^11.4.1",
-    "@types/react": "^19.0.0",
+    "@types/react": "19.0.0",
     "react": "^19.0.0",
     "react-native": "^0.79.5",
     "react-native-svg": "^15.11.2"
   },
   "overrides": {
-    "@types/react": "19.0.0"
+    "@types/react": "$@types/react"
   }
 }

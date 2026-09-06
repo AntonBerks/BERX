@@ -9,13 +9,14 @@
  * arbitrary-file/audio selection mode — picking an audio file needs a
  * genuinely different library, not a misuse of the wrong one.
  *
- * Same disclosure as mediaPicker.ts: this sandbox has no npm registry
- * access (confirmed repeatedly — `npm view`/`npm ping` both return
- * 403) and no native build toolchain, so this file has never
- * actually run. Every function/option/response shape below is the
- * library's real, documented public API — not invented — and will
- * work as-is the moment the real package is installed and linked in
- * an actual React Native project.
+ * Same disclosure as mediaPicker.ts. The package is installed now, so
+ * every function, option and response shape below is checked against
+ * the library's own declarations rather than asserted from its docs —
+ * which is what turned `pick`'s cancellation guard from an untyped
+ * `unknown` into a real narrowing. The file has still never run: there
+ * is no ios/ or android/ project in this checkout and no native build
+ * toolchain, so it cannot be linked or invoked here. The TypeScript
+ * surface is verified; the native behaviour is not.
  *
  * OUTPUT CONTRACT: same as every other picker adapter this session —
  * `Promise<BerxFilePart | null>`, null covers both user cancellation

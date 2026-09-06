@@ -9,14 +9,17 @@
  * `ImagePickerResponse.didCancel/errorCode/errorMessage/assets`,
  * `Asset.uri/fileName/type`) is the library's real, documented,
  * stable public API as of its v5+ promise-based calling convention —
- * not invented. This file has never actually run: this sandbox has
- * no npm registry access (confirmed repeatedly this session — `npm
- * view`/`npm ping` both return 403) and no native build toolchain, so
- * the package cannot be installed or linked here. The moment
- * `react-native-image-picker` is added to a real project's
- * package.json (`npm install react-native-image-picker`, plus the
- * iOS pod install / Android autolink step every RN native module
- * needs), this file works as-is — no changes required.
+ * not invented, and now type-checked against the package's own
+ * declarations rather than against nothing: `react-native-image-picker`
+ * is installed, so `quality: 0.85` — never a value its `PhotoQuality`
+ * union accepts — is a compile error instead of a silent one.
+ *
+ * This file has still never actually run. There is no ios/ or
+ * android/ project in this checkout and no native build toolchain, so
+ * the module cannot be linked or invoked here; the remaining step in
+ * a real project is the iOS pod install / Android autolink every RN
+ * native module needs. The TypeScript surface is verified; the native
+ * behaviour is not.
  *
  * PERMISSIONS: launchImageLibrary()/launchCamera() trigger the
  * platform's own permission prompt internally (Info.plist usage
@@ -79,7 +82,12 @@ function assetToFilePart(asset: PickerAsset | undefined, fallbackName: string, f
 
 /** Gallery photo picker — used by AlbumDetailScreen, CreatePostScreen, Creator, and any future photo-attachment flow. */
 export async function pickImageFromLibrary(): Promise<BerxFilePart | null> {
-	const result: PickerResponse = await launchImageLibrary({ mediaType: 'photo', quality: 0.85 });
+	// 0.9, not 0.85: the library's real `PhotoQuality` is a union of
+	// tenths (see its types.d.ts), so 0.85 was never a value it
+	// accepts — it type-checked only because nothing here was checking.
+	// Rounding down to 0.8 would throw away quality nobody asked to
+	// lose, so this rounds up.
+	const result: PickerResponse = await launchImageLibrary({ mediaType: 'photo', quality: 0.9 });
 	if (result.didCancel || result.errorCode) {
 		return null;
 	}
@@ -97,7 +105,7 @@ export async function pickVideoFromLibrary(): Promise<BerxFilePart | null> {
 
 /** Camera capture — photo or video, same real library, same real permission flow. */
 export async function pickFromCamera(mediaType: 'photo' | 'video' = 'photo'): Promise<BerxFilePart | null> {
-	const result: PickerResponse = await launchCamera({ mediaType, quality: 0.85, saveToPhotos: false });
+	const result: PickerResponse = await launchCamera({ mediaType, quality: 0.9, saveToPhotos: false });
 	if (result.didCancel || result.errorCode) {
 		return null;
 	}
