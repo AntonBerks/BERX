@@ -17,6 +17,7 @@ export * from './worldLighting';
 export * from './worldMaterials';
 export * from './spatialAudio';
 export * from './platform';
+export * from './platformTargets';
 export * from './worldApp';
 export * from './world';
 export * from './spatialCamera';

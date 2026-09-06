@@ -224,7 +224,20 @@ const LOD_DISTANCE=18;
 const LABEL_FADE_START=14;
 const LABEL_FADE_END=26;
 
-export interface BerxSpatialRenderOptions { maxObjects?:number; ambientMotion?:boolean; }
+export interface BerxSpatialRenderOptions {
+	maxObjects?:number;
+	ambientMotion?:boolean;
+	/**
+	 * Two eyes, drawn side by side into one backing store.
+	 *
+	 * `ipd` is the real interpupillary distance in world units. This is
+	 * not a separate rendering path: the same frame, the same world, the
+	 * same lights and the same budget, drawn twice from cameras offset
+	 * along the view's right vector. A headset build is BERX with this
+	 * flag set, not a second product.
+	 */
+	stereo?:{ipd:number};
+}
 export class BerxThreeRuntimeRenderer implements BerxSpatialRenderer {
  readonly kind='webgl2' as const;
  /* what this backend really does, and nothing it does not */
@@ -248,8 +261,43 @@ export class BerxThreeRuntimeRenderer implements BerxSpatialRenderer {
   {const vao=gl.createVertexArray(),vbo=gl.createBuffer();if(!vao||!vbo)throw Error('BERX 5D label quad allocation failed');gl.bindVertexArray(vao);gl.bindBuffer(gl.ARRAY_BUFFER,vbo);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1, 1,-1, 1,1, -1,-1, 1,1, -1,1]),gl.STATIC_DRAW);gl.enableVertexAttribArray(0);gl.vertexAttribPointer(0,2,gl.FLOAT,false,8,0);gl.bindVertexArray(null);this.labelQuad={vao,vbo};}gl.enable(gl.DEPTH_TEST);gl.enable(gl.CULL_FACE);gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);}
  resize(w:number,h:number){this.width=Math.max(1,w);this.height=Math.max(1,h);this.gl.viewport(0,0,this.width,this.height);}
  private getMesh(kind:ReturnType<typeof geometryForEntity>['kind'],lod:0|1){const key=`${kind}:${lod}`;let m=this.meshes.get(key);if(!m){m=gpuMesh(this.gl,meshFor(kind,lod));this.meshes.set(key,m);}return m;}
- render(frame:Berx5DFrame,options:BerxSpatialRenderOptions={}){const gl=this.gl,c=frame.camera,max=Math.max(1,Math.floor(options.maxObjects??frame.world.objects.length));gl.useProgram(this.program);gl.clearColor(.027,.031,.039,1);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
-  const proj=perspective(c.fov,this.width/this.height,c.near,c.far),view=lookAt(c.position,c.target);
+ /**
+ * Draw the world. With `stereo`, draw it twice into two viewports —
+ * the same objects, the same lights, the same budget, from two
+ * cameras a real interpupillary distance apart.
+ */
+ render(frame:Berx5DFrame,options:BerxSpatialRenderOptions={}){
+  const gl=this.gl;
+  if(options.stereo){
+   const basis=cameraBasis(frame.camera);
+   const half=Math.max(1,Math.floor(this.width/2));
+   const shift=(sign:number)=>{
+    if(!basis)return frame;
+    const o=options.stereo!.ipd*.5*sign;
+    return {...frame,camera:{...frame.camera,
+     position:{x:frame.camera.position.x+basis.right.x*o,y:frame.camera.position.y+basis.right.y*o,z:frame.camera.position.z+basis.right.z*o},
+     target:{x:frame.camera.target.x+basis.right.x*o,y:frame.camera.target.y+basis.right.y*o,z:frame.camera.target.z+basis.right.z*o}}};
+   };
+   /* the clear covers the whole surface once; each eye then owns half */
+   gl.viewport(0,0,this.width,this.height);
+   gl.clearColor(.027,.031,.039,1);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
+   let calls=0,tris=0,lod=0,frustum=0,budget=0,visibleCount=0;
+   for(const [index,eye] of [shift(-1),shift(1)].entries()){
+    gl.viewport(index*half,0,half,this.height);
+    this.drawEye(eye,options,half,this.height,false);
+    calls+=this.stats.drawCalls;tris+=this.stats.triangles;lod+=this.stats.lodReduced;
+    frustum+=this.stats.inFrustum;budget+=this.stats.budgetCut;visibleCount=this.stats.visible;
+   }
+   gl.viewport(0,0,this.width,this.height);
+   this.stats={...this.stats,visible:visibleCount,inFrustum:frustum,drawCalls:calls,triangles:tris,lodReduced:lod,budgetCut:budget};
+   return;
+  }
+  gl.viewport(0,0,this.width,this.height);
+  this.drawEye(frame,options,this.width,this.height,true);
+ }
+
+ private drawEye(frame:Berx5DFrame,options:BerxSpatialRenderOptions,width:number,height:number,clear:boolean){const gl=this.gl,c=frame.camera,max=Math.max(1,Math.floor(options.maxObjects??frame.world.objects.length));gl.useProgram(this.program);if(clear){gl.clearColor(.027,.031,.039,1);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);}
+  const proj=perspective(c.fov,width/height,c.near,c.far),view=lookAt(c.position,c.target);
   gl.uniformMatrix4fv(this.P,false,proj);gl.uniformMatrix4fv(this.V,false,view);
   /* what the camera can actually see, this frame */
   const planes=frustumPlanes(multiply(proj,view));const all=frame.world.objects.filter(o=>o.visible);const focused=frame.world.activeObjectId;
@@ -321,7 +369,7 @@ export class BerxThreeRuntimeRenderer implements BerxSpatialRenderer {
    else gl.uniform1f(this.HT,0);
    gl.drawElements(gl.TRIANGLES,mesh.count,gl.UNSIGNED_SHORT,0);drawCalls++;triangles+=mesh.count/3;}
   gl.bindVertexArray(null);gl.bindTexture(gl.TEXTURE_2D,null);
-  const labelCalls=this.renderLabels(frame,drawn);
+  const labelCalls=this.renderLabels(frame,drawn,width,height);
   this.stats={
    visible:all.length,
    inFrustum:visible.length,
@@ -347,7 +395,7 @@ export class BerxThreeRuntimeRenderer implements BerxSpatialRenderer {
   * They fade with distance rather than growing to stay readable. A
   * label that keeps its screen size is a HUD; this is a world.
   */
- private renderLabels(frame:Berx5DFrame,objects:readonly BerxSpatialObject[]):number{
+ private renderLabels(frame:Berx5DFrame,objects:readonly BerxSpatialObject[],width:number,height:number):number{
   const gl=this.gl,c=frame.camera;
   const basis=cameraBasis(c);
   if(!basis)return 0;
@@ -358,7 +406,7 @@ export class BerxThreeRuntimeRenderer implements BerxSpatialRenderer {
   gl.depthMask(false);
   gl.disable(gl.CULL_FACE);
   gl.activeTexture(gl.TEXTURE0);gl.uniform1i(this.LT,0);
-  gl.uniformMatrix4fv(this.LP,false,perspective(c.fov,this.width/this.height,c.near,c.far));
+  gl.uniformMatrix4fv(this.LP,false,perspective(c.fov,width/height,c.near,c.far));
   gl.uniformMatrix4fv(this.LV,false,lookAt(c.position,c.target));
   gl.uniform3f(this.LR,basis.right.x,basis.right.y,basis.right.z);
   gl.uniform3f(this.LU,basis.up.x,basis.up.y,basis.up.z);
