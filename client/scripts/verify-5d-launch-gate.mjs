@@ -90,6 +90,7 @@ records.push(berxEvidence({
 runGate('webgl2', 'verify:5d-gpu', 'real WebGL2 context, depth buffer, picking and budgets in Chromium');
 runGate('design-integration', 'verify:5d-lighting', 'the BRDF and the DNA palette, measured in pixels');
 runGate('world-navigation', 'verify:5d-app-shell', 'the world is the application');
+runGate('desktop', 'verify:5d-desktop', 'a native wgpu backend renders the shared frame and agrees with the WebGL2 one, pixel for pixel');
 runGate('accessibility', 'verify:v9:web', 'keyboard focus, reduced motion, contrast and high contrast, measured');
 runGate('performance', 'verify:v9', 'frame budgets and contract gates');
 
@@ -131,8 +132,7 @@ if (noNative) {
 	blocked('arkit', `${nativeReason}; ARKit additionally needs a real device for pose, depth and anchors`, 'client/apps/mobile', 'repository');
 	blocked('arcore', `${nativeReason}; ARCore additionally needs a real device for pose, depth and anchors`, 'client/apps/mobile', 'repository');
 	blocked('openxr', `${nativeReason}; OpenXR additionally needs a headset for a real stereo frame loop`, 'client/apps/mobile', 'repository');
-	blocked('desktop', 'no desktop shell target exists in this repository, so nothing can be packaged or launched', 'client/apps', 'repository');
-	blocked('packaging', 'no native or desktop target exists to package', 'client/apps', 'repository');
+	blocked('packaging', 'client/packages/spatial-native builds and renders, but it is a renderer library with no windowing, no installer and no signing target, so there is nothing to package for a user yet', 'client/packages/spatial-native', 'repository');
 	blocked('real-device-verification', 'no physical iPhone, Android device, Apple Watch or headset is reachable from this environment', 'environment', 'device');
 }
 blocked('webgpu', "a WebGPU device is available here and the 13 capability gates run against it, but BERX's own renderer is WebGL2: there is no WebGPU production backend in packages/spatial-web, so nothing of the product renders through WebGPU", 'npm run verify:5d-gpu', 'browser');

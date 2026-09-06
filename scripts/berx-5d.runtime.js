@@ -2572,6 +2572,121 @@ function presentationForKind(kind, object) {
   };
 }
 
+// packages/spatial/src/drawList.ts
+var BERX_LOD_DISTANCE = 18;
+var BERX_WORLD_CLEAR = [7 / 255, 8 / 255, 10 / 255];
+var modelMatrix = (p, s, r) => {
+  const cx = Math.cos(r.x);
+  const sx = Math.sin(r.x);
+  const cy = Math.cos(r.y);
+  const sy = Math.sin(r.y);
+  const cz = Math.cos(r.z);
+  const sz = Math.sin(r.z);
+  const m = new Array(16).fill(0);
+  m[0] = cy * cz * s.x;
+  m[1] = cy * sz * s.x;
+  m[2] = -sy * s.x;
+  m[4] = (sx * sy * cz - cx * sz) * s.y;
+  m[5] = (sx * sy * sz + cx * cz) * s.y;
+  m[6] = sx * cy * s.y;
+  m[8] = (cx * sy * cz + sx * sz) * s.z;
+  m[9] = (cx * sy * sz - sx * cz) * s.z;
+  m[10] = cx * cy * s.z;
+  m[12] = p.x;
+  m[13] = p.y;
+  m[14] = p.z;
+  m[15] = 1;
+  return m;
+};
+var radiusOf = (o) => Math.max(o.transform.scale.x, o.transform.scale.y, o.transform.scale.z) * 0.75;
+var distanceTo = (eye, o) => Math.hypot(o.transform.position.x - eye.x, o.transform.position.y - eye.y, o.transform.position.z - eye.z);
+function berxBuildDrawList(frame, options) {
+  const c = frame.camera;
+  const width = Math.max(1, Math.floor(options.width));
+  const height = Math.max(1, Math.floor(options.height));
+  const projection = berxPerspective(c.fov, width / height, c.near, c.far);
+  const view = berxLookAt(c.position, c.target);
+  const planes = berxFrustumPlanes(berxMultiplyMat4(projection, view));
+  const all = frame.world.objects.filter((o) => o.visible);
+  const inFrustum = all.filter((o) => berxSphereInFrustum(planes, o.transform.position, radiusOf(o)));
+  const focused = frame.world.activeObjectId;
+  const eye = c.position;
+  const opaque = inFrustum.filter((o) => o.material.opacity >= 1).sort((a, b) => {
+    if (a.id === focused) return -1;
+    if (b.id === focused) return 1;
+    return distanceTo(eye, a) - distanceTo(eye, b);
+  });
+  const blended = inFrustum.filter((o) => o.material.opacity < 1).sort((a, b) => distanceTo(eye, b) - distanceTo(eye, a));
+  const max = Math.max(1, Math.floor(options.maxObjects ?? frame.world.objects.length));
+  const drawn = [...opaque, ...blended].slice(0, max);
+  const lighting = options.lighting ?? berxWorldLighting();
+  const energyLights = [];
+  for (const o of inFrustum) {
+    const light = berxEnergyLight(o.transform.position, o.energy);
+    if (light) energyLights.push(light);
+  }
+  const litWorld = { ...lighting, points: [...lighting.points, ...energyLights] };
+  let lodReduced = 0;
+  const items = drawn.map((o) => {
+    const spec = geometryForEntity(o.kind);
+    const presentation = presentationForKind(o.kind, o);
+    const material = berxWorldMaterial(o.material.material);
+    const distance2 = distanceTo(eye, o);
+    const lod = distance2 > BERX_LOD_DISTANCE ? 1 : 0;
+    if (lod === 1) lodReduced++;
+    return {
+      id: o.id,
+      kind: o.kind,
+      primitive: spec.kind,
+      lod,
+      model: modelMatrix(o.transform.position, o.transform.scale, o.transform.rotation),
+      base: [...presentation.base],
+      /* the palette decides the colour; the material decides how the
+         surface behaves. Neither is guessed from the other. */
+      emissive: [
+        presentation.emissive[0] + material.emission[0] * o.energy,
+        presentation.emissive[1] + material.emission[1] * o.energy,
+        presentation.emissive[2] + material.emission[2] * o.energy
+      ],
+      /* the object's own state is authoritative: a screen may have
+         changed a value since the named material was resolved */
+      metalness: o.material.metalness,
+      roughness: o.material.roughness,
+      opacity: o.material.opacity,
+      transmission: o.material.transmission,
+      pointLights: berxResolvePointLights(litWorld, o.transform.position),
+      media: options.mediaFor?.(o.id),
+      label: o.label,
+      distance: distance2
+    };
+  });
+  return {
+    width,
+    height,
+    projection: Array.from(projection),
+    view: Array.from(view),
+    camera: { ...c.position },
+    clearColor: [...BERX_WORLD_CLEAR],
+    ambient: [
+      lighting.ambient[0] * lighting.ambientIntensity,
+      lighting.ambient[1] * lighting.ambientIntensity,
+      lighting.ambient[2] * lighting.ambientIntensity
+    ],
+    key: {
+      direction: { ...lighting.key.direction },
+      colour: [...lighting.key.colour],
+      intensity: lighting.key.intensity * (options.ambientMotion === false ? 0.85 : 1)
+    },
+    items,
+    stats: {
+      visible: all.length,
+      inFrustum: inFrustum.length,
+      budgetCut: Math.max(0, inFrustum.length - drawn.length),
+      lodReduced
+    }
+  };
+}
+
 // packages/spatial-web/src/index.ts
 function detectPlatform(width) {
   const ua = typeof navigator === "undefined" ? "" : navigator.userAgent;
@@ -3517,23 +3632,6 @@ function program(gl, vs = V, fs = F) {
   }
   return p;
 }
-function model(p, s, r) {
-  const cx = Math.cos(r.x), sx = Math.sin(r.x), cy = Math.cos(r.y), sy = Math.sin(r.y), cz = Math.cos(r.z), sz = Math.sin(r.z), m = new Float32Array(16);
-  m[0] = cy * cz * s.x;
-  m[1] = cy * sz * s.x;
-  m[2] = -sy * s.x;
-  m[4] = (sx * sy * cz - cx * sz) * s.y;
-  m[5] = (sx * sy * sz + cx * cz) * s.y;
-  m[6] = sx * cy * s.y;
-  m[8] = (cx * sy * cz + sx * sz) * s.z;
-  m[9] = (cx * sy * sz - sx * cz) * s.z;
-  m[10] = cx * cy * s.z;
-  m[12] = p.x;
-  m[13] = p.y;
-  m[14] = p.z;
-  m[15] = 1;
-  return m;
-}
 function gpuMesh(gl, mesh) {
   const vao = gl.createVertexArray(), vbo = gl.createBuffer(), ibo = gl.createBuffer();
   if (!vao || !vbo || !ibo) throw Error("BERX 5D mesh allocation failed");
@@ -3577,7 +3675,6 @@ function meshFor(kind, lod) {
       return createSphere(0.58, far ? 11 : 28, far ? 7 : 18);
   }
 }
-var LOD_DISTANCE = 18;
 var LABEL_FADE_START = 14;
 var LABEL_FADE_END = 26;
 var BerxThreeRuntimeRenderer = class {
@@ -3692,7 +3789,7 @@ var BerxThreeRuntimeRenderer = class {
         } };
       };
       gl.viewport(0, 0, this.width, this.height);
-      gl.clearColor(0.027, 0.031, 0.039, 1);
+      gl.clearColor(BERX_WORLD_CLEAR[0], BERX_WORLD_CLEAR[1], BERX_WORLD_CLEAR[2], 1);
       gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
       let calls = 0, tris = 0, lod = 0, frustum = 0, budget = 0, visibleCount = 0;
       for (const [index, eye] of [shift(-1), shift(1)].entries()) {
@@ -3713,59 +3810,42 @@ var BerxThreeRuntimeRenderer = class {
     this.drawEye(frame, options, this.width, this.height, true);
   }
   drawEye(frame, options, width, height, clear) {
-    const gl = this.gl, c = frame.camera, max = Math.max(1, Math.floor(options.maxObjects ?? frame.world.objects.length));
+    const gl = this.gl;
     gl.useProgram(this.program);
+    const list = berxBuildDrawList(frame, {
+      width,
+      height,
+      maxObjects: options.maxObjects,
+      ambientMotion: options.ambientMotion,
+      lighting: this.lighting,
+      mediaFor: (id) => this.media.get(id)
+    });
     if (clear) {
-      gl.clearColor(0.027, 0.031, 0.039, 1);
+      gl.clearColor(list.clearColor[0], list.clearColor[1], list.clearColor[2], 1);
       gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     }
-    const proj = berxPerspective(c.fov, width / height, c.near, c.far), view = berxLookAt(c.position, c.target);
-    gl.uniformMatrix4fv(this.P, false, proj);
-    gl.uniformMatrix4fv(this.V, false, view);
-    const planes = berxFrustumPlanes(berxMultiplyMat4(proj, view));
-    const all = frame.world.objects.filter((o) => o.visible);
-    const focused = frame.world.activeObjectId;
-    const radiusOf = (o) => Math.max(o.transform.scale.x, o.transform.scale.y, o.transform.scale.z) * 0.75;
-    const visible = all.filter((o) => berxSphereInFrustum(planes, o.transform.position, radiusOf(o)));
-    const eye = c.position, distance2 = (o) => Math.hypot(o.transform.position.x - eye.x, o.transform.position.y - eye.y, o.transform.position.z - eye.z);
-    const opaque = visible.filter((o) => o.material.opacity >= 1).sort((a, b) => {
-      if (a.id === focused) return -1;
-      if (b.id === focused) return 1;
-      return distance2(a) - distance2(b);
-    });
-    const blended = visible.filter((o) => o.material.opacity < 1).sort((a, b) => distance2(b) - distance2(a));
-    const ordered = [...opaque, ...blended];
-    const drawn = ordered.slice(0, max);
-    let drawCalls = 0, triangles = 0, lodReduced = 0;
+    gl.uniformMatrix4fv(this.P, false, new Float32Array(list.projection));
+    gl.uniformMatrix4fv(this.V, false, new Float32Array(list.view));
     this.textures.beginFrame();
     gl.activeTexture(gl.TEXTURE0);
     gl.uniform1i(this.TEX, 0);
-    const lighting = this.lighting;
-    const energyLights = [];
-    for (const o of visible) {
-      const light = berxEnergyLight(o.transform.position, o.energy);
-      if (light) energyLights.push(light);
-    }
-    const litWorld = { ...lighting, points: [...lighting.points, ...energyLights] };
-    gl.uniform3f(this.CAM, c.position.x, c.position.y, c.position.z);
-    gl.uniform3f(this.AMB, lighting.ambient[0] * lighting.ambientIntensity, lighting.ambient[1] * lighting.ambientIntensity, lighting.ambient[2] * lighting.ambientIntensity);
-    gl.uniform3f(this.KEY_DIR, lighting.key.direction.x, lighting.key.direction.y, lighting.key.direction.z);
-    gl.uniform3f(this.KEY_COL, ...lighting.key.colour);
-    gl.uniform1f(this.KEY_I, lighting.key.intensity * (options.ambientMotion === false ? 0.85 : 1));
-    for (const o of drawn) {
-      const spec = geometryForEntity(o.kind), presentation = presentationForKind(o.kind, o), material = berxWorldMaterial(o.material.material);
-      const far = Math.hypot(o.transform.position.x - c.position.x, o.transform.position.y - c.position.y, o.transform.position.z - c.position.z) > LOD_DISTANCE;
-      if (far) lodReduced++;
-      const mesh = this.getMesh(spec.kind, far ? 1 : 0);
+    gl.uniform3f(this.CAM, list.camera.x, list.camera.y, list.camera.z);
+    gl.uniform3f(this.AMB, list.ambient[0], list.ambient[1], list.ambient[2]);
+    gl.uniform3f(this.KEY_DIR, list.key.direction.x, list.key.direction.y, list.key.direction.z);
+    gl.uniform3f(this.KEY_COL, list.key.colour[0], list.key.colour[1], list.key.colour[2]);
+    gl.uniform1f(this.KEY_I, list.key.intensity);
+    let drawCalls = 0, triangles = 0;
+    for (const item of list.items) {
+      const mesh = this.getMesh(item.primitive, item.lod);
       gl.bindVertexArray(mesh.vao);
-      gl.uniformMatrix4fv(this.M, false, model(o.transform.position, o.transform.scale, o.transform.rotation));
-      gl.uniform3f(this.BASE, ...presentation.base);
-      gl.uniform3f(this.EMIT, presentation.emissive[0] + material.emission[0] * o.energy, presentation.emissive[1] + material.emission[1] * o.energy, presentation.emissive[2] + material.emission[2] * o.energy);
-      gl.uniform1f(this.MET, o.material.metalness);
-      gl.uniform1f(this.ROUGH, o.material.roughness);
-      gl.uniform1f(this.OPAC, o.material.opacity);
-      gl.uniform1f(this.TRANS, o.material.transmission);
-      const near = berxResolvePointLights(litWorld, o.transform.position);
+      gl.uniformMatrix4fv(this.M, false, new Float32Array(item.model));
+      gl.uniform3f(this.BASE, item.base[0], item.base[1], item.base[2]);
+      gl.uniform3f(this.EMIT, item.emissive[0], item.emissive[1], item.emissive[2]);
+      gl.uniform1f(this.MET, item.metalness);
+      gl.uniform1f(this.ROUGH, item.roughness);
+      gl.uniform1f(this.OPAC, item.opacity);
+      gl.uniform1f(this.TRANS, item.transmission);
+      const near = item.pointLights;
       gl.uniform1i(this.PL_N, near.length);
       if (near.length > 0) {
         const pos = new Float32Array(BERX_MAX_POINT_LIGHTS * 3), col = new Float32Array(BERX_MAX_POINT_LIGHTS * 3), ints = new Float32Array(BERX_MAX_POINT_LIGHTS), ranges = new Float32Array(BERX_MAX_POINT_LIGHTS);
@@ -3784,7 +3864,7 @@ var BerxThreeRuntimeRenderer = class {
         gl.uniform1fv(this.PL_I, ints);
         gl.uniform1fv(this.PL_R, ranges);
       }
-      const uri = this.media.get(o.id), loaded = uri ? this.textures.get(uri) : void 0;
+      const loaded = item.media ? this.textures.get(item.media) : void 0;
       if (loaded) {
         gl.bindTexture(gl.TEXTURE_2D, loaded.texture);
         gl.uniform1f(this.HT, 1);
@@ -3797,14 +3877,16 @@ var BerxThreeRuntimeRenderer = class {
     }
     gl.bindVertexArray(null);
     gl.bindTexture(gl.TEXTURE_2D, null);
-    const labelCalls = this.renderLabels(frame, drawn, width, height);
+    const byId = new Map(frame.world.objects.map((o) => [o.id, o]));
+    const drawnObjects = list.items.map((i) => byId.get(i.id)).filter((o) => o !== void 0);
+    const labelCalls = this.renderLabels(frame, drawnObjects, width, height);
     this.stats = {
-      visible: all.length,
-      inFrustum: visible.length,
+      visible: list.stats.visible,
+      inFrustum: list.stats.inFrustum,
       drawCalls: drawCalls + labelCalls,
       triangles,
-      lodReduced,
-      budgetCut: Math.max(0, visible.length - drawn.length),
+      lodReduced: list.stats.lodReduced,
+      budgetCut: list.stats.budgetCut,
       residentTextures: this.textures.residentCount,
       residentLabels: this.labels.residentCount,
       meshVariants: this.meshes.size

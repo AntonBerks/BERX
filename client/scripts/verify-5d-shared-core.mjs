@@ -93,6 +93,41 @@ for (const backend of backends) {
 	);
 }
 
+/* The native backend is Rust, so the same rule needs a different check:
+   it must consume the shared core's draw list and decide nothing about
+   the world for itself. A renderer that culls, picks its own level of
+   detail, or carries its own material table is a second BERX in another
+   language, and the cross-renderer comparison would be comparing it to
+   itself rather than to the core. */
+const nativeDir = path.join(clientRoot, 'packages/spatial-native/src');
+if (fs.existsSync(nativeDir)) {
+	const rust = fs.readdirSync(nativeDir).filter((f) => f.endsWith('.rs'))
+		.map((f) => [f, fs.readFileSync(path.join(nativeDir, f), 'utf8')]);
+	const all = rust.map(([, body]) => body).join('\n');
+	const owns = /\b(struct|enum)\s+(World|Camera|Runtime|SpatialWorld|WorldGraph)\b/.test(all);
+	const decides = /\bfn\s+(cull\w*|frustum\w*|select_lod|lod_for|material_for|resolve_lights)\b/.test(all)
+		|| /\bLOD_DISTANCE\b/.test(all);
+	gate('@berx/spatial-native is a renderer, not a second world',
+		!owns && !decides && /struct DrawList/.test(all),
+		owns || decides
+			? 'the native crate has started deciding what the shared core decides'
+			: `${rust.length} modules, all driven by the shared core's draw list`);
+
+	/* The wire mirror must not drift from the interfaces it mirrors. Only
+	   drawlist.rs is checked: it is the boundary, and the rest of the
+	   crate is renderer internals that have no counterpart in the core. */
+	const mirror = rust.find(([f]) => f === 'drawlist.rs')?.[1] ?? '';
+	const shared = ['packages/spatial/src/drawList.ts', 'packages/spatial/src/worldLighting.ts']
+		.map((f) => fs.readFileSync(path.join(clientRoot, f), 'utf8')).join('\n');
+	const snake = [...mirror.matchAll(/^\s{4}pub ([a-z_0-9]+):/gm)].map((m) => m[1]);
+	const camel = (n) => n.replace(/_([a-z])/g, (_, c) => c.toUpperCase());
+	const fields = [...new Set(snake.map(camel))];
+	const missing = fields.filter((f) => !new RegExp(`\\b${f}\\b`).test(shared));
+	gate('the native draw list mirrors the shared one field for field',
+		mirror.length > 0 && fields.length > 0 && missing.length === 0,
+		missing.length > 0 ? `fields the shared core does not have: ${missing.join(', ')}` : `${fields.length} fields, every one declared in packages/spatial/src`);
+}
+
 console.log('');
 if (failures.length > 0) {
 	console.log(`${failures.length} SHARED-CORE GATES FAILED`);

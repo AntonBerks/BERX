@@ -1,0 +1,18 @@
+[package]
+name = "berx-spatial-native"
+version = "0.1.0"
+edition = "2021"
+description = "BERX 5D native renderer backend. Consumes the shared core's draw list; owns no world."
+publish = false
+
+[dependencies]
+wgpu = "0.19"
+pollster = "0.3"
+bytemuck = { version = "1", features = ["derive"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+png = "0.17"
+
+[[bin]]
+name = "berx-render"
+path = "src/bin/berx_render.rs"

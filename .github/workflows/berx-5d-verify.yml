@@ -34,6 +34,18 @@ jobs:
       # measure them. It is slow and is not a performance claim.
       - name: Install a software Vulkan driver so the GPU gates can run
         run: sudo apt-get update -qq && sudo apt-get install -y -qq mesa-vulkan-drivers
+      # The desktop backend is a Rust crate rendering through wgpu. The
+      # runner has the toolchain preinstalled; the cache keeps the wgpu
+      # dependency tree from being rebuilt on every run.
+      - name: Cache the native renderer's crates
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            client/packages/spatial-native/target
+          key: berx-native-${{ runner.os }}-${{ hashFiles('client/packages/spatial-native/Cargo.toml') }}
+          restore-keys: berx-native-${{ runner.os }}-
       - name: Typecheck
         run: npm run typecheck
       - name: Static verification
@@ -54,6 +66,8 @@ jobs:
         run: npm run verify:5d-platforms
       - name: The world is the application (zero flat)
         run: npm run verify:5d-app-shell
+      - name: Desktop — the native renderer agrees with the web one
+        run: npm run verify:5d-desktop
       - name: V9 contracts
         run: npm run verify:v9
       - name: Build spatial web

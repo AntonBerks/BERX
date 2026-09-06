@@ -20,30 +20,23 @@ import {
   type Berx5DFrame,
   type BerxHit,
   berxActionRing,
-  berxFrustumPlanes,
+  berxBuildDrawList,
+  BERX_WORLD_CLEAR,
   berxLookAt,
-  berxMultiplyMat4,
   berxPerspective,
-  berxSphereInFrustum,
-  berxEnergyLight,
-  berxResolvePointLights,
   berxWorldLighting,
-  berxWorldMaterial,
   BERX_MAX_POINT_LIGHTS,
-  type BerxPointLight,
   type BerxSpatialObject,
   type BerxSpatialRenderer,
   type BerxActionSlot,
   type BerxSpatialAffordance,
   type BerxWorldLighting,
-  type BerxVec3,
 } from '@berx/spatial';
-import { presentationForKind } from '@berx/spatial/spatialPresentation';
 import { createBox, createSphere, createRing, createFrame, type BerxPrimitiveMesh } from './primitiveGeometry';
 import { BerxMediaTextureCache } from './mediaTextures';
 import { BerxSpatialTextAtlas } from './spatialText';
 
-type Mat4 = Float32Array; type Loc = WebGLUniformLocation | null;
+type Loc = WebGLUniformLocation | null;
 const V = `#version 300 es\nprecision highp float;layout(location=0)in vec3 p;layout(location=1)in vec3 n;uniform mat4 P,V,M;out vec3 N,W,L,LN;void main(){vec4 w=M*vec4(p,1.);W=w.xyz;N=mat3(M)*n;L=p;LN=n;gl_Position=P*V*w;}`;
 /**
  * One forward pass with a real microfacet BRDF: GGX, height-correlated
@@ -157,7 +150,6 @@ const TF = `#version 300 es\nprecision highp float;in vec2 T;uniform sampler2D T
 
 function shader(gl: WebGL2RenderingContext, t: number, s: string) { const x=gl.createShader(t); if(!x) throw Error('BERX 5D shader allocation failed'); gl.shaderSource(x,s); gl.compileShader(x); if(!gl.getShaderParameter(x,gl.COMPILE_STATUS)){const e=gl.getShaderInfoLog(x)||'shader error';gl.deleteShader(x);throw Error(e);}return x; }
 function program(gl: WebGL2RenderingContext,vs=V,fs=F) { const p=gl.createProgram();if(!p)throw Error('BERX 5D program allocation failed');const a=shader(gl,gl.VERTEX_SHADER,vs),b=shader(gl,gl.FRAGMENT_SHADER,fs);gl.attachShader(p,a);gl.attachShader(p,b);gl.linkProgram(p);gl.deleteShader(a);gl.deleteShader(b);if(!gl.getProgramParameter(p,gl.LINK_STATUS)){const e=gl.getProgramInfoLog(p)||'program link error';gl.deleteProgram(p);throw Error(e);}return p; }
-function model(p:BerxVec3,s:BerxVec3,r:{x:number;y:number;z:number}):Mat4 { const cx=Math.cos(r.x),sx=Math.sin(r.x),cy=Math.cos(r.y),sy=Math.sin(r.y),cz=Math.cos(r.z),sz=Math.sin(r.z),m=new Float32Array(16);m[0]=cy*cz*s.x;m[1]=cy*sz*s.x;m[2]=-sy*s.x;m[4]=(sx*sy*cz-cx*sz)*s.y;m[5]=(sx*sy*sz+cx*cz)*s.y;m[6]=sx*cy*s.y;m[8]=(cx*sy*cz+sx*sz)*s.z;m[9]=(cx*sy*sz-sx*cz)*s.z;m[10]=cx*cy*s.z;m[12]=p.x;m[13]=p.y;m[14]=p.z;m[15]=1;return m; }
 /* The culler, the projection and the view matrix all live in
    @berx/spatial: one definition, used by the renderer that draws and by
    the gates that measure it. They were private copies here, which is
@@ -195,14 +187,6 @@ function gpuMesh(gl:WebGL2RenderingContext,mesh:BerxPrimitiveMesh):GpuMesh { con
  * Boxes are already minimal and are shared across both levels.
  */
 function meshFor(kind:ReturnType<typeof geometryForEntity>['kind'],lod:0|1):BerxPrimitiveMesh { const far=lod===1; switch(kind){case'orb':return createSphere(.5,far?10:24,far?7:16);case'ring':return createRing(.62,.42,far?16:48);case'frame':return createFrame(1,1,.12);case'surface':return createBox(1,1,.06);case'portal':return createFrame(1,1.2,.16);case'node':return createSphere(.58,far?9:20,far?6:12);case'stack':return createBox(1,1,.32);case'message':return createBox(1,.46,.12);case'create':return createSphere(.58,far?11:28,far?7:18);} }
-/**
- * Metres past which an entity is drawn at reduced detail.
- *
- * It stays the same entity — same id, same relations, same pickable
- * volume — with fewer segments in its mesh, because at that distance
- * the extra ones are smaller than a pixel.
- */
-const LOD_DISTANCE=18;
 
 /** Metres from the camera at which names begin to fade, and are gone. */
 const LABEL_FADE_START=14;
@@ -273,7 +257,7 @@ export class BerxThreeRuntimeRenderer implements BerxSpatialRenderer {
    };
    /* the clear covers the whole surface once; each eye then owns half */
    gl.viewport(0,0,this.width,this.height);
-   gl.clearColor(.027,.031,.039,1);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
+   gl.clearColor(BERX_WORLD_CLEAR[0],BERX_WORLD_CLEAR[1],BERX_WORLD_CLEAR[2],1);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
    let calls=0,tris=0,lod=0,frustum=0,budget=0,visibleCount=0;
    for(const [index,eye] of [shift(-1),shift(1)].entries()){
     gl.viewport(index*half,0,half,this.height);
@@ -289,87 +273,67 @@ export class BerxThreeRuntimeRenderer implements BerxSpatialRenderer {
   this.drawEye(frame,options,this.width,this.height,true);
  }
 
- private drawEye(frame:Berx5DFrame,options:BerxSpatialRenderOptions,width:number,height:number,clear:boolean){const gl=this.gl,c=frame.camera,max=Math.max(1,Math.floor(options.maxObjects??frame.world.objects.length));gl.useProgram(this.program);if(clear){gl.clearColor(.027,.031,.039,1);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);}
-  const proj=berxPerspective(c.fov,width/height,c.near,c.far),view=berxLookAt(c.position,c.target);
-  gl.uniformMatrix4fv(this.P,false,proj);gl.uniformMatrix4fv(this.V,false,view);
-  /* what the camera can actually see, this frame */
-  const planes=berxFrustumPlanes(berxMultiplyMat4(proj,view));const all=frame.world.objects.filter(o=>o.visible);const focused=frame.world.activeObjectId;
-  /**
-   * Culling comes before the budget, not after.
-   *
-   * Spending the quality budget on objects the camera cannot see is
-   * how a world with a hundred entities behind you draws nothing in
-   * front of you. The bounding radius is the object's own largest
-   * scale axis, which is what its geometry actually occupies.
-   */
-  const radiusOf=(o:BerxSpatialObject)=>Math.max(o.transform.scale.x,o.transform.scale.y,o.transform.scale.z)*.75;
-  const visible=all.filter(o=>berxSphereInFrustum(planes,o.transform.position,radiusOf(o)));
-  /* Two passes, because one order cannot serve both. Opaque objects go
-     first with the focused one leading, so the depth buffer rejects
-     everything behind it before it is ever shaded. Transparent objects
-     then go strictly far-to-near: alpha blending is order-dependent,
-     and drawing a near pane before a far one behind it composites the
-     far one away. Sorting them together by `depth` — the old single
-     pass — got the second case wrong every time. */
-  const eye=c.position,distance=(o:typeof visible[number])=>Math.hypot(o.transform.position.x-eye.x,o.transform.position.y-eye.y,o.transform.position.z-eye.z);
-  const opaque=visible.filter(o=>o.material.opacity>=1).sort((a,b)=>{if(a.id===focused)return-1;if(b.id===focused)return 1;return distance(a)-distance(b);});
-  const blended=visible.filter(o=>o.material.opacity<1).sort((a,b)=>distance(b)-distance(a));
-  const ordered=[...opaque,...blended];
-  const drawn=ordered.slice(0,max);
-  let drawCalls=0,triangles=0,lodReduced=0;
+ private drawEye(frame:Berx5DFrame,options:BerxSpatialRenderOptions,width:number,height:number,clear:boolean){
+  const gl=this.gl;
+  gl.useProgram(this.program);
+  /* What to draw is decided in @berx/spatial, not here: the cull, the
+     order, the budget, the LOD and the lights are the same decision on
+     every platform, so a native backend cannot quietly disagree with
+     this one. All that is left below is turning that list into GL. */
+  const list=berxBuildDrawList(frame,{
+   width,height,
+   maxObjects:options.maxObjects,
+   ambientMotion:options.ambientMotion,
+   lighting:this.lighting,
+   mediaFor:(id)=>this.media.get(id),
+  });
+  if(clear){gl.clearColor(list.clearColor[0],list.clearColor[1],list.clearColor[2],1);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);}
+  gl.uniformMatrix4fv(this.P,false,new Float32Array(list.projection));
+  gl.uniformMatrix4fv(this.V,false,new Float32Array(list.view));
   this.textures.beginFrame();
   gl.activeTexture(gl.TEXTURE0);gl.uniform1i(this.TEX,0);
-  /* the world's standing light, and whatever is live in it */
-  const lighting=this.lighting;
-  const energyLights:BerxPointLight[]=[];
-  for(const o of visible){const light=berxEnergyLight(o.transform.position,o.energy);if(light)energyLights.push(light);}
-  const litWorld={...lighting,points:[...lighting.points,...energyLights]};
-  gl.uniform3f(this.CAM,c.position.x,c.position.y,c.position.z);
-  gl.uniform3f(this.AMB,lighting.ambient[0]*lighting.ambientIntensity,lighting.ambient[1]*lighting.ambientIntensity,lighting.ambient[2]*lighting.ambientIntensity);
-  gl.uniform3f(this.KEY_DIR,lighting.key.direction.x,lighting.key.direction.y,lighting.key.direction.z);
-  gl.uniform3f(this.KEY_COL,...lighting.key.colour);
-  /* ambient motion is a dimming of the key, never a loss of the world */
-  gl.uniform1f(this.KEY_I,lighting.key.intensity*(options.ambientMotion===false?0.85:1));
-  for(const o of drawn){const spec=geometryForEntity(o.kind),presentation=presentationForKind(o.kind,o),material=berxWorldMaterial(o.material.material);
-   /* far enough away that the extra segments are sub-pixel */
-   const far=Math.hypot(o.transform.position.x-c.position.x,o.transform.position.y-c.position.y,o.transform.position.z-c.position.z)>LOD_DISTANCE;
-   if(far)lodReduced++;
-   const mesh=this.getMesh(spec.kind,far?1:0);gl.bindVertexArray(mesh.vao);gl.uniformMatrix4fv(this.M,false,model(o.transform.position,o.transform.scale,o.transform.rotation));
-   /* the DNA palette decides the colour; the material decides how the
-      surface behaves. Neither is guessed from the other. */
-   gl.uniform3f(this.BASE,...presentation.base);
-   gl.uniform3f(this.EMIT,presentation.emissive[0]+material.emission[0]*o.energy,presentation.emissive[1]+material.emission[1]*o.energy,presentation.emissive[2]+material.emission[2]*o.energy);
-   /* The object's own state is authoritative: it is where the mapping
-      put the named material's numbers, and a screen may have changed
-      one since. `||` was wrong here — it treats a metalness of 0, which
-      is every dielectric, as unset. */
-   gl.uniform1f(this.MET,o.material.metalness);
-   gl.uniform1f(this.ROUGH,o.material.roughness);
-   gl.uniform1f(this.OPAC,o.material.opacity);
-   gl.uniform1f(this.TRANS,o.material.transmission);
-   /* only the lights that reach this object, nearest first */
-   const near=berxResolvePointLights(litWorld,o.transform.position);
+  gl.uniform3f(this.CAM,list.camera.x,list.camera.y,list.camera.z);
+  gl.uniform3f(this.AMB,list.ambient[0],list.ambient[1],list.ambient[2]);
+  gl.uniform3f(this.KEY_DIR,list.key.direction.x,list.key.direction.y,list.key.direction.z);
+  gl.uniform3f(this.KEY_COL,list.key.colour[0],list.key.colour[1],list.key.colour[2]);
+  gl.uniform1f(this.KEY_I,list.key.intensity);
+  let drawCalls=0,triangles=0;
+  for(const item of list.items){
+   const mesh=this.getMesh(item.primitive,item.lod);
+   gl.bindVertexArray(mesh.vao);
+   gl.uniformMatrix4fv(this.M,false,new Float32Array(item.model));
+   gl.uniform3f(this.BASE,item.base[0],item.base[1],item.base[2]);
+   gl.uniform3f(this.EMIT,item.emissive[0],item.emissive[1],item.emissive[2]);
+   gl.uniform1f(this.MET,item.metalness);
+   gl.uniform1f(this.ROUGH,item.roughness);
+   gl.uniform1f(this.OPAC,item.opacity);
+   gl.uniform1f(this.TRANS,item.transmission);
+   const near=item.pointLights;
    gl.uniform1i(this.PL_N,near.length);
    if(near.length>0){
     const pos=new Float32Array(BERX_MAX_POINT_LIGHTS*3),col=new Float32Array(BERX_MAX_POINT_LIGHTS*3),ints=new Float32Array(BERX_MAX_POINT_LIGHTS),ranges=new Float32Array(BERX_MAX_POINT_LIGHTS);
     near.forEach((light,i)=>{pos[i*3]=light.position.x;pos[i*3+1]=light.position.y;pos[i*3+2]=light.position.z;col[i*3]=light.colour[0];col[i*3+1]=light.colour[1];col[i*3+2]=light.colour[2];ints[i]=light.intensity;ranges[i]=light.range;});
     gl.uniform3fv(this.PL_POS,pos);gl.uniform3fv(this.PL_COL,col);gl.uniform1fv(this.PL_I,ints);gl.uniform1fv(this.PL_R,ranges);
    }
-   const uri=this.media.get(o.id),loaded=uri?this.textures.get(uri):undefined;
+   const loaded=item.media?this.textures.get(item.media):undefined;
    if(loaded){gl.bindTexture(gl.TEXTURE_2D,loaded.texture);gl.uniform1f(this.HT,1);
     const face=mesh.halfX/mesh.halfY,fit=loaded.aspectRatio/face;
     gl.uniform4f(this.TS,mesh.halfX,mesh.halfY,fit>1?1/fit:1,fit>1?1:fit);}
    else gl.uniform1f(this.HT,0);
    gl.drawElements(gl.TRIANGLES,mesh.count,gl.UNSIGNED_SHORT,0);drawCalls++;triangles+=mesh.count/3;}
   gl.bindVertexArray(null);gl.bindTexture(gl.TEXTURE_2D,null);
-  const labelCalls=this.renderLabels(frame,drawn,width,height);
+  /* the label pass needs the entities themselves — a name belongs to an
+     object's own height, not to a matrix */
+  const byId=new Map(frame.world.objects.map(o=>[o.id,o] as const));
+  const drawnObjects=list.items.map(i=>byId.get(i.id)).filter((o):o is BerxSpatialObject=>o!==undefined);
+  const labelCalls=this.renderLabels(frame,drawnObjects,width,height);
   this.stats={
-   visible:all.length,
-   inFrustum:visible.length,
+   visible:list.stats.visible,
+   inFrustum:list.stats.inFrustum,
    drawCalls:drawCalls+labelCalls,
    triangles,
-   lodReduced,
-   budgetCut:Math.max(0,visible.length-drawn.length),
+   lodReduced:list.stats.lodReduced,
+   budgetCut:list.stats.budgetCut,
    residentTextures:this.textures.residentCount,
    residentLabels:this.labels.residentCount,
    meshVariants:this.meshes.size,

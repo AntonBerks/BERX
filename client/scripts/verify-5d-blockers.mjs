@@ -19,6 +19,7 @@ const repoRoot = path.resolve(clientRoot, '..');
 
 const read = (p) => (fs.existsSync(p) ? fs.readFileSync(p, 'utf8') : '');
 const renderer = read(path.join(clientRoot, 'packages/spatial-web/src/threeRuntime.ts'));
+const nativeRenderer = read(path.join(clientRoot, 'packages/spatial-native/src/lib.rs'));
 
 /**
  * A blocker is real when its evidence still holds. `claimed` is the
@@ -32,6 +33,30 @@ const BLOCKERS = [
 				? 'client/apps/mobile has no ios/ or android/ project, so a native backend cannot be compiled, linked, launched, rendered or verified here'
 				: undefined,
 		claimed: () => /kind\s*=\s*'(metal|vulkan)'/.test(renderer),
+	},
+	{
+		what: 'Media surfaces in the desktop (native) renderer',
+		evidence: () =>
+			nativeRenderer
+				? 'packages/spatial-native has no image decoder, so a draw item carrying a media surface is counted and left undrawn rather than substituted with something invented'
+				: undefined,
+		claimed: () => /media_surfaces:\s*true/.test(nativeRenderer),
+	},
+	{
+		what: 'World-space labels in the desktop (native) renderer',
+		evidence: () =>
+			nativeRenderer
+				? 'packages/spatial-native has no text rasteriser, so entity names are not drawn there; the shared frame used for cross-renderer comparison carries none'
+				: undefined,
+		claimed: () => /world_space_labels:\s*true/.test(nativeRenderer),
+	},
+	{
+		what: 'A desktop window, input loop and installable package',
+		evidence: () =>
+			nativeRenderer
+				? 'packages/spatial-native renders offscreen and reads pixels back; there is no windowing or input layer, no installer and no signing target, and no display is reachable from this environment to verify one'
+				: undefined,
+		claimed: () => /winit|raw_window_handle::HasWindowHandle|create_surface\(/.test(nativeRenderer),
 	},
 	{
 		what: 'WebGPU renderer',

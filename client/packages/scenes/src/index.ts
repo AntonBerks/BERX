@@ -11,3 +11,4 @@ export * from './spatialMapping';
 export * from './spatialMappingAssertions';
 export * from './worldLoader';
 export * from './worldAssertions';
+export * from './crossRendererFrame';

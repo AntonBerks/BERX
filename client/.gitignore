@@ -11,3 +11,6 @@ DerivedData/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# Rust build output for the native (desktop) renderer backend
+packages/spatial-native/target/
