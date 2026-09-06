@@ -4,7 +4,8 @@
   "private": true,
   "exports": {
     ".": "./src/index.ts",
-    "./runtime5d": "./src/runtimeHost5d.ts"
+    "./runtime5d": "./src/runtimeHost5d.ts",
+    "./webgl2": "./src/webgl2Renderer.ts"
   },
   "sideEffects": false,
   "main": "./src/index.ts",
