@@ -128,6 +128,32 @@ if (fs.existsSync(nativeDir)) {
 		missing.length > 0 ? `fields the shared core does not have: ${missing.join(', ')}` : `${fields.length} fields, every one declared in packages/spatial/src`);
 }
 
+/* One shader, not one per backend. The native crate include_str!s
+   world.wgsl and the WebGPU backend imports the generated mirror of it;
+   if those two ever stop being the same text, two renderers that are
+   supposed to be comparable have quietly started drawing differently. */
+const shaderDir = path.join(clientRoot, 'packages/spatial-shaders');
+if (fs.existsSync(shaderDir)) {
+	const wgsl = fs.readFileSync(path.join(shaderDir, 'world.wgsl'), 'utf8');
+	const mirrorTs = fs.readFileSync(path.join(shaderDir, 'src/index.ts'), 'utf8');
+	const literal = mirrorTs.slice(mirrorTs.indexOf('BERX_WORLD_WGSL = ') + 'BERX_WORLD_WGSL = '.length).trim().replace(/;\s*$/, '');
+	let mirrored = '';
+	try { mirrored = JSON.parse(literal); } catch { mirrored = ''; }
+	gate('one WGSL shader, mirrored without drift',
+		mirrored === wgsl,
+		mirrored === wgsl
+			? `${wgsl.length} bytes, identical in world.wgsl and src/index.ts`
+			: 'packages/spatial-shaders/src/index.ts is stale — run npm run generate:shaders');
+
+	const nativeUses = fs.existsSync(path.join(clientRoot, 'packages/spatial-native/src/lib.rs')) &&
+		/include_str!\("\.\.\/\.\.\/spatial-shaders\/world\.wgsl"\)/.test(fs.readFileSync(path.join(clientRoot, 'packages/spatial-native/src/lib.rs'), 'utf8'));
+	const webUses = fs.existsSync(path.join(clientRoot, 'packages/spatial-web/src/webgpuRuntime.ts')) &&
+		/BERX_WORLD_WGSL/.test(fs.readFileSync(path.join(clientRoot, 'packages/spatial-web/src/webgpuRuntime.ts'), 'utf8'));
+	gate('both WGSL backends read that one shader',
+		nativeUses && webUses,
+		nativeUses && webUses ? 'berx-spatial-native include_str!s it; @berx/spatial-web imports it' : 'a backend carries its own copy of the shader');
+}
+
 console.log('');
 if (failures.length > 0) {
 	console.log(`${failures.length} SHARED-CORE GATES FAILED`);

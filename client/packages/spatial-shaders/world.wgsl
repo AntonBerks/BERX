@@ -1,16 +1,23 @@
-// The BERX forward pass, in WGSL.
+// The BERX forward pass, in WGSL. This file is the only copy of it.
+//
+// Two backends run this exact text: @berx/spatial-web's WebGPU renderer,
+// which imports it through @berx/spatial-shaders, and the native
+// berx-spatial-native crate, which include_str!s it. A shader duplicated
+// per backend is how two renderers quietly stop drawing the same world.
 //
 // The same microfacet BRDF the WebGL2 backend runs: GGX, height-correlated
 // Smith visibility, Schlick Fresnel, metalness splitting the diffuse and
 // specular lobes, one directional key, up to four windowed point lights, and
 // an ambient term that stands in for the bounced room without pretending to
-// be image-based lighting. There is no shadow map and no post chain here
-// either, and the backend's reported capabilities say so.
+// be image-based lighting. There is no shadow map and no post chain here,
+// and both backends' reported capabilities say so.
 //
-// Two things differ from the GL source, and both are clip-space conventions
-// rather than shading: WGSL depth runs 0..1 where GL runs -1..1, so the host
-// hands this shader a projection already remapped, and the media path is
-// absent because this backend has no image decoder yet.
+// Two things differ from the GLSL source. WGSL depth runs 0..1 where GL runs
+// -1..1, so the host hands this shader a projection already remapped. And
+// there is no media path: neither WGSL backend has a working image upload —
+// the native crate has no decoder, and copyExternalImageToTexture is
+// unsupported on the driver the WebGPU gates run against — so media surfaces
+// are reported as a gap rather than approximated with a colour.
 
 struct Globals {
   proj: mat4x4<f32>,

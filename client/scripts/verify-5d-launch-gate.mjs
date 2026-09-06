@@ -90,7 +90,7 @@ records.push(berxEvidence({
 runGate('webgl2', 'verify:5d-gpu', 'real WebGL2 context, depth buffer, picking and budgets in Chromium');
 runGate('design-integration', 'verify:5d-lighting', 'the BRDF and the DNA palette, measured in pixels');
 runGate('world-navigation', 'verify:5d-app-shell', 'the world is the application');
-runGate('desktop', 'verify:5d-desktop', 'a native wgpu backend renders the shared frame and agrees with the WebGL2 one, pixel for pixel');
+runGate('desktop', 'verify:5d-crossrender', 'a native wgpu backend renders the shared frame and agrees with the WebGL2 one, pixel for pixel');
 runGate('accessibility', 'verify:v9:web', 'keyboard focus, reduced motion, contrast and high contrast, measured');
 runGate('performance', 'verify:v9', 'frame budgets and contract gates');
 
@@ -135,7 +135,7 @@ if (noNative) {
 	blocked('packaging', 'client/packages/spatial-native builds and renders, but it is a renderer library with no windowing, no installer and no signing target, so there is nothing to package for a user yet', 'client/packages/spatial-native', 'repository');
 	blocked('real-device-verification', 'no physical iPhone, Android device, Apple Watch or headset is reachable from this environment', 'environment', 'device');
 }
-blocked('webgpu', "a WebGPU device is available here and the 13 capability gates run against it, but BERX's own renderer is WebGL2: there is no WebGPU production backend in packages/spatial-web, so nothing of the product renders through WebGPU", 'npm run verify:5d-gpu', 'browser');
+blocked('webgpu', "packages/spatial-web/src/webgpuRuntime.ts is a real WebGPU backend: it consumes the shared draw list, runs the same WGSL as the native crate, and its frame agrees with the WebGL2 one to a mean of 0.02/255 (verify:5d-crossrender). It is still not what the product runs — it has no media, label, action-ring or picking path, so runtimeHost5d.ts stays on WebGL2 — and the media path cannot be finished here because copyExternalImageToTexture is unsupported on this driver", 'npm run verify:5d-crossrender', 'browser');
 blocked('gpu-recovery', 'WebGL context loss is handled and the meshes rebuild, but a real device loss cannot be forced in this environment, so recovery is unproven end to end', 'packages/spatial-web/src/runtimeHost5d.ts', 'browser');
 
 const noBackend = !fs.existsSync(path.join(repoRoot, 'backend/opensource-socialnetwork-master/components/OssnApi'));

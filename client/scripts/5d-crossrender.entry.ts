@@ -7,6 +7,7 @@
  * against the native readback.
  */
 import {BerxThreeRuntimeRenderer} from '@berx/spatial-web/threeRuntime';
+import {BerxWebGPURuntimeRenderer} from '@berx/spatial-web/webgpuRuntime';
 import {berxBuildDrawList} from '@berx/spatial';
 import {BERX_CROSS_RENDERER_VIEWPORT, berxCrossRendererFrame} from '@berx/scenes';
 
@@ -44,6 +45,33 @@ const api = {
 			rgba: Array.from(flipRows(px, canvas.width, canvas.height)),
 			stats: renderer.frameStats,
 		};
+	},
+	/**
+	 * The same frame through the WebGPU backend, read back off the GPU.
+	 *
+	 * Returns a reason rather than throwing when this browser has no
+	 * WebGPU device: absent is a fact to report, not a failure to hide.
+	 */
+	async renderWebGPU() {
+		const canvas = document.getElementById('gpu') as HTMLCanvasElement;
+		canvas.width = BERX_CROSS_RENDERER_VIEWPORT.width;
+		canvas.height = BERX_CROSS_RENDERER_VIEWPORT.height;
+		const renderer = await BerxWebGPURuntimeRenderer.create(canvas);
+		if (!renderer) return {available: false as const, reason: 'navigator.gpu granted no adapter or device in this browser'};
+		renderer.resize(canvas.width, canvas.height);
+		renderer.draw(api.drawList(), true);
+		const rgba = await renderer.readback();
+		const result = {
+			available: true as const,
+			width: canvas.width,
+			height: canvas.height,
+			rgba: Array.from(rgba),
+			stats: renderer.frameStats,
+			capabilities: {...renderer.capabilities, ...renderer.extendedCapabilities},
+			kind: renderer.kind,
+		};
+		renderer.dispose();
+		return result;
 	},
 };
 

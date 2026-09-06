@@ -167,7 +167,7 @@ impl NativeRenderer {
 
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("berx-world"),
-            source: wgpu::ShaderSource::Wgsl(include_str!("world.wgsl").into()),
+            source: wgpu::ShaderSource::Wgsl(include_str!("../../spatial-shaders/world.wgsl").into()),
         });
 
         let globals_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {

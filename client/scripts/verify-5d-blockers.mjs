@@ -20,6 +20,8 @@ const repoRoot = path.resolve(clientRoot, '..');
 const read = (p) => (fs.existsSync(p) ? fs.readFileSync(p, 'utf8') : '');
 const renderer = read(path.join(clientRoot, 'packages/spatial-web/src/threeRuntime.ts'));
 const nativeRenderer = read(path.join(clientRoot, 'packages/spatial-native/src/lib.rs'));
+const webgpuRenderer = read(path.join(clientRoot, 'packages/spatial-web/src/webgpuRuntime.ts'));
+const host = read(path.join(clientRoot, 'packages/spatial-web/src/runtimeHost5d.ts'));
 
 /**
  * A blocker is real when its evidence still holds. `claimed` is the
@@ -59,9 +61,28 @@ const BLOCKERS = [
 		claimed: () => /winit|raw_window_handle::HasWindowHandle|create_surface\(/.test(nativeRenderer),
 	},
 	{
-		what: 'WebGPU renderer',
-		evidence: () => "a WebGPU device is available here and the 13 capability gates run against it, but BERX's own renderer is WebGL2: there is no WebGPU production backend in packages/spatial-web, so nothing of the product renders through WebGPU",
+		what: 'WebGPU as the renderer a product session runs on',
+		evidence: () =>
+			/BerxWebGPURuntimeRenderer/.test(host)
+				? undefined
+				: 'packages/spatial-web/src/webgpuRuntime.ts draws the world pass and agrees with WebGL2 pixel for pixel, but it has no media, label, action-ring or picking path, so runtimeHost5d.ts constructs the WebGL2 backend and no end-to-end session renders through WebGPU',
 		claimed: () => /kind\s*=\s*'webgpu'/.test(renderer),
+	},
+	{
+		what: 'Media upload in the WebGPU backend',
+		evidence: () =>
+			webgpuRenderer && /mediaSurfaces:\s*false/.test(webgpuRenderer)
+				? 'copyExternalImageToTexture is unsupported on the driver these gates run against, so the WebGPU backend declares mediaSurfaces false rather than approximating a photograph with a colour'
+				: undefined,
+		claimed: () => /mediaSurfaces:\s*true/.test(webgpuRenderer),
+	},
+	{
+		what: 'Reading a WebGPU canvas texture back',
+		evidence: () =>
+			webgpuRenderer
+				? 'copyTextureToBuffer from a canvas texture fails on this driver ("a valid external Instance reference no longer exists"), so verification renders the same list through the same pipeline into an offscreen resolve target instead; only the attachment differs'
+				: undefined,
+		claimed: () => /getCurrentTexture\(\)[\s\S]{0,80}copyTextureToBuffer/.test(webgpuRenderer),
 	},
 	{
 		what: 'Shadow maps',

@@ -66,8 +66,8 @@ jobs:
         run: npm run verify:5d-platforms
       - name: The world is the application (zero flat)
         run: npm run verify:5d-app-shell
-      - name: Desktop — the native renderer agrees with the web one
-        run: npm run verify:5d-desktop
+      - name: Three GPU backends draw the same world
+        run: npm run verify:5d-crossrender
       - name: V9 contracts
         run: npm run verify:v9
       - name: Build spatial web

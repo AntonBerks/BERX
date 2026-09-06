@@ -1,0 +1,10 @@
+{
+  "name": "@berx/spatial-shaders",
+  "version": "0.1.0",
+  "private": true,
+  "description": "The BERX world shader, once. Consumed by every GPU backend.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  }
+}

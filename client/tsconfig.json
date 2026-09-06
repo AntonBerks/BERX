@@ -16,6 +16,8 @@
       "@berx/core": ["./packages/core/src/index.ts"],
       "@berx/spatial": ["./packages/spatial/src/index.ts"],
       "@berx/spatial-web": ["./packages/spatial-web/src/index.ts"],
+      "@berx/spatial-web/*": ["./packages/spatial-web/src/*"],
+      "@berx/spatial-shaders": ["./packages/spatial-shaders/src/index.ts"],
       "@berx/spatial/*": ["./packages/spatial/src/*"],
       "@berx/scenes": ["./packages/scenes/src/index.ts"],
       "@berx/scenes/*": ["./packages/scenes/src/*"],
