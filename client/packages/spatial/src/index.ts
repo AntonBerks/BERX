@@ -18,6 +18,7 @@ export * from './worldMaterials';
 export * from './spatialAudio';
 export * from './platform';
 export * from './platformTargets';
+export * from './fullPlatformContract';
 export * from './fullPlatformRuntime';
 export * from './worldApp';
 export * from './world';
