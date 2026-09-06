@@ -1,9 +1,4 @@
-/**
- * @berx/spatial — BERX MAX living spatial runtime.
- *
- * The shared layer is renderer-agnostic: web/native renderers project the
- * same persistent world, camera and transition state into GPU scenes.
- */
+/** @berx/spatial — BERX MAX living spatial runtime. */
 export * from './tokens';
 export * from './color';
 export * from './contract';
@@ -19,3 +14,4 @@ export * from './scene';
 export * from './world';
 export * from './spatialCamera';
 export * from './runtime5d';
+export * from './renderer';
