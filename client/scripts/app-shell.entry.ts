@@ -9,7 +9,7 @@
  */
 import {BerxApiClient} from '@berx/api/client';
 import type {BerxTokenStorage} from '@berx/core';
-import {loadBerxConversation, loadBerxWorld} from '@berx/scenes';
+import {loadBerxConversation, loadBerxWorld, mapFeedItemToSpatial} from '@berx/scenes';
 import {startBerxApp} from '@berx/spatial-web/appShell';
 
 /**
@@ -66,6 +66,27 @@ async function enterWorld(): Promise<void> {
 			const guid = Number(position.focusId.split(':')[1]);
 			if (!Number.isFinite(guid)) return undefined;
 			return loadBerxConversation(api, guid);
+		},
+		/**
+		 * Publishing creates a real post and reads it back.
+		 *
+		 * `createPost` answers with a guid and nothing else, so the entity
+		 * that enters the world is built from what the server then
+		 * returns for that guid — not from the text that was typed, which
+		 * would be showing someone their own draft and calling it
+		 * published.
+		 */
+		publish: async (text) => {
+			const {guid} = await api.createPost(text);
+			const post = await api.getPost(guid);
+			const mapped = mapFeedItemToSpatial({
+				guid: post.guid,
+				text: post.text,
+				owner_guid: post.owner_guid,
+				owner_username: post.owner_username,
+				time_created: post.time_created,
+			});
+			return {object: mapped.object, relations: mapped.relations, media: mapped.media};
 		},
 		textureBudget: 96,
 	});

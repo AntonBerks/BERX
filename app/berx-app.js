@@ -3649,6 +3649,59 @@ async function startBerxApp(options) {
       notice.hidden = true;
     }
   };
+  let composer;
+  const compose = () => {
+    if (composer || !options.publish) return;
+    const form = document.createElement("form");
+    composer = form;
+    form.style.cssText = "position:fixed;left:50%;bottom:32px;transform:translateX(-50%);display:flex;gap:8px;width:min(560px,calc(100% - 48px))";
+    const field = document.createElement("input");
+    field.setAttribute("aria-label", "\u0427\u0442\u043E \u043F\u0440\u043E\u0438\u0441\u0445\u043E\u0434\u0438\u0442");
+    field.placeholder = "\u0427\u0442\u043E \u043F\u0440\u043E\u0438\u0441\u0445\u043E\u0434\u0438\u0442";
+    field.style.cssText = "flex:1;min-height:44px;padding:0 16px;border-radius:999px;border:1px solid #1C2228;background:#0D1014;color:#F2F0EB;font:inherit";
+    const send = document.createElement("button");
+    send.type = "submit";
+    send.textContent = "\u041E\u043F\u0443\u0431\u043B\u0438\u043A\u043E\u0432\u0430\u0442\u044C";
+    send.style.cssText = "min-height:44px;padding:0 18px;border-radius:999px;border:1px solid #1C2228;background:#15191E;color:#4FD6E8;font:inherit;cursor:pointer";
+    const problem = document.createElement("p");
+    problem.setAttribute("role", "alert");
+    problem.style.cssText = "position:absolute;bottom:52px;left:0;margin:0;color:#FF5C72;font:14px/1.4 system-ui,sans-serif";
+    form.append(field, send, problem);
+    mount.appendChild(form);
+    field.focus();
+    const close = () => {
+      form.remove();
+      composer = void 0;
+      canvas.focus();
+    };
+    field.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") close();
+    });
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const text = field.value.trim();
+      if (text.length === 0 || send.disabled) return;
+      send.disabled = true;
+      problem.textContent = "";
+      try {
+        const created = await options.publish(text);
+        host.ingest([created]);
+        outline.textContent = describe(world);
+        close();
+        world.travelTo(created.object.id);
+      } catch (error) {
+        problem.textContent = error instanceof Error ? error.message : "\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u043E\u043F\u0443\u0431\u043B\u0438\u043A\u043E\u0432\u0430\u0442\u044C";
+        send.disabled = false;
+      }
+    });
+  };
+  const onCompose = (event) => {
+    if (event.key !== "n" && event.key !== "\u0442") return;
+    if (composer) return;
+    event.preventDefault();
+    compose();
+  };
+  canvas.addEventListener("keydown", onCompose);
   await pull();
   host.start();
   globalThis.__berxWorld = world;
@@ -3658,7 +3711,10 @@ async function startBerxApp(options) {
     world,
     failures,
     refresh: pull,
+    compose,
     destroy: () => {
+      canvas.removeEventListener("keydown", onCompose);
+      composer?.remove();
       delete globalThis.__berxWorld;
       delete globalThis.__berxHost;
       host.destroy();
@@ -3711,6 +3767,27 @@ async function enterWorld() {
       const guid = Number(position.focusId.split(":")[1]);
       if (!Number.isFinite(guid)) return void 0;
       return loadBerxConversation(api, guid);
+    },
+    /**
+     * Publishing creates a real post and reads it back.
+     *
+     * `createPost` answers with a guid and nothing else, so the entity
+     * that enters the world is built from what the server then
+     * returns for that guid — not from the text that was typed, which
+     * would be showing someone their own draft and calling it
+     * published.
+     */
+    publish: async (text) => {
+      const { guid } = await api.createPost(text);
+      const post = await api.getPost(guid);
+      const mapped = mapFeedItemToSpatial({
+        guid: post.guid,
+        text: post.text,
+        owner_guid: post.owner_guid,
+        owner_username: post.owner_username,
+        time_created: post.time_created
+      });
+      return { object: mapped.object, relations: mapped.relations, media: mapped.media };
     },
     textureBudget: 96
   });

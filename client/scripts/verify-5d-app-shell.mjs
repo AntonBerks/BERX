@@ -73,6 +73,7 @@ const API = {
 	},
 };
 
+const created = [];
 const types = {'.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8'};
 const served = new Set();
 const server = http.createServer((req, res) => {
@@ -80,6 +81,18 @@ const server = http.createServer((req, res) => {
 	if (name === '/favicon.ico') return void res.writeHead(204).end();
 	if (name.startsWith('/api/')) {
 		served.add(name);
+		/* creating a post really creates one, and reading it back returns
+		   what the server has — which is what the world is built from */
+		if (name === '/api/v1/posts' && req.method === 'POST') {
+			const guid = 7700 + created.length;
+			created.push(guid);
+			API[`/api/v1/posts/${guid}`] = {
+				guid, text: 'опубликовано через мир', owner_guid: 77, owner_username: 'ann',
+				time_created: NOW, like_count: 0, comment_count: 0,
+			};
+			res.writeHead(200, {'content-type': 'application/json; charset=utf-8'});
+			return void res.end(JSON.stringify({guid}));
+		}
 		const body = API[name];
 		if (!body) {
 			/* a path this server does not know is a real mismatch between
@@ -307,6 +320,48 @@ try {
 		'back returns to where the viewer was standing, with its context',
 		moved(travel.cameraBack, travel.cameraAtPlace) < 0.5 && travel.regionBack === 'place' && travel.focusBack === 'place:4211',
 		`camera within ${moved(travel.cameraBack, travel.cameraAtPlace).toFixed(3)} units; region ${travel.regionBack}, focus ${travel.focusBack}`,
+	);
+
+	/* --- creating is done from inside the world, and what enters it is
+	   the server's row --- */
+	const create = await page.evaluate(async () => {
+		const w = window.__berxWorld;
+		const canvas = document.querySelector('canvas');
+		canvas.focus();
+		const before = w.latestFrame.world.objects.length;
+		const barsBefore = document.querySelectorAll('form').length;
+		canvas.dispatchEvent(new KeyboardEvent('keydown', {key: 'n', bubbles: true, cancelable: true}));
+		const form = document.querySelector('form');
+		const field = form?.querySelector('input');
+		field.value = 'опубликовано через мир';
+		form.dispatchEvent(new Event('submit', {bubbles: true, cancelable: true}));
+		for (let i = 0; i < 90; i++) await new Promise((r) => requestAnimationFrame(r));
+		const made = w.latestFrame.world.objects.filter((o) => o.id.startsWith('moment:77'));
+		return {
+			before,
+			barsBefore,
+			after: w.latestFrame.world.objects.length,
+			formsNow: document.querySelectorAll('form').length,
+			madeId: made[0]?.id,
+			madeLabel: made[0]?.label,
+			region: w.worldPosition.region,
+			focus: w.worldPosition.focusId,
+		};
+	});
+	gate(
+		'there is no compose bar until someone is writing',
+		create.barsBefore === 0 && create.formsNow === 0,
+		`${create.barsBefore} forms in the world before composing, ${create.formsNow} after publishing — the field exists only while it is being used`,
+	);
+	gate(
+		'publishing creates a real server entity and it enters the world',
+		create.after === create.before + 1 && create.madeId === 'moment:7700' && create.madeLabel === 'опубликовано через мир',
+		`${create.before} entities → ${create.after}; the server made ${create.madeId} "${create.madeLabel}"`,
+	);
+	gate(
+		'the camera travels to what was just made',
+		create.region === 'now' && create.focus === 'moment:7700',
+		`region ${create.region}, focus ${create.focus}`,
 	);
 
 	/* --- a conversation is a place, read by going into it --- */

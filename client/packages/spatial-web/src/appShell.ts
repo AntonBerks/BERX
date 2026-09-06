@@ -39,6 +39,14 @@ export interface BerxAppShellOptions {
 	/** Told what the viewer is looking at, for the accessibility outline. */
 	onPositionChange?: (position: BerxWorldPosition) => void;
 	/**
+	 * Publish what someone wrote.
+	 *
+	 * Must call the real API and return the entity the server created,
+	 * so what enters the world is the server's row and not the text
+	 * that was typed. Rejecting keeps the field open with the reason.
+	 */
+	publish?: (text: string) => Promise<BerxWorldIngest>;
+	/**
 	 * Bring back whatever a region needs that the first load did not.
 	 *
 	 * Arriving somewhere in BERX can require reading more from the
@@ -56,6 +64,16 @@ export interface BerxAppShell {
 	readonly world: Berx5DWorldApp;
 	/** What did not load, named. Never hidden behind a plausible world. */
 	readonly failures: readonly {source: string; message: string}[];
+	/**
+	 * Open the creation surface at the entity in focus.
+	 *
+	 * Text entry is one of the few things a GPU surface cannot honestly
+	 * provide, so composing is a real field — the same reason sign-in
+	 * is. It is a single input that exists while you are writing and is
+	 * gone the moment you are not, and what it produces is a real
+	 * server entity that enters the persistent world.
+	 */
+	compose(): void;
 	/** Re-read from the server into the same world. Identities persist. */
 	refresh(): Promise<void>;
 	destroy(): void;
@@ -164,6 +182,73 @@ export async function startBerxApp(options: BerxAppShellOptions): Promise<BerxAp
 		}
 	};
 
+	/**
+	 * Composing.
+	 *
+	 * One field, created when someone starts writing and removed when
+	 * they stop. It does not persist as furniture: BERX has no compose
+	 * bar, because a bar is a piece of 2D interface that is always
+	 * there whether or not anyone is writing.
+	 */
+	let composer: HTMLFormElement | undefined;
+	const compose = () => {
+		if (composer || !options.publish) return;
+		const form = document.createElement('form');
+		composer = form;
+		form.style.cssText = 'position:fixed;left:50%;bottom:32px;transform:translateX(-50%);display:flex;gap:8px;width:min(560px,calc(100% - 48px))';
+		const field = document.createElement('input');
+		field.setAttribute('aria-label', 'Что происходит');
+		field.placeholder = 'Что происходит';
+		field.style.cssText = 'flex:1;min-height:44px;padding:0 16px;border-radius:999px;border:1px solid #1C2228;background:#0D1014;color:#F2F0EB;font:inherit';
+		const send = document.createElement('button');
+		send.type = 'submit';
+		send.textContent = 'Опубликовать';
+		send.style.cssText = 'min-height:44px;padding:0 18px;border-radius:999px;border:1px solid #1C2228;background:#15191E;color:#4FD6E8;font:inherit;cursor:pointer';
+		const problem = document.createElement('p');
+		problem.setAttribute('role', 'alert');
+		problem.style.cssText = 'position:absolute;bottom:52px;left:0;margin:0;color:#FF5C72;font:14px/1.4 system-ui,sans-serif';
+		form.append(field, send, problem);
+		mount.appendChild(form);
+		field.focus();
+		const close = () => {
+			form.remove();
+			composer = undefined;
+			canvas.focus();
+		};
+		field.addEventListener('keydown', (event) => {
+			if (event.key === 'Escape') close();
+		});
+		form.addEventListener('submit', async (event) => {
+			event.preventDefault();
+			const text = field.value.trim();
+			if (text.length === 0 || send.disabled) return;
+			send.disabled = true;
+			problem.textContent = '';
+			try {
+				/* the server's row, not the typed text */
+				const created = await options.publish!(text);
+				host.ingest([created]);
+				outline.textContent = describe(world);
+				close();
+				/* and the camera goes to what was just made */
+				world.travelTo(created.object.id);
+			} catch (error) {
+				problem.textContent = error instanceof Error ? error.message : 'Не удалось опубликовать';
+				send.disabled = false;
+			}
+		});
+	};
+
+	/* Enter creation from the world, on the same keyboard everything
+	   else uses. Not a button in a bar: a key, from inside the world. */
+	const onCompose = (event: KeyboardEvent) => {
+		if (event.key !== 'n' && event.key !== 'т') return;
+		if (composer) return;
+		event.preventDefault();
+		compose();
+	};
+	canvas.addEventListener('keydown', onCompose);
+
 	await pull();
 	host.start();
 
@@ -182,7 +267,10 @@ export async function startBerxApp(options: BerxAppShellOptions): Promise<BerxAp
 		world,
 		failures,
 		refresh: pull,
+		compose,
 		destroy: () => {
+			canvas.removeEventListener('keydown', onCompose);
+			composer?.remove();
 			delete (globalThis as unknown as {__berxWorld?: Berx5DWorldApp}).__berxWorld;
 			delete (globalThis as unknown as {__berxHost?: Berx5DWebHost}).__berxHost;
 			host.destroy();
