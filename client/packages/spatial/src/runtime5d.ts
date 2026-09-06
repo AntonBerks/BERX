@@ -21,6 +21,8 @@ export class Berx5DRuntime{
   }
   get worldState(){return {...this.currentWorld,camera:this.camera.getState()};}
   get canGoBack(){return this.history.length>0;}
+  get latestFrame():Berx5DFrame{return this.composeFrame();}
+  private composeFrame():Berx5DFrame{return{world:this.world.snapshot(),camera:this.camera.getState(),transition:this.transition?{...this.transition,fromCamera:cloneCamera(this.transition.fromCamera)}:undefined,reducedMotion:this.reducedMotion,deviceMotionEnabled:this.deviceMotionEnabled};}
   setAccessibility(options:{reducedMotion?:boolean}){if(options.reducedMotion!==undefined)this.reducedMotion=options.reducedMotion;}
   setDeviceMotionEnabled(enabled:boolean){this.deviceMotionEnabled=enabled;}
   registerObject(object:BerxSpatialObject){this.world.upsertObject(object);}
@@ -48,6 +50,6 @@ export class Berx5DRuntime{
     this.world.tick(deltaSeconds);
     if(this.cameraTransition){const next=this.cameraTransition.step(deltaSeconds);this.camera.setState(next);if(this.transition)this.transition.progress=Math.min(1,this.transition.progress+Math.max(0,deltaSeconds)/this.transition.duration);if(this.cameraTransition.done){this.cameraTransition=undefined;this.transition=undefined;}}
     else this.camera.frame(deltaSeconds,this.reducedMotion);
-    this.currentWorld.camera=this.camera.getState();return{world:this.world.snapshot(),camera:this.camera.getState(),transition:this.transition?{...this.transition,fromCamera:cloneCamera(this.transition.fromCamera)}:undefined,reducedMotion:this.reducedMotion,deviceMotionEnabled:this.deviceMotionEnabled};
+    this.currentWorld.camera=this.camera.getState();return this.composeFrame();
   }
 }
