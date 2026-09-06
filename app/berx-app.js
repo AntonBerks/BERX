@@ -1764,6 +1764,34 @@ var Berx5DWorldApp = class {
     this.options.onPositionChange?.(this.worldPosition);
     return true;
   }
+  /**
+   * What is live right now, brightest first.
+   *
+   * Energy is only ever raised by a real server signal — a moment
+   * still running, an event that has not ended — and the temporal
+   * projection zeroes it for anything outside the cursor's horizon.
+   * So this is a reading of the world, not a query against a feed:
+   * scrub the cursor into last week and NOW is empty, because nothing
+   * is happening then.
+   */
+  live() {
+    return this.latestFrame.world.objects.filter((object) => object.visible && object.energy > 0.01).sort((a, b) => b.energy - a.energy);
+  }
+  /**
+   * Go to what is happening.
+   *
+   * Returns false when nothing is, which is a real answer about the
+   * world and not an empty list to render. NOW is a place; when it is
+   * quiet, it is quiet.
+   */
+  travelToLive() {
+    const [brightest] = this.live();
+    if (!brightest) {
+      this.enterRegion("now");
+      return false;
+    }
+    return this.travelTo(brightest.id, "now");
+  }
   /** Travel to a region without a particular entity in it. */
   enterRegion(region) {
     this.history.push(this.worldPosition);
@@ -3230,7 +3258,7 @@ function createBerx5DWebHost(options = {}) {
   canvas.removeAttribute("aria-hidden");
   canvas.tabIndex = 0;
   canvas.setAttribute("role", "application");
-  canvas.setAttribute("aria-label", options.ariaLabel ?? "\u041F\u0440\u043E\u0441\u0442\u0440\u0430\u043D\u0441\u0442\u0432\u043E BERX. \u0421\u0442\u0440\u0435\u043B\u043A\u0438 \u2014 \u043A \u0441\u043E\u0441\u0435\u0434\u043D\u0435\u043C\u0443 \u043E\u0431\u044A\u0435\u043A\u0442\u0443, Enter \u2014 \u043F\u0435\u0440\u0435\u043C\u0435\u0441\u0442\u0438\u0442\u044C\u0441\u044F \u043A \u043D\u0435\u043C\u0443, Escape \u2014 \u043D\u0430\u0437\u0430\u0434, \u0437\u0430\u043F\u044F\u0442\u0430\u044F \u0438 \u0442\u043E\u0447\u043A\u0430 \u2014 \u043D\u0430\u0437\u0430\u0434 \u0438 \u0432\u043F\u0435\u0440\u0451\u0434 \u0432\u043E \u0432\u0440\u0435\u043C\u0435\u043D\u0438.");
+  canvas.setAttribute("aria-label", options.ariaLabel ?? "\u041F\u0440\u043E\u0441\u0442\u0440\u0430\u043D\u0441\u0442\u0432\u043E BERX. \u0421\u0442\u0440\u0435\u043B\u043A\u0438 \u2014 \u043A \u0441\u043E\u0441\u0435\u0434\u043D\u0435\u043C\u0443 \u043E\u0431\u044A\u0435\u043A\u0442\u0443, Enter \u2014 \u043F\u0435\u0440\u0435\u043C\u0435\u0441\u0442\u0438\u0442\u044C\u0441\u044F \u043A \u043D\u0435\u043C\u0443, Escape \u2014 \u043D\u0430\u0437\u0430\u0434, L \u2014 \u043A \u0442\u043E\u043C\u0443, \u0447\u0442\u043E \u043F\u0440\u043E\u0438\u0441\u0445\u043E\u0434\u0438\u0442 \u0441\u0435\u0439\u0447\u0430\u0441, \u0437\u0430\u043F\u044F\u0442\u0430\u044F \u0438 \u0442\u043E\u0447\u043A\u0430 \u2014 \u043D\u0430\u0437\u0430\u0434 \u0438 \u0432\u043F\u0435\u0440\u0451\u0434 \u0432\u043E \u0432\u0440\u0435\u043C\u0435\u043D\u0438.");
   const live = document.createElement("div");
   live.setAttribute("aria-live", "polite");
   live.setAttribute("aria-atomic", "true");
@@ -3409,6 +3437,14 @@ function createBerx5DWebHost(options = {}) {
       case "Backspace":
         handled = world ? world.back() : runtime.back();
         if (handled) announce("\u041D\u0430\u0437\u0430\u0434");
+        break;
+      /* what is happening, from anywhere in the world */
+      case "l":
+      case "\u0434":
+        if (world) {
+          const wentLive = world.travelToLive();
+          announce(wentLive ? "\u0421\u0435\u0439\u0447\u0430\u0441" : "\u0421\u0435\u0439\u0447\u0430\u0441 \u043D\u0438\u0447\u0435\u0433\u043E \u043D\u0435 \u043F\u0440\u043E\u0438\u0441\u0445\u043E\u0434\u0438\u0442");
+        } else handled = false;
         break;
       /* time is a direction you can move in, on the same keyboard */
       case ",":

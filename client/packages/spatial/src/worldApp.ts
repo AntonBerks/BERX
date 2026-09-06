@@ -230,6 +230,38 @@ export class Berx5DWorldApp {
 		return true;
 	}
 
+	/**
+	 * What is live right now, brightest first.
+	 *
+	 * Energy is only ever raised by a real server signal — a moment
+	 * still running, an event that has not ended — and the temporal
+	 * projection zeroes it for anything outside the cursor's horizon.
+	 * So this is a reading of the world, not a query against a feed:
+	 * scrub the cursor into last week and NOW is empty, because nothing
+	 * is happening then.
+	 */
+	live(): BerxSpatialObject[] {
+		return this.latestFrame.world.objects
+			.filter((object) => object.visible && object.energy > 0.01)
+			.sort((a, b) => b.energy - a.energy);
+	}
+
+	/**
+	 * Go to what is happening.
+	 *
+	 * Returns false when nothing is, which is a real answer about the
+	 * world and not an empty list to render. NOW is a place; when it is
+	 * quiet, it is quiet.
+	 */
+	travelToLive(): boolean {
+		const [brightest] = this.live();
+		if (!brightest) {
+			this.enterRegion('now');
+			return false;
+		}
+		return this.travelTo(brightest.id, 'now');
+	}
+
 	/** Travel to a region without a particular entity in it. */
 	enterRegion(region: BerxWorldRegion): void {
 		this.history.push(this.worldPosition);

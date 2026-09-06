@@ -403,6 +403,39 @@ try {
 		`last month at z ${conversation.depths['message:m9003'].toFixed(2)}, this morning at z ${conversation.depths['message:m9002'].toFixed(2)}`,
 	);
 
+	/* --- NOW is a reading of the world, not a feed --- */
+	const now = await page.evaluate(async () => {
+		const w = window.__berxWorld;
+		const canvas = document.querySelector('canvas');
+		canvas.focus();
+		const settle = async () => {
+			for (let i = 0; i < 60; i++) await new Promise((r) => requestAnimationFrame(r));
+		};
+		const liveNow = w.live().map((o) => ({id: o.id, energy: o.energy}));
+		canvas.dispatchEvent(new KeyboardEvent('keydown', {key: 'l', bubbles: true, cancelable: true}));
+		await settle();
+		const arrived = {region: w.worldPosition.region, focus: w.worldPosition.focusId};
+		const total = w.latestFrame.world.objects.length;
+		/* scrub a year back: nothing is happening then, and NOW says so */
+		w.scrubTime(-365 * 86400);
+		await settle();
+		const liveThen = w.live().length;
+		const stillThere = w.latestFrame.world.objects.length;
+		w.scrubTime(365 * 86400);
+		await settle();
+		return {liveNow, arrived, total, liveThen, stillThere};
+	});
+	gate(
+		'NOW travels to what is actually happening',
+		now.liveNow.length > 0 && now.arrived.region === 'now' && now.arrived.focus === now.liveNow[0].id,
+		`live: ${now.liveNow.map((l) => `${l.id} at ${l.energy.toFixed(2)}`).join(', ')}; arrived at ${now.arrived.focus}`,
+	);
+	gate(
+		'NOW is empty in a year when nothing was happening, and the world is not',
+		now.liveThen === 0 && now.stillThere === now.total,
+		`a year back: ${now.liveThen} live, ${now.stillThere} of ${now.total} entities still in the world`,
+	);
+
 	/* --- T is navigable from the same keyboard --- */
 	const temporal = await page.evaluate(async () => {
 		const w = window.__berxWorld;

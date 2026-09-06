@@ -135,7 +135,7 @@ export function createBerx5DWebHost(options: Berx5DWebHostOptions = {}): Berx5DW
 	canvas.removeAttribute('aria-hidden');
 	canvas.tabIndex = 0;
 	canvas.setAttribute('role', 'application');
-	canvas.setAttribute('aria-label', options.ariaLabel ?? 'Пространство BERX. Стрелки — к соседнему объекту, Enter — переместиться к нему, Escape — назад, запятая и точка — назад и вперёд во времени.');
+	canvas.setAttribute('aria-label', options.ariaLabel ?? 'Пространство BERX. Стрелки — к соседнему объекту, Enter — переместиться к нему, Escape — назад, L — к тому, что происходит сейчас, запятая и точка — назад и вперёд во времени.');
 
 	/* Announcements go in their own node: a canvas has no text for a
 	   screen reader to read, so what happens in the world has to be
@@ -355,6 +355,14 @@ export function createBerx5DWebHost(options: Berx5DWebHostOptions = {}): Berx5DW
 			case 'Backspace':
 				handled = world ? world.back() : runtime.back();
 				if (handled) announce('Назад');
+				break;
+			/* what is happening, from anywhere in the world */
+			case 'l':
+			case 'д':
+				if (world) {
+					const wentLive = world.travelToLive();
+					announce(wentLive ? 'Сейчас' : 'Сейчас ничего не происходит');
+				} else handled = false;
 				break;
 			/* time is a direction you can move in, on the same keyboard */
 			case ',':
