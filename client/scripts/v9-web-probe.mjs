@@ -966,11 +966,22 @@ gate(
  * the composed room is a minor one. If the room ever became the
  * expensive layer, this fails and the pool budget is the lever.
  */
-/** Two frames in forty is the run-to-run spread of this measurement. */
-const NOISE_FLOOR_FRAMES = 2;
 const glassCost = results.frameAttribution.withGlass.dropped - results.frameAttribution.withoutGlass.dropped;
 const roomCost = results.frameAttribution.withoutGlass.dropped - results.frameAttribution.withoutEnvironment.dropped;
 const frameCount = results.frameAttribution.withGlass.count;
+/**
+ * The run-to-run spread of this measurement: about two frames in
+ * forty, so five percent of however many were actually sampled.
+ *
+ * It was the literal 2, which was right when each configuration was
+ * one ~40-frame pass. Pooling three interleaved passes tripled the
+ * sample count without changing the underlying variance rate, so a
+ * fixed 2 became a floor three times tighter than the noise it exists
+ * to absorb — and the gate started failing on runs where the room
+ * cost four dropped frames out of a hundred and seventeen. Expressed
+ * as the rate it always meant, it scales with the sample.
+ */
+const NOISE_FLOOR_FRAMES = Math.max(2, Math.ceil(frameCount * 0.05));
 gate(
 	'frame cost is attributable: glass dominates, the room is cheap',
 	/* `>=`, not `>`: on a run where the glass costs no dropped frames

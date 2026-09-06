@@ -7,6 +7,8 @@
  * into WebGL/Native GPU scenes without changing the domain model.
  */
 
+import type {BerxEntityTime} from './temporal';
+
 export type BerxSpatialEntityKind =
   | 'person'
   | 'moment'
@@ -49,6 +51,13 @@ export interface BerxSpatialMaterialState {
 export interface BerxSpatialObject {
   id: string;
   kind: BerxSpatialEntityKind;
+  /**
+   * Where this entity sits in time, from the server's own timestamps.
+   * Absent for things that do not stop existing — a person, a place —
+   * which the temporal projection reads as timeless rather than as
+   * having happened at zero.
+   */
+  time?: BerxEntityTime;
   /**
    * What this object is called, for anyone who is not looking at it.
    * A world that can only be understood by seeing it is not one the

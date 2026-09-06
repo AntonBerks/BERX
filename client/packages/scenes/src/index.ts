@@ -9,3 +9,5 @@ export * from './componentMap';
 export * from './resolve';
 export * from './spatialMapping';
 export * from './spatialMappingAssertions';
+export * from './worldLoader';
+export * from './worldAssertions';

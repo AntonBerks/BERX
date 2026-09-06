@@ -45,6 +45,7 @@ import {
 	createMediaSurface,
 	geometryForEntity,
 	geometryScale,
+	type BerxEntityTime,
 	type BerxSpatialEntityKind,
 	type BerxSpatialMediaSurface,
 	type BerxSpatialObject,
@@ -112,6 +113,13 @@ function baseObject(
 	sourceId: string,
 	energy: number,
 	placement: BerxSpatialPlacement,
+	/**
+	 * The server's own timestamps, where it sent any. Omitted entirely
+	 * for things that do not stop existing — a person, a place, a
+	 * community — so the temporal projection reads them as timeless
+	 * rather than as having happened at the epoch.
+	 */
+	time?: BerxEntityTime,
 ): BerxSpatialObject {
 	const now = Date.now();
 	return {
@@ -119,6 +127,7 @@ function baseObject(
 		kind,
 		label,
 		sourceId,
+		...(time ? {time} : {}),
 		transform: {
 			position: placement.position ? {...placement.position} : {x: 0, y: 0, z: 0},
 			rotation: {x: 0, y: 0, z: 0},
@@ -185,7 +194,7 @@ export function mapFriendToSpatial(friend: BerxFriend, placement: BerxSpatialPla
  */
 export function mapFeedItemToSpatial(item: BerxFeedItem, placement: BerxSpatialPlacement = {}): BerxSpatialMapping {
 	const label = item.text.trim().slice(0, 80) || 'Момент';
-	const object = baseObject('moment', item.guid, label, String(item.guid), 0, placement);
+	const object = baseObject('moment', item.guid, label, String(item.guid), 0, placement, {at: item.time_created});
 	const relations: BerxSpatialRelation[] = item.owner_username
 		? [{
 				id: `${object.id}->${berxSpatialId('person', item.owner_guid)}`,
@@ -241,7 +250,12 @@ export function mapNearbyPlaceToSpatial(place: BerxNearbyPlaceItem, now: number,
 export function mapEventToSpatial(event: BerxEvent, placement: BerxSpatialPlacement = {}): BerxSpatialMapping {
 	/* an event that has ended is not live, and the server says which */
 	const energy = event.has_ended ? 0 : event.is_going ? 0.7 : 0.35;
-	const object = baseObject('event', event.guid, event.title, String(event.guid), energy, placement);
+	const object = baseObject('event', event.guid, event.title, String(event.guid), energy, placement, {
+		at: event.starts,
+		startsAt: event.starts,
+		/* `ends` is nullable, and open-ended is not the same as instant */
+		...(event.ends !== null ? {endsAt: event.ends} : {}),
+	});
 	const relations: BerxSpatialRelation[] = event.place
 		? [{
 				id: `${object.id}->${berxSpatialId('place', event.place.guid)}`,
@@ -255,7 +269,7 @@ export function mapEventToSpatial(event: BerxEvent, placement: BerxSpatialPlacem
 }
 
 export function mapNearbyEventToSpatial(event: BerxNearbyEventItem, placement: BerxSpatialPlacement = {}): BerxSpatialMapping {
-	const object = baseObject('event', event.guid, event.title, String(event.guid), 0.35, placement);
+	const object = baseObject('event', event.guid, event.title, String(event.guid), 0.35, placement, {at: event.starts, startsAt: event.starts});
 	return {
 		object,
 		media: [],
@@ -291,7 +305,11 @@ export function mapExperienceToSpatial(experience: BerxExperience, placement: Be
 	/* 'accepted' is the server's own word for going; there is no
 	   'going' status on this endpoint */
 	const energy = experience.my_status === 'accepted' ? 0.6 : 0.25;
-	const object = baseObject('experience', experience.id, experience.title, String(experience.id), energy, placement);
+	const object = baseObject('experience', experience.id, experience.title, String(experience.id), energy, placement, {
+		at: experience.scheduled_start,
+		startsAt: experience.scheduled_start,
+		...(experience.scheduled_end !== null ? {endsAt: experience.scheduled_end} : {}),
+	});
 	const anchor = experience.anchor;
 	const relations: BerxSpatialRelation[] = anchor
 		? [{
@@ -328,7 +346,7 @@ export function mapCollectionToSpatial(collection: BerxCollection, placement: Be
  */
 export function mapConversationToSpatial(conversation: BerxConversationSummary, placement: BerxSpatialPlacement = {}): BerxSpatialMapping {
 	const label = conversation.with_username ?? conversation.last_message.trim().slice(0, 60);
-	const object = baseObject('message', conversation.with_guid, label || 'Диалог', String(conversation.with_guid), 0, placement);
+	const object = baseObject('message', conversation.with_guid, label || 'Диалог', String(conversation.with_guid), 0, placement, {at: conversation.time});
 	return {
 		object,
 		media: [],

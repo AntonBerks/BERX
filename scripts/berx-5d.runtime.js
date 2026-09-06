@@ -1343,6 +1343,82 @@ function resolveScene(contract, env) {
   };
 }
 
+// packages/spatial/src/spatialCamera.ts
+var clamp2 = (v, min, max) => Math.max(min, Math.min(max, v));
+var lerp = (a, b, t) => a + (b - a) * t;
+var copy = (v) => ({ x: v.x, y: v.y, z: v.z });
+var smoothstep = (t) => t * t * (3 - 2 * t);
+var BerxSpatialCamera = class {
+  constructor(initial, limits) {
+    this.velocity = { x: 0, y: 0, z: 0 };
+    this.state = { position: copy(initial?.position ?? { x: 0, y: 0, z: 8 }), target: copy(initial?.target ?? { x: 0, y: 0, z: 0 }), rotation: { ...initial?.rotation ?? { x: 0, y: 0, z: 0 } }, fov: initial?.fov ?? 42, near: initial?.near ?? 0.1, far: initial?.far ?? 200 };
+    this.baseTarget = copy(this.state.target);
+    this.limits = { maxTiltDeg: limits?.maxTiltDeg ?? 2.5, maxDepth: limits?.maxDepth ?? 30, minFov: limits?.minFov ?? 28, maxFov: limits?.maxFov ?? 58 };
+  }
+  getState() {
+    return { position: copy(this.state.position), target: copy(this.state.target), rotation: { ...this.state.rotation }, fov: this.state.fov, near: this.state.near, far: this.state.far };
+  }
+  setState(next) {
+    this.state = { position: copy(next.position), target: copy(next.target), rotation: { ...next.rotation }, fov: clamp2(next.fov, this.limits.minFov, this.limits.maxFov), near: next.near, far: next.far };
+    this.baseTarget = copy(next.target);
+  }
+  applyInput(input) {
+    this.velocity.x += input.panX * 0.18;
+    this.velocity.y += input.panY * 0.18;
+    this.velocity.z += input.depthDelta * 0.28;
+    this.state.fov = clamp2(this.state.fov - input.pinch * 0.45, this.limits.minFov, this.limits.maxFov);
+    if (input.motion) {
+      const factor = clamp2(input.motion.intensity, 0, 1), tilt = this.limits.maxTiltDeg * factor;
+      this.state.rotation.x = clamp2(input.motion.pitch * tilt, -this.limits.maxTiltDeg, this.limits.maxTiltDeg);
+      this.state.rotation.z = clamp2(input.motion.roll * tilt, -this.limits.maxTiltDeg, this.limits.maxTiltDeg);
+      this.state.rotation.y = clamp2(input.motion.yaw * tilt * 0.55, -this.limits.maxTiltDeg, this.limits.maxTiltDeg);
+      const aim = 0.9 * factor;
+      this.state.target = { x: this.baseTarget.x + clamp2(input.motion.roll, -1, 1) * aim, y: this.baseTarget.y - clamp2(input.motion.pitch, -1, 1) * aim, z: this.baseTarget.z };
+    }
+  }
+  frame(deltaSeconds, reducedMotion = false) {
+    const dt = clamp2(deltaSeconds, 0, 0.05), damping = Math.pow(1e-3, dt);
+    this.state.position.x = clamp2(this.state.position.x + this.velocity.x * dt, -this.limits.maxDepth, this.limits.maxDepth);
+    this.state.position.y = clamp2(this.state.position.y + this.velocity.y * dt, -this.limits.maxDepth, this.limits.maxDepth);
+    this.state.position.z = clamp2(this.state.position.z + this.velocity.z * dt, -this.limits.maxDepth, this.limits.maxDepth);
+    this.velocity.x *= damping;
+    this.velocity.y *= damping;
+    this.velocity.z *= damping;
+    if (reducedMotion) {
+      this.state.rotation.x = lerp(this.state.rotation.x, 0, 1 - damping);
+      this.state.rotation.y = lerp(this.state.rotation.y, 0, 1 - damping);
+      this.state.rotation.z = lerp(this.state.rotation.z, 0, 1 - damping);
+      this.state.target = { ...this.baseTarget };
+    }
+  }
+  poseForObject(position, scale = { x: 1, y: 1, z: 1 }, distance) {
+    const radius = Math.max(scale.x, scale.y, scale.z, 0.5), d = distance ?? Math.max(2.4, radius * 3.2);
+    return { position: { x: position.x, y: position.y, z: position.z + d }, target: copy(position) };
+  }
+  moveToPose(pose, durationSeconds = 0.65) {
+    return new BerxCameraTransition(this.getState(), pose, durationSeconds);
+  }
+  moveTo(target, durationSeconds = 0.65) {
+    return this.moveToPose(this.poseForObject(target), durationSeconds);
+  }
+};
+var BerxCameraTransition = class {
+  constructor(start, destination, duration) {
+    this.start = start;
+    this.destination = destination;
+    this.elapsed = 0;
+    this.duration = Math.max(1e-3, duration);
+  }
+  step(deltaSeconds) {
+    this.elapsed = Math.min(this.duration, this.elapsed + Math.max(0, deltaSeconds));
+    const t = smoothstep(this.elapsed / this.duration);
+    return { position: { x: lerp(this.start.position.x, this.destination.position.x, t), y: lerp(this.start.position.y, this.destination.position.y, t), z: lerp(this.start.position.z, this.destination.position.z, t) }, target: { x: lerp(this.start.target.x, this.destination.target.x, t), y: lerp(this.start.target.y, this.destination.target.y, t), z: lerp(this.start.target.z, this.destination.target.z, t) }, rotation: { x: lerp(this.start.rotation.x, 0, t), y: lerp(this.start.rotation.y, 0, t), z: lerp(this.start.rotation.z, 0, t) }, fov: this.start.fov, near: this.start.near, far: this.start.far };
+  }
+  get done() {
+    return this.elapsed >= this.duration;
+  }
+};
+
 // packages/spatial/src/world.ts
 var copyVec3 = (v) => ({ ...v });
 var copyEuler = (v) => ({ ...v });
@@ -1423,82 +1499,6 @@ var BerxSpatialWorld = class {
     for (const relation of snapshot.relations) this.addRelation(relation);
     this.activeObjectId = snapshot.activeObjectId;
     this.worldTime = snapshot.worldTime;
-  }
-};
-
-// packages/spatial/src/spatialCamera.ts
-var clamp2 = (v, min, max) => Math.max(min, Math.min(max, v));
-var lerp = (a, b, t) => a + (b - a) * t;
-var copy = (v) => ({ x: v.x, y: v.y, z: v.z });
-var smoothstep = (t) => t * t * (3 - 2 * t);
-var BerxSpatialCamera = class {
-  constructor(initial, limits) {
-    this.velocity = { x: 0, y: 0, z: 0 };
-    this.state = { position: copy(initial?.position ?? { x: 0, y: 0, z: 8 }), target: copy(initial?.target ?? { x: 0, y: 0, z: 0 }), rotation: { ...initial?.rotation ?? { x: 0, y: 0, z: 0 } }, fov: initial?.fov ?? 42, near: initial?.near ?? 0.1, far: initial?.far ?? 200 };
-    this.baseTarget = copy(this.state.target);
-    this.limits = { maxTiltDeg: limits?.maxTiltDeg ?? 2.5, maxDepth: limits?.maxDepth ?? 30, minFov: limits?.minFov ?? 28, maxFov: limits?.maxFov ?? 58 };
-  }
-  getState() {
-    return { position: copy(this.state.position), target: copy(this.state.target), rotation: { ...this.state.rotation }, fov: this.state.fov, near: this.state.near, far: this.state.far };
-  }
-  setState(next) {
-    this.state = { position: copy(next.position), target: copy(next.target), rotation: { ...next.rotation }, fov: clamp2(next.fov, this.limits.minFov, this.limits.maxFov), near: next.near, far: next.far };
-    this.baseTarget = copy(next.target);
-  }
-  applyInput(input) {
-    this.velocity.x += input.panX * 0.18;
-    this.velocity.y += input.panY * 0.18;
-    this.velocity.z += input.depthDelta * 0.28;
-    this.state.fov = clamp2(this.state.fov - input.pinch * 0.45, this.limits.minFov, this.limits.maxFov);
-    if (input.motion) {
-      const factor = clamp2(input.motion.intensity, 0, 1), tilt = this.limits.maxTiltDeg * factor;
-      this.state.rotation.x = clamp2(input.motion.pitch * tilt, -this.limits.maxTiltDeg, this.limits.maxTiltDeg);
-      this.state.rotation.z = clamp2(input.motion.roll * tilt, -this.limits.maxTiltDeg, this.limits.maxTiltDeg);
-      this.state.rotation.y = clamp2(input.motion.yaw * tilt * 0.55, -this.limits.maxTiltDeg, this.limits.maxTiltDeg);
-      const aim = 0.9 * factor;
-      this.state.target = { x: this.baseTarget.x + clamp2(input.motion.roll, -1, 1) * aim, y: this.baseTarget.y - clamp2(input.motion.pitch, -1, 1) * aim, z: this.baseTarget.z };
-    }
-  }
-  frame(deltaSeconds, reducedMotion = false) {
-    const dt = clamp2(deltaSeconds, 0, 0.05), damping = Math.pow(1e-3, dt);
-    this.state.position.x = clamp2(this.state.position.x + this.velocity.x * dt, -this.limits.maxDepth, this.limits.maxDepth);
-    this.state.position.y = clamp2(this.state.position.y + this.velocity.y * dt, -this.limits.maxDepth, this.limits.maxDepth);
-    this.state.position.z = clamp2(this.state.position.z + this.velocity.z * dt, -this.limits.maxDepth, this.limits.maxDepth);
-    this.velocity.x *= damping;
-    this.velocity.y *= damping;
-    this.velocity.z *= damping;
-    if (reducedMotion) {
-      this.state.rotation.x = lerp(this.state.rotation.x, 0, 1 - damping);
-      this.state.rotation.y = lerp(this.state.rotation.y, 0, 1 - damping);
-      this.state.rotation.z = lerp(this.state.rotation.z, 0, 1 - damping);
-      this.state.target = { ...this.baseTarget };
-    }
-  }
-  poseForObject(position, scale = { x: 1, y: 1, z: 1 }, distance) {
-    const radius = Math.max(scale.x, scale.y, scale.z, 0.5), d = distance ?? Math.max(2.4, radius * 3.2);
-    return { position: { x: position.x, y: position.y, z: position.z + d }, target: copy(position) };
-  }
-  moveToPose(pose, durationSeconds = 0.65) {
-    return new BerxCameraTransition(this.getState(), pose, durationSeconds);
-  }
-  moveTo(target, durationSeconds = 0.65) {
-    return this.moveToPose(this.poseForObject(target), durationSeconds);
-  }
-};
-var BerxCameraTransition = class {
-  constructor(start, destination, duration) {
-    this.start = start;
-    this.destination = destination;
-    this.elapsed = 0;
-    this.duration = Math.max(1e-3, duration);
-  }
-  step(deltaSeconds) {
-    this.elapsed = Math.min(this.duration, this.elapsed + Math.max(0, deltaSeconds));
-    const t = smoothstep(this.elapsed / this.duration);
-    return { position: { x: lerp(this.start.position.x, this.destination.position.x, t), y: lerp(this.start.position.y, this.destination.position.y, t), z: lerp(this.start.position.z, this.destination.position.z, t) }, target: { x: lerp(this.start.target.x, this.destination.target.x, t), y: lerp(this.start.target.y, this.destination.target.y, t), z: lerp(this.start.target.z, this.destination.target.z, t) }, rotation: { x: lerp(this.start.rotation.x, 0, t), y: lerp(this.start.rotation.y, 0, t), z: lerp(this.start.rotation.z, 0, t) }, fov: this.start.fov, near: this.start.near, far: this.start.far };
-  }
-  get done() {
-    return this.elapsed >= this.duration;
   }
 };
 
