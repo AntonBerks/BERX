@@ -1,23 +1,53 @@
 import type { Berx5DFrame } from './runtime5d';
+import type { BerxHit } from './spatialInteraction';
+
+export type BerxGpuKind = 'webgl2' | 'webgpu' | 'metal' | 'vulkan' | 'filament' | 'none';
+
+export interface BerxRendererCapabilities {
+  perspective: boolean;
+  depthBuffer: boolean;
+  physicallyLitMaterials: boolean;
+  shadows: boolean;
+  postProcessing: boolean;
+  imageBasedLighting: boolean;
+  ssao: boolean;
+  hdr: boolean;
+  msaa: boolean;
+  instancing: boolean;
+  stereo: boolean;
+  picking: boolean;
+  deviceLossRecovery: boolean;
+}
+
+export interface BerxRenderOptions {
+  stereo?: {
+    leftEye: Float32Array;
+    rightEye: Float32Array;
+    ipd: number;
+  };
+  temporalCursor?: number;
+  debugOverlay?: boolean;
+  maxObjects?: number;
+  ambientMotion?: boolean;
+}
 
 /**
- * Renderer boundary. The spatial domain never knows whether the pixels are
- * produced by WebGL2, Filament/Metal/Vulkan, or another future GPU backend.
- * A renderer is only considered real when it consumes the authoritative
- * frame and performs a perspective/depth GPU pass.
+ * Single renderer boundary for every BERX platform.
+ * It consumes the authoritative Berx5DFrame and never owns a second world.
  */
 export interface BerxSpatialRenderer {
-  readonly kind: 'webgl2' | 'webgpu' | 'filament';
-  readonly capabilities: {
-    perspective: boolean;
-    depthBuffer: boolean;
-    physicallyLitMaterials: boolean;
-    shadows: boolean;
-    postProcessing: boolean;
-  };
-  resize(width: number, height: number): void;
-  render(frame: Berx5DFrame): void;
+  readonly kind: BerxGpuKind;
+  readonly capabilities: BerxRendererCapabilities;
+  readonly isDeviceLost: boolean;
+
+  initialize(): Promise<boolean>;
+  resize(widthPx: number, heightPx: number): void;
+  render(frame: Berx5DFrame, options?: BerxRenderOptions): void;
+  pick(frame: Berx5DFrame, xPx: number, yPx: number): BerxHit | string | null | undefined;
   dispose(): void;
+
+  onDeviceLost(callback: () => void): void;
+  onDeviceRestored(callback: () => void): void;
 }
 
 export interface BerxSpatialInputAdapter {
@@ -29,5 +59,5 @@ export interface BerxSpatialInputAdapter {
 
 export interface BerxSpatialFeedbackAdapter {
   impact(kind: 'selection' | 'focus' | 'transition' | 'success' | 'error', intensity?: number): void;
-  spatialAudio(event: string, position?: {x:number;y:number;z:number}): void;
+  spatialAudio(event: string, position?: {x:number; y:number; z:number}): void;
 }
