@@ -34,6 +34,5 @@ console.log('BERX 5D geometry/quality invariants passed: ' + meshes.length + ' m
 `;
 
 fs.writeFileSync(entry, source);
-const out = execFileSync('npx', ['--yes', 'esbuild', entry, '--bundle', '--platform=node', '--format=esm', '--outfile=' + path.join(temp, 'bundle.mjs')], { cwd: root, encoding: 'utf8' });
-if (!out) throw new Error('5D geometry verification bundle failed');
+execFileSync('npx', ['--yes', 'esbuild', entry, '--bundle', '--platform=node', '--format=esm', '--outfile=' + path.join(temp, 'bundle.mjs')], { cwd: root, stdio: 'inherit' });
 execFileSync('node', [path.join(temp, 'bundle.mjs')], { cwd: root, stdio: 'inherit' });
