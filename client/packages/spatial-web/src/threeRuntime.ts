@@ -1,5 +1,6 @@
 /** BERX MAX 5D web GPU backend — semantic 3D geometry, perspective/depth and spatial picking. */
-import { pickSpatialObject, geometryForEntity, presentationForKind, type Berx5DFrame, type BerxHit, type BerxVec3 } from '@berx/spatial';
+import { pickSpatialObject, geometryForEntity, type Berx5DFrame, type BerxHit, type BerxVec3 } from '@berx/spatial';
+import { presentationForKind } from '@berx/spatial/spatialPresentation';
 import { createBox, createSphere, createRing, createFrame, type BerxPrimitiveMesh } from './primitiveGeometry';
 
 type Mat4 = Float32Array; type Loc = WebGLUniformLocation | null;
