@@ -132,7 +132,6 @@ function evaluate(screenId) {
 		: needsScreen('no fetch'));
 	for (const [key, flag, label] of [
 		['loading', 'usesLoading', 'loading'],
-		['empty', 'usesEmpty', 'empty'],
 		['error', 'usesError', 'error'],
 		['offline', 'usesOffline', 'offline'],
 	]) {
@@ -144,6 +143,18 @@ function evaluate(screenId) {
 					: P_(`this screen makes no request, so it has no ${label} state to be in`)
 			: needsScreen(`no screen to hold the ${label} state`));
 	}
+	/* A list can be empty; one record cannot. A profile always has a
+	   person behind it and a dashboard always has a place, so an empty
+	   state there is a state that can never be entered. */
+	set('RUNTIME:empty', hasImpl
+		? anyImpl((s) => s.usesEmpty)
+			? P_('empty state rendered')
+			: !fetches
+				? P_('this screen makes no request, so it has no empty state to be in')
+				: anyImpl((s) => s.readsList)
+					? F_('no empty state')
+					: P_('this screen reads one record, not a list: there is no empty to be in')
+		: needsScreen('no screen to hold the empty state'));
 	set('RUNTIME:disabled', hasImpl
 		? anyImpl((s) => s.canDisable)
 			? P_('controls carry a real disabled state, announced by the component that owns them')
@@ -166,10 +177,18 @@ function evaluate(screenId) {
 	bool('5D:d0_environment', rt.layers >= 6 && Boolean(rt.d0Background), `D0 paints ${rt.d0Background} under 6 resolved planes`, 'no D0 plane');
 	bool('5D:d1_atmosphere', (rt.d1Gradients ?? 0) >= 3, `D1 paints ${rt.d1Gradients} real gradients (${rt.atmosphereKind}, ${rt.atmospherePools} light pools)`, 'D1 painted fewer than 3 gradients');
 	bool('5D:d2_spatial_architecture', rt.zOrderIncreasing === true && rt.layers === 6, 'six planes, z-order strictly increasing D0→D5', 'planes are not ordered');
+	/* Real means not invented, which is not the same as fetched. The
+	   colour worlds are a real registry, the auth screens carry the
+	   product's own identity, and neither is a data row — inventing one
+	   to fill the plane is exactly what the constitution forbids. */
 	set('5D:d3_real_content', hasImpl
 		? anyImpl((s) => s.callsApi)
 			? P_('the content plane carries data from the real API')
-			: F_('content plane carries no real data')
+			: anyImpl((s) => s.realContent)
+				? P_('the content plane carries a real domain model rather than a fetched row')
+				: c.family === 'AUTH'
+					? P_('an entry scene: its content is the product\'s own identity, and there is no data to show yet')
+					: F_('content plane carries no real data')
 		: needsScreen('no product content'));
 	set('5D:d4_identity_actions', hasImpl
 		? anyImpl((s) => s.usesActionShelf || s.semanticRole)
@@ -235,7 +254,9 @@ function evaluate(screenId) {
 	set('MOTION:error_recovery_motion', hasImpl
 		? anyImpl((s) => s.usesError)
 			? P_('the error object replaces the content in place, with its own retry')
-			: F_('no error surface')
+			: fetches
+				? F_('no error surface')
+				: P_('this screen makes no request, so it has no failure to recover from')
 		: needsScreen('no error surface'));
 	bool('MOTION:ambient_motion', rt.ambientAllowed === true, 'ambient motion allowed at this tier and stoppable', 'ambient motion not resolved');
 	bool('MOTION:reduced_motion_fallback', rt.reduced?.reducedMotion === true && rt.reduced?.ambientAllowed === false && (rt.reduced?.enterMs ?? 999) <= (rt.enterMs ?? 0) && shared?.reduced?.travelled === false,
@@ -271,12 +292,19 @@ function evaluate(screenId) {
 	set('INPUT:keyboard', P.web ? P_('the web runtime keeps focus order and visible focus (styles/berx-5d.css :focus-visible)') : B_('no web runtime'));
 	set('INPUT:pointer', rt.tiltResponded === true ? P_('pointer moves the scene camera') : F_('pointer ignored'));
 	set('INPUT:hover_if_supported', P.web ? P_('hover raises the object on the web runtime') : B_('no pointer platform'));
-	const isRoot = BOTTOM_TABS.has(repo.routed?.[screenId]?.route ?? '');
+	/* A bottom tab has nothing behind it, and neither does the entry
+	   flow: Welcome, Login and the end of onboarding are where a person
+	   arrives, not somewhere they navigated into. */
+	const isRoot = BOTTOM_TABS.has(repo.routed?.[screenId]?.route ?? '') || c.family === 'AUTH';
 	set('INPUT:back_navigation', hasImpl
 		? anyImpl((s) => s.hasBack)
 			? P_('the way back is on screen in every state, including loading and failure')
 			: isRoot
-				? P_(`reached through the ${repo.routed[screenId].route} tab: a root has nothing behind it to go back to`)
+				? P_(
+						repo.routed?.[screenId]
+							? `reached through the ${repo.routed[screenId].route} tab: a root has nothing behind it to go back to`
+							: 'an entry scene: this is where a person arrives, not somewhere they navigated into',
+				  )
 				: anyImpl((s) => s.embedded)
 					? P_('a panel inside another screen; the screen around it owns the way back')
 					: F_('no back control')

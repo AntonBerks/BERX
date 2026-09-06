@@ -24,6 +24,7 @@ import {BerxSpatialCard} from '../../../../../packages/design-system/src/spatial
 import {useBerxSceneEnter} from '../../../../../packages/design-system/src/spatial/BerxSpatialScene';
 import {BerxActionShelf} from '../../../../../packages/design-system/src/spatial/BerxActionShelf';
 import {BerxScreenScene} from '../../spatial/BerxScreenScene';
+import {useBerxConnectivity} from '../../spatial/useBerxConnectivity';
 import {BerxText} from '../../../../../packages/design-system/src/spatial/BerxText';
 import {BerxWordmark} from '../../../../../packages/design-system/src/spatial/BerxWordmark';
 
@@ -42,17 +43,31 @@ export default function OnboardingCompleteScreen(props: OnboardingCompleteScreen
 
 function OnboardingCompleteSceneBody({api, onEnter}: OnboardingCompleteScreenProps) {
 	const enter = useBerxSceneEnter();
+	/* A dead network is not "you have no points".
+	 *
+	 * This screen greeted people by name and showed their level before
+	 * either had arrived, so a slow or absent connection produced a
+	 * congratulation addressed to nobody with nothing in it. It waits
+	 * for the answer now, and says so when the answer is that there is
+	 * no connection — while still letting anyone through, because
+	 * finishing onboarding must never depend on the points service. */
+	const {offline} = useBerxConnectivity();
+	const [ready, setReady] = useState(false);
 	const [user, setUser] = useState<BerxUser | null>(null);
 	const [points, setPoints] = useState<BerxPointsBalance | null>(null);
 
 	const load = useCallback(async () => {
+		setReady(false);
 		const [me, balance] = await Promise.all([
 			api.me().catch(() => null),
-			/* best-effort: the moment must not depend on the points service */
+			/* best-effort: the moment must not depend on the points
+			   service, and a missing balance is omitted rather than shown
+			   as a zero someone has not earned */
 			api.pointsBalance().catch(() => null),
 		]);
 		setUser(me);
 		setPoints(balance);
+		setReady(true);
 	}, [api]);
 
 	useEffect(() => {
@@ -80,6 +95,11 @@ function OnboardingCompleteSceneBody({api, onEnter}: OnboardingCompleteScreenPro
 				<BerxText role="display" heading style={styles.centered}>
 					{name ? `Готово, ${name}` : 'Готово'}
 				</BerxText>
+				{ready && !user && offline ? (
+					<BerxText role="meta" emphasis="secondary" liveRegion="polite" style={styles.centered}>
+						Нет соединения — ваш профиль и баллы появятся, когда связь вернётся. Войти можно уже сейчас.
+					</BerxText>
+				) : null}
 				<BerxText role="body" emphasis="secondary" style={styles.centered}>
 					Люди, места, события и впечатления — всё в одном пространстве. Начните с того, что рядом.
 				</BerxText>

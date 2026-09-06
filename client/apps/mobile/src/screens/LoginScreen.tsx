@@ -24,6 +24,7 @@ import {BerxText} from '../../../../packages/design-system/src/spatial/BerxText'
 import {BerxWordmark} from '../../../../packages/design-system/src/spatial/BerxWordmark';
 import {BerxSpatialCard} from '../../../../packages/design-system/src/spatial/BerxSpatialCard';
 import {BerxScreenScene} from '../spatial/BerxScreenScene';
+import {useBerxConnectivity} from '../spatial/useBerxConnectivity';
 import {BerxSceneScroll} from '../../../../packages/design-system/src/spatial/BerxSceneScroll';
 
 export interface LoginScreenProps {
@@ -41,6 +42,17 @@ export default function LoginScreen(props: LoginScreenProps) {
 }
 
 function LoginSceneBody({authState, onGoToRegister}: LoginScreenProps) {
+	/**
+	 * A dead network is not a wrong password.
+	 *
+	 * Signing in with no connection produced the same "wrong login or
+	 * password" as typing the wrong one — so the one failure a person
+	 * can actually do something about was indistinguishable from the
+	 * one they cannot. The offline state is real here now, and it takes
+	 * precedence: there is no point telling someone their credentials
+	 * are wrong when nothing was sent.
+	 */
+	const {offline} = useBerxConnectivity();
 	const [identifier, setIdentifier] = useState('');
 	const [password, setPassword] = useState('');
 	const snapshot = authState.getSnapshot();
@@ -103,11 +115,20 @@ function LoginSceneBody({authState, onGoToRegister}: LoginScreenProps) {
 					</View>
 				) : null}
 
+				{offline ? (
+					<View accessibilityLiveRegion="polite" accessibilityRole="alert" style={styles.error}>
+						<BerxText role="callout">Нет соединения</BerxText>
+						<BerxText role="meta" emphasis="secondary">
+							BERX не сможет войти, пока связь не вернётся. Данные, которые вы ввели, останутся здесь.
+						</BerxText>
+					</View>
+				) : null}
+
 				<BerxButton
 					label="Войти"
 					onPress={handleSubmit}
 					loading={isSubmitting}
-					disabled={!canSubmit}
+					disabled={!canSubmit || offline}
 					fullWidth
 				/>
 			</BerxSpatialCard>

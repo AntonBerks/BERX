@@ -23,6 +23,8 @@ import {BerxIcon} from '../../../../../packages/design-system/src/icons/BerxIcon
 import {useBerxScene} from '../../../../../packages/design-system/src/spatial/BerxSpatialScene';
 import {BerxActionShelf} from '../../../../../packages/design-system/src/spatial/BerxActionShelf';
 import {BerxScreenScene} from '../../spatial/BerxScreenScene';
+import {classifyFailure} from '../../spatial/screenState';
+import {useBerxConnectivity} from '../../spatial/useBerxConnectivity';
 import {BerxText} from '../../../../../packages/design-system/src/spatial/BerxText';
 
 export interface ProfilePhotoScreenProps {
@@ -45,6 +47,10 @@ export default function ProfilePhotoScreen(props: ProfilePhotoScreenProps) {
 }
 
 function ProfilePhotoSceneBody({api, pickImage, currentIconUrl, displayName, onDone, onBack}: ProfilePhotoScreenProps) {
+	/* an upload that failed while the device is offline is an offline
+	   state, not a server refusal */
+	const {offline} = useBerxConnectivity();
+	const [retryable, setRetryable] = useState(true);
 	const {scene} = useBerxScene();
 	const [iconUrl, setIconUrl] = useState<string | undefined>(currentIconUrl);
 	const [busy, setBusy] = useState(false);
@@ -70,7 +76,11 @@ function ProfilePhotoSceneBody({api, pickImage, currentIconUrl, displayName, onD
 			setIconUrl(res.icon_url);
 			setSaved(true);
 		} catch (e) {
-			setError(e instanceof Error ? e.message : 'Не удалось загрузить фото.');
+			/* the real reason: a dead network is not a rejected upload,
+			   and a refusal is not something retrying can fix */
+			const failure = classifyFailure(e, offline);
+			setError(failure.message);
+			setRetryable(failure.retryable);
 		} finally {
 			setBusy(false);
 		}
@@ -113,6 +123,18 @@ function ProfilePhotoSceneBody({api, pickImage, currentIconUrl, displayName, onD
 						<Text accessibilityLiveRegion="assertive" accessibilityRole="alert" style={styles.error}>
 							{error}
 						</Text>
+					) : null}
+
+					{offline ? (
+						<View accessibilityLiveRegion="polite" accessibilityRole="alert">
+							<BerxText role="meta" emphasis="secondary">
+								Нет соединения — фото загрузится, когда связь вернётся.
+							</BerxText>
+						</View>
+					) : null}
+
+					{error && retryable && !offline ? (
+						<BerxButton label="Попробовать снова" variant="secondary" onPress={choose} fullWidth />
 					) : null}
 					{saved && !error ? (
 						<Text accessibilityLiveRegion="polite" style={styles.saved}>

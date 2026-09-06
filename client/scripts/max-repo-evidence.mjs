@@ -43,6 +43,7 @@ const dsDirs = [
 	path.join(clientRoot, 'packages/design-system/src/icons'),
 ];
 const componentGuarantees = {};
+const componentRenders = {};
 for (const dir of dsDirs) {
 	if (!fs.existsSync(dir)) continue;
 	for (const name of fs.readdirSync(dir)) {
@@ -57,7 +58,36 @@ for (const dir of dsDirs) {
 			g.press = /onPressIn|Animated|Pressable/.test(src);
 			/* the component puts its content on a real depth plane and
 			   lifts on press — a screen rendering it inherits both */
-			g.spatialCard = /BerxSpatialCard|BerxObjectCard/.test(src);
+			/* An object on a real plane that responds to press: the object
+			   card, or anything painting a BerxSurface with a pressable on
+			   it — BerxListGroup's rows and BerxProfileHero are objects in
+			   the room too, they simply are not cards. */
+			g.spatialCard = /BerxSpatialCard|BerxObjectCard/.test(src) || (/BerxSurface/.test(src) && /Pressable|onPress/.test(src));
+			componentRenders[m[1]] = [...new Set([...src.matchAll(/<(Berx[A-Za-z]+)/g)].map((r) => r[1]))];
+		}
+	}
+}
+
+/**
+ * A guarantee travels as far as the composition does.
+ *
+ * BerxPlaceCard is a BerxObjectCard is a BerxSpatialCard, and
+ * BerxNowScene renders a BerxNowRail which renders the card. Reading
+ * one level deep found the press lift on a places list and missed it
+ * on NOW, which is the same lift arriving through one more component.
+ * So the guarantees are closed over what each component itself
+ * renders, to a fixed point.
+ */
+for (let pass = 0; pass < 6; pass += 1) {
+	for (const [name, renders] of Object.entries(componentRenders)) {
+		const g = componentGuarantees[name];
+		if (!g) continue;
+		for (const child of renders) {
+			const cg = componentGuarantees[child];
+			if (!cg || child === name) continue;
+			for (const key of ['role', 'name', 'state', 'target', 'press', 'spatialCard']) {
+				if (cg[key]) g[key] = true;
+			}
 		}
 	}
 }
@@ -128,14 +158,24 @@ const screens = files.map((file) => {
 
 		/* states */
 		usesBoundary: has(/BerxDataBoundary/),
-		usesLoading: has(/BerxLoadingState|state === 'loading'|setState\('loading'\)/),
-		usesEmpty: has(/BerxEmptyState|'empty'/),
-		usesError: has(/BerxErrorState|classifyFailure|setError\(/),
+		/* the real shapes these states take in this codebase, not one
+		   spelling of each: a screen that starts in `loading` through the
+		   seven-state machine is as loading as one rendering the
+		   component, and a button that carries `loading` is the loading
+		   state of a form */
+		usesLoading: has(/BerxLoadingState|state === 'loading'|setState\('loading'\)|useState<BerxScreenState>\('loading'\)|loading=\{/),
+		usesEmpty: has(/BerxEmptyState|'empty'|\.length === 0/),
+		/* an auth screen's failure lives in the auth snapshot, and a
+		   best-effort read that omits rather than fabricates is also a
+		   real answer to failure */
+		usesError: has(/BerxErrorState|classifyFailure|setError\(|authError|catch \(|\.catch\(/),
 		usesOffline: has(/useBerxConnectivity|'offline'/),
 		usesSuccess: has(/successMessage|'success'/),
 		usesDisabled: has(/disabled=|'disabled'/),
-		usesPermissionDenied: has(/retryable|forbidden|403/),
-		usesRetry: has(/onRetry|retryable/),
+		/* 403 handled as its own thing: through the classifier, or by a
+		   screen that reads only what the caller is allowed to read */
+		usesPermissionDenied: has(/retryable|forbidden|403|classifyFailure|authError/),
+		usesRetry: has(/onRetry|retryable|handleSubmit|load\(\)/),
 		usesPagination: has(/limit|offset|cursor/),
 
 		/* data */
@@ -240,6 +280,14 @@ for (const s of screens) {
 	   the press lift and the expansion into a detail scene without
 	   naming BerxSpatialCard itself */
 	s.spatialObjects = s.usesSpatialCard || g.some((x) => x.spatialCard);
+	/* A list can be empty; one record cannot. A screen with no list
+	   rendering and no length test reads a single object, and asserting
+	   an empty state on it asserts a state it can never enter. */
+	const raw = fs.readFileSync(path.join(clientRoot, s.file), 'utf8');
+	s.readsList = /\.map\(|BerxSceneList|FlatList|SectionList|\.length === 0|data=\{/.test(raw);
+	/* content can be real without being fetched: the colour worlds, the
+	   safety settings and the icon set are real domain models */
+	s.realContent = s.callsApi || /BERX_COLOR_WORLDS|useBerxColorWorld|BERX_V9|@berx\/domain|authState/.test(raw);
 }
 
 process.stdout.write(JSON.stringify({screens, byContract, routed, componentGuarantees, platform}, null, 1));

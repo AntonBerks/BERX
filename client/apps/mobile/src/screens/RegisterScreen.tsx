@@ -24,6 +24,7 @@ import {BerxText} from '../../../../packages/design-system/src/spatial/BerxText'
 import {BerxWordmark} from '../../../../packages/design-system/src/spatial/BerxWordmark';
 import {BerxSpatialCard} from '../../../../packages/design-system/src/spatial/BerxSpatialCard';
 import {BerxScreenScene} from '../spatial/BerxScreenScene';
+import {useBerxConnectivity} from '../spatial/useBerxConnectivity';
 import {BerxSceneScroll} from '../../../../packages/design-system/src/spatial/BerxSceneScroll';
 
 export interface RegisterScreenProps {
@@ -41,6 +42,15 @@ export default function RegisterScreen(props: RegisterScreenProps) {
 }
 
 function RegisterSceneBody({api, onRegistered, onBack}: RegisterScreenProps) {
+	/**
+	 * A dead network is not a rejected registration.
+	 *
+	 * Signing up with no connection produced whatever generic failure
+	 * came back, so the one problem a person can act on looked like the
+	 * one they cannot. Offline is real here now and takes precedence:
+	 * nothing was sent, so nothing was refused.
+	 */
+	const {offline} = useBerxConnectivity();
 	const [username, setUsername] = useState('');
 	const [firstname, setFirstname] = useState('');
 	const [lastname, setLastname] = useState('');
@@ -140,11 +150,19 @@ function RegisterSceneBody({api, onRegistered, onBack}: RegisterScreenProps) {
 						{error}
 					</Text>
 				) : null}
+				{offline ? (
+					<View accessibilityLiveRegion="polite" accessibilityRole="alert" style={styles.offlineNotice}>
+						<BerxText role="callout">Нет соединения</BerxText>
+						<BerxText role="meta" emphasis="secondary">
+							BERX не сможет создать аккаунт, пока связь не вернётся. Всё, что вы ввели, останется здесь.
+						</BerxText>
+					</View>
+				) : null}
 				<BerxButton
 					label="Зарегистрироваться"
 					onPress={handleSubmit}
 					loading={submitting}
-					disabled={!canSubmit}
+					disabled={!canSubmit || offline}
 					fullWidth
 				/>
 				<BerxButton label="Назад" variant="secondary" onPress={onBack} fullWidth />
@@ -154,6 +172,9 @@ function RegisterSceneBody({api, onRegistered, onBack}: RegisterScreenProps) {
 }
 
 const styles = StyleSheet.create({
+	/* the notice is a block, not a line: styles.error on this screen is
+	   a Text style */
+	offlineNotice: {gap: 2},
 	/* the form scrolls: five fields and a keyboard do not fit on a
 	   small phone, and a centred column with nothing to scroll simply
 	   put the submit button out of reach */
