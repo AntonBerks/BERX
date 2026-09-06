@@ -75,6 +75,7 @@ import MyEventsScreen from './screens/MyEventsScreen';
 import EventInviteScreen from './screens/EventInviteScreen';
 import AdminUnvalidatedScreen from './screens/AdminUnvalidatedScreen';
 import MessageSearchScreen from './screens/MessageSearchScreen';
+import EditProfileScreen from './screens/EditProfileScreen';
 import SettingsScreen from './screens/SettingsScreen';
 import BlockedUsersScreen from './screens/BlockedUsersScreen';
 import BERXWorldScreen from './screens/BERXWorldScreen';
@@ -518,9 +519,12 @@ function RouteRenderer({name, params}: {name: BerxRouteName; params: unknown}) {
 			return <AdminUnvalidatedScreen api={api} onBack={nav.pop} />;
 		case 'MessageSearch':
 			return <MessageSearchScreen api={api} onOpenConversation={(otherGuid) => nav.replace('Conversation', {otherGuid, otherUsername: undefined})} onBack={nav.pop} />;
+		case 'EditProfile':
+			return <EditProfileScreen api={api} onBack={nav.pop} />;
 		case 'Settings':
 			return (
 				<SettingsScreen
+					onOpenEditProfile={() => nav.push('EditProfile', undefined)}
 					onOpenDeviceSessions={() => nav.push('DeviceSessions', undefined)}
 					onOpenBlockedUsers={() => nav.push('BlockedUsers', undefined)}
 					onOpenDeleteAccount={() => nav.push('DeleteAccount', undefined)}

@@ -36,6 +36,7 @@ export type BerxRouteName =
 	| 'DatingMatch'
 	| 'DatingMatches'
 	| 'DatingPrivacy'
+	| 'EditProfile'
 	| 'Settings'
 	| 'DeviceSessions'
 	| 'DeleteAccount'
@@ -123,6 +124,7 @@ export interface BerxRouteParams {
 	DatingMatch: { otherGuid: number; otherUsername: string };
 	DatingMatches: undefined;
 	DatingPrivacy: undefined;
+	EditProfile: undefined;
 	Settings: undefined;
 	DeviceSessions: undefined;
 	DeleteAccount: undefined;
@@ -218,6 +220,7 @@ export const BERX_ROUTES: BerxRouteMeta[] = [
 	{ name: 'DatingMatch', connected: true },
 	{ name: 'DatingMatches', connected: true },
 	{ name: 'DatingPrivacy', connected: true },
+	{ name: 'EditProfile', connected: true },
 	{ name: 'Settings', connected: true },
 	{ name: 'DeviceSessions', connected: true },
 	{ name: 'DeleteAccount', connected: true },

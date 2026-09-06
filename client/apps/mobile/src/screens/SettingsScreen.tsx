@@ -15,6 +15,7 @@ import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 import {BerxSceneScroll} from '../../../../packages/design-system/src/spatial/BerxSceneScroll';
 
 export interface SettingsScreenProps {
+	onOpenEditProfile: () => void;
 	onOpenDeviceSessions: () => void;
 	onOpenBlockedUsers: () => void;
 	onOpenDeleteAccount: () => void;
@@ -31,7 +32,7 @@ export default function SettingsScreen(props: SettingsScreenProps) {
 	);
 }
 
-function SettingsScreenBody({onOpenDeviceSessions, onOpenBlockedUsers, onOpenDeleteAccount, onOpenDatingPrivacy, onOpenCircles, onBack}: SettingsScreenProps) {
+function SettingsScreenBody({onOpenEditProfile, onOpenDeviceSessions, onOpenBlockedUsers, onOpenDeleteAccount, onOpenDatingPrivacy, onOpenCircles, onBack}: SettingsScreenProps) {
 	return (
 		<View style={styles.screen}>
 			<BerxHeader title="Настройки" onBack={onBack} />
@@ -40,6 +41,12 @@ function SettingsScreenBody({onOpenDeviceSessions, onOpenBlockedUsers, onOpenDel
 			    could not be reached. Scrolling also moves the room. */}
 			<BerxSceneScroll contentContainerStyle={styles.scrollBody}>
 				<View style={styles.groups}>
+					{/* editing your own account — `PATCH /me` has always been
+					    real and nothing in BERX reached it */}
+					<BerxListGroup label="Аккаунт">
+						<BerxListRow label="Имя и почта" icon="profile" onPress={onOpenEditProfile} last />
+					</BerxListGroup>
+
 					<BerxListGroup label="Приватность и безопасность">
 						<BerxListRow label="Устройства и сессии" onPress={onOpenDeviceSessions} />
 						<BerxListRow label="Заблокированные" onPress={onOpenBlockedUsers} />
@@ -47,7 +54,7 @@ function SettingsScreenBody({onOpenDeviceSessions, onOpenBlockedUsers, onOpenDel
 						{onOpenCircles ? <BerxListRow label="Круги" onPress={onOpenCircles} last /> : null}
 					</BerxListGroup>
 
-					<BerxListGroup label="Аккаунт">
+					<BerxListGroup label="Опасная зона">
 						<BerxListRow label="Удалить аккаунт" onPress={onOpenDeleteAccount} danger last />
 					</BerxListGroup>
 				</View>
