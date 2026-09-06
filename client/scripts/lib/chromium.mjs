@@ -35,7 +35,33 @@ export function installedChromium() {
 	return undefined;
 }
 
+/**
+ * The flags that give this browser a GPU.
+ *
+ * A container has no graphics hardware, so Chromium grants no WebGPU
+ * adapter by default and every GPU gate reports blocked — which is
+ * honest but proves nothing. With a software Vulkan driver present
+ * (mesa's lavapipe), these are Chrome's own documented flags for
+ * running WebGPU without hardware: `--enable-unsafe-webgpu` is the
+ * switch Chrome ships for exactly this, and the Vulkan pair points it
+ * at the installed ICD.
+ *
+ * This makes the GPU real rather than assumed. It is slow — everything
+ * is rasterised on the CPU — and it is not a claim about performance;
+ * it is what lets submission, execution and pixel readback actually
+ * happen so a gate can measure them.
+ *
+ * Where no driver is installed the flags change nothing: the adapter
+ * request still resolves null and the gates still report blocked.
+ */
+export const BERX_GPU_FLAGS = [
+	'--enable-unsafe-webgpu',
+	'--enable-features=Vulkan',
+	'--use-vulkan=native',
+];
+
 export async function launchChromium(options = {}) {
+	options = {...options, args: [...BERX_GPU_FLAGS, ...(options.args ?? [])]};
 	const override = process.env.BERX_CHROMIUM_PATH;
 	if (override) return chromium.launch({...options, executablePath: override});
 	try {

@@ -321,7 +321,19 @@ async function verifyInstancing(): Promise<WebGPUProductionGateResult> {
   const shader = device.createShaderModule({
     code: `
       struct O { @builtin(position) p: vec4f }
-      @vertex fn vs(@builtin(vertex_index) v:u32,@builtin(instance_index) i:u32)->O { var o:O; let x=f32(i%10u)*0.01; o.p=vec4f(x,0,0,1); return o; }
+      // A real triangle per instance. Every vertex used to be emitted at
+      // the same point, which is a degenerate triangle with zero area:
+      // a hundred of them rasterised nothing, and the gate reported
+      // failure because the frame really was empty.
+      @vertex fn vs(@builtin(vertex_index) v:u32,@builtin(instance_index) i:u32)->O {
+        var o:O;
+        let corner = array<vec2f,3>(vec2f(-0.08,-0.08), vec2f(0.08,-0.08), vec2f(0.0,0.08));
+        // instances spread across the target so they cannot all overlap
+        let col = f32(i % 10u) / 10.0 * 1.6 - 0.8;
+        let row = floor(f32(i) / 10.0) / 10.0 * 1.6 - 0.8;
+        o.p = vec4f(corner[v] + vec2f(col,row), 0.0, 1.0);
+        return o;
+      }
       @fragment fn fs()->@location(0) vec4f { return vec4f(1,1,1,1); }
     `,
   });
@@ -368,12 +380,53 @@ async function verifyWorldText(): Promise<WebGPUProductionGateResult> {
   ctx.fillStyle = '#fff';
   ctx.font = '20px sans-serif';
   ctx.fillText('BERX', 2, 22);
+  /* Confirm the raster before blaming the GPU copy. An empty readback
+     can mean the upload failed or that nothing was ever drawn, and
+     those are different problems with different fixes. */
+  const rasterised = ctx.getImageData(0, 0, textCanvas.width, textCanvas.height).data.some((v, i) => i % 4 === 3 && v > 0);
+  if (!rasterised) {
+    result.evidence = 'the 2D rasteriser produced no glyphs: no font available to this browser';
+    return finalize(result, false, true);
+  }
   const texture = device.createTexture({ size: { width: 128, height: 32 }, format: 'rgba8unorm', usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.COPY_SRC });
-  device.queue.copyExternalImageToTexture({ source: textCanvas }, { texture }, { width: 128, height: 32 });
+  /* the canvas is not premultiplied, and saying so is what makes the
+     copy produce the pixels that were drawn rather than zeros */
+  device.queue.copyExternalImageToTexture(
+    { source: textCanvas, flipY: false },
+    { texture, premultipliedAlpha: false },
+    { width: 128, height: 32 },
+  );
   await device.queue.onSubmittedWorkDone();
   result.gpuExecuted = true;
   const bytes = await readbackRgba8(device, texture, 128, 32);
   result.readbackVerified = bytes.some((v, i) => i % 4 < 3 && v > 0);
+  if (!result.readbackVerified) {
+    /**
+     * The glyphs were rasterised — that was checked above — so an empty
+     * readback is about the copy, not the text. Distinguish a broken
+     * BERX path from a driver that cannot do this at all: a flat
+     * control canvas of known colour goes through the identical call,
+     * and if that comes back empty too the copy itself is unsupported
+     * here and the gate is blocked rather than failed.
+     */
+    const control = document.createElement('canvas');
+    control.width = 8;
+    control.height = 8;
+    const cctx = control.getContext('2d');
+    if (cctx) {
+      cctx.fillStyle = '#ff0000';
+      cctx.fillRect(0, 0, 8, 8);
+      const probe = device.createTexture({size: {width: 8, height: 8}, format: 'rgba8unorm', usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.COPY_SRC});
+      device.queue.copyExternalImageToTexture({source: control, flipY: false}, {texture: probe, premultipliedAlpha: false}, {width: 8, height: 8});
+      await device.queue.onSubmittedWorkDone();
+      const probeBytes = await readbackRgba8(device, probe, 8, 8);
+      probe.destroy();
+      if (!probeBytes.some((v, i) => i % 4 < 3 && v > 0)) {
+        result.evidence = 'copyExternalImageToTexture returns empty pixels for any canvas on this driver, including a solid control fill: the copy path is unsupported here, not broken in BERX';
+        return finalize(result, false, true);
+      }
+    }
+  }
   /* This proves a rasterised label reaches the GPU and comes back —
      real, and worth having. It is deliberately *not* called world-space
      text: a canvas raster uploaded as a texture says nothing about

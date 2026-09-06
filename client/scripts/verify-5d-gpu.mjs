@@ -543,7 +543,10 @@ try {
 			/* a gate claiming GPU execution with no device is the lie */
 			liars: report.results.filter((r) => r.gpuExecuted && !device).map((r) => r.gate),
 			cpuStage: report.results.filter((r) => r.cpuVerified).map((r) => r.gate),
+			/* gates that really submitted work and really read a value back */
+			gpuProven: report.results.filter((r) => r.gpuExecuted && r.readbackVerified).map((r) => r.gate),
 			unimplemented: report.results.filter((r) => r.blocked && r.evidence.startsWith('not implemented')).map((r) => r.gate),
+			all: report.results.map((r) => `${r.gate}=${r.verified ? 'verified' : r.blocked ? 'blocked' : 'FAILED'}${r.gpuExecuted ? '+gpu' : ''}${r.readbackVerified ? '+readback' : ''} (${r.evidence})`),
 		};
 	});
 	gate(
@@ -552,6 +555,13 @@ try {
 		webgpu.liars.length === 0
 			? `${webgpu.why}; ${webgpu.total} gates ran, ${webgpu.passed} verified, ${webgpu.blocked} blocked — none claimed GPU execution without a device`
 			: `gates claiming GPU execution with no device: ${webgpu.liars.join(', ')}`,
+	);
+	gate(
+		'where a GPU exists, the GPU gates really use it',
+		!webgpu.device || webgpu.gpuProven.length >= 5,
+		webgpu.device
+			? `${webgpu.gpuProven.length} proved GPU work: ${webgpu.gpuProven.join(', ')} — all: ${webgpu.all.join(' | ')}`
+			: 'no device on this machine; every GPU gate reported blocked, which is the honest result',
 	);
 	gate(
 		'unimplemented features report as unimplemented, not as passes',

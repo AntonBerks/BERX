@@ -27,6 +27,13 @@ jobs:
       # "executable doesn't exist", whatever the code under test did.
       - name: Install Chromium for the web probe
         run: npx --yes playwright install --with-deps chromium
+      # A runner has no graphics hardware, so without a software Vulkan
+      # driver Chromium grants no WebGPU adapter and every GPU gate
+      # reports blocked — honest, but it proves nothing. lavapipe makes
+      # submission, execution and pixel readback real so the gates can
+      # measure them. It is slow and is not a performance claim.
+      - name: Install a software Vulkan driver so the GPU gates can run
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq mesa-vulkan-drivers
       - name: Typecheck
         run: npm run typecheck
       - name: Static verification

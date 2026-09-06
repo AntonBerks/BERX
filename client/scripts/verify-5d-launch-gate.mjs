@@ -135,7 +135,7 @@ if (noNative) {
 	blocked('packaging', 'no native or desktop target exists to package', 'client/apps', 'repository');
 	blocked('real-device-verification', 'no physical iPhone, Android device, Apple Watch or headset is reachable from this environment', 'environment', 'device');
 }
-blocked('webgpu', 'navigator.gpu is present on a served origin but requestAdapter() resolves null — there is no GPU adapter on this machine, so a WebGPU backend cannot be launched, rendered or read back; the 13 production gates run and report 11 blocked for exactly this reason', 'npm run verify:5d-gpu', 'browser');
+blocked('webgpu', "a WebGPU device is available here and the 13 capability gates run against it, but BERX's own renderer is WebGL2: there is no WebGPU production backend in packages/spatial-web, so nothing of the product renders through WebGPU", 'npm run verify:5d-gpu', 'browser');
 blocked('gpu-recovery', 'WebGL context loss is handled and the meshes rebuild, but a real device loss cannot be forced in this environment, so recovery is unproven end to end', 'packages/spatial-web/src/runtimeHost5d.ts', 'browser');
 
 const noBackend = !fs.existsSync(path.join(repoRoot, 'backend/opensource-socialnetwork-master/components/OssnApi'));

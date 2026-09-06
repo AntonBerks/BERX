@@ -35,7 +35,7 @@ const BLOCKERS = [
 	},
 	{
 		what: 'WebGPU renderer',
-		evidence: () => 'navigator.gpu is present on a served origin but requestAdapter() resolves null — there is no GPU adapter on this machine, so a WebGPU backend cannot be launched, rendered or read back. A renderer that cannot be run is not one.',
+		evidence: () => "a WebGPU device is available here and the 13 capability gates run against it, but BERX's own renderer is WebGL2: there is no WebGPU production backend in packages/spatial-web, so nothing of the product renders through WebGPU",
 		claimed: () => /kind\s*=\s*'webgpu'/.test(renderer),
 	},
 	{
