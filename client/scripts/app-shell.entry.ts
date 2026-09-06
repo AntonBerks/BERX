@@ -88,6 +88,29 @@ async function enterWorld(): Promise<void> {
 			});
 			return {object: mapped.object, relations: mapped.relations, media: mapped.media};
 		},
+		/**
+		 * Where this person was standing, kept for this browser only.
+		 *
+		 * The world's entities are never stored: they come from the
+		 * server every time, and a feed restored from disk would be a
+		 * world made of yesterday. What is kept is the place — camera
+		 * pose, region, focus, time, and the way back.
+		 */
+		restore: () => {
+			try {
+				const raw = localStorage.getItem('berx.place');
+				return raw ? JSON.parse(raw) : undefined;
+			} catch {
+				return undefined;
+			}
+		},
+		remember: (state) => {
+			try {
+				localStorage.setItem('berx.place', JSON.stringify(state));
+			} catch {
+				/* storage blocked: the session simply starts fresh next time */
+			}
+		},
 		textureBudget: 96,
 	});
 }

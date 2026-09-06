@@ -22,7 +22,7 @@
  * Signing in is text input, so it is a real form. Everything after it
  * is space.
  */
-import {Berx5DWorldApp, berxTemporalCursor, type BerxWorldIngest, type BerxWorldPosition} from '@berx/spatial';
+import {Berx5DWorldApp, berxTemporalCursor, type BerxWorldIngest, type BerxWorldPersistence, type BerxWorldPosition} from '@berx/spatial';
 import {createBerx5DWebHost, type Berx5DWebHost} from './runtimeHost5d';
 
 export interface BerxAppShellOptions {
@@ -38,6 +38,17 @@ export interface BerxAppShellOptions {
 	textureBudget?: number;
 	/** Told what the viewer is looking at, for the accessibility outline. */
 	onPositionChange?: (position: BerxWorldPosition) => void;
+	/**
+	 * Where the viewer was last time, if anywhere.
+	 *
+	 * Restored after the entities are read back from the server, never
+	 * instead of them — a stale copy of somebody's feed loaded from disk
+	 * is the fake data this runtime refuses. What comes back is the
+	 * place; what fills it is live.
+	 */
+	restore?: () => BerxWorldPersistence | undefined;
+	/** Called whenever the viewer moves, so their place survives a reload. */
+	remember?: (state: BerxWorldPersistence) => void;
 	/**
 	 * Publish what someone wrote.
 	 *
@@ -122,6 +133,7 @@ export async function startBerxApp(options: BerxAppShellOptions): Promise<BerxAp
 		onPositionChange: (position) => {
 			outline.textContent = describe(world);
 			options.onPositionChange?.(position);
+			options.remember?.(world.persist());
 			void enterRegion(position);
 		},
 	});
@@ -250,6 +262,12 @@ export async function startBerxApp(options: BerxAppShellOptions): Promise<BerxAp
 	canvas.addEventListener('keydown', onCompose);
 
 	await pull();
+	/* the entities are live; the place is restored around them */
+	const remembered = options.restore?.();
+	if (remembered) {
+		world.restore(remembered);
+		outline.textContent = describe(world);
+	}
 	host.start();
 
 	/* A named handle to the world.

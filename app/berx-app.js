@@ -1634,6 +1634,7 @@ var Berx5DRuntime = class {
 };
 
 // packages/spatial/src/worldApp.ts
+var BERX_PERSISTENCE_VERSION = 1;
 var Berx5DWorldApp = class {
   constructor(options = {}) {
     this.relations = /* @__PURE__ */ new Map();
@@ -1867,6 +1868,54 @@ var Berx5DWorldApp = class {
   }
   setAccessibility(options) {
     this.runtime.setAccessibility(options);
+  }
+  /* ---------------- persistence ---------------- */
+  /**
+   * Everything about where the viewer is, so they can come back to it.
+   *
+   * Not "the last route": the camera's exact pose, the region, what
+   * was in focus, where in time they were standing, who the world is
+   * arranged around, and the history behind them. Restoring this puts
+   * someone back where they were, not on a page that looks similar.
+   *
+   * The world's entities are deliberately not in here. They come from
+   * the server, and a stale copy of somebody's feed restored from disk
+   * is exactly the fake data this whole runtime refuses — so the
+   * entities are re-read and the *place* is restored around them.
+   */
+  persist() {
+    return {
+      version: BERX_PERSISTENCE_VERSION,
+      viewerId: this.viewerId,
+      position: this.worldPosition,
+      camera: this.runtime.camera.getState(),
+      history: this.history.map((p) => ({ ...p, cursor: { ...p.cursor } }))
+    };
+  }
+  /**
+   * Stand where you were standing.
+   *
+   * A focus that is no longer in the world is dropped rather than
+   * pointed at nothing — people delete things, and a restored session
+   * has to survive that. An unknown version is ignored entirely: a
+   * half-understood pose is worse than starting at the origin.
+   */
+  restore(state) {
+    if (!state || state.version !== BERX_PERSISTENCE_VERSION) return false;
+    this.viewerId = state.viewerId;
+    this.layoutDirty = true;
+    this.history.length = 0;
+    this.history.push(...state.history.map((p) => ({ ...p, cursor: { ...p.cursor } })));
+    const focusExists = state.position.focusId ? Boolean(this.runtime.world.getObject(state.position.focusId)) : false;
+    this.position = {
+      region: state.position.region,
+      focusId: focusExists ? state.position.focusId : void 0,
+      cursor: { ...state.position.cursor }
+    };
+    this.runtime.camera.setState(state.camera);
+    if (this.position.focusId) this.runtime.world.setActiveObject(this.position.focusId);
+    this.options.onPositionChange?.(this.worldPosition);
+    return true;
   }
   /* ---------------- the frame ---------------- */
   /**
@@ -3639,6 +3688,7 @@ async function startBerxApp(options) {
     onPositionChange: (position) => {
       outline.textContent = describe(world);
       options.onPositionChange?.(position);
+      options.remember?.(world.persist());
       void enterRegion(position);
     }
   });
@@ -3739,6 +3789,11 @@ async function startBerxApp(options) {
   };
   canvas.addEventListener("keydown", onCompose);
   await pull();
+  const remembered = options.restore?.();
+  if (remembered) {
+    world.restore(remembered);
+    outline.textContent = describe(world);
+  }
   host.start();
   globalThis.__berxWorld = world;
   globalThis.__berxHost = host;
@@ -3824,6 +3879,28 @@ async function enterWorld() {
         time_created: post.time_created
       });
       return { object: mapped.object, relations: mapped.relations, media: mapped.media };
+    },
+    /**
+     * Where this person was standing, kept for this browser only.
+     *
+     * The world's entities are never stored: they come from the
+     * server every time, and a feed restored from disk would be a
+     * world made of yesterday. What is kept is the place — camera
+     * pose, region, focus, time, and the way back.
+     */
+    restore: () => {
+      try {
+        const raw = localStorage.getItem("berx.place");
+        return raw ? JSON.parse(raw) : void 0;
+      } catch {
+        return void 0;
+      }
+    },
+    remember: (state) => {
+      try {
+        localStorage.setItem("berx.place", JSON.stringify(state));
+      } catch {
+      }
     },
     textureBudget: 96
   });

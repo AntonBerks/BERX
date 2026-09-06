@@ -456,6 +456,50 @@ try {
 		`cursor +${((temporal.after.cursor - temporal.before.cursor) / 86400).toFixed(0)} days; the moment moved ${(temporal.after.moment - temporal.before.moment).toFixed(2)} in depth, the person (timeless) did not`,
 	);
 
+	/* --- a reload puts you back where you were standing --- */
+	const before = await page.evaluate(async () => {
+		const w = window.__berxWorld;
+		const settle = async () => {
+			for (let i = 0; i < 90; i++) await new Promise((r) => requestAnimationFrame(r));
+		};
+		w.travelTo('place:4211');
+		await settle();
+		w.scrubTime(3 * 86400);
+		await settle();
+		return {
+			camera: {...w.latestFrame.camera.position},
+			region: w.worldPosition.region,
+			focus: w.worldPosition.focusId,
+			cursor: w.worldPosition.cursor.at,
+			stored: localStorage.getItem('berx.place') !== null,
+		};
+	});
+	await page.reload({waitUntil: 'load'});
+	await page.waitForFunction(() => typeof window.__berxWorld !== 'undefined' && window.__berxWorld.latestFrame.world.objects.length > 0, undefined, {timeout: 15000});
+	const after = await page.evaluate(async () => {
+		const w = window.__berxWorld;
+		for (let i = 0; i < 30; i++) await new Promise((r) => requestAnimationFrame(r));
+		return {
+			camera: {...w.latestFrame.camera.position},
+			region: w.worldPosition.region,
+			focus: w.worldPosition.focusId,
+			cursor: w.worldPosition.cursor.at,
+			entities: w.latestFrame.world.objects.length,
+			signedIn: document.querySelector('#berx-entry') === null,
+		};
+	});
+	const cameraDelta = Math.hypot(after.camera.x - before.camera.x, after.camera.y - before.camera.y, after.camera.z - before.camera.z);
+	gate(
+		'a reload restores the exact place, not a similar page',
+		before.stored && cameraDelta < 0.01 && after.region === before.region && after.focus === before.focus && after.cursor === before.cursor,
+		`camera within ${cameraDelta.toFixed(4)} units; region ${after.region}, focus ${after.focus}, cursor identical at ${after.cursor}`,
+	);
+	gate(
+		'the entities are re-read from the server, not restored from disk',
+		after.entities > 0 && after.signedIn,
+		`${after.entities} entities after reload, session kept, world refetched`,
+	);
+
 	/* --- the real product frame, measured while it runs --- */
 	const perf = await page.evaluate(async () => {
 		const host = window.__berxHost;
