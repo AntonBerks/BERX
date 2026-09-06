@@ -131,7 +131,8 @@ try {
 		const webgpu = await window.BERX_CROSS.renderWebGPU();
 		const media = await window.BERX_CROSS.renderMedia(new URL('/media.jpg', location.href).href);
 		const labelled = await window.BERX_CROSS.renderLabelled();
-		return {drawList, rendered, webgpu, media, labelled};
+		const recovered = await window.BERX_CROSS.renderAfterDeviceLoss();
+		return {drawList, rendered, webgpu, media, labelled, recovered};
 	});
 	if (errors.length > 0) gate('the web backend renders the shared frame without errors', false, errors.join(' | '));
 } finally {
@@ -348,6 +349,23 @@ if (labelled?.available) {
 		'one rasteriser, one set of placements, two GPU APIs', 10);
 } else if (labelled) {
 	blocked('webgpu-label-render', `the name comparison could not run: ${labelled.reason}`);
+}
+
+/* ---- 3d. a real device loss, and recovery from it ---- */
+const recovered = web?.recovered;
+if (recovered?.available) {
+	gate('a WebGPU device can really be lost, and the backend notices',
+		typeof recovered.reason === 'string' && recovered.reason.length > 0 && typeof recovered.lostFlag === 'string',
+		`destroy() ended the device and device.lost resolved: ${recovered.reason}`);
+	const beforeLoss = Uint8Array.from(recovered.before);
+	const afterLoss = Uint8Array.from(recovered.after);
+	gate('drawing into a dead device does nothing rather than throwing',
+		recovered.errors.length === 0,
+		recovered.errors.length === 0 ? 'no uncaptured errors on the replacement device' : recovered.errors.join(' | '));
+	agree('the same world comes back identical on a new device', afterLoss, beforeLoss,
+		'the draw list was never the renderer\'s to lose');
+} else if (recovered) {
+	blocked('webgpu-device-loss', `device-loss recovery could not be exercised: ${recovered.reason}`);
 }
 
 if (nativeVsWebgl) {

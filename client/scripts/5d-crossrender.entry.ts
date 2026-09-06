@@ -45,6 +45,41 @@ const api = {
 		};
 	},
 	/**
+	 * A real WebGPU device loss, and what survives it.
+	 *
+	 * `destroy()` ends the device: every pipeline, buffer and texture on
+	 * it becomes invalid and `device.lost` resolves. What is being
+	 * checked is that none of BERX was in there — the same draw list,
+	 * given to a backend built a moment later on a new device, produces
+	 * the same picture. The world, the camera, the time cursor and the
+	 * relations were never the renderer's to lose.
+	 */
+	async renderAfterDeviceLoss() {
+		const list = api.drawList();
+		const first = await BerxWebGPURuntimeRenderer.create(freshCanvas(list.width, list.height));
+		if (!first) return {available: false as const, reason: 'navigator.gpu granted no adapter or device in this browser'};
+		first.resize(list.width, list.height);
+		first.draw(list, true);
+		const before = Array.from(await first.readback());
+
+		first.device.destroy();
+		const reason = await first.whenLost;
+		const lostFlag = first.deviceLost;
+		/* drawing into a dead device must do nothing rather than throw */
+		first.draw(list, true);
+		first.dispose();
+
+		const second = await BerxWebGPURuntimeRenderer.create(freshCanvas(list.width, list.height));
+		if (!second) return {available: false as const, reason: `the device was lost (${reason}) and no replacement could be obtained`};
+		second.resize(list.width, list.height);
+		second.draw(list, true);
+		const after = Array.from(await second.readback());
+		const errors = [...second.errors];
+		second.dispose();
+		return {available: true as const, reason, lostFlag, before, after, errors};
+	},
+
+	/**
 	 * The same world with its names on, drawn by both web backends.
 	 *
 	 * Names are left out of the three-way comparison because the native

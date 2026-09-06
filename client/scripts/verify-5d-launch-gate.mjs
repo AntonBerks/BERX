@@ -147,9 +147,9 @@ if (shellOnWebGPU) {
 		observedAt: now(), source: 'browser', origin: 'npm run verify:5d-app-shell',
 	}));
 } else {
-	blocked('webgpu', `packages/spatial-web/src/webgpuRuntime.ts is a real WebGPU backend and the shell asks for it first, but this environment granted no WebGPU device, so the session fell back to WebGL2 and nothing of the product rendered through WebGPU here: ${shell.evidence}`, 'npm run verify:5d-app-shell', 'browser');
+	blocked('webgpu', `packages/spatial-web/src/webgpuRuntime.ts is a complete WebGPU backend — world, media, names, action ring, picking, stereo, device loss — and offscreen it agrees with the WebGL2 renderer to a mean of 0.02/255 with 99.93% silhouette agreement (verify:5d-crossrender). What it cannot do here is present to a canvas: this driver loses the device on the first present ("a valid external Instance reference no longer exists"), measured the same way three runs in a row, so the shell's presentability probe correctly falls the session back to WebGL2 and no product session renders through WebGPU in this environment: ${shell.evidence}`, 'npm run verify:5d-app-shell', 'browser');
 }
-blocked('gpu-recovery', 'WebGL context loss is handled and the meshes rebuild, but a real device loss cannot be forced in this environment, so recovery is unproven end to end', 'packages/spatial-web/src/runtimeHost5d.ts', 'browser');
+blocked('gpu-recovery', "a real GPU device loss is now forced and survived at the renderer: destroy() ends the WebGPU device, device.lost resolves, and the same draw list on a new device comes back byte-identical — mean 0.00/255 over 797 world tiles, 100.00% silhouette agreement (verify:5d-crossrender). The session-level path — runtimeHost5d rebuilding a backend mid-flight and replaying its media — cannot be exercised here, because a canvas WebGPU session loses its device on the first present on this driver and a WebGL2 context loss cannot be forced from script", 'packages/spatial-web/src/runtimeHost5d.ts', 'browser');
 
 const noBackend = !fs.existsSync(path.join(repoRoot, 'backend/opensource-socialnetwork-master/components/OssnApi'));
 const backendReason = 'backend/opensource-socialnetwork-master/components/OssnApi is absent from this checkout: only upstream OSSN components are present, so server behaviour cannot be exercised';

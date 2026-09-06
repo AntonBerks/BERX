@@ -92,10 +92,20 @@ export async function createBerxWebRenderer(
 ): Promise<BerxWebRendererBackend> {
 	const prefer = options.prefer ?? 'auto';
 	if (prefer !== 'webgl2') {
-		const {BerxWebGPURuntimeRenderer} = await import('./webgpuRuntime');
-		const webgpu = await BerxWebGPURuntimeRenderer.create(canvas, options);
-		if (webgpu) return webgpu;
-		if (prefer === 'webgpu') throw new Error('BERX 5D: WebGPU was asked for and this browser granted no device');
+		const {BerxWebGPURuntimeRenderer, berxWebGPUCanvasPresentable} = await import('./webgpuRuntime');
+		/* An adapter is not a working renderer. Presenting to a canvas is
+		   measured on a throwaway one first, because a backend that loses
+		   its device on the first frame would take the session with it —
+		   and because a canvas can hold only one kind of context, so
+		   finding out on the real one leaves nowhere to fall back to. */
+		const presentable = await berxWebGPUCanvasPresentable();
+		if (presentable.ok) {
+			const webgpu = await BerxWebGPURuntimeRenderer.create(canvas, options);
+			if (webgpu) return webgpu;
+		}
+		if (prefer === 'webgpu') {
+			throw new Error(`BERX 5D: WebGPU was asked for and cannot draw here — ${presentable.reason ?? 'this browser granted no device'}`);
+		}
 	}
 	const {BerxThreeRuntimeRenderer} = await import('./threeRuntime');
 	return new BerxThreeRuntimeRenderer(canvas, options);

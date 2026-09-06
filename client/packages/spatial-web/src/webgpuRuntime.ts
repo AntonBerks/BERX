@@ -89,6 +89,76 @@ interface GpuMesh {
 	halfY: number;
 }
 
+/**
+ * Can this browser actually present WebGPU to a canvas?
+ *
+ * Having an adapter is not the same as being able to draw with one. On
+ * the software Vulkan stack these gates run against, a device is
+ * granted, the offscreen path works perfectly — and the first present
+ * to a canvas loses the device with "a valid external Instance
+ * reference no longer exists". A session started on that backend goes
+ * dark one frame in.
+ *
+ * So this measures it, on a throwaway canvas, before anything real is
+ * built on it: request a device, clear the canvas once, wait a frame,
+ * and report whether the device is still there. It costs one frame at
+ * startup and is the difference between preferring the better renderer
+ * and gambling on it.
+ */
+export async function berxWebGPUCanvasPresentable(): Promise<{ok: boolean; reason?: string}> {
+	const gpu = (navigator as Navigator & {gpu?: GPU}).gpu;
+	if (!gpu) return {ok: false, reason: 'navigator.gpu is absent'};
+	let device: GPUDevice | undefined;
+	try {
+		const adapter = await gpu.requestAdapter({powerPreference: 'high-performance'});
+		if (!adapter) return {ok: false, reason: 'navigator.gpu granted no adapter'};
+		device = await adapter.requestDevice();
+		let lostReason: string | undefined;
+		void device.lost.then((info) => {
+			lostReason = `${info.reason}: ${info.message}`.trim();
+		});
+		const canvas = document.createElement('canvas');
+		canvas.width = 16;
+		canvas.height = 16;
+		const context = canvas.getContext('webgpu') as GPUCanvasContext | null;
+		if (!context) return {ok: false, reason: 'the canvas granted no webgpu context'};
+		context.configure({device, format: 'rgba8unorm', alphaMode: 'opaque'});
+		/* Two presents, then several frames of waiting. A device that
+		   dies on presentation dies on the first one, but the loss
+		   arrives as a promise a tick or two later — racing it against a
+		   single frame decides by timing rather than by fact, and the
+		   answer has to be the same every run for the shell and a gate to
+		   agree about it. */
+		for (let frame = 0; frame < 2 && !lostReason; frame++) {
+			const encoder = device.createCommandEncoder();
+			encoder.beginRenderPass({
+				colorAttachments: [{
+					view: context.getCurrentTexture().createView(),
+					clearValue: {r: 0, g: 0, b: 0, a: 1},
+					loadOp: 'clear', storeOp: 'store',
+				}],
+			}).end();
+			device.queue.submit([encoder.finish()]);
+			await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+		}
+		for (let settle = 0; settle < 4 && !lostReason; settle++) {
+			await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+		}
+		if (lostReason) return {ok: false, reason: `the device was lost on presenting to a canvas (${lostReason})`};
+		return {ok: true};
+	} catch (error) {
+		return {ok: false, reason: error instanceof Error ? error.message : String(error)};
+	} finally {
+		/* the probe's device is never the session's: it has already
+		   presented to a canvas nobody will see again */
+		try {
+			device?.destroy();
+		} catch {
+			/* a device that is already gone needs no destroying */
+		}
+	}
+}
+
 export class BerxWebGPURuntimeRenderer implements BerxSpatialRenderer {
 	readonly kind = 'webgpu' as const;
 	/* what this backend really does, and nothing it does not */
@@ -137,6 +207,17 @@ export class BerxWebGPURuntimeRenderer implements BerxSpatialRenderer {
 	private lighting: BerxWorldLighting = berxWorldLighting();
 	/** Resolves when the device is lost, with the reason it was lost. */
 	private lost?: string;
+	private lostPromise: Promise<string> = new Promise(() => {});
+	/**
+	 * The adapter this device came from, kept alive on purpose.
+	 *
+	 * Dropping it lets the implementation collect the object that owns
+	 * the WebGPU instance, and the device is then lost mid-session with
+	 * "a valid external Instance reference no longer exists" — a live
+	 * session going dark for no reason a caller could see. Holding the
+	 * reference is what stops that.
+	 */
+	adapter?: GPUAdapter;
 	private offscreen?: GPUTexture;
 	private msaa?: GPUTexture;
 	private depth?: GPUTexture;
@@ -149,7 +230,15 @@ export class BerxWebGPURuntimeRenderer implements BerxSpatialRenderer {
 
 	private constructor(
 		private readonly canvas: HTMLCanvasElement,
-		private readonly device: GPUDevice,
+		/**
+		 * The device this backend draws on.
+		 *
+		 * Public because WebGPU-specific things a host may legitimately
+		 * need — limits, error scopes, releasing the GPU when a tab is
+		 * hidden — go through it, and because ending it is the only way
+		 * to make a device loss happen on purpose.
+		 */
+		readonly device: GPUDevice,
 		private readonly context: GPUCanvasContext,
 		private readonly format: GPUTextureFormat,
 		private readonly pipeline: GPURenderPipeline,
@@ -315,6 +404,12 @@ export class BerxWebGPURuntimeRenderer implements BerxSpatialRenderer {
 
 		const renderer = new BerxWebGPURuntimeRenderer(canvas, device, context, format, pipeline, drawLayout, mediaLayout, labelPipeline, labelLayout, options);
 		renderer.errors = errors;
+		renderer.adapter = adapter;
+		renderer.lostPromise = device.lost.then((info) => {
+			const reason = `${info.reason}: ${info.message}`.trim();
+			renderer.handleContextLost(reason);
+			return reason;
+		});
 		return renderer;
 	}
 
@@ -330,6 +425,14 @@ export class BerxWebGPURuntimeRenderer implements BerxSpatialRenderer {
 	get residentLabelCount(): number {return this.labels.residentCount;}
 	/** Why the GPU device went away, if it has. Undefined while it is alive. */
 	get deviceLost(): string | undefined {return this.lost;}
+	/**
+	 * Resolves when the device is gone, with the reason.
+	 *
+	 * WebGPU has no restore: a lost device stays lost, and continuing
+	 * means asking for another one. The host watches this and rebuilds,
+	 * which is possible only because none of the world is in here.
+	 */
+	get whenLost(): Promise<string> {return this.lostPromise;}
 
 	/**
 	 * What the viewer is pointing at.
@@ -760,6 +863,14 @@ export class BerxWebGPURuntimeRenderer implements BerxSpatialRenderer {
 	}
 
 	dispose(): void {
+		/* a device that is already gone has reclaimed all of this; calling
+		   destroy() on its buffers would be calling into a dead driver */
+		if (this.lost) {
+			this.meshes.clear();
+			this.mediaBinds.clear();
+			this.labelBinds.clear();
+			return;
+		}
 		for (const mesh of this.meshes.values()) {
 			mesh.vertices.destroy();
 			mesh.indices.destroy();

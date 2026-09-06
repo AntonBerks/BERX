@@ -177,15 +177,20 @@ export async function startBerxApp(options: BerxAppShellOptions): Promise<BerxAp
 	   assumed: requesting a WebGPU adapter is asynchronous, and guessing
 	   from navigator.gpu is how a page ends up with a renderer it cannot
 	   use */
-	const renderer = await createBerxWebRenderer(canvas, {
+	const buildRenderer = () => createBerxWebRenderer(canvas, {
 		textureBudget: options.textureBudget,
 		prefer: options.renderer ?? 'auto',
 	});
+	const renderer = await buildRenderer();
 
 	const host = createBerx5DWebHost({
 		canvas,
 		world,
 		renderer,
+		/* a lost GPU device costs pixels and nothing else: the world, the
+		   camera, the time cursor and the focus are in @berx/spatial, so
+		   a new backend picks up exactly where the old one stopped */
+		rendererFactory: buildRenderer,
 		reducedMotion: options.reducedMotion,
 		textureBudget: options.textureBudget,
 	});

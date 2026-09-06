@@ -61,6 +61,15 @@ const BLOCKERS = [
 	},
 
 	{
+		what: 'Presenting WebGPU to a canvas on this driver',
+		evidence: () =>
+			webgpuRenderer && /berxWebGPUCanvasPresentable/.test(webgpuRenderer)
+				? 'the first present to a canvas loses the device with "a valid external Instance reference no longer exists"; the offscreen path is unaffected, so the backend is verified there and the shell probes before choosing it rather than gambling a session on it'
+				: undefined,
+		/* choosing WebGPU without measuring whether it can draw is the lie */
+		claimed: () => webgpuRenderer.length > 0 && !/berxWebGPUCanvasPresentable/.test(read(path.join(clientRoot, 'packages/spatial-web/src/webRenderer.ts'))),
+	},
+	{
 		what: 'Reading a WebGPU canvas texture back',
 		evidence: () =>
 			webgpuRenderer

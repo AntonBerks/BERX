@@ -66,6 +66,17 @@ export interface Berx5DWebHostOptions {
 	 * about the world is decided in @berx/spatial either way.
 	 */
 	renderer?: BerxWebRendererBackend;
+	/**
+	 * How to build another one, when the GPU takes this one away.
+	 *
+	 * WebGL2 gets its context back through `webglcontextrestored` and
+	 * keeps the same renderer. WebGPU has no such event: a lost device
+	 * is gone, and continuing means asking for a new one and rebuilding
+	 * every pipeline and buffer on it. The world is untouched either
+	 * way — it lives in @berx/spatial, not in the renderer — so what a
+	 * lost GPU costs is pixels, and this is what buys them back.
+	 */
+	rendererFactory?: () => Promise<BerxWebRendererBackend>;
 }
 
 export interface Berx5DWebHost {
@@ -175,8 +186,12 @@ export function createBerx5DWebHost(options: Berx5DWebHostOptions = {}): Berx5DW
 	const world = options.world;
 	const runtime = world?.runtime ?? new Berx5DRuntime({reducedMotion, deviceMotionEnabled: options.deviceMotion !== false});
 	world?.setAccessibility({reducedMotion});
-	const renderer: BerxWebRendererBackend = options.renderer
+	let renderer: BerxWebRendererBackend = options.renderer
 		?? new BerxThreeRuntimeRenderer(canvas, {textureBudget: options.textureBudget, onMediaError: options.onMediaError});
+	/* what each object shows, kept by the host rather than only by the
+	   renderer: a rebuilt renderer starts with nothing, and the pictures
+	   have to come back without re-reading the server */
+	const mediaByObject = new Map<string, readonly {uri: string}[]>();
 	const pixelRatioCap = Math.max(1, options.pixelRatioCap ?? 2);
 
 	let quality: BerxSpatialQualityResult = {quality: 'balanced', pixelRatio: 1, maxObjects: 80, ambientMotion: true};
@@ -428,6 +443,51 @@ export function createBerx5DWebHost(options: Berx5DWebHostOptions = {}): Berx5DW
 		options.onContextChange?.('lost');
 		announce('Графика прервалась. BERX восстановит сцену.');
 	};
+	/**
+	 * A GPU device that went away for good.
+	 *
+	 * Only WebGPU reports this; WebGL2 restores its context instead.
+	 * With a factory, a new backend is built, given the size and the
+	 * pictures back, and the loop resumes on it — the world graph, the
+	 * camera, the temporal cursor and the focus were never in the
+	 * renderer, so nothing about where the viewer is changes. Without a
+	 * factory the host stays honestly stopped rather than drawing into
+	 * a dead device.
+	 */
+	const onDeviceLost = async (reason: string) => {
+		contextAlive = false;
+		renderer.handleContextLost(reason);
+		options.onContextChange?.('lost');
+		announce('Графика прервалась. BERX восстановит сцену.');
+		if (!options.rendererFactory) return;
+		try {
+			const next = await options.rendererFactory();
+			renderer.dispose();
+			renderer = next;
+			applySize();
+			for (const [objectId, surfaces] of mediaByObject) renderer.setObjectMedia(objectId, surfaces);
+			if (world) renderer.setAffordances(world.affordances());
+			contextAlive = true;
+			watchForDeviceLoss();
+			options.onContextChange?.('restored');
+			announce('Сцена восстановлена.');
+		} catch (error) {
+			options.onMediaError?.('gpu:device', error);
+		}
+	};
+
+	/** WebGPU backends carry this; WebGL2 ones do not, and need not. */
+	const watchForDeviceLoss = () => {
+		const lost = (renderer as {whenLost?: Promise<string>}).whenLost;
+		if (!lost) return;
+		const mine = renderer;
+		void lost.then((reason) => {
+			/* a promise from a renderer that has since been replaced is
+			   about a device nobody is drawing with any more */
+			if (renderer === mine) void onDeviceLost(reason);
+		});
+	};
+
 	const onContextRestored = () => {
 		contextAlive = true;
 		/* the backing store is reset by the restore, so the size has to
@@ -476,6 +536,7 @@ export function createBerx5DWebHost(options: Berx5DWebHostOptions = {}): Berx5DW
 	canvas.addEventListener('touchmove', onTouchMove, {passive: true});
 	canvas.addEventListener('touchend', onTouchEnd, {passive: true});
 	canvas.addEventListener('keydown', onKeyDown);
+	watchForDeviceLoss();
 	canvas.addEventListener('webglcontextlost', onContextLost);
 	canvas.addEventListener('webglcontextrestored', onContextRestored);
 	if (observer) observer.observe(canvas);
@@ -517,16 +578,21 @@ export function createBerx5DWebHost(options: Berx5DWebHostOptions = {}): Berx5DW
 		ingest: (entries) => {
 			if (!world) throw new Error('BERX 5D: this host has no world to ingest into');
 			world.ingest(entries);
-			for (const entry of entries) renderer.setObjectMedia(entry.object.id, entry.media ?? []);
+			for (const entry of entries) {
+				mediaByObject.set(entry.object.id, entry.media ?? []);
+				renderer.setObjectMedia(entry.object.id, entry.media ?? []);
+			}
 		},
 		addObject: (object, media) => {
 			runtime.registerObject(object);
+			mediaByObject.set(object.id, media ?? []);
 			renderer.setObjectMedia(object.id, media ?? []);
 		},
 		removeObject: (id) => {
 			runtime.removeObject(id);
 			/* an object that has left the world must stop holding a
 			   texture open, or a long session leaks one per thing seen */
+			mediaByObject.delete(id);
 			renderer.forgetObjectMedia(id);
 		},
 		focus: (id) => {

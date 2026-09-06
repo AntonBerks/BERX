@@ -2926,7 +2926,8 @@ var init_webgpuText = __esm({
 // packages/spatial-web/src/webgpuRuntime.ts
 var webgpuRuntime_exports = {};
 __export(webgpuRuntime_exports, {
-  BerxWebGPURuntimeRenderer: () => BerxWebGPURuntimeRenderer
+  BerxWebGPURuntimeRenderer: () => BerxWebGPURuntimeRenderer,
+  berxWebGPUCanvasPresentable: () => berxWebGPUCanvasPresentable
 });
 function meshFor2(primitive, lod) {
   const far = lod === 1;
@@ -2959,6 +2960,51 @@ function glToWgpuDepth(projection) {
     m[c * 4 + 2] = (projection[c * 4 + 2] + projection[c * 4 + 3]) * 0.5;
   }
   return m;
+}
+async function berxWebGPUCanvasPresentable() {
+  const gpu = navigator.gpu;
+  if (!gpu) return { ok: false, reason: "navigator.gpu is absent" };
+  let device;
+  try {
+    const adapter = await gpu.requestAdapter({ powerPreference: "high-performance" });
+    if (!adapter) return { ok: false, reason: "navigator.gpu granted no adapter" };
+    device = await adapter.requestDevice();
+    let lostReason;
+    void device.lost.then((info) => {
+      lostReason = `${info.reason}: ${info.message}`.trim();
+    });
+    const canvas = document.createElement("canvas");
+    canvas.width = 16;
+    canvas.height = 16;
+    const context = canvas.getContext("webgpu");
+    if (!context) return { ok: false, reason: "the canvas granted no webgpu context" };
+    context.configure({ device, format: "rgba8unorm", alphaMode: "opaque" });
+    for (let frame = 0; frame < 2 && !lostReason; frame++) {
+      const encoder = device.createCommandEncoder();
+      encoder.beginRenderPass({
+        colorAttachments: [{
+          view: context.getCurrentTexture().createView(),
+          clearValue: { r: 0, g: 0, b: 0, a: 1 },
+          loadOp: "clear",
+          storeOp: "store"
+        }]
+      }).end();
+      device.queue.submit([encoder.finish()]);
+      await new Promise((resolve) => requestAnimationFrame(() => resolve()));
+    }
+    for (let settle = 0; settle < 4 && !lostReason; settle++) {
+      await new Promise((resolve) => requestAnimationFrame(() => resolve()));
+    }
+    if (lostReason) return { ok: false, reason: `the device was lost on presenting to a canvas (${lostReason})` };
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, reason: error instanceof Error ? error.message : String(error) };
+  } finally {
+    try {
+      device?.destroy();
+    } catch {
+    }
+  }
 }
 var DRAW_STRIDE, GLOBALS_BYTES, LABEL_STRIDE, LABEL_GLOBALS_BYTES, SAMPLE_COUNT, BerxWebGPURuntimeRenderer;
 var init_webgpuRuntime = __esm({
@@ -3014,6 +3060,8 @@ var init_webgpuRuntime = __esm({
         this.affordances = [];
         this.slots = [];
         this.lighting = berxWorldLighting();
+        this.lostPromise = new Promise(() => {
+        });
         this.width = 1;
         this.height = 1;
         this.stats = {
@@ -3165,6 +3213,12 @@ var init_webgpuRuntime = __esm({
         });
         const renderer = new _BerxWebGPURuntimeRenderer(canvas, device, context, format, pipeline, drawLayout, mediaLayout, labelPipeline, labelLayout, options);
         renderer.errors = errors;
+        renderer.adapter = adapter;
+        renderer.lostPromise = device.lost.then((info) => {
+          const reason = `${info.reason}: ${info.message}`.trim();
+          renderer.handleContextLost(reason);
+          return reason;
+        });
         return renderer;
       }
       get frameStats() {
@@ -3194,6 +3248,16 @@ var init_webgpuRuntime = __esm({
       /** Why the GPU device went away, if it has. Undefined while it is alive. */
       get deviceLost() {
         return this.lost;
+      }
+      /**
+       * Resolves when the device is gone, with the reason.
+       *
+       * WebGPU has no restore: a lost device stays lost, and continuing
+       * means asking for another one. The host watches this and rebuilds,
+       * which is possible only because none of the world is in here.
+       */
+      get whenLost() {
+        return this.lostPromise;
       }
       /**
        * What the viewer is pointing at.
@@ -3571,6 +3635,12 @@ var init_webgpuRuntime = __esm({
         return out;
       }
       dispose() {
+        if (this.lost) {
+          this.meshes.clear();
+          this.mediaBinds.clear();
+          this.labelBinds.clear();
+          return;
+        }
         for (const mesh of this.meshes.values()) {
           mesh.vertices.destroy();
           mesh.indices.destroy();
@@ -5073,7 +5143,8 @@ function createBerx5DWebHost(options = {}) {
   const world = options.world;
   const runtime = world?.runtime ?? new Berx5DRuntime({ reducedMotion, deviceMotionEnabled: options.deviceMotion !== false });
   world?.setAccessibility({ reducedMotion });
-  const renderer = options.renderer ?? new BerxThreeRuntimeRenderer(canvas, { textureBudget: options.textureBudget, onMediaError: options.onMediaError });
+  let renderer = options.renderer ?? new BerxThreeRuntimeRenderer(canvas, { textureBudget: options.textureBudget, onMediaError: options.onMediaError });
+  const mediaByObject = /* @__PURE__ */ new Map();
   const pixelRatioCap = Math.max(1, options.pixelRatioCap ?? 2);
   let quality = { quality: "balanced", pixelRatio: 1, maxObjects: 80, ambientMotion: true };
   let raf = 0;
@@ -5290,6 +5361,35 @@ function createBerx5DWebHost(options = {}) {
     options.onContextChange?.("lost");
     announce("\u0413\u0440\u0430\u0444\u0438\u043A\u0430 \u043F\u0440\u0435\u0440\u0432\u0430\u043B\u0430\u0441\u044C. BERX \u0432\u043E\u0441\u0441\u0442\u0430\u043D\u043E\u0432\u0438\u0442 \u0441\u0446\u0435\u043D\u0443.");
   };
+  const onDeviceLost = async (reason) => {
+    contextAlive = false;
+    renderer.handleContextLost(reason);
+    options.onContextChange?.("lost");
+    announce("\u0413\u0440\u0430\u0444\u0438\u043A\u0430 \u043F\u0440\u0435\u0440\u0432\u0430\u043B\u0430\u0441\u044C. BERX \u0432\u043E\u0441\u0441\u0442\u0430\u043D\u043E\u0432\u0438\u0442 \u0441\u0446\u0435\u043D\u0443.");
+    if (!options.rendererFactory) return;
+    try {
+      const next = await options.rendererFactory();
+      renderer.dispose();
+      renderer = next;
+      applySize();
+      for (const [objectId, surfaces] of mediaByObject) renderer.setObjectMedia(objectId, surfaces);
+      if (world) renderer.setAffordances(world.affordances());
+      contextAlive = true;
+      watchForDeviceLoss();
+      options.onContextChange?.("restored");
+      announce("\u0421\u0446\u0435\u043D\u0430 \u0432\u043E\u0441\u0441\u0442\u0430\u043D\u043E\u0432\u043B\u0435\u043D\u0430.");
+    } catch (error) {
+      options.onMediaError?.("gpu:device", error);
+    }
+  };
+  const watchForDeviceLoss = () => {
+    const lost = renderer.whenLost;
+    if (!lost) return;
+    const mine = renderer;
+    void lost.then((reason) => {
+      if (renderer === mine) void onDeviceLost(reason);
+    });
+  };
   const onContextRestored = () => {
     contextAlive = true;
     applySize();
@@ -5326,6 +5426,7 @@ function createBerx5DWebHost(options = {}) {
   canvas.addEventListener("touchmove", onTouchMove, { passive: true });
   canvas.addEventListener("touchend", onTouchEnd, { passive: true });
   canvas.addEventListener("keydown", onKeyDown);
+  watchForDeviceLoss();
   canvas.addEventListener("webglcontextlost", onContextLost);
   canvas.addEventListener("webglcontextrestored", onContextRestored);
   if (observer) observer.observe(canvas);
@@ -5365,14 +5466,19 @@ function createBerx5DWebHost(options = {}) {
     ingest: (entries) => {
       if (!world) throw new Error("BERX 5D: this host has no world to ingest into");
       world.ingest(entries);
-      for (const entry of entries) renderer.setObjectMedia(entry.object.id, entry.media ?? []);
+      for (const entry of entries) {
+        mediaByObject.set(entry.object.id, entry.media ?? []);
+        renderer.setObjectMedia(entry.object.id, entry.media ?? []);
+      }
     },
     addObject: (object, media) => {
       runtime.registerObject(object);
+      mediaByObject.set(object.id, media ?? []);
       renderer.setObjectMedia(object.id, media ?? []);
     },
     removeObject: (id) => {
       runtime.removeObject(id);
+      mediaByObject.delete(id);
       renderer.forgetObjectMedia(id);
     },
     focus: (id) => {
@@ -5425,10 +5531,15 @@ function createBerx5DWebHost(options = {}) {
 async function createBerxWebRenderer(canvas, options = {}) {
   const prefer = options.prefer ?? "auto";
   if (prefer !== "webgl2") {
-    const { BerxWebGPURuntimeRenderer: BerxWebGPURuntimeRenderer2 } = await Promise.resolve().then(() => (init_webgpuRuntime(), webgpuRuntime_exports));
-    const webgpu = await BerxWebGPURuntimeRenderer2.create(canvas, options);
-    if (webgpu) return webgpu;
-    if (prefer === "webgpu") throw new Error("BERX 5D: WebGPU was asked for and this browser granted no device");
+    const { BerxWebGPURuntimeRenderer: BerxWebGPURuntimeRenderer2, berxWebGPUCanvasPresentable: berxWebGPUCanvasPresentable2 } = await Promise.resolve().then(() => (init_webgpuRuntime(), webgpuRuntime_exports));
+    const presentable = await berxWebGPUCanvasPresentable2();
+    if (presentable.ok) {
+      const webgpu = await BerxWebGPURuntimeRenderer2.create(canvas, options);
+      if (webgpu) return webgpu;
+    }
+    if (prefer === "webgpu") {
+      throw new Error(`BERX 5D: WebGPU was asked for and cannot draw here \u2014 ${presentable.reason ?? "this browser granted no device"}`);
+    }
   }
   const { BerxThreeRuntimeRenderer: BerxThreeRuntimeRenderer2 } = await Promise.resolve().then(() => (init_threeRuntime(), threeRuntime_exports));
   return new BerxThreeRuntimeRenderer2(canvas, options);
@@ -5479,14 +5590,19 @@ async function startBerxApp(options) {
   outline.setAttribute("aria-live", "polite");
   outline.style.cssText = "position:absolute;width:1px;height:1px;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap";
   mount.appendChild(outline);
-  const renderer = await createBerxWebRenderer(canvas, {
+  const buildRenderer = () => createBerxWebRenderer(canvas, {
     textureBudget: options.textureBudget,
     prefer: options.renderer ?? "auto"
   });
+  const renderer = await buildRenderer();
   const host = createBerx5DWebHost({
     canvas,
     world,
     renderer,
+    /* a lost GPU device costs pixels and nothing else: the world, the
+       camera, the time cursor and the focus are in @berx/spatial, so
+       a new backend picks up exactly where the old one stopped */
+    rendererFactory: buildRenderer,
     reducedMotion: options.reducedMotion,
     textureBudget: options.textureBudget
   });

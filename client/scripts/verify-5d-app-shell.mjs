@@ -28,6 +28,12 @@ execFileSync(path.join(clientRoot, 'node_modules/.bin/esbuild'), [
 	path.join(here, 'app-shell.entry.ts'), '--bundle', '--format=esm', '--target=es2020', '--platform=browser',
 	'--log-level=error', `--outfile=${path.join(dir, 'berx-app.js')}`,
 ], {cwd: clientRoot, stdio: 'inherit'});
+/* the same presentability probe the shell decides with, served so a
+   gate can ask the identical question rather than a similar one */
+execFileSync(path.join(clientRoot, 'node_modules/.bin/esbuild'), [
+	path.join(here, 'webgpu-probe.entry.ts'), '--bundle', '--format=esm', '--target=es2020', '--platform=browser',
+	'--log-level=error', `--outfile=${path.join(dir, 'webgpu-probe.js')}`,
+], {cwd: clientRoot, stdio: 'inherit'});
 fs.copyFileSync(path.join(repoRoot, 'app', 'index.html'), path.join(dir, 'index.html'));
 
 /* ---------------------------------------------------------------- */
@@ -220,20 +226,16 @@ try {
 	   that was the best one available. The shell asks for WebGPU and
 	   falls back to WebGL2; a browser that has a device and still ran
 	   WebGL2 means the preference silently stopped working. */
-	const gpuAvailable = await page.evaluate(async () => {
-		if (!navigator.gpu) return false;
-		try {
-			return (await navigator.gpu.requestAdapter()) !== null;
-		} catch {
-			return false;
-		}
+	const presentable = await page.evaluate(async () => {
+		const {berxWebGPUCanvasPresentable} = await import('/webgpu-probe.js');
+		return berxWebGPUCanvasPresentable();
 	});
 	backend = shape.backend;
-	gate('the product session runs on the best GPU this browser has',
-		gpuAvailable ? shape.backend === 'webgpu' : shape.backend === 'webgl2',
-		gpuAvailable
-			? `a WebGPU device exists and the session is on ${shape.backend}`
-			: `no WebGPU device here; the session is on ${shape.backend}, which is the fallback`);
+	gate('the product session runs on the best GPU this browser can actually draw with',
+		presentable.ok ? shape.backend === 'webgpu' : shape.backend === 'webgl2',
+		presentable.ok
+			? `WebGPU presents to a canvas here and the session is on ${shape.backend}`
+			: `WebGPU cannot draw here (${presentable.reason}); the session is on ${shape.backend}, which is the fallback`);
 
 	gate('the world is focusable and announced', shape.role === 'application' && shape.tabIndex === 0 && shape.liveRegions >= 1, `role=${shape.role} tabIndex=${shape.tabIndex}, ${shape.liveRegions} live regions`);
 
@@ -606,6 +608,73 @@ try {
 			temporal.after.person === temporal.before.person,
 		`cursor +${((temporal.after.cursor - temporal.before.cursor) / 86400).toFixed(0)} days; the moment moved ${(temporal.after.moment - temporal.before.moment).toFixed(2)} in depth, the person (timeless) did not`,
 	);
+
+	/* --- the GPU can be taken away, and the world survives it ---
+	   This is a real device loss, not a simulated one: destroy() ends the
+	   WebGPU device, every pipeline and buffer on it becomes invalid, and
+	   device.lost resolves. What is being checked is that the world is
+	   not in the renderer — the same entities, the same camera, the same
+	   focus, drawn again by a backend that did not exist a moment ago. */
+	const recovery = await page.evaluate(async () => {
+		const host = window.__berxHost;
+		const w = window.__berxWorld;
+		const settle = async (frames) => {
+			for (let i = 0; i < frames; i++) await new Promise((r) => requestAnimationFrame(r));
+		};
+		const before = {
+			kind: host.renderer.kind,
+			objects: w.latestFrame.world.objects.length,
+			camera: {...w.latestFrame.camera.position},
+			focus: w.worldPosition.focusId,
+			cursor: w.worldPosition.cursor.at,
+			drawCalls: host.performance.drawCalls,
+			residentTextures: host.performance.residentTextures,
+		};
+		if (before.kind !== 'webgpu') return {forced: false, reason: 'this session is not on WebGPU, and a WebGL2 context loss cannot be forced from script', before};
+
+		const states = [];
+		/* the device really goes away here */
+		host.renderer.device?.destroy?.();
+		for (let i = 0; i < 600 && host.contextAlive; i++) await new Promise((r) => requestAnimationFrame(r));
+		states.push({alive: host.contextAlive, kind: host.renderer.kind});
+		/* and the host rebuilds on a new one */
+		for (let i = 0; i < 600 && !host.contextAlive; i++) await new Promise((r) => requestAnimationFrame(r));
+		await settle(30);
+		return {
+			forced: true,
+			before,
+			wentDown: states[0],
+			after: {
+				alive: host.contextAlive,
+				kind: host.renderer.kind,
+				objects: w.latestFrame.world.objects.length,
+				camera: {...w.latestFrame.camera.position},
+				focus: w.worldPosition.focusId,
+				cursor: w.worldPosition.cursor.at,
+				drawCalls: host.performance.drawCalls,
+				residentTextures: host.performance.residentTextures,
+			},
+		};
+	});
+	if (recovery.forced) {
+		gate('a real GPU device loss takes the world down',
+			recovery.wentDown.alive === false,
+			`destroy() ended the ${recovery.before.kind} device and the host reported the loss`);
+		gate('and the world comes back on a new device, in the same place',
+			recovery.after.alive === true &&
+			recovery.after.kind === recovery.before.kind &&
+			recovery.after.objects === recovery.before.objects &&
+			recovery.after.focus === recovery.before.focus &&
+			recovery.after.cursor === recovery.before.cursor &&
+			recovery.after.drawCalls > 0,
+			`${recovery.after.objects} entities, focus ${recovery.after.focus}, cursor unchanged, ${recovery.after.drawCalls} draw calls on the new device`);
+		gate('the pictures come back without re-reading the server',
+			recovery.after.residentTextures >= recovery.before.residentTextures,
+			`${recovery.before.residentTextures} textures before the loss, ${recovery.after.residentTextures} after`);
+	} else {
+		console.log('BLOCKED  gpu-device-loss');
+		console.log(`         ${recovery.reason}`);
+	}
 
 	/* --- a reload puts you back where you were standing --- */
 	const before = await page.evaluate(async () => {
