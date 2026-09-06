@@ -12,6 +12,7 @@
     "verify:static": "bash ./scripts/verify-static.sh",
     "verify:v9": "node ./scripts/verify-v9-contracts.mjs",
     "verify:5d-runtime": "node ./scripts/verify-5d-runtime.mjs",
+    "verify:5d-geometry": "node ./scripts/verify-5d-geometry.mjs",
     "generate:v9": "node ./scripts/generate-v9-scenes.mjs",
     "verify:v9:web": "node ./scripts/v9-web-probe.mjs",
     "build:spatial-web": "node ./scripts/build-spatial-web.mjs"
