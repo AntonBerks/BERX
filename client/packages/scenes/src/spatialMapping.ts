@@ -179,6 +179,28 @@ function surfaceFor(object: BerxSpatialObject, uri: string | null | undefined, f
 	return [createMediaSurface(object, {mediaId: `${object.id}:media`, uri, aspectRatio: 1, fit, opacity: 1})];
 }
 
+/**
+ * Who made this.
+ *
+ * `owner_guid` is on every one of these rows, and it is what makes the
+ * world continuous: a person, the places they made, the events at
+ * those places and the experiences anchored to them are one connected
+ * graph rather than five islands that happen to be in the same scene.
+ */
+const ownedBy = (objectId: string, ownerGuid: number): BerxSpatialRelation => ({
+	id: `${objectId}->${berxSpatialId('person', ownerGuid)}:created-by`,
+	from: objectId,
+	to: berxSpatialId('person', ownerGuid),
+	type: 'created-by',
+	/**
+	 * Weaker than any structural relation, deliberately. Who made a
+	 * place matters less to where that place stands than what happens
+	 * at it — so an event settles beside its venue, and the venue
+	 * settles near whoever made it.
+	 */
+	strength: 0.55,
+});
+
 /* ------------------------------------------------------------------ */
 /* PEOPLE                                                              */
 /* ------------------------------------------------------------------ */
@@ -233,7 +255,7 @@ export function mapPlaceToSpatial(place: BerxPlace, placement: BerxSpatialPlacem
 	/* a verified business is a different kind of thing in the world, and
 	   the server is the one that says so */
 	if (place.is_business) object.kind = 'business';
-	return {object, media: surfaceFor(object, place.cover_url), relations: []};
+	return {object, media: surfaceFor(object, place.cover_url), relations: [ownedBy(object.id, place.owner_guid)]};
 }
 
 /**
@@ -274,14 +296,14 @@ export function mapEventToSpatial(event: BerxEvent, placement: BerxSpatialPlacem
 		...(event.ends !== null ? {endsAt: event.ends} : {}),
 	});
 	const relations: BerxSpatialRelation[] = event.place
-		? [{
+		? [ownedBy(object.id, event.owner_guid), {
 				id: `${object.id}->${berxSpatialId('place', event.place.guid)}`,
 				from: object.id,
 				to: berxSpatialId('place', event.place.guid),
 				type: 'located-at',
 				strength: 1,
 			}]
-		: [];
+		: [ownedBy(object.id, event.owner_guid)];
 	return {object, media: surfaceFor(object, event.cover_url), relations};
 }
 
@@ -329,25 +351,25 @@ export function mapExperienceToSpatial(experience: BerxExperience, placement: Be
 	});
 	const anchor = experience.anchor;
 	const relations: BerxSpatialRelation[] = anchor
-		? [{
+		? [ownedBy(object.id, experience.owner_guid), {
 				id: `${object.id}->${berxSpatialId(anchor.type, anchor.guid)}`,
 				from: object.id,
 				to: berxSpatialId(anchor.type, anchor.guid),
 				type: 'located-at',
 				strength: 1,
 			}]
-		: [];
+		: [ownedBy(object.id, experience.owner_guid)];
 	return {object, media: [], relations};
 }
 
 export function mapCommunityToSpatial(community: BerxCommunity, placement: BerxSpatialPlacement = {}): BerxSpatialMapping {
 	const object = baseObject('community', community.guid, community.name, String(community.guid), 0, placement);
-	return {object, media: [], relations: []};
+	return {object, media: [], relations: [ownedBy(object.id, community.owner_guid)]};
 }
 
 export function mapCollectionToSpatial(collection: BerxCollection, placement: BerxSpatialPlacement = {}): BerxSpatialMapping {
 	const object = baseObject('collection', collection.id, collection.title, String(collection.id), 0, placement);
-	return {object, media: [], relations: []};
+	return {object, media: [], relations: [ownedBy(object.id, collection.owner_guid)]};
 }
 
 /* ------------------------------------------------------------------ */

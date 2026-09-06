@@ -102,36 +102,82 @@ export function berxRelationalLayout(
 	const byId = new Map(objects.map((o) => [o.id, o]));
 
 	/**
-	 * Grow the world outward from a seed, following relations.
+	 * Grow the world outward from a seed, along the strongest relations.
 	 *
-	 * Each entity lands on a ring around whichever already-placed
-	 * entity it is most strongly related to, at a radius that relation
-	 * earns, in a direction fixed by its own id.
+	 * Not breadth-first. An entity is placed beside whichever placed
+	 * entity it is most strongly related to — but only once nothing
+	 * stronger is still coming: an event whose venue has not been placed
+	 * yet waits for it rather than settling next to whoever happened to
+	 * create it. That is what keeps the arrangement about the
+	 * relationships rather than about traversal order.
+	 *
+	 * Deterministic throughout: strengths decide, and equal strengths
+	 * are broken by id, so the same graph gives the same world every
+	 * time on every machine.
 	 */
 	const placedAround = new Map<string, number>();
+	const place = (id: string, at: BerxVec3) => {
+		positions.set(id, at);
+	};
+	const beside = (anchorId: string, id: string, type: BerxSpatialRelation['type'], strength: number): BerxVec3 => {
+		const origin = positions.get(anchorId)!;
+		/* strength pulls in: a strong relation is a near one */
+		const radius = RELATION_RADIUS[type] / Math.max(0.25, Math.min(1, strength));
+		const angle = berxStableAngle(id);
+		/* neighbours of the same anchor step outward rather than stacking
+		   on one radius when their angles happen to be close */
+		const rank = placedAround.get(anchorId) ?? 0;
+		placedAround.set(anchorId, rank + 1);
+		const spread = radius + rank * 0.42;
+		return {
+			x: origin.x + Math.cos(angle) * spread,
+			y: origin.y + Math.sin(angle * 1.7) * rise,
+			z: origin.z + Math.sin(angle) * spread,
+		};
+	};
+
 	const grow = (seedId: string, seedAt: BerxVec3) => {
-		positions.set(seedId, seedAt);
+		place(seedId, seedAt);
+		const reachable = new Set<string>([seedId]);
+		/* everything this component can eventually contain */
 		const queue = [seedId];
 		while (queue.length > 0) {
-			const currentId = queue.shift()!;
-			const origin = positions.get(currentId)!;
-			for (const edge of edges.get(currentId) ?? []) {
-				if (positions.has(edge.other) || !byId.has(edge.other)) continue;
-				/* strength pulls in: a strong relation is a near one */
-				const radius = RELATION_RADIUS[edge.type] / Math.max(0.25, Math.min(1, edge.strength));
-				const angle = berxStableAngle(edge.other);
-				/* neighbours of the same anchor step outward rather than
-				   stacking on one radius when their angles happen to be close */
-				const rank = placedAround.get(currentId) ?? 0;
-				placedAround.set(currentId, rank + 1);
-				const spread = radius + rank * 0.42;
-				positions.set(edge.other, {
-					x: origin.x + Math.cos(angle) * spread,
-					y: origin.y + Math.sin(angle * 1.7) * rise,
-					z: origin.z + Math.sin(angle) * spread,
-				});
+			const current = queue.shift()!;
+			for (const edge of edges.get(current) ?? []) {
+				if (!byId.has(edge.other) || reachable.has(edge.other)) continue;
+				reachable.add(edge.other);
 				queue.push(edge.other);
 			}
+		}
+
+		while (true) {
+			let chosen: {id: string; anchor: string; type: BerxSpatialRelation['type']; strength: number} | undefined;
+			let fallback: typeof chosen;
+			for (const id of [...reachable].sort()) {
+				if (positions.has(id)) continue;
+				let bestPlaced: typeof chosen;
+				let bestAnyUnplaced = 0;
+				for (const edge of edges.get(id) ?? []) {
+					if (!byId.has(edge.other)) continue;
+					if (positions.has(edge.other)) {
+						if (!bestPlaced || edge.strength > bestPlaced.strength) {
+							bestPlaced = {id, anchor: edge.other, type: edge.type, strength: edge.strength};
+						}
+					} else if (reachable.has(edge.other) && edge.strength > bestAnyUnplaced) {
+						bestAnyUnplaced = edge.strength;
+					}
+				}
+				if (!bestPlaced) continue;
+				if (!fallback || bestPlaced.strength > fallback.strength) fallback = bestPlaced;
+				/* something stronger is still coming for this entity */
+				if (bestAnyUnplaced > bestPlaced.strength) continue;
+				if (!chosen || bestPlaced.strength > chosen.strength) chosen = bestPlaced;
+			}
+			/* a cycle where everything is waiting on everything else: take
+			   the strongest available rather than stalling */
+			const next = chosen ?? fallback;
+			if (!next) break;
+			place(next.id, beside(next.anchor, next.id, next.type, next.strength));
 		}
 	};
 

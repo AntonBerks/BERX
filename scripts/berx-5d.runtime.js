@@ -1445,26 +1445,59 @@ function berxRelationalLayout(objects, relations, options = {}) {
   }
   const byId = new Map(objects.map((o) => [o.id, o]));
   const placedAround = /* @__PURE__ */ new Map();
+  const place = (id, at) => {
+    positions.set(id, at);
+  };
+  const beside = (anchorId, id, type, strength) => {
+    const origin = positions.get(anchorId);
+    const radius = RELATION_RADIUS[type] / Math.max(0.25, Math.min(1, strength));
+    const angle = berxStableAngle(id);
+    const rank = placedAround.get(anchorId) ?? 0;
+    placedAround.set(anchorId, rank + 1);
+    const spread = radius + rank * 0.42;
+    return {
+      x: origin.x + Math.cos(angle) * spread,
+      y: origin.y + Math.sin(angle * 1.7) * rise,
+      z: origin.z + Math.sin(angle) * spread
+    };
+  };
   const grow = (seedId, seedAt) => {
-    positions.set(seedId, seedAt);
+    place(seedId, seedAt);
+    const reachable = /* @__PURE__ */ new Set([seedId]);
     const queue = [seedId];
     while (queue.length > 0) {
-      const currentId = queue.shift();
-      const origin = positions.get(currentId);
-      for (const edge of edges.get(currentId) ?? []) {
-        if (positions.has(edge.other) || !byId.has(edge.other)) continue;
-        const radius = RELATION_RADIUS[edge.type] / Math.max(0.25, Math.min(1, edge.strength));
-        const angle = berxStableAngle(edge.other);
-        const rank = placedAround.get(currentId) ?? 0;
-        placedAround.set(currentId, rank + 1);
-        const spread = radius + rank * 0.42;
-        positions.set(edge.other, {
-          x: origin.x + Math.cos(angle) * spread,
-          y: origin.y + Math.sin(angle * 1.7) * rise,
-          z: origin.z + Math.sin(angle) * spread
-        });
+      const current = queue.shift();
+      for (const edge of edges.get(current) ?? []) {
+        if (!byId.has(edge.other) || reachable.has(edge.other)) continue;
+        reachable.add(edge.other);
         queue.push(edge.other);
       }
+    }
+    while (true) {
+      let chosen;
+      let fallback;
+      for (const id of [...reachable].sort()) {
+        if (positions.has(id)) continue;
+        let bestPlaced;
+        let bestAnyUnplaced = 0;
+        for (const edge of edges.get(id) ?? []) {
+          if (!byId.has(edge.other)) continue;
+          if (positions.has(edge.other)) {
+            if (!bestPlaced || edge.strength > bestPlaced.strength) {
+              bestPlaced = { id, anchor: edge.other, type: edge.type, strength: edge.strength };
+            }
+          } else if (reachable.has(edge.other) && edge.strength > bestAnyUnplaced) {
+            bestAnyUnplaced = edge.strength;
+          }
+        }
+        if (!bestPlaced) continue;
+        if (!fallback || bestPlaced.strength > fallback.strength) fallback = bestPlaced;
+        if (bestAnyUnplaced > bestPlaced.strength) continue;
+        if (!chosen || bestPlaced.strength > chosen.strength) chosen = bestPlaced;
+      }
+      const next = chosen ?? fallback;
+      if (!next) break;
+      place(next.id, beside(next.anchor, next.id, next.type, next.strength));
     }
   };
   const rootId = options.rootId && byId.has(options.rootId) ? options.rootId : [...byId.keys()].sort()[0];

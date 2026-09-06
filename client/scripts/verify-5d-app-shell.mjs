@@ -63,6 +63,16 @@ const API = {
 			rating: 0, rating_count: 0, is_saved: false, is_business: false, business_type: null, verified: false,
 		}],
 	},
+	'/api/v1/experiences': {
+		experiences: [{
+			id: 12, title: 'Прогулка по крышам', description: '',
+			anchor: {type: 'event', guid: 908, title: 'Вечер импровизации', image_url: null},
+			visibility: 'public', owner_guid: 77, is_own: true,
+			scheduled_start: NOW + 7200, scheduled_end: null, my_status: null,
+		}],
+	},
+	'/api/v1/communities': {communities: [{guid: 501, name: 'Соседи', description: '', owner_guid: 77, privacy: 'public', is_member: true}]},
+	'/api/v1/collections': {collections: [{id: 33, title: 'Любимые места', description: '', visibility: 'public', owner_guid: 77, is_own: true, item_count: 2, time_updated: NOW}]},
 	'/api/v1/posts/5150/like': {status: 'ok'},
 	'/api/v1/posts/5150': {guid: 5150, text: 'вечер удался', owner_guid: 77, owner_username: 'ann', time_created: NOW - 400, like_count: 1, comment_count: 0},
 	'/api/v1/events': {
@@ -233,7 +243,7 @@ try {
 			cursorAt: w.worldPosition.cursor.at,
 		};
 	});
-	const expected = ['person:77', 'person:78', 'moment:5150', 'moment:5151', 'message:78', 'place:4211', 'event:908'].sort();
+	const expected = ['person:77', 'person:78', 'moment:5150', 'moment:5151', 'message:78', 'place:4211', 'event:908', 'experience:12', 'community:501', 'collection:33'].sort();
 	gate(
 		'real API responses became entities in one world',
 		expected.every((id) => world.ids.includes(id)),
@@ -246,8 +256,65 @@ try {
 	);
 	gate(
 		'endpoints were really called',
-		['/api/v1/me', '/api/v1/feed', '/api/v1/friends', '/api/v1/conversations', '/api/v1/places', '/api/v1/events'].every((p) => served.has(p)),
+		['/api/v1/me', '/api/v1/feed', '/api/v1/friends', '/api/v1/conversations', '/api/v1/places', '/api/v1/events', '/api/v1/experiences', '/api/v1/communities', '/api/v1/collections'].every((p) => served.has(p)),
 		[...served].sort().join(' '),
+	);
+
+	/* --- one continuous world: Feed → Moment → Person → Place → Event
+	   → Experience is a single connected graph, not six domains that
+	   happen to share a scene --- */
+	const continuity = await page.evaluate(() => {
+		const w = window.__berxWorld;
+		const graph = new Map();
+		for (const r of w.allRelations) {
+			graph.set(r.from, [...(graph.get(r.from) ?? []), r.to]);
+			graph.set(r.to, [...(graph.get(r.to) ?? []), r.from]);
+		}
+		const path = (from, to) => {
+			const prev = new Map([[from, null]]);
+			const queue = [from];
+			while (queue.length) {
+				const at = queue.shift();
+				if (at === to) {
+					const out = [];
+					for (let n = to; n; n = prev.get(n)) out.unshift(n);
+					return out;
+				}
+				for (const next of graph.get(at) ?? []) if (!prev.has(next)) {
+					prev.set(next, at);
+					queue.push(next);
+				}
+			}
+			return undefined;
+		};
+		const adjacent = (a, b) => (graph.get(a) ?? []).includes(b);
+		return {
+			/* every link of the chain, as a real relation */
+			links: {
+				'moment→person': adjacent('moment:5150', 'person:77'),
+				'person→place': adjacent('person:77', 'place:4211'),
+				'place→event': adjacent('place:4211', 'event:908'),
+				'event→experience': adjacent('event:908', 'experience:12'),
+			},
+			momentToExperience: path('moment:5150', 'experience:12'),
+			momentToCollection: path('moment:5150', 'collection:33'),
+			conversationToPerson: path('message:78', 'person:78'),
+		};
+	});
+	/* Every link of the chain has to be a real relation, and the ends
+	   have to be connected. The shortest path between them is often
+	   shorter than the chain — a moment and an experience made by the
+	   same person are two hops apart through that person — and that is
+	   the graph being well connected, not the chain being broken. */
+	gate(
+		'Feed → Moment → Person → Place → Event → Experience is one world',
+		Object.values(continuity.links).every(Boolean) && Array.isArray(continuity.momentToExperience),
+		`${Object.entries(continuity.links).map(([k, v]) => `${k}:${v ? 'yes' : 'NO'}`).join(' ')} — shortest path ${continuity.momentToExperience?.join(' → ')}`,
+	);
+	gate(
+		'every domain is reachable from every other',
+		Array.isArray(continuity.momentToCollection) && Array.isArray(continuity.conversationToPerson),
+		`${continuity.momentToCollection?.join(' → ')}; ${continuity.conversationToPerson?.join(' → ')}`,
 	);
 
 	/* --- shared spatial identity: the same place, reached twice --- */

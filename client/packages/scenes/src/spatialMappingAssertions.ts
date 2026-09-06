@@ -111,7 +111,7 @@ export function assertBerxSpatialMappingInvariants(): void {
 
 	const nearbyEvent = mapNearbyEventToSpatial({guid: EVENT_GUID, title: 'Вечер импровизации', starts: 1, place_guid: PLACE_GUID, distance_km: 0.4});
 	if (nearbyEvent.object.id !== event.object.id) fail('the same event is two objects between NOW and its detail row');
-	if (nearbyEvent.relations[0]?.to !== fromDetail.id) fail("NOW's event does not point at the same place object");
+	if (nearbyEvent.relations.find((r) => r.type === 'located-at')?.to !== fromDetail.id) fail("NOW's event does not point at the same place object");
 
 	const experience = mapExperienceToSpatial({
 		id: 12,
@@ -125,16 +125,22 @@ export function assertBerxSpatialMappingInvariants(): void {
 		scheduled_end: null,
 		my_status: null,
 	});
-	if (experience.relations[0]?.to !== event.object.id) {
+	/* by type, not by index: an entity carries several real relations —
+	   who made it as well as where it is — and which comes first is not
+	   a fact worth asserting */
+	if (experience.relations.find((r) => r.type === 'located-at')?.to !== event.object.id) {
 		fail('an experience anchored to an event does not point at that event object');
+	}
+	if (!experience.relations.some((r) => r.type === 'created-by' && r.to === berxSpatialId('person', PERSON_GUID))) {
+		fail('an experience does not point at whoever made it');
 	}
 
 	const person = mapUserToSpatial({guid: PERSON_GUID, username: 'ann', fullname: 'Анна', email: '', icon_url: 'https://berx.example/i/77.jpg', profile_url: '', time_created: 0}).object;
 	const moment = mapFeedItemToSpatial({guid: 5150, text: 'вечер удался', owner_guid: PERSON_GUID, owner_username: 'ann', time_created: 0});
-	if (moment.relations[0]?.to !== person.id) fail('a moment does not point at the person who posted it');
+	if (moment.relations.find((r) => r.type === 'created-by')?.to !== person.id) fail('a moment does not point at the person who posted it');
 
 	const conversation = mapConversationToSpatial({with_guid: PERSON_GUID, with_username: 'ann', last_message: 'до завтра', time: 0});
-	if (conversation.relations[0]?.to !== person.id) fail('a conversation does not point at the person it is with');
+	if (conversation.relations.find((r) => r.type === 'messages')?.to !== person.id) fail('a conversation does not point at the person it is with');
 
 	/* An owner the server did not name is not an edge to a person nobody
 	   can see. */

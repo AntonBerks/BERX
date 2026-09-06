@@ -1263,26 +1263,59 @@ function berxRelationalLayout(objects, relations, options = {}) {
   }
   const byId = new Map(objects.map((o) => [o.id, o]));
   const placedAround = /* @__PURE__ */ new Map();
+  const place = (id, at) => {
+    positions.set(id, at);
+  };
+  const beside = (anchorId, id, type, strength) => {
+    const origin = positions.get(anchorId);
+    const radius = RELATION_RADIUS[type] / Math.max(0.25, Math.min(1, strength));
+    const angle = berxStableAngle(id);
+    const rank = placedAround.get(anchorId) ?? 0;
+    placedAround.set(anchorId, rank + 1);
+    const spread = radius + rank * 0.42;
+    return {
+      x: origin.x + Math.cos(angle) * spread,
+      y: origin.y + Math.sin(angle * 1.7) * rise,
+      z: origin.z + Math.sin(angle) * spread
+    };
+  };
   const grow = (seedId, seedAt) => {
-    positions.set(seedId, seedAt);
+    place(seedId, seedAt);
+    const reachable = /* @__PURE__ */ new Set([seedId]);
     const queue = [seedId];
     while (queue.length > 0) {
-      const currentId = queue.shift();
-      const origin = positions.get(currentId);
-      for (const edge of edges.get(currentId) ?? []) {
-        if (positions.has(edge.other) || !byId.has(edge.other)) continue;
-        const radius = RELATION_RADIUS[edge.type] / Math.max(0.25, Math.min(1, edge.strength));
-        const angle = berxStableAngle(edge.other);
-        const rank = placedAround.get(currentId) ?? 0;
-        placedAround.set(currentId, rank + 1);
-        const spread = radius + rank * 0.42;
-        positions.set(edge.other, {
-          x: origin.x + Math.cos(angle) * spread,
-          y: origin.y + Math.sin(angle * 1.7) * rise,
-          z: origin.z + Math.sin(angle) * spread
-        });
+      const current = queue.shift();
+      for (const edge of edges.get(current) ?? []) {
+        if (!byId.has(edge.other) || reachable.has(edge.other)) continue;
+        reachable.add(edge.other);
         queue.push(edge.other);
       }
+    }
+    while (true) {
+      let chosen;
+      let fallback;
+      for (const id of [...reachable].sort()) {
+        if (positions.has(id)) continue;
+        let bestPlaced;
+        let bestAnyUnplaced = 0;
+        for (const edge of edges.get(id) ?? []) {
+          if (!byId.has(edge.other)) continue;
+          if (positions.has(edge.other)) {
+            if (!bestPlaced || edge.strength > bestPlaced.strength) {
+              bestPlaced = { id, anchor: edge.other, type: edge.type, strength: edge.strength };
+            }
+          } else if (reachable.has(edge.other) && edge.strength > bestAnyUnplaced) {
+            bestAnyUnplaced = edge.strength;
+          }
+        }
+        if (!bestPlaced) continue;
+        if (!fallback || bestPlaced.strength > fallback.strength) fallback = bestPlaced;
+        if (bestAnyUnplaced > bestPlaced.strength) continue;
+        if (!chosen || bestPlaced.strength > chosen.strength) chosen = bestPlaced;
+      }
+      const next = chosen ?? fallback;
+      if (!next) break;
+      place(next.id, beside(next.anchor, next.id, next.type, next.strength));
     }
   };
   const rootId = options.rootId && byId.has(options.rootId) ? options.rootId : [...byId.keys()].sort()[0];
@@ -2267,6 +2300,19 @@ function surfaceFor(object, uri, fit = "cover") {
   if (!uri) return [];
   return [createMediaSurface(object, { mediaId: `${object.id}:media`, uri, aspectRatio: 1, fit, opacity: 1 })];
 }
+var ownedBy = (objectId, ownerGuid) => ({
+  id: `${objectId}->${berxSpatialId("person", ownerGuid)}:created-by`,
+  from: objectId,
+  to: berxSpatialId("person", ownerGuid),
+  type: "created-by",
+  /**
+   * Weaker than any structural relation, deliberately. Who made a
+   * place matters less to where that place stands than what happens
+   * at it — so an event settles beside its venue, and the venue
+   * settles near whoever made it.
+   */
+  strength: 0.55
+});
 function mapUserToSpatial(user, placement = {}) {
   const object = baseObject("person", user.guid, user.fullname || user.username, String(user.guid), 0, placement);
   return { object, media: surfaceFor(object, user.icon_url), relations: [] };
@@ -2290,7 +2336,7 @@ function mapFeedItemToSpatial(item, placement = {}) {
 function mapPlaceToSpatial(place, placement = {}) {
   const object = baseObject("place", place.guid, place.title, String(place.guid), 0, placement);
   if (place.is_business) object.kind = "business";
-  return { object, media: surfaceFor(object, place.cover_url), relations: [] };
+  return { object, media: surfaceFor(object, place.cover_url), relations: [ownedBy(object.id, place.owner_guid)] };
 }
 function mapNearbyPlaceToSpatial(place, now, placement = {}) {
   const live = place.moments.filter((m) => m.ends_at * 1e3 > now).length;
@@ -2305,13 +2351,13 @@ function mapEventToSpatial(event, placement = {}) {
     /* `ends` is nullable, and open-ended is not the same as instant */
     ...event.ends !== null ? { endsAt: event.ends } : {}
   });
-  const relations = event.place ? [{
+  const relations = event.place ? [ownedBy(object.id, event.owner_guid), {
     id: `${object.id}->${berxSpatialId("place", event.place.guid)}`,
     from: object.id,
     to: berxSpatialId("place", event.place.guid),
     type: "located-at",
     strength: 1
-  }] : [];
+  }] : [ownedBy(object.id, event.owner_guid)];
   return { object, media: surfaceFor(object, event.cover_url), relations };
 }
 function mapNearbyEventToSpatial(event, placement = {}) {
@@ -2327,6 +2373,31 @@ function mapNearbyEventToSpatial(event, placement = {}) {
       strength: 1
     }]
   };
+}
+function mapExperienceToSpatial(experience, placement = {}) {
+  const energy = experience.my_status === "accepted" ? 0.6 : 0.25;
+  const object = baseObject("experience", experience.id, experience.title, String(experience.id), energy, placement, {
+    at: experience.scheduled_start,
+    startsAt: experience.scheduled_start,
+    ...experience.scheduled_end !== null ? { endsAt: experience.scheduled_end } : {}
+  });
+  const anchor = experience.anchor;
+  const relations = anchor ? [ownedBy(object.id, experience.owner_guid), {
+    id: `${object.id}->${berxSpatialId(anchor.type, anchor.guid)}`,
+    from: object.id,
+    to: berxSpatialId(anchor.type, anchor.guid),
+    type: "located-at",
+    strength: 1
+  }] : [ownedBy(object.id, experience.owner_guid)];
+  return { object, media: [], relations };
+}
+function mapCommunityToSpatial(community, placement = {}) {
+  const object = baseObject("community", community.guid, community.name, String(community.guid), 0, placement);
+  return { object, media: [], relations: [ownedBy(object.id, community.owner_guid)] };
+}
+function mapCollectionToSpatial(collection, placement = {}) {
+  const object = baseObject("collection", collection.id, collection.title, String(collection.id), 0, placement);
+  return { object, media: [], relations: [ownedBy(object.id, collection.owner_guid)] };
 }
 function mapMessageToSpatial(message, placement = {}) {
   const label = message.text.trim().slice(0, 60) || "\u0421\u043E\u043E\u0431\u0449\u0435\u043D\u0438\u0435";
@@ -2403,6 +2474,15 @@ async function loadBerxWorld(api2, options = {}) {
     }),
     attempt("events", () => api2.events(), (response) => {
       for (const event of response.events) entries.push(toEntry(mapEventToSpatial(event)));
+    }),
+    attempt("experiences", () => api2.experiences(), (response) => {
+      for (const experience of response.experiences) entries.push(toEntry(mapExperienceToSpatial(experience)));
+    }),
+    attempt("communities", () => api2.communities(), (response) => {
+      for (const community of response.communities) entries.push(toEntry(mapCommunityToSpatial(community)));
+    }),
+    attempt("collections", () => api2.collections(), (response) => {
+      for (const collection of response.collections) entries.push(toEntry(mapCollectionToSpatial(collection)));
     }),
     /* NOW only where real coordinates were given. There is no
        location provider in this repository, so a caller that has no

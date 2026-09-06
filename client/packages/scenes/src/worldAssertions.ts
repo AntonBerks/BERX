@@ -16,6 +16,7 @@ import {
 import {
 	berxSpatialId,
 	mapEventToSpatial,
+	mapExperienceToSpatial,
 	mapFeedItemToSpatial,
 	mapNearbyPlaceToSpatial,
 	mapPlaceToSpatial,
@@ -164,6 +165,52 @@ export function assertBerx5DWorldInvariants(): void {
 	}
 	if (nav.worldPosition.region !== 'place' || nav.worldPosition.focusId !== berxSpatialId('place', PLACE)) {
 		fail(`going back restored the camera but not the context (${nav.worldPosition.region}/${nav.worldPosition.focusId})`);
+	}
+
+	/* ---- Feed → Moment → Person → Place → Event → Experience is one graph ----
+	   Not six domains in one scene: a path must exist through the
+	   relations from a moment in the feed to an experience anchored at
+	   the event at the place the person who posted it made. */
+	const chain = build();
+	chain.ingest([(() => {
+		const mapped = mapExperienceToSpatial({
+			id: 12, title: 'Прогулка по крышам', description: '',
+			anchor: {type: 'event', guid: EVENT, title: 'Вечер импровизации', image_url: null},
+			visibility: 'public', owner_guid: PERSON, is_own: false,
+			scheduled_start: NOW_SECONDS, scheduled_end: null, my_status: null,
+		});
+		return {object: mapped.object, relations: mapped.relations};
+	})()]);
+	const graph = new Map<string, string[]>();
+	for (const relation of chain.allRelations) {
+		graph.set(relation.from, [...(graph.get(relation.from) ?? []), relation.to]);
+		graph.set(relation.to, [...(graph.get(relation.to) ?? []), relation.from]);
+	}
+	const reach = (from: string, to: string): boolean => {
+		const seen = new Set([from]);
+		const queue = [from];
+		while (queue.length > 0) {
+			const at = queue.shift()!;
+			if (at === to) return true;
+			for (const next of graph.get(at) ?? []) {
+				if (!seen.has(next)) {
+					seen.add(next);
+					queue.push(next);
+				}
+			}
+		}
+		return false;
+	};
+	const links: [string, string][] = [
+		[berxSpatialId('moment', 5150), berxSpatialId('person', PERSON)],
+		[berxSpatialId('person', PERSON), berxSpatialId('place', PLACE)],
+		[berxSpatialId('place', PLACE), berxSpatialId('event', EVENT)],
+		[berxSpatialId('event', EVENT), berxSpatialId('experience', 12)],
+		/* and end to end, which is the point */
+		[berxSpatialId('moment', 5150), berxSpatialId('experience', 12)],
+	];
+	for (const [from, to] of links) {
+		if (!reach(from, to)) fail(`${from} and ${to} are in the same world but not in the same graph`);
 	}
 
 	/* ---- ingesting the same thing twice is one entity ---- */

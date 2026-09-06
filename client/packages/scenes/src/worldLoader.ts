@@ -16,7 +16,10 @@ import type {BerxApiClient} from '@berx/api/client';
 import type {BerxWorldIngest} from '@berx/spatial';
 import {
 	berxSpatialId,
+	mapCollectionToSpatial,
+	mapCommunityToSpatial,
 	mapConversationToSpatial,
+	mapExperienceToSpatial,
 	mapMessageToSpatial,
 	mapEventToSpatial,
 	mapFeedItemToSpatial,
@@ -113,6 +116,18 @@ export async function loadBerxWorld(api: BerxApiClient, options: BerxWorldLoadOp
 
 		attempt('events', () => api.events(), (response) => {
 			for (const event of response.events) entries.push(toEntry(mapEventToSpatial(event)));
+		}),
+
+		attempt('experiences', () => api.experiences(), (response) => {
+			for (const experience of response.experiences) entries.push(toEntry(mapExperienceToSpatial(experience)));
+		}),
+
+		attempt('communities', () => api.communities(), (response) => {
+			for (const community of response.communities) entries.push(toEntry(mapCommunityToSpatial(community)));
+		}),
+
+		attempt('collections', () => api.collections(), (response) => {
+			for (const collection of response.collections) entries.push(toEntry(mapCollectionToSpatial(collection)));
 		}),
 
 		/* NOW only where real coordinates were given. There is no
