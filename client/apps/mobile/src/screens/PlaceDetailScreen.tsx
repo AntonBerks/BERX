@@ -17,6 +17,8 @@ import {BerxText} from '../../../../packages/design-system/src/spatial/BerxText'
 import {BerxStars} from '../../../../packages/design-system/src/spatial/BerxStars';
 import {BerxListGroup, BerxListRow} from '../../../../packages/design-system/src/spatial/BerxListGroup';
 import {BerxActionShelf} from '../../../../packages/design-system/src/spatial/BerxActionShelf';
+import {BerxConfirm} from '../../../../packages/design-system/src/spatial/BerxConfirm';
+import {pickImageFromLibrary} from '@berx/platform/mediaPicker';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 import {classifyFailure} from '../spatial/screenState';
 import {useBerxConnectivity} from '../spatial/useBerxConnectivity';
@@ -100,6 +102,9 @@ function PlaceDetailSceneBody({api, guid, myGuid, onAddToCollection, onOpenBusin
 	const [error, setError] = useState<string | null>(null);
 	const [saving, setSaving] = useState(false);
 	const [businessBusy, setBusinessBusy] = useState(false);
+	const [coverBusy, setCoverBusy] = useState(false);
+	const [confirmDelete, setConfirmDelete] = useState(false);
+	const [ownerError, setOwnerError] = useState<string | null>(null);
 	const [reviewText, setReviewText] = useState('');
 	const [reviewRating, setReviewRating] = useState(5);
 	const [submitting, setSubmitting] = useState(false);
@@ -259,6 +264,31 @@ function PlaceDetailSceneBody({api, guid, myGuid, onAddToCollection, onOpenBusin
 	if (!place) return null;
 
 	const isOwner = place.owner_guid === myGuid;
+
+	async function pickCover() {
+		if (!place) return;
+		setOwnerError(null);
+		const part = await pickImageFromLibrary();
+		/* a cancelled picker is not a failure */
+		if (!part) return;
+		setCoverBusy(true);
+		try {
+			await api.uploadPlaceCover(place.guid, part);
+			/* re-read: the cover URL belongs to the server */
+			await load();
+		} catch (e) {
+			setOwnerError(e instanceof Error ? e.message : 'Не удалось загрузить фото');
+		} finally {
+			setCoverBusy(false);
+		}
+	}
+
+	async function removePlace() {
+		if (!place) return;
+		await api.deletePlace(place.guid);
+		/* only once the server has confirmed it is gone */
+		onBack?.();
+	}
 	const alreadyReviewed = reviews.some((r) => r.author?.guid === myGuid);
 
 	return (
@@ -311,7 +341,7 @@ function PlaceDetailSceneBody({api, guid, myGuid, onAddToCollection, onOpenBusin
 					{place.lat !== null && place.lng !== null ? <BerxButton label="Маршрут" variant="secondary" onPress={buildRoute} /> : null}
 				</BerxActionShelf>
 
-				{myGuid === place.owner_guid ? (
+				{isOwner ? (
 					<BerxActionShelf variant="anchored">
 						<BerxButton
 							label={place.is_business ? 'Отключить бизнес-статус' : 'Стать бизнесом'}
@@ -324,6 +354,41 @@ function PlaceDetailSceneBody({api, guid, myGuid, onAddToCollection, onOpenBusin
 						) : null}
 					</BerxActionShelf>
 				) : null}
+
+				{/**
+				 * The photograph and the removal — both real, both
+				 * ownership-checked server-side, and neither reachable
+				 * from anywhere in BERX until now. A place could be
+				 * created and then never given a cover or taken down.
+				 */}
+				{isOwner ? (
+					<BerxActionShelf variant="anchored" align="stack">
+						<BerxButton
+							label={place.cover_url ? 'Заменить фото' : 'Добавить фото'}
+							variant="secondary"
+							loading={coverBusy}
+							onPress={pickCover}
+							fullWidth
+						/>
+						<BerxButton label="Удалить место" variant="danger" onPress={() => setConfirmDelete(true)} fullWidth />
+					</BerxActionShelf>
+				) : null}
+				{ownerError ? (
+					<BerxText role="meta" liveRegion="polite" style={styles.ownerError}>
+						{ownerError}
+					</BerxText>
+				) : null}
+
+				<BerxConfirm
+					visible={confirmDelete}
+					title={`Удалить «${place.title}»?`}
+					body="Место исчезнет из поиска и с карты вместе с отзывами, часами работы и сохранениями других людей. Это нельзя отменить."
+					confirmLabel="Удалить"
+					destructive
+					onConfirm={removePlace}
+					onCancel={() => setConfirmDelete(false)}
+					testID="place-delete-confirm"
+				/>
 
 				{place.description ? (
 					<BerxSection leading>
@@ -428,6 +493,7 @@ function PlaceDetailSceneBody({api, guid, myGuid, onAddToCollection, onOpenBusin
 }
 
 const styles = StyleSheet.create({
+	ownerError: {color: colors.danger},
 	/* no opaque fill: the scene paints the room this screen stands in */
 	screen: {flex: 1},
 	hero: {aspectRatio: 1.6, backgroundColor: colors.graphite},

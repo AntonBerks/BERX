@@ -15,6 +15,8 @@ import {BerxIcon} from '../../../../packages/design-system/src/icons';
 import {BerxText} from '../../../../packages/design-system/src/spatial/BerxText';
 import {BerxEventHero} from '../../../../packages/design-system/src/spatial/BerxEventHero';
 import {BerxActionShelf} from '../../../../packages/design-system/src/spatial/BerxActionShelf';
+import {BerxConfirm} from '../../../../packages/design-system/src/spatial/BerxConfirm';
+import {pickImageFromLibrary} from '@berx/platform/mediaPicker';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 import {classifyFailure} from '../spatial/screenState';
 import {useBerxConnectivity} from '../spatial/useBerxConnectivity';
@@ -81,6 +83,9 @@ function EventDetailSceneBody({api, guid, myGuid, onOpenPlace, onOpenInvite, onA
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 	const [rsvping, setRsvping] = useState(false);
+	const [coverBusy, setCoverBusy] = useState(false);
+	const [confirmDelete, setConfirmDelete] = useState(false);
+	const [ownerError, setOwnerError] = useState<string | null>(null);
 	const [rsvpError, setRsvpError] = useState<string | null>(null);
 
 	const load = useCallback(async () => {
@@ -132,6 +137,35 @@ function EventDetailSceneBody({api, guid, myGuid, onOpenPlace, onOpenInvite, onA
 	   the data had arrived, so an error left the person on a screen with
 	   no exit — the dead end the archive forbids, on a screen reached by
 	   a push. The name arrives when the data does. */
+	/* the server owns this check too; the UI simply does not offer a
+	   control that would come back 403 */
+	const isOwner = myGuid !== undefined && event?.owner_guid === myGuid;
+
+	async function pickCover() {
+		if (!event) return;
+		setOwnerError(null);
+		const part = await pickImageFromLibrary();
+		/* a cancelled picker is not a failure */
+		if (!part) return;
+		setCoverBusy(true);
+		try {
+			await api.uploadEventCover(event.guid, part);
+			/* re-read: the cover URL is the server's, not one composed here */
+			await load();
+		} catch (e) {
+			setOwnerError(e instanceof Error ? e.message : 'Не удалось загрузить афишу');
+		} finally {
+			setCoverBusy(false);
+		}
+	}
+
+	async function removeEvent() {
+		if (!event) return;
+		await api.deleteEvent(event.guid);
+		/* only once the server has confirmed it is gone */
+		onBack?.();
+	}
+
 	const header = <BerxHeader title={event?.title} onBack={onBack} />;
 
 	if (loading && !event)
@@ -217,6 +251,42 @@ function EventDetailSceneBody({api, guid, myGuid, onOpenPlace, onOpenInvite, onA
 					{event.is_going && onAddEventStory ? <BerxButton label="Добавить историю" variant="secondary" onPress={() => onAddEventStory(event.guid)} /> : null}
 				</BerxActionShelf>
 				{rsvpError ? <Text style={styles.error}>{rsvpError}</Text> : null}
+
+				{/**
+				 * What the person who made this event can do with it.
+				 *
+				 * BERX could create an event and then never touch it
+				 * again: `uploadEventCover` and `deleteEvent` are real,
+				 * server-side, ownership-checked, and no screen called
+				 * either. The shelf appears only for the owner — the
+				 * server re-checks regardless, so this is about not
+				 * offering a control that would 403, not about trusting
+				 * the client.
+				 */}
+				{isOwner ? (
+					<BerxActionShelf variant="anchored" align="stack">
+						<BerxButton
+							label={event.cover_url ? 'Заменить афишу' : 'Добавить афишу'}
+							variant="secondary"
+							loading={coverBusy}
+							onPress={pickCover}
+							fullWidth
+						/>
+						<BerxButton label="Удалить событие" variant="danger" onPress={() => setConfirmDelete(true)} fullWidth />
+					</BerxActionShelf>
+				) : null}
+				{ownerError ? <Text style={styles.error}>{ownerError}</Text> : null}
+
+				<BerxConfirm
+					visible={confirmDelete}
+					title={`Удалить «${event.title}»?`}
+					body="Событие исчезнет у всех, кто на него собирался, вместе с их ответами и приглашениями. Это нельзя отменить."
+					confirmLabel="Удалить"
+					destructive
+					onConfirm={removeEvent}
+					onCancel={() => setConfirmDelete(false)}
+					testID="event-delete-confirm"
+				/>
 
 				{event.description ? (
 					<BerxSection leading>
