@@ -219,7 +219,11 @@ try {
 		const host = window.__host;
 		const {mapUserToSpatial} = window.BERX_5D;
 		for (const o of host.runtime.latestFrame.world.objects) host.removeObject(o.id);
-		host.addObject(mapUserToSpatial({guid: 9, username: 'r', fullname: 'R', email: '', icon_url: '', profile_url: '', time_created: 0}, {position: {x: 0, y: 0, z: 2}}).object);
+		/* no label on this one: the measurement below is the bounding box
+		   of lit pixels, and a name standing above the orb is real
+		   geometry that would be measured as part of it */
+		const orb = mapUserToSpatial({guid: 9, username: 'r', fullname: 'R', email: '', icon_url: '', profile_url: '', time_created: 0}, {position: {x: 0, y: 0, z: 2}}).object;
+		host.addObject({...orb, label: undefined});
 		const measure = async (w, h) => {
 			document.getElementById('host').style.width = `${w}px`;
 			document.getElementById('host').style.height = `${h}px`;
@@ -254,6 +258,50 @@ try {
 		resize.square.w === 600 && resize.wide.w === 1000 && resize.wide.h === 500 &&
 			Math.abs(roundness(resize.square) - 1) < 0.12 && Math.abs(roundness(resize.wide) - 1) < 0.12,
 		`square ${resize.square.w}x${resize.square.h} orb ${resize.square.spanX}x${resize.square.spanY}; wide ${resize.wide.w}x${resize.wide.h} orb ${resize.wide.spanX}x${resize.wide.spanY}`,
+	);
+
+	/* --- names stand in the world, and are occluded like everything else --- */
+	const labels = await page.evaluate(async () => {
+		const host = window.__host;
+		const {mapUserToSpatial} = window.BERX_5D;
+		const draw = async () => {
+			host.start();
+			await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+			host.stop();
+			const canvas = host.canvas;
+			const gl = canvas.getContext('webgl2');
+			const px = new Uint8Array(canvas.width * canvas.height * 4);
+			gl.readPixels(0, 0, canvas.width, canvas.height, gl.RGBA, gl.UNSIGNED_BYTE, px);
+			/* the top strip, above where the orb itself is drawn: only a
+			   label can put lit pixels there */
+			let lit = 0;
+			const from = Math.floor(canvas.height * 0.62);
+			for (let y = from; y < canvas.height; y++) {
+				for (let x = 0; x < canvas.width; x++) {
+					const o = (y * canvas.width + x) * 4;
+					if (px[o] + px[o + 1] + px[o + 2] > 90) lit++;
+				}
+			}
+			return lit;
+		};
+		for (const o of host.runtime.latestFrame.world.objects) host.removeObject(o.id);
+		const person = mapUserToSpatial({guid: 42, username: 'nn', fullname: 'Ирина Соколова', email: '', icon_url: '', profile_url: '', time_created: 0}, {position: {x: 0, y: 0, z: 2}}).object;
+		host.addObject({...person, label: undefined});
+		const withoutLabel = await draw();
+		host.removeObject(person.id);
+		host.addObject(person);
+		const withLabel = await draw();
+		/* the same person pushed far away: the name fades out rather than
+		   growing to stay readable, which is what makes it a world */
+		host.removeObject(person.id);
+		host.addObject({...person, transform: {...person.transform, position: {x: 0, y: 0, z: -40}}});
+		const farAway = await draw();
+		return {withoutLabel, withLabel, farAway, resident: host.renderer.residentLabelCount};
+	});
+	gate(
+		'names are drawn in the world, and recede out of it',
+		labels.withLabel > labels.withoutLabel && labels.farAway <= labels.withoutLabel && labels.resident > 0,
+		`lit pixels above the entity: ${labels.withoutLabel} unnamed, ${labels.withLabel} named, ${labels.farAway} at 40 units away; ${labels.resident} label textures resident`,
 	);
 
 	/* --- textures: real files, a real budget, really freed ---

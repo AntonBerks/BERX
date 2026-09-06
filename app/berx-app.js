@@ -2344,11 +2344,124 @@ function decode(uri) {
   });
 }
 
+// packages/spatial-web/src/spatialText.ts
+var DEFAULT_BUDGET2 = 96;
+var DEFAULT_PIXEL_HEIGHT = 64;
+var INK = "#F2F0EB";
+var BerxSpatialTextAtlas = class {
+  constructor(gl, options = {}) {
+    this.cache = /* @__PURE__ */ new Map();
+    this.frame = 0;
+    this.gl = gl;
+    this.budget = Math.max(1, options.budget ?? DEFAULT_BUDGET2);
+    this.pixelHeight = Math.max(16, options.pixelHeight ?? DEFAULT_PIXEL_HEIGHT);
+  }
+  beginFrame() {
+    this.frame++;
+  }
+  /**
+   * The texture for a label, rasterising it on first use.
+   *
+   * Synchronous: a 2D canvas draw of one line of text is a fraction
+   * of a millisecond, and a label that appeared a frame late would
+   * flicker every time the camera moved.
+   */
+  get(text) {
+    const label = text.trim();
+    if (label.length === 0) return void 0;
+    const hit = this.cache.get(label);
+    if (hit) {
+      hit.lastUsedFrame = this.frame;
+      return hit;
+    }
+    const raster = rasterise(label, this.pixelHeight);
+    if (!raster) return void 0;
+    const gl = this.gl;
+    const texture = gl.createTexture();
+    if (!texture) return void 0;
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+    gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, raster.canvas);
+    gl.generateMipmap(gl.TEXTURE_2D);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.bindTexture(gl.TEXTURE_2D, null);
+    const entry = { texture, aspect: raster.aspect, lastUsedFrame: this.frame };
+    this.cache.set(label, entry);
+    this.evict();
+    return entry;
+  }
+  /** Same rule as the media cache: the budget is met, not aimed at. */
+  evict() {
+    if (this.cache.size <= this.budget) return;
+    const byAge = [...this.cache.entries()].sort((a, b) => a[1].lastUsedFrame - b[1].lastUsedFrame);
+    for (const [key, entry] of byAge) {
+      if (this.cache.size <= this.budget) return;
+      if (entry.lastUsedFrame !== this.frame) {
+        this.gl.deleteTexture(entry.texture);
+        this.cache.delete(key);
+      }
+    }
+    for (const [key, entry] of byAge) {
+      if (this.cache.size <= this.budget) return;
+      if (this.cache.has(key)) {
+        this.gl.deleteTexture(entry.texture);
+        this.cache.delete(key);
+      }
+    }
+  }
+  get residentCount() {
+    return this.cache.size;
+  }
+  handleContextLost() {
+    this.cache.clear();
+  }
+  dispose() {
+    for (const entry of this.cache.values()) this.gl.deleteTexture(entry.texture);
+    this.cache.clear();
+  }
+};
+function rasterise(text, pixelHeight) {
+  const canvas = document.createElement("canvas");
+  const context = canvas.getContext("2d");
+  if (!context) return void 0;
+  const font = `500 ${pixelHeight}px system-ui, -apple-system, "Segoe UI", sans-serif`;
+  context.font = font;
+  const clipped = text.length > 48 ? `${text.slice(0, 47)}\u2026` : text;
+  const metrics = context.measureText(clipped);
+  const padX = Math.ceil(pixelHeight * 0.35);
+  const padY = Math.ceil(pixelHeight * 0.3);
+  const width = Math.max(2, Math.ceil(metrics.width) + padX * 2);
+  const height = pixelHeight + padY * 2;
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return void 0;
+  ctx.clearRect(0, 0, width, height);
+  ctx.font = font;
+  ctx.textBaseline = "middle";
+  ctx.textAlign = "left";
+  ctx.strokeStyle = "rgba(7,8,10,0.85)";
+  ctx.lineWidth = Math.max(2, pixelHeight * 0.09);
+  ctx.lineJoin = "round";
+  ctx.strokeText(clipped, padX, height / 2);
+  ctx.fillStyle = INK;
+  ctx.fillText(clipped, padX, height / 2);
+  return { canvas, aspect: width / height };
+}
+
 // packages/spatial-web/src/threeRuntime.ts
 var V = `#version 300 es
 precision highp float;layout(location=0)in vec3 p;layout(location=1)in vec3 n;uniform mat4 P,V,M;out vec3 N,W,L,LN;void main(){vec4 w=M*vec4(p,1.);W=w.xyz;N=mat3(M)*n;L=p;LN=n;gl_Position=P*V*w;}`;
 var F = `#version 300 es
 precision highp float;in vec3 N,W,L,LN;uniform vec3 B,E;uniform float ES,ME,R,O,HT;uniform vec4 TS;uniform sampler2D TEX;out vec4 C;void main(){vec3 n=normalize(N),k=normalize(vec3(.45,.72,.9));float d=max(dot(n,k),0.),s=pow(max(dot(reflect(-k,n),normalize(-W)),0.),mix(64.,8.,R));vec3 base=B;if(HT>.5&&normalize(LN).z>.5){vec2 uv=(L.xy/TS.xy)*.5*TS.zw+.5;if(uv.x>=0.&&uv.x<=1.&&uv.y>=0.&&uv.y<=1.)base=texture(TEX,uv).rgb;}vec3 lit=base*(.16+d*.72)+base*s*(.12+ME*.42)+E*ES;C=vec4(lit,clamp(O,.02,1.));}`;
+var TV = `#version 300 es
+precision highp float;layout(location=0)in vec2 q;uniform mat4 P,V;uniform vec3 C,R,U;uniform vec2 S;out vec2 T;void main(){T=q*.5+.5;vec3 w=C+R*(q.x*S.x)+U*(q.y*S.y);gl_Position=P*V*vec4(w,1.);}`;
+var TF = `#version 300 es
+precision highp float;in vec2 T;uniform sampler2D TEX;uniform float A;out vec4 C;void main(){vec4 t=texture(TEX,T);C=vec4(t.rgb,t.a*A);if(C.a<.01)discard;}`;
 function shader(gl, t, s) {
   const x = gl.createShader(t);
   if (!x) throw Error("BERX 5D shader allocation failed");
@@ -2361,10 +2474,10 @@ function shader(gl, t, s) {
   }
   return x;
 }
-function program(gl) {
+function program(gl, vs = V, fs = F) {
   const p = gl.createProgram();
   if (!p) throw Error("BERX 5D program allocation failed");
-  const a = shader(gl, gl.VERTEX_SHADER, V), b = shader(gl, gl.FRAGMENT_SHADER, F);
+  const a = shader(gl, gl.VERTEX_SHADER, vs), b = shader(gl, gl.FRAGMENT_SHADER, fs);
   gl.attachShader(p, a);
   gl.attachShader(p, b);
   gl.linkProgram(p);
@@ -2475,6 +2588,8 @@ function meshFor(kind) {
       return createSphere(0.58, 28, 18);
   }
 }
+var LABEL_FADE_START = 14;
+var LABEL_FADE_END = 26;
 var BerxThreeRuntimeRenderer = class {
   constructor(canvas, options = {}) {
     this.kind = "webgl2";
@@ -2485,6 +2600,8 @@ var BerxThreeRuntimeRenderer = class {
     this.media = /* @__PURE__ */ new Map();
     this.width = 1;
     this.height = 1;
+    /** Metres tall a label stands. A real size in the world, not a screen size. */
+    this.labelHeight = 0.34;
     const gl = canvas.getContext("webgl2", { antialias: true, alpha: false, depth: true, powerPreference: "high-performance" });
     if (!gl) throw Error("BERX 5D requires WebGL2");
     this.gl = gl;
@@ -2502,6 +2619,27 @@ var BerxThreeRuntimeRenderer = class {
     this.TS = gl.getUniformLocation(this.program, "TS");
     this.TEX = gl.getUniformLocation(this.program, "TEX");
     this.textures = new BerxMediaTextureCache(gl, { budget: options.textureBudget, onError: options.onMediaError });
+    this.labels = new BerxSpatialTextAtlas(gl, { budget: options.labelBudget });
+    this.labelProgram = program(gl, TV, TF);
+    this.LP = gl.getUniformLocation(this.labelProgram, "P");
+    this.LV = gl.getUniformLocation(this.labelProgram, "V");
+    this.LC = gl.getUniformLocation(this.labelProgram, "C");
+    this.LR = gl.getUniformLocation(this.labelProgram, "R");
+    this.LU = gl.getUniformLocation(this.labelProgram, "U");
+    this.LS = gl.getUniformLocation(this.labelProgram, "S");
+    this.LA = gl.getUniformLocation(this.labelProgram, "A");
+    this.LT = gl.getUniformLocation(this.labelProgram, "TEX");
+    {
+      const vao = gl.createVertexArray(), vbo = gl.createBuffer();
+      if (!vao || !vbo) throw Error("BERX 5D label quad allocation failed");
+      gl.bindVertexArray(vao);
+      gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, 1, 1, -1, -1, 1, 1, -1, 1]), gl.STATIC_DRAW);
+      gl.enableVertexAttribArray(0);
+      gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 8, 0);
+      gl.bindVertexArray(null);
+      this.labelQuad = { vao, vbo };
+    }
     gl.enable(gl.DEPTH_TEST);
     gl.enable(gl.CULL_FACE);
     gl.enable(gl.BLEND);
@@ -2561,6 +2699,66 @@ var BerxThreeRuntimeRenderer = class {
     }
     gl.bindVertexArray(null);
     gl.bindTexture(gl.TEXTURE_2D, null);
+    this.renderLabels(frame, ordered.slice(0, max));
+  }
+  /**
+   * The names, standing where their entities stand.
+   *
+   * One camera-facing quad each, drawn after the world so the depth
+   * buffer already holds everything solid: a label behind a place is
+   * hidden by it, exactly as a sign behind a building would be. Depth
+   * writes are off so labels never occlude each other into flicker, and
+   * they are drawn far-to-near so the ones in front composite over the
+   * ones behind.
+   *
+   * They fade with distance rather than growing to stay readable. A
+   * label that keeps its screen size is a HUD; this is a world.
+   */
+  renderLabels(frame, objects) {
+    const gl = this.gl, c = frame.camera;
+    const basis = cameraBasis(c);
+    if (!basis) return;
+    this.labels.beginFrame();
+    gl.useProgram(this.labelProgram);
+    gl.bindVertexArray(this.labelQuad.vao);
+    gl.depthMask(false);
+    gl.disable(gl.CULL_FACE);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.uniform1i(this.LT, 0);
+    gl.uniformMatrix4fv(this.LP, false, perspective(c.fov, this.width / this.height, c.near, c.far));
+    gl.uniformMatrix4fv(this.LV, false, lookAt(c.position, c.target));
+    gl.uniform3f(this.LR, basis.right.x, basis.right.y, basis.right.z);
+    gl.uniform3f(this.LU, basis.up.x, basis.up.y, basis.up.z);
+    const eye = c.position;
+    const withLabels = objects.filter((o) => o.label && o.label.trim().length > 0);
+    const distance = (o) => Math.hypot(o.transform.position.x - eye.x, o.transform.position.y - eye.y, o.transform.position.z - eye.z);
+    for (const o of withLabels.slice().sort((a, b) => distance(b) - distance(a))) {
+      const d = distance(o);
+      if (d > LABEL_FADE_END) continue;
+      const entry = this.labels.get(o.label);
+      if (!entry) continue;
+      const alpha = d <= LABEL_FADE_START ? 1 : 1 - (d - LABEL_FADE_START) / (LABEL_FADE_END - LABEL_FADE_START);
+      const halfHeight = this.labelHeight * 0.5;
+      const above = o.transform.scale.y * 0.5 + halfHeight * 1.6;
+      gl.bindTexture(gl.TEXTURE_2D, entry.texture);
+      gl.uniform3f(
+        this.LC,
+        o.transform.position.x + basis.up.x * above,
+        o.transform.position.y + basis.up.y * above,
+        o.transform.position.z + basis.up.z * above
+      );
+      gl.uniform2f(this.LS, halfHeight * entry.aspect, halfHeight);
+      gl.uniform1f(this.LA, alpha * o.material.opacity);
+      gl.drawArrays(gl.TRIANGLES, 0, 6);
+    }
+    gl.depthMask(true);
+    gl.enable(gl.CULL_FACE);
+    gl.bindVertexArray(null);
+    gl.bindTexture(gl.TEXTURE_2D, null);
+  }
+  /** How many label textures are resident. Real, for a host reporting budgets. */
+  get residentLabelCount() {
+    return this.labels.residentCount;
   }
   /**
    * The media an object carries, from the mapping layer.
@@ -2600,6 +2798,7 @@ var BerxThreeRuntimeRenderer = class {
     const gl = this.gl;
     this.releaseMeshes();
     this.textures.dispose();
+    this.labels.dispose();
     this.media.clear();
     gl.deleteProgram(this.program);
     gl.getExtension("WEBGL_lose_context")?.loseContext();
@@ -2622,6 +2821,7 @@ var BerxThreeRuntimeRenderer = class {
   handleContextLost() {
     this.meshes.clear();
     this.textures.handleContextLost();
+    this.labels.handleContextLost();
   }
 };
 

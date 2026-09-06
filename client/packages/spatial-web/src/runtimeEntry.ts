@@ -5,4 +5,5 @@ export * from './threeRuntime';
 export * from './primitiveGeometry';
 export * from './runtimeQuality';
 export * from './mediaTextures';
+export * from './spatialText';
 export * from './appShell';
