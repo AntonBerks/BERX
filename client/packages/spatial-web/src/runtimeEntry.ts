@@ -1,0 +1,4 @@
+/** BERX MAX 5D public web runtime entry — DOM scene tools plus authoritative GPU host. */
+export * from './index';
+export * from './runtimeHost5d';
+export * from './threeRuntime';
