@@ -12,12 +12,12 @@ import {
   pickSpatialObject,
   rayFromNdc,
   geometryForEntity,
-  presentationForKind,
   type Berx5DFrame,
   type BerxHit,
   type BerxSpatialRenderer,
   type BerxVec3,
 } from '@berx/spatial';
+import { presentationForKind } from '@berx/spatial/spatialPresentation';
 import { createBox, createSphere, createRing, createFrame, type BerxPrimitiveMesh } from './primitiveGeometry';
 
 type Mat4 = Float32Array; type Loc = WebGLUniformLocation | null;

@@ -1,0 +1,96 @@
+/**
+ * BERX 5D semantic presentation: what a domain kind is made of.
+ *
+ * Geometry (geometry.ts) says what form an object takes. This says
+ * what that form is made of and what, if anything, it emits. The two
+ * are deliberately separate modules and deliberately not two answers
+ * to the same question — the geometry kind lives in exactly one place,
+ * and nothing here restates it.
+ *
+ * The colours are the frozen BERX Visual DNA, kept as the hexes
+ * themselves and read through BERX's own colour parser rather than
+ * restated as hand-tuned triples. The numbers a shader wants and the
+ * numbers a stylesheet wants should not be two separate sources of the
+ * same truth, and a palette written as bare decimals cannot be checked
+ * against the spec it came from.
+ *
+ * BERX Energy (#4FD6E8) is rare by contract. It is emitted strictly in
+ * proportion to an object's `energy` — NOW, live, realtime, focus — so
+ * an object at rest emits none of it at all. It is never a base
+ * colour, and nothing is tinted cyan for looks.
+ *
+ * This is not BERX_V9_COLOR. That palette paints the DOM V9 layer and
+ * is what 33 contract gates and 24 web gates already measure;
+ * repainting it to match the world would move the ground under all of
+ * them. The two agree where it matters — #07080A is the ground in
+ * both, #4FD6E8 is BERX Energy in both — and this ladder adds the
+ * darker structure steps and the gold the GPU world needs.
+ */
+import { parseColor } from './color';
+import type { BerxSpatialEntityKind, BerxSpatialObject } from './world';
+
+/** A 0..1 triple, as the shader's uniforms consume it. */
+export type BerxShaderRgb = [number, number, number];
+
+export interface BerxSpatialPresentation {
+  /** The lit base colour. */
+  base: BerxShaderRgb;
+  /** What the object gives off on its own. Zero for anything at rest. */
+  emissive: BerxShaderRgb;
+}
+
+const shaderRgb = (hex: string): BerxShaderRgb => {
+  const c = parseColor(hex);
+  /* the DNA is a fixed literal set; a failure here is a typo in this
+     file, not a runtime condition to degrade around */
+  if (!c) throw new Error(`BERX 5D DNA: ${hex} is not a colour`);
+  return [c.r / 255, c.g / 255, c.b / 255];
+};
+
+/** The frozen 5D Visual DNA. */
+export const BERX_5D_DNA = {
+  ink: shaderRgb('#07080A'),
+  slate: shaderRgb('#0D1014'),
+  graphite: shaderRgb('#15191E'),
+  steel: shaderRgb('#1C2228'),
+  pearl: shaderRgb('#F2F0EB'),
+  mist: shaderRgb('#A7ADB4'),
+  shadow: shaderRgb('#6F767E'),
+  gold: shaderRgb('#C9B58A'),
+  /** BERX Energy. Emitted with energy, never a base. */
+  energy: shaderRgb('#4FD6E8'),
+} as const;
+
+/**
+ * What each kind is made of, and what — if anything — lights it from
+ * within. `amount` is the fraction of `glow` emitted at full energy;
+ * `0` means the kind never emits, at any energy.
+ */
+const materials: Record<BerxSpatialEntityKind, {base: BerxShaderRgb; glow: BerxShaderRgb; amount: number}> = {
+  /* people carry the light in this world */
+  person: {base: BERX_5D_DNA.pearl, glow: BERX_5D_DNA.energy, amount: 0.08},
+  /* a moment is live only while it is live */
+  moment: {base: BERX_5D_DNA.mist, glow: BERX_5D_DNA.energy, amount: 0.10},
+  /* a place is architecture: it is lit, it does not light */
+  place: {base: BERX_5D_DNA.steel, glow: BERX_5D_DNA.energy, amount: 0},
+  /* gold is for what is happening — the warm end of the DNA */
+  event: {base: BERX_5D_DNA.gold, glow: BERX_5D_DNA.gold, amount: 0.08},
+  experience: {base: BERX_5D_DNA.gold, glow: BERX_5D_DNA.gold, amount: 0.06},
+  community: {base: BERX_5D_DNA.mist, glow: BERX_5D_DNA.energy, amount: 0},
+  business: {base: BERX_5D_DNA.steel, glow: BERX_5D_DNA.gold, amount: 0.05},
+  collection: {base: BERX_5D_DNA.graphite, glow: BERX_5D_DNA.energy, amount: 0},
+  message: {base: BERX_5D_DNA.mist, glow: BERX_5D_DNA.energy, amount: 0},
+  /* creating is a focus moment, and focus is where energy belongs */
+  create: {base: BERX_5D_DNA.steel, glow: BERX_5D_DNA.energy, amount: 0.18},
+};
+
+export function presentationForKind(kind: BerxSpatialEntityKind, object?: BerxSpatialObject): BerxSpatialPresentation {
+  const m = materials[kind];
+  const energy = Math.max(0, Math.min(1, object?.energy ?? 0));
+  const lit = energy * m.amount;
+  return {
+    base: [...m.base] as BerxShaderRgb,
+    /* zero at rest: an object that is not live emits nothing */
+    emissive: [m.glow[0] * lit, m.glow[1] * lit, m.glow[2] * lit],
+  };
+}
