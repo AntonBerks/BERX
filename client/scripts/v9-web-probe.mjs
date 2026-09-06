@@ -323,18 +323,35 @@ results.keyScenes = {};
 			};
 		});
 
-		/* --- parallax must have actually moved the layers --- */
+		/* --- parallax must have actually moved the layers ---
+		   Waited on frames, not on a clock. This used to sleep 120ms
+		   after scrolling and then read the offsets, which is fine at
+		   60fps and wrong on a loaded CI runner painting at 7fps: 120ms
+		   was less than one frame there, so the read happened before the
+		   scroll-driven update had run and every scene reported "no
+		   parallax" against a runtime that was working. It now waits for
+		   the values to actually settle, with a real deadline — a scene
+		   that genuinely never moves still fails, it just no longer
+		   fails for being slow. */
 		const parallax = await page.evaluate(async () => {
 			const read = () =>
 				[...document.querySelectorAll('.berx-layer')].map((n) =>
 					getComputedStyle(n).getPropertyValue('--berx-parallax-y').trim(),
 				);
+			const frame = () => new Promise((r) => requestAnimationFrame(r));
 			window.scrollTo(0, 0);
-			await new Promise((r) => requestAnimationFrame(r));
+			await frame();
+			await frame();
 			const before = read();
 			window.scrollTo(0, 900);
-			await new Promise((r) => setTimeout(r, 120));
-			const after = read();
+			/* up to 3 seconds of real frames, however few they are */
+			const deadline = performance.now() + 3000;
+			let after = read();
+			while (performance.now() < deadline) {
+				await frame();
+				after = read();
+				if (after.some((v, i) => v !== before[i] && v !== '' && v !== '0px')) break;
+			}
 			window.scrollTo(0, 0);
 			return {before, after};
 		});
@@ -378,12 +395,24 @@ results.keyScenes = {};
 
 /* --- 2b. attribute the frame cost: same scene, blur on vs blur off ---
    A p95 above budget is only actionable if we know what is spending
-   the frame. This runs the identical scroll twice on one page: once
-   with the resolved glass, once with the opaque high-contrast
-   surfaces (which remove every backdrop-filter and nothing else). */
+   the frame. This runs the identical scroll on one page in three
+   configurations: the resolved glass, the opaque high-contrast
+   surfaces (which remove every backdrop-filter and nothing else), and
+   those plus a flat environment.
+
+   Each configuration is measured three times and the passes are
+   interleaved rather than run back to back. One ~40-frame pass gives a
+   p95 over about 38 samples on a software rasteriser, which a single
+   stall is enough to move — and running the three configurations in
+   sequence lets a machine that gets busier over time charge the
+   difference to whichever went last. Interleaving removes that drift,
+   pooling the passes gives each configuration ~114 samples, and the
+   attribution stops depending on which pass happened to catch a
+   hiccup. The gate below is unchanged; only the measurement got
+   steadier. */
 {
 	const {ctx, page} = await openPage({width: 1440, height: 900, reducedMotion: false});
-	const measure = async () => {
+	const scrollPass = async () => {
 		await page.waitForTimeout(60);
 		return page.evaluate(async () => {
 			const times = [];
@@ -402,24 +431,36 @@ results.keyScenes = {};
 			running = false;
 			await new Promise((r) => setTimeout(r, 50));
 			window.scrollTo(0, 0);
-			const sorted = [...times].slice(2).sort((a, b) => a - b);
-			return {
-				median: sorted[Math.floor(sorted.length / 2)] ?? 0,
-				p95: sorted[Math.floor(sorted.length * 0.95)] ?? 0,
-				dropped: sorted.filter((t) => t > 20).length,
-				count: sorted.length,
-			};
+			/* the first two frames include the mount, not the scroll */
+			return times.slice(2);
 		});
 	};
-	await page.evaluate(() => window.BERX_HARNESS.mount('BERX-031'));
-	const withGlass = await measure();
-	await page.evaluate(() => window.BERX_HARNESS.mount('BERX-031', {highContrast: true}));
-	const withoutGlass = await measure();
-	/* and once more with the composed environment stripped, so the cost
-	   of the room is attributable separately from the cost of the glass */
-	await page.evaluate(() => window.BERX_HARNESS.mount('BERX-031', {highContrast: true, flatEnvironment: true}));
-	const withoutEnvironment = await measure();
-	results.frameAttribution = {withGlass, withoutGlass, withoutEnvironment};
+	const summarise = (times) => {
+		const sorted = [...times].sort((a, b) => a - b);
+		return {
+			median: sorted[Math.floor(sorted.length / 2)] ?? 0,
+			p95: sorted[Math.floor(sorted.length * 0.95)] ?? 0,
+			dropped: sorted.filter((t) => t > 20).length,
+			count: sorted.length,
+		};
+	};
+	const configs = [
+		['withGlass', {}],
+		['withoutGlass', {highContrast: true}],
+		['withoutEnvironment', {highContrast: true, flatEnvironment: true}],
+	];
+	const samples = {withGlass: [], withoutGlass: [], withoutEnvironment: []};
+	for (let round = 0; round < 3; round++) {
+		for (const [name, mountOptions] of configs) {
+			await page.evaluate(([id, opts]) => window.BERX_HARNESS.mount(id, opts), ['BERX-031', mountOptions]);
+			samples[name].push(...(await scrollPass()));
+		}
+	}
+	results.frameAttribution = {
+		withGlass: summarise(samples.withGlass),
+		withoutGlass: summarise(samples.withoutGlass),
+		withoutEnvironment: summarise(samples.withoutEnvironment),
+	};
 	await ctx.close();
 }
 

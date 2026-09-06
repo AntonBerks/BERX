@@ -2296,11 +2296,121 @@ function createFrame(width = 1, height = 1, bar = 0.12) {
   return { vertices: new Float32Array(v), indices: new Uint16Array(q) };
 }
 
+// packages/spatial-web/src/mediaTextures.ts
+var DEFAULT_BUDGET = 64;
+var BerxMediaTextureCache = class {
+  constructor(gl, options = {}) {
+    this.loaded = /* @__PURE__ */ new Map();
+    /** In flight, so a URI drawn every frame is requested once. */
+    this.pending = /* @__PURE__ */ new Set();
+    /** Failed, so a broken URL is not retried sixty times a second. */
+    this.failed = /* @__PURE__ */ new Set();
+    this.frame = 0;
+    this.alive = true;
+    this.gl = gl;
+    this.budget = Math.max(1, options.budget ?? DEFAULT_BUDGET);
+    this.onError = options.onError;
+  }
+  /** Called once per rendered frame, so eviction knows what is actually in use. */
+  beginFrame() {
+    this.frame++;
+  }
+  /**
+   * The texture for a URI if it is resident, starting a load if it is
+   * not. Returns undefined while loading and forever after a failure —
+   * the caller draws the material colour, which is what an object with
+   * no picture looks like.
+   */
+  get(uri) {
+    const hit = this.loaded.get(uri);
+    if (hit) {
+      hit.lastUsedFrame = this.frame;
+      return hit;
+    }
+    if (!this.pending.has(uri) && !this.failed.has(uri)) void this.load(uri);
+    return void 0;
+  }
+  async load(uri) {
+    this.pending.add(uri);
+    try {
+      const image = await decode(uri);
+      if (!this.alive) return;
+      const gl = this.gl;
+      const texture = gl.createTexture();
+      if (!texture) throw new Error("BERX 5D: texture allocation failed");
+      gl.bindTexture(gl.TEXTURE_2D, texture);
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
+      gl.generateMipmap(gl.TEXTURE_2D);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      const aniso = gl.getExtension("EXT_texture_filter_anisotropic");
+      if (aniso) {
+        const max = gl.getParameter(aniso.MAX_TEXTURE_MAX_ANISOTROPY_EXT);
+        gl.texParameterf(gl.TEXTURE_2D, aniso.TEXTURE_MAX_ANISOTROPY_EXT, Math.min(8, max));
+      }
+      gl.bindTexture(gl.TEXTURE_2D, null);
+      const height = image.height || 1;
+      this.loaded.set(uri, { texture, aspectRatio: (image.width || 1) / height, lastUsedFrame: this.frame });
+      this.evict();
+    } catch (error) {
+      this.failed.add(uri);
+      this.onError?.(uri, error);
+    } finally {
+      this.pending.delete(uri);
+    }
+  }
+  /** Least recently drawn go first, and only down to the budget. */
+  evict() {
+    if (this.loaded.size <= this.budget) return;
+    const byAge = [...this.loaded.entries()].sort((a, b) => a[1].lastUsedFrame - b[1].lastUsedFrame);
+    for (const [uri, entry] of byAge) {
+      if (this.loaded.size <= this.budget) break;
+      if (entry.lastUsedFrame === this.frame) continue;
+      this.gl.deleteTexture(entry.texture);
+      this.loaded.delete(uri);
+    }
+  }
+  /** How many textures are resident. Real, for a host that reports budgets. */
+  get residentCount() {
+    return this.loaded.size;
+  }
+  /**
+   * A lost context invalidates every handle. They are dropped rather
+   * than deleted: calling into a dead context is undefined, and the
+   * driver has already reclaimed the memory.
+   */
+  handleContextLost() {
+    this.loaded.clear();
+    this.pending.clear();
+    this.failed.clear();
+  }
+  dispose() {
+    this.alive = false;
+    for (const entry of this.loaded.values()) this.gl.deleteTexture(entry.texture);
+    this.loaded.clear();
+    this.pending.clear();
+    this.failed.clear();
+  }
+};
+function decode(uri) {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.crossOrigin = "anonymous";
+    image.decoding = "async";
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error(`BERX 5D: media failed to load (${uri})`));
+    image.src = uri;
+  });
+}
+
 // packages/spatial-web/src/threeRuntime.ts
 var V = `#version 300 es
-precision highp float;layout(location=0)in vec3 p;layout(location=1)in vec3 n;uniform mat4 P,V,M;out vec3 N,W;void main(){vec4 w=M*vec4(p,1.);W=w.xyz;N=mat3(M)*n;gl_Position=P*V*w;}`;
+precision highp float;layout(location=0)in vec3 p;layout(location=1)in vec3 n;uniform mat4 P,V,M;out vec3 N,W,L,LN;void main(){vec4 w=M*vec4(p,1.);W=w.xyz;N=mat3(M)*n;L=p;LN=n;gl_Position=P*V*w;}`;
 var F = `#version 300 es
-precision highp float;in vec3 N,W;uniform vec3 B,E;uniform float ES,ME,R,O;out vec4 C;void main(){vec3 n=normalize(N),k=normalize(vec3(.45,.72,.9));float d=max(dot(n,k),0.),s=pow(max(dot(reflect(-k,n),normalize(-W)),0.),mix(64.,8.,R));vec3 lit=B*(.16+d*.72)+B*s*(.12+ME*.42)+E*ES;C=vec4(lit,clamp(O,.02,1.));}`;
+precision highp float;in vec3 N,W,L,LN;uniform vec3 B,E;uniform float ES,ME,R,O,HT;uniform vec4 TS;uniform sampler2D TEX;out vec4 C;void main(){vec3 n=normalize(N),k=normalize(vec3(.45,.72,.9));float d=max(dot(n,k),0.),s=pow(max(dot(reflect(-k,n),normalize(-W)),0.),mix(64.,8.,R));vec3 base=B;if(HT>.5&&normalize(LN).z>.5){vec2 uv=(L.xy/TS.xy)*.5*TS.zw+.5;if(uv.x>=0.&&uv.x<=1.&&uv.y>=0.&&uv.y<=1.)base=texture(TEX,uv).rgb;}vec3 lit=base*(.16+d*.72)+base*s*(.12+ME*.42)+E*ES;C=vec4(lit,clamp(O,.02,1.));}`;
 function shader(gl, t, s) {
   const x = gl.createShader(t);
   if (!x) throw Error("BERX 5D shader allocation failed");
@@ -2398,7 +2508,12 @@ function gpuMesh(gl, mesh) {
   gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo);
   gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, mesh.indices, gl.STATIC_DRAW);
   gl.bindVertexArray(null);
-  return { vao, vbo, ibo, count: mesh.indices.length };
+  let halfX = 0, halfY = 0;
+  for (let i = 0; i < mesh.vertices.length; i += 6) {
+    halfX = Math.max(halfX, Math.abs(mesh.vertices[i]));
+    halfY = Math.max(halfY, Math.abs(mesh.vertices[i + 1]));
+  }
+  return { vao, vbo, ibo, count: mesh.indices.length, halfX: halfX || 0.5, halfY: halfY || 0.5 };
 }
 function meshFor(kind) {
   switch (kind) {
@@ -2423,11 +2538,13 @@ function meshFor(kind) {
   }
 }
 var BerxThreeRuntimeRenderer = class {
-  constructor(canvas) {
+  constructor(canvas, options = {}) {
     this.kind = "webgl2";
     /* what this backend really does, and nothing it does not */
     this.capabilities = { perspective: true, depthBuffer: true, physicallyLitMaterials: false, shadows: false, postProcessing: false };
     this.meshes = /* @__PURE__ */ new Map();
+    /** objectId -> the one media URI drawn on its face */
+    this.media = /* @__PURE__ */ new Map();
     this.width = 1;
     this.height = 1;
     const gl = canvas.getContext("webgl2", { antialias: true, alpha: false, depth: true, powerPreference: "high-performance" });
@@ -2443,6 +2560,10 @@ var BerxThreeRuntimeRenderer = class {
     this.ME = gl.getUniformLocation(this.program, "ME");
     this.R = gl.getUniformLocation(this.program, "R");
     this.O = gl.getUniformLocation(this.program, "O");
+    this.HT = gl.getUniformLocation(this.program, "HT");
+    this.TS = gl.getUniformLocation(this.program, "TS");
+    this.TEX = gl.getUniformLocation(this.program, "TEX");
+    this.textures = new BerxMediaTextureCache(gl, { budget: options.textureBudget, onError: options.onMediaError });
     gl.enable(gl.DEPTH_TEST);
     gl.enable(gl.CULL_FACE);
     gl.enable(gl.BLEND);
@@ -2478,6 +2599,9 @@ var BerxThreeRuntimeRenderer = class {
     });
     const blended = visible.filter((o) => o.material.opacity < 1).sort((a, b) => distance(b) - distance(a));
     const ordered = [...opaque, ...blended];
+    this.textures.beginFrame();
+    gl.activeTexture(gl.TEXTURE0);
+    gl.uniform1i(this.TEX, 0);
     for (const o of ordered.slice(0, max)) {
       const spec = geometryForEntity(o.kind), presentation = presentationForKind(o.kind, o), mesh = this.getMesh(spec.kind);
       gl.bindVertexArray(mesh.vao);
@@ -2488,9 +2612,38 @@ var BerxThreeRuntimeRenderer = class {
       gl.uniform1f(this.ME, o.material.metalness);
       gl.uniform1f(this.R, o.material.roughness);
       gl.uniform1f(this.O, o.material.opacity);
+      const uri = this.media.get(o.id), loaded = uri ? this.textures.get(uri) : void 0;
+      if (loaded) {
+        gl.bindTexture(gl.TEXTURE_2D, loaded.texture);
+        gl.uniform1f(this.HT, 1);
+        const face = mesh.halfX / mesh.halfY, fit = loaded.aspectRatio / face;
+        gl.uniform4f(this.TS, mesh.halfX, mesh.halfY, fit > 1 ? 1 / fit : 1, fit > 1 ? 1 : fit);
+      } else gl.uniform1f(this.HT, 0);
       gl.drawElements(gl.TRIANGLES, mesh.count, gl.UNSIGNED_SHORT, 0);
     }
     gl.bindVertexArray(null);
+    gl.bindTexture(gl.TEXTURE_2D, null);
+  }
+  /**
+   * The media an object carries, from the mapping layer.
+   *
+   * One picture per object: these forms have one face that points at
+   * the viewer, and a second image on it would have nowhere to go.
+   * Passing no surfaces removes whatever was there — the object returns
+   * to its material colour rather than keeping a stale photograph.
+   */
+  setObjectMedia(objectId, surfaces) {
+    const first = surfaces[0]?.uri;
+    if (first) this.media.set(objectId, first);
+    else this.media.delete(objectId);
+  }
+  /** Everything the world no longer holds stops being drawn or cached. */
+  forgetObjectMedia(objectId) {
+    this.media.delete(objectId);
+  }
+  /** How many textures are resident. Real, for a host that reports budgets. */
+  get residentTextureCount() {
+    return this.textures.residentCount;
   }
   /** `x`/`y` are in backing-store pixels, the same space the frame was drawn in. */
   pick(frame, x, y) {
@@ -2508,6 +2661,8 @@ var BerxThreeRuntimeRenderer = class {
   dispose() {
     const gl = this.gl;
     this.releaseMeshes();
+    this.textures.dispose();
+    this.media.clear();
     gl.deleteProgram(this.program);
     gl.getExtension("WEBGL_lose_context")?.loseContext();
   }
@@ -2528,6 +2683,7 @@ var BerxThreeRuntimeRenderer = class {
    */
   handleContextLost() {
     this.meshes.clear();
+    this.textures.handleContextLost();
   }
 };
 
@@ -2582,7 +2738,7 @@ function createBerx5DWebHost(options = {}) {
   const motionQuery = typeof matchMedia === "function" ? matchMedia("(prefers-reduced-motion: reduce)") : void 0;
   let reducedMotion = options.reducedMotion ?? prefersReducedMotion();
   const runtime = new Berx5DRuntime({ reducedMotion, deviceMotionEnabled: options.deviceMotion !== false });
-  const renderer = new BerxThreeRuntimeRenderer(canvas);
+  const renderer = new BerxThreeRuntimeRenderer(canvas, { textureBudget: options.textureBudget, onMediaError: options.onMediaError });
   const pixelRatioCap = Math.max(1, options.pixelRatioCap ?? 2);
   let quality = { quality: "balanced", pixelRatio: 1, maxObjects: 80, ambientMotion: true };
   let raf = 0;
@@ -2809,11 +2965,13 @@ function createBerx5DWebHost(options = {}) {
     get contextAlive() {
       return contextAlive;
     },
-    addObject: (object) => {
+    addObject: (object, media) => {
       runtime.registerObject(object);
+      renderer.setObjectMedia(object.id, media ?? []);
     },
     removeObject: (id) => {
       runtime.removeObject(id);
+      renderer.forgetObjectMedia(id);
     },
     focus: (id) => {
       const ok = runtime.focus(id);
@@ -2864,6 +3022,7 @@ export {
   BERX_DEPTH_KEYS,
   BERX_MAX_TILT_DEG,
   BERX_SPATIAL_QUALITY_ORDER,
+  BerxMediaTextureCache,
   BerxThreeRuntimeRenderer,
   atmosphereBackground,
   atmosphereCustomProperties,

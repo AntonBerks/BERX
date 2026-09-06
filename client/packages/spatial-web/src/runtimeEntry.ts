@@ -4,3 +4,4 @@ export * from './runtimeHost5d';
 export * from './threeRuntime';
 export * from './primitiveGeometry';
 export * from './runtimeQuality';
+export * from './mediaTextures';

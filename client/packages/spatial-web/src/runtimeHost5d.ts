@@ -39,6 +39,10 @@ export interface Berx5DWebHostOptions {
 	onFocusChange?: (object: BerxSpatialObject | undefined) => void;
 	/** Called when the GPU context is lost or restored, so a shell can say so. */
 	onContextChange?: (state: 'lost' | 'restored') => void;
+	/** How many media textures may be resident at once. */
+	textureBudget?: number;
+	/** A real media URL that would not load. Reported, never substituted. */
+	onMediaError?: (uri: string, error: unknown) => void;
 }
 
 export interface Berx5DWebHost {
@@ -48,7 +52,12 @@ export interface Berx5DWebHost {
 	readonly quality: BerxSpatialQualityResult;
 	/** False while the GPU context is lost; the world state survives. */
 	readonly contextAlive: boolean;
-	addObject(object: BerxSpatialObject): void;
+	/**
+	 * `media` is whatever the mapping layer produced for this object —
+	 * real URIs the server sent, and nothing when it sent none. The
+	 * structural shape keeps this package independent of @berx/scenes.
+	 */
+	addObject(object: BerxSpatialObject, media?: readonly {uri: string}[]): void;
 	removeObject(id: string): void;
 	focus(id: string): boolean;
 	enterWorld(id: string, sourceRoute?: string, destination?: {x: number; y: number; z: number}): void;
@@ -108,7 +117,7 @@ export function createBerx5DWebHost(options: Berx5DWebHostOptions = {}): Berx5DW
 	const motionQuery = typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : undefined;
 	let reducedMotion = options.reducedMotion ?? prefersReducedMotion();
 	const runtime = new Berx5DRuntime({reducedMotion, deviceMotionEnabled: options.deviceMotion !== false});
-	const renderer = new BerxThreeRuntimeRenderer(canvas);
+	const renderer = new BerxThreeRuntimeRenderer(canvas, {textureBudget: options.textureBudget, onMediaError: options.onMediaError});
 	const pixelRatioCap = Math.max(1, options.pixelRatioCap ?? 2);
 
 	let quality: BerxSpatialQualityResult = {quality: 'balanced', pixelRatio: 1, maxObjects: 80, ambientMotion: true};
@@ -376,11 +385,15 @@ export function createBerx5DWebHost(options: Berx5DWebHostOptions = {}): Berx5DW
 		get contextAlive() {
 			return contextAlive;
 		},
-		addObject: (object) => {
+		addObject: (object, media) => {
 			runtime.registerObject(object);
+			renderer.setObjectMedia(object.id, media ?? []);
 		},
 		removeObject: (id) => {
 			runtime.removeObject(id);
+			/* an object that has left the world must stop holding a
+			   texture open, or a long session leaks one per thing seen */
+			renderer.forgetObjectMedia(id);
 		},
 		focus: (id) => {
 			const ok = runtime.focus(id);
