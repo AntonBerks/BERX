@@ -166,12 +166,38 @@ const contrast = (a, b) => {
 };
 const parseRgb = (s) => (s.match(/[\d.]+/g) ?? [0, 0, 0]).slice(0, 3).map(Number);
 
-async function openPage({width, height, reducedMotion}) {
+/**
+ * A capable desktop, declared rather than inherited.
+ *
+ * BERX picks its performance tier from real capability signals — core
+ * count and deviceMemory — and on the low tier it deliberately turns
+ * off parallax, tilt and 3D. That is correct behaviour, and it means
+ * the machine running the probe decides which BERX code path is under
+ * test. A two-core CI runner resolved the low tier, so five gates
+ * asserting the full spatial contract failed against a runtime that
+ * was right to have switched those effects off.
+ *
+ * The same reasoning already applies to frame rate here: the machine's
+ * own ceiling is measured separately so a container change cannot read
+ * as a BERX regression. Capability is measured the same way now —
+ * declared, so every gate below tests the path it is actually about.
+ * The low-tier section further down builds its own context and
+ * declares two cores and 2GB, so the degradation path stays covered by
+ * its own real assertions.
+ */
+const CAPABLE_DESKTOP = {hardwareConcurrency: 8, deviceMemory: 8};
+
+async function openPage({width, height, reducedMotion, capability = CAPABLE_DESKTOP}) {
 	const ctx = await browser.newContext({
 		viewport: {width, height},
 		reducedMotion: reducedMotion ? 'reduce' : 'no-preference',
 		deviceScaleFactor: 2,
 	});
+	/* before any document script runs, so the runtime reads it at mount */
+	await ctx.addInitScript((signals) => {
+		Object.defineProperty(navigator, 'hardwareConcurrency', {get: () => signals.hardwareConcurrency, configurable: true});
+		Object.defineProperty(navigator, 'deviceMemory', {get: () => signals.deviceMemory, configurable: true});
+	}, capability);
 	const page = await ctx.newPage();
 	page.on('pageerror', (e) => findings.push({scope: 'page', message: `uncaught: ${e.message}`}));
 	page.on('console', (m) => {
