@@ -15,3 +15,4 @@ export * from './world';
 export * from './spatialCamera';
 export * from './runtime5d';
 export * from './renderer';
+export * from './picking';
