@@ -1,0 +1,12 @@
+{
+	"name": "@berx/spatial",
+	"version": "0.1.0",
+	"private": true,
+	"exports": {
+		".": "./src/index.ts",
+		"./*": "./src/*"
+	},
+	"sideEffects": false,
+	"main": "./src/index.ts",
+	"types": "./src/index.ts"
+}

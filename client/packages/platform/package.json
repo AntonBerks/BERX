@@ -1,0 +1,11 @@
+{
+	"name": "@berx/platform",
+	"version": "0.1.0",
+	"private": true,
+	"exports": {
+		"./mediaPicker": "./src/mediaPicker.ts",
+		"./audioPicker": "./src/audioPicker.ts",
+		"./*": "./src/*"
+	},
+	"sideEffects": false
+}

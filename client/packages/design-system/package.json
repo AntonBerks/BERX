@@ -1,0 +1,10 @@
+{
+	"name": "@berx/design-system",
+	"version": "0.1.0",
+	"private": true,
+	"exports": {
+		"./tokens": "./src/tokens/index.ts",
+		"./*": "./src/*"
+	},
+	"sideEffects": false
+}

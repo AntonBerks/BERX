@@ -1235,21 +1235,6 @@ function resolveFocus(input) {
   };
 }
 
-// packages/spatial/src/typography.ts
-var SCALE = {
-  display: { fontSize: 34, lineHeight: 1.1, fontWeight: "800", letterSpacing: -0.6, textTransform: "none", plane: "D3", emphasis: "primary" },
-  title: { fontSize: 24, lineHeight: 1.18, fontWeight: "700", letterSpacing: -0.35, textTransform: "none", plane: "D3", emphasis: "primary" },
-  heading: { fontSize: 20, lineHeight: 1.25, fontWeight: "700", letterSpacing: -0.2, textTransform: "none", plane: "D3", emphasis: "primary" },
-  subtitle: { fontSize: 17, lineHeight: 1.3, fontWeight: "600", letterSpacing: -0.1, textTransform: "none", plane: "D3", emphasis: "secondary" },
-  body: { fontSize: 15, lineHeight: 1.5, fontWeight: "400", letterSpacing: 0, textTransform: "none", plane: "D3", emphasis: "primary" },
-  callout: { fontSize: 15, lineHeight: 1.4, fontWeight: "600", letterSpacing: 0, textTransform: "none", plane: "D3", emphasis: "primary" },
-  label: { fontSize: 13, lineHeight: 1.2, fontWeight: "600", letterSpacing: 0.4, textTransform: "none", plane: "D4", emphasis: "primary" },
-  meta: { fontSize: 13, lineHeight: 1.35, fontWeight: "400", letterSpacing: 0.1, textTransform: "none", plane: "D3", emphasis: "secondary" },
-  micro: { fontSize: 11, lineHeight: 1.2, fontWeight: "700", letterSpacing: 1.2, textTransform: "uppercase", plane: "D4", emphasis: "tertiary" },
-  numeric: { fontSize: 20, lineHeight: 1.1, fontWeight: "700", letterSpacing: -0.2, textTransform: "none", plane: "D3", emphasis: "primary" }
-};
-var BERX_TYPE_ROLES = Object.keys(SCALE);
-
 // packages/spatial/src/scene.ts
 function materialForDepth(depth, sceneMaterial) {
   switch (depth) {
