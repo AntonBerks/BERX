@@ -7,3 +7,5 @@ export * from './registry';
 export * from './dataBindings';
 export * from './componentMap';
 export * from './resolve';
+export * from './spatialMapping';
+export * from './spatialMappingAssertions';

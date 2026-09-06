@@ -5,7 +5,9 @@
   "exports": {
     ".": "./src/index.ts",
     "./runtime5d": "./src/runtimeHost5d.ts",
-    "./webgl2": "./src/webgl2Renderer.ts"
+    "./threeRuntime": "./src/threeRuntime.ts",
+    "./runtimeQuality": "./src/runtimeQuality.ts",
+    "./primitiveGeometry": "./src/primitiveGeometry.ts"
   },
   "sideEffects": false,
   "main": "./src/index.ts",
