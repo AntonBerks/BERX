@@ -19,5 +19,6 @@ export * from './renderer';
 export * from './spatialInteraction';
 export * from './socialActions';
 export * from './spatialAffordances';
-export { type BerxSpatialPresentation, presentationForKind } from './geometry';
+export * from './geometry';
+export * from './spatialPresentation';
 export * from './mediaSurface';
