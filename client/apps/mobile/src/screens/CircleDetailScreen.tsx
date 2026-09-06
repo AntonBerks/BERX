@@ -12,6 +12,9 @@ import type {BerxApiClient} from '@berx/api/client';
 import type {BerxCircleDetail, BerxCircleMember, BerxFriend} from '@berx/api/types';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
+import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
+import {BerxActionShelf} from '../../../../packages/design-system/src/spatial/BerxActionShelf';
+import {BerxConfirm} from '../../../../packages/design-system/src/spatial/BerxConfirm';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxSpatialCard} from '../../../../packages/design-system/src/spatial/BerxSpatialCard';
 import {useBerxScene} from '../../../../packages/design-system/src/spatial/BerxSpatialScene';
@@ -41,6 +44,7 @@ function CircleDetailScreenBody({api, id, onBack}: CircleDetailScreenProps) {
 	   state, not a server error — the difference is the whole point */
 	const {offline} = useBerxConnectivity();
 	/* a 403 or a 404 is not transient; a Retry button there is a lie */
+	const [confirmDelete, setConfirmDelete] = useState(false);
 	const [retryable, setRetryable] = useState(true);
 	/* the rule between two entries is the structure plane's own edge:
 	   a fixed grey hairline belongs to no plane and does not change
@@ -108,6 +112,12 @@ function CircleDetailScreenBody({api, id, onBack}: CircleDetailScreenProps) {
 	   the data had arrived, so an error left the person on a screen with
 	   no exit — the dead end the archive forbids, on a screen reached by
 	   a push. The name arrives when the data does. */
+	async function removeIt() {
+		await api.deleteCircle(id);
+		/* only once the server has confirmed it is gone */
+		onBack?.();
+	}
+
 	const header = <BerxHeader title={circle?.name} onBack={onBack} />;
 
 	if (loading)
@@ -194,6 +204,28 @@ function CircleDetailScreenBody({api, id, onBack}: CircleDetailScreenProps) {
 					)}
 				/>
 			)}
+
+				{/* The owner can take it down. `deleteCircle` is real and
+				    ownership-checked on the server, and no screen in BERX
+				    called it — you could make one of these and never remove
+				    it. */}
+				{/* No owner test: /circles is caller-scoped, so a circle you
+				    can open is a circle you own. The server re-checks
+				    ownership on delete regardless. */}
+				<BerxActionShelf variant="anchored" align="stack">
+					<BerxButton label="Удалить круг" variant="danger" onPress={() => setConfirmDelete(true)} fullWidth />
+				</BerxActionShelf>
+
+				<BerxConfirm
+					visible={confirmDelete}
+					title={`Удалить «${circle.name}»?`}
+					body="Круг исчезнет. Люди из него останутся вашими друзьями — пропадёт только этот список."
+					confirmLabel="Удалить"
+					destructive
+					onConfirm={removeIt}
+					onCancel={() => setConfirmDelete(false)}
+					testID="circle-delete-confirm"
+				/>
 		</View>
 	);
 }

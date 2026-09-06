@@ -13,6 +13,9 @@ import type {BerxApiClient} from '@berx/api/client';
 import type {BerxCollectionDetail, BerxCollectionItem} from '@berx/api/types';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
+import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
+import {BerxActionShelf} from '../../../../packages/design-system/src/spatial/BerxActionShelf';
+import {BerxConfirm} from '../../../../packages/design-system/src/spatial/BerxConfirm';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxSpatialCard} from '../../../../packages/design-system/src/spatial/BerxSpatialCard';
 import {BerxFamilyScene, useBerxSceneAtmosphere} from '../spatial/BerxScreenScene';
@@ -50,6 +53,7 @@ function CollectionDetailScreenBody({api, id, onOpenPlace, onOpenEvent, onOpenPo
 	   state, not a server error — the difference is the whole point */
 	const {offline} = useBerxConnectivity();
 	/* a 403 or a 404 is not transient; a Retry button there is a lie */
+	const [confirmDelete, setConfirmDelete] = useState(false);
 	const [retryable, setRetryable] = useState(true);
 	const [collection, setCollection] = useState<BerxCollectionDetail | null>(null);
 	const [loading, setLoading] = useState(true);
@@ -105,6 +109,12 @@ function CollectionDetailScreenBody({api, id, onOpenPlace, onOpenEvent, onOpenPo
 	   the data had arrived, so an error left the person on a screen with
 	   no exit — the dead end the archive forbids, on a screen reached by
 	   a push. The name arrives when the data does. */
+	async function removeIt() {
+		await api.deleteCollection(id);
+		/* only once the server has confirmed it is gone */
+		onBack?.();
+	}
+
 	const header = <BerxHeader title={collection?.title} onBack={onBack} />;
 
 	if (loading)
@@ -160,6 +170,27 @@ function CollectionDetailScreenBody({api, id, onOpenPlace, onOpenEvent, onOpenPo
 					)}
 				/>
 			)}
+
+				{/* The owner can take it down. `deleteCollection` is real and
+				    ownership-checked on the server, and no screen in BERX
+				    called it — you could make one of these and never remove
+				    it. */}
+				{collection.is_own ? (
+					<BerxActionShelf variant="anchored" align="stack">
+						<BerxButton label="Удалить подборку" variant="danger" onPress={() => setConfirmDelete(true)} fullWidth />
+					</BerxActionShelf>
+				) : null}
+
+				<BerxConfirm
+					visible={confirmDelete}
+					title={`Удалить «${collection.title}»?`}
+					body="Подборка исчезнет вместе со всем, что вы в неё добавили. Сами места, события и посты останутся."
+					confirmLabel="Удалить"
+					destructive
+					onConfirm={removeIt}
+					onCancel={() => setConfirmDelete(false)}
+					testID="collection-delete-confirm"
+				/>
 		</View>
 	);
 }

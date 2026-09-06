@@ -16,6 +16,7 @@ import {BerxHeader} from '../../../../packages/design-system/src/components/Berx
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxActionShelf} from '../../../../packages/design-system/src/spatial/BerxActionShelf';
+import {BerxConfirm} from '../../../../packages/design-system/src/spatial/BerxConfirm';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 import {BerxSceneHero} from '../../../../packages/design-system/src/spatial/BerxSceneHero';
 import {BerxText} from '../../../../packages/design-system/src/spatial/BerxText';
@@ -42,6 +43,7 @@ export default function CommunityDetailScreen(props: CommunityDetailScreenProps)
 
 function CommunityDetailScreenBody({api, guid, myGuid, onBack, onOpenRequests, onOpenModerators, onOpenMembers, onReport}: CommunityDetailScreenProps) {
 	const [community, setCommunity] = useState<BerxCommunity | null>(null);
+	const [confirmDelete, setConfirmDelete] = useState(false);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 	const [acting, setActing] = useState(false);
@@ -77,6 +79,12 @@ function CommunityDetailScreenBody({api, guid, myGuid, onBack, onOpenRequests, o
 		} finally {
 			setActing(false);
 		}
+	}
+
+	async function removeIt() {
+		await api.deleteCommunity(guid);
+		/* only once the server has confirmed it is gone */
+		onBack?.();
 	}
 
 	if (loading) {
@@ -149,8 +157,22 @@ function CommunityDetailScreenBody({api, guid, myGuid, onBack, onOpenRequests, o
 					<BerxActionShelf variant="anchored" align="stack" style={styles.ownerActions}>
 						{onOpenRequests ? <BerxButton label="Заявки на вступление" variant="secondary" onPress={() => onOpenRequests(guid)} fullWidth /> : null}
 						{onOpenModerators ? <BerxButton label="Модераторы" variant="secondary" onPress={() => onOpenModerators(guid)} fullWidth /> : null}
+						{/* the owner can take it down. `deleteCommunity` is real
+						    and ownership-checked, and nothing in BERX called it. */}
+						<BerxButton label="Удалить сообщество" variant="danger" onPress={() => setConfirmDelete(true)} fullWidth />
 					</BerxActionShelf>
 				) : null}
+
+				<BerxConfirm
+					visible={confirmDelete}
+					title={`Удалить «${community.name}»?`}
+					body="Сообщество исчезнет вместе со всеми участниками, заявками и модераторами. Это нельзя отменить."
+					confirmLabel="Удалить"
+					destructive
+					onConfirm={removeIt}
+					onCancel={() => setConfirmDelete(false)}
+					testID="community-delete-confirm"
+				/>
 
 				{myGuid && community.owner_guid !== myGuid && onReport ? (
 					<Pressable

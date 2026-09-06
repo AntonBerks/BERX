@@ -11,6 +11,8 @@ import type {BerxExperienceDetail, BerxExperienceParticipant, BerxFriend} from '
 import {sharedElementTag} from '@berx/spatial';
 import {colors, spacing, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
+import {BerxActionShelf} from '../../../../packages/design-system/src/spatial/BerxActionShelf';
+import {BerxConfirm} from '../../../../packages/design-system/src/spatial/BerxConfirm';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxSpatialCard} from '../../../../packages/design-system/src/spatial/BerxSpatialCard';
@@ -50,6 +52,7 @@ function ExperienceDetailScreenBody({api, id, onOpenPlace, onOpenEvent, onBack}:
 	   state, not a server error — the difference is the whole point */
 	const {offline} = useBerxConnectivity();
 	/* a 403 or a 404 is not transient; a Retry button there is a lie */
+	const [confirmDelete, setConfirmDelete] = useState(false);
 	const [retryable, setRetryable] = useState(true);
 	const [experience, setExperience] = useState<BerxExperienceDetail | null>(null);
 	const [friends, setFriends] = useState<BerxFriend[]>([]);
@@ -114,6 +117,12 @@ function ExperienceDetailScreenBody({api, id, onOpenPlace, onOpenEvent, onBack}:
 	/* hoisted: the way back has to survive loading and failure — it
 	   used to render only once the data arrived, so a failed fetch left
 	   a pushed screen with no exit */
+	async function removeIt() {
+		await api.deleteExperience(id);
+		/* only once the server has confirmed it is gone */
+		onBack?.();
+	}
+
 	const header = (
 		<BerxHeader onBack={onBack} />
 	);
@@ -243,6 +252,27 @@ function ExperienceDetailScreenBody({api, id, onOpenPlace, onOpenEvent, onBack}:
 					))}
 				</BerxSection>
 			</View>
+
+				{/* The owner can take it down. `deleteExperience` is real and
+				    ownership-checked on the server, and no screen in BERX
+				    called it — you could make one of these and never remove
+				    it. */}
+				{experience.is_own ? (
+					<BerxActionShelf variant="anchored" align="stack">
+						<BerxButton label="Удалить впечатление" variant="danger" onPress={() => setConfirmDelete(true)} fullWidth />
+					</BerxActionShelf>
+				) : null}
+
+				<BerxConfirm
+					visible={confirmDelete}
+					title={`Удалить «${experience.title}»?`}
+					body="Впечатление исчезнет вместе с приглашениями и ответами участников. Это нельзя отменить."
+					confirmLabel="Удалить"
+					destructive
+					onConfirm={removeIt}
+					onCancel={() => setConfirmDelete(false)}
+					testID="experience-delete-confirm"
+				/>
 			</BerxSceneScroll>
 		</View>
 	);

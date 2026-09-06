@@ -13,6 +13,8 @@ import type {BerxTripDetail, BerxTripStop, BerxTripParticipant, BerxFriend} from
 import {sharedElementTag} from '@berx/spatial';
 import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
+import {BerxActionShelf} from '../../../../packages/design-system/src/spatial/BerxActionShelf';
+import {BerxConfirm} from '../../../../packages/design-system/src/spatial/BerxConfirm';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxSpatialCard} from '../../../../packages/design-system/src/spatial/BerxSpatialCard';
 import {BerxFamilyScene, useBerxSceneAtmosphere} from '../spatial/BerxScreenScene';
@@ -77,6 +79,7 @@ function TripDetailScreenBody({api, id, onOpenPlace, onOpenEvent, onBack}: TripD
 	   state, not a server error — the difference is the whole point */
 	const {offline} = useBerxConnectivity();
 	/* a 403 or a 404 is not transient; a Retry button there is a lie */
+	const [confirmDelete, setConfirmDelete] = useState(false);
 	const [retryable, setRetryable] = useState(true);
 	const [trip, setTrip] = useState<BerxTripDetail | null>(null);
 	const [friends, setFriends] = useState<BerxFriend[]>([]);
@@ -138,6 +141,12 @@ function TripDetailScreenBody({api, id, onOpenPlace, onOpenEvent, onBack}: TripD
 	/* hoisted: the way back has to survive loading and failure — it
 	   used to render only once the data arrived, so a failed fetch left
 	   a pushed screen with no exit */
+	async function removeIt() {
+		await api.deleteTrip(id);
+		/* only once the server has confirmed it is gone */
+		onBack?.();
+	}
+
 	const header = (
 		<BerxHeader onBack={onBack} />
 	);
@@ -278,6 +287,27 @@ function TripDetailScreenBody({api, id, onOpenPlace, onOpenEvent, onBack}: TripD
 					)}
 				/>
 			)}
+
+				{/* The owner can take it down. `deleteTrip` is real and
+				    ownership-checked on the server, and no screen in BERX
+				    called it — you could make one of these and never remove
+				    it. */}
+				{trip.is_own ? (
+					<BerxActionShelf variant="anchored" align="stack">
+						<BerxButton label="Удалить поездку" variant="danger" onPress={() => setConfirmDelete(true)} fullWidth />
+					</BerxActionShelf>
+				) : null}
+
+				<BerxConfirm
+					visible={confirmDelete}
+					title={`Удалить «${trip.title}»?`}
+					body="Поездка исчезнет вместе со всеми остановками и участниками. Это нельзя отменить."
+					confirmLabel="Удалить"
+					destructive
+					onConfirm={removeIt}
+					onCancel={() => setConfirmDelete(false)}
+					testID="trip-delete-confirm"
+				/>
 		</View>
 	);
 }
