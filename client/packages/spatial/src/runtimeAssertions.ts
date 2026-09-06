@@ -30,6 +30,7 @@ export function assertBerx5DRuntimeInvariants(): void {
   if (!runtime.canGoBack) throw new Error('5D invariant: world history was not retained');
   if (!runtime.back()) throw new Error('5D invariant: back navigation did not restore world');
   runtime.frame(0.02);
+  if (runtime.canGoBack !== false) throw new Error('5D invariant: back navigation left stale history');
   const restored = runtime.worldState.camera;
   if (Math.abs(restored.position.z - initial.position.z) > 2) throw new Error('5D invariant: back camera drifted beyond expected tolerance');
   if (!runtime.latestFrame.world.objects.some((object) => object.id === person.id)) throw new Error('5D invariant: world object was lost');
