@@ -65,11 +65,14 @@ export function classifyFailure(error: unknown, offline = false): BerxFailure {
 		return {
 			kind,
 			/**
-			 * Forbidden renders as `disabled`, not `error`: the screen is
-			 * working correctly and the action simply is not available to
-			 * this person. A retry button there is a lie.
+			 * Forbidden renders as `private`, not `error` and not
+			 * `disabled`. Nothing failed and nothing is switched off: the
+			 * resource is real, working, and not this viewer's to see.
+			 * `disabled` — where this used to land — says the control is
+			 * off, about an object that is fine. A retry button on either
+			 * is a lie, which is why neither offers one.
 			 */
-			state: kind === 'forbidden' ? 'disabled' : 'error',
+			state: kind === 'forbidden' ? 'private' : 'error',
 			/* the server's own message wins when it gave one worth showing */
 			message: error.message && error.message !== error.code ? error.message : MESSAGE[kind],
 			retryable: kind !== 'forbidden' && kind !== 'notFound',

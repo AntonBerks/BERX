@@ -9,14 +9,12 @@
 
 import {View, StyleSheet} from 'react-native';
 import {spacing} from '@berx/design-system/tokens';
-import {BerxIcon} from '../../../../../packages/design-system/src/icons';
-import {BerxGlassSurface} from '../../../../../packages/design-system/src/components/BerxGlassSurface';
 import {BerxEyebrow} from '../../../../../packages/design-system/src/components/BerxBusinessPrimitives';
 import {BerxFamilyScene} from '../../spatial/BerxScreenScene';
 import {BerxHeader} from '../../../../../packages/design-system/src/components/BerxHeader';
-import {BerxButton} from '../../../../../packages/design-system/src/components/BerxButton';
 import {BerxText} from '../../../../../packages/design-system/src/spatial/BerxText';
 import {BerxSceneScroll} from '../../../../../packages/design-system/src/spatial/BerxSceneScroll';
+import {BerxDataBoundary} from '../../../../../packages/design-system/src/spatial/BerxDataBoundary';
 
 export interface BusinessProductsScreenProps {
 	onBack?: () => void;
@@ -42,17 +40,21 @@ function BusinessProductsScreenBody({onBack}: BusinessProductsScreenProps) {
 				<BerxText role="title">Товары и услуги</BerxText>
 				<BerxEyebrow>Каталог</BerxEyebrow>
 
-				<BerxGlassSurface elevated style={styles.emptyCard}>
-					{/* the set's own mark, at the size the empty state carries it.
-					    A typographic dingbat is whatever the platform font decides
-					    it is, at whatever weight, in whatever colour. */}
-					<BerxIcon name="tag" size={30} state="active" decorative />
-					<BerxText role="heading">Каталога пока нет</BerxText>
-					<BerxText role="meta" emphasis="tertiary" style={styles.emptySubtitle}>
-						Здесь появятся товары и услуги вашего бизнеса — с ценами, фото и описанием. Эта функция ещё не подключена к реальным данным BERX.
-					</BerxText>
-					<BerxButton label="Добавить позицию" variant="secondary" disabled fullWidth />
-				</BerxGlassSurface>
+				{/* Not an empty list — there is no list. BERX has no such
+				    resource on the server, so this is the `unsupported`
+				    state, which names the missing capability instead of
+				    describing a feature as though it were nearly here. The
+				    disabled "add" button that used to sit under this text
+				    went with it: a control that can never work is an orphan
+				    action, and offering one is how a gap starts looking like
+				    a feature. */}
+				<BerxDataBoundary
+					state="unsupported"
+					unsupportedTitle="Каталога пока нет"
+					unsupportedReason="В BERX нет ресурса каталога: ни таблицы ossn_products, ни эндпойнта /api/v1/products. Пока его не существует на сервере, показывать здесь позиции было бы выдумкой, а кнопка «добавить» вела бы в никуда."
+					testID="capability-boundary">
+					{null}
+				</BerxDataBoundary>
 			</BerxSceneScroll>
 		</View>
 	);
@@ -62,6 +64,4 @@ const styles = StyleSheet.create({
 	scrollBody: {paddingBottom: 48},
 	/* no opaque fill: the scene paints the room this screen stands in */
 	screen: {flex: 1, padding: spacing.lg, gap: spacing.md},
-	emptyCard: {alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.xxl},
-	emptySubtitle: {textAlign: 'center', paddingHorizontal: spacing.md},
 });

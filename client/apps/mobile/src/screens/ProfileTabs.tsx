@@ -116,13 +116,17 @@ export function ProfileTabs({
 			return;
 		}
 		if ((tab === 'places' || tab === 'connections') && !isOwn) {
-			/* not an error and not empty: the API has no endpoint for
-			   another person's saved places or friends */
-			setState('disabled');
+			/* Not an error, not empty, and not disabled: BERX has no
+			   capability to read another person's saved places or
+			   friends — those endpoints are caller-scoped by design.
+			   `unsupported` is the one of the nine states that says
+			   exactly that, and it is what stops the tab from later
+			   being filled with something invented. */
+			setState('unsupported');
 			return;
 		}
 		if (tab === 'events') {
-			setState('disabled');
+			setState('unsupported');
 			return;
 		}
 		setState('loading');
@@ -182,9 +186,11 @@ export function ProfileTabs({
 				onRetry={load}
 				errorMessage={error ?? undefined}
 				emptyTitle={emptyTitleFor(tab, isOwn)}
-				disabledReason={disabledReasonFor(tab, isOwn)}
-				/* a 403-shaped absence: retrying cannot make an endpoint exist */
-				retryable={state !== 'disabled' && retryable}
+				unsupportedTitle={unsupportedTitleFor(tab)}
+				unsupportedReason={unsupportedReasonFor(tab, isOwn)}
+				/* retrying cannot make an endpoint exist, and cannot make a
+				   permission into one either */
+				retryable={state !== 'unsupported' && state !== 'private' && retryable}
 				style={styles.body}>
 				{tab === 'about' ? (
 					<BerxSpatialCard depth="D3" padding={spacing.lg} radius={18}>
@@ -297,7 +303,12 @@ function emptyTitleFor(tab: BerxProfileTab, isOwn: boolean): string {
  * able to tell whether BERX is hiding something or genuinely cannot
  * ask for it.
  */
-function disabledReasonFor(tab: BerxProfileTab, isOwn: boolean): string {
+function unsupportedTitleFor(tab: BerxProfileTab): string {
+	if (tab === 'events') return 'События по автору';
+	return tab === 'places' ? 'Чужие сохранённые места' : 'Чужой список друзей';
+}
+
+function unsupportedReasonFor(tab: BerxProfileTab, isOwn: boolean): string {
 	if (tab === 'events') {
 		return 'В API нет выборки событий по пользователю: /events — это общий поиск, а агрегация по автору есть только в расширении «Создатель».';
 	}

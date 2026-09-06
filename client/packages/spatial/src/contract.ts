@@ -34,6 +34,25 @@ export const BERX_FAMILIES = [
 
 export type BerxFamily = (typeof BERX_FAMILIES)[number];
 
+/**
+ * The states a whole surface can be in.
+ *
+ * Seven of these were here from the first v9 pass. Two were missing,
+ * and their absence made BERX say something untrue:
+ *
+ *   `private` — the thing exists and this viewer may not see it. It
+ *   was landing on `disabled`, which says "this control is switched
+ *   off" about a resource that is working perfectly and simply is not
+ *   theirs. Private is not missing, and a screen that conflates them
+ *   either invites a pointless retry or implies the object is gone.
+ *
+ *   `unsupported` — BERX cannot do this at all, because the capability
+ *   does not exist behind it. It was landing on `error`, or on a line
+ *   of prose each screen wrote for itself. Not-supported is not
+ *   failed: there is nothing to retry and nothing went wrong, and
+ *   saying so honestly is what keeps a missing capability from being
+ *   quietly faked.
+ */
 export const BERX_SCREEN_STATES = [
 	'default',
 	'loading',
@@ -42,6 +61,8 @@ export const BERX_SCREEN_STATES = [
 	'success',
 	'disabled',
 	'offline',
+	'private',
+	'unsupported',
 ] as const;
 
 export type BerxScreenState = (typeof BERX_SCREEN_STATES)[number];

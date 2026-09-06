@@ -304,6 +304,11 @@ const PLANE_COMPONENTS = [
 	   is not flat — see BerxTrackCard / BerxVideoCard */
 	'BerxTrackCard',
 	'BerxVideoCard',
+	/* a screen whose whole content is a state — an honest capability
+	   boundary, an empty, an error — puts that state on the structure
+	   plane through BoundaryCard, so it stands in the room like any
+	   other object */
+	'BerxDataBoundary',
 ];
 const planelessScreens = walkTsx(screensDir)
 	.filter((file) => {

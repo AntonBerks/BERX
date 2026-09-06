@@ -39,6 +39,7 @@ import {
 	BERX_MAX_TILT_DEG,
 	type BerxDeviceSignals,
 	type BerxMaterialName,
+	BERX_SCREEN_STATES,
 } from '@berx/spatial';
 import {
 	BERX_COMPONENT_BINDINGS,
@@ -379,12 +380,16 @@ export function runProbe(): ProbeReport {
 				}
 				if (c.screenId === 'BERX-031') sampleA = screen;
 				if (c.screenId === 'BERX-121') sampleB = screen;
-				/* every scene must carry the full v9 state set unless it genuinely has no data */
-				if (screen.dataMode !== 'dataless' && screen.states.length !== 7) {
+				/* Every scene must carry the full state set unless it
+				   genuinely has no data. The count is read from the set
+				   itself: it was frozen at 7 here, so adding `private` and
+				   `unsupported` to the model made every screen look wrong
+				   while every screen was in fact correct. */
+				if (screen.dataMode !== 'dataless' && screen.states.length !== BERX_SCREEN_STATES.length) {
 					findings.push({
 						severity: 'error',
 						scope: `states:${c.screenId}`,
-						message: `${screen.states.length} states declared, expected the full 7`,
+						message: `${screen.states.length} states declared, expected all ${BERX_SCREEN_STATES.length}`,
 					});
 				}
 			}

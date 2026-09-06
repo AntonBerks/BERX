@@ -21,6 +21,7 @@ import {useBerxScene} from './BerxSpatialScene';
 import {BerxSurface} from './BerxSurface';
 import {colors, spacing} from '../tokens';
 import {BerxText} from './BerxText';
+import {BerxIcon} from '../icons';
 
 export interface BerxDataBoundaryProps {
 	state: BerxScreenState;
@@ -34,6 +35,18 @@ export interface BerxDataBoundaryProps {
 	onRetry?: () => void;
 	/** Why the screen is disabled — a reason the user can act on. */
 	disabledReason?: string;
+	/** Whose permission this is, in the screen's own words. */
+	privateTitle?: string;
+	privateReason?: string;
+	/** Where a viewer can ask for access, when asking is a real action. */
+	privateAction?: {label: string; onPress: () => void};
+	unsupportedTitle?: string;
+	/**
+	 * Which capability BERX does not have. Required with the
+	 * `unsupported` state: a boundary that will not say what is
+	 * missing is how a gap becomes a mock.
+	 */
+	unsupportedReason?: string;
 	/** Confirmation text for a mutation the server has already confirmed. */
 	successMessage?: string;
 	/** True when cached content is being shown without a live connection. */
@@ -60,6 +73,11 @@ export function BerxDataBoundary({
 	errorMessage,
 	onRetry,
 	disabledReason,
+	privateTitle,
+	privateReason,
+	privateAction,
+	unsupportedTitle,
+	unsupportedReason,
 	successMessage,
 	hasCachedContent,
 	retryable = true,
@@ -107,6 +125,53 @@ export function BerxDataBoundary({
 				</BerxText>
 				{emptyBody ? <BerxText role="body" emphasis="secondary">{emptyBody}</BerxText> : null}
 				{emptyAction ? <BoundaryAction label={emptyAction.label} onPress={emptyAction.onPress} accent={scene.accent} /> : null}
+			</BoundaryCard>
+		);
+	}
+
+	/**
+	 * The resource is real and this viewer may not see it.
+	 *
+	 * Not an error — nothing failed — and not empty, which would say
+	 * there is nothing there. There is something there; it is not
+	 * theirs. So there is no retry: retrying a permission is a button
+	 * that fails identically every time.
+	 */
+	if (state === 'private') {
+		return (
+			<BoundaryCard testID={testID} style={style}>
+				<View style={styles.mark}>
+					<BerxIcon name="lock" size={22} decorative />
+				</View>
+				<BerxText role="heading" heading>
+					{privateTitle ?? 'Закрытый доступ'}
+				</BerxText>
+				<BerxText role="body" emphasis="secondary">
+					{privateReason ?? 'Это доступно только тем, кому владелец открыл доступ.'}
+				</BerxText>
+				{privateAction ? <BoundaryAction label={privateAction.label} onPress={privateAction.onPress} accent={scene.accent} /> : null}
+			</BoundaryCard>
+		);
+	}
+
+	/**
+	 * BERX cannot do this, and says which capability is missing.
+	 *
+	 * The reason is required by the type: an unsupported state with no
+	 * named capability is indistinguishable from a broken screen, and
+	 * naming it is what stops the gap being quietly filled with a mock
+	 * later. No retry, because nothing is failing.
+	 */
+	if (state === 'unsupported') {
+		return (
+			<BoundaryCard testID={testID} style={style}>
+				<View style={styles.mark}>
+					<BerxIcon name="info" size={22} decorative />
+				</View>
+				<BerxText role="heading" heading>
+					{unsupportedTitle ?? 'Пока не поддерживается'}
+				</BerxText>
+				<BerxText role="body" emphasis="secondary">{unsupportedReason}</BerxText>
 			</BoundaryCard>
 		);
 	}
@@ -229,6 +294,9 @@ function DefaultSkeleton() {
 }
 
 const styles = StyleSheet.create({
+	/* the mark above the sentence: a state you cannot act on still
+	   deserves a shape, so it does not read as a paragraph */
+	mark: {marginBottom: 2},
 	cardWrap: {margin: spacing.lg},
 	card: {padding: spacing.xl, gap: spacing.sm},
 	action: {
