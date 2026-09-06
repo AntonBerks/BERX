@@ -53,3 +53,5 @@ jobs:
         run: npm run build:spatial-web
       - name: Web V9 probe
         run: npm run verify:v9:web
+      - name: Blockers stay honest
+        run: npm run verify:5d-blockers
