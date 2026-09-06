@@ -22,6 +22,11 @@ jobs:
           cache-dependency-path: client/package-lock.json
       - name: Install
         run: npm ci
+      # The web probe drives a real Chromium; a runner has none until it
+      # is fetched. Without this every run died at the last step with
+      # "executable doesn't exist", whatever the code under test did.
+      - name: Install Chromium for the web probe
+        run: npx --yes playwright install --with-deps chromium
       - name: Typecheck
         run: npm run typecheck
       - name: Static verification
