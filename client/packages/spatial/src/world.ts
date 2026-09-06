@@ -49,6 +49,13 @@ export interface BerxSpatialMaterialState {
 export interface BerxSpatialObject {
   id: string;
   kind: BerxSpatialEntityKind;
+  /**
+   * What this object is called, for anyone who is not looking at it.
+   * A world that can only be understood by seeing it is not one the
+   * whole product can reach, so the name travels with the object
+   * rather than being reconstructed by whatever happens to render it.
+   */
+  label?: string;
   sourceId?: string;
   parentId?: string;
   transform: BerxSpatialTransform;

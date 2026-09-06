@@ -1,4 +1,13 @@
-/** BERX MAX 5D — perspective camera, focus distance and input physics. */
+/**
+ * BERX MAX 5D — perspective camera, focus distance and input physics.
+ *
+ * The default frustum is 0.1..200. It was 0.01..500 — a 50000:1 ratio
+ * across a 24-bit depth buffer, which spends almost all of its
+ * precision on the first centimetre and leaves neighbouring objects
+ * fighting for the same depth value. The world's objects sit within a
+ * few tens of units of the origin, so 2000:1 covers everything that
+ * exists with precision to spare.
+ */
 import type { BerxEuler3, BerxVec3 } from './world';
 export interface BerxSpatialCameraState { position: BerxVec3; target: BerxVec3; rotation: BerxEuler3; fov: number; near: number; far: number; }
 export interface BerxDeviceMotion { pitch:number; roll:number; yaw:number; intensity:number; }
@@ -11,7 +20,7 @@ const smoothstep=(t:number)=>t*t*(3-2*t);
 export class BerxSpatialCamera {
  private state:BerxSpatialCameraState; private baseTarget:BerxVec3; private velocity:BerxVec3={x:0,y:0,z:0}; private readonly limits:BerxCameraLimits;
  constructor(initial?:Partial<BerxSpatialCameraState>,limits?:Partial<BerxCameraLimits>){
-  this.state={position:copy(initial?.position??{x:0,y:0,z:8}),target:copy(initial?.target??{x:0,y:0,z:0}),rotation:{...(initial?.rotation??{x:0,y:0,z:0})},fov:initial?.fov??42,near:initial?.near??0.01,far:initial?.far??500};
+  this.state={position:copy(initial?.position??{x:0,y:0,z:8}),target:copy(initial?.target??{x:0,y:0,z:0}),rotation:{...(initial?.rotation??{x:0,y:0,z:0})},fov:initial?.fov??42,near:initial?.near??0.1,far:initial?.far??200};
   this.baseTarget=copy(this.state.target);this.limits={maxTiltDeg:limits?.maxTiltDeg??2.5,maxDepth:limits?.maxDepth??30,minFov:limits?.minFov??28,maxFov:limits?.maxFov??58};
  }
  getState(){return {position:copy(this.state.position),target:copy(this.state.target),rotation:{...this.state.rotation},fov:this.state.fov,near:this.state.near,far:this.state.far};}

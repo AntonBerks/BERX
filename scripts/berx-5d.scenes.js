@@ -1,8 +1,5 @@
-/* BERX 5D ULTIMATE v9 — the scene contracts the site uses.
- * GENERATED from client/packages/scenes by
- * client/scripts/build-spatial-web.mjs. Do not edit by hand.
- */
-export const BERX_SITE_CONTRACTS = {
+/* BERX MAX 5D — GENERATED scene contracts. */
+export const BERX_SITE_CONTRACTS={
  "BERX-001": {
   "schemaVersion": "9.0",
   "screenId": "BERX-001",
@@ -71,7 +68,9 @@ export const BERX_SITE_CONTRACTS = {
    "error",
    "success",
    "disabled",
-   "offline"
+   "offline",
+   "private",
+   "unsupported"
   ],
   "interaction": {
    "primaryAction": "explicit",
@@ -200,7 +199,9 @@ export const BERX_SITE_CONTRACTS = {
    "error",
    "success",
    "disabled",
-   "offline"
+   "offline",
+   "private",
+   "unsupported"
   ],
   "interaction": {
    "primaryAction": "explicit",
@@ -334,7 +335,9 @@ export const BERX_SITE_CONTRACTS = {
    "error",
    "success",
    "disabled",
-   "offline"
+   "offline",
+   "private",
+   "unsupported"
   ],
   "interaction": {
    "primaryAction": "explicit",
@@ -466,7 +469,9 @@ export const BERX_SITE_CONTRACTS = {
    "error",
    "success",
    "disabled",
-   "offline"
+   "offline",
+   "private",
+   "unsupported"
   ],
   "interaction": {
    "primaryAction": "explicit",
@@ -597,7 +602,9 @@ export const BERX_SITE_CONTRACTS = {
    "error",
    "success",
    "disabled",
-   "offline"
+   "offline",
+   "private",
+   "unsupported"
   ],
   "interaction": {
    "primaryAction": "explicit",
@@ -728,7 +735,9 @@ export const BERX_SITE_CONTRACTS = {
    "error",
    "success",
    "disabled",
-   "offline"
+   "offline",
+   "private",
+   "unsupported"
   ],
   "interaction": {
    "primaryAction": "explicit",
@@ -859,7 +868,9 @@ export const BERX_SITE_CONTRACTS = {
    "error",
    "success",
    "disabled",
-   "offline"
+   "offline",
+   "private",
+   "unsupported"
   ],
   "interaction": {
    "primaryAction": "explicit",
@@ -992,7 +1003,9 @@ export const BERX_SITE_CONTRACTS = {
    "error",
    "success",
    "disabled",
-   "offline"
+   "offline",
+   "private",
+   "unsupported"
   ],
   "interaction": {
    "primaryAction": "explicit",

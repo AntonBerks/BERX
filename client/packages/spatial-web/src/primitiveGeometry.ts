@@ -18,13 +18,33 @@ export function createBox(width=1,height=1,depth=1):BerxPrimitiveMesh{
 export function createSphere(radius=1,segments=24,rings=16):BerxPrimitiveMesh{
   const v:number[]=[];const q:number[]=[];
   for(let y=0;y<=rings;y++){const py=y/rings*Math.PI;const sy=Math.cos(py),sr=Math.sin(py);for(let x=0;x<=segments;x++){const a=x/segments*Math.PI*2,c=Math.cos(a),s=Math.sin(a);push(v,radius*sr*c,radius*sy,radius*sr*s,sr*c,sy,sr*s);}}
-  for(let y=0;y<rings;y++)for(let x=0;x<segments;x++){const a=y*(segments+1)+x,b=a+1,c=a+segments+1,d=c+1;q.push(a,c,b,b,c,d);}return{vertices:new Float32Array(v),indices:new Uint16Array(q)};
+  /* Counter-clockwise seen from outside. It was the other way round,
+     which with CULL_FACE on meant every sphere in the world — every
+     person, every community node, the create object — was discarded
+     before it was ever shaded. */
+  for(let y=0;y<rings;y++)for(let x=0;x<segments;x++){const a=y*(segments+1)+x,b=a+1,c=a+segments+1,d=c+1;q.push(a,b,c,b,d,c);}return{vertices:new Float32Array(v),indices:new Uint16Array(q)};
 }
 
+/**
+ * An annulus standing upright in XY, facing the camera — an event
+ * reads as a ring that closes, which is the whole point of the form.
+ * It used to be built flat in XZ, so a camera at eye level saw every
+ * event edge-on as a hairline.
+ *
+ * Open geometry has no inside, so both faces are built explicitly with
+ * opposed normals rather than left to a culling mode the renderer sets
+ * globally: it is correct whether or not CULL_FACE is on.
+ */
 export function createRing(outer=1,inner=.72,segments=48):BerxPrimitiveMesh{
   const v:number[]=[];const q:number[]=[];
-  for(let i=0;i<segments;i++){const a=i/segments*Math.PI*2,c=Math.cos(a),s=Math.sin(a);push(v,outer*c,0,outer*s,c,0,s);push(v,inner*c,0,inner*s,-c,0,-s);}
-  for(let i=0;i<segments;i++){const n=(i+1)%segments,a=i*2,b=a+1,c=n*2,d=c+1;q.push(a,c,b,b,c,d);}return{vertices:new Float32Array(v),indices:new Uint16Array(q)};
+  for(let i=0;i<segments;i++){const a=i/segments*Math.PI*2,c=Math.cos(a),s=Math.sin(a);push(v,outer*c,outer*s,0,0,0,1);push(v,inner*c,inner*s,0,0,0,1);}
+  const back=segments*2;
+  for(let i=0;i<segments;i++){const a=i/segments*Math.PI*2,c=Math.cos(a),s=Math.sin(a);push(v,outer*c,outer*s,0,0,0,-1);push(v,inner*c,inner*s,0,0,0,-1);}
+  /* front: counter-clockwise seen from +Z */
+  for(let i=0;i<segments;i++){const n=(i+1)%segments,a=i*2,b=a+1,c=n*2,d=c+1;q.push(a,c,b,b,c,d);}
+  /* back: the same quads with the opposite orientation */
+  for(let i=0;i<segments;i++){const n=(i+1)%segments,a=back+i*2,b=a+1,c=back+n*2,d=c+1;q.push(a,b,c,b,d,c);}
+  return{vertices:new Float32Array(v),indices:new Uint16Array(q)};
 }
 
 export function createFrame(width=1,height=1,bar=.12):BerxPrimitiveMesh{

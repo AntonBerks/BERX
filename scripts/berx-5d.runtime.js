@@ -1,8 +1,4 @@
-/* BERX 5D ULTIMATE v9 — web spatial runtime.
- * GENERATED from client/packages/spatial{,-web}/src by
- * client/scripts/build-spatial-web.mjs. Do not edit by hand.
- * Regenerate: cd client && node scripts/build-spatial-web.mjs
- */
+/* BERX MAX 5D runtime — GENERATED. Do not edit by hand. */
 
 // packages/spatial/src/tokens.ts
 var BERX_DEPTH_KEYS = ["D0", "D1", "D2", "D3", "D4", "D5"];
@@ -1347,6 +1343,367 @@ function resolveScene(contract, env) {
   };
 }
 
+// packages/spatial/src/world.ts
+var copyVec3 = (v) => ({ ...v });
+var copyEuler = (v) => ({ ...v });
+var BerxSpatialWorld = class {
+  constructor() {
+    this.objects = /* @__PURE__ */ new Map();
+    this.relations = /* @__PURE__ */ new Map();
+    this.worldTime = 0;
+  }
+  upsertObject(object) {
+    const now = Date.now();
+    const existing = this.objects.get(object.id);
+    this.objects.set(object.id, {
+      ...object,
+      createdAt: existing?.createdAt ?? object.createdAt ?? now,
+      updatedAt: now,
+      transform: {
+        position: copyVec3(object.transform.position),
+        rotation: copyEuler(object.transform.rotation),
+        scale: copyVec3(object.transform.scale)
+      },
+      material: { ...object.material }
+    });
+  }
+  removeObject(id) {
+    this.objects.delete(id);
+    for (const [relationId, relation] of this.relations) {
+      if (relation.from === id || relation.to === id) this.relations.delete(relationId);
+    }
+    if (this.activeObjectId === id) this.activeObjectId = void 0;
+  }
+  getObject(id) {
+    const object = this.objects.get(id);
+    return object ? { ...object, transform: { position: copyVec3(object.transform.position), rotation: copyEuler(object.transform.rotation), scale: copyVec3(object.transform.scale) } } : void 0;
+  }
+  setActiveObject(id) {
+    if (id !== void 0 && !this.objects.has(id)) return;
+    this.activeObjectId = id;
+  }
+  getActiveObject() {
+    return this.activeObjectId ? this.getObject(this.activeObjectId) : void 0;
+  }
+  addRelation(relation) {
+    if (!this.objects.has(relation.from) || !this.objects.has(relation.to)) return;
+    this.relations.set(relation.id, { ...relation });
+  }
+  relatedTo(id) {
+    const ids = /* @__PURE__ */ new Set();
+    for (const relation of this.relations.values()) {
+      if (relation.from === id) ids.add(relation.to);
+      if (relation.to === id) ids.add(relation.from);
+    }
+    return [...ids].map((objectId) => this.getObject(objectId)).filter(Boolean);
+  }
+  tick(deltaSeconds) {
+    this.worldTime += Math.max(0, deltaSeconds);
+  }
+  snapshot() {
+    return {
+      objects: [...this.objects.values()].map((object) => ({
+        ...object,
+        transform: {
+          position: copyVec3(object.transform.position),
+          rotation: copyEuler(object.transform.rotation),
+          scale: copyVec3(object.transform.scale)
+        },
+        material: { ...object.material }
+      })),
+      relations: [...this.relations.values()].map((relation) => ({ ...relation })),
+      activeObjectId: this.activeObjectId,
+      worldTime: this.worldTime
+    };
+  }
+  restore(snapshot) {
+    this.objects.clear();
+    this.relations.clear();
+    for (const object of snapshot.objects) this.upsertObject(object);
+    for (const relation of snapshot.relations) this.addRelation(relation);
+    this.activeObjectId = snapshot.activeObjectId;
+    this.worldTime = snapshot.worldTime;
+  }
+};
+
+// packages/spatial/src/spatialCamera.ts
+var clamp2 = (v, min, max) => Math.max(min, Math.min(max, v));
+var lerp = (a, b, t) => a + (b - a) * t;
+var copy = (v) => ({ x: v.x, y: v.y, z: v.z });
+var smoothstep = (t) => t * t * (3 - 2 * t);
+var BerxSpatialCamera = class {
+  constructor(initial, limits) {
+    this.velocity = { x: 0, y: 0, z: 0 };
+    this.state = { position: copy(initial?.position ?? { x: 0, y: 0, z: 8 }), target: copy(initial?.target ?? { x: 0, y: 0, z: 0 }), rotation: { ...initial?.rotation ?? { x: 0, y: 0, z: 0 } }, fov: initial?.fov ?? 42, near: initial?.near ?? 0.1, far: initial?.far ?? 200 };
+    this.baseTarget = copy(this.state.target);
+    this.limits = { maxTiltDeg: limits?.maxTiltDeg ?? 2.5, maxDepth: limits?.maxDepth ?? 30, minFov: limits?.minFov ?? 28, maxFov: limits?.maxFov ?? 58 };
+  }
+  getState() {
+    return { position: copy(this.state.position), target: copy(this.state.target), rotation: { ...this.state.rotation }, fov: this.state.fov, near: this.state.near, far: this.state.far };
+  }
+  setState(next) {
+    this.state = { position: copy(next.position), target: copy(next.target), rotation: { ...next.rotation }, fov: clamp2(next.fov, this.limits.minFov, this.limits.maxFov), near: next.near, far: next.far };
+    this.baseTarget = copy(next.target);
+  }
+  applyInput(input) {
+    this.velocity.x += input.panX * 0.18;
+    this.velocity.y += input.panY * 0.18;
+    this.velocity.z += input.depthDelta * 0.28;
+    this.state.fov = clamp2(this.state.fov - input.pinch * 0.45, this.limits.minFov, this.limits.maxFov);
+    if (input.motion) {
+      const factor = clamp2(input.motion.intensity, 0, 1), tilt = this.limits.maxTiltDeg * factor;
+      this.state.rotation.x = clamp2(input.motion.pitch * tilt, -this.limits.maxTiltDeg, this.limits.maxTiltDeg);
+      this.state.rotation.z = clamp2(input.motion.roll * tilt, -this.limits.maxTiltDeg, this.limits.maxTiltDeg);
+      this.state.rotation.y = clamp2(input.motion.yaw * tilt * 0.55, -this.limits.maxTiltDeg, this.limits.maxTiltDeg);
+      const aim = 0.9 * factor;
+      this.state.target = { x: this.baseTarget.x + clamp2(input.motion.roll, -1, 1) * aim, y: this.baseTarget.y - clamp2(input.motion.pitch, -1, 1) * aim, z: this.baseTarget.z };
+    }
+  }
+  frame(deltaSeconds, reducedMotion = false) {
+    const dt = clamp2(deltaSeconds, 0, 0.05), damping = Math.pow(1e-3, dt);
+    this.state.position.x = clamp2(this.state.position.x + this.velocity.x * dt, -this.limits.maxDepth, this.limits.maxDepth);
+    this.state.position.y = clamp2(this.state.position.y + this.velocity.y * dt, -this.limits.maxDepth, this.limits.maxDepth);
+    this.state.position.z = clamp2(this.state.position.z + this.velocity.z * dt, -this.limits.maxDepth, this.limits.maxDepth);
+    this.velocity.x *= damping;
+    this.velocity.y *= damping;
+    this.velocity.z *= damping;
+    if (reducedMotion) {
+      this.state.rotation.x = lerp(this.state.rotation.x, 0, 1 - damping);
+      this.state.rotation.y = lerp(this.state.rotation.y, 0, 1 - damping);
+      this.state.rotation.z = lerp(this.state.rotation.z, 0, 1 - damping);
+      this.state.target = { ...this.baseTarget };
+    }
+  }
+  poseForObject(position, scale = { x: 1, y: 1, z: 1 }, distance) {
+    const radius = Math.max(scale.x, scale.y, scale.z, 0.5), d = distance ?? Math.max(2.4, radius * 3.2);
+    return { position: { x: position.x, y: position.y, z: position.z + d }, target: copy(position) };
+  }
+  moveToPose(pose, durationSeconds = 0.65) {
+    return new BerxCameraTransition(this.getState(), pose, durationSeconds);
+  }
+  moveTo(target, durationSeconds = 0.65) {
+    return this.moveToPose(this.poseForObject(target), durationSeconds);
+  }
+};
+var BerxCameraTransition = class {
+  constructor(start, destination, duration) {
+    this.start = start;
+    this.destination = destination;
+    this.elapsed = 0;
+    this.duration = Math.max(1e-3, duration);
+  }
+  step(deltaSeconds) {
+    this.elapsed = Math.min(this.duration, this.elapsed + Math.max(0, deltaSeconds));
+    const t = smoothstep(this.elapsed / this.duration);
+    return { position: { x: lerp(this.start.position.x, this.destination.position.x, t), y: lerp(this.start.position.y, this.destination.position.y, t), z: lerp(this.start.position.z, this.destination.position.z, t) }, target: { x: lerp(this.start.target.x, this.destination.target.x, t), y: lerp(this.start.target.y, this.destination.target.y, t), z: lerp(this.start.target.z, this.destination.target.z, t) }, rotation: { x: lerp(this.start.rotation.x, 0, t), y: lerp(this.start.rotation.y, 0, t), z: lerp(this.start.rotation.z, 0, t) }, fov: this.start.fov, near: this.start.near, far: this.start.far };
+  }
+  get done() {
+    return this.elapsed >= this.duration;
+  }
+};
+
+// packages/spatial/src/runtime5d.ts
+var cloneCamera = (c) => ({ position: { ...c.position }, target: { ...c.target }, rotation: { ...c.rotation }, fov: c.fov, near: c.near, far: c.far });
+var cloneWorld = (w) => ({ ...w, camera: cloneCamera(w.camera) });
+var Berx5DRuntime = class {
+  constructor(options = {}) {
+    this.history = [];
+    this.world = new BerxSpatialWorld();
+    this.camera = new BerxSpatialCamera();
+    this.reducedMotion = options.reducedMotion === true;
+    this.deviceMotionEnabled = options.deviceMotionEnabled !== false;
+    this.transitionDuration = Math.max(0.01, options.transitionDuration ?? 0.65);
+    this.currentWorld = { id: "root", enteredAt: Date.now(), camera: this.camera.getState() };
+  }
+  get worldState() {
+    return { ...this.currentWorld, camera: this.camera.getState() };
+  }
+  get canGoBack() {
+    return this.history.length > 0;
+  }
+  get latestFrame() {
+    return this.composeFrame();
+  }
+  composeFrame() {
+    return { world: this.world.snapshot(), camera: this.camera.getState(), transition: this.transition ? { ...this.transition, fromCamera: cloneCamera(this.transition.fromCamera) } : void 0, reducedMotion: this.reducedMotion, deviceMotionEnabled: this.deviceMotionEnabled };
+  }
+  setAccessibility(options) {
+    if (options.reducedMotion !== void 0) this.reducedMotion = options.reducedMotion;
+  }
+  setDeviceMotionEnabled(enabled) {
+    this.deviceMotionEnabled = enabled;
+  }
+  registerObject(object) {
+    this.world.upsertObject(object);
+  }
+  removeObject(id) {
+    this.world.removeObject(id);
+    if (this.currentWorld.focusObjectId === id) this.currentWorld.focusObjectId = void 0;
+  }
+  focus(objectId) {
+    const object = this.world.getObject(objectId);
+    if (!object) return false;
+    this.world.setActiveObject(objectId);
+    this.currentWorld.focusObjectId = objectId;
+    const pose = this.camera.poseForObject(object.transform.position, object.transform.scale);
+    this.beginCameraTransition(pose, this.reducedMotion ? 0.01 : this.transitionDuration);
+    return true;
+  }
+  beginCameraTransition(pose, duration, toWorld = this.currentWorld) {
+    const fromCamera = this.camera.getState();
+    this.cameraTransition = this.camera.moveToPose(pose, duration);
+    this.transition = { fromWorld: cloneWorld(this.currentWorld), toWorld: cloneWorld(toWorld), fromCamera, destination: { ...pose.position }, progress: 0, duration: Math.max(1e-3, duration) };
+  }
+  enterWorld(world, destination) {
+    const previous = cloneWorld({ ...this.currentWorld, camera: this.camera.getState() });
+    this.history.push(previous);
+    this.currentWorld = { ...world, enteredAt: Date.now(), camera: this.camera.getState() };
+    const object = destination ? void 0 : this.world.getActiveObject();
+    const focus = destination ?? object?.transform.position ?? { x: 0, y: 0, z: 0 };
+    const pose = object ? this.camera.poseForObject(object.transform.position, object.transform.scale) : this.camera.poseForObject(focus);
+    this.beginCameraTransition(pose, this.reducedMotion ? 0.01 : this.transitionDuration, this.currentWorld);
+  }
+  back() {
+    const previous = this.history.pop();
+    if (!previous) return false;
+    const from = cloneWorld({ ...this.currentWorld, camera: this.camera.getState() });
+    this.currentWorld = cloneWorld(previous);
+    this.world.setActiveObject(previous.focusObjectId);
+    const pose = { position: cloneCamera(previous.camera).position, target: cloneCamera(previous.camera).target };
+    const duration = this.reducedMotion ? 0.01 : this.transitionDuration;
+    this.cameraTransition = this.camera.moveToPose(pose, duration);
+    this.transition = { fromWorld: from, toWorld: cloneWorld(previous), fromCamera: this.camera.getState(), destination: { ...pose.position }, progress: 0, duration: Math.max(1e-3, duration) };
+    return true;
+  }
+  input(input) {
+    if (this.cameraTransition) return;
+    this.camera.applyInput({ ...input, motion: this.deviceMotionEnabled ? input.motion : void 0 });
+  }
+  frame(deltaSeconds) {
+    this.world.tick(deltaSeconds);
+    if (this.cameraTransition) {
+      const next = this.cameraTransition.step(deltaSeconds);
+      this.camera.setState(next);
+      if (this.transition) this.transition.progress = Math.min(1, this.transition.progress + Math.max(0, deltaSeconds) / this.transition.duration);
+      if (this.cameraTransition.done) {
+        this.cameraTransition = void 0;
+        this.transition = void 0;
+      }
+    } else this.camera.frame(deltaSeconds, this.reducedMotion);
+    this.currentWorld.camera = this.camera.getState();
+    return this.composeFrame();
+  }
+};
+
+// packages/spatial/src/spatialInteraction.ts
+var dot = (a, b) => a.x * b.x + a.y * b.y + a.z * b.z;
+var sub = (a, b) => ({ x: a.x - b.x, y: a.y - b.y, z: a.z - b.z });
+var len = (v) => Math.hypot(v.x, v.y, v.z);
+var norm = (v) => {
+  const l = len(v) || 1;
+  return { x: v.x / l, y: v.y / l, z: v.z / l };
+};
+function hitTestSphere(ray, object) {
+  if (!object.visible || !object.interactive) return;
+  const center = object.transform.position;
+  const radius = Math.max(object.transform.scale.x, object.transform.scale.y, object.transform.scale.z, 0.35);
+  const oc = sub(ray.origin, center), b = dot(oc, ray.direction), c = dot(oc, oc) - radius * radius, disc = b * b - c;
+  if (disc < 0) return;
+  const root = Math.sqrt(disc), t0 = -b - root, t1 = -b + root, t = t0 >= 0 ? t0 : t1;
+  if (t < 0) return;
+  return { objectId: object.id, distance: t, point: { x: ray.origin.x + ray.direction.x * t, y: ray.origin.y + ray.direction.y * t, z: ray.origin.z + ray.direction.z * t } };
+}
+function pickSpatialObject(ray, objects) {
+  let nearest;
+  for (const object of objects) {
+    const hit = hitTestSphere({ origin: ray.origin, direction: norm(ray.direction) }, object);
+    if (hit && (!nearest || hit.distance < nearest.distance)) nearest = hit;
+  }
+  return nearest;
+}
+var cross = (a, b) => ({ x: a.y * b.z - a.z * b.y, y: a.z * b.x - a.x * b.z, z: a.x * b.y - a.y * b.x });
+function cameraBasis(camera) {
+  const forward = norm(sub(camera.target, camera.position));
+  const rightRaw = cross(forward, { x: 0, y: 1, z: 0 });
+  if (len(rightRaw) < 1e-3) return;
+  const right = norm(rightRaw);
+  return { forward, right, up: cross(right, forward) };
+}
+function rayFromNdc(camera, ndcX, ndcY, aspect) {
+  const basis = cameraBasis(camera);
+  if (!basis) return;
+  const { forward, right, up } = basis, tan = Math.tan(camera.fov * Math.PI / 360);
+  return {
+    origin: { ...camera.position },
+    direction: norm({
+      x: forward.x + right.x * ndcX * tan * aspect + up.x * ndcY * tan,
+      y: forward.y + right.y * ndcX * tan * aspect + up.y * ndcY * tan,
+      z: forward.z + right.z * ndcX * tan * aspect + up.z * ndcY * tan
+    })
+  };
+}
+
+// packages/spatial/src/geometry.ts
+var shaderRgb = (hex) => {
+  const c = parseColor(hex);
+  if (!c) throw new Error(`BERX 5D DNA: ${hex} is not a colour`);
+  return [c.r / 255, c.g / 255, c.b / 255];
+};
+var BERX_5D_DNA = {
+  ink: shaderRgb("#07080A"),
+  slate: shaderRgb("#0D1014"),
+  graphite: shaderRgb("#15191E"),
+  steel: shaderRgb("#1C2228"),
+  pearl: shaderRgb("#F2F0EB"),
+  mist: shaderRgb("#A7ADB4"),
+  shadow: shaderRgb("#6F767E"),
+  gold: shaderRgb("#C9B58A"),
+  /** BERX Energy. Rare by contract: emitted with energy, never a base. */
+  energy: shaderRgb("#4FD6E8")
+};
+var specs = {
+  person: { kind: "orb", radius: 0.72, segments: 32, bevel: 0.08 },
+  moment: { kind: "surface", width: 1.9, height: 2.35, depth: 0.045, bevel: 0.08 },
+  place: { kind: "portal", width: 1.8, height: 2.1, depth: 0.22, bevel: 0.14 },
+  event: { kind: "ring", radius: 0.95, segments: 48, emissive: 0.12 },
+  experience: { kind: "frame", width: 1.9, height: 1.4, depth: 0.18, bevel: 0.1 },
+  community: { kind: "node", radius: 0.86, segments: 24 },
+  business: { kind: "stack", width: 1.7, height: 1.15, depth: 0.45, bevel: 0.1 },
+  collection: { kind: "stack", width: 1.6, height: 1.05, depth: 0.34, bevel: 0.1 },
+  message: { kind: "message", width: 1.55, height: 0.72, depth: 0.12, bevel: 0.16 },
+  create: { kind: "create", radius: 0.82, segments: 40, emissive: 0.08 }
+};
+var materials = {
+  /* people carry the light in this world */
+  person: { base: BERX_5D_DNA.pearl, glow: BERX_5D_DNA.energy, amount: 0.08 },
+  /* a moment is live only while it is live */
+  moment: { base: BERX_5D_DNA.mist, glow: BERX_5D_DNA.energy, amount: 0.1 },
+  /* a place is architecture: it is lit, it does not light */
+  place: { base: BERX_5D_DNA.steel, glow: BERX_5D_DNA.energy, amount: 0 },
+  /* gold is for what is happening — the warm end of the DNA */
+  event: { base: BERX_5D_DNA.gold, glow: BERX_5D_DNA.gold, amount: 0.08 },
+  experience: { base: BERX_5D_DNA.gold, glow: BERX_5D_DNA.gold, amount: 0.06 },
+  community: { base: BERX_5D_DNA.mist, glow: BERX_5D_DNA.energy, amount: 0 },
+  business: { base: BERX_5D_DNA.steel, glow: BERX_5D_DNA.gold, amount: 0.05 },
+  collection: { base: BERX_5D_DNA.graphite, glow: BERX_5D_DNA.energy, amount: 0 },
+  message: { base: BERX_5D_DNA.mist, glow: BERX_5D_DNA.energy, amount: 0 },
+  /* creating is a focus moment, and focus is where energy belongs */
+  create: { base: BERX_5D_DNA.steel, glow: BERX_5D_DNA.energy, amount: 0.18 }
+};
+function geometryForEntity(kind) {
+  return { ...specs[kind] };
+}
+function presentationForKind(kind, object) {
+  const m = materials[kind];
+  const energy = Math.max(0, Math.min(1, object?.energy ?? 0));
+  const lit = energy * m.amount;
+  return {
+    base: [...m.base],
+    /* zero at rest: an object that is not live emits nothing */
+    emissive: [m.glow[0] * lit, m.glow[1] * lit, m.glow[2] * lit]
+  };
+}
+
 // packages/spatial-web/src/index.ts
 function detectPlatform(width) {
   const ua = typeof navigator === "undefined" ? "" : navigator.userAgent;
@@ -1857,23 +2214,675 @@ function createBerxSceneRoot(root) {
   }
   return layers;
 }
+
+// packages/spatial-web/src/primitiveGeometry.ts
+var push = (a, x, y, z, nx, ny, nz) => {
+  a.push(x, y, z, nx, ny, nz);
+};
+function createBox(width = 1, height = 1, depth = 1) {
+  const x = width / 2, y = height / 2, z = depth / 2;
+  const v = [];
+  const faces = [
+    [-x, -y, z, x, -y, z, x, y, z, -x, y, z, 0, 0, 1],
+    [x, -y, -z, -x, -y, -z, -x, y, -z, x, y, -z, 0, 0, -1],
+    [-x, y, z, x, y, z, x, y, -z, -x, y, -z, 0, 1, 0],
+    [-x, -y, -z, x, -y, -z, x, -y, z, -x, -y, z, 0, -1, 0],
+    [x, -y, z, x, -y, -z, x, y, -z, x, y, z, 1, 0, 0],
+    [-x, -y, -z, -x, -y, z, -x, y, z, -x, y, -z, -1, 0, 0]
+  ];
+  for (const f of faces) {
+    for (let i = 0; i < 4; i++) push(v, f[i * 3], f[i * 3 + 1], f[i * 3 + 2], f[12], f[13], f[14]);
+  }
+  const q = [];
+  for (let i = 0; i < 6; i++) {
+    const o = i * 4;
+    q.push(o, o + 1, o + 2, o, o + 2, o + 3);
+  }
+  return { vertices: new Float32Array(v), indices: new Uint16Array(q) };
+}
+function createSphere(radius = 1, segments = 24, rings = 16) {
+  const v = [];
+  const q = [];
+  for (let y = 0; y <= rings; y++) {
+    const py = y / rings * Math.PI;
+    const sy = Math.cos(py), sr = Math.sin(py);
+    for (let x = 0; x <= segments; x++) {
+      const a = x / segments * Math.PI * 2, c = Math.cos(a), s = Math.sin(a);
+      push(v, radius * sr * c, radius * sy, radius * sr * s, sr * c, sy, sr * s);
+    }
+  }
+  for (let y = 0; y < rings; y++) for (let x = 0; x < segments; x++) {
+    const a = y * (segments + 1) + x, b = a + 1, c = a + segments + 1, d = c + 1;
+    q.push(a, b, c, b, d, c);
+  }
+  return { vertices: new Float32Array(v), indices: new Uint16Array(q) };
+}
+function createRing(outer = 1, inner = 0.72, segments = 48) {
+  const v = [];
+  const q = [];
+  for (let i = 0; i < segments; i++) {
+    const a = i / segments * Math.PI * 2, c = Math.cos(a), s = Math.sin(a);
+    push(v, outer * c, outer * s, 0, 0, 0, 1);
+    push(v, inner * c, inner * s, 0, 0, 0, 1);
+  }
+  const back = segments * 2;
+  for (let i = 0; i < segments; i++) {
+    const a = i / segments * Math.PI * 2, c = Math.cos(a), s = Math.sin(a);
+    push(v, outer * c, outer * s, 0, 0, 0, -1);
+    push(v, inner * c, inner * s, 0, 0, 0, -1);
+  }
+  for (let i = 0; i < segments; i++) {
+    const n = (i + 1) % segments, a = i * 2, b = a + 1, c = n * 2, d = c + 1;
+    q.push(a, c, b, b, c, d);
+  }
+  for (let i = 0; i < segments; i++) {
+    const n = (i + 1) % segments, a = back + i * 2, b = a + 1, c = back + n * 2, d = c + 1;
+    q.push(a, b, c, b, d, c);
+  }
+  return { vertices: new Float32Array(v), indices: new Uint16Array(q) };
+}
+function createFrame(width = 1, height = 1, bar = 0.12) {
+  const parts = [createBox(width, bar, 0.12), createBox(width, bar, 0.12), createBox(bar, height, 0.12), createBox(bar, height, 0.12)];
+  const v = [];
+  const q = [];
+  const poses = [[0, height / 2, 0], [0, -height / 2, 0], [-width / 2, 0, 0], [width / 2, 0, 0]];
+  for (let p = 0; p < parts.length; p++) {
+    const m = parts[p], base = v.length / 6, [ox, oy, oz] = poses[p];
+    for (let i = 0; i < m.vertices.length; i += 6) push(v, m.vertices[i] + ox, m.vertices[i + 1] + oy, m.vertices[i + 2] + oz, m.vertices[i + 3], m.vertices[i + 4], m.vertices[i + 5]);
+    for (const idx of m.indices) q.push(base + idx);
+  }
+  return { vertices: new Float32Array(v), indices: new Uint16Array(q) };
+}
+
+// packages/spatial-web/src/threeRuntime.ts
+var V = `#version 300 es
+precision highp float;layout(location=0)in vec3 p;layout(location=1)in vec3 n;uniform mat4 P,V,M;out vec3 N,W;void main(){vec4 w=M*vec4(p,1.);W=w.xyz;N=mat3(M)*n;gl_Position=P*V*w;}`;
+var F = `#version 300 es
+precision highp float;in vec3 N,W;uniform vec3 B,E;uniform float ES,ME,R,O;out vec4 C;void main(){vec3 n=normalize(N),k=normalize(vec3(.45,.72,.9));float d=max(dot(n,k),0.),s=pow(max(dot(reflect(-k,n),normalize(-W)),0.),mix(64.,8.,R));vec3 lit=B*(.16+d*.72)+B*s*(.12+ME*.42)+E*ES;C=vec4(lit,clamp(O,.02,1.));}`;
+function shader(gl, t, s) {
+  const x = gl.createShader(t);
+  if (!x) throw Error("BERX 5D shader allocation failed");
+  gl.shaderSource(x, s);
+  gl.compileShader(x);
+  if (!gl.getShaderParameter(x, gl.COMPILE_STATUS)) {
+    const e = gl.getShaderInfoLog(x) || "shader error";
+    gl.deleteShader(x);
+    throw Error(e);
+  }
+  return x;
+}
+function program(gl) {
+  const p = gl.createProgram();
+  if (!p) throw Error("BERX 5D program allocation failed");
+  const a = shader(gl, gl.VERTEX_SHADER, V), b = shader(gl, gl.FRAGMENT_SHADER, F);
+  gl.attachShader(p, a);
+  gl.attachShader(p, b);
+  gl.linkProgram(p);
+  gl.deleteShader(a);
+  gl.deleteShader(b);
+  if (!gl.getProgramParameter(p, gl.LINK_STATUS)) {
+    const e = gl.getProgramInfoLog(p) || "program link error";
+    gl.deleteProgram(p);
+    throw Error(e);
+  }
+  return p;
+}
+function perspective(f, a, n, z) {
+  const q = 1 / Math.tan(f * Math.PI / 360), nf = 1 / (n - z), m = new Float32Array(16);
+  m[0] = q / a;
+  m[5] = q;
+  m[10] = (z + n) * nf;
+  m[11] = -1;
+  m[14] = 2 * z * n * nf;
+  return m;
+}
+function cross2(a, b) {
+  return { x: a.y * b.z - a.z * b.y, y: a.z * b.x - a.x * b.z, z: a.x * b.y - a.y * b.x };
+}
+function norm2(v) {
+  const l = Math.hypot(v.x, v.y, v.z) || 1;
+  return { x: v.x / l, y: v.y / l, z: v.z / l };
+}
+function sub2(a, b) {
+  return { x: a.x - b.x, y: a.y - b.y, z: a.z - b.z };
+}
+function lookAt(p, t) {
+  const z = norm2(sub2(p, t));
+  let up = { x: 0, y: 1, z: 0 };
+  if (Math.abs(z.y) > 0.98) up = { x: 1, y: 0, z: 0 };
+  const x = norm2(cross2(up, z)), y = cross2(z, x), m = new Float32Array(16);
+  m[0] = x.x;
+  m[1] = y.x;
+  m[2] = z.x;
+  m[4] = x.y;
+  m[5] = y.y;
+  m[6] = z.y;
+  m[8] = x.z;
+  m[9] = y.z;
+  m[10] = z.z;
+  m[12] = -x.x * p.x - x.y * p.y - x.z * p.z;
+  m[13] = -y.x * p.x - y.y * p.y - y.z * p.z;
+  m[14] = -z.x * p.x - z.y * p.y - z.z * p.z;
+  m[15] = 1;
+  return m;
+}
+function model(p, s, r) {
+  const cx = Math.cos(r.x), sx = Math.sin(r.x), cy = Math.cos(r.y), sy = Math.sin(r.y), cz = Math.cos(r.z), sz = Math.sin(r.z), m = new Float32Array(16);
+  m[0] = cy * cz * s.x;
+  m[1] = cy * sz * s.x;
+  m[2] = -sy * s.x;
+  m[4] = (sx * sy * cz - cx * sz) * s.y;
+  m[5] = (sx * sy * sz + cx * cz) * s.y;
+  m[6] = sx * cy * s.y;
+  m[8] = (cx * sy * cz + sx * sz) * s.z;
+  m[9] = (cx * sy * sz - sx * cz) * s.z;
+  m[10] = cx * cy * s.z;
+  m[12] = p.x;
+  m[13] = p.y;
+  m[14] = p.z;
+  m[15] = 1;
+  return m;
+}
+function gpuMesh(gl, mesh) {
+  const vao = gl.createVertexArray(), vbo = gl.createBuffer(), ibo = gl.createBuffer();
+  if (!vao || !vbo || !ibo) throw Error("BERX 5D mesh allocation failed");
+  gl.bindVertexArray(vao);
+  gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
+  gl.bufferData(gl.ARRAY_BUFFER, mesh.vertices, gl.STATIC_DRAW);
+  gl.enableVertexAttribArray(0);
+  gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 24, 0);
+  gl.enableVertexAttribArray(1);
+  gl.vertexAttribPointer(1, 3, gl.FLOAT, false, 24, 12);
+  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo);
+  gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, mesh.indices, gl.STATIC_DRAW);
+  gl.bindVertexArray(null);
+  return { vao, vbo, ibo, count: mesh.indices.length };
+}
+function meshFor(kind) {
+  switch (kind) {
+    case "orb":
+      return createSphere(0.5, 24, 16);
+    case "ring":
+      return createRing(0.62, 0.42, 48);
+    case "frame":
+      return createFrame(1, 1, 0.12);
+    case "surface":
+      return createBox(1, 1, 0.06);
+    case "portal":
+      return createFrame(1, 1.2, 0.16);
+    case "node":
+      return createSphere(0.58, 20, 12);
+    case "stack":
+      return createBox(1, 1, 0.32);
+    case "message":
+      return createBox(1, 0.46, 0.12);
+    case "create":
+      return createSphere(0.58, 28, 18);
+  }
+}
+var BerxThreeRuntimeRenderer = class {
+  constructor(canvas) {
+    this.kind = "webgl2";
+    /* what this backend really does, and nothing it does not */
+    this.capabilities = { perspective: true, depthBuffer: true, physicallyLitMaterials: false, shadows: false, postProcessing: false };
+    this.meshes = /* @__PURE__ */ new Map();
+    this.width = 1;
+    this.height = 1;
+    const gl = canvas.getContext("webgl2", { antialias: true, alpha: false, depth: true, powerPreference: "high-performance" });
+    if (!gl) throw Error("BERX 5D requires WebGL2");
+    this.gl = gl;
+    this.program = program(gl);
+    this.P = gl.getUniformLocation(this.program, "P");
+    this.V = gl.getUniformLocation(this.program, "V");
+    this.M = gl.getUniformLocation(this.program, "M");
+    this.B = gl.getUniformLocation(this.program, "B");
+    this.E = gl.getUniformLocation(this.program, "E");
+    this.ES = gl.getUniformLocation(this.program, "ES");
+    this.ME = gl.getUniformLocation(this.program, "ME");
+    this.R = gl.getUniformLocation(this.program, "R");
+    this.O = gl.getUniformLocation(this.program, "O");
+    gl.enable(gl.DEPTH_TEST);
+    gl.enable(gl.CULL_FACE);
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+  }
+  resize(w, h) {
+    this.width = Math.max(1, w);
+    this.height = Math.max(1, h);
+    this.gl.viewport(0, 0, this.width, this.height);
+  }
+  getMesh(kind) {
+    let m = this.meshes.get(kind);
+    if (!m) {
+      m = gpuMesh(this.gl, meshFor(kind));
+      this.meshes.set(kind, m);
+    }
+    return m;
+  }
+  render(frame, options = {}) {
+    const gl = this.gl, c = frame.camera, max = Math.max(1, Math.floor(options.maxObjects ?? frame.world.objects.length));
+    gl.useProgram(this.program);
+    gl.clearColor(0.027, 0.031, 0.039, 1);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    gl.uniformMatrix4fv(this.P, false, perspective(c.fov, this.width / this.height, c.near, c.far));
+    gl.uniformMatrix4fv(this.V, false, lookAt(c.position, c.target));
+    const visible = frame.world.objects.filter((o) => o.visible);
+    const focused = frame.world.activeObjectId;
+    const eye = c.position, distance = (o) => Math.hypot(o.transform.position.x - eye.x, o.transform.position.y - eye.y, o.transform.position.z - eye.z);
+    const opaque = visible.filter((o) => o.material.opacity >= 1).sort((a, b) => {
+      if (a.id === focused) return -1;
+      if (b.id === focused) return 1;
+      return distance(a) - distance(b);
+    });
+    const blended = visible.filter((o) => o.material.opacity < 1).sort((a, b) => distance(b) - distance(a));
+    const ordered = [...opaque, ...blended];
+    for (const o of ordered.slice(0, max)) {
+      const spec = geometryForEntity(o.kind), presentation = presentationForKind(o.kind, o), mesh = this.getMesh(spec.kind);
+      gl.bindVertexArray(mesh.vao);
+      gl.uniformMatrix4fv(this.M, false, model(o.transform.position, o.transform.scale, o.transform.rotation));
+      gl.uniform3f(this.B, ...presentation.base);
+      gl.uniform3f(this.E, ...presentation.emissive);
+      gl.uniform1f(this.ES, options.ambientMotion === false ? 0.85 : 1);
+      gl.uniform1f(this.ME, o.material.metalness);
+      gl.uniform1f(this.R, o.material.roughness);
+      gl.uniform1f(this.O, o.material.opacity);
+      gl.drawElements(gl.TRIANGLES, mesh.count, gl.UNSIGNED_SHORT, 0);
+    }
+    gl.bindVertexArray(null);
+  }
+  /** `x`/`y` are in backing-store pixels, the same space the frame was drawn in. */
+  pick(frame, x, y) {
+    const ray = rayFromNdc(frame.camera, x / this.width * 2 - 1, 1 - y / this.height * 2, this.width / this.height);
+    return ray ? pickSpatialObject(ray, frame.world.objects) : void 0;
+  }
+  /**
+   * Deleting the objects is not the same as giving the GPU its memory
+   * back: the context itself holds the driver allocation, and a page
+   * that mounts and unmounts worlds leaks one per mount without this.
+   * WEBGL_lose_context is the only way to ask for it, and it is
+   * optional — where the extension is absent the deletes above are all
+   * there is, which is honest rather than silent.
+   */
+  dispose() {
+    const gl = this.gl;
+    this.releaseMeshes();
+    gl.deleteProgram(this.program);
+    gl.getExtension("WEBGL_lose_context")?.loseContext();
+  }
+  releaseMeshes() {
+    const gl = this.gl;
+    for (const m of this.meshes.values()) {
+      gl.deleteBuffer(m.vbo);
+      gl.deleteBuffer(m.ibo);
+      gl.deleteVertexArray(m.vao);
+    }
+    this.meshes.clear();
+  }
+  /**
+   * A lost context invalidates every name this renderer holds. The map
+   * is cleared so the next frame rebuilds its meshes instead of binding
+   * handles the driver no longer knows; deleting them here would be
+   * calling into a dead context.
+   */
+  handleContextLost() {
+    this.meshes.clear();
+  }
+};
+
+// packages/spatial-web/src/runtimeQuality.ts
+var BERX_SPATIAL_QUALITY_ORDER = ["cinematic", "high", "balanced", "conservative"];
+function resolveSpatialQuality(input) {
+  const pixels = Math.max(1, input.width * input.height);
+  const load = input.visibleObjectCount * Math.max(1, input.devicePixelRatio) / Math.sqrt(pixels / 1e6);
+  if (input.reducedMotion) return { quality: "conservative", pixelRatio: Math.min(1.5, input.devicePixelRatio), maxObjects: 40, ambientMotion: false };
+  if (load < 55 && input.devicePixelRatio <= 2.5) return { quality: "cinematic", pixelRatio: Math.min(2.25, input.devicePixelRatio), maxObjects: 120, ambientMotion: true };
+  if (load < 110) return { quality: "high", pixelRatio: Math.min(2, input.devicePixelRatio), maxObjects: 100, ambientMotion: true };
+  if (load < 180) return { quality: "balanced", pixelRatio: Math.min(1.75, input.devicePixelRatio), maxObjects: 80, ambientMotion: true };
+  return { quality: "conservative", pixelRatio: Math.min(1.5, input.devicePixelRatio), maxObjects: 60, ambientMotion: false };
+}
+
+// packages/spatial-web/src/runtimeHost5d.ts
+var prefersReducedMotion = () => typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
+var KIND_NAME = {
+  person: "\u0447\u0435\u043B\u043E\u0432\u0435\u043A",
+  moment: "\u043C\u043E\u043C\u0435\u043D\u0442",
+  place: "\u043C\u0435\u0441\u0442\u043E",
+  event: "\u0441\u043E\u0431\u044B\u0442\u0438\u0435",
+  experience: "\u0432\u043F\u0435\u0447\u0430\u0442\u043B\u0435\u043D\u0438\u0435",
+  community: "\u0441\u043E\u043E\u0431\u0449\u0435\u0441\u0442\u0432\u043E",
+  business: "\u0431\u0438\u0437\u043D\u0435\u0441",
+  collection: "\u043F\u043E\u0434\u0431\u043E\u0440\u043A\u0430",
+  message: "\u0441\u043E\u043E\u0431\u0449\u0435\u043D\u0438\u0435",
+  create: "\u0441\u043E\u0437\u0434\u0430\u0442\u044C"
+};
+var nameOf = (o) => o.label ?? KIND_NAME[o.kind];
+function createBerx5DWebHost(options = {}) {
+  const canvas = options.canvas ?? document.createElement("canvas");
+  const owned = !options.canvas;
+  if (owned) document.body.appendChild(canvas);
+  canvas.style.display = "block";
+  canvas.style.width = "100%";
+  canvas.style.height = "100%";
+  canvas.style.touchAction = "none";
+  canvas.style.background = "#07080A";
+  canvas.removeAttribute("aria-hidden");
+  canvas.tabIndex = 0;
+  canvas.setAttribute("role", "application");
+  canvas.setAttribute("aria-label", options.ariaLabel ?? "\u041F\u0440\u043E\u0441\u0442\u0440\u0430\u043D\u0441\u0442\u0432\u043E BERX. \u0421\u0442\u0440\u0435\u043B\u043A\u0438 \u2014 \u043F\u0435\u0440\u0435\u0439\u0442\u0438 \u043A \u0441\u043E\u0441\u0435\u0434\u043D\u0435\u043C\u0443 \u043E\u0431\u044A\u0435\u043A\u0442\u0443, Enter \u2014 \u043E\u0442\u043A\u0440\u044B\u0442\u044C, Escape \u2014 \u043D\u0430\u0437\u0430\u0434.");
+  const live = document.createElement("div");
+  live.setAttribute("aria-live", "polite");
+  live.setAttribute("aria-atomic", "true");
+  live.style.cssText = "position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0";
+  (canvas.parentElement ?? document.body).appendChild(live);
+  const announce = (text) => {
+    live.textContent = text;
+  };
+  const motionQuery = typeof matchMedia === "function" ? matchMedia("(prefers-reduced-motion: reduce)") : void 0;
+  let reducedMotion = options.reducedMotion ?? prefersReducedMotion();
+  const runtime = new Berx5DRuntime({ reducedMotion, deviceMotionEnabled: options.deviceMotion !== false });
+  const renderer = new BerxThreeRuntimeRenderer(canvas);
+  const pixelRatioCap = Math.max(1, options.pixelRatioCap ?? 2);
+  let quality = { quality: "balanced", pixelRatio: 1, maxObjects: 80, ambientMotion: true };
+  let raf = 0;
+  let last = performance.now();
+  let running = false;
+  let contextAlive = true;
+  let dragging = false;
+  let lastX = 0, lastY = 0, downX = 0, downY = 0;
+  let pinchDistance;
+  let cssWidth = 1, cssHeight = 1;
+  let lastAnnouncedId;
+  const visibleObjects = () => runtime.latestFrame.world.objects.filter((o) => o.visible);
+  const applySize = () => {
+    const nativeDpr = (typeof window !== "undefined" ? window.devicePixelRatio : 1) || 1;
+    const baseDpr = Math.min(nativeDpr, pixelRatioCap);
+    quality = resolveSpatialQuality({
+      devicePixelRatio: baseDpr,
+      width: Math.max(1, cssWidth),
+      height: Math.max(1, cssHeight),
+      reducedMotion,
+      visibleObjectCount: visibleObjects().length
+    });
+    const dpr = Math.min(baseDpr, quality.pixelRatio);
+    const width = Math.max(1, Math.round(cssWidth * dpr));
+    const height = Math.max(1, Math.round(cssHeight * dpr));
+    if (canvas.width !== width || canvas.height !== height) {
+      canvas.width = width;
+      canvas.height = height;
+      renderer.resize(width, height);
+    }
+  };
+  let lastVisibleCount = -1;
+  const syncQualityToLoad = () => {
+    const count = visibleObjects().length;
+    if (count === lastVisibleCount) return;
+    lastVisibleCount = count;
+    applySize();
+  };
+  const announceFocus = () => {
+    const object = runtime.world.getActiveObject();
+    if (object?.id === lastAnnouncedId) return;
+    lastAnnouncedId = object?.id;
+    options.onFocusChange?.(object);
+    if (object) announce(`${nameOf(object)} \u0432 \u0444\u043E\u043A\u0443\u0441\u0435`);
+  };
+  const frame = (now) => {
+    if (!running) return;
+    const dt = Math.min(0.05, Math.max(0, (now - last) / 1e3));
+    last = now;
+    if (contextAlive) {
+      syncQualityToLoad();
+      renderer.render(runtime.frame(dt), { maxObjects: quality.maxObjects, ambientMotion: quality.ambientMotion });
+    } else {
+      runtime.frame(dt);
+    }
+    raf = requestAnimationFrame(frame);
+  };
+  const onPointerDown = (e) => {
+    if (e.pointerType === "mouse" && e.button !== 0) return;
+    dragging = true;
+    lastX = downX = e.clientX;
+    lastY = downY = e.clientY;
+    canvas.setPointerCapture?.(e.pointerId);
+  };
+  const onPointerMove = (e) => {
+    if (!dragging) return;
+    const dx = e.clientX - lastX, dy = e.clientY - lastY;
+    lastX = e.clientX;
+    lastY = e.clientY;
+    runtime.input({ panX: -dx * 0.018, panY: dy * 0.018, depthDelta: 0, pinch: 0 });
+  };
+  const onPointerUp = (e) => {
+    if (!dragging) return;
+    dragging = false;
+    canvas.releasePointerCapture?.(e.pointerId);
+    if (Math.hypot(e.clientX - downX, e.clientY - downY) > 8) return;
+    const rect = canvas.getBoundingClientRect();
+    const dpr = canvas.width / Math.max(1, rect.width);
+    const hit = renderer.pick(runtime.latestFrame, (e.clientX - rect.left) * dpr, (e.clientY - rect.top) * dpr);
+    if (hit && runtime.focus(hit.objectId)) announceFocus();
+  };
+  const onWheel = (e) => {
+    e.preventDefault();
+    runtime.input({ panX: 0, panY: 0, depthDelta: e.deltaY * 3e-3, pinch: 0 });
+  };
+  const onTouchStart = (e) => {
+    if (e.touches.length === 2) pinchDistance = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+  };
+  const onTouchMove = (e) => {
+    if (e.touches.length !== 2 || pinchDistance === void 0) return;
+    const d = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+    runtime.input({ panX: 0, panY: 0, depthDelta: 0, pinch: (d - pinchDistance) * 0.03 });
+    pinchDistance = d;
+  };
+  const onTouchEnd = () => {
+    pinchDistance = void 0;
+  };
+  const onDeviceMotion = (e) => {
+    if (reducedMotion) return;
+    runtime.input({ panX: 0, panY: 0, depthDelta: 0, pinch: 0, motion: { pitch: (e.beta ?? 0) / 45, roll: (e.gamma ?? 0) / 45, yaw: (e.alpha ?? 0) / 180, intensity: 0.65 } });
+  };
+  const step = (dx, dy) => {
+    const frameState = runtime.latestFrame;
+    const objects = frameState.world.objects.filter((o) => o.visible && o.focusable);
+    if (objects.length === 0) return false;
+    const current = runtime.world.getActiveObject();
+    if (!current) return runtime.focus(objects[0].id);
+    const basis = cameraBasis(frameState.camera);
+    if (!basis) return false;
+    const { right, up } = basis;
+    let best;
+    let bestScore = Infinity;
+    for (const o of objects) {
+      if (o.id === current.id) continue;
+      const d = { x: o.transform.position.x - current.transform.position.x, y: o.transform.position.y - current.transform.position.y, z: o.transform.position.z - current.transform.position.z };
+      const sx = d.x * right.x + d.y * right.y + d.z * right.z;
+      const sy = d.x * up.x + d.y * up.y + d.z * up.z;
+      const along = sx * dx + sy * dy;
+      if (along <= 1e-3) continue;
+      const off = Math.abs(sx * dy - sy * dx);
+      const score = off * 2 + along;
+      if (score < bestScore) {
+        bestScore = score;
+        best = o;
+      }
+    }
+    if (!best) return false;
+    return runtime.focus(best.id);
+  };
+  const onKeyDown = (e) => {
+    let handled = true;
+    switch (e.key) {
+      case "ArrowRight":
+        handled = step(1, 0);
+        break;
+      case "ArrowLeft":
+        handled = step(-1, 0);
+        break;
+      case "ArrowUp":
+        handled = step(0, 1);
+        break;
+      case "ArrowDown":
+        handled = step(0, -1);
+        break;
+      case "Enter":
+      case " ": {
+        const object = runtime.world.getActiveObject();
+        if (object) {
+          runtime.enterWorld({ id: `${object.kind}:${object.id}`, focusObjectId: object.id, enteredAt: Date.now() });
+          announce(`${nameOf(object)} \u043E\u0442\u043A\u0440\u044B\u0442`);
+        } else handled = false;
+        break;
+      }
+      case "Escape":
+      case "Backspace":
+        handled = runtime.back();
+        if (handled) announce("\u041D\u0430\u0437\u0430\u0434");
+        break;
+      default:
+        handled = false;
+    }
+    if (handled) {
+      e.preventDefault();
+      announceFocus();
+    }
+  };
+  const onContextLost = (e) => {
+    e.preventDefault();
+    contextAlive = false;
+    renderer.handleContextLost();
+    options.onContextChange?.("lost");
+    announce("\u0413\u0440\u0430\u0444\u0438\u043A\u0430 \u043F\u0440\u0435\u0440\u0432\u0430\u043B\u0430\u0441\u044C. BERX \u0432\u043E\u0441\u0441\u0442\u0430\u043D\u043E\u0432\u0438\u0442 \u0441\u0446\u0435\u043D\u0443.");
+  };
+  const onContextRestored = () => {
+    contextAlive = true;
+    applySize();
+    options.onContextChange?.("restored");
+    announce("\u0421\u0446\u0435\u043D\u0430 \u0432\u043E\u0441\u0441\u0442\u0430\u043D\u043E\u0432\u043B\u0435\u043D\u0430.");
+  };
+  const onMotionPreferenceChange = (e) => {
+    if (options.reducedMotion !== void 0) return;
+    reducedMotion = e.matches;
+    runtime.setAccessibility({ reducedMotion });
+    applySize();
+  };
+  const observer = typeof ResizeObserver === "function" ? new ResizeObserver((entries) => {
+    const box = entries[0]?.contentRect;
+    if (!box) return;
+    if (box.width === cssWidth && box.height === cssHeight) return;
+    cssWidth = box.width;
+    cssHeight = box.height;
+    applySize();
+  }) : void 0;
+  const onWindowResize = () => {
+    const rect = canvas.getBoundingClientRect();
+    cssWidth = rect.width;
+    cssHeight = rect.height;
+    applySize();
+  };
+  canvas.addEventListener("pointerdown", onPointerDown);
+  canvas.addEventListener("pointermove", onPointerMove);
+  canvas.addEventListener("pointerup", onPointerUp);
+  canvas.addEventListener("pointercancel", onPointerUp);
+  canvas.addEventListener("wheel", onWheel, { passive: false });
+  canvas.addEventListener("touchstart", onTouchStart, { passive: true });
+  canvas.addEventListener("touchmove", onTouchMove, { passive: true });
+  canvas.addEventListener("touchend", onTouchEnd, { passive: true });
+  canvas.addEventListener("keydown", onKeyDown);
+  canvas.addEventListener("webglcontextlost", onContextLost);
+  canvas.addEventListener("webglcontextrestored", onContextRestored);
+  if (observer) observer.observe(canvas);
+  else window.addEventListener("resize", onWindowResize);
+  motionQuery?.addEventListener?.("change", onMotionPreferenceChange);
+  const wantsDeviceMotion = options.deviceMotion !== false && typeof window !== "undefined" && "DeviceOrientationEvent" in window;
+  if (wantsDeviceMotion) window.addEventListener("deviceorientation", onDeviceMotion);
+  onWindowResize();
+  return {
+    canvas,
+    runtime,
+    renderer,
+    get quality() {
+      return quality;
+    },
+    get contextAlive() {
+      return contextAlive;
+    },
+    addObject: (object) => {
+      runtime.registerObject(object);
+    },
+    removeObject: (id) => {
+      runtime.removeObject(id);
+    },
+    focus: (id) => {
+      const ok = runtime.focus(id);
+      if (ok) announceFocus();
+      return ok;
+    },
+    enterWorld: (id, sourceRoute, destination) => runtime.enterWorld({ id, sourceRoute, enteredAt: Date.now() }, destination),
+    back: () => {
+      const ok = runtime.back();
+      if (ok) announceFocus();
+      return ok;
+    },
+    start: () => {
+      if (running) return;
+      running = true;
+      last = performance.now();
+      raf = requestAnimationFrame(frame);
+    },
+    stop: () => {
+      running = false;
+      cancelAnimationFrame(raf);
+    },
+    destroy: () => {
+      running = false;
+      cancelAnimationFrame(raf);
+      canvas.removeEventListener("pointerdown", onPointerDown);
+      canvas.removeEventListener("pointermove", onPointerMove);
+      canvas.removeEventListener("pointerup", onPointerUp);
+      canvas.removeEventListener("pointercancel", onPointerUp);
+      canvas.removeEventListener("wheel", onWheel);
+      canvas.removeEventListener("touchstart", onTouchStart);
+      canvas.removeEventListener("touchmove", onTouchMove);
+      canvas.removeEventListener("touchend", onTouchEnd);
+      canvas.removeEventListener("keydown", onKeyDown);
+      canvas.removeEventListener("webglcontextlost", onContextLost);
+      canvas.removeEventListener("webglcontextrestored", onContextRestored);
+      observer?.disconnect();
+      if (!observer) window.removeEventListener("resize", onWindowResize);
+      motionQuery?.removeEventListener?.("change", onMotionPreferenceChange);
+      if (wantsDeviceMotion) window.removeEventListener("deviceorientation", onDeviceMotion);
+      renderer.dispose();
+      live.remove();
+      if (owned) canvas.remove();
+    }
+  };
+}
 export {
   BERX_DEPTH_KEYS,
   BERX_MAX_TILT_DEG,
+  BERX_SPATIAL_QUALITY_ORDER,
+  BerxThreeRuntimeRenderer,
   atmosphereBackground,
   atmosphereCustomProperties,
   berxLayerContent,
+  createBerx5DWebHost,
   createBerxCard,
   createBerxControl,
   createBerxEnergy,
   createBerxLayer,
   createBerxSceneRoot,
+  createBox,
+  createFrame,
+  createRing,
+  createSphere,
   detectPlatform,
   focusBackground,
   focusCustomProperties,
   mountBerxScene,
   readDeviceSignals,
   resolveScene,
+  resolveSpatialQuality,
   runBerxSharedElement,
   sceneCustomProperties,
   supportsBackdropBlur
