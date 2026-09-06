@@ -19,6 +19,7 @@ import {
   geometryForEntity,
   type Berx5DFrame,
   type BerxHit,
+  berxActionRing,
   berxEnergyLight,
   berxResolvePointLights,
   berxWorldLighting,
@@ -27,6 +28,8 @@ import {
   type BerxPointLight,
   type BerxSpatialObject,
   type BerxSpatialRenderer,
+  type BerxActionSlot,
+  type BerxSpatialAffordance,
   type BerxWorldLighting,
   type BerxVec3,
 } from '@berx/spatial';
@@ -38,9 +41,10 @@ import { BerxSpatialTextAtlas } from './spatialText';
 type Mat4 = Float32Array; type Loc = WebGLUniformLocation | null;
 const V = `#version 300 es\nprecision highp float;layout(location=0)in vec3 p;layout(location=1)in vec3 n;uniform mat4 P,V,M;out vec3 N,W,L,LN;void main(){vec4 w=M*vec4(p,1.);W=w.xyz;N=mat3(M)*n;L=p;LN=n;gl_Position=P*V*w;}`;
 /**
- * One forward pass: an analytic key light, a Blinn-ish specular term
- * and an emissive add. Not PBR — there is no BRDF, no IBL and no
- * shadow term, and the renderer's `capabilities` says so.
+ * One forward pass with a real microfacet BRDF: GGX, height-correlated
+ * Smith visibility, Schlick Fresnel, and metalness splitting the
+ * diffuse and specular lobes. There is still no shadow term and no
+ * image-based lighting, and the renderer's `capabilities` says so.
  *
  * Media is a planar projection onto the face that points at you. `L`
  * is the object-space position and `LN` the object-space normal, so
@@ -252,6 +256,15 @@ export class BerxThreeRuntimeRenderer implements BerxSpatialRenderer {
  private readonly labelHeight=0.34;
  /** The world's standing light. Replaceable, so a region can relight itself. */
  private lighting:BerxWorldLighting=berxWorldLighting();
+ /**
+  * What can be done with what is in focus.
+  *
+  * Set by the host each frame from the world. Empty when nothing is
+  * focused, which is when no ring is drawn — there is no toolbar.
+  */
+ private affordances:readonly BerxSpatialAffordance[]=[];
+ /** Where the ring stood last frame, so a tap can be tested against it. */
+ private slots:BerxActionSlot[]=[];
  /** What the last frame actually cost. Measured during the draw. */
  private stats:BerxFrameStats={visible:0,inFrustum:0,drawCalls:0,triangles:0,lodReduced:0,budgetCut:0,residentTextures:0,residentLabels:0,meshVariants:0};
  constructor(canvas:HTMLCanvasElement,options:{textureBudget?:number;labelBudget?:number;onMediaError?:(uri:string,error:unknown)=>void}={}){const gl=canvas.getContext('webgl2',{antialias:true,alpha:false,depth:true,powerPreference:'high-performance'});if(!gl)throw Error('BERX 5D requires WebGL2');this.gl=gl;this.program=program(gl);this.P=gl.getUniformLocation(this.program,'P');this.V=gl.getUniformLocation(this.program,'V');this.M=gl.getUniformLocation(this.program,'M');this.BASE=gl.getUniformLocation(this.program,'BASE');this.EMIT=gl.getUniformLocation(this.program,'EMIT');this.CAM=gl.getUniformLocation(this.program,'CAM');this.AMB=gl.getUniformLocation(this.program,'AMB');this.KEY_DIR=gl.getUniformLocation(this.program,'KEY_DIR');this.KEY_COL=gl.getUniformLocation(this.program,'KEY_COL');this.KEY_I=gl.getUniformLocation(this.program,'KEY_I');this.PL_POS=gl.getUniformLocation(this.program,'PL_POS');this.PL_COL=gl.getUniformLocation(this.program,'PL_COL');this.PL_I=gl.getUniformLocation(this.program,'PL_I');this.PL_R=gl.getUniformLocation(this.program,'PL_R');this.PL_N=gl.getUniformLocation(this.program,'PL_N');this.MET=gl.getUniformLocation(this.program,'MET');this.ROUGH=gl.getUniformLocation(this.program,'ROUGH');this.OPAC=gl.getUniformLocation(this.program,'OPAC');this.TRANS=gl.getUniformLocation(this.program,'TRANS');this.HT=gl.getUniformLocation(this.program,'HT');this.TS=gl.getUniformLocation(this.program,'TS');this.TEX=gl.getUniformLocation(this.program,'TEX');this.textures=new BerxMediaTextureCache(gl,{budget:options.textureBudget,onError:options.onMediaError});
@@ -434,6 +447,20 @@ export class BerxThreeRuntimeRenderer implements BerxSpatialRenderer {
    gl.uniform1f(this.LA,alpha*o.material.opacity);
    gl.drawArrays(gl.TRIANGLES,0,6);calls++;
   }
+  /* the ring, in the same pass: it is made of the same material as a
+     name, because it is the same kind of thing — a word standing in
+     the world beside the object it belongs to */
+  const focusedObject=frame.world.objects.find(o=>o.id===frame.world.activeObjectId);
+  this.slots=berxActionRing(focusedObject,c,this.affordances);
+  for(const slot of this.slots){
+   const entry=this.labels.get(slot.affordance.label);
+   if(!entry)continue;
+   gl.bindTexture(gl.TEXTURE_2D,entry.texture);
+   gl.uniform3f(this.LC,slot.position.x,slot.position.y,slot.position.z);
+   gl.uniform2f(this.LS,slot.halfHeight*entry.aspect,slot.halfHeight);
+   gl.uniform1f(this.LA,1);
+   gl.drawArrays(gl.TRIANGLES,0,6);calls++;
+  }
   gl.depthMask(true);
   gl.enable(gl.CULL_FACE);
   gl.bindVertexArray(null);gl.bindTexture(gl.TEXTURE_2D,null);
@@ -442,6 +469,10 @@ export class BerxThreeRuntimeRenderer implements BerxSpatialRenderer {
 
  /** How many label textures are resident. Real, for a host reporting budgets. */
  get residentLabelCount(){return this.labels.residentCount;}
+ /** The actions to offer beside whatever is focused. */
+ setAffordances(affordances:readonly BerxSpatialAffordance[]){this.affordances=affordances;}
+ /** Where the ring stood in the last drawn frame. */
+ get actionSlots():readonly BerxActionSlot[]{return this.slots;}
  /** Relight the world. Lights are state, not constants baked into a shader. */
  setLighting(lighting:BerxWorldLighting){this.lighting=lighting;}
  get worldLighting():BerxWorldLighting{return this.lighting;}

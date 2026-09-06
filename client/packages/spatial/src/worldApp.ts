@@ -25,6 +25,8 @@ import {Berx5DRuntime, type Berx5DFrame} from './runtime5d';
 import type {BerxSpatialCameraState} from './spatialCamera';
 import {berxApplyTemporal, berxTemporalCursor, type BerxTemporalCursor} from './temporal';
 import {berxRelationalLayout, berxRelationalWeight} from './relational';
+import {affordancesForObject} from './spatialAffordances';
+import type {BerxSocialAction, BerxSpatialAffordance} from './socialActions';
 import type {BerxNavigationIntent} from './platform';
 import type {BerxSpatialObject, BerxSpatialRelation} from './world';
 
@@ -82,6 +84,17 @@ export interface Berx5DWorldAppOptions {
 	cursor?: BerxTemporalCursor;
 	/** Told whenever the viewer's position in the world changes. */
 	onPositionChange?: (position: BerxWorldPosition) => void;
+	/**
+	 * Carries out an action on an entity.
+	 *
+	 * Must call the real API and resolve only once the server has
+	 * confirmed. Returning an entity replaces the one in the world with
+	 * the server's own updated row; returning nothing means the action
+	 * changed nothing the world shows.
+	 */
+	onAction?: (action: BerxSocialAction, object: BerxSpatialObject) => Promise<BerxWorldIngest | undefined>;
+	/** What each action is called, in the viewer's language. */
+	actionLabels?: Partial<Record<BerxSocialAction, string>>;
 }
 
 export interface BerxWorldIngest {
@@ -358,8 +371,56 @@ export class Berx5DWorldApp {
 		return ok;
 	}
 
+	/**
+	 * Look at nothing in particular.
+	 *
+	 * A real state, not an absence of one: standing in a region with
+	 * nothing selected is how a world normally is, and it is when no
+	 * action ring is drawn.
+	 */
+	blur(): void {
+		this.runtime.world.setActiveObject(undefined);
+		this.position = {...this.position, focusId: undefined};
+		this.options.onPositionChange?.(this.worldPosition);
+	}
+
 	setAccessibility(options: {reducedMotion?: boolean}): void {
 		this.runtime.setAccessibility(options);
+	}
+
+	/* ---------------- doing things ---------------- */
+
+	/**
+	 * What can be done with the entity in focus.
+	 *
+	 * Only what the domain says that kind affords, and only what this
+	 * build can actually carry out — an affordance with nothing behind
+	 * it is a button that does nothing, which is worse than an absence.
+	 */
+	affordances(): BerxSpatialAffordance[] {
+		const object = this.runtime.world.getActiveObject();
+		if (!object || !this.options.onAction) return [];
+		return affordancesForObject(object, this.options.actionLabels).affordances.filter((a) => a.state !== 'disabled');
+	}
+
+	/**
+	 * Do it, and let the server decide what happened.
+	 *
+	 * The world is updated from what comes back, never from what was
+	 * asked for: a like that the server refused must not leave a liked
+	 * object sitting in the world. A rejection is returned to the
+	 * caller rather than swallowed.
+	 */
+	async act(affordanceId: string): Promise<boolean> {
+		const object = this.runtime.world.getActiveObject();
+		if (!object || !this.options.onAction) return false;
+		const affordance = this.affordances().find((a) => a.id === affordanceId);
+		if (!affordance) return false;
+		/* `open` is travel, and travel is not a server action */
+		if (affordance.action === 'open') return this.travelTo(object.id);
+		const updated = await this.options.onAction(affordance.action, object);
+		if (updated) this.ingest([updated]);
+		return true;
 	}
 
 	/* ---------------- persistence ---------------- */

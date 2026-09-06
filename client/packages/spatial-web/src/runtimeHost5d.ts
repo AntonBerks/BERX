@@ -24,7 +24,7 @@
  * stayed black until reload. It is caught, the frame loop pauses, and
  * the meshes rebuild on restore.
  */
-import { Berx5DRuntime, Berx5DWorldApp, cameraBasis, type BerxSpatialObject, type BerxWorldIngest } from '@berx/spatial';
+import { Berx5DRuntime, Berx5DWorldApp, cameraBasis, pickActionSlot, rayFromNdc, type BerxSpatialObject, type BerxWorldIngest } from '@berx/spatial';
 import { BerxThreeRuntimeRenderer } from './threeRuntime';
 import { resolveSpatialQuality, type BerxSpatialQualityResult } from './runtimeQuality';
 
@@ -234,6 +234,8 @@ export function createBerx5DWebHost(options: Berx5DWebHostOptions = {}): Berx5DW
 		if (frameTimes.length > 120) frameTimes.shift();
 		if (contextAlive) {
 			syncQualityToLoad();
+			/* what can be done with what is focused, this frame */
+			if (world) renderer.setAffordances(world.affordances());
 			renderer.render(world ? world.frame(dt) : runtime.frame(dt), {maxObjects: quality.maxObjects, ambientMotion: quality.ambientMotion});
 		} else {
 			/* the world keeps time even with no GPU to draw it, so a
@@ -268,7 +270,24 @@ export function createBerx5DWebHost(options: Berx5DWebHostOptions = {}): Berx5DW
 		if (Math.hypot(e.clientX - downX, e.clientY - downY) > 8) return;
 		const rect = canvas.getBoundingClientRect();
 		const dpr = canvas.width / Math.max(1, rect.width);
-		const hit = renderer.pick(world ? world.latestFrame : runtime.latestFrame, (e.clientX - rect.left) * dpr, (e.clientY - rect.top) * dpr);
+		const x = (e.clientX - rect.left) * dpr;
+		const y = (e.clientY - rect.top) * dpr;
+		const frameState = world ? world.latestFrame : runtime.latestFrame;
+		/* an action beside the focused entity is nearer to hand than the
+		   entity behind it, so the ring is tested first */
+		const ray = rayFromNdc(frameState.camera, (x / canvas.width) * 2 - 1, 1 - (y / canvas.height) * 2, canvas.width / canvas.height);
+		const slot = ray && world ? pickActionSlot(renderer.actionSlots, frameState.camera, ray.direction, canvas.width / canvas.height) : undefined;
+		if (slot && world) {
+			announce(`${slot.affordance.label}…`);
+			void world.act(slot.affordance.id).then((done) => {
+				announce(done ? `${slot.affordance.label}: готово` : `${slot.affordance.label}: не удалось`);
+			}).catch((error) => {
+				/* the server's own reason, out loud */
+				announce(error instanceof Error ? error.message : `${slot.affordance.label}: не удалось`);
+			});
+			return;
+		}
+		const hit = renderer.pick(frameState, x, y);
 		if (hit && runtime.focus(hit.objectId)) announceFocus();
 	};
 	const onWheel = (e: WheelEvent) => {

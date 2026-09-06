@@ -22,7 +22,7 @@
  * Signing in is text input, so it is a real form. Everything after it
  * is space.
  */
-import {Berx5DWorldApp, berxTemporalCursor, type BerxWorldIngest, type BerxWorldPersistence, type BerxWorldPosition} from '@berx/spatial';
+import {Berx5DWorldApp, berxTemporalCursor, type BerxSocialAction, type BerxSpatialObject, type BerxWorldIngest, type BerxWorldPersistence, type BerxWorldPosition} from '@berx/spatial';
 import {createBerx5DWebHost, type Berx5DWebHost} from './runtimeHost5d';
 
 export interface BerxAppShellOptions {
@@ -58,6 +58,16 @@ export interface BerxAppShellOptions {
 	 */
 	publish?: (text: string) => Promise<BerxWorldIngest>;
 	/**
+	 * Carry out an action on an entity, through the real API.
+	 *
+	 * Must resolve only once the server has confirmed, and should
+	 * return the server's own updated row so the world shows what
+	 * actually happened rather than what was asked for.
+	 */
+	act?: (action: BerxSocialAction, object: BerxSpatialObject) => Promise<BerxWorldIngest | undefined>;
+	/** What each action is called, in the viewer's language. */
+	actionLabels?: Partial<Record<BerxSocialAction, string>>;
+	/**
 	 * Bring back whatever a region needs that the first load did not.
 	 *
 	 * Arriving somewhere in BERX can require reading more from the
@@ -67,7 +77,11 @@ export interface BerxAppShellOptions {
 	 * world, so entities already there are updated rather than
 	 * duplicated. Returning nothing is a normal answer.
 	 */
-	loadRegion?: (position: BerxWorldPosition) => Promise<{entries: BerxWorldIngest[]; failures: {source: string; message: string}[]} | undefined>;
+	loadRegion?: (
+		position: BerxWorldPosition,
+		/** The entity the viewer is with, when there is one. */
+		focused: BerxSpatialObject | undefined,
+	) => Promise<{entries: BerxWorldIngest[]; failures: {source: string; message: string}[]} | undefined>;
 }
 
 export interface BerxAppShell {
@@ -130,6 +144,8 @@ export async function startBerxApp(options: BerxAppShellOptions): Promise<BerxAp
 	const world = new Berx5DWorldApp({
 		reducedMotion: options.reducedMotion,
 		cursor: berxTemporalCursor(),
+		onAction: options.act,
+		actionLabels: options.actionLabels,
 		onPositionChange: (position) => {
 			outline.textContent = describe(world);
 			options.onPositionChange?.(position);
@@ -163,7 +179,12 @@ export async function startBerxApp(options: BerxAppShellOptions): Promise<BerxAp
 		const key = `${position.region}:${position.focusId ?? ''}`;
 		if (loadedRegions.has(key)) return;
 		loadedRegions.add(key);
-		const more = await options.loadRegion(position).catch((error) => {
+		/* the region says where the viewer is; the focused entity says
+		   what they are with. A moment focused while standing in a
+		   conversation is still a moment, and asking the server for a
+		   conversation with a post's guid is how that goes wrong. */
+		const focused = position.focusId ? world.runtime.world.getObject(position.focusId) : undefined;
+		const more = await options.loadRegion(position, focused).catch((error) => {
 			failures.push({source: `region:${key}`, message: error instanceof Error ? error.message : String(error)});
 			return undefined;
 		});

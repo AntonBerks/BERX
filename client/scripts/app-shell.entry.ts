@@ -9,7 +9,13 @@
  */
 import {BerxApiClient} from '@berx/api/client';
 import type {BerxTokenStorage} from '@berx/core';
-import {loadBerxConversation, loadBerxWorld, mapFeedItemToSpatial} from '@berx/scenes';
+import {
+	loadBerxConversation,
+	loadBerxWorld,
+	mapEventToSpatial,
+	mapFeedItemToSpatial,
+	mapPlaceToSpatial,
+} from '@berx/scenes';
 import {startBerxApp} from '@berx/spatial-web/appShell';
 
 /**
@@ -61,10 +67,15 @@ async function enterWorld(): Promise<void> {
 		 * its messages, and they land in the same world: the person you
 		 * are talking to is the entity that was already there.
 		 */
-		loadRegion: async (position) => {
-			if (position.region !== 'conversation' || !position.focusId) return undefined;
-			const guid = Number(position.focusId.split(':')[1]);
-			if (!Number.isFinite(guid)) return undefined;
+		loadRegion: async (position, focused) => {
+			/* A conversation is read when the viewer is *with a
+			   conversation*, not merely standing in one: focusing a moment
+			   without leaving the region would otherwise ask the server
+			   for a conversation with a post's guid. */
+			if (position.region !== 'conversation' || focused?.kind !== 'message') return undefined;
+			const guid = Number(focused.sourceId);
+			/* a message inside a thread has an id, not a person's guid */
+			if (!Number.isFinite(guid) || focused.id.startsWith('message:m')) return undefined;
 			return loadBerxConversation(api, guid);
 		},
 		/**
@@ -110,6 +121,66 @@ async function enterWorld(): Promise<void> {
 			} catch {
 				/* storage blocked: the session simply starts fresh next time */
 			}
+		},
+		/**
+		 * Actions, carried out on the server and read back.
+		 *
+		 * Only the ones BERX actually has an endpoint for. An affordance
+		 * with nothing behind it is a control that does nothing, so
+		 * anything not listed here throws rather than quietly succeeding
+		 * — and the world is updated from what the server returns, never
+		 * from what was asked for.
+		 */
+		act: async (action, object) => {
+			const guid = Number(object.sourceId);
+			if (!Number.isFinite(guid)) throw new Error('BERX: этот объект не с сервера');
+			switch (action) {
+				case 'like': {
+					await api.likePost(guid);
+					const post = await api.getPost(guid);
+					const mapped = mapFeedItemToSpatial({
+						guid: post.guid, text: post.text, owner_guid: post.owner_guid,
+						owner_username: post.owner_username, time_created: post.time_created,
+					});
+					return {object: mapped.object, relations: mapped.relations, media: mapped.media};
+				}
+				case 'attend': {
+					await api.rsvpEvent(guid);
+					const events = await api.events();
+					const found = events.events.find((e) => e.guid === guid);
+					if (!found) return undefined;
+					const mapped = mapEventToSpatial(found);
+					return {object: mapped.object, relations: mapped.relations, media: mapped.media};
+				}
+				case 'save': {
+					await api.savePlace(guid);
+					const places = await api.places();
+					const found = places.places.find((p) => p.guid === guid);
+					if (!found) return undefined;
+					const mapped = mapPlaceToSpatial(found);
+					return {object: mapped.object, relations: mapped.relations, media: mapped.media};
+				}
+				case 'join':
+					await api.joinCommunity(guid);
+					return undefined;
+				default:
+					throw new Error(`BERX: «${action}» пока нет на сервере`);
+			}
+		},
+		actionLabels: {
+			open: 'Открыть',
+			like: 'Нравится',
+			attend: 'Пойду',
+			save: 'Сохранить',
+			join: 'Вступить',
+			share: 'Поделиться',
+			message: 'Написать',
+			follow: 'Подписаться',
+			comment: 'Комментировать',
+			directions: 'Маршрут',
+			reserve: 'Забронировать',
+			reply: 'Ответить',
+			react: 'Реакция',
 		},
 		textureBudget: 96,
 	});

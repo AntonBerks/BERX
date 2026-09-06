@@ -63,6 +63,8 @@ const API = {
 			rating: 0, rating_count: 0, is_saved: false, is_business: false, business_type: null, verified: false,
 		}],
 	},
+	'/api/v1/posts/5150/like': {status: 'ok'},
+	'/api/v1/posts/5150': {guid: 5150, text: 'вечер удался', owner_guid: 77, owner_username: 'ann', time_created: NOW - 400, like_count: 1, comment_count: 0},
 	'/api/v1/events': {
 		events: [{
 			guid: 908, title: 'Вечер импровизации', description: '', category: null,
@@ -401,6 +403,59 @@ try {
 		'the thread extends back through time, not down a list',
 		conversation.depths['message:m9003'] < conversation.depths['message:m9002'],
 		`last month at z ${conversation.depths['message:m9003'].toFixed(2)}, this morning at z ${conversation.depths['message:m9002'].toFixed(2)}`,
+	);
+
+	/* --- doing things happens in the world, on the server --- */
+	const acted = await page.evaluate(async () => {
+		const w = window.__berxWorld;
+		const settle = async () => {
+			for (let i = 0; i < 60; i++) await new Promise((r) => requestAnimationFrame(r));
+		};
+		w.blur();
+		await settle();
+		const noFocus = w.affordances().length;
+		w.focus('moment:5150');
+		await settle();
+		const offered = w.affordances().map((a) => ({id: a.id, action: a.action, label: a.label}));
+		const slots = window.__berxHost.renderer.actionSlots.map((s) => s.affordance.action);
+		const like = offered.find((a) => a.action === 'like');
+		let error;
+		const done = await w.act(like.id).catch((e) => {
+			error = e instanceof Error ? e.message : String(e);
+			return false;
+		});
+		await settle();
+		/* something the server does not implement must fail loudly. A
+		   person affords `follow`, and BERX has no follow endpoint. */
+		w.focus('person:78');
+		await settle();
+		const personActions = w.affordances();
+		const follow = personActions.find((a) => a.action === 'follow');
+		let refused;
+		if (follow) await w.act(follow.id).catch((e) => {
+			refused = e instanceof Error ? e.message : String(e);
+		});
+		return {noFocus, offered, slots, done, error, refused, region: w.worldPosition.region};
+	});
+	gate(
+		'nothing is offered until something is in focus',
+		acted.noFocus === 0 && acted.offered.length > 0,
+		`${acted.noFocus} actions with nothing focused; ${acted.offered.length} on a moment: ${acted.offered.map((a) => a.label).join(', ')}`,
+	);
+	gate(
+		'the actions stand in the world beside the entity',
+		acted.slots.length === acted.offered.length,
+		`${acted.slots.length} slots drawn in world space for ${acted.offered.length} affordances — no toolbar, no menu`,
+	);
+	gate(
+		'an action the server has really happens',
+		acted.done === true && acted.error === undefined,
+		`like on moment:5150 confirmed by the server${acted.error ? `; error ${acted.error}` : ''}`,
+	);
+	gate(
+		'an action the server does not have fails loudly',
+		typeof acted.refused === 'string' && acted.refused.includes('follow'),
+		acted.refused ?? 'no unimplemented action was offered to test',
 	);
 
 	/* --- NOW is a reading of the world, not a feed --- */

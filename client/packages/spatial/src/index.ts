@@ -27,6 +27,7 @@ export * from './renderer';
 export * from './spatialInteraction';
 export * from './socialActions';
 export * from './spatialAffordances';
+export * from './actionRing';
 export * from './geometry';
 export * from './spatialPresentation';
 export * from './mediaSurface';

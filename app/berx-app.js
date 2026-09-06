@@ -1633,6 +1633,24 @@ var Berx5DRuntime = class {
   }
 };
 
+// packages/spatial/src/spatialAffordances.ts
+var primaryByKind = {
+  person: ["view-profile", "message", "follow"],
+  moment: ["open", "like", "comment", "share", "save"],
+  place: ["view-place", "directions", "reserve"],
+  event: ["view-event", "attend", "share"],
+  experience: ["view-experience", "reserve", "share"],
+  community: ["view-community", "join", "share"],
+  business: ["view-business", "directions", "reserve"],
+  collection: ["open", "save", "share"],
+  message: ["open", "reply", "react"],
+  create: ["create-moment", "create-story", "create-post"]
+};
+function affordancesForObject(object, labels = {}) {
+  const actions = primaryByKind[object.kind] ?? ["open"];
+  return { objectId: object.id, affordances: actions.map((action, index) => ({ id: `${object.id}:${action}`, objectId: object.id, action, state: object.interactive ? "available" : "disabled", label: labels[action] ?? action, accessibilityLabel: labels[action] ?? action, priority: index, serverRequired: action !== "open" && action !== "focus" })) };
+}
+
 // packages/spatial/src/worldApp.ts
 var BERX_PERSISTENCE_VERSION = 1;
 var Berx5DWorldApp = class {
@@ -1866,8 +1884,51 @@ var Berx5DWorldApp = class {
     }
     return ok;
   }
+  /**
+   * Look at nothing in particular.
+   *
+   * A real state, not an absence of one: standing in a region with
+   * nothing selected is how a world normally is, and it is when no
+   * action ring is drawn.
+   */
+  blur() {
+    this.runtime.world.setActiveObject(void 0);
+    this.position = { ...this.position, focusId: void 0 };
+    this.options.onPositionChange?.(this.worldPosition);
+  }
   setAccessibility(options) {
     this.runtime.setAccessibility(options);
+  }
+  /* ---------------- doing things ---------------- */
+  /**
+   * What can be done with the entity in focus.
+   *
+   * Only what the domain says that kind affords, and only what this
+   * build can actually carry out — an affordance with nothing behind
+   * it is a button that does nothing, which is worse than an absence.
+   */
+  affordances() {
+    const object = this.runtime.world.getActiveObject();
+    if (!object || !this.options.onAction) return [];
+    return affordancesForObject(object, this.options.actionLabels).affordances.filter((a) => a.state !== "disabled");
+  }
+  /**
+   * Do it, and let the server decide what happened.
+   *
+   * The world is updated from what comes back, never from what was
+   * asked for: a like that the server refused must not leave a liked
+   * object sitting in the world. A rejection is returned to the
+   * caller rather than swallowed.
+   */
+  async act(affordanceId) {
+    const object = this.runtime.world.getActiveObject();
+    if (!object || !this.options.onAction) return false;
+    const affordance = this.affordances().find((a) => a.id === affordanceId);
+    if (!affordance) return false;
+    if (affordance.action === "open") return this.travelTo(object.id);
+    const updated = await this.options.onAction(affordance.action, object);
+    if (updated) this.ingest([updated]);
+    return true;
   }
   /* ---------------- persistence ---------------- */
   /**
@@ -2015,6 +2076,58 @@ function rayFromNdc(camera, ndcX, ndcY, aspect) {
       z: forward.z + right.z * ndcX * tan * aspect + up.z * ndcY * tan
     })
   };
+}
+
+// packages/spatial/src/actionRing.ts
+var RING_GAP = 0.55;
+var SLOT_HEIGHT = 0.26;
+function berxActionRing(object, camera, affordances) {
+  if (!object || affordances.length === 0) return [];
+  const basis = cameraBasis(camera);
+  if (!basis) return [];
+  const radius = Math.max(object.transform.scale.x, object.transform.scale.y) * 0.5 + RING_GAP;
+  const drop = object.transform.scale.y * 0.5 + SLOT_HEIGHT * 1.4;
+  const spread = Math.min(Math.PI * 0.9, 0.42 * Math.max(1, affordances.length - 1));
+  const start = -spread / 2;
+  const step = affordances.length > 1 ? spread / (affordances.length - 1) : 0;
+  return affordances.map((affordance, index) => {
+    const angle = start + step * index;
+    const across = Math.sin(angle) * radius * 1.35;
+    const under = Math.cos(angle) * radius * 0.35;
+    return {
+      affordance,
+      position: {
+        x: object.transform.position.x + basis.right.x * across - basis.up.x * (drop + under),
+        y: object.transform.position.y + basis.right.y * across - basis.up.y * (drop + under),
+        z: object.transform.position.z + basis.right.z * across - basis.up.z * (drop + under)
+      },
+      halfHeight: SLOT_HEIGHT * 0.5
+    };
+  });
+}
+function pickActionSlot(slots, camera, rayDirection, aspect) {
+  const basis = cameraBasis(camera);
+  if (!basis) return void 0;
+  let best;
+  let bestDistance = Infinity;
+  for (const slot of slots) {
+    const d = {
+      x: slot.position.x - camera.position.x,
+      y: slot.position.y - camera.position.y,
+      z: slot.position.z - camera.position.z
+    };
+    const along = d.x * basis.forward.x + d.y * basis.forward.y + d.z * basis.forward.z;
+    if (along <= 0) continue;
+    const scale = along / Math.max(1e-4, rayDirection.x * basis.forward.x + rayDirection.y * basis.forward.y + rayDirection.z * basis.forward.z);
+    const hit = { x: rayDirection.x * scale, y: rayDirection.y * scale, z: rayDirection.z * scale };
+    const dx = (hit.x - d.x) * basis.right.x + (hit.y - d.y) * basis.right.y + (hit.z - d.z) * basis.right.z;
+    const dy = (hit.x - d.x) * basis.up.x + (hit.y - d.y) * basis.up.y + (hit.z - d.z) * basis.up.z;
+    if (Math.abs(dx) <= slot.halfHeight * 4 * aspect && Math.abs(dy) <= slot.halfHeight * 1.6 && along < bestDistance) {
+      bestDistance = along;
+      best = slot;
+    }
+  }
+  return best;
 }
 
 // packages/spatial/src/geometry.ts
@@ -2924,6 +3037,15 @@ var BerxThreeRuntimeRenderer = class {
     this.labelHeight = 0.34;
     /** The world's standing light. Replaceable, so a region can relight itself. */
     this.lighting = berxWorldLighting();
+    /**
+     * What can be done with what is in focus.
+     *
+     * Set by the host each frame from the world. Empty when nothing is
+     * focused, which is when no ring is drawn — there is no toolbar.
+     */
+    this.affordances = [];
+    /** Where the ring stood last frame, so a tap can be tested against it. */
+    this.slots = [];
     /** What the last frame actually cost. Measured during the draw. */
     this.stats = { visible: 0, inFrustum: 0, drawCalls: 0, triangles: 0, lodReduced: 0, budgetCut: 0, residentTextures: 0, residentLabels: 0, meshVariants: 0 };
     const gl = canvas.getContext("webgl2", { antialias: true, alpha: false, depth: true, powerPreference: "high-performance" });
@@ -3183,6 +3305,18 @@ var BerxThreeRuntimeRenderer = class {
       gl.drawArrays(gl.TRIANGLES, 0, 6);
       calls++;
     }
+    const focusedObject = frame.world.objects.find((o) => o.id === frame.world.activeObjectId);
+    this.slots = berxActionRing(focusedObject, c, this.affordances);
+    for (const slot of this.slots) {
+      const entry = this.labels.get(slot.affordance.label);
+      if (!entry) continue;
+      gl.bindTexture(gl.TEXTURE_2D, entry.texture);
+      gl.uniform3f(this.LC, slot.position.x, slot.position.y, slot.position.z);
+      gl.uniform2f(this.LS, slot.halfHeight * entry.aspect, slot.halfHeight);
+      gl.uniform1f(this.LA, 1);
+      gl.drawArrays(gl.TRIANGLES, 0, 6);
+      calls++;
+    }
     gl.depthMask(true);
     gl.enable(gl.CULL_FACE);
     gl.bindVertexArray(null);
@@ -3192,6 +3326,14 @@ var BerxThreeRuntimeRenderer = class {
   /** How many label textures are resident. Real, for a host reporting budgets. */
   get residentLabelCount() {
     return this.labels.residentCount;
+  }
+  /** The actions to offer beside whatever is focused. */
+  setAffordances(affordances) {
+    this.affordances = affordances;
+  }
+  /** Where the ring stood in the last drawn frame. */
+  get actionSlots() {
+    return this.slots;
   }
   /** Relight the world. Lights are state, not constants baked into a shader. */
   setLighting(lighting) {
@@ -3378,6 +3520,7 @@ function createBerx5DWebHost(options = {}) {
     if (frameTimes.length > 120) frameTimes.shift();
     if (contextAlive) {
       syncQualityToLoad();
+      if (world) renderer.setAffordances(world.affordances());
       renderer.render(world ? world.frame(dt) : runtime.frame(dt), { maxObjects: quality.maxObjects, ambientMotion: quality.ambientMotion });
     } else {
       if (world) world.frame(dt);
@@ -3406,7 +3549,21 @@ function createBerx5DWebHost(options = {}) {
     if (Math.hypot(e.clientX - downX, e.clientY - downY) > 8) return;
     const rect = canvas.getBoundingClientRect();
     const dpr = canvas.width / Math.max(1, rect.width);
-    const hit = renderer.pick(world ? world.latestFrame : runtime.latestFrame, (e.clientX - rect.left) * dpr, (e.clientY - rect.top) * dpr);
+    const x = (e.clientX - rect.left) * dpr;
+    const y = (e.clientY - rect.top) * dpr;
+    const frameState = world ? world.latestFrame : runtime.latestFrame;
+    const ray = rayFromNdc(frameState.camera, x / canvas.width * 2 - 1, 1 - y / canvas.height * 2, canvas.width / canvas.height);
+    const slot = ray && world ? pickActionSlot(renderer.actionSlots, frameState.camera, ray.direction, canvas.width / canvas.height) : void 0;
+    if (slot && world) {
+      announce(`${slot.affordance.label}\u2026`);
+      void world.act(slot.affordance.id).then((done) => {
+        announce(done ? `${slot.affordance.label}: \u0433\u043E\u0442\u043E\u0432\u043E` : `${slot.affordance.label}: \u043D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C`);
+      }).catch((error) => {
+        announce(error instanceof Error ? error.message : `${slot.affordance.label}: \u043D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C`);
+      });
+      return;
+    }
+    const hit = renderer.pick(frameState, x, y);
     if (hit && runtime.focus(hit.objectId)) announceFocus();
   };
   const onWheel = (e) => {
@@ -3685,6 +3842,8 @@ async function startBerxApp(options) {
   const world = new Berx5DWorldApp({
     reducedMotion: options.reducedMotion,
     cursor: berxTemporalCursor(),
+    onAction: options.act,
+    actionLabels: options.actionLabels,
     onPositionChange: (position) => {
       outline.textContent = describe(world);
       options.onPositionChange?.(position);
@@ -3710,7 +3869,8 @@ async function startBerxApp(options) {
     const key = `${position.region}:${position.focusId ?? ""}`;
     if (loadedRegions.has(key)) return;
     loadedRegions.add(key);
-    const more = await options.loadRegion(position).catch((error) => {
+    const focused = position.focusId ? world.runtime.world.getObject(position.focusId) : void 0;
+    const more = await options.loadRegion(position, focused).catch((error) => {
       failures.push({ source: `region:${key}`, message: error instanceof Error ? error.message : String(error) });
       return void 0;
     });
@@ -3853,10 +4013,10 @@ async function enterWorld() {
      * its messages, and they land in the same world: the person you
      * are talking to is the entity that was already there.
      */
-    loadRegion: async (position) => {
-      if (position.region !== "conversation" || !position.focusId) return void 0;
-      const guid = Number(position.focusId.split(":")[1]);
-      if (!Number.isFinite(guid)) return void 0;
+    loadRegion: async (position, focused) => {
+      if (position.region !== "conversation" || focused?.kind !== "message") return void 0;
+      const guid = Number(focused.sourceId);
+      if (!Number.isFinite(guid) || focused.id.startsWith("message:m")) return void 0;
       return loadBerxConversation(api, guid);
     },
     /**
@@ -3901,6 +4061,69 @@ async function enterWorld() {
         localStorage.setItem("berx.place", JSON.stringify(state));
       } catch {
       }
+    },
+    /**
+     * Actions, carried out on the server and read back.
+     *
+     * Only the ones BERX actually has an endpoint for. An affordance
+     * with nothing behind it is a control that does nothing, so
+     * anything not listed here throws rather than quietly succeeding
+     * — and the world is updated from what the server returns, never
+     * from what was asked for.
+     */
+    act: async (action, object) => {
+      const guid = Number(object.sourceId);
+      if (!Number.isFinite(guid)) throw new Error("BERX: \u044D\u0442\u043E\u0442 \u043E\u0431\u044A\u0435\u043A\u0442 \u043D\u0435 \u0441 \u0441\u0435\u0440\u0432\u0435\u0440\u0430");
+      switch (action) {
+        case "like": {
+          await api.likePost(guid);
+          const post = await api.getPost(guid);
+          const mapped = mapFeedItemToSpatial({
+            guid: post.guid,
+            text: post.text,
+            owner_guid: post.owner_guid,
+            owner_username: post.owner_username,
+            time_created: post.time_created
+          });
+          return { object: mapped.object, relations: mapped.relations, media: mapped.media };
+        }
+        case "attend": {
+          await api.rsvpEvent(guid);
+          const events = await api.events();
+          const found = events.events.find((e) => e.guid === guid);
+          if (!found) return void 0;
+          const mapped = mapEventToSpatial(found);
+          return { object: mapped.object, relations: mapped.relations, media: mapped.media };
+        }
+        case "save": {
+          await api.savePlace(guid);
+          const places = await api.places();
+          const found = places.places.find((p) => p.guid === guid);
+          if (!found) return void 0;
+          const mapped = mapPlaceToSpatial(found);
+          return { object: mapped.object, relations: mapped.relations, media: mapped.media };
+        }
+        case "join":
+          await api.joinCommunity(guid);
+          return void 0;
+        default:
+          throw new Error(`BERX: \xAB${action}\xBB \u043F\u043E\u043A\u0430 \u043D\u0435\u0442 \u043D\u0430 \u0441\u0435\u0440\u0432\u0435\u0440\u0435`);
+      }
+    },
+    actionLabels: {
+      open: "\u041E\u0442\u043A\u0440\u044B\u0442\u044C",
+      like: "\u041D\u0440\u0430\u0432\u0438\u0442\u0441\u044F",
+      attend: "\u041F\u043E\u0439\u0434\u0443",
+      save: "\u0421\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u044C",
+      join: "\u0412\u0441\u0442\u0443\u043F\u0438\u0442\u044C",
+      share: "\u041F\u043E\u0434\u0435\u043B\u0438\u0442\u044C\u0441\u044F",
+      message: "\u041D\u0430\u043F\u0438\u0441\u0430\u0442\u044C",
+      follow: "\u041F\u043E\u0434\u043F\u0438\u0441\u0430\u0442\u044C\u0441\u044F",
+      comment: "\u041A\u043E\u043C\u043C\u0435\u043D\u0442\u0438\u0440\u043E\u0432\u0430\u0442\u044C",
+      directions: "\u041C\u0430\u0440\u0448\u0440\u0443\u0442",
+      reserve: "\u0417\u0430\u0431\u0440\u043E\u043D\u0438\u0440\u043E\u0432\u0430\u0442\u044C",
+      reply: "\u041E\u0442\u0432\u0435\u0442\u0438\u0442\u044C",
+      react: "\u0420\u0435\u0430\u043A\u0446\u0438\u044F"
     },
     textureBudget: 96
   });
