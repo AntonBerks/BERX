@@ -16,6 +16,7 @@ import {BerxText} from '../../../../packages/design-system/src/spatial/BerxText'
 import {BerxEventHero} from '../../../../packages/design-system/src/spatial/BerxEventHero';
 import {BerxActionShelf} from '../../../../packages/design-system/src/spatial/BerxActionShelf';
 import {BerxConfirm} from '../../../../packages/design-system/src/spatial/BerxConfirm';
+import {BerxEditSheet} from '../../../../packages/design-system/src/spatial/BerxEditSheet';
 import {pickImageFromLibrary} from '@berx/platform/mediaPicker';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 import {classifyFailure} from '../spatial/screenState';
@@ -85,6 +86,7 @@ function EventDetailSceneBody({api, guid, myGuid, onOpenPlace, onOpenInvite, onA
 	const [rsvping, setRsvping] = useState(false);
 	const [coverBusy, setCoverBusy] = useState(false);
 	const [confirmDelete, setConfirmDelete] = useState(false);
+	const [editing, setEditing] = useState(false);
 	const [ownerError, setOwnerError] = useState<string | null>(null);
 	const [rsvpError, setRsvpError] = useState<string | null>(null);
 
@@ -164,6 +166,25 @@ function EventDetailSceneBody({api, guid, myGuid, onOpenPlace, onOpenInvite, onA
 		await api.deleteEvent(event.guid);
 		/* only once the server has confirmed it is gone */
 		onBack?.();
+	}
+
+	/* `updateEvent` is real and ownership-checked, and nothing reached
+	   it: an event whose time or venue moved could only be deleted,
+	   taking every attendee's answer with it. The venue link
+	   (`placeGuid`) is not offered — BERX has no place picker to choose
+	   one with, and a raw guid field is not an edit anyone can make. */
+	async function saveEdits(changed: Record<string, string | number | null>) {
+		if (!event) return;
+		const updated = await api.updateEvent(event.guid, {
+			...(typeof changed.title === 'string' ? {title: changed.title} : {}),
+			...(typeof changed.description === 'string' ? {description: changed.description} : {}),
+			...(typeof changed.category === 'string' ? {category: changed.category} : {}),
+			...(typeof changed.location === 'string' ? {location: changed.location} : {}),
+			...(typeof changed.starts === 'number' ? {starts: changed.starts} : {}),
+			...(typeof changed.ends === 'number' ? {ends: changed.ends} : {}),
+			...(typeof changed.capacity === 'number' ? {capacity: changed.capacity} : {}),
+		});
+		setEvent(updated);
 	}
 
 	const header = <BerxHeader title={event?.title} onBack={onBack} />;
@@ -272,9 +293,28 @@ function EventDetailSceneBody({api, guid, myGuid, onOpenPlace, onOpenInvite, onA
 							onPress={pickCover}
 							fullWidth
 						/>
+						<BerxButton label="Изменить событие" variant="secondary" onPress={() => setEditing(true)} fullWidth />
 						<BerxButton label="Удалить событие" variant="danger" onPress={() => setConfirmDelete(true)} fullWidth />
 					</BerxActionShelf>
 				) : null}
+
+				<BerxEditSheet
+					visible={editing}
+					title="Изменить событие"
+					offline={offline}
+					fields={[
+						{key: 'title', kind: 'text', label: 'Название', value: event.title, required: true},
+						{key: 'description', kind: 'multiline', label: 'Описание', value: event.description},
+						{key: 'category', kind: 'text', label: 'Категория', value: event.category ?? ''},
+						{key: 'location', kind: 'text', label: 'Где', value: event.location ?? ''},
+						{key: 'starts', kind: 'moment', label: 'Начало', value: event.starts, required: true},
+						{key: 'ends', kind: 'moment', label: 'Конец', value: event.ends},
+						{key: 'capacity', kind: 'number', label: 'Мест', value: event.capacity, hint: 'Сервер не даст поставить меньше, чем уже собралось людей.'},
+					]}
+					onSave={saveEdits}
+					onClose={() => setEditing(false)}
+					testID="event-edit"
+				/>
 				{ownerError ? <Text style={styles.error}>{ownerError}</Text> : null}
 
 				<BerxConfirm

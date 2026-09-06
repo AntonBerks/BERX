@@ -16,6 +16,7 @@ import {BerxHeader} from '../../../../packages/design-system/src/components/Berx
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxActionShelf} from '../../../../packages/design-system/src/spatial/BerxActionShelf';
 import {BerxConfirm} from '../../../../packages/design-system/src/spatial/BerxConfirm';
+import {BerxEditSheet} from '../../../../packages/design-system/src/spatial/BerxEditSheet';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxSpatialCard} from '../../../../packages/design-system/src/spatial/BerxSpatialCard';
 import {BerxFamilyScene, useBerxSceneAtmosphere} from '../spatial/BerxScreenScene';
@@ -54,6 +55,7 @@ function CollectionDetailScreenBody({api, id, onOpenPlace, onOpenEvent, onOpenPo
 	const {offline} = useBerxConnectivity();
 	/* a 403 or a 404 is not transient; a Retry button there is a lie */
 	const [confirmDelete, setConfirmDelete] = useState(false);
+	const [editing, setEditing] = useState(false);
 	const [retryable, setRetryable] = useState(true);
 	const [collection, setCollection] = useState<BerxCollectionDetail | null>(null);
 	const [loading, setLoading] = useState(true);
@@ -113,6 +115,20 @@ function CollectionDetailScreenBody({api, id, onOpenPlace, onOpenEvent, onOpenPo
 		await api.deleteCollection(id);
 		/* only once the server has confirmed it is gone */
 		onBack?.();
+	}
+
+	/* `updateCollection` is a real PATCH that applies exactly the keys
+	   it receives, so only the changed ones are sent — and what the
+	   screen then shows is the server's own returned row, not the text
+	   that was typed. The items are not in that row, so they are kept
+	   from the copy already loaded. */
+	async function saveEdits(changed: Record<string, string | number | null>) {
+		const updated = await api.updateCollection(id, {
+			...(typeof changed.title === 'string' ? {title: changed.title} : {}),
+			...(typeof changed.description === 'string' ? {description: changed.description} : {}),
+			...(changed.visibility === 'private' || changed.visibility === 'public' ? {visibility: changed.visibility} : {}),
+		});
+		setCollection((prev) => (prev ? {...updated, items: prev.items} : prev));
 	}
 
 	const header = <BerxHeader title={collection?.title} onBack={onBack} />;
@@ -175,11 +191,38 @@ function CollectionDetailScreenBody({api, id, onOpenPlace, onOpenEvent, onOpenPo
 				    ownership-checked on the server, and no screen in BERX
 				    called it — you could make one of these and never remove
 				    it. */}
+				{/* Editing sits beside deleting, because it is the same
+				    ownership. Until now the only way to fix a title was to
+				    destroy the collection and rebuild it item by item. */}
 				{collection.is_own ? (
 					<BerxActionShelf variant="anchored" align="stack">
+						<BerxButton label="Изменить подборку" variant="secondary" onPress={() => setEditing(true)} fullWidth />
 						<BerxButton label="Удалить подборку" variant="danger" onPress={() => setConfirmDelete(true)} fullWidth />
 					</BerxActionShelf>
 				) : null}
+
+				<BerxEditSheet
+					visible={editing}
+					title="Изменить подборку"
+					offline={offline}
+					fields={[
+						{key: 'title', kind: 'text', label: 'Название', value: collection.title, required: true},
+						{key: 'description', kind: 'multiline', label: 'Описание', value: collection.description},
+						{
+							key: 'visibility',
+							kind: 'choice',
+							label: 'Кто увидит',
+							value: collection.visibility,
+							options: [
+								{key: 'private', label: 'Только я'},
+								{key: 'public', label: 'Все'},
+							],
+						},
+					]}
+					onSave={saveEdits}
+					onClose={() => setEditing(false)}
+					testID="collection-edit"
+				/>
 
 				<BerxConfirm
 					visible={confirmDelete}

@@ -17,6 +17,9 @@ import {BerxButton} from '../../../../packages/design-system/src/components/Berx
 import {BerxLoadingState, BerxErrorState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxActionShelf} from '../../../../packages/design-system/src/spatial/BerxActionShelf';
 import {BerxConfirm} from '../../../../packages/design-system/src/spatial/BerxConfirm';
+import {BerxEditSheet} from '../../../../packages/design-system/src/spatial/BerxEditSheet';
+import {classifyFailure} from '../spatial/screenState';
+import {useBerxConnectivity} from '../spatial/useBerxConnectivity';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 import {BerxSceneHero} from '../../../../packages/design-system/src/spatial/BerxSceneHero';
 import {BerxText} from '../../../../packages/design-system/src/spatial/BerxText';
@@ -42,8 +45,12 @@ export default function CommunityDetailScreen(props: CommunityDetailScreenProps)
 }
 
 function CommunityDetailScreenBody({api, guid, myGuid, onBack, onOpenRequests, onOpenModerators, onOpenMembers, onReport}: CommunityDetailScreenProps) {
+	/* a fetch that failed while the device is offline is an offline
+	   state, not a community that refused you */
+	const {offline} = useBerxConnectivity();
 	const [community, setCommunity] = useState<BerxCommunity | null>(null);
 	const [confirmDelete, setConfirmDelete] = useState(false);
+	const [editing, setEditing] = useState(false);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 	const [acting, setActing] = useState(false);
@@ -54,8 +61,13 @@ function CommunityDetailScreenBody({api, guid, myGuid, onBack, onOpenRequests, o
 			const data = await api.getCommunity(guid);
 			setCommunity(data);
 			setError(null);
-		} catch {
-			setError('Сообщество недоступно');
+		} catch (e) {
+			/* "Сообщество недоступно" covered four different truths: a
+			   closed community you may not see, one that no longer exists,
+			   a server that is down and a network that is not there. The
+			   constitution's rule is exactly this one — private is not
+			   missing — so the reason is now the real one. */
+			setError(classifyFailure(e, offline).message);
 		} finally {
 			setLoading(false);
 		}
@@ -85,6 +97,22 @@ function CommunityDetailScreenBody({api, guid, myGuid, onBack, onOpenRequests, o
 		await api.deleteCommunity(guid);
 		/* only once the server has confirmed it is gone */
 		onBack?.();
+	}
+
+	/* `updateCommunity` is real and ownership-checked, and nothing
+	   reached it: the owner of a community could delete it but not
+	   correct its name. It answers with a status rather than the row, so
+	   the screen re-reads the community instead of trusting the text it
+	   just sent. */
+	async function saveEdits(changed: Record<string, string | number | null>) {
+		if (!community) return;
+		const name = typeof changed.name === 'string' ? changed.name : community.name;
+		await api.updateCommunity(
+			guid,
+			name,
+			typeof changed.description === 'string' ? changed.description : undefined,
+		);
+		await load();
 	}
 
 	if (loading) {
@@ -159,9 +187,23 @@ function CommunityDetailScreenBody({api, guid, myGuid, onBack, onOpenRequests, o
 						{onOpenModerators ? <BerxButton label="Модераторы" variant="secondary" onPress={() => onOpenModerators(guid)} fullWidth /> : null}
 						{/* the owner can take it down. `deleteCommunity` is real
 						    and ownership-checked, and nothing in BERX called it. */}
+						<BerxButton label="Изменить сообщество" variant="secondary" onPress={() => setEditing(true)} fullWidth />
 						<BerxButton label="Удалить сообщество" variant="danger" onPress={() => setConfirmDelete(true)} fullWidth />
 					</BerxActionShelf>
 				) : null}
+
+				<BerxEditSheet
+					visible={editing}
+					title="Изменить сообщество"
+					offline={offline}
+					fields={[
+						{key: 'name', kind: 'text', label: 'Название', value: community.name, required: true},
+						{key: 'description', kind: 'multiline', label: 'Описание', value: community.description ?? ''},
+					]}
+					onSave={saveEdits}
+					onClose={() => setEditing(false)}
+					testID="community-edit"
+				/>
 
 				<BerxConfirm
 					visible={confirmDelete}

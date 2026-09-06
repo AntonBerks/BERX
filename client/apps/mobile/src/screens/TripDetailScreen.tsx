@@ -15,6 +15,7 @@ import {colors, spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxActionShelf} from '../../../../packages/design-system/src/spatial/BerxActionShelf';
 import {BerxConfirm} from '../../../../packages/design-system/src/spatial/BerxConfirm';
+import {BerxEditSheet} from '../../../../packages/design-system/src/spatial/BerxEditSheet';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxSpatialCard} from '../../../../packages/design-system/src/spatial/BerxSpatialCard';
 import {BerxFamilyScene, useBerxSceneAtmosphere} from '../spatial/BerxScreenScene';
@@ -80,6 +81,7 @@ function TripDetailScreenBody({api, id, onOpenPlace, onOpenEvent, onBack}: TripD
 	const {offline} = useBerxConnectivity();
 	/* a 403 or a 404 is not transient; a Retry button there is a lie */
 	const [confirmDelete, setConfirmDelete] = useState(false);
+	const [editing, setEditing] = useState(false);
 	const [retryable, setRetryable] = useState(true);
 	const [trip, setTrip] = useState<BerxTripDetail | null>(null);
 	const [friends, setFriends] = useState<BerxFriend[]>([]);
@@ -145,6 +147,22 @@ function TripDetailScreenBody({api, id, onOpenPlace, onOpenEvent, onBack}: TripD
 		await api.deleteTrip(id);
 		/* only once the server has confirmed it is gone */
 		onBack?.();
+	}
+
+	/* `updateTrip` is a real PATCH that nothing reached. The dates are
+	   sent as null when cleared, which is what the client turns into the
+	   empty string the endpoint reads as "unset" — a trip whose dates
+	   moved could not be corrected at all before this. The stops and
+	   participants are not in the returned row and are kept. */
+	async function saveEdits(changed: Record<string, string | number | null>) {
+		const updated = await api.updateTrip(id, {
+			...(typeof changed.title === 'string' ? {title: changed.title} : {}),
+			...(typeof changed.description === 'string' ? {description: changed.description} : {}),
+			...(changed.visibility === 'private' || changed.visibility === 'public' ? {visibility: changed.visibility} : {}),
+			...('startDate' in changed ? {startDate: typeof changed.startDate === 'number' ? changed.startDate : null} : {}),
+			...('endDate' in changed ? {endDate: typeof changed.endDate === 'number' ? changed.endDate : null} : {}),
+		});
+		setTrip((prev) => (prev ? {...updated, stops: prev.stops, participants: prev.participants} : prev));
 	}
 
 	const header = (
@@ -294,9 +312,35 @@ function TripDetailScreenBody({api, id, onOpenPlace, onOpenEvent, onBack}: TripD
 				    it. */}
 				{trip.is_own ? (
 					<BerxActionShelf variant="anchored" align="stack">
+						<BerxButton label="Изменить поездку" variant="secondary" onPress={() => setEditing(true)} fullWidth />
 						<BerxButton label="Удалить поездку" variant="danger" onPress={() => setConfirmDelete(true)} fullWidth />
 					</BerxActionShelf>
 				) : null}
+
+				<BerxEditSheet
+					visible={editing}
+					title="Изменить поездку"
+					offline={offline}
+					fields={[
+						{key: 'title', kind: 'text', label: 'Название', value: trip.title, required: true},
+						{key: 'description', kind: 'multiline', label: 'Описание', value: trip.description},
+						{
+							key: 'visibility',
+							kind: 'choice',
+							label: 'Кто увидит',
+							value: trip.visibility,
+							options: [
+								{key: 'private', label: 'Только я'},
+								{key: 'public', label: 'Все'},
+							],
+						},
+						{key: 'startDate', kind: 'moment', label: 'Начало', value: trip.start_date, clearable: true},
+						{key: 'endDate', kind: 'moment', label: 'Конец', value: trip.end_date, clearable: true},
+					]}
+					onSave={saveEdits}
+					onClose={() => setEditing(false)}
+					testID="trip-edit"
+				/>
 
 				<BerxConfirm
 					visible={confirmDelete}

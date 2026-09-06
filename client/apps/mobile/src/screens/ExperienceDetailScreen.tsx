@@ -13,6 +13,7 @@ import {colors, spacing, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxActionShelf} from '../../../../packages/design-system/src/spatial/BerxActionShelf';
 import {BerxConfirm} from '../../../../packages/design-system/src/spatial/BerxConfirm';
+import {BerxEditSheet} from '../../../../packages/design-system/src/spatial/BerxEditSheet';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxLoadingState, BerxErrorState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxSpatialCard} from '../../../../packages/design-system/src/spatial/BerxSpatialCard';
@@ -53,6 +54,7 @@ function ExperienceDetailScreenBody({api, id, onOpenPlace, onOpenEvent, onBack}:
 	const {offline} = useBerxConnectivity();
 	/* a 403 or a 404 is not transient; a Retry button there is a lie */
 	const [confirmDelete, setConfirmDelete] = useState(false);
+	const [editing, setEditing] = useState(false);
 	const [retryable, setRetryable] = useState(true);
 	const [experience, setExperience] = useState<BerxExperienceDetail | null>(null);
 	const [friends, setFriends] = useState<BerxFriend[]>([]);
@@ -121,6 +123,21 @@ function ExperienceDetailScreenBody({api, id, onOpenPlace, onOpenEvent, onBack}:
 		await api.deleteExperience(id);
 		/* only once the server has confirmed it is gone */
 		onBack?.();
+	}
+
+	/* `updateExperience` is a real PATCH that nothing reached: an
+	   experience whose time moved could only be destroyed, taking every
+	   invitation and answer with it. The participants are not in the
+	   returned row and are kept. */
+	async function saveEdits(changed: Record<string, string | number | null>) {
+		const updated = await api.updateExperience(id, {
+			...(typeof changed.title === 'string' ? {title: changed.title} : {}),
+			...(typeof changed.description === 'string' ? {description: changed.description} : {}),
+			...(changed.visibility === 'private' || changed.visibility === 'public' ? {visibility: changed.visibility} : {}),
+			...(typeof changed.scheduledStart === 'number' ? {scheduledStart: changed.scheduledStart} : {}),
+			...('scheduledEnd' in changed ? {scheduledEnd: typeof changed.scheduledEnd === 'number' ? changed.scheduledEnd : null} : {}),
+		});
+		setExperience((prev) => (prev ? {...updated, participants: prev.participants} : prev));
 	}
 
 	const header = (
@@ -259,9 +276,35 @@ function ExperienceDetailScreenBody({api, id, onOpenPlace, onOpenEvent, onBack}:
 				    it. */}
 				{experience.is_own ? (
 					<BerxActionShelf variant="anchored" align="stack">
+						<BerxButton label="Изменить впечатление" variant="secondary" onPress={() => setEditing(true)} fullWidth />
 						<BerxButton label="Удалить впечатление" variant="danger" onPress={() => setConfirmDelete(true)} fullWidth />
 					</BerxActionShelf>
 				) : null}
+
+				<BerxEditSheet
+					visible={editing}
+					title="Изменить впечатление"
+					offline={offline}
+					fields={[
+						{key: 'title', kind: 'text', label: 'Название', value: experience.title, required: true},
+						{key: 'description', kind: 'multiline', label: 'Описание', value: experience.description},
+						{
+							key: 'visibility',
+							kind: 'choice',
+							label: 'Кто увидит',
+							value: experience.visibility,
+							options: [
+								{key: 'private', label: 'Только я'},
+								{key: 'public', label: 'Все'},
+							],
+						},
+						{key: 'scheduledStart', kind: 'moment', label: 'Начало', value: experience.scheduled_start, required: true},
+						{key: 'scheduledEnd', kind: 'moment', label: 'Конец', value: experience.scheduled_end, clearable: true},
+					]}
+					onSave={saveEdits}
+					onClose={() => setEditing(false)}
+					testID="experience-edit"
+				/>
 
 				<BerxConfirm
 					visible={confirmDelete}

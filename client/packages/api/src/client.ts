@@ -900,8 +900,14 @@ export class BerxApiClient {
 	}
 
 	/** Owner/admin only (enforced server-side against the real group's owner_guid) — updateGroup()'s own scope is title+description only, matching the real web edit action. */
+	/**
+	 * Partial by key, like every other PATCH here: a description that is
+	 * present is sent, including an empty one. The old truthiness test
+	 * meant clearing a description was impossible — the empty string was
+	 * dropped and the old text stayed.
+	 */
 	async updateCommunity(guid: number, name: string, description?: string): Promise<{status: string}> {
-		return this.request<{status: string}>(`/communities/${guid}`, {method: 'PATCH', body: {name, ...(description ? {description} : {})}});
+		return this.request<{status: string}>(`/communities/${guid}`, {method: 'PATCH', body: {name, ...(description !== undefined ? {description} : {})}});
 	}
 
 	/** Permanent. Calls the real deleteGroup() the web delete action uses, not the generic object-delete path. */

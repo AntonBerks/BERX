@@ -18,6 +18,7 @@ import {BerxStars} from '../../../../packages/design-system/src/spatial/BerxStar
 import {BerxListGroup, BerxListRow} from '../../../../packages/design-system/src/spatial/BerxListGroup';
 import {BerxActionShelf} from '../../../../packages/design-system/src/spatial/BerxActionShelf';
 import {BerxConfirm} from '../../../../packages/design-system/src/spatial/BerxConfirm';
+import {BerxEditSheet} from '../../../../packages/design-system/src/spatial/BerxEditSheet';
 import {pickImageFromLibrary} from '@berx/platform/mediaPicker';
 import {BerxFamilyScene} from '../spatial/BerxScreenScene';
 import {classifyFailure} from '../spatial/screenState';
@@ -104,6 +105,7 @@ function PlaceDetailSceneBody({api, guid, myGuid, onAddToCollection, onOpenBusin
 	const [businessBusy, setBusinessBusy] = useState(false);
 	const [coverBusy, setCoverBusy] = useState(false);
 	const [confirmDelete, setConfirmDelete] = useState(false);
+	const [editing, setEditing] = useState(false);
 	const [ownerError, setOwnerError] = useState<string | null>(null);
 	const [reviewText, setReviewText] = useState('');
 	const [reviewRating, setReviewRating] = useState(5);
@@ -289,6 +291,27 @@ function PlaceDetailSceneBody({api, guid, myGuid, onAddToCollection, onOpenBusin
 		/* only once the server has confirmed it is gone */
 		onBack?.();
 	}
+
+	/* `updatePlace` is a real PATCH, ownership-checked, and nothing
+	   reached it: a place with a wrong phone number or moved address
+	   could be given a cover photo or destroyed, and nothing in
+	   between. Coordinates are deliberately not offered here — BERX has
+	   no map picker, and asking someone to type a latitude is not an
+	   edit, it is a trap. */
+	async function saveEdits(changed: Record<string, string | number | null>) {
+		if (!place) return;
+		const updated = await api.updatePlace(place.guid, {
+			...(typeof changed.title === 'string' ? {title: changed.title} : {}),
+			...(typeof changed.description === 'string' ? {description: changed.description} : {}),
+			...(typeof changed.category === 'string' ? {category: changed.category} : {}),
+			...(typeof changed.address === 'string' ? {address: changed.address} : {}),
+			...(typeof changed.phone === 'string' ? {phone: changed.phone} : {}),
+			...(typeof changed.website === 'string' ? {website: changed.website} : {}),
+			...(typeof changed.hours === 'string' ? {hours: changed.hours} : {}),
+			...(typeof changed.price === 'number' ? {price: changed.price} : {}),
+		});
+		setPlace(updated);
+	}
 	const alreadyReviewed = reviews.some((r) => r.author?.guid === myGuid);
 
 	return (
@@ -370,9 +393,29 @@ function PlaceDetailSceneBody({api, guid, myGuid, onAddToCollection, onOpenBusin
 							onPress={pickCover}
 							fullWidth
 						/>
+						<BerxButton label="Изменить место" variant="secondary" onPress={() => setEditing(true)} fullWidth />
 						<BerxButton label="Удалить место" variant="danger" onPress={() => setConfirmDelete(true)} fullWidth />
 					</BerxActionShelf>
 				) : null}
+
+				<BerxEditSheet
+					visible={editing}
+					title="Изменить место"
+					offline={offline}
+					fields={[
+						{key: 'title', kind: 'text', label: 'Название', value: place.title, required: true},
+						{key: 'description', kind: 'multiline', label: 'Описание', value: place.description},
+						{key: 'category', kind: 'text', label: 'Категория', value: place.category ?? ''},
+						{key: 'address', kind: 'text', label: 'Адрес', value: place.address ?? ''},
+						{key: 'phone', kind: 'text', label: 'Телефон', value: place.phone ?? ''},
+						{key: 'website', kind: 'text', label: 'Сайт', value: place.website ?? ''},
+						{key: 'hours', kind: 'text', label: 'Часы работы', value: place.hours ?? '', hint: 'Как их читают люди, а не как их хранит сервер.'},
+						{key: 'price', kind: 'number', label: 'Уровень цен', value: place.price},
+					]}
+					onSave={saveEdits}
+					onClose={() => setEditing(false)}
+					testID="place-edit"
+				/>
 				{ownerError ? (
 					<BerxText role="meta" liveRegion="polite" style={styles.ownerError}>
 						{ownerError}

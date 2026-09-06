@@ -15,6 +15,7 @@ import {BerxHeader} from '../../../../packages/design-system/src/components/Berx
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
 import {BerxActionShelf} from '../../../../packages/design-system/src/spatial/BerxActionShelf';
 import {BerxConfirm} from '../../../../packages/design-system/src/spatial/BerxConfirm';
+import {BerxEditSheet} from '../../../../packages/design-system/src/spatial/BerxEditSheet';
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxSpatialCard} from '../../../../packages/design-system/src/spatial/BerxSpatialCard';
 import {useBerxScene} from '../../../../packages/design-system/src/spatial/BerxSpatialScene';
@@ -45,6 +46,7 @@ function CircleDetailScreenBody({api, id, onBack}: CircleDetailScreenProps) {
 	const {offline} = useBerxConnectivity();
 	/* a 403 or a 404 is not transient; a Retry button there is a lie */
 	const [confirmDelete, setConfirmDelete] = useState(false);
+	const [editing, setEditing] = useState(false);
 	const [retryable, setRetryable] = useState(true);
 	/* the rule between two entries is the structure plane's own edge:
 	   a fixed grey hairline belongs to no plane and does not change
@@ -116,6 +118,16 @@ function CircleDetailScreenBody({api, id, onBack}: CircleDetailScreenProps) {
 		await api.deleteCircle(id);
 		/* only once the server has confirmed it is gone */
 		onBack?.();
+	}
+
+	/* `renameCircle` is a real PATCH and nothing reached it: a circle
+	   named by mistake could only be deleted and rebuilt, one friend at
+	   a time. The name shown afterwards is the server's, not the typed
+	   one; the members are not in that row and are kept. */
+	async function saveEdits(changed: Record<string, string | number | null>) {
+		if (typeof changed.name !== 'string') return;
+		const updated = await api.renameCircle(id, changed.name);
+		setCircle((prev) => (prev ? {...updated, members: prev.members} : prev));
 	}
 
 	const header = <BerxHeader title={circle?.name} onBack={onBack} />;
@@ -213,8 +225,19 @@ function CircleDetailScreenBody({api, id, onBack}: CircleDetailScreenProps) {
 				    can open is a circle you own. The server re-checks
 				    ownership on delete regardless. */}
 				<BerxActionShelf variant="anchored" align="stack">
+					<BerxButton label="Переименовать круг" variant="secondary" onPress={() => setEditing(true)} fullWidth />
 					<BerxButton label="Удалить круг" variant="danger" onPress={() => setConfirmDelete(true)} fullWidth />
 				</BerxActionShelf>
+
+				<BerxEditSheet
+					visible={editing}
+					title="Переименовать круг"
+					offline={offline}
+					fields={[{key: 'name', kind: 'text', label: 'Название', value: circle.name, required: true}]}
+					onSave={saveEdits}
+					onClose={() => setEditing(false)}
+					testID="circle-edit"
+				/>
 
 				<BerxConfirm
 					visible={confirmDelete}
