@@ -35,8 +35,14 @@ jobs:
         run: npm run verify:5d-runtime
       - name: 5D geometry and quality invariants
         run: npm run verify:5d-geometry
+      - name: Shared 5D core is platform-free
+        run: npm run verify:5d-shared-core
+      - name: 5D world — X/Y/Z + T + R
+        run: npm run verify:5d-world
       - name: 5D GPU world in a real browser
         run: npm run verify:5d-gpu
+      - name: The world is the application (zero flat)
+        run: npm run verify:5d-app-shell
       - name: V9 contracts
         run: npm run verify:v9
       - name: Build spatial web

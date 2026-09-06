@@ -1343,6 +1343,154 @@ function resolveScene(contract, env) {
   };
 }
 
+// packages/spatial/src/temporal.ts
+var BERX_DEFAULT_HORIZON_SECONDS = 3 * 3600;
+function berxTemporalCursor(at = Math.floor(Date.now() / 1e3), horizonSeconds = BERX_DEFAULT_HORIZON_SECONDS) {
+  return { at, horizonSeconds: Math.max(1, horizonSeconds) };
+}
+function berxTemporalBand(time, cursor) {
+  if (!time) return "timeless";
+  const { at, horizonSeconds } = cursor;
+  if (time.startsAt !== void 0) {
+    const ends = time.endsAt ?? time.startsAt;
+    if (at >= time.startsAt - horizonSeconds && at <= ends + horizonSeconds) return "now";
+    return at < time.startsAt ? "future" : "past";
+  }
+  if (time.at === void 0) return "timeless";
+  if (Math.abs(at - time.at) <= horizonSeconds) return "now";
+  return time.at > at ? "future" : "past";
+}
+function berxTemporalDistance(time, cursor) {
+  if (!time) return 0;
+  if (time.startsAt !== void 0) {
+    const ends = time.endsAt ?? time.startsAt;
+    if (cursor.at < time.startsAt) return time.startsAt - cursor.at;
+    if (cursor.at > ends) return cursor.at - ends;
+    return 0;
+  }
+  if (time.at === void 0) return 0;
+  return Math.abs(cursor.at - time.at);
+}
+var DAY = 86400;
+function berxProjectTemporal(time, cursor) {
+  const band = berxTemporalBand(time, cursor);
+  const distanceSeconds = berxTemporalDistance(time, cursor);
+  if (band === "timeless") {
+    return { band, distanceSeconds: 0, depthOffset: 0, presence: 1, energyScale: 1 };
+  }
+  const days = distanceSeconds / DAY;
+  const reach = Math.log1p(days) * 4.2;
+  const direction = band === "future" ? 1 : band === "past" ? -1 : 0;
+  return {
+    band,
+    distanceSeconds,
+    depthOffset: direction * reach,
+    /* never fully gone: 0.22 is still visible, and still pickable */
+    presence: Math.max(0.22, 1 / (1 + days * 0.55)),
+    energyScale: band === "now" ? 1 : 0
+  };
+}
+function berxApplyTemporal(object, cursor) {
+  const projection = berxProjectTemporal(object.time, cursor);
+  return {
+    ...object,
+    transform: {
+      ...object.transform,
+      position: { ...object.transform.position, z: object.transform.position.z + projection.depthOffset }
+    },
+    material: { ...object.material, opacity: object.material.opacity * projection.presence },
+    /* an event that has ended stops being live; it does not stop existing */
+    energy: object.energy * projection.energyScale
+  };
+}
+
+// packages/spatial/src/relational.ts
+function berxStableAngle(id) {
+  let hash = 2166136261;
+  for (let i = 0; i < id.length; i++) {
+    hash ^= id.charCodeAt(i);
+    hash = Math.imul(hash, 16777619) >>> 0;
+  }
+  return hash / 4294967296 * Math.PI * 2;
+}
+var RELATION_RADIUS = {
+  /* contained things sit inside their container */
+  contains: 1.6,
+  /* a thing at a place stands with it */
+  "located-at": 2.4,
+  /* the author is the closest relation a moment has */
+  "created-by": 2,
+  attending: 3,
+  messages: 2.2,
+  shares: 3.4,
+  related: 4
+};
+var UNRELATED_RING = 9.5;
+function berxRelationalLayout(objects, relations, options = {}) {
+  const rise = options.rise ?? 1.15;
+  const positions = /* @__PURE__ */ new Map();
+  if (objects.length === 0) return positions;
+  const edges = /* @__PURE__ */ new Map();
+  const add = (from, to, type, strength) => {
+    const list = edges.get(from) ?? [];
+    list.push({ other: to, type, strength });
+    edges.set(from, list);
+  };
+  for (const relation of relations) {
+    add(relation.from, relation.to, relation.type, relation.strength);
+    add(relation.to, relation.from, relation.type, relation.strength);
+  }
+  for (const list of edges.values()) {
+    list.sort((a, b) => b.strength - a.strength || a.other.localeCompare(b.other));
+  }
+  const byId = new Map(objects.map((o) => [o.id, o]));
+  const placedAround = /* @__PURE__ */ new Map();
+  const grow = (seedId, seedAt) => {
+    positions.set(seedId, seedAt);
+    const queue = [seedId];
+    while (queue.length > 0) {
+      const currentId = queue.shift();
+      const origin = positions.get(currentId);
+      for (const edge of edges.get(currentId) ?? []) {
+        if (positions.has(edge.other) || !byId.has(edge.other)) continue;
+        const radius = RELATION_RADIUS[edge.type] / Math.max(0.25, Math.min(1, edge.strength));
+        const angle = berxStableAngle(edge.other);
+        const rank = placedAround.get(currentId) ?? 0;
+        placedAround.set(currentId, rank + 1);
+        const spread = radius + rank * 0.42;
+        positions.set(edge.other, {
+          x: origin.x + Math.cos(angle) * spread,
+          y: origin.y + Math.sin(angle * 1.7) * rise,
+          z: origin.z + Math.sin(angle) * spread
+        });
+        queue.push(edge.other);
+      }
+    }
+  };
+  const rootId = options.rootId && byId.has(options.rootId) ? options.rootId : [...byId.keys()].sort()[0];
+  grow(rootId, { x: 0, y: 0, z: 0 });
+  let island = 0;
+  for (const object of [...byId.values()].sort((a, b) => a.id.localeCompare(b.id))) {
+    if (positions.has(object.id)) continue;
+    const angle = berxStableAngle(object.id);
+    const ring = UNRELATED_RING + Math.floor(island / 8) * 4.5;
+    island++;
+    grow(object.id, {
+      x: Math.cos(angle) * ring,
+      y: Math.sin(angle * 1.7) * rise,
+      z: Math.sin(angle) * ring
+    });
+  }
+  return positions;
+}
+function berxRelationalWeight(id, relations) {
+  let total = 0;
+  for (const relation of relations) {
+    if (relation.from === id || relation.to === id) total += Math.max(0, relation.strength);
+  }
+  return total === 0 ? 0 : 1 - 1 / (1 + total);
+}
+
 // packages/spatial/src/spatialCamera.ts
 var clamp2 = (v, min, max) => Math.max(min, Math.min(max, v));
 var lerp = (a, b, t) => a + (b - a) * t;
@@ -1594,6 +1742,265 @@ var Berx5DRuntime = class {
     return this.composeFrame();
   }
 };
+
+// packages/spatial/src/worldApp.ts
+var Berx5DWorldApp = class {
+  constructor(options = {}) {
+    this.relations = /* @__PURE__ */ new Map();
+    this.mediaByObject = /* @__PURE__ */ new Map();
+    /** Positions the relational layout decided; recomputed when R changes. */
+    this.layout = /* @__PURE__ */ new Map();
+    this.layoutDirty = false;
+    this.history = [];
+    this.options = options;
+    this.viewerId = options.viewerId;
+    this.runtime = new Berx5DRuntime({
+      reducedMotion: options.reducedMotion,
+      deviceMotionEnabled: options.deviceMotionEnabled,
+      transitionDuration: options.transitionDuration
+    });
+    this.position = { region: "world", cursor: options.cursor ?? berxTemporalCursor() };
+  }
+  /* ---------------- the world ---------------- */
+  /**
+   * Put real entities into the world.
+   *
+   * Idempotent by spatial identity: ingesting the same place from NOW
+   * and from a search updates one object rather than creating a
+   * second. That is the whole reason identity is derived from the
+   * server's guid.
+   */
+  ingest(entries) {
+    for (const entry of entries) {
+      this.runtime.registerObject(entry.object);
+      if (entry.media && entry.media.length > 0) this.mediaByObject.set(entry.object.id, entry.media);
+      for (const relation of entry.relations ?? []) this.relations.set(relation.id, relation);
+    }
+    this.layoutDirty = true;
+  }
+  /** Media the server sent for an object, for a renderer to upload. */
+  mediaFor(objectId) {
+    return this.mediaByObject.get(objectId) ?? [];
+  }
+  remove(objectId) {
+    this.runtime.removeObject(objectId);
+    this.mediaByObject.delete(objectId);
+    for (const [id, relation] of this.relations) {
+      if (relation.from === objectId || relation.to === objectId) this.relations.delete(id);
+    }
+    this.layoutDirty = true;
+  }
+  /** The viewer. Everything is arranged around them, so it re-lays out. */
+  setViewer(objectId) {
+    if (this.viewerId === objectId) return;
+    this.viewerId = objectId;
+    this.layoutDirty = true;
+  }
+  get viewer() {
+    return this.viewerId;
+  }
+  get allRelations() {
+    return [...this.relations.values()];
+  }
+  /**
+   * Recompute where everything stands from the relations between them.
+   *
+   * Deterministic: same graph, same coordinates, every time. Relations
+   * whose ends are not both in the world are dropped rather than
+   * placing entities against things that are not there.
+   */
+  relayout() {
+    const snapshot = this.runtime.world.snapshot();
+    const present = new Set(snapshot.objects.map((o) => o.id));
+    const usable = [...this.relations.values()].filter((r) => present.has(r.from) && present.has(r.to));
+    this.layout = berxRelationalLayout(snapshot.objects, usable, { rootId: this.viewerId });
+    for (const object of snapshot.objects) {
+      const at = this.layout.get(object.id);
+      if (!at) continue;
+      const weight = berxRelationalWeight(object.id, usable);
+      const scale = 1 + weight * 0.45;
+      this.runtime.registerObject({
+        ...object,
+        transform: {
+          ...object.transform,
+          position: { ...at },
+          scale: {
+            x: object.transform.scale.x * scale,
+            y: object.transform.scale.y * scale,
+            z: object.transform.scale.z * scale
+          }
+        }
+      });
+      for (const relation of usable) this.runtime.world.addRelation(relation);
+    }
+    this.layoutDirty = false;
+  }
+  /* ---------------- time ---------------- */
+  get cursor() {
+    return { ...this.position.cursor };
+  }
+  /** Move the viewer through time. Entities move; nothing is filtered out. */
+  setCursor(cursor) {
+    this.position = { ...this.position, cursor: { ...cursor } };
+    this.options.onPositionChange?.(this.worldPosition);
+  }
+  /** Scrub by a real number of seconds, in either direction. */
+  scrubTime(seconds) {
+    this.setCursor({ ...this.position.cursor, at: this.position.cursor.at + seconds });
+  }
+  /* ---------------- navigation, as travel ---------------- */
+  get worldPosition() {
+    return { ...this.position, cursor: { ...this.position.cursor } };
+  }
+  get canGoBack() {
+    return this.runtime.canGoBack;
+  }
+  /**
+   * Travel to an entity. The camera moves; nothing is replaced.
+   *
+   * The region is what the entity *is*, so arriving at a person is
+   * being with that person rather than opening a profile. Returns
+   * false when the entity is not in the world — which is a real
+   * answer, not a reason to invent it.
+   */
+  travelTo(objectId, region) {
+    const object = this.runtime.world.getObject(objectId);
+    if (!object) return false;
+    const target = region ?? regionForKind(object.kind);
+    this.history.push(this.worldPosition);
+    this.runtime.enterWorld({ id: `${target}:${objectId}`, focusObjectId: objectId, enteredAt: Date.now() }, object.transform.position);
+    this.runtime.focus(objectId);
+    this.position = { ...this.position, region: target, focusId: objectId };
+    this.options.onPositionChange?.(this.worldPosition);
+    return true;
+  }
+  /** Travel to a region without a particular entity in it. */
+  enterRegion(region) {
+    this.history.push(this.worldPosition);
+    this.runtime.enterWorld({ id: region, enteredAt: Date.now() });
+    this.position = { ...this.position, region, focusId: void 0 };
+    this.options.onPositionChange?.(this.worldPosition);
+  }
+  /**
+   * Return to where the viewer was — camera pose, focus, region and
+   * temporal cursor together. Not a screen being rebuilt: the world
+   * never went anywhere, so this is genuinely arriving back.
+   */
+  back() {
+    const previous = this.history.pop();
+    if (!this.runtime.back()) return false;
+    if (previous) {
+      this.position = previous;
+      this.options.onPositionChange?.(this.worldPosition);
+    }
+    return true;
+  }
+  /* ---------------- intents, from any device ---------------- */
+  /**
+   * One handler for every platform's input. A drag, a thumbstick, a
+   * head turn and an arrow key arrive here as the same thing.
+   */
+  dispatch(intent) {
+    switch (intent.kind) {
+      case "pan":
+        this.runtime.input({ panX: intent.x ?? 0, panY: intent.y ?? 0, depthDelta: 0, pinch: 0 });
+        return;
+      case "depth":
+        this.runtime.input({ panX: 0, panY: 0, depthDelta: intent.amount ?? 0, pinch: 0 });
+        return;
+      case "zoom":
+        this.runtime.input({ panX: 0, panY: 0, depthDelta: 0, pinch: intent.amount ?? 0 });
+        return;
+      case "pose":
+        this.runtime.input({
+          panX: 0,
+          panY: 0,
+          depthDelta: 0,
+          pinch: 0,
+          motion: { pitch: intent.x ?? 0, roll: intent.y ?? 0, yaw: intent.z ?? 0, intensity: intent.intensity ?? 0.65 }
+        });
+        return;
+      case "time":
+        this.scrubTime(intent.amount ?? 0);
+        return;
+      case "back":
+        this.back();
+        return;
+      case "enter": {
+        const active = this.runtime.world.getActiveObject();
+        if (active) this.travelTo(active.id);
+        return;
+      }
+      default:
+        return;
+    }
+  }
+  /**
+   * Focus an entity without travelling to it — the difference between
+   * looking at something and going to it.
+   */
+  focus(objectId) {
+    const ok = this.runtime.focus(objectId);
+    if (ok) {
+      this.position = { ...this.position, focusId: objectId };
+      this.options.onPositionChange?.(this.worldPosition);
+    }
+    return ok;
+  }
+  setAccessibility(options) {
+    this.runtime.setAccessibility(options);
+  }
+  /* ---------------- the frame ---------------- */
+  /**
+   * The world as it stands, this instant, with all five dimensions
+   * applied: relational positions, then the temporal projection that
+   * pushes the past away and brings what is live forward.
+   */
+  frame(deltaSeconds) {
+    if (this.layoutDirty) this.relayout();
+    const base = this.runtime.frame(deltaSeconds);
+    const cursor = this.position.cursor;
+    return {
+      ...base,
+      world: {
+        ...base.world,
+        objects: base.world.objects.map((object) => berxApplyTemporal(object, cursor))
+      }
+    };
+  }
+  get latestFrame() {
+    if (this.layoutDirty) this.relayout();
+    const base = this.runtime.latestFrame;
+    const cursor = this.position.cursor;
+    return {
+      ...base,
+      world: { ...base.world, objects: base.world.objects.map((o) => berxApplyTemporal(o, cursor)) }
+    };
+  }
+};
+function regionForKind(kind) {
+  switch (kind) {
+    case "person":
+      return "person";
+    case "place":
+    case "business":
+      return "place";
+    case "event":
+      return "event";
+    case "experience":
+      return "experience";
+    case "community":
+      return "community";
+    case "collection":
+      return "collection";
+    case "message":
+      return "conversation";
+    case "create":
+      return "create";
+    case "moment":
+      return "now";
+  }
+}
 
 // packages/spatial/src/spatialInteraction.ts
 var dot = (a, b) => a.x * b.x + a.y * b.y + a.z * b.z;
@@ -2746,7 +3153,7 @@ function createBerx5DWebHost(options = {}) {
   canvas.removeAttribute("aria-hidden");
   canvas.tabIndex = 0;
   canvas.setAttribute("role", "application");
-  canvas.setAttribute("aria-label", options.ariaLabel ?? "\u041F\u0440\u043E\u0441\u0442\u0440\u0430\u043D\u0441\u0442\u0432\u043E BERX. \u0421\u0442\u0440\u0435\u043B\u043A\u0438 \u2014 \u043F\u0435\u0440\u0435\u0439\u0442\u0438 \u043A \u0441\u043E\u0441\u0435\u0434\u043D\u0435\u043C\u0443 \u043E\u0431\u044A\u0435\u043A\u0442\u0443, Enter \u2014 \u043E\u0442\u043A\u0440\u044B\u0442\u044C, Escape \u2014 \u043D\u0430\u0437\u0430\u0434.");
+  canvas.setAttribute("aria-label", options.ariaLabel ?? "\u041F\u0440\u043E\u0441\u0442\u0440\u0430\u043D\u0441\u0442\u0432\u043E BERX. \u0421\u0442\u0440\u0435\u043B\u043A\u0438 \u2014 \u043A \u0441\u043E\u0441\u0435\u0434\u043D\u0435\u043C\u0443 \u043E\u0431\u044A\u0435\u043A\u0442\u0443, Enter \u2014 \u043F\u0435\u0440\u0435\u043C\u0435\u0441\u0442\u0438\u0442\u044C\u0441\u044F \u043A \u043D\u0435\u043C\u0443, Escape \u2014 \u043D\u0430\u0437\u0430\u0434, \u0437\u0430\u043F\u044F\u0442\u0430\u044F \u0438 \u0442\u043E\u0447\u043A\u0430 \u2014 \u043D\u0430\u0437\u0430\u0434 \u0438 \u0432\u043F\u0435\u0440\u0451\u0434 \u0432\u043E \u0432\u0440\u0435\u043C\u0435\u043D\u0438.");
   const live = document.createElement("div");
   live.setAttribute("aria-live", "polite");
   live.setAttribute("aria-atomic", "true");
@@ -2757,7 +3164,9 @@ function createBerx5DWebHost(options = {}) {
   };
   const motionQuery = typeof matchMedia === "function" ? matchMedia("(prefers-reduced-motion: reduce)") : void 0;
   let reducedMotion = options.reducedMotion ?? prefersReducedMotion();
-  const runtime = new Berx5DRuntime({ reducedMotion, deviceMotionEnabled: options.deviceMotion !== false });
+  const world = options.world;
+  const runtime = world?.runtime ?? new Berx5DRuntime({ reducedMotion, deviceMotionEnabled: options.deviceMotion !== false });
+  world?.setAccessibility({ reducedMotion });
   const renderer = new BerxThreeRuntimeRenderer(canvas, { textureBudget: options.textureBudget, onMediaError: options.onMediaError });
   const pixelRatioCap = Math.max(1, options.pixelRatioCap ?? 2);
   let quality = { quality: "balanced", pixelRatio: 1, maxObjects: 80, ambientMotion: true };
@@ -2770,7 +3179,7 @@ function createBerx5DWebHost(options = {}) {
   let pinchDistance;
   let cssWidth = 1, cssHeight = 1;
   let lastAnnouncedId;
-  const visibleObjects = () => runtime.latestFrame.world.objects.filter((o) => o.visible);
+  const visibleObjects = () => (world ? world.latestFrame : runtime.latestFrame).world.objects.filter((o) => o.visible);
   const applySize = () => {
     const nativeDpr = (typeof window !== "undefined" ? window.devicePixelRatio : 1) || 1;
     const baseDpr = Math.min(nativeDpr, pixelRatioCap);
@@ -2810,9 +3219,10 @@ function createBerx5DWebHost(options = {}) {
     last = now;
     if (contextAlive) {
       syncQualityToLoad();
-      renderer.render(runtime.frame(dt), { maxObjects: quality.maxObjects, ambientMotion: quality.ambientMotion });
+      renderer.render(world ? world.frame(dt) : runtime.frame(dt), { maxObjects: quality.maxObjects, ambientMotion: quality.ambientMotion });
     } else {
-      runtime.frame(dt);
+      if (world) world.frame(dt);
+      else runtime.frame(dt);
     }
     raf = requestAnimationFrame(frame);
   };
@@ -2837,7 +3247,7 @@ function createBerx5DWebHost(options = {}) {
     if (Math.hypot(e.clientX - downX, e.clientY - downY) > 8) return;
     const rect = canvas.getBoundingClientRect();
     const dpr = canvas.width / Math.max(1, rect.width);
-    const hit = renderer.pick(runtime.latestFrame, (e.clientX - rect.left) * dpr, (e.clientY - rect.top) * dpr);
+    const hit = renderer.pick(world ? world.latestFrame : runtime.latestFrame, (e.clientX - rect.left) * dpr, (e.clientY - rect.top) * dpr);
     if (hit && runtime.focus(hit.objectId)) announceFocus();
   };
   const onWheel = (e) => {
@@ -2861,7 +3271,7 @@ function createBerx5DWebHost(options = {}) {
     runtime.input({ panX: 0, panY: 0, depthDelta: 0, pinch: 0, motion: { pitch: (e.beta ?? 0) / 45, roll: (e.gamma ?? 0) / 45, yaw: (e.alpha ?? 0) / 180, intensity: 0.65 } });
   };
   const step = (dx, dy) => {
-    const frameState = runtime.latestFrame;
+    const frameState = world ? world.latestFrame : runtime.latestFrame;
     const objects = frameState.world.objects.filter((o) => o.visible && o.focusable);
     if (objects.length === 0) return false;
     const current = runtime.world.getActiveObject();
@@ -2907,15 +3317,29 @@ function createBerx5DWebHost(options = {}) {
       case " ": {
         const object = runtime.world.getActiveObject();
         if (object) {
-          runtime.enterWorld({ id: `${object.kind}:${object.id}`, focusObjectId: object.id, enteredAt: Date.now() });
-          announce(`${nameOf(object)} \u043E\u0442\u043A\u0440\u044B\u0442`);
+          if (world) world.travelTo(object.id);
+          else runtime.enterWorld({ id: `${object.kind}:${object.id}`, focusObjectId: object.id, enteredAt: Date.now() });
+          announce(`${nameOf(object)} \u2014 \u043A\u0430\u043C\u0435\u0440\u0430 \u043F\u0435\u0440\u0435\u043C\u0435\u0449\u0430\u0435\u0442\u0441\u044F`);
         } else handled = false;
         break;
       }
       case "Escape":
       case "Backspace":
-        handled = runtime.back();
+        handled = world ? world.back() : runtime.back();
         if (handled) announce("\u041D\u0430\u0437\u0430\u0434");
+        break;
+      /* time is a direction you can move in, on the same keyboard */
+      case ",":
+      case "<":
+        if (world) world.scrubTime(-86400);
+        else handled = false;
+        if (handled) announce("\u041D\u0430\u0437\u0430\u0434 \u0432\u043E \u0432\u0440\u0435\u043C\u0435\u043D\u0438 \u043D\u0430 \u0434\u0435\u043D\u044C");
+        break;
+      case ".":
+      case ">":
+        if (world) world.scrubTime(86400);
+        else handled = false;
+        if (handled) announce("\u0412\u043F\u0435\u0440\u0451\u0434 \u0432\u043E \u0432\u0440\u0435\u043C\u0435\u043D\u0438 \u043D\u0430 \u0434\u0435\u043D\u044C");
         break;
       default:
         handled = false;
@@ -2942,6 +3366,7 @@ function createBerx5DWebHost(options = {}) {
     if (options.reducedMotion !== void 0) return;
     reducedMotion = e.matches;
     runtime.setAccessibility({ reducedMotion });
+    world?.setAccessibility({ reducedMotion });
     applySize();
   };
   const observer = typeof ResizeObserver === "function" ? new ResizeObserver((entries) => {
@@ -2985,6 +3410,12 @@ function createBerx5DWebHost(options = {}) {
     get contextAlive() {
       return contextAlive;
     },
+    world,
+    ingest: (entries) => {
+      if (!world) throw new Error("BERX 5D: this host has no world to ingest into");
+      world.ingest(entries);
+      for (const entry of entries) renderer.setObjectMedia(entry.object.id, entry.media ?? []);
+    },
     addObject: (object, media) => {
       runtime.registerObject(object);
       renderer.setObjectMedia(object.id, media ?? []);
@@ -2994,13 +3425,13 @@ function createBerx5DWebHost(options = {}) {
       renderer.forgetObjectMedia(id);
     },
     focus: (id) => {
-      const ok = runtime.focus(id);
+      const ok = world ? world.focus(id) : runtime.focus(id);
       if (ok) announceFocus();
       return ok;
     },
     enterWorld: (id, sourceRoute, destination) => runtime.enterWorld({ id, sourceRoute, enteredAt: Date.now() }, destination),
     back: () => {
-      const ok = runtime.back();
+      const ok = world ? world.back() : runtime.back();
       if (ok) announceFocus();
       return ok;
     },
@@ -3038,6 +3469,86 @@ function createBerx5DWebHost(options = {}) {
     }
   };
 }
+
+// packages/spatial-web/src/appShell.ts
+function describe(world) {
+  const frame = world.latestFrame;
+  const position = world.worldPosition;
+  const byKind = /* @__PURE__ */ new Map();
+  for (const object of frame.world.objects) byKind.set(object.kind, (byKind.get(object.kind) ?? 0) + 1);
+  const inventory = [...byKind.entries()].sort((a, b) => b[1] - a[1]).map(([kind, n]) => `${kind}: ${n}`).join(", ");
+  const focused = frame.world.activeObjectId ? frame.world.objects.find((o) => o.id === frame.world.activeObjectId) : void 0;
+  const when = new Date(position.cursor.at * 1e3).toISOString().slice(0, 16).replace("T", " ");
+  return [
+    `\u041C\u0438\u0440 BERX: ${frame.world.objects.length} \u043E\u0431\u044A\u0435\u043A\u0442\u043E\u0432 (${inventory}).`,
+    `\u041E\u0431\u043B\u0430\u0441\u0442\u044C: ${position.region}. \u0412\u0440\u0435\u043C\u044F: ${when}.`,
+    focused ? `\u0412 \u0444\u043E\u043A\u0443\u0441\u0435: ${focused.label ?? focused.kind}.` : "\u041D\u0438\u0447\u0435\u0433\u043E \u043D\u0435 \u0432 \u0444\u043E\u043A\u0443\u0441\u0435."
+  ].join(" ");
+}
+async function startBerxApp(options) {
+  const mount = options.mount ?? document.body;
+  mount.style.margin = "0";
+  mount.style.background = "#07080A";
+  const notice = document.createElement("p");
+  notice.setAttribute("role", "status");
+  notice.setAttribute("aria-live", "polite");
+  notice.style.cssText = "position:fixed;inset:auto 0 24px;margin:0;text-align:center;color:#A7ADB4;font:14px/1.5 system-ui,sans-serif";
+  notice.textContent = "BERX \u0441\u043E\u0431\u0438\u0440\u0430\u0435\u0442 \u043C\u0438\u0440";
+  mount.appendChild(notice);
+  const canvas = document.createElement("canvas");
+  canvas.style.cssText = "position:fixed;inset:0;width:100%;height:100%;display:block";
+  mount.appendChild(canvas);
+  const world = new Berx5DWorldApp({
+    reducedMotion: options.reducedMotion,
+    cursor: berxTemporalCursor(),
+    onPositionChange: (position) => {
+      outline.textContent = describe(world);
+      options.onPositionChange?.(position);
+    }
+  });
+  const outline = document.createElement("div");
+  outline.setAttribute("role", "status");
+  outline.setAttribute("aria-live", "polite");
+  outline.style.cssText = "position:absolute;width:1px;height:1px;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap";
+  mount.appendChild(outline);
+  const host = createBerx5DWebHost({
+    canvas,
+    world,
+    reducedMotion: options.reducedMotion,
+    textureBudget: options.textureBudget
+  });
+  const failures = [];
+  const pull = async () => {
+    const loaded = await options.load();
+    failures.length = 0;
+    failures.push(...loaded.failures);
+    if (loaded.viewerId) world.setViewer(loaded.viewerId);
+    host.ingest(loaded.entries);
+    outline.textContent = describe(world);
+    if (loaded.entries.length === 0) {
+      notice.textContent = loaded.failures.length > 0 ? `BERX \u043D\u0435 \u0441\u043C\u043E\u0433 \u0437\u0430\u0433\u0440\u0443\u0437\u0438\u0442\u044C: ${loaded.failures.map((f) => f.source).join(", ")}` : "\u0412 \u043C\u0438\u0440\u0435 \u043F\u043E\u043A\u0430 \u043F\u0443\u0441\u0442\u043E";
+      notice.hidden = false;
+    } else {
+      notice.hidden = true;
+    }
+  };
+  await pull();
+  host.start();
+  globalThis.__berxWorld = world;
+  return {
+    host,
+    world,
+    failures,
+    refresh: pull,
+    destroy: () => {
+      delete globalThis.__berxWorld;
+      host.destroy();
+      notice.remove();
+      outline.remove();
+      canvas.remove();
+    }
+  };
+}
 export {
   BERX_DEPTH_KEYS,
   BERX_MAX_TILT_DEG,
@@ -3066,5 +3577,6 @@ export {
   resolveSpatialQuality,
   runBerxSharedElement,
   sceneCustomProperties,
+  startBerxApp,
   supportsBackdropBlur
 };

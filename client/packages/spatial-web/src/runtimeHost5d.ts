@@ -24,11 +24,22 @@
  * stayed black until reload. It is caught, the frame loop pauses, and
  * the meshes rebuild on restore.
  */
-import { Berx5DRuntime, cameraBasis, type BerxSpatialObject } from '@berx/spatial';
+import { Berx5DRuntime, Berx5DWorldApp, cameraBasis, type BerxSpatialObject, type BerxWorldIngest } from '@berx/spatial';
 import { BerxThreeRuntimeRenderer } from './threeRuntime';
 import { resolveSpatialQuality, type BerxSpatialQualityResult } from './runtimeQuality';
 
 export interface Berx5DWebHostOptions {
+	/**
+	 * The world this host draws.
+	 *
+	 * Supplying one makes this the product shell: frames come from the
+	 * world application, so the relational layout and the temporal
+	 * cursor are part of every frame, and entering an object travels to
+	 * it rather than merely focusing it. Without one the host drives a
+	 * bare runtime, which is what the GPU verification needs to place
+	 * objects at exact coordinates and read the pixels back.
+	 */
+	world?: Berx5DWorldApp;
 	canvas?: HTMLCanvasElement;
 	reducedMotion?: boolean;
 	deviceMotion?: boolean;
@@ -48,6 +59,10 @@ export interface Berx5DWebHostOptions {
 export interface Berx5DWebHost {
 	readonly canvas: HTMLCanvasElement;
 	readonly runtime: Berx5DRuntime;
+	/** The world application, when this host was given one. */
+	readonly world?: Berx5DWorldApp;
+	/** Put real entities into the world. Requires a world. */
+	ingest(entries: readonly BerxWorldIngest[]): void;
 	readonly renderer: BerxThreeRuntimeRenderer;
 	readonly quality: BerxSpatialQualityResult;
 	/** False while the GPU context is lost; the world state survives. */
@@ -100,7 +115,7 @@ export function createBerx5DWebHost(options: Berx5DWebHostOptions = {}): Berx5DW
 	canvas.removeAttribute('aria-hidden');
 	canvas.tabIndex = 0;
 	canvas.setAttribute('role', 'application');
-	canvas.setAttribute('aria-label', options.ariaLabel ?? 'Пространство BERX. Стрелки — перейти к соседнему объекту, Enter — открыть, Escape — назад.');
+	canvas.setAttribute('aria-label', options.ariaLabel ?? 'Пространство BERX. Стрелки — к соседнему объекту, Enter — переместиться к нему, Escape — назад, запятая и точка — назад и вперёд во времени.');
 
 	/* Announcements go in their own node: a canvas has no text for a
 	   screen reader to read, so what happens in the world has to be
@@ -116,7 +131,18 @@ export function createBerx5DWebHost(options: Berx5DWebHostOptions = {}): Berx5DW
 
 	const motionQuery = typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : undefined;
 	let reducedMotion = options.reducedMotion ?? prefersReducedMotion();
-	const runtime = new Berx5DRuntime({reducedMotion, deviceMotionEnabled: options.deviceMotion !== false});
+	/**
+	 * The world this host draws, when it was given one.
+	 *
+	 * With a world, frames come from the world application, so the
+	 * relational layout and the temporal cursor are part of every frame
+	 * and entering an object travels to it. Without one the host drives
+	 * a bare runtime — which is what the GPU verification needs, to
+	 * place objects at exact coordinates and read the pixels back.
+	 */
+	const world = options.world;
+	const runtime = world?.runtime ?? new Berx5DRuntime({reducedMotion, deviceMotionEnabled: options.deviceMotion !== false});
+	world?.setAccessibility({reducedMotion});
 	const renderer = new BerxThreeRuntimeRenderer(canvas, {textureBudget: options.textureBudget, onMediaError: options.onMediaError});
 	const pixelRatioCap = Math.max(1, options.pixelRatioCap ?? 2);
 
@@ -132,7 +158,7 @@ export function createBerx5DWebHost(options: Berx5DWebHostOptions = {}): Berx5DW
 	let cssWidth = 1, cssHeight = 1;
 	let lastAnnouncedId: string | undefined;
 
-	const visibleObjects = () => runtime.latestFrame.world.objects.filter((o) => o.visible);
+	const visibleObjects = () => (world ? world.latestFrame : runtime.latestFrame).world.objects.filter((o) => o.visible);
 
 	/** Re-resolve quality and the backing store. Only on real size or load changes. */
 	const applySize = () => {
@@ -180,11 +206,12 @@ export function createBerx5DWebHost(options: Berx5DWebHostOptions = {}): Berx5DW
 		last = now;
 		if (contextAlive) {
 			syncQualityToLoad();
-			renderer.render(runtime.frame(dt), {maxObjects: quality.maxObjects, ambientMotion: quality.ambientMotion});
+			renderer.render(world ? world.frame(dt) : runtime.frame(dt), {maxObjects: quality.maxObjects, ambientMotion: quality.ambientMotion});
 		} else {
 			/* the world keeps time even with no GPU to draw it, so a
 			   restore resumes where it was rather than snapping */
-			runtime.frame(dt);
+			if (world) world.frame(dt);
+			else runtime.frame(dt);
 		}
 		raf = requestAnimationFrame(frame);
 	};
@@ -213,7 +240,7 @@ export function createBerx5DWebHost(options: Berx5DWebHostOptions = {}): Berx5DW
 		if (Math.hypot(e.clientX - downX, e.clientY - downY) > 8) return;
 		const rect = canvas.getBoundingClientRect();
 		const dpr = canvas.width / Math.max(1, rect.width);
-		const hit = renderer.pick(runtime.latestFrame, (e.clientX - rect.left) * dpr, (e.clientY - rect.top) * dpr);
+		const hit = renderer.pick(world ? world.latestFrame : runtime.latestFrame, (e.clientX - rect.left) * dpr, (e.clientY - rect.top) * dpr);
 		if (hit && runtime.focus(hit.objectId)) announceFocus();
 	};
 	const onWheel = (e: WheelEvent) => {
@@ -245,7 +272,7 @@ export function createBerx5DWebHost(options: Berx5DWebHostOptions = {}): Berx5DW
 	 * means right on screen whatever the camera is doing.
 	 */
 	const step = (dx: number, dy: number) => {
-		const frameState = runtime.latestFrame;
+		const frameState = world ? world.latestFrame : runtime.latestFrame;
 		const objects = frameState.world.objects.filter((o) => o.visible && o.focusable);
 		if (objects.length === 0) return false;
 		const current = runtime.world.getActiveObject();
@@ -289,15 +316,30 @@ export function createBerx5DWebHost(options: Berx5DWebHostOptions = {}): Berx5DW
 			case ' ': {
 				const object = runtime.world.getActiveObject();
 				if (object) {
-					runtime.enterWorld({id: `${object.kind}:${object.id}`, focusObjectId: object.id, enteredAt: Date.now()});
-					announce(`${nameOf(object)} открыт`);
+					/* travel, not open: the camera moves and the world stays */
+					if (world) world.travelTo(object.id);
+					else runtime.enterWorld({id: `${object.kind}:${object.id}`, focusObjectId: object.id, enteredAt: Date.now()});
+					announce(`${nameOf(object)} — камера перемещается`);
 				} else handled = false;
 				break;
 			}
 			case 'Escape':
 			case 'Backspace':
-				handled = runtime.back();
+				handled = world ? world.back() : runtime.back();
 				if (handled) announce('Назад');
+				break;
+			/* time is a direction you can move in, on the same keyboard */
+			case ',':
+			case '<':
+				if (world) world.scrubTime(-86400);
+				else handled = false;
+				if (handled) announce('Назад во времени на день');
+				break;
+			case '.':
+			case '>':
+				if (world) world.scrubTime(86400);
+				else handled = false;
+				if (handled) announce('Вперёд во времени на день');
 				break;
 			default:
 				handled = false;
@@ -333,6 +375,7 @@ export function createBerx5DWebHost(options: Berx5DWebHostOptions = {}): Berx5DW
 		if (options.reducedMotion !== undefined) return;
 		reducedMotion = e.matches;
 		runtime.setAccessibility({reducedMotion});
+		world?.setAccessibility({reducedMotion});
 		applySize();
 	};
 
@@ -385,6 +428,12 @@ export function createBerx5DWebHost(options: Berx5DWebHostOptions = {}): Berx5DW
 		get contextAlive() {
 			return contextAlive;
 		},
+		world,
+		ingest: (entries) => {
+			if (!world) throw new Error('BERX 5D: this host has no world to ingest into');
+			world.ingest(entries);
+			for (const entry of entries) renderer.setObjectMedia(entry.object.id, entry.media ?? []);
+		},
 		addObject: (object, media) => {
 			runtime.registerObject(object);
 			renderer.setObjectMedia(object.id, media ?? []);
@@ -396,13 +445,13 @@ export function createBerx5DWebHost(options: Berx5DWebHostOptions = {}): Berx5DW
 			renderer.forgetObjectMedia(id);
 		},
 		focus: (id) => {
-			const ok = runtime.focus(id);
+			const ok = world ? world.focus(id) : runtime.focus(id);
 			if (ok) announceFocus();
 			return ok;
 		},
 		enterWorld: (id, sourceRoute, destination) => runtime.enterWorld({id, sourceRoute, enteredAt: Date.now()}, destination),
 		back: () => {
-			const ok = runtime.back();
+			const ok = world ? world.back() : runtime.back();
 			if (ok) announceFocus();
 			return ok;
 		},

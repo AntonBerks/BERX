@@ -1,0 +1,40 @@
+<!doctype html>
+<!-- data-berx-host is the BERX origin; the API client appends /api/v1 itself. -->
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>BERX</title>
+<meta name="theme-color" content="#07080A">
+<meta name="color-scheme" content="dark">
+<link rel="icon" href="/favicon.ico" sizes="any">
+<style>
+  /* The only styling in the product: the ground the world stands on,
+     and the one form that exists because text entry is not something a
+     GPU surface can honestly provide. No layout, no components, no
+     screens — the world owns everything else. */
+  html,body{margin:0;height:100%;background:#07080A;color:#F2F0EB;font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
+  #berx-entry{position:fixed;inset:0;display:grid;place-content:center;gap:12px;padding:24px;max-width:340px;margin:auto}
+  #berx-entry h1{margin:0 0 8px;font-size:20px;font-weight:600;letter-spacing:.04em}
+  #berx-entry input{padding:12px 14px;border-radius:12px;border:1px solid #1C2228;background:#0D1014;color:#F2F0EB;font:inherit;min-height:44px}
+  #berx-entry button{min-height:44px;padding:0 18px;border-radius:999px;border:1px solid #1C2228;background:#15191E;color:#4FD6E8;font:inherit;cursor:pointer}
+  #berx-entry button:disabled{opacity:.5;cursor:progress}
+  #berx-entry-error{margin:0;color:#FF5C72;font-size:14px;min-height:1.5em}
+  :focus-visible{outline:2px solid #4FD6E8;outline-offset:2px}
+</style>
+</head>
+<body>
+<!-- Sign-in. The only DOM the product owns, and it is gone the moment
+     there is a session. -->
+<form id="berx-entry" hidden autocomplete="on">
+  <h1>BERX</h1>
+  <label for="berx-identifier">Логин или email</label>
+  <input id="berx-identifier" name="username" autocomplete="username" autocapitalize="none" required>
+  <label for="berx-password">Пароль</label>
+  <input id="berx-password" name="password" type="password" autocomplete="current-password" required>
+  <p id="berx-entry-error" role="alert" aria-live="assertive"></p>
+  <button id="berx-enter" type="submit">Войти в мир</button>
+</form>
+<script type="module" src="./berx-app.js"></script>
+</body>
+</html>

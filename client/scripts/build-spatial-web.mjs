@@ -15,6 +15,14 @@ execFileSync(path.join(clientRoot,'node_modules/.bin/esbuild'),[
  path.join(clientRoot,'packages/spatial-web/src/runtimeEntry.ts'),'--bundle','--format=esm','--target=es2020','--platform=browser','--log-level=error',
  '--banner:js=/* BERX MAX 5D runtime — GENERATED. Do not edit by hand. */',`--outfile=${outFile}`],{cwd:clientRoot,stdio:'inherit'});
 console.log(`built ${path.relative(repoRoot,outFile)} (${(fs.statSync(outFile).size/1024).toFixed(1)} kB)`);
+/* The product itself: the shell that boots the world. Same runtime the
+   verification drives, bundled into the one file app/index.html loads. */
+const appOut=path.join(repoRoot,'app','berx-app.js');
+execFileSync(path.join(clientRoot,'node_modules/.bin/esbuild'),[
+ path.join(clientRoot,'scripts','app-shell.entry.ts'),'--bundle','--format=esm','--target=es2020','--platform=browser','--log-level=error',
+ '--banner:js=/* BERX — GENERATED application shell. The world is the app. */',`--outfile=${appOut}`],{cwd:clientRoot,stdio:'inherit'});
+console.log(`built ${path.relative(repoRoot,appOut)} (${(fs.statSync(appOut).size/1024).toFixed(1)} kB)`);
+
 const SITE_SCREENS=['BERX-001','BERX-061','BERX-176','BERX-201','BERX-226','BERX-266','BERX-031','BERX-291'];
 const scenesEntry=path.join(clientRoot,'scripts','.site-scenes.entry.ts');
 fs.writeFileSync(scenesEntry,`import {findContract} from '@berx/scenes';\nconst IDS=${JSON.stringify(SITE_SCREENS)};\nconst out=Object.fromEntries(IDS.map((id)=>[id,findContract(id)]).filter(([,c])=>c));\nprocess.stdout.write(JSON.stringify(out));\n`);

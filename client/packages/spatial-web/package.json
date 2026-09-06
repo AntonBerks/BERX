@@ -8,7 +8,8 @@
     "./threeRuntime": "./src/threeRuntime.ts",
     "./runtimeQuality": "./src/runtimeQuality.ts",
     "./primitiveGeometry": "./src/primitiveGeometry.ts",
-    "./mediaTextures": "./src/mediaTextures.ts"
+    "./mediaTextures": "./src/mediaTextures.ts",
+    "./appShell": "./src/appShell.ts"
   },
   "sideEffects": false,
   "main": "./src/index.ts",
