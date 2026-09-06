@@ -21,6 +21,8 @@ export class Berx5DRuntime{
   }
   get worldState(){return {...this.currentWorld,camera:this.camera.getState()};}
   get canGoBack(){return this.history.length>0;}
+  /** True while the camera is on its way somewhere. */
+  get travelling(){return this.cameraTransition!==undefined;}
   get latestFrame():Berx5DFrame{return this.composeFrame();}
   private composeFrame():Berx5DFrame{return{world:this.world.snapshot(),camera:this.camera.getState(),transition:this.transition?{...this.transition,fromCamera:cloneCamera(this.transition.fromCamera)}:undefined,reducedMotion:this.reducedMotion,deviceMotionEnabled:this.deviceMotionEnabled};}
   setAccessibility(options:{reducedMotion?:boolean}){if(options.reducedMotion!==undefined)this.reducedMotion=options.reducedMotion;}

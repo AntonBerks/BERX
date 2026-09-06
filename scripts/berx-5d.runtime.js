@@ -715,10 +715,10 @@ function berxIlluminationAt(atmosphere, x, y) {
   for (const p of atmosphere.pools) {
     const dx = px - p.x;
     const dy = py - p.y;
-    const distance = Math.sqrt(dx * dx + dy * dy);
+    const distance2 = Math.sqrt(dx * dx + dy * dy);
     const reach = Math.max(1e-3, p.radius);
-    if (distance >= reach) continue;
-    const t = 1 - distance / reach;
+    if (distance2 >= reach) continue;
+    const t = 1 - distance2 / reach;
     light += t * t * clamp(p.depth, 0.2, 1);
   }
   const cx = px - 0.5;
@@ -748,9 +748,9 @@ function berxRoomColorAt(atmosphere, background, x, y) {
     const dx = px - p.x;
     const dy = py - p.y;
     const reach = Math.max(1e-3, p.radius);
-    const distance = Math.sqrt(dx * dx + dy * dy);
-    if (distance >= reach) continue;
-    const t = 1 - distance / reach;
+    const distance2 = Math.sqrt(dx * dx + dy * dy);
+    if (distance2 >= reach) continue;
+    const t = 1 - distance2 / reach;
     color = flatten(scaleAlpha(p.color, t * t * clamp(p.depth, 0.2, 1)), color);
   }
   if (atmosphere.ground && py > atmosphere.ground.horizon) {
@@ -1654,8 +1654,8 @@ var BerxSpatialCamera = class {
       this.state.target = { ...this.baseTarget };
     }
   }
-  poseForObject(position, scale = { x: 1, y: 1, z: 1 }, distance) {
-    const radius = Math.max(scale.x, scale.y, scale.z, 0.5), d = distance ?? Math.max(2.4, radius * 3.2);
+  poseForObject(position, scale = { x: 1, y: 1, z: 1 }, distance2) {
+    const radius = Math.max(scale.x, scale.y, scale.z, 0.5), d = distance2 ?? Math.max(2.4, radius * 3.2);
     return { position: { x: position.x, y: position.y, z: position.z + d }, target: copy(position) };
   }
   moveToPose(pose, durationSeconds = 0.65) {
@@ -1784,6 +1784,10 @@ var Berx5DRuntime = class {
   get canGoBack() {
     return this.history.length > 0;
   }
+  /** True while the camera is on its way somewhere. */
+  get travelling() {
+    return this.cameraTransition !== void 0;
+  }
   get latestFrame() {
     return this.composeFrame();
   }
@@ -1857,6 +1861,98 @@ var Berx5DRuntime = class {
     return this.composeFrame();
   }
 };
+
+// packages/spatial/src/spatialInteraction.ts
+var dot = (a, b) => a.x * b.x + a.y * b.y + a.z * b.z;
+var sub = (a, b) => ({ x: a.x - b.x, y: a.y - b.y, z: a.z - b.z });
+var len = (v) => Math.hypot(v.x, v.y, v.z);
+var norm = (v) => {
+  const l = len(v) || 1;
+  return { x: v.x / l, y: v.y / l, z: v.z / l };
+};
+function hitTestSphere(ray, object) {
+  if (!object.visible || !object.interactive) return;
+  const center = object.transform.position;
+  const radius = Math.max(object.transform.scale.x, object.transform.scale.y, object.transform.scale.z, 0.35);
+  const oc = sub(ray.origin, center), b = dot(oc, ray.direction), c = dot(oc, oc) - radius * radius, disc = b * b - c;
+  if (disc < 0) return;
+  const root = Math.sqrt(disc), t0 = -b - root, t1 = -b + root, t = t0 >= 0 ? t0 : t1;
+  if (t < 0) return;
+  return { objectId: object.id, distance: t, point: { x: ray.origin.x + ray.direction.x * t, y: ray.origin.y + ray.direction.y * t, z: ray.origin.z + ray.direction.z * t } };
+}
+function pickSpatialObject(ray, objects) {
+  let nearest;
+  for (const object of objects) {
+    const hit = hitTestSphere({ origin: ray.origin, direction: norm(ray.direction) }, object);
+    if (hit && (!nearest || hit.distance < nearest.distance)) nearest = hit;
+  }
+  return nearest;
+}
+function interactionRadius(object) {
+  return Math.max(object.transform.scale.x, object.transform.scale.y, object.transform.scale.z, 0.35);
+}
+var cross = (a, b) => ({ x: a.y * b.z - a.z * b.y, y: a.z * b.x - a.x * b.z, z: a.x * b.y - a.y * b.x });
+function cameraBasis(camera) {
+  const forward = norm(sub(camera.target, camera.position));
+  const rightRaw = cross(forward, { x: 0, y: 1, z: 0 });
+  if (len(rightRaw) < 1e-3) return;
+  const right = norm(rightRaw);
+  return { forward, right, up: cross(right, forward) };
+}
+function rayFromNdc(camera, ndcX, ndcY, aspect) {
+  const basis = cameraBasis(camera);
+  if (!basis) return;
+  const { forward, right, up } = basis, tan = Math.tan(camera.fov * Math.PI / 360);
+  return {
+    origin: { ...camera.position },
+    direction: norm({
+      x: forward.x + right.x * ndcX * tan * aspect + up.x * ndcY * tan,
+      y: forward.y + right.y * ndcX * tan * aspect + up.y * ndcY * tan,
+      z: forward.z + right.z * ndcX * tan * aspect + up.z * ndcY * tan
+    })
+  };
+}
+
+// packages/spatial/src/proximity.ts
+var distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z);
+function berxNear(at, objects, radius, options = {}) {
+  return objects.filter((o) => o.visible && o.id !== options.exclude && distance(at, o.transform.position) <= radius).sort((a, b) => distance(at, a.transform.position) - distance(at, b.transform.position));
+}
+function berxWorldBounds(objects) {
+  const visible = objects.filter((o) => o.visible);
+  if (visible.length === 0) {
+    const zero = { x: 0, y: 0, z: 0 };
+    return { min: { ...zero }, max: { ...zero }, centre: { ...zero }, radius: 0 };
+  }
+  const min = { x: Infinity, y: Infinity, z: Infinity };
+  const max = { x: -Infinity, y: -Infinity, z: -Infinity };
+  for (const o of visible) {
+    const r = interactionRadius(o);
+    min.x = Math.min(min.x, o.transform.position.x - r);
+    min.y = Math.min(min.y, o.transform.position.y - r);
+    min.z = Math.min(min.z, o.transform.position.z - r);
+    max.x = Math.max(max.x, o.transform.position.x + r);
+    max.y = Math.max(max.y, o.transform.position.y + r);
+    max.z = Math.max(max.z, o.transform.position.z + r);
+  }
+  const centre = { x: (min.x + max.x) / 2, y: (min.y + max.y) / 2, z: (min.z + max.z) / 2 };
+  let radius = 0;
+  for (const o of visible) {
+    radius = Math.max(radius, distance(centre, o.transform.position) + interactionRadius(o));
+  }
+  return { min, max, centre, radius };
+}
+function berxClampToWorld(position, bounds, margin = 12) {
+  const limit = bounds.radius + margin;
+  const d = distance(position, bounds.centre);
+  if (d <= limit || d === 0) return position;
+  const scale = limit / d;
+  return {
+    x: bounds.centre.x + (position.x - bounds.centre.x) * scale,
+    y: bounds.centre.y + (position.y - bounds.centre.y) * scale,
+    z: bounds.centre.z + (position.z - bounds.centre.z) * scale
+  };
+}
 
 // packages/spatial/src/spatialAffordances.ts
 var primaryByKind = {
@@ -2124,6 +2220,22 @@ var Berx5DWorldApp = class {
   setAccessibility(options) {
     this.runtime.setAccessibility(options);
   }
+  /* ---------------- being near things ---------------- */
+  /**
+   * What is within reach of the entity in focus.
+   *
+   * Real distance in the world, so it changes as the relations change
+   * — the people around a place are the people the graph put there.
+   */
+  nearFocus(radius = 6) {
+    const object = this.runtime.world.getActiveObject();
+    if (!object) return [];
+    return berxNear(object.transform.position, this.latestFrame.world.objects, radius, { exclude: object.id });
+  }
+  /** How big the world is, from what is actually in it. */
+  get bounds() {
+    return berxWorldBounds(this.latestFrame.world.objects);
+  }
   /* ---------------- doing things ---------------- */
   /**
    * What can be done with the entity in focus.
@@ -2212,9 +2324,17 @@ var Berx5DWorldApp = class {
   frame(deltaSeconds) {
     if (this.layoutDirty) this.relayout();
     const base = this.runtime.frame(deltaSeconds);
+    const bounds = berxWorldBounds(base.world.objects);
+    if (bounds.radius > 0 && !this.runtime.travelling) {
+      const clamped = berxClampToWorld(base.camera.position, bounds);
+      if (clamped !== base.camera.position) {
+        this.runtime.camera.setState({ ...base.camera, position: clamped });
+      }
+    }
     const cursor = this.position.cursor;
     return {
       ...base,
+      camera: this.runtime.camera.getState(),
       world: {
         ...base.world,
         objects: base.world.objects.map((object) => berxApplyTemporal(object, cursor))
@@ -2253,54 +2373,6 @@ function regionForKind(kind) {
     case "moment":
       return "now";
   }
-}
-
-// packages/spatial/src/spatialInteraction.ts
-var dot = (a, b) => a.x * b.x + a.y * b.y + a.z * b.z;
-var sub = (a, b) => ({ x: a.x - b.x, y: a.y - b.y, z: a.z - b.z });
-var len = (v) => Math.hypot(v.x, v.y, v.z);
-var norm = (v) => {
-  const l = len(v) || 1;
-  return { x: v.x / l, y: v.y / l, z: v.z / l };
-};
-function hitTestSphere(ray, object) {
-  if (!object.visible || !object.interactive) return;
-  const center = object.transform.position;
-  const radius = Math.max(object.transform.scale.x, object.transform.scale.y, object.transform.scale.z, 0.35);
-  const oc = sub(ray.origin, center), b = dot(oc, ray.direction), c = dot(oc, oc) - radius * radius, disc = b * b - c;
-  if (disc < 0) return;
-  const root = Math.sqrt(disc), t0 = -b - root, t1 = -b + root, t = t0 >= 0 ? t0 : t1;
-  if (t < 0) return;
-  return { objectId: object.id, distance: t, point: { x: ray.origin.x + ray.direction.x * t, y: ray.origin.y + ray.direction.y * t, z: ray.origin.z + ray.direction.z * t } };
-}
-function pickSpatialObject(ray, objects) {
-  let nearest;
-  for (const object of objects) {
-    const hit = hitTestSphere({ origin: ray.origin, direction: norm(ray.direction) }, object);
-    if (hit && (!nearest || hit.distance < nearest.distance)) nearest = hit;
-  }
-  return nearest;
-}
-var cross = (a, b) => ({ x: a.y * b.z - a.z * b.y, y: a.z * b.x - a.x * b.z, z: a.x * b.y - a.y * b.x });
-function cameraBasis(camera) {
-  const forward = norm(sub(camera.target, camera.position));
-  const rightRaw = cross(forward, { x: 0, y: 1, z: 0 });
-  if (len(rightRaw) < 1e-3) return;
-  const right = norm(rightRaw);
-  return { forward, right, up: cross(right, forward) };
-}
-function rayFromNdc(camera, ndcX, ndcY, aspect) {
-  const basis = cameraBasis(camera);
-  if (!basis) return;
-  const { forward, right, up } = basis, tan = Math.tan(camera.fov * Math.PI / 360);
-  return {
-    origin: { ...camera.position },
-    direction: norm({
-      x: forward.x + right.x * ndcX * tan * aspect + up.x * ndcY * tan,
-      y: forward.y + right.y * ndcX * tan * aspect + up.y * ndcY * tan,
-      z: forward.z + right.z * ndcX * tan * aspect + up.z * ndcY * tan
-    })
-  };
 }
 
 // packages/spatial/src/actionRing.ts
@@ -3646,13 +3718,13 @@ var BerxThreeRuntimeRenderer = class {
     const focused = frame.world.activeObjectId;
     const radiusOf = (o) => Math.max(o.transform.scale.x, o.transform.scale.y, o.transform.scale.z) * 0.75;
     const visible = all.filter((o) => sphereVisible(planes, o.transform.position.x, o.transform.position.y, o.transform.position.z, radiusOf(o)));
-    const eye = c.position, distance = (o) => Math.hypot(o.transform.position.x - eye.x, o.transform.position.y - eye.y, o.transform.position.z - eye.z);
+    const eye = c.position, distance2 = (o) => Math.hypot(o.transform.position.x - eye.x, o.transform.position.y - eye.y, o.transform.position.z - eye.z);
     const opaque = visible.filter((o) => o.material.opacity >= 1).sort((a, b) => {
       if (a.id === focused) return -1;
       if (b.id === focused) return 1;
-      return distance(a) - distance(b);
+      return distance2(a) - distance2(b);
     });
-    const blended = visible.filter((o) => o.material.opacity < 1).sort((a, b) => distance(b) - distance(a));
+    const blended = visible.filter((o) => o.material.opacity < 1).sort((a, b) => distance2(b) - distance2(a));
     const ordered = [...opaque, ...blended];
     const drawn = ordered.slice(0, max);
     let drawCalls = 0, triangles = 0, lodReduced = 0;
@@ -3760,9 +3832,9 @@ var BerxThreeRuntimeRenderer = class {
     gl.uniform3f(this.LU, basis.up.x, basis.up.y, basis.up.z);
     const eye = c.position;
     const withLabels = objects.filter((o) => o.label && o.label.trim().length > 0);
-    const distance = (o) => Math.hypot(o.transform.position.x - eye.x, o.transform.position.y - eye.y, o.transform.position.z - eye.z);
-    for (const o of withLabels.slice().sort((a, b) => distance(b) - distance(a))) {
-      const d = distance(o);
+    const distance2 = (o) => Math.hypot(o.transform.position.x - eye.x, o.transform.position.y - eye.y, o.transform.position.z - eye.z);
+    for (const o of withLabels.slice().sort((a, b) => distance2(b) - distance2(a))) {
+      const d = distance2(o);
       if (d > LABEL_FADE_END) continue;
       const entry = this.labels.get(o.label);
       if (!entry) continue;

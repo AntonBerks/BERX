@@ -25,6 +25,7 @@ import {Berx5DRuntime, type Berx5DFrame} from './runtime5d';
 import type {BerxSpatialCameraState} from './spatialCamera';
 import {berxApplyTemporal, berxTemporalCursor, type BerxTemporalCursor} from './temporal';
 import {berxRelationalLayout, berxRelationalWeight} from './relational';
+import {berxClampToWorld, berxNear, berxWorldBounds} from './proximity';
 import {affordancesForObject} from './spatialAffordances';
 import type {BerxSocialAction, BerxSpatialAffordance} from './socialActions';
 import type {BerxNavigationIntent} from './platform';
@@ -388,6 +389,25 @@ export class Berx5DWorldApp {
 		this.runtime.setAccessibility(options);
 	}
 
+	/* ---------------- being near things ---------------- */
+
+	/**
+	 * What is within reach of the entity in focus.
+	 *
+	 * Real distance in the world, so it changes as the relations change
+	 * — the people around a place are the people the graph put there.
+	 */
+	nearFocus(radius = 6): BerxSpatialObject[] {
+		const object = this.runtime.world.getActiveObject();
+		if (!object) return [];
+		return berxNear(object.transform.position, this.latestFrame.world.objects, radius, {exclude: object.id});
+	}
+
+	/** How big the world is, from what is actually in it. */
+	get bounds() {
+		return berxWorldBounds(this.latestFrame.world.objects);
+	}
+
 	/* ---------------- doing things ---------------- */
 
 	/**
@@ -484,9 +504,32 @@ export class Berx5DWorldApp {
 	frame(deltaSeconds: number): Berx5DFrame {
 		if (this.layoutDirty) this.relayout();
 		const base = this.runtime.frame(deltaSeconds);
+		/**
+		 * The world has an edge.
+		 *
+		 * A camera that can be flown arbitrarily far away leaves someone
+		 * looking at nothing with no way to tell which direction anything
+		 * is in — not freedom, just lost. The bound is generous enough to
+		 * stand well outside the world and see all of it, and it is
+		 * derived from what the world contains rather than being a number
+		 * chosen once.
+		 */
+		const bounds = berxWorldBounds(base.world.objects);
+		/* Not while travelling. A journey to an entity at the world's
+		   edge is a legitimate destination, and clamping every frame of
+		   it fights the transition — the camera never arrives, and a
+		   restored pose is pulled off by however far the fight got. The
+		   edge constrains free flight, which is the only way to leave. */
+		if (bounds.radius > 0 && !this.runtime.travelling) {
+			const clamped = berxClampToWorld(base.camera.position, bounds);
+			if (clamped !== base.camera.position) {
+				this.runtime.camera.setState({...base.camera, position: clamped});
+			}
+		}
 		const cursor = this.position.cursor;
 		return {
 			...base,
+			camera: this.runtime.camera.getState(),
 			world: {
 				...base.world,
 				objects: base.world.objects.map((object) => berxApplyTemporal(object, cursor)),

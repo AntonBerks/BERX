@@ -213,6 +213,43 @@ export function assertBerx5DWorldInvariants(): void {
 		if (!reach(from, to)) fail(`${from} and ${to} are in the same world but not in the same graph`);
 	}
 
+	/* ---- the world has a size and an edge ---- */
+	const bounded = build();
+	bounded.frame(0.02);
+	const bounds = bounded.bounds;
+	if (!(bounds.radius > 0)) fail('a world with entities in it has no size');
+	/* fly straight out and keep going */
+	for (let i = 0; i < 400; i++) {
+		bounded.dispatch({kind: 'depth', amount: 12});
+		bounded.frame(0.05);
+	}
+	const flown = bounded.latestFrame.camera.position;
+	const outFrom = Math.hypot(flown.x - bounds.centre.x, flown.y - bounds.centre.y, flown.z - bounds.centre.z);
+	if (outFrom > bounds.radius + 13) {
+		fail(`the camera left the world behind (${outFrom.toFixed(1)} units out of a ${bounds.radius.toFixed(1)}-unit world)`);
+	}
+	if (bounded.latestFrame.world.objects.length !== a.length) fail('flying to the edge changed what the world contains');
+
+	/* ---- being near something is a real measurement ---- */
+	const proximity = build();
+	proximity.frame(0.02);
+	proximity.focus(berxSpatialId('place', PLACE));
+	const withinReach = proximity.nearFocus(4).map((o) => o.id);
+	const wide = proximity.nearFocus(100).map((o) => o.id);
+	if (withinReach.includes(berxSpatialId('place', PLACE))) fail('an entity is near itself');
+	if (wide.length <= withinReach.length) fail('a wider radius did not reach further');
+	if (wide.length !== a.length - 1) fail(`a radius covering the whole world missed something (${wide.length} of ${a.length - 1})`);
+	/* and it is ordered by real distance */
+	const positions = new Map(proximity.latestFrame.world.objects.map((o) => [o.id, o.transform.position]));
+	const from = positions.get(berxSpatialId('place', PLACE))!;
+	let previous = -1;
+	for (const id of wide) {
+		const p = positions.get(id)!;
+		const d = Math.hypot(p.x - from.x, p.y - from.y, p.z - from.z);
+		if (d < previous - 1e-6) fail('what is near is not ordered by distance');
+		previous = d;
+	}
+
 	/* ---- ingesting the same thing twice is one entity ---- */
 	const dupe = build();
 	const countBefore = dupe.latestFrame.world.objects.length;
