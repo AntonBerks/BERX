@@ -477,6 +477,14 @@ interface SectionItem {
 	 * read at all.
 	 */
 	icon: BerxIconName;
+	/**
+	 * A real count beside the row, when the server publishes one.
+	 *
+	 * Undefined means "not known", which is different from zero: a
+	 * failed or absent count leaves the row bare rather than claiming
+	 * there is nothing waiting.
+	 */
+	count?: number;
 	onPress: () => void;
 }
 
@@ -502,6 +510,30 @@ interface SectionItem {
 function ProfileSections(props: ProfileScreenProps & {profile: ProfileData; isOwn: boolean}) {
 	const {profile, isOwn} = props;
 	const guid = profile.guid;
+
+	/**
+	 * How many notifications are actually waiting.
+	 *
+	 * `unreadNotificationCount` is a real endpoint that nothing in BERX
+	 * called, so the row into notifications said nothing about whether
+	 * there was anything there. Read once when the menu appears rather
+	 * than polled, and left undefined on failure — an unknown count
+	 * shows no badge, because a zero would be a claim.
+	 */
+	const [unreadNotifications, setUnreadNotifications] = useState<number | undefined>(undefined);
+	useEffect(() => {
+		if (!isOwn || !props.onOpenNotifications) return;
+		let cancelled = false;
+		props.api
+			.unreadNotificationCount()
+			.then((r) => {
+				if (!cancelled) setUnreadNotifications(r.unread_count);
+			})
+			.catch(() => undefined);
+		return () => {
+			cancelled = true;
+		};
+	}, [props.api, isOwn, props.onOpenNotifications]);
 
 	const content: SectionItem[] = [];
 	if (guid && props.onOpenAlbums) {
@@ -540,7 +572,8 @@ function ProfileSections(props: ProfileScreenProps & {profile: ProfileData; isOw
 		if (props.onOpenEvents) world.push({key: 'events', label: 'События', icon: 'calendar', onPress: props.onOpenEvents});
 		if (props.onOpenCommunities) world.push({key: 'communities', label: 'Сообщества', icon: 'community', onPress: props.onOpenCommunities});
 		if (props.onOpenConnections) world.push({key: 'connections', label: 'Связи', icon: 'users', onPress: props.onOpenConnections});
-		if (props.onOpenNotifications) activity.push({key: 'notifications', label: 'Уведомления', icon: 'bell', onPress: props.onOpenNotifications});
+		if (props.onOpenNotifications)
+			activity.push({key: 'notifications', label: 'Уведомления', icon: 'bell', count: unreadNotifications, onPress: props.onOpenNotifications});
 		if (props.onOpenPoints) activity.push({key: 'points', label: 'Баллы и уровень', icon: 'reward', onPress: props.onOpenPoints});
 		if (props.onOpenMemories) activity.push({key: 'memories', label: 'Воспоминания', icon: 'memories', onPress: props.onOpenMemories});
 		if (props.onOpenWrapped) activity.push({key: 'wrapped', label: 'BERX Wrapped', icon: 'trend', onPress: props.onOpenWrapped});
@@ -578,6 +611,11 @@ function Section({title, items}: {title: string; items: SectionItem[]}) {
 					icon={item.icon}
 					label={item.label}
 					onPress={item.onPress}
+					trailing={
+						item.count !== undefined && item.count > 0 ? (
+							<BerxText role="meta" emphasis="accent">{item.count > 99 ? '99+' : String(item.count)}</BerxText>
+						) : undefined
+					}
 					last={index === items.length - 1}
 				/>
 			))}

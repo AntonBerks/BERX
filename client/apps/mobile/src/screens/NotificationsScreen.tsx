@@ -31,6 +31,7 @@ import {classifyFailure} from '../spatial/screenState';
 import {useBerxConnectivity} from '../spatial/useBerxConnectivity';
 import {BerxSceneList} from '../../../../packages/design-system/src/spatial/BerxSceneList';
 import {BerxText} from '../../../../packages/design-system/src/spatial/BerxText';
+import {BerxIconButton} from '../../../../packages/design-system/src/icons';
 
 export interface NotificationsScreenProps {
 	api: BerxApiClient;
@@ -117,6 +118,22 @@ function NotificationsScreenBody({api, onOpenConversation, onOpenDating, onOpenP
 		// Anything else: marked read, no navigation — honest, not a fake destination.
 	}
 
+	async function dismiss(guid: number) {
+		try {
+			await api.deleteNotification(guid);
+			/* removed only after the server confirms — never optimistically */
+			setItems((prev: BerxNotification[]) => {
+				const next = prev.filter((n: BerxNotification) => n.guid !== guid);
+				if (next.length === 0) setState('empty');
+				return next;
+			});
+		} catch {
+			/* the row stays: a notification that failed to delete is
+			   still there, and removing it here would be the client
+			   deciding something the server refused */
+		}
+	}
+
 	async function markAllRead() {
 		setBusy(true);
 		try {
@@ -200,6 +217,17 @@ function NotificationsScreenBody({api, onOpenConversation, onOpenDating, onOpenP
 										<Text style={[styles.label, item.viewed ? styles.labelRead : null]}>{label}</Text>
 										<BerxText role="meta" emphasis="tertiary" style={styles.time}>{relativeTimeLabel(item.time_created)}</BerxText>
 									</View>
+									{/* dismiss one. `deleteNotification` is real and was
+									    reachable only through "delete all" — so the only
+									    way to clear a single notification was to clear
+									    every one of them. */}
+									<BerxIconButton
+										name="close"
+										size={14}
+										bare
+										accessibilityLabel={`Убрать уведомление: ${label}`}
+										onPress={() => dismiss(item.guid)}
+									/>
 								</View>
 							</BerxSpatialCard>
 						);
