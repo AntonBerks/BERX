@@ -29,6 +29,7 @@
  */
 import type {
 	BerxCollection,
+	BerxMessage,
 	BerxCommunity,
 	BerxConversationSummary,
 	BerxEvent,
@@ -352,6 +353,33 @@ export function mapCollectionToSpatial(collection: BerxCollection, placement: Be
 /* ------------------------------------------------------------------ */
 /* MESSAGES                                                            */
 /* ------------------------------------------------------------------ */
+
+/**
+ * A single message, as a thing standing in time.
+ *
+ * This is what makes a conversation a place rather than a scrolling
+ * list: every message carries its real `time`, so the temporal
+ * projection puts this morning's within reach and last month's far
+ * back along the same axis. Moving the cursor walks the thread.
+ *
+ * It is related to whoever sent it, which is what puts the two sides
+ * of a conversation on their own sides of it.
+ */
+export function mapMessageToSpatial(message: BerxMessage, placement: BerxSpatialPlacement = {}): BerxSpatialMapping {
+	const label = message.text.trim().slice(0, 60) || 'Сообщение';
+	const object = baseObject('message', `m${message.id}`, label, String(message.id), 0, placement, {at: message.time});
+	return {
+		object,
+		media: [],
+		relations: [{
+			id: `${object.id}->${berxSpatialId('person', message.from_guid)}`,
+			from: object.id,
+			to: berxSpatialId('person', message.from_guid),
+			type: 'created-by',
+			strength: 1,
+		}],
+	};
+}
 
 /**
  * A conversation, and the person on the other end of it.

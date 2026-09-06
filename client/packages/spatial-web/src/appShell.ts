@@ -38,6 +38,17 @@ export interface BerxAppShellOptions {
 	textureBudget?: number;
 	/** Told what the viewer is looking at, for the accessibility outline. */
 	onPositionChange?: (position: BerxWorldPosition) => void;
+	/**
+	 * Bring back whatever a region needs that the first load did not.
+	 *
+	 * Arriving somewhere in BERX can require reading more from the
+	 * server — a conversation's messages are not in the first load, and
+	 * fetching every thread up front would be reading the whole account
+	 * to show one world. Whatever comes back is ingested into the same
+	 * world, so entities already there are updated rather than
+	 * duplicated. Returning nothing is a normal answer.
+	 */
+	loadRegion?: (position: BerxWorldPosition) => Promise<{entries: BerxWorldIngest[]; failures: {source: string; message: string}[]} | undefined>;
 }
 
 export interface BerxAppShell {
@@ -93,6 +104,7 @@ export async function startBerxApp(options: BerxAppShellOptions): Promise<BerxAp
 		onPositionChange: (position) => {
 			outline.textContent = describe(world);
 			options.onPositionChange?.(position);
+			void enterRegion(position);
 		},
 	});
 
@@ -113,6 +125,25 @@ export async function startBerxApp(options: BerxAppShellOptions): Promise<BerxAp
 	});
 
 	const failures: {source: string; message: string}[] = [];
+	/* one load per place, so travelling back and forth does not re-read
+	   the same thread every time the camera moves */
+	const loadedRegions = new Set<string>();
+	const enterRegion = async (position: BerxWorldPosition) => {
+		if (!options.loadRegion) return;
+		const key = `${position.region}:${position.focusId ?? ''}`;
+		if (loadedRegions.has(key)) return;
+		loadedRegions.add(key);
+		const more = await options.loadRegion(position).catch((error) => {
+			failures.push({source: `region:${key}`, message: error instanceof Error ? error.message : String(error)});
+			return undefined;
+		});
+		if (!more) return;
+		failures.push(...more.failures);
+		if (more.entries.length > 0) {
+			host.ingest(more.entries);
+			outline.textContent = describe(world);
+		}
+	};
 	const pull = async () => {
 		const loaded = await options.load();
 		failures.length = 0;

@@ -2138,6 +2138,21 @@ function mapNearbyEventToSpatial(event, placement = {}) {
     }]
   };
 }
+function mapMessageToSpatial(message, placement = {}) {
+  const label = message.text.trim().slice(0, 60) || "\u0421\u043E\u043E\u0431\u0449\u0435\u043D\u0438\u0435";
+  const object = baseObject("message", `m${message.id}`, label, String(message.id), 0, placement, { at: message.time });
+  return {
+    object,
+    media: [],
+    relations: [{
+      id: `${object.id}->${berxSpatialId("person", message.from_guid)}`,
+      from: object.id,
+      to: berxSpatialId("person", message.from_guid),
+      type: "created-by",
+      strength: 1
+    }]
+  };
+}
 function mapConversationToSpatial(conversation, placement = {}) {
   const label = conversation.with_username ?? conversation.last_message.trim().slice(0, 60);
   const object = baseObject("message", conversation.with_guid, label || "\u0414\u0438\u0430\u043B\u043E\u0433", String(conversation.with_guid), 0, placement, { at: conversation.time });
@@ -2217,6 +2232,34 @@ async function loadBerxWorld(api2, options = {}) {
         entry.relations = [...entry.relations ?? [], relation(viewerId, entry.object.id, "messages", 0.95)];
       }
     }
+  }
+  return { entries, viewerId, failures };
+}
+async function loadBerxConversation(api2, otherGuid, viewerId) {
+  const entries = [];
+  const failures = [];
+  try {
+    const { messages } = await api2.conversationWith(otherGuid);
+    const otherId = berxSpatialId("person", otherGuid);
+    for (const message of messages) {
+      const mapped = mapMessageToSpatial(message);
+      entries.push({
+        object: mapped.object,
+        relations: [
+          ...mapped.relations,
+          {
+            id: `${mapped.object.id}->${otherId}:messages`,
+            from: mapped.object.id,
+            to: otherId,
+            type: "messages",
+            strength: 0.8
+          }
+        ],
+        media: []
+      });
+    }
+  } catch (error) {
+    failures.push({ source: "conversationWith", message: error instanceof Error ? error.message : String(error) });
   }
   return { entries, viewerId, failures };
 }
@@ -3560,6 +3603,7 @@ async function startBerxApp(options) {
     onPositionChange: (position) => {
       outline.textContent = describe(world);
       options.onPositionChange?.(position);
+      void enterRegion(position);
     }
   });
   const outline = document.createElement("div");
@@ -3574,6 +3618,23 @@ async function startBerxApp(options) {
     textureBudget: options.textureBudget
   });
   const failures = [];
+  const loadedRegions = /* @__PURE__ */ new Set();
+  const enterRegion = async (position) => {
+    if (!options.loadRegion) return;
+    const key = `${position.region}:${position.focusId ?? ""}`;
+    if (loadedRegions.has(key)) return;
+    loadedRegions.add(key);
+    const more = await options.loadRegion(position).catch((error) => {
+      failures.push({ source: `region:${key}`, message: error instanceof Error ? error.message : String(error) });
+      return void 0;
+    });
+    if (!more) return;
+    failures.push(...more.failures);
+    if (more.entries.length > 0) {
+      host.ingest(more.entries);
+      outline.textContent = describe(world);
+    }
+  };
   const pull = async () => {
     const loaded = await options.load();
     failures.length = 0;
@@ -3636,6 +3697,21 @@ async function enterWorld() {
   gate?.remove();
   await startBerxApp({
     load: () => loadBerxWorld(api, { feedLimit: 30 }),
+    /**
+     * Arriving at a conversation reads it.
+     *
+     * The first load brings the conversations a person has, not every
+     * message in all of them — that would be reading the whole
+     * account to show one world. Travelling into one is what fetches
+     * its messages, and they land in the same world: the person you
+     * are talking to is the entity that was already there.
+     */
+    loadRegion: async (position) => {
+      if (position.region !== "conversation" || !position.focusId) return void 0;
+      const guid = Number(position.focusId.split(":")[1]);
+      if (!Number.isFinite(guid)) return void 0;
+      return loadBerxConversation(api, guid);
+    },
     textureBudget: 96
   });
 }

@@ -4181,6 +4181,7 @@ async function startBerxApp(options) {
     onPositionChange: (position) => {
       outline.textContent = describe(world);
       options.onPositionChange?.(position);
+      void enterRegion(position);
     }
   });
   const outline = document.createElement("div");
@@ -4195,6 +4196,23 @@ async function startBerxApp(options) {
     textureBudget: options.textureBudget
   });
   const failures = [];
+  const loadedRegions = /* @__PURE__ */ new Set();
+  const enterRegion = async (position) => {
+    if (!options.loadRegion) return;
+    const key = `${position.region}:${position.focusId ?? ""}`;
+    if (loadedRegions.has(key)) return;
+    loadedRegions.add(key);
+    const more = await options.loadRegion(position).catch((error) => {
+      failures.push({ source: `region:${key}`, message: error instanceof Error ? error.message : String(error) });
+      return void 0;
+    });
+    if (!more) return;
+    failures.push(...more.failures);
+    if (more.entries.length > 0) {
+      host.ingest(more.entries);
+      outline.textContent = describe(world);
+    }
+  };
   const pull = async () => {
     const loaded = await options.load();
     failures.length = 0;

@@ -9,7 +9,7 @@
  */
 import {BerxApiClient} from '@berx/api/client';
 import type {BerxTokenStorage} from '@berx/core';
-import {loadBerxWorld} from '@berx/scenes';
+import {loadBerxConversation, loadBerxWorld} from '@berx/scenes';
 import {startBerxApp} from '@berx/spatial-web/appShell';
 
 /**
@@ -52,6 +52,21 @@ async function enterWorld(): Promise<void> {
 	gate?.remove();
 	await startBerxApp({
 		load: () => loadBerxWorld(api, {feedLimit: 30}),
+		/**
+		 * Arriving at a conversation reads it.
+		 *
+		 * The first load brings the conversations a person has, not every
+		 * message in all of them — that would be reading the whole
+		 * account to show one world. Travelling into one is what fetches
+		 * its messages, and they land in the same world: the person you
+		 * are talking to is the entity that was already there.
+		 */
+		loadRegion: async (position) => {
+			if (position.region !== 'conversation' || !position.focusId) return undefined;
+			const guid = Number(position.focusId.split(':')[1]);
+			if (!Number.isFinite(guid)) return undefined;
+			return loadBerxConversation(api, guid);
+		},
 		textureBudget: 96,
 	});
 }

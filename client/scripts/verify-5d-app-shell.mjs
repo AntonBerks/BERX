@@ -49,6 +49,13 @@ const API = {
 	},
 	'/api/v1/friends': {friends: [{guid: 78, username: 'lev', fullname: 'Лев', icon: ''}]},
 	'/api/v1/conversations': {conversations: [{with_guid: 78, with_username: 'lev', last_message: 'до завтра', time: NOW - 500}]},
+	'/api/v1/conversations/78': {
+		messages: [
+			{id: 9001, from_guid: 77, to_guid: 78, text: 'ты идёшь?', time: NOW - 900},
+			{id: 9002, from_guid: 78, to_guid: 77, text: 'до завтра', time: NOW - 500},
+			{id: 9003, from_guid: 78, to_guid: 77, text: 'в прошлом месяце', time: NOW - 30 * 86400},
+		],
+	},
 	'/api/v1/places': {
 		places: [{
 			guid: 4211, title: 'Дом Культуры', description: '', category: 'venue', address: null, phone: null,
@@ -300,6 +307,45 @@ try {
 		'back returns to where the viewer was standing, with its context',
 		moved(travel.cameraBack, travel.cameraAtPlace) < 0.5 && travel.regionBack === 'place' && travel.focusBack === 'place:4211',
 		`camera within ${moved(travel.cameraBack, travel.cameraAtPlace).toFixed(3)} units; region ${travel.regionBack}, focus ${travel.focusBack}`,
+	);
+
+	/* --- a conversation is a place, read by going into it --- */
+	const conversation = await page.evaluate(async () => {
+		const w = window.__berxWorld;
+		const settle = async () => {
+			for (let i = 0; i < 60; i++) await new Promise((r) => requestAnimationFrame(r));
+		};
+		const before = w.latestFrame.world.objects.filter((o) => o.id.startsWith('message:m')).length;
+		w.travelTo('message:78');
+		await settle();
+		const messages = w.latestFrame.world.objects.filter((o) => o.id.startsWith('message:m'));
+		const sender = w.allRelations.find((r) => r.from === 'message:m9002' && r.type === 'created-by');
+		const thread = w.allRelations.find((r) => r.from === 'message:m9002' && r.type === 'messages');
+		const depths = Object.fromEntries(messages.map((m) => [m.id, m.transform.position.z]));
+		return {
+			before,
+			count: messages.length,
+			region: w.worldPosition.region,
+			senderTo: sender?.to,
+			threadTo: thread?.to,
+			depths,
+			total: w.latestFrame.world.objects.length,
+		};
+	});
+	gate(
+		'travelling into a conversation reads it into the same world',
+		conversation.before === 0 && conversation.count === 3 && conversation.region === 'conversation',
+		`${conversation.before} messages before arriving, ${conversation.count} after; region ${conversation.region}; ${conversation.total} entities in one world`,
+	);
+	gate(
+		'a message belongs to whoever sent it and to the conversation it is in',
+		conversation.senderTo === 'person:78' && conversation.threadTo === 'person:78',
+		`message:m9002 created-by ${conversation.senderTo}, messages ${conversation.threadTo} — the same person entity the feed already put in the world`,
+	);
+	gate(
+		'the thread extends back through time, not down a list',
+		conversation.depths['message:m9003'] < conversation.depths['message:m9002'],
+		`last month at z ${conversation.depths['message:m9003'].toFixed(2)}, this morning at z ${conversation.depths['message:m9002'].toFixed(2)}`,
 	);
 
 	/* --- T is navigable from the same keyboard --- */

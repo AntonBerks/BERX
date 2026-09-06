@@ -17,6 +17,7 @@ import type {BerxWorldIngest} from '@berx/spatial';
 import {
 	berxSpatialId,
 	mapConversationToSpatial,
+	mapMessageToSpatial,
 	mapEventToSpatial,
 	mapFeedItemToSpatial,
 	mapFriendToSpatial,
@@ -145,3 +146,50 @@ export async function loadBerxWorld(api: BerxApiClient, options: BerxWorldLoadOp
 
 /** The spatial identity of a person, for callers holding only a guid. */
 export const berxPersonId = (guid: number) => berxSpatialId('person', guid);
+
+/**
+ * A conversation, as the space it is.
+ *
+ * The thread is not fetched into a list: every message becomes an
+ * entity carrying its real timestamp and related to whoever sent it,
+ * so the two people stand on their own sides of it and the messages
+ * extend back along the temporal axis. Walking the cursor back walks
+ * the conversation back.
+ *
+ * Entities already in the world are updated rather than duplicated —
+ * the person you are talking to is the same person the feed put there.
+ */
+export async function loadBerxConversation(
+	api: BerxApiClient,
+	otherGuid: number,
+	viewerId?: string,
+): Promise<BerxWorldLoad> {
+	const entries: BerxWorldIngest[] = [];
+	const failures: BerxWorldLoadFailure[] = [];
+	try {
+		const {messages} = await api.conversationWith(otherGuid);
+		const otherId = berxSpatialId('person', otherGuid);
+		for (const message of messages) {
+			const mapped = mapMessageToSpatial(message);
+			/* a message is also part of the conversation with that person,
+			   which is what holds the thread together in space */
+			entries.push({
+				object: mapped.object,
+				relations: [
+					...mapped.relations,
+					{
+						id: `${mapped.object.id}->${otherId}:messages`,
+						from: mapped.object.id,
+						to: otherId,
+						type: 'messages',
+						strength: 0.8,
+					},
+				],
+				media: [],
+			});
+		}
+	} catch (error) {
+		failures.push({source: 'conversationWith', message: error instanceof Error ? error.message : String(error)});
+	}
+	return {entries, viewerId, failures};
+}
