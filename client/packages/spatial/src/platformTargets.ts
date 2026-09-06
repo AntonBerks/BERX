@@ -12,7 +12,109 @@
  * that target, and `verify:5d-platforms` says so rather than letting
  * a half-implemented port claim the name.
  */
-import type {BerxDisplay, BerxDisplayForm, BerxPlatformCapabilities} from './platform';
+import type {
+	BerxDisplay,
+	BerxDisplayForm,
+	BerxNavigationIntent,
+	BerxPlatformCapabilities,
+	BerxSpatialRendererBackend,
+} from './platform';
+
+/**
+ * The eight things BERX ships as.
+ *
+ * Distinct from `BerxDisplayForm`, which is the shape of the surface:
+ * web and desktop are both desktop-shaped, and iOS and Android are both
+ * phone-shaped, but each is a separate build with its own GPU API and
+ * its own inputs. Two tables for this existed with incompatible types
+ * and the same exported name, which is what broke the build — there is
+ * one now.
+ */
+export type BerxPlatformTargetName = 'web' | 'desktop' | 'tablet' | 'ios' | 'android' | 'watch' | 'ar' | 'vr';
+export type BerxPlatformFamily = 'screen' | 'wearable' | 'immersive';
+export type BerxInputKind = 'touch' | 'pointer' | 'keyboard' | 'gamepad' | 'watch-gesture' | 'xr-controller' | 'head-pose';
+
+export interface BerxPlatformBuild {
+	platform: BerxPlatformTargetName;
+	family: BerxPlatformFamily;
+	displayForm: BerxDisplayForm;
+	/** The GPU API a real build for this target uses. */
+	renderer: BerxPlatformCapabilities['gpu'];
+	/** True when it cannot be built from the web toolchain alone. */
+	nativeRequired: boolean;
+	stereo: boolean;
+	poseRequired: boolean;
+	input: readonly BerxInputKind[];
+}
+
+/** Every BERX build target, and what each one really is. */
+export const BERX_PLATFORM_BUILDS: readonly BerxPlatformBuild[] = [
+	{platform: 'web', family: 'screen', displayForm: 'desktop', renderer: 'webgl2', nativeRequired: false, stereo: false, poseRequired: false, input: ['pointer', 'keyboard', 'touch']},
+	{platform: 'desktop', family: 'screen', displayForm: 'desktop', renderer: 'vulkan', nativeRequired: true, stereo: false, poseRequired: false, input: ['pointer', 'keyboard', 'gamepad']},
+	{platform: 'tablet', family: 'screen', displayForm: 'tablet', renderer: 'metal', nativeRequired: true, stereo: false, poseRequired: true, input: ['touch', 'head-pose']},
+	{platform: 'ios', family: 'screen', displayForm: 'phone', renderer: 'metal', nativeRequired: true, stereo: false, poseRequired: true, input: ['touch', 'head-pose', 'gamepad']},
+	{platform: 'android', family: 'screen', displayForm: 'phone', renderer: 'vulkan', nativeRequired: true, stereo: false, poseRequired: true, input: ['touch', 'head-pose', 'gamepad']},
+	{platform: 'watch', family: 'wearable', displayForm: 'watch', renderer: 'metal', nativeRequired: true, stereo: false, poseRequired: false, input: ['watch-gesture']},
+	{platform: 'ar', family: 'immersive', displayForm: 'ar', renderer: 'metal', nativeRequired: true, stereo: true, poseRequired: true, input: ['head-pose', 'xr-controller', 'touch']},
+	{platform: 'vr', family: 'immersive', displayForm: 'vr', renderer: 'vulkan', nativeRequired: true, stereo: true, poseRequired: true, input: ['head-pose', 'xr-controller', 'gamepad']},
+] as const;
+
+export function berxPlatformBuild(platform: BerxPlatformTargetName): BerxPlatformBuild {
+	const build = BERX_PLATFORM_BUILDS.find((item) => item.platform === platform);
+	if (!build) throw new Error(`BERX: no such platform target: ${platform}`);
+	return build;
+}
+
+/**
+ * A live runtime for one target. Same world underneath; the platform
+ * supplies a renderer, receives intents, and can be torn down.
+ */
+export interface BerxPlatformRuntime {
+	readonly platform: BerxPlatformTargetName;
+	readonly capabilities: BerxPlatformCapabilities;
+	readonly renderer: BerxSpatialRendererBackend;
+	dispatch(intent: BerxNavigationIntent): void;
+	dispose(): void;
+}
+
+/**
+ * The invariants that make a build BERX rather than a lookalike.
+ *
+ * Throws rather than returning false: a platform that has quietly grown
+ * its own world or its own 2D product is not a configuration problem to
+ * report, it is a fork to stop.
+ */
+export function assertBerxPlatformRuntime(contract: {
+	platform: BerxPlatformTargetName;
+	renderer: BerxSpatialRendererBackend;
+	capabilities: BerxPlatformCapabilities;
+	primaryExperience: 'spatial-world';
+	domProductUi: false;
+	sharedWorld: true;
+}): void {
+	if (!contract.sharedWorld) throw new Error('BERX invariant: this platform has a separate world');
+	if (contract.primaryExperience !== 'spatial-world') throw new Error('BERX invariant: the primary experience is not the spatial world');
+	if (contract.domProductUi) throw new Error('BERX invariant: a DOM product interface is primary');
+	if (!contract.renderer.capabilities.perspective) throw new Error('BERX invariant: the renderer has no perspective projection');
+	if (!contract.capabilities.depthBuffer) throw new Error('BERX invariant: no depth buffer');
+	if (contract.capabilities.gpu === 'none') throw new Error('BERX invariant: no GPU backend');
+}
+
+/** Exactly what a build is missing for its target. Named, so it can be built. */
+export function berxPlatformBuildGaps(platform: BerxPlatformTargetName, capabilities: BerxPlatformCapabilities): string[] {
+	const build = berxPlatformBuild(platform);
+	const gaps: string[] = [];
+	/* the web target ships WebGL2 and may run WebGPU where it exists */
+	const rendererOk = capabilities.gpu === build.renderer || (platform === 'web' && capabilities.gpu === 'webgpu');
+	if (!rendererOk) gaps.push(`renderer ${build.renderer} required; got ${capabilities.gpu}`);
+	if (!capabilities.depthBuffer) gaps.push('depthBuffer');
+	if (!capabilities.physicallyLitMaterials) gaps.push('physicallyLitMaterials');
+	if (build.poseRequired && !capabilities.poseTracking) gaps.push('poseTracking');
+	if (build.stereo && !capabilities.poseTracking) gaps.push('stereo needs poseTracking');
+	if (!capabilities.spatialAudio) gaps.push('spatialAudio');
+	if (!capabilities.pointer) gaps.push('pointer or ray selection');
+	return gaps;
+}
 
 export interface BerxPlatformTarget {
 	form: BerxDisplayForm;

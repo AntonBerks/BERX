@@ -2235,6 +2235,87 @@ function pickActionSlot(slots, camera, rayDirection, aspect) {
   return best;
 }
 
+// packages/spatial/src/frustum.ts
+function berxFrustumPlanes(viewProjection) {
+  const p = new Float32Array(24);
+  const m = (r, c) => viewProjection[c * 4 + r];
+  const set = (i, a, b, c, d) => {
+    const l = Math.hypot(a, b, c) || 1;
+    p[i * 4] = a / l;
+    p[i * 4 + 1] = b / l;
+    p[i * 4 + 2] = c / l;
+    p[i * 4 + 3] = d / l;
+  };
+  set(0, m(3, 0) + m(0, 0), m(3, 1) + m(0, 1), m(3, 2) + m(0, 2), m(3, 3) + m(0, 3));
+  set(1, m(3, 0) - m(0, 0), m(3, 1) - m(0, 1), m(3, 2) - m(0, 2), m(3, 3) - m(0, 3));
+  set(2, m(3, 0) + m(1, 0), m(3, 1) + m(1, 1), m(3, 2) + m(1, 2), m(3, 3) + m(1, 3));
+  set(3, m(3, 0) - m(1, 0), m(3, 1) - m(1, 1), m(3, 2) - m(1, 2), m(3, 3) - m(1, 3));
+  set(4, m(3, 0) + m(2, 0), m(3, 1) + m(2, 1), m(3, 2) + m(2, 2), m(3, 3) + m(2, 3));
+  set(5, m(3, 0) - m(2, 0), m(3, 1) - m(2, 1), m(3, 2) - m(2, 2), m(3, 3) - m(2, 3));
+  return p;
+}
+function berxSphereInFrustum(planes, centre, radius) {
+  for (let i = 0; i < 6; i++) {
+    if (planes[i * 4] * centre.x + planes[i * 4 + 1] * centre.y + planes[i * 4 + 2] * centre.z + planes[i * 4 + 3] < -radius) {
+      return false;
+    }
+  }
+  return true;
+}
+function berxMultiplyMat4(a, b) {
+  const o = new Float32Array(16);
+  for (let c = 0; c < 4; c++) {
+    for (let r = 0; r < 4; r++) {
+      let v = 0;
+      for (let k = 0; k < 4; k++) v += a[k * 4 + r] * b[c * 4 + k];
+      o[c * 4 + r] = v;
+    }
+  }
+  return o;
+}
+function berxPerspective(fovDegrees, aspect, near, far) {
+  const q = 1 / Math.tan(fovDegrees * Math.PI / 360);
+  const nf = 1 / (near - far);
+  const m = new Float32Array(16);
+  m[0] = q / aspect;
+  m[5] = q;
+  m[10] = (far + near) * nf;
+  m[11] = -1;
+  m[14] = 2 * far * near * nf;
+  return m;
+}
+function berxLookAt(position, target) {
+  const sub2 = (a, b) => ({ x: a.x - b.x, y: a.y - b.y, z: a.z - b.z });
+  const norm2 = (v) => {
+    const l = Math.hypot(v.x, v.y, v.z) || 1;
+    return { x: v.x / l, y: v.y / l, z: v.z / l };
+  };
+  const cross2 = (a, b) => ({
+    x: a.y * b.z - a.z * b.y,
+    y: a.z * b.x - a.x * b.z,
+    z: a.x * b.y - a.y * b.x
+  });
+  const z = norm2(sub2(position, target));
+  const up = Math.abs(z.y) > 0.98 ? { x: 1, y: 0, z: 0 } : { x: 0, y: 1, z: 0 };
+  const x = norm2(cross2(up, z));
+  const y = cross2(z, x);
+  const m = new Float32Array(16);
+  m[0] = x.x;
+  m[1] = y.x;
+  m[2] = z.x;
+  m[4] = x.y;
+  m[5] = y.y;
+  m[6] = z.y;
+  m[8] = x.z;
+  m[9] = y.z;
+  m[10] = z.z;
+  m[12] = -x.x * position.x - x.y * position.y - x.z * position.z;
+  m[13] = -y.x * position.x - y.y * position.y - y.z * position.z;
+  m[14] = -z.x * position.x - z.y * position.y - z.z * position.z;
+  m[15] = 1;
+  return m;
+}
+
 // packages/spatial/src/geometry.ts
 var specs = {
   person: { kind: "orb", radius: 0.72, segments: 32, bevel: 0.08 },
@@ -3040,45 +3121,6 @@ function program(gl, vs = V, fs = F) {
   }
   return p;
 }
-function perspective(f, a, n, z) {
-  const q = 1 / Math.tan(f * Math.PI / 360), nf = 1 / (n - z), m = new Float32Array(16);
-  m[0] = q / a;
-  m[5] = q;
-  m[10] = (z + n) * nf;
-  m[11] = -1;
-  m[14] = 2 * z * n * nf;
-  return m;
-}
-function cross2(a, b) {
-  return { x: a.y * b.z - a.z * b.y, y: a.z * b.x - a.x * b.z, z: a.x * b.y - a.y * b.x };
-}
-function norm2(v) {
-  const l = Math.hypot(v.x, v.y, v.z) || 1;
-  return { x: v.x / l, y: v.y / l, z: v.z / l };
-}
-function sub2(a, b) {
-  return { x: a.x - b.x, y: a.y - b.y, z: a.z - b.z };
-}
-function lookAt(p, t) {
-  const z = norm2(sub2(p, t));
-  let up = { x: 0, y: 1, z: 0 };
-  if (Math.abs(z.y) > 0.98) up = { x: 1, y: 0, z: 0 };
-  const x = norm2(cross2(up, z)), y = cross2(z, x), m = new Float32Array(16);
-  m[0] = x.x;
-  m[1] = y.x;
-  m[2] = z.x;
-  m[4] = x.y;
-  m[5] = y.y;
-  m[6] = z.y;
-  m[8] = x.z;
-  m[9] = y.z;
-  m[10] = z.z;
-  m[12] = -x.x * p.x - x.y * p.y - x.z * p.z;
-  m[13] = -y.x * p.x - y.y * p.y - y.z * p.z;
-  m[14] = -z.x * p.x - z.y * p.y - z.z * p.z;
-  m[15] = 1;
-  return m;
-}
 function model(p, s, r) {
   const cx = Math.cos(r.x), sx = Math.sin(r.x), cy = Math.cos(r.y), sy = Math.sin(r.y), cz = Math.cos(r.z), sz = Math.sin(r.z), m = new Float32Array(16);
   m[0] = cy * cz * s.x;
@@ -3095,39 +3137,6 @@ function model(p, s, r) {
   m[14] = p.z;
   m[15] = 1;
   return m;
-}
-function frustumPlanes(vp) {
-  const p = new Float32Array(24);
-  const m = (r, c) => vp[c * 4 + r];
-  const set = (i, a, b, c, d) => {
-    const l = Math.hypot(a, b, c) || 1;
-    p[i * 4] = a / l;
-    p[i * 4 + 1] = b / l;
-    p[i * 4 + 2] = c / l;
-    p[i * 4 + 3] = d / l;
-  };
-  set(0, m(3, 0) + m(0, 0), m(3, 1) + m(0, 1), m(3, 2) + m(0, 2), m(3, 3) + m(0, 3));
-  set(1, m(3, 0) - m(0, 0), m(3, 1) - m(0, 1), m(3, 2) - m(0, 2), m(3, 3) - m(0, 3));
-  set(2, m(3, 0) + m(1, 0), m(3, 1) + m(1, 1), m(3, 2) + m(1, 2), m(3, 3) + m(1, 3));
-  set(3, m(3, 0) - m(1, 0), m(3, 1) - m(1, 1), m(3, 2) - m(1, 2), m(3, 3) - m(1, 3));
-  set(4, m(3, 0) + m(2, 0), m(3, 1) + m(2, 1), m(3, 2) + m(2, 2), m(3, 3) + m(2, 3));
-  set(5, m(3, 0) - m(2, 0), m(3, 1) - m(2, 1), m(3, 2) - m(2, 2), m(3, 3) - m(2, 3));
-  return p;
-}
-function sphereVisible(planes, x, y, z, r) {
-  for (let i = 0; i < 6; i++) {
-    if (planes[i * 4] * x + planes[i * 4 + 1] * y + planes[i * 4 + 2] * z + planes[i * 4 + 3] < -r) return false;
-  }
-  return true;
-}
-function multiply(a, b) {
-  const o = new Float32Array(16);
-  for (let c = 0; c < 4; c++) for (let r = 0; r < 4; r++) {
-    let v = 0;
-    for (let k = 0; k < 4; k++) v += a[k * 4 + r] * b[c * 4 + k];
-    o[c * 4 + r] = v;
-  }
-  return o;
 }
 function gpuMesh(gl, mesh) {
   const vao = gl.createVertexArray(), vbo = gl.createBuffer(), ibo = gl.createBuffer();
@@ -3314,14 +3323,14 @@ var BerxThreeRuntimeRenderer = class {
       gl.clearColor(0.027, 0.031, 0.039, 1);
       gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     }
-    const proj = perspective(c.fov, width / height, c.near, c.far), view = lookAt(c.position, c.target);
+    const proj = berxPerspective(c.fov, width / height, c.near, c.far), view = berxLookAt(c.position, c.target);
     gl.uniformMatrix4fv(this.P, false, proj);
     gl.uniformMatrix4fv(this.V, false, view);
-    const planes = frustumPlanes(multiply(proj, view));
+    const planes = berxFrustumPlanes(berxMultiplyMat4(proj, view));
     const all = frame.world.objects.filter((o) => o.visible);
     const focused = frame.world.activeObjectId;
     const radiusOf = (o) => Math.max(o.transform.scale.x, o.transform.scale.y, o.transform.scale.z) * 0.75;
-    const visible = all.filter((o) => sphereVisible(planes, o.transform.position.x, o.transform.position.y, o.transform.position.z, radiusOf(o)));
+    const visible = all.filter((o) => berxSphereInFrustum(planes, o.transform.position, radiusOf(o)));
     const eye = c.position, distance2 = (o) => Math.hypot(o.transform.position.x - eye.x, o.transform.position.y - eye.y, o.transform.position.z - eye.z);
     const opaque = visible.filter((o) => o.material.opacity >= 1).sort((a, b) => {
       if (a.id === focused) return -1;
@@ -3430,8 +3439,8 @@ var BerxThreeRuntimeRenderer = class {
     gl.disable(gl.CULL_FACE);
     gl.activeTexture(gl.TEXTURE0);
     gl.uniform1i(this.LT, 0);
-    gl.uniformMatrix4fv(this.LP, false, perspective(c.fov, width / height, c.near, c.far));
-    gl.uniformMatrix4fv(this.LV, false, lookAt(c.position, c.target));
+    gl.uniformMatrix4fv(this.LP, false, berxPerspective(c.fov, width / height, c.near, c.far));
+    gl.uniformMatrix4fv(this.LV, false, berxLookAt(c.position, c.target));
     gl.uniform3f(this.LR, basis.right.x, basis.right.y, basis.right.z);
     gl.uniform3f(this.LU, basis.up.x, basis.up.y, basis.up.z);
     const eye = c.position;

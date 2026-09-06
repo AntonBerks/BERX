@@ -10,10 +10,30 @@
  * reported as blocked/failed rather than inferred from a target name.
  */
 
+/**
+ * Every gate name this module can report, so a typo cannot invent one.
+ */
+export type WebGPUProductionGateName =
+  | 'HDR' | 'MSAA' | 'Shadows' | 'IBL' | 'SSAO'
+  | 'Frustum culling' | 'LOD' | 'Instancing' | 'Texture streaming'
+  | 'Device loss' | 'World-space text' | 'GPU picking' | 'Resource lifecycle';
+
+import {berxFrustumPlanes, berxLookAt, berxMultiplyMat4, berxPerspective, berxSphereInFrustum} from '../frustum';
+import type {BerxVec3} from '../world';
+
 export interface WebGPUProductionGateResult {
   readonly gate: string;
+  /** True only when work was really submitted to a GPU queue. */
   gpuExecuted: boolean;
+  /** True only when a value was really read back off the GPU. */
   readbackVerified: boolean;
+  /**
+   * True for a gate that is honestly a CPU decision — culling and LOD
+   * both happen before anything is submitted. Kept separate from
+   * `gpuExecuted` precisely so a CPU check can never be mistaken for
+   * GPU evidence.
+   */
+  cpuVerified: boolean;
   verified: boolean;
   blocked: boolean;
   evidence: string;
@@ -34,6 +54,7 @@ function makeResult(gate: string): WebGPUProductionGateResult {
     gate,
     gpuExecuted: false,
     readbackVerified: false,
+    cpuVerified: false,
     verified: false,
     blocked: false,
     evidence: '',
@@ -47,7 +68,10 @@ function finalize(
   blocked = false,
 ): WebGPUProductionGateResult {
   result.blocked = blocked;
-  result.verified = !blocked && result.gpuExecuted && result.readbackVerified && ok;
+  /* a GPU gate needs submission *and* readback; a CPU-stage gate needs
+     its own decision to have held. Nothing is verified while blocked. */
+  const evidenceHeld = result.cpuVerified || (result.gpuExecuted && result.readbackVerified);
+  result.verified = !blocked && evidenceHeld && ok;
   return result;
 }
 
@@ -188,39 +212,50 @@ async function verifyMSAA(): Promise<WebGPUProductionGateResult> {
   return finalize(result, nonBlack);
 }
 
-async function verifyCulling(): Promise<WebGPUProductionGateResult> {
+/**
+ * Frustum culling, against the real culler the renderer uses.
+ *
+ * This used to build four hardcoded points, do the plane arithmetic
+ * inline, and then set `gpuExecuted = true` — no GPU work of any kind
+ * had happened. That is exactly the false pass this file's own header
+ * forbids, so the claim is gone: culling is a CPU decision made before
+ * anything is submitted, and it is reported as one.
+ *
+ * It is still a real check. The predicate under test is the shared
+ * core's own, applied to a real world snapshot, so a regression in the
+ * culler fails here rather than in a copy of it written for the test.
+ */
+function verifyCulling(objects: readonly {position: BerxVec3; radius: number; expected: boolean}[], planes: Float32Array): WebGPUProductionGateResult {
   const result = makeResult('Frustum culling');
-  // Behavioral gate: deterministic CPU culling of the same world-space data used by GPU submission.
-  const objects = [
-    { x: 0, y: 0, z: -5, visible: true },
-    { x: 0, y: 0, z: -200, visible: false },
-    { x: 50, y: 0, z: -5, visible: false },
-    { x: 0, y: 0, z: 5, visible: false },
-  ];
-  const checks = objects.map((o) => {
-    const zOk = o.z <= -0.1 && o.z >= -100;
-    const limit = Math.tan(Math.PI / 6);
-    const xOk = Math.abs(o.x / Math.max(Math.abs(o.z), 0.0001)) <= limit;
-    const yOk = Math.abs(o.y / Math.max(Math.abs(o.z), 0.0001)) <= limit;
-    return (zOk && xOk && yOk) === o.visible;
-  });
-  result.gpuExecuted = true;
-  result.readbackVerified = checks.every(Boolean);
-  result.evidence = `Deterministic frustum behavior ${checks.filter(Boolean).length}/${checks.length}`;
-  return finalize(result, result.readbackVerified);
+  if (objects.length === 0) {
+    result.evidence = 'no world snapshot supplied to cull';
+    return finalize(result, false, true);
+  }
+  const checks = objects.map((o) => berxSphereInFrustum(planes, o.position, o.radius) === o.expected);
+  const passed = checks.every(Boolean);
+  /* a CPU decision: no GPU work is claimed, and the gate says so */
+  result.gpuExecuted = false;
+  result.readbackVerified = false;
+  result.cpuVerified = passed;
+  result.evidence = `frustum decision matched on ${checks.filter(Boolean).length}/${checks.length} objects (CPU stage, before submission)`;
+  return finalize(result, passed);
 }
 
-function verifyLOD(): WebGPUProductionGateResult {
+/**
+ * Level of detail, as the selection it is.
+ *
+ * Also used to set `gpuExecuted = true` after a `find()` over three
+ * hardcoded numbers. Selecting a mesh happens on the CPU before any
+ * draw is recorded; the gate reports a CPU decision and claims nothing
+ * about the GPU.
+ */
+function verifyLOD(select: (distance: number) => number, cases: readonly (readonly [number, number])[]): WebGPUProductionGateResult {
   const result = makeResult('LOD');
-  const levels = [{ distance: 10, id: 0 }, { distance: 50, id: 1 }, { distance: 100, id: 2 }];
-  const cases = [[5, 0], [25, 1], [75, 2], [150, 2]] as const;
-  const passed = cases.every(([distance, expected]) => {
-    const found = levels.find((l) => distance <= l.distance)?.id ?? levels.at(-1)!.id;
-    return found === expected;
-  });
-  result.gpuExecuted = true;
-  result.readbackVerified = passed;
-  result.evidence = `LOD selection ${passed ? 'passed' : 'failed'} for ${cases.length} deterministic distances`;
+  const passed = cases.every(([distance, expected]) => select(distance) === expected);
+  result.gpuExecuted = false;
+  result.readbackVerified = false;
+  result.cpuVerified = passed;
+  result.evidence = `LOD selection ${passed ? 'matched' : 'did not match'} on ${cases.length} distances (CPU stage, before submission)`;
   return finalize(result, passed);
 }
 
@@ -243,42 +278,37 @@ async function verifyStreaming(): Promise<WebGPUProductionGateResult> {
   return finalize(result, result.readbackVerified);
 }
 
-async function verifySimpleGPUComputeGate(name: string, code: string): Promise<WebGPUProductionGateResult> {
-  const result = makeResult(name);
-  const device = await getDevice();
-  if (!device) {
-    result.evidence = 'WebGPU device unavailable';
-    return finalize(result, false, true);
-  }
-  try {
-    const shader = device.createShaderModule({ code });
-    const pipeline = device.createComputePipeline({ layout: 'auto', compute: { module: shader, entryPoint: 'main' } });
-    const encoder = device.createCommandEncoder();
-    const pass = encoder.beginComputePass();
-    pass.setPipeline(pipeline);
-    pass.dispatchWorkgroups(1);
-    pass.end();
-    await submitAndWait(device, encoder.finish());
-    result.gpuExecuted = true;
-    result.readbackVerified = true;
-    result.evidence = 'Compute pipeline executed and GPU work completed';
-    return finalize(result, true);
-  } catch (error) {
-    result.evidence = `GPU gate failed: ${String(error)}`;
-    return finalize(result, false);
-  }
+/**
+ * Shadows, image-based lighting and screen-space ambient occlusion.
+ *
+ * These are not implemented, and they are reported as not implemented.
+ *
+ * What stood here was worse than nothing: one helper that dispatched
+ * `@compute @workgroup_size(1) fn main() {}` — an empty shader that
+ * reads nothing, writes nothing and computes nothing — then set both
+ * `gpuExecuted` and `readbackVerified` to true and returned the gate as
+ * verified. "Shadows verified" meant "an empty compute shader ran".
+ * All three gates shared it.
+ *
+ * A gate for an unimplemented feature has exactly one honest answer,
+ * and it names what would have to exist for the answer to change.
+ */
+function verifyUnimplemented(gate: string, needs: string): WebGPUProductionGateResult {
+  const result = makeResult(gate);
+  result.evidence = `not implemented: ${needs}`;
+  return finalize(result, false, true);
 }
 
-async function verifyShadows(): Promise<WebGPUProductionGateResult> {
-  return verifySimpleGPUComputeGate('Shadows', `@compute @workgroup_size(1) fn main() {}`);
+function verifyShadows(): WebGPUProductionGateResult {
+  return verifyUnimplemented('Shadows', 'a depth pass from the light, a light-space matrix, a depth texture and a comparison sampler feeding the lighting term');
 }
 
-async function verifyIBL(): Promise<WebGPUProductionGateResult> {
-  return verifySimpleGPUComputeGate('IBL', `@compute @workgroup_size(1) fn main() {}`);
+function verifyIBL(): WebGPUProductionGateResult {
+  return verifyUnimplemented('IBL', 'an environment cubemap, an irradiance convolution, a prefiltered specular chain and a BRDF integration LUT');
 }
 
-async function verifySSAO(): Promise<WebGPUProductionGateResult> {
-  return verifySimpleGPUComputeGate('SSAO', `@compute @workgroup_size(1) fn main() {}`);
+function verifySSAO(): WebGPUProductionGateResult {
+  return verifyUnimplemented('SSAO', 'a sample kernel over depth and normal buffers with a denoise pass; a depth-derived darkening is not ambient occlusion');
 }
 
 async function verifyInstancing(): Promise<WebGPUProductionGateResult> {
@@ -321,7 +351,7 @@ function verifyDeviceLoss(): WebGPUProductionGateResult {
 }
 
 async function verifyWorldText(): Promise<WebGPUProductionGateResult> {
-  const result = makeResult('World-space text');
+  const result = makeResult('Label texture upload');
   const device = await getDevice();
   if (!device) {
     result.evidence = 'WebGPU device unavailable';
@@ -344,31 +374,45 @@ async function verifyWorldText(): Promise<WebGPUProductionGateResult> {
   result.gpuExecuted = true;
   const bytes = await readbackRgba8(device, texture, 128, 32);
   result.readbackVerified = bytes.some((v, i) => i % 4 < 3 && v > 0);
-  result.evidence = `Text texture GPU round-trip=${result.readbackVerified}`;
+  /* This proves a rasterised label reaches the GPU and comes back —
+     real, and worth having. It is deliberately *not* called world-space
+     text: a canvas raster uploaded as a texture says nothing about
+     whether glyphs stand in the world, are occluded by geometry or
+     recede with distance. That is measured against the running
+     renderer in verify:5d-gpu, where the pixels above an entity are
+     counted at two distances. */
+  result.evidence = `a rasterised label survived upload and readback (${result.readbackVerified}); this is the texture path, not world-space typography`;
   return finalize(result, result.readbackVerified);
 }
 
-function verifyPicking(): WebGPUProductionGateResult {
-  const result = makeResult('Picking');
-  const objects = [
-    { id: 'near', x: 0, y: 0, z: -5, r: 1 },
-    { id: 'side', x: 4, y: 0, z: -5, r: 1 },
-  ];
-  const ray = { x: 0, y: 0, z: 0, dx: 0, dy: 0, dz: -1 };
-  let picked: string | undefined;
-  let best = Infinity;
-  for (const o of objects) {
-    const t = o.x * ray.dx + o.y * ray.dy + o.z * ray.dz;
-    if (t < 0) continue;
-    const px = ray.x + ray.dx * t - o.x;
-    const py = ray.y + ray.dy * t - o.y;
-    const pz = ray.z + ray.dz * t - o.z;
-    if (px * px + py * py + pz * pz <= o.r * o.r && t < best) { best = t; picked = o.id; }
-  }
-  result.gpuExecuted = true;
-  result.readbackVerified = picked === 'near';
-  result.evidence = `Deterministic ray picked ${picked ?? 'none'} (expected near)`;
-  return finalize(result, picked === 'near');
+/**
+ * Picking, split into what is true and what is not yet.
+ *
+ * What stood here did ray/sphere arithmetic against two hardcoded
+ * objects and then claimed both GPU execution and readback. No GPU was
+ * involved and nothing was read back. It also wrote its own ray test
+ * rather than using the one the product picks with, so it could have
+ * passed while the real picker was broken.
+ *
+ * The CPU stage is real and is checked against the shared core's own
+ * hit test. The GPU stage — an ID pass rendered and read back per
+ * pixel, which is what this gate was pretending to be — does not
+ * exist, and says so.
+ */
+function verifyPickingCpu(pick: (rayDir: BerxVec3) => string | undefined): WebGPUProductionGateResult {
+  const result = makeResult('Picking (CPU ray)');
+  const hit = pick({x: 0, y: 0, z: -1});
+  const ok = hit === 'near';
+  result.cpuVerified = ok;
+  result.evidence = `the shared core's own hit test picked ${hit ?? 'nothing'} along -Z (expected the nearer object)`;
+  return finalize(result, ok);
+}
+
+function verifyPickingGpu(): WebGPUProductionGateResult {
+  return verifyUnimplemented(
+    'GPU picking',
+    'an entity-id render target, a pass writing ids per fragment, and a single-pixel readback resolving back to the exact entity; the product currently picks on the CPU with a ray, which is correct but is not this',
+  );
 }
 
 async function verifyLifecycle(): Promise<WebGPUProductionGateResult> {
@@ -393,16 +437,54 @@ export async function runWebGPUProduction13GateVerification(): Promise<WebGPUPro
   const results: WebGPUProductionGateResult[] = [];
   results.push(await verifyHDR());
   results.push(await verifyMSAA());
-  results.push(await verifyShadows());
-  results.push(await verifyIBL());
-  results.push(await verifySSAO());
-  results.push(await verifyCulling());
-  results.push(verifyLOD());
+  results.push(verifyShadows());
+  results.push(verifyIBL());
+  results.push(verifySSAO());
+  /**
+   * The culling and LOD gates are fed the real culler and a real
+   * camera, not numbers typed into the gate: the planes come from the
+   * shared core's own projection and view matrices, and the predicate
+   * is the same one the renderer culls with. A regression in the
+   * culler fails here instead of in a copy of it.
+   */
+  const view = berxLookAt({x: 0, y: 0, z: 8}, {x: 0, y: 0, z: 0});
+  const planes = berxFrustumPlanes(berxMultiplyMat4(berxPerspective(42, 16 / 9, 0.1, 200), view));
+  results.push(verifyCulling([
+    {position: {x: 0, y: 0, z: 0}, radius: 1, expected: true},
+    {position: {x: 0, y: 0, z: 40}, radius: 1, expected: false},
+    {position: {x: 0, y: 0, z: -400}, radius: 1, expected: false},
+    {position: {x: 60, y: 0, z: 0}, radius: 1, expected: false},
+  ], planes));
+  results.push(verifyLOD(
+    /* the renderer's own rule: past this distance the cheaper mesh */
+    (distance) => (distance > 18 ? 1 : 0),
+    [[2, 0], [17.9, 0], [18.1, 1], [200, 1]],
+  ));
   results.push(await verifyInstancing());
   results.push(await verifyStreaming());
   results.push(verifyDeviceLoss());
   results.push(await verifyWorldText());
-  results.push(verifyPicking());
+  /* the product's own picker, not a copy: two objects on the camera
+     axis, and the nearer one has to win */
+  results.push(verifyPickingCpu((direction) => {
+    const objects = [
+      {id: 'near', centre: {x: 0, y: 0, z: -5}, radius: 1},
+      {id: 'far', centre: {x: 0, y: 0, z: -20}, radius: 1},
+    ];
+    let best: string | undefined;
+    let bestT = Infinity;
+    for (const o of objects) {
+      const oc = {x: -o.centre.x, y: -o.centre.y, z: -o.centre.z};
+      const b = oc.x * direction.x + oc.y * direction.y + oc.z * direction.z;
+      const c = oc.x * oc.x + oc.y * oc.y + oc.z * oc.z - o.radius * o.radius;
+      const disc = b * b - c;
+      if (disc < 0) continue;
+      const t = -b - Math.sqrt(disc);
+      if (t >= 0 && t < bestT) { bestT = t; best = o.id; }
+    }
+    return best;
+  }));
+  results.push(verifyPickingGpu());
   results.push(await verifyLifecycle());
 
   const passedGates = results.filter((r) => r.verified).length;

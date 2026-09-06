@@ -35,7 +35,7 @@ const BLOCKERS = [
 	},
 	{
 		what: 'WebGPU renderer',
-		evidence: () => 'navigator.gpu is absent in the Chromium available here, so a WebGPU backend could not be launched or measured — and a renderer that cannot be run is not one',
+		evidence: () => 'navigator.gpu is present on a served origin but requestAdapter() resolves null — there is no GPU adapter on this machine, so a WebGPU backend cannot be launched, rendered or read back. A renderer that cannot be run is not one.',
 		claimed: () => /kind\s*=\s*'webgpu'/.test(renderer),
 	},
 	{

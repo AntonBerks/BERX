@@ -20,6 +20,11 @@ import {
   type Berx5DFrame,
   type BerxHit,
   berxActionRing,
+  berxFrustumPlanes,
+  berxLookAt,
+  berxMultiplyMat4,
+  berxPerspective,
+  berxSphereInFrustum,
   berxEnergyLight,
   berxResolvePointLights,
   berxWorldLighting,
@@ -152,37 +157,12 @@ const TF = `#version 300 es\nprecision highp float;in vec2 T;uniform sampler2D T
 
 function shader(gl: WebGL2RenderingContext, t: number, s: string) { const x=gl.createShader(t); if(!x) throw Error('BERX 5D shader allocation failed'); gl.shaderSource(x,s); gl.compileShader(x); if(!gl.getShaderParameter(x,gl.COMPILE_STATUS)){const e=gl.getShaderInfoLog(x)||'shader error';gl.deleteShader(x);throw Error(e);}return x; }
 function program(gl: WebGL2RenderingContext,vs=V,fs=F) { const p=gl.createProgram();if(!p)throw Error('BERX 5D program allocation failed');const a=shader(gl,gl.VERTEX_SHADER,vs),b=shader(gl,gl.FRAGMENT_SHADER,fs);gl.attachShader(p,a);gl.attachShader(p,b);gl.linkProgram(p);gl.deleteShader(a);gl.deleteShader(b);if(!gl.getProgramParameter(p,gl.LINK_STATUS)){const e=gl.getProgramInfoLog(p)||'program link error';gl.deleteProgram(p);throw Error(e);}return p; }
-function perspective(f:number,a:number,n:number,z:number):Mat4 { const q=1/Math.tan(f*Math.PI/360),nf=1/(n-z),m=new Float32Array(16);m[0]=q/a;m[5]=q;m[10]=(z+n)*nf;m[11]=-1;m[14]=2*z*n*nf;return m; }
-/* the view matrix needs these; the picking ray does not build its own
-   any more — that lives in @berx/spatial with the hit test it feeds */
-function cross(a:BerxVec3,b:BerxVec3):BerxVec3{return{x:a.y*b.z-a.z*b.y,y:a.z*b.x-a.x*b.z,z:a.x*b.y-a.y*b.x};}
-function norm(v:BerxVec3):BerxVec3{const l=Math.hypot(v.x,v.y,v.z)||1;return{x:v.x/l,y:v.y/l,z:v.z/l};}
-function sub(a:BerxVec3,b:BerxVec3):BerxVec3{return{x:a.x-b.x,y:a.y-b.y,z:a.z-b.z};}
-function lookAt(p:BerxVec3,t:BerxVec3):Mat4 { const z=norm(sub(p,t));let up:BerxVec3={x:0,y:1,z:0};if(Math.abs(z.y)>.98)up={x:1,y:0,z:0};const x=norm(cross(up,z)),y=cross(z,x),m=new Float32Array(16);m[0]=x.x;m[1]=y.x;m[2]=z.x;m[4]=x.y;m[5]=y.y;m[6]=z.y;m[8]=x.z;m[9]=y.z;m[10]=z.z;m[12]=-x.x*p.x-x.y*p.y-x.z*p.z;m[13]=-y.x*p.x-y.y*p.y-y.z*p.z;m[14]=-z.x*p.x-z.y*p.y-z.z*p.z;m[15]=1;return m; }
 function model(p:BerxVec3,s:BerxVec3,r:{x:number;y:number;z:number}):Mat4 { const cx=Math.cos(r.x),sx=Math.sin(r.x),cy=Math.cos(r.y),sy=Math.sin(r.y),cz=Math.cos(r.z),sz=Math.sin(r.z),m=new Float32Array(16);m[0]=cy*cz*s.x;m[1]=cy*sz*s.x;m[2]=-sy*s.x;m[4]=(sx*sy*cz-cx*sz)*s.y;m[5]=(sx*sy*sz+cx*cz)*s.y;m[6]=sx*cy*s.y;m[8]=(cx*sy*cz+sx*sz)*s.z;m[9]=(cx*sy*sz-sx*cz)*s.z;m[10]=cx*cy*s.z;m[12]=p.x;m[13]=p.y;m[14]=p.z;m[15]=1;return m; }
-/**
- * The six planes of what the camera can see, extracted from the
- * view-projection matrix (Gribb/Hartmann). Normalised, so the distance
- * test below is a real distance in world units rather than a scaled one.
- */
-function frustumPlanes(vp:Mat4):Float32Array{
- const p=new Float32Array(24);
- const m=(r:number,c:number)=>vp[c*4+r];
- const set=(i:number,a:number,b:number,c:number,d:number)=>{const l=Math.hypot(a,b,c)||1;p[i*4]=a/l;p[i*4+1]=b/l;p[i*4+2]=c/l;p[i*4+3]=d/l;};
- set(0,m(3,0)+m(0,0),m(3,1)+m(0,1),m(3,2)+m(0,2),m(3,3)+m(0,3)); // left
- set(1,m(3,0)-m(0,0),m(3,1)-m(0,1),m(3,2)-m(0,2),m(3,3)-m(0,3)); // right
- set(2,m(3,0)+m(1,0),m(3,1)+m(1,1),m(3,2)+m(1,2),m(3,3)+m(1,3)); // bottom
- set(3,m(3,0)-m(1,0),m(3,1)-m(1,1),m(3,2)-m(1,2),m(3,3)-m(1,3)); // top
- set(4,m(3,0)+m(2,0),m(3,1)+m(2,1),m(3,2)+m(2,2),m(3,3)+m(2,3)); // near
- set(5,m(3,0)-m(2,0),m(3,1)-m(2,1),m(3,2)-m(2,2),m(3,3)-m(2,3)); // far
- return p;
-}
-/** True when a bounding sphere is at least partly inside every plane. */
-function sphereVisible(planes:Float32Array,x:number,y:number,z:number,r:number):boolean{
- for(let i=0;i<6;i++){if(planes[i*4]*x+planes[i*4+1]*y+planes[i*4+2]*z+planes[i*4+3]<-r)return false;}
- return true;
-}
-function multiply(a:Mat4,b:Mat4):Mat4{const o=new Float32Array(16);for(let c=0;c<4;c++)for(let r=0;r<4;r++){let v=0;for(let k=0;k<4;k++)v+=a[k*4+r]*b[c*4+k];o[c*4+r]=v;}return o;}
+/* The culler, the projection and the view matrix all live in
+   @berx/spatial: one definition, used by the renderer that draws and by
+   the gates that measure it. They were private copies here, which is
+   how a verification and a renderer end up disagreeing about what is
+   visible. */
 
 /** What a frame actually cost. Measured, never estimated. */
 export interface BerxFrameStats {
@@ -310,10 +290,10 @@ export class BerxThreeRuntimeRenderer implements BerxSpatialRenderer {
  }
 
  private drawEye(frame:Berx5DFrame,options:BerxSpatialRenderOptions,width:number,height:number,clear:boolean){const gl=this.gl,c=frame.camera,max=Math.max(1,Math.floor(options.maxObjects??frame.world.objects.length));gl.useProgram(this.program);if(clear){gl.clearColor(.027,.031,.039,1);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);}
-  const proj=perspective(c.fov,width/height,c.near,c.far),view=lookAt(c.position,c.target);
+  const proj=berxPerspective(c.fov,width/height,c.near,c.far),view=berxLookAt(c.position,c.target);
   gl.uniformMatrix4fv(this.P,false,proj);gl.uniformMatrix4fv(this.V,false,view);
   /* what the camera can actually see, this frame */
-  const planes=frustumPlanes(multiply(proj,view));const all=frame.world.objects.filter(o=>o.visible);const focused=frame.world.activeObjectId;
+  const planes=berxFrustumPlanes(berxMultiplyMat4(proj,view));const all=frame.world.objects.filter(o=>o.visible);const focused=frame.world.activeObjectId;
   /**
    * Culling comes before the budget, not after.
    *
@@ -323,7 +303,7 @@ export class BerxThreeRuntimeRenderer implements BerxSpatialRenderer {
    * scale axis, which is what its geometry actually occupies.
    */
   const radiusOf=(o:BerxSpatialObject)=>Math.max(o.transform.scale.x,o.transform.scale.y,o.transform.scale.z)*.75;
-  const visible=all.filter(o=>sphereVisible(planes,o.transform.position.x,o.transform.position.y,o.transform.position.z,radiusOf(o)));
+  const visible=all.filter(o=>berxSphereInFrustum(planes,o.transform.position,radiusOf(o)));
   /* Two passes, because one order cannot serve both. Opaque objects go
      first with the focused one leading, so the depth buffer rejects
      everything behind it before it is ever shaded. Transparent objects
@@ -419,8 +399,8 @@ export class BerxThreeRuntimeRenderer implements BerxSpatialRenderer {
   gl.depthMask(false);
   gl.disable(gl.CULL_FACE);
   gl.activeTexture(gl.TEXTURE0);gl.uniform1i(this.LT,0);
-  gl.uniformMatrix4fv(this.LP,false,perspective(c.fov,width/height,c.near,c.far));
-  gl.uniformMatrix4fv(this.LV,false,lookAt(c.position,c.target));
+  gl.uniformMatrix4fv(this.LP,false,berxPerspective(c.fov,width/height,c.near,c.far));
+  gl.uniformMatrix4fv(this.LV,false,berxLookAt(c.position,c.target));
   gl.uniform3f(this.LR,basis.right.x,basis.right.y,basis.right.z);
   gl.uniform3f(this.LU,basis.up.x,basis.up.y,basis.up.z);
   const eye=c.position;

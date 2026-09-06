@@ -7,7 +7,10 @@
     "noEmit": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
-    "lib": ["ES2020", "DOM"],
+    "lib": ["ES2022", "DOM"],
+    /* WebGPU is not in the DOM lib yet; the backend is written against
+       the real specification types rather than any. */
+    "types": ["@webgpu/types", "node"],
     "skipLibCheck": true,
     "paths": {
       "@berx/core": ["./packages/core/src/index.ts"],

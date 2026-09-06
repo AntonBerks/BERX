@@ -85,7 +85,7 @@ export function featureIsUsable(evidence: VisualFeatureEvidence): boolean {
 /**
  * Palette changes are visual state changes, not DOM world regeneration.
  */
-export function applyTemporalTheme(frame: Berx5DFrame, phase: VisualFrameContext['daylightPhase']): Berx5DFrame {
+export function applyTemporalTheme(frame: Berx5DFrame, _phase: VisualFrameContext['daylightPhase']): Berx5DFrame {
   return {
     ...frame,
     transition: frame.transition ? { ...frame.transition } : undefined,

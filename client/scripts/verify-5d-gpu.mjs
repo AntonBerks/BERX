@@ -506,6 +506,59 @@ try {
 		`${destroyed.before} live regions before, ${destroyed.after} after`,
 	);
 
+	/* --- the WebGPU production gates, run rather than described ---
+	   This module used to be dead code: written, exported from nowhere,
+	   executed never. It runs here, in the same browser, so its verdict
+	   is an observation. Where the browser has no WebGPU every gate
+	   reports blocked with that reason, which is the honest result — not
+	   a pass and not a failure of BERX. */
+	const webgpu = await page.evaluate(async () => {
+		/* why WebGPU is or is not usable here, precisely — the API being
+		   present and an adapter being granted are different facts, and
+		   only the second one means anything */
+		let why = 'navigator.gpu absent';
+		let device = false;
+		if ('gpu' in navigator) {
+			try {
+				const adapter = await navigator.gpu.requestAdapter();
+				if (!adapter) why = 'navigator.gpu present, requestAdapter() resolved null (no adapter on this machine)';
+				else {
+					const d = await adapter.requestDevice();
+					device = Boolean(d);
+					why = device ? 'adapter and device granted' : 'adapter granted, requestDevice() failed';
+				}
+			} catch (error) {
+				why = `navigator.gpu present, adapter request threw: ${String(error)}`;
+			}
+		}
+		const report = await window.BERX_5D.runWebGPUProduction13GateVerification();
+		return {
+			total: report.totalGates,
+			passed: report.passedGates,
+			blocked: report.blockedGates,
+			hasGpu: 'gpu' in navigator,
+			device,
+			why,
+			/* anything claiming GPU work without a device would be a lie */
+			/* a gate claiming GPU execution with no device is the lie */
+			liars: report.results.filter((r) => r.gpuExecuted && !device).map((r) => r.gate),
+			cpuStage: report.results.filter((r) => r.cpuVerified).map((r) => r.gate),
+			unimplemented: report.results.filter((r) => r.blocked && r.evidence.startsWith('not implemented')).map((r) => r.gate),
+		};
+	});
+	gate(
+		'no gate claims GPU work on a machine with no GPU',
+		webgpu.liars.length === 0,
+		webgpu.liars.length === 0
+			? `${webgpu.why}; ${webgpu.total} gates ran, ${webgpu.passed} verified, ${webgpu.blocked} blocked — none claimed GPU execution without a device`
+			: `gates claiming GPU execution with no device: ${webgpu.liars.join(', ')}`,
+	);
+	gate(
+		'unimplemented features report as unimplemented, not as passes',
+		webgpu.unimplemented.length >= 4 && !webgpu.unimplemented.some((g) => webgpu.cpuStage.includes(g)),
+		`reported not implemented: ${webgpu.unimplemented.join(', ')}; honest CPU-stage gates: ${webgpu.cpuStage.join(', ')}`,
+	);
+
 	gate('no page or console errors', pageErrors.length === 0, pageErrors.slice(0, 3).join(' | ') || 'clean');
 } finally {
 	await browser.close();

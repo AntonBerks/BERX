@@ -55,3 +55,5 @@ jobs:
         run: npm run verify:v9:web
       - name: Blockers stay honest
         run: npm run verify:5d-blockers
+      - name: Full MAX 5D launch gate
+        run: npm run verify:5d-launch-gate
