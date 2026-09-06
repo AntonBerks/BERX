@@ -32,3 +32,5 @@ export * from './proximity';
 export * from './geometry';
 export * from './spatialPresentation';
 export * from './mediaSurface';
+export * from './spatialOnboarding';
+export * from './spatialOnboardingRuntime';
