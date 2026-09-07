@@ -13,7 +13,7 @@
  * BerxPerformanceGate reads real device signals, BerxDataBoundary
  * renders whichever real state its caller is actually in.
  */
-import React, {createContext, useCallback, useContext, useEffect, useMemo, useState} from 'react';
+import React, {createContext, useCallback, useContext, useEffect, useMemo, useRef, useState} from 'react';
 import type {ReactNode} from 'react';
 import {AccessibilityInfo, Platform, View, Text, StyleSheet} from 'react-native';
 import {useBerxColors} from '../theme';
@@ -85,6 +85,70 @@ export function BerxPerformanceGate({children}: {children: ReactNode}) {
 
 export function useBerxPerformanceBudget(): BerxPerformanceBudget {
 	return useContext(PerformanceContext);
+}
+
+/* ---- the blur budget, actually enforced ---- */
+
+/**
+ * A real, counted budget rather than a number nobody reads.
+ *
+ * The contracts cap a mobile scene at `blurLayersMobile <= 3`, and that
+ * cap was being violated in the running app — a browser probe measured
+ * 5 backdrop-filter layers on Profile and 8 on Feed. Backdrop blur is
+ * the single most expensive thing these screens do per frame, so this
+ * is a real 60fps problem, not a bookkeeping one.
+ *
+ * Every blurring surface claims a slot on mount. Within budget it
+ * blurs; beyond it, it renders the SAME glass as a fill and border
+ * without the backdrop filter — so the surface still reads as glass and
+ * the composition is unchanged, it just stops paying for a blur nobody
+ * can see through five layers of other glass anyway.
+ */
+const BlurBudgetContext = createContext<{claim: () => boolean; release: () => void} | null>(null);
+
+export function BerxBlurBudget({children, max}: {children: ReactNode; max?: number}) {
+	const budget = useBerxPerformanceBudget();
+	const cap = max ?? budget.maxBlurLayers;
+	const live = useRef(0);
+	const api = useMemo(
+		() => ({
+			claim: () => {
+				if (live.current >= cap) return false;
+				live.current += 1;
+				return true;
+			},
+			release: () => {
+				live.current = Math.max(0, live.current - 1);
+			},
+		}),
+		[cap]
+	);
+	return <BlurBudgetContext.Provider value={api}>{children}</BlurBudgetContext.Provider>;
+}
+
+/**
+ * True when this surface is allowed to spend a backdrop blur.
+ *
+ * Starts false and upgrades after mount, deliberately: the alternative
+ * (start true, downgrade) paints an over-budget frame first, which is
+ * the exact frame that drops.
+ */
+export function useBerxBlurSlot(wantsBlur: boolean): boolean {
+	const ctx = useContext(BlurBudgetContext);
+	const [granted, setGranted] = useState(false);
+	useEffect(() => {
+		if (!wantsBlur || !ctx) return;
+		const ok = ctx.claim();
+		setGranted(ok);
+		return () => {
+			if (ok) ctx.release();
+			setGranted(false);
+		};
+	}, [wantsBlur, ctx]);
+	// With no provider above (a component rendered outside any scene, e.g.
+	// in a test) the honest answer is "unbudgeted", not "forbidden".
+	if (!ctx) return wantsBlur;
+	return wantsBlur && granted;
 }
 
 /* ------------------------------------------------------------------ *

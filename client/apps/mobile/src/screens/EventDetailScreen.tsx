@@ -58,6 +58,9 @@ import {BerxScrim} from '../../../../packages/design-system/src/components/BerxS
 import {BerxAvatarStack} from '../../../../packages/design-system/src/components/BerxAvatarStack';
 
 import {useBerxColors} from '../../../../packages/design-system/src/theme';
+import {BerxSpatialScene, BerxDepthLayer} from '../../../../packages/design-system/src/v9/BerxSpatialScene';
+import {useBerxSpatialSignal} from '../../../../packages/design-system/src/v9/useBerxSpatialSignal';
+import {useBerxReducedMotion} from '../../../../packages/design-system/src/v9/BerxBoundaries';
 import type {BerxColorTokens} from '@berx/design-system/tokens';
 import {BerxIcon} from '../../../../packages/design-system/src/icons/BerxIcon';
 
@@ -103,6 +106,8 @@ function groupStoriesByOwner(items: BerxEventStoryItem[]): BerxStoryFeedGroup[] 
 
 export default function EventDetailScreen({api, guid, myGuid, onOpenPlace, onOpenCommunity, onOpenInvite, onAddToCollection, onAddToTrip, onAddToWorld, onAddEventStory, onOpenStoryGroup, onCreateExperience, onOpenGroupChat, onEdit, onBack}: Props) {
 	const colors = useBerxColors();
+	const reducedMotion = useBerxReducedMotion();
+	const signal = useBerxSpatialSignal();
 	const styles = useMemo(() => makeStyles(colors), [colors]);
 	const [event, setEvent] = useState<BerxEvent | null>(null);
 	const [attendees, setAttendees] = useState<BerxEventAttendee[]>([]);
@@ -291,7 +296,20 @@ export default function EventDetailScreen({api, guid, myGuid, onOpenPlace, onOpe
 		? `В листе ожидания${waitlistPosition !== null ? ` (№${waitlistPosition})` : ''}`
 		: `Встать в лист ожидания${event.waitlist_count > 0 ? ` (${event.waitlist_count})` : ''}`;
 
+	/* EVENTS, brought inside the V9 spatial architecture. This screen
+	   already had real scroll-driven hero parallax, but no camera: the
+	   runtime probe measured zero perspective layers, so the hero was
+	   sliding in a flat plane rather than receding in a z-space. The
+	   scroll parallax below is kept exactly as it was — this adds the
+	   camera the movement was always meant to be seen through, and puts
+	   the hero on D2, the media plane it belongs to. */
 	return (
+		<BerxSpatialScene
+			reducedMotion={reducedMotion}
+			signalX={signal.x}
+			signalY={signal.y}
+			bind={signal.bind}
+			style={styles.scene}>
 		<Animated.ScrollView
 			style={styles.screen}
 			scrollEventThrottle={16}
@@ -308,7 +326,7 @@ export default function EventDetailScreen({api, guid, myGuid, onOpenPlace, onOpe
 			}>
 			<BerxHeader title={event.title} onBack={onBack} />
 
-			<View style={styles.hero}>
+			<BerxDepthLayer depth="D2" animateEntry={false} style={styles.hero}>
 				{/* BERX SPATIAL — same real scroll-driven parallax as
 				    PlaceDetailScreen's hero (BerxSpatialLayer, this screen's
 				    own scrollY driver). */}
@@ -357,7 +375,7 @@ export default function EventDetailScreen({api, guid, myGuid, onOpenPlace, onOpe
 						</Pressable>
 					) : null}
 				</BerxFadeIn>
-			</View>
+			</BerxDepthLayer>
 
 			<BerxFadeIn style={styles.body}>
 				<BerxGlassSurface padding="sm" style={styles.actionBar}>
@@ -527,10 +545,14 @@ export default function EventDetailScreen({api, guid, myGuid, onOpenPlace, onOpe
 				<BerxDiscussion api={api} type="event" id={event.guid} myGuid={myGuid} />
 			</BerxFadeIn>
 		</Animated.ScrollView>
+		</BerxSpatialScene>
 	);
 }
 
 const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
+	// The scene owns the ground; the scroll view inside it must stay
+	// transparent or it paints over the environment layer.
+	scene: {flex: 1},
 	screen: {flex: 1, backgroundColor: colors.bg},
 	hero: {height: HERO_H, backgroundColor: colors.mediaScrim, justifyContent: 'flex-end', overflow: 'hidden'},
 	heroFallback: {alignItems: 'center', justifyContent: 'center', backgroundColor: colors.graphite},

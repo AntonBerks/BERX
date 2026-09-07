@@ -33,13 +33,21 @@ import type {BerxApiClient} from '@berx/api/client';
 import type {BerxPlaceSearchResult, BerxEventSearchResult, BerxCommunitySearchResult, BerxPeopleSuggestion, BerxTrendingHashtag} from '@berx/api/types';
 import {spacing, typography, radius} from '@berx/design-system/tokens';
 import {ruPlural} from '@berx/domain';
-import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
+import {BerxAuroraField} from '../../../../packages/design-system/src/components/BerxAuroraField';
+import {BerxLightField} from '../../../../packages/design-system/src/components/BerxLightField';
+import {depthShadowV9} from '../../../../packages/design-system/src/v9/depth';
+import {BerxEnergyHalo} from '../../../../packages/design-system/src/v9/BerxV9Live';
+import {useBerxSpatialSignal} from '../../../../packages/design-system/src/v9/useBerxSpatialSignal';
+import {useWindowDimensions} from 'react-native';
+import {BerxSpatialScene, BerxDepthLayer} from '../../../../packages/design-system/src/v9/BerxSpatialScene';
+import {BerxSearchField} from '../../../../packages/design-system/src/v9/BerxV9Primitives';
+import {useBerxReducedMotion} from '../../../../packages/design-system/src/v9/BerxBoundaries';
 import {BerxEmptyState, BerxErrorState, BerxLoadingState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxEdgeFade} from '../../../../packages/design-system/src/components/BerxEdgeFade';
 import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
 
-import {useBerxColors} from '../../../../packages/design-system/src/theme';
-import type {BerxColorTokens} from '@berx/design-system/tokens';
+import {useBerxColors, useBerxScene, useBerxGlass} from '../../../../packages/design-system/src/theme';
+import type {BerxColorTokens, BerxGlassLevelTokens, BerxGlassLevel} from '@berx/design-system/tokens';
 import {BerxIcon} from '../../../../packages/design-system/src/icons/BerxIcon';
 
 interface SearchResultUser {
@@ -72,7 +80,17 @@ const TABS: {key: Tab; label: string}[] = [
 
 export default function SearchScreen({api, onOpenProfile, onOpenPlace, onOpenEvent, onOpenCommunity, onOpenHashtag}: Props) {
 	const colors = useBerxColors();
-	const styles = useMemo(() => makeStyles(colors), [colors]);
+	// The real OS setting, read once at the root by BerxReducedMotionGate.
+	const reducedMotion = useBerxReducedMotion();
+	const win = useWindowDimensions();
+	// The scene's own light colours — the same pools every BERX surface
+	// is lit with, so Explore is lit like the rest of the product.
+	const scene = useBerxScene();
+	const glass = useBerxGlass();
+	// Real interaction: gyroscope on device, pointer on web, zero when the
+	// OS asks for reduced motion (enforced inside the hook).
+	const signal = useBerxSpatialSignal();
+	const styles = useMemo(() => makeStyles(colors, glass), [colors, glass]);
 	const [tab, setTab] = useState<Tab>('users');
 	const [query, setQuery] = useState('');
 	const [users, setUsers] = useState<SearchResultUser[]>([]);
@@ -145,34 +163,113 @@ export default function SearchScreen({api, onOpenProfile, onOpenPlace, onOpenEve
 
 	const currentCount = tab === 'users' ? users.length : tab === 'places' ? places.length : tab === 'events' ? events.length : tab === 'communities' ? communities.length : hashtags.length;
 
-	return (
-		<View style={styles.screen}>
-			<View style={styles.searchBar}>
-				<BerxInput
-					placeholder="Поиск"
-					value={query}
-					onChangeText={handleChange}
-					autoCapitalize="none"
-					autoCorrect={false}
-				/>
-			</View>
+	/* Which tab is showing, as a word — the scene's own structural
+	   typography at D2. It is derived from real state, so the plane
+	   behind the results always names what you are looking through. */
+	const structuralWord = TABS.find((t) => t.key === tab)?.label ?? 'Поиск';
 
-			{/* This was a plain non-scrolling View, and five tabs do not fit
-			    the width: "Теги" was cut off by the screen edge and its right
-			    half could not be tapped at all. That is a functional bug, not
-			    only a visual one — a whole search category was unreachable.
-			    Now a real horizontal scroll with the shared edge affordance. */}
-			<View style={styles.tabRowWrap}>
+	/* EXPLORE — a full six-plane V9 scene.
+	   This screen was the discovery surface with no depth at all: a flat
+	   View, a bare input and pill tabs painted straight onto the ground,
+	   so the one place in BERX whose whole job is "look outward into the
+	   world" read as the flattest.
+
+	   Every plane below carries something REAL — none is an empty
+	   container, which is the failure mode a bordered glass box the
+	   length of the viewport already demonstrated here once:
+
+	     D0  environment — a lit room. Real light sources with real
+	         falloff (BerxLightField), keyed above the search field so the
+	         scene has a direction the light comes FROM.
+	     D1  atmosphere  — the dust field, moving on the real interaction
+	         signal, so the air between the planes is visible.
+	     D2  structure   — the current scope as huge, low-contrast type.
+	         This is what the results are seen THROUGH; it names the
+	         scene and gives the eye a far plane to measure depth against.
+	     D3  results     — the subject. Real rows on the focal plane.
+	     D4  actions     — the field and its filters, genuinely floating
+	         above the results they act on.
+	     D5  energy      — a live halo on the field while a query is
+	         actually running, and only then.
+
+	   The camera, the parallax factors and the entry choreography are the
+	   system's, not this screen's: BerxSpatialScene owns the perspective
+	   and BerxDepthLayer places each plane at its own z. */
+	return (
+		<BerxSpatialScene
+			reducedMotion={reducedMotion}
+			signalX={signal.x}
+			signalY={signal.y}
+			bind={signal.bind}
+			style={styles.screen}>
+
+			{/* D0 — ENVIRONMENT. Two real sources: a key light behind the
+			    search field (this scene's light comes from where you act on
+			    it) and a cooler counter pool low and off-axis so the ground
+			    is not evenly washed. The vignette is what keeps it a lit
+			    room instead of a tinted rectangle. */}
+			<BerxDepthLayer depth="D0" fill animateEntry={false}>
+				<BerxLightField
+					style={styles.fieldFill}
+					ground={colors.bg}
+					vignette={0.9}
+					horizon={0.18}
+					sources={[
+						{x: 0.5, y: 0.1, r: 0.95, color: scene.glow, intensity: 0.55, falloff: 2.2, stretch: 0.6},
+						{x: 0.12, y: 0.62, r: 0.85, color: scene.counter, intensity: 0.3, falloff: 2.4},
+						{x: 0.9, y: 0.92, r: 0.7, color: scene.fill, intensity: 0.18, falloff: 2.8},
+					]}
+				/>
+			</BerxDepthLayer>
+
+			{/* D1 — ATMOSPHERE. The dust is bound to the same real signal the
+			    camera uses, so it drifts WITH the scene rather than beside it. */}
+			<BerxDepthLayer depth="D1" fill animateEntry={false} style={styles.atmosphere}>
+				<BerxAuroraField width={win.width} height={win.height} parallax={{x: signal.x, y: signal.y}} />
+			</BerxDepthLayer>
+
+			{/* D2 — STRUCTURE. The scope, as type large enough to be
+			    architecture rather than a label. It sits far back and moves
+			    least, which is exactly what makes the rows in front of it
+			    read as near. */}
+			<BerxDepthLayer depth="D2" fill animateEntry={false} style={styles.structure}>
+				<Text style={styles.structureWord} numberOfLines={1}>{structuralWord.toUpperCase()}</Text>
+			</BerxDepthLayer>
+
+			{/* D4 — ACTIONS. The field and the filters act ON the results, so
+			    they sit in front of them. D5 rides with the field: the halo
+			    is lit only while a real request is in flight. */}
+			<BerxDepthLayer depth="D4" style={styles.searchBar}>
+				<BerxEnergyHalo energy={loading ? 1 : 0} size={999}>
+					<BerxSearchField
+						placeholder="Поиск"
+						value={query}
+						onChangeText={handleChange}
+						accessibilityLabel="Поиск по BERX"
+					/>
+				</BerxEnergyHalo>
+			</BerxDepthLayer>
+
+			{/* Five tabs do not fit the width: "Теги" used to be cut off by
+			    the screen edge and its right half could not be tapped at all
+			    — a whole search category unreachable. Real horizontal scroll
+			    with the shared edge affordance. */}
+			<BerxDepthLayer depth="D4" style={styles.tabRowWrap}>
 				<ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabRow}>
 					{TABS.map((t) => (
 						<Pressable key={t.key} style={[styles.tab, tab === t.key && styles.tabActive]} onPress={() => switchTab(t.key)}>
 							<Text style={[styles.tabText, tab === t.key && styles.tabTextActive]}>{t.label}</Text>
+							{/* D5 energy, at the size it belongs at: one lit edge under
+							    the scope you are actually in. */}
+							{tab === t.key ? <View style={styles.tabEnergy} /> : null}
 						</Pressable>
 					))}
 				</ScrollView>
 				<BerxEdgeFade color={colors.bg} width={32} />
-			</View>
+			</BerxDepthLayer>
 
+			{/* D3 — RESULTS. The subject of the scene, on the focal plane. */}
+			<BerxDepthLayer depth="D3" style={styles.results}>
 			{error ? (
 				<BerxErrorState message={error} onRetry={() => runSearch(query, tab)} />
 			) : loading ? (
@@ -328,16 +425,65 @@ export default function SearchScreen({api, onOpenProfile, onOpenPlace, onOpenEve
 					/>
 				</BerxFadeIn>
 			)}
-		</View>
+			</BerxDepthLayer>
+		</BerxSpatialScene>
 	);
 }
 
-const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
+const makeStyles = (colors: BerxColorTokens, glass: Record<BerxGlassLevel, BerxGlassLevelTokens>) => StyleSheet.create({
 	screen: {flex: 1, backgroundColor: colors.bg},
+	// D3 carries DEPTH here, not a painted panel. A `material` on a
+	// flex-filling list plane draws a bordered box the length of the
+	// viewport, which with three results is a large empty rectangle — the
+	// generic glassmorphism the brief rules out. The separation on this
+	// scene comes from layer order, entry choreography and the atmosphere
+	// behind it; the rows keep their hairline rhythm.
+	results: {flex: 1},
+	fieldFill: {...StyleSheet.absoluteFillObject},
+	// The dust reads as air, not as confetti — it must sit under the
+	// threshold where individual motes become countable.
+	atmosphere: {opacity: 0.42},
+	// D2 structural type. Deliberately just above the ground in
+	// luminance: it has to be legible as architecture and invisible as
+	// content, or it competes with the results it sits behind.
+	// Anchored to the bottom-left and allowed to bleed off the edge. Its
+	// first position (centred, 128px down) put it exactly through the
+	// first result row, so the type fought the content instead of
+	// sitting behind it. Down here it occupies the part of the scene the
+	// list genuinely does not reach.
+	structure: {justifyContent: 'flex-end', alignItems: 'flex-start', overflow: 'hidden'},
+	structureWord: {
+		color: colors.text,
+		opacity: 0.045,
+		fontSize: 108,
+		lineHeight: 112,
+		marginLeft: -10,
+		marginBottom: 40,
+		fontWeight: typography.weightBold,
+		letterSpacing: -5,
+	},
+	// D5 — one lit edge under the active scope. Not a glow around the
+	// whole chip: energy marks WHERE you are, it does not decorate.
+	tabEnergy: {
+		position: 'absolute',
+		left: spacing.md,
+		right: spacing.md,
+		bottom: 2,
+		height: 2,
+		borderRadius: 2,
+		backgroundColor: colors.accent,
+	},
 	searchBar: {padding: spacing.lg, paddingBottom: spacing.sm},
 	tabRowWrap: {paddingBottom: spacing.sm},
 	tabRow: {flexDirection: 'row', gap: spacing.xs, paddingHorizontal: spacing.lg, paddingRight: spacing.xxl},
-	tab: {paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: radius.pill, backgroundColor: colors.surface},
+	tab: {
+		paddingHorizontal: spacing.md,
+		paddingVertical: spacing.xs,
+		borderRadius: radius.pill,
+		backgroundColor: colors.glass2,
+		borderWidth: StyleSheet.hairlineWidth,
+		borderColor: colors.borderSoft,
+	},
 	tabActive: {backgroundColor: colors.accentSoft},
 	tabText: {fontSize: typography.sizeSm, color: colors.textDim},
 	tabTextActive: {color: colors.accent, fontWeight: typography.weightMedium},
@@ -352,10 +498,51 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	avatarInitial: {color: colors.textDim, fontSize: typography.sizeBase, fontWeight: typography.weightBold},
 	suggestionsList: {paddingBottom: spacing.xl},
 	suggestionsTitle: {color: colors.textFaint, fontSize: typography.sizeXs, textTransform: 'uppercase', padding: spacing.lg, paddingBottom: spacing.xs},
-	row: {padding: spacing.lg, borderBottomWidth: 1, borderBottomColor: colors.borderSoft},
+	// MATERIAL RESPONSE. A row is a real object on the focal plane, so it
+	// gets the two things a lit object has and a flat list row does not:
+	// a bright top edge where the key light above catches it, and a
+	// shadow beneath it. The bottom hairline stays as the rhythm of the
+	// list; the top hairline is the light.
+	// A result is an OBJECT on the focal plane, so it is inset and
+	// rounded with a lit top edge and a shadow beneath — not a full-bleed
+	// band with a divider, which is what a table row looks like and what
+	// this was. The light comes from above the search field, so the
+	// highlight goes on top.
+	row: {
+		padding: spacing.lg,
+		marginHorizontal: spacing.md,
+		marginBottom: spacing.sm,
+		borderRadius: radius.lg,
+		borderWidth: StyleSheet.hairlineWidth,
+		borderColor: colors.borderSoft,
+		borderTopColor: glass[1].hairline,
+		backgroundColor: colors.glass2,
+		// The system's own D3 standoff shadow, not hand-picked numbers:
+		// depthShadowV9 derives opacity, radius and offset from the real
+		// z-gap between D2 and D3, so a card here casts the same shadow a
+		// card at the same depth casts anywhere else in BERX.
+		...depthShadowV9('D3', colors.mediaScrim),
+	},
 	fullname: {color: colors.text, fontSize: typography.sizeBase, fontWeight: typography.weightMedium},
 	username: {color: colors.textDim, fontSize: typography.sizeSm, marginTop: spacing.xs},
-	mediaRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm, padding: spacing.lg, borderBottomWidth: 1, borderBottomColor: colors.borderSoft},
+	mediaRow: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		gap: spacing.sm,
+		padding: spacing.lg,
+		marginHorizontal: spacing.md,
+		marginBottom: spacing.sm,
+		borderRadius: radius.lg,
+		borderWidth: StyleSheet.hairlineWidth,
+		borderColor: colors.borderSoft,
+		borderTopColor: glass[1].hairline,
+		backgroundColor: colors.glass2,
+		// The system's own D3 standoff shadow, not hand-picked numbers:
+		// depthShadowV9 derives opacity, radius and offset from the real
+		// z-gap between D2 and D3, so a card here casts the same shadow a
+		// card at the same depth casts anywhere else in BERX.
+		...depthShadowV9('D3', colors.mediaScrim),
+	},
 	thumb: {width: 48, height: 48, borderRadius: radius.sm},
 	thumbFallback: {width: 48, height: 48, borderRadius: radius.sm, backgroundColor: colors.graphite},
 	mediaBody: {flex: 1},

@@ -93,3 +93,34 @@ export const BERX_V9_MATERIAL: Record<BerxV9Material, {fill: keyof BerxV9Tokens[
 	Crystal: {fill: 'strong', blur: 'hero', note: 'hero and identity moments only'},
 	DarkMetal: {fill: 'strong', blur: 'surface', note: 'premium business/system objects'},
 };
+
+/**
+ * MOTION ROLES -> TIERS.
+ *
+ * The archive's scene contracts do not name tiers. All 300 declare the
+ * same five-role motion vocabulary — `spatialEnter`, `exit`, `focus`,
+ * `ambient`, `crossFade` — while the tier table (BERX_MOTION) is the
+ * repository's, so without this map the two halves never meet and
+ * "motion works" is unverifiable. That gap was real: nothing translated
+ * `exit` or `focus` into a duration.
+ *
+ * The assignments are the tiers' own stated roles, not preferences:
+ *   spatialEnter -> spatial   an object arriving THROUGH depth
+ *   exit         -> standard  leaving is a content change, and must be
+ *                             quicker than arriving or the screen feels
+ *                             reluctant to let go
+ *   focus        -> micro     focus is a touch-response, the tactile tier
+ *   ambient      -> ambient   continuous drift, never input-driven
+ *   crossFade    -> micro     the Reduced Motion collapse; reduce() caps
+ *                             it at 120ms, which is the contract's own
+ *                             "replace movement with a short fade"
+ */
+export const BERX_V9_MOTION_ROLE = {
+	spatialEnter: 'spatial',
+	exit: 'standard',
+	focus: 'micro',
+	ambient: 'ambient',
+	crossFade: 'micro',
+} as const;
+
+export type BerxV9MotionRole = keyof typeof BERX_V9_MOTION_ROLE;

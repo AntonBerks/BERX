@@ -38,15 +38,27 @@ import type {ViewStyle} from 'react-native';
 import Animated, {useSharedValue, useAnimatedStyle, withRepeat, withSequence, withTiming, Easing, type SharedValue} from 'react-native-reanimated';
 import Svg, {Defs, RadialGradient, Stop, Circle} from 'react-native-svg';
 import {useBerxScene} from '../theme';
+import {useBerxReducedMotion} from '../v9/BerxBoundaries';
 
 /** One soft drifting colour pool — a real radial-gradient falloff (a flat-opacity circle reads as a hard-edged coin, a real, previously-caught mistake — see BerxFeedScene.tsx's own git history). */
 function GlowPool({color, size, top, left, opacity, driftX, driftY, duration, parallax, parallaxMul = 0}: {color: string; size: number; top: number; left: number; opacity: number; driftX: number; driftY: number; duration: number; parallax?: {x: SharedValue<number>; y: SharedValue<number>}; parallaxMul?: number}) {
 	const uid = useMemo(() => Math.random().toString(36).slice(2, 8), []);
 	const t = useSharedValue(0);
+	// REDUCED MOTION. This ambient drift used to run unconditionally, so
+	// the atmosphere layer kept moving on every scene even when the OS had
+	// asked for less motion — an accessibility contract that silently did
+	// nothing, caught by measuring moving layers in a real browser under
+	// prefers-reduced-motion. The pool still RENDERS (the depth cue and
+	// the lighting survive); only the movement stops.
+	const reduced = useBerxReducedMotion();
 	useEffect(() => {
+		if (reduced) {
+			t.value = 0.5;
+			return;
+		}
 		t.value = withRepeat(withTiming(1, {duration, easing: Easing.inOut(Easing.sin)}), -1, true);
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, []);
+	}, [reduced]);
 	const style = useAnimatedStyle(() => {
 		const px = parallax ? parallax.x.value * parallaxMul : 0;
 		const py = parallax ? parallax.y.value * parallaxMul : 0;
@@ -81,7 +93,15 @@ function seededField(count: number, seed: number): {x: number; y: number; sizeRa
 
 function DustMote({d, w, h, size, color, floatDuration, parallax, parallaxMul}: {d: {x: number; y: number; phase: number; drift: number}; w: number; h: number; size: number; color: string; floatDuration: number; parallax?: {x: SharedValue<number>; y: SharedValue<number>}; parallaxMul: number}) {
 	const float = useSharedValue(0);
+	// Same reduced-motion contract as GlowPool above: the mote keeps its
+	// position and its opacity so the field still reads as depth, and
+	// stops travelling.
+	const reduced = useBerxReducedMotion();
 	useEffect(() => {
+		if (reduced) {
+			float.value = 0.5;
+			return;
+		}
 		float.value = withRepeat(
 			withSequence(
 				withTiming(1, {duration: floatDuration + d.phase, easing: Easing.inOut(Easing.sin)}),
@@ -91,7 +111,7 @@ function DustMote({d, w, h, size, color, floatDuration, parallax, parallaxMul}: 
 			false
 		);
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, []);
+	}, [reduced]);
 	const style = useAnimatedStyle(() => {
 		const px = parallax ? parallax.x.value * parallaxMul : 0;
 		const py = parallax ? parallax.y.value * parallaxMul : 0;

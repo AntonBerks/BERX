@@ -36,7 +36,7 @@
  * the object, not a decoration bolted on beside it.
  */
 import {useCallback, useEffect, useState, useMemo} from 'react';
-import {View, Text, Image, FlatList, Pressable, RefreshControl, StyleSheet} from 'react-native';
+import {View, Text, FlatList, Pressable, RefreshControl, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxNotification} from '@berx/api/types';
 import {relativeTimeLabel} from '@berx/domain';
@@ -46,6 +46,8 @@ import {BerxErrorState, BerxEmptyState, BerxSkeleton} from '../../../../packages
 import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
 
 import {useBerxColors} from '../../../../packages/design-system/src/theme';
+import {BerxNotificationRow} from '../../../../packages/design-system/src/v9/BerxV9Domain';
+import {BerxIcon} from '../../../../packages/design-system/src/icons/BerxIcon';
 import type {BerxColorTokens} from '@berx/design-system/tokens';
 
 interface Props {
@@ -277,22 +279,27 @@ export default function NotificationsScreen({api, onOpenConversation, onOpenDati
 							/>
 						}
 						renderItem={({item}: {item: BerxNotification}) => (
-							<Pressable style={[styles.row, !item.viewed && styles.rowUnread]} onPress={() => handlePress(item)}>
-								<View style={[styles.avatarWrap, !item.viewed && styles.avatarWrapUnread]}>
-									{item.poster_icon ? (
-										<Image source={{uri: item.poster_icon}} style={styles.avatar} />
-									) : (
-										<View style={styles.avatarFallback} />
-									)}
-								</View>
-								<View style={styles.rowText}>
-									<Text style={[styles.label, !item.viewed && styles.labelUnread]}>{notificationText(item)}</Text>
-									<Text style={styles.time}>{relativeTimeLabel(item.time_created)}</Text>
-								</View>
-								<Pressable onPress={() => deleteOne(item.guid)} hitSlop={8}>
-									<Text style={styles.remove}>✕</Text>
-								</Pressable>
-							</Pressable>
+							/* The shared V9 row. Same real fields, same real delete —
+							   and the dismiss glyph is now the product's own drawn
+							   icon instead of the "✕" character, which was rendering
+							   in whatever font the OS chose inside an app that ships
+							   its own icon family. */
+							<BerxNotificationRow
+								text={notificationText(item)}
+								timeLabel={relativeTimeLabel(item.time_created)}
+								iconUrl={item.poster_icon}
+								unread={!item.viewed}
+								onPress={() => handlePress(item)}
+								action={
+									<Pressable
+										accessibilityRole="button"
+										accessibilityLabel="Удалить уведомление"
+										onPress={() => deleteOne(item.guid)}
+										hitSlop={8}>
+										<BerxIcon name="x" size={15} color={colors.textFaint} />
+									</Pressable>
+								}
+							/>
 						)}
 					/>
 				</BerxFadeIn>

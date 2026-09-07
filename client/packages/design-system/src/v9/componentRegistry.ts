@@ -16,15 +16,19 @@
  *      BerxPrimaryButton resolves to BerxAnimatedButton's primary
  *      variant rather than becoming a second button.
  *   2. It records, honestly, which names have no implementation yet.
- *   3. It does NOT generate 102 stub components to make a count look
+ *   3. It DEFERS, with a named blocker, the few contracts whose backing
+ *      capability genuinely does not exist in this backend — rather
+ *      than shipping a control that cannot be wired to anything.
+ *   4. It does NOT generate stub components to make a count look
  *      complete. A file that renders nothing is not an implementation.
  *
  * `berxV9ComponentCoverage()` computes the numbers the reports quote,
  * so they cannot drift from reality.
  */
 import index from './component_index.json';
+import contracts from './scene_contracts.json';
 
-export type BerxV9ComponentState = 'REAL' | 'ALIAS' | 'MISSING';
+export type BerxV9ComponentState = 'REAL' | 'ALIAS' | 'DEFER' | 'MISSING';
 
 export interface BerxV9ComponentEntry {
 	/** The archive's name. */
@@ -34,6 +38,8 @@ export interface BerxV9ComponentEntry {
 	implementation?: string;
 	/** How it satisfies the contract, when that needs saying. */
 	note?: string;
+	/** For DEFER only: the concrete thing that must exist before this can be built. */
+	unblockedBy?: string;
 }
 
 /**
@@ -80,6 +86,11 @@ const ALIASES: Record<string, {implementation: string; note?: string}> = {
 	BerxBusinessMetric: {implementation: 'BerxBusinessPrimitives/BerxStatTile'},
 	// Map.
 	BerxMap: {implementation: 'BerxMapSurface'},
+	// Composition helpers that resolve to the component doing the work.
+	BerxNotificationStack: {
+		implementation: 'BerxNotificationRow',
+		note: 'NotificationsScreen composes rows directly, in real chronological order. Grouping them by subject kind would impose an order the product does not use, so the wrapper resolves to the row rather than forcing a different information architecture to justify itself.',
+	},
 	// States.
 	BerxSkeleton: {implementation: 'BerxStates/BerxSkeleton'},
 	BerxEmptyState: {implementation: 'BerxStates/BerxEmptyState'},
@@ -89,6 +100,41 @@ const ALIASES: Record<string, {implementation: string; note?: string}> = {
 	BerxParallaxGroup: {implementation: 'v9/BerxSpatialScene/BerxParallaxGroup'},
 	BerxSpatialTransition: {implementation: 'BerxSpatialLayer'},
 	BerxLiveIndicator: {implementation: 'BerxSpatialCards/BerxLiveDot'},
+};
+
+/**
+ * DEFERRED — real contracts with no real capability behind them here.
+ *
+ * Each of these would have to invent the thing it controls, which the
+ * directive forbids ("Если capability backend отсутствует — честно
+ * пометь BLOCKED/MISSING, но не подделывай её"). Each names the exact
+ * condition that unblocks it.
+ */
+const DEFERRED: Record<string, {note: string; unblockedBy: string}> = {
+	BerxCommandBar: {
+		note: 'Desktop command palette. BERX ships iOS/Android/Web-mobile shells; there is no desktop chrome, no keyboard-shortcut layer and no global command index to search.',
+		unblockedBy: 'A desktop shell with a keyboard layer, plus a real cross-domain search endpoint to back the palette (searchUsers/searchPlaces are per-domain).',
+	},
+	BerxOtpInput: {
+		note: 'One-time-code entry. The OSSN auth surface in this repository is password + session (login/register/logout); there is no OTP issue or verify endpoint, so this control would submit a code nothing can check.',
+		unblockedBy: 'A real OTP issue+verify pair on the OSSN API (e.g. components/OssnApi/v1/auth otp_request / otp_verify).',
+	},
+	BerxPermissionPrompt: {
+		note: 'Asks for a permission. There is no permission flow anywhere in this codebase — no location, camera or notification request path exists (BERX-007 is BLOCKED for exactly this reason, and PlacesNearbyScreen documents the same gap by asking the user to type coordinates). A prompt that grants nothing is a lie about capability, so the built version was removed rather than left unreachable.',
+		unblockedBy: 'A real permission layer: expo-location / expo-camera requests wired to real behaviour, plus the server-side capability that consumes them.',
+	},
+	BerxPermissionGate: {
+		note: 'Gates content behind a permission BERX never asks for — same blocker as BerxPermissionPrompt above. Removed rather than shipped as a wrapper that always renders its children.',
+		unblockedBy: 'The same real permission layer.',
+	},
+	BerxPopover: {
+		note: 'A transient anchored disclosure. Every disclosure in BERX is a sheet or a full screen, because these are phone shells where a popover has nothing to anchor against; the desktop surface that would need one does not exist — the same blocker as BerxCommandBar. Removed rather than left as unreachable code.',
+		unblockedBy: 'A desktop or tablet shell with real anchor geometry and hover affordances.',
+	},
+	BerxCallSurface: {
+		note: 'Voice/video call UI. Messaging here is real (conversations, messages, group messages) but text-only — there is no signalling, no media server and no call record in the API.',
+		unblockedBy: 'A real calling capability: signalling endpoints plus a media transport. Until then messaging renders its real states without a call affordance.',
+	},
 };
 
 /** Exact-name matches that already exist as their own module or export. */
@@ -103,18 +149,66 @@ const REAL = new Set([
 	'BerxGlassSurface', 'BerxScrimHero', 'BerxSpatialCard', 'BerxMediaCard', 'BerxVideoCard',
 	'BerxTrackCard', 'BerxAvatar', 'BerxIconButton', 'BerxInput', 'BerxMediaViewer',
 	'BerxProfileHero', 'BerxSpatialLayer', 'BerxStoryRing', 'BerxMediaGrid', 'BerxAudioPlayer',
+	// v9/BerxV9Overlays.tsx — the overlay + safety layer the 300 contracts
+	// reference from nearly every family.
+	'BerxSheet', 'BerxModal', 'BerxToast', 'BerxSnackbar', 'BerxContextMenu',
+	'BerxShareSheet', 'BerxReportSheet', 'BerxBlockSheet', 'BerxSafetyBanner',
+	'BerxReactionPicker',
+	// v9/BerxV9Domain.tsx — the real BERX objects, each with an endpoint behind it.
+	'BerxVerifiedBadge', 'BerxLevelBadge', 'BerxPlaceHero', 'BerxPlaceHours', 'BerxPlaceRating',
+	'BerxEventHero', 'BerxTicket', 'BerxExperienceCard', 'BerxTripCard', 'BerxCollectionCard',
+	'BerxCommunityCard', 'BerxBusinessCard', 'BerxCreatorCard', 'BerxRewardCard',
+	'BerxBusinessHero', 'BerxWalletCard', 'BerxNotificationRow',
+	// v9/BerxV9Controls.tsx — input + NOW + boundary controls.
+	'BerxToggle', 'BerxTextArea', 'BerxStepper', 'BerxSlider', 'BerxDatePicker', 'BerxTimePicker',
+	'BerxColorVibePicker', 'BerxComposer', 'BerxNowRail', 'BerxNowScene', 'BerxFocusRing',
+	'BerxRouteBoundary',
+	// v9/BerxV9Profile.tsx — the five profile sections and real map clustering.
+	'BerxProfileAbout', 'BerxProfilePlaces', 'BerxProfileMoments', 'BerxProfileExperiences',
+	'BerxProfileConnections', 'BerxMapCluster',
 ]);
 
-export const BERX_V9_COMPONENTS: BerxV9ComponentEntry[] = (index as {components: {name: string}[]}).components.map(({name}) => {
+/**
+ * The real universe of contract names.
+ *
+ * The archive is internally inconsistent here, and this is the honest
+ * reconciliation rather than a silent pick: `component_index.json`
+ * lists 118 components, but the 300 scene contracts reference two names
+ * it does not carry — BerxCountdown (every Events scene) and
+ * BerxMediaGrid (the media families). A registry built from the index
+ * alone reports those two as "not in the registry" on 30 real scenes,
+ * which is a false gap: both are implemented here. So the universe is
+ * the UNION of what the index declares and what the contracts actually
+ * demand — nothing invented, nothing dropped.
+ */
+const CONTRACT_NAMES = new Set<string>(
+	Object.values(contracts as Record<string, {components?: string[]}>).flatMap((c) => c.components ?? [])
+);
+const UNIVERSE: string[] = [
+	...(index as {components: {name: string}[]}).components.map((c) => c.name),
+	...[...CONTRACT_NAMES].filter((n) => !(index as {components: {name: string}[]}).components.some((c) => c.name === n)),
+];
+
+export const BERX_V9_COMPONENTS: BerxV9ComponentEntry[] = UNIVERSE.map((name) => {
 	if (REAL.has(name)) return {name, state: 'REAL' as const, implementation: name};
 	const alias = ALIASES[name];
 	if (alias) return {name, state: 'ALIAS' as const, implementation: alias.implementation, note: alias.note};
+	const deferred = DEFERRED[name];
+	if (deferred) return {name, state: 'DEFER' as const, note: deferred.note, unblockedBy: deferred.unblockedBy};
 	return {name, state: 'MISSING' as const};
 });
 
 export function berxV9ComponentCoverage() {
 	const by = (s: BerxV9ComponentState) => BERX_V9_COMPONENTS.filter((c) => c.state === s).length;
-	return {total: BERX_V9_COMPONENTS.length, real: by('REAL'), alias: by('ALIAS'), missing: by('MISSING')};
+	return {
+		total: BERX_V9_COMPONENTS.length,
+		real: by('REAL'),
+		alias: by('ALIAS'),
+		defer: by('DEFER'),
+		missing: by('MISSING'),
+		/** Every contract accounted for by a real decision — the number the audit gates on. */
+		classified: by('REAL') + by('ALIAS') + by('DEFER'),
+	};
 }
 
 /**

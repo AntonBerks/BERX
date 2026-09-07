@@ -60,7 +60,7 @@ import React, {useEffect, useRef, useState, useMemo} from 'react';
 import {View, Text, Image, Pressable, ScrollView, Animated, Alert, Dimensions, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxAuthState} from '@berx/auth';
-import type {BerxLastPlace, BerxIdentity, BerxIdentityAchievement, BerxIdentityInterest, BerxStorySummary, BerxFriend, BerxStoryFeedGroup, BerxPostDetail, BerxReputation} from '@berx/api/types';
+import type {BerxLastPlace, BerxIdentity, BerxIdentityAchievement, BerxIdentityInterest, BerxStorySummary, BerxFriend, BerxStoryFeedGroup, BerxPostDetail, BerxReputation, BerxReportReason, BerxPlace, BerxRecentCheckin, BerxLifeMoment, BerxExperience} from '@berx/api/types';
 import {BerxApiError} from '@berx/core';
 import {spacing, typography, radius, parallax} from '@berx/design-system/tokens';
 import {BerxButton} from '../../../../packages/design-system/src/components/BerxButton';
@@ -76,6 +76,9 @@ import {BerxScrim} from '../../../../packages/design-system/src/components/BerxS
 import {BerxEdgeFade} from '../../../../packages/design-system/src/components/BerxEdgeFade';
 import {BerxAvatarStack} from '../../../../packages/design-system/src/components/BerxAvatarStack';
 import {BerxSegmentedTabs} from '../../../../packages/design-system/src/components/BerxSegmentedTabs';
+import {BerxProfileAbout, BerxProfileConnections, BerxProfilePlaces, BerxProfileMoments, BerxProfileExperiences} from '../../../../packages/design-system/src/v9/BerxV9Profile';
+import {BerxLevelBadge, BerxVerifiedBadge} from '../../../../packages/design-system/src/v9/BerxV9Domain';
+import {BerxBlockSheet, BerxReportSheet} from '../../../../packages/design-system/src/v9/BerxV9Overlays';
 import {BerxPhotoGrid} from '../../../../packages/design-system/src/components/BerxPhotoGrid';
 
 import {useBerxColors} from '../../../../packages/design-system/src/theme';
@@ -174,7 +177,11 @@ interface Props {
 	/** Real is_admin-gated section (Max Build) — see me.php's own header for why the client can finally know this. */
 	onOpenAdminUnvalidated?: () => void;
 	onOpenAdminReports?: () => void;
-	onReport?: (targetGuid: number) => void;
+	/* `onReport` was removed with the inline safety sheets: the profile
+	   now submits through the real api.submitReport() in place rather
+	   than pushing the Report screen, which still serves posts, groups
+	   and every other reportable object. A prop nobody reads is worse
+	   than no prop — it looks like a supported hook. */
 	/** MAX BUILD — real Story Highlights rail (see classes/OssnStories.php's own header). Opens the same StoryViewer route the main Stories rail already uses. */
 	onOpenStoryGroup?: (group: BerxStoryFeedGroup) => void;
 	/** MAX BUILD — real Pinned Post card (see posts.php's own header for the pin mechanism). */
@@ -186,7 +193,7 @@ function joinedYear(unixSeconds?: number): string | null {
 	return new Date(unixSeconds * 1000).getFullYear().toString();
 }
 
-export default function ProfileScreen({api, authState, username, onBack, onMessage, onOpenNotifications, onOpenPoints, onOpenMissions, onOpenLifeGraph, onOpenMemories, onOpenWrapped, onOpenDatingPrivacy, onOpenDatingProfile, onOpenDatingPhotos, onOpenCommunities, onOpenPlans, onOpenWorlds, onOpenNext, onOpenMyMoments, onOpenDating, onOpenPlaces, onOpenPlace, onOpenEvents, onOpenSettings, onOpenBERXWorld, onOpenAlbums, onOpenCollections, onOpenTrips, onOpenExperiences, onOpenCreatorProfile, onOpenCreatorSettings, onOpenMyVideos, onOpenMyTracks, onOpenSavedPosts, onOpenEditProfile, onOpenMyPlaceClaims, onOpenRecentCheckins, onOpenAdminUnvalidated, onOpenAdminReports, onOpenAdminPlaceClaims, onReport, onOpenStoryGroup, onOpenPost}: Props) {
+export default function ProfileScreen({api, authState, username, onBack, onMessage, onOpenNotifications, onOpenPoints, onOpenMissions, onOpenLifeGraph, onOpenMemories, onOpenWrapped, onOpenDatingPrivacy, onOpenDatingProfile, onOpenDatingPhotos, onOpenCommunities, onOpenPlans, onOpenWorlds, onOpenNext, onOpenMyMoments, onOpenDating, onOpenPlaces, onOpenPlace, onOpenEvents, onOpenSettings, onOpenBERXWorld, onOpenAlbums, onOpenCollections, onOpenTrips, onOpenExperiences, onOpenCreatorProfile, onOpenCreatorSettings, onOpenMyVideos, onOpenMyTracks, onOpenSavedPosts, onOpenEditProfile, onOpenMyPlaceClaims, onOpenRecentCheckins, onOpenAdminUnvalidated, onOpenAdminReports, onOpenAdminPlaceClaims, onOpenStoryGroup, onOpenPost}: Props) {
 	const colors = useBerxColors();
 	const styles = useMemo(() => makeStyles(colors), [colors]);
 	const [profile, setProfile] = useState<ProfileData | null>(null);
@@ -210,6 +217,19 @@ export default function ProfileScreen({api, authState, username, onBack, onMessa
 	// Own profile only: /friends returns the CALLER's list, so showing it
 	// on someone else's profile would label your friends as theirs.
 	const [friends, setFriends] = useState<BerxFriend[]>([]);
+	/* The three V9 profile sections' real data. Own profile only, for the
+	   same reason `friends` above is: /places/saved, /lifemoments/mine and
+	   /places/checkins all return the CALLER's rows, so rendering them on
+	   someone else's profile would label your places as theirs. The
+	   experiences endpoint does take a user guid, so that one is fetched
+	   for whichever profile is open. */
+	const [safetyOpen, setSafetyOpen] = useState(false);
+	const [reportOpen, setReportOpen] = useState(false);
+	const [reportStatus, setReportStatus] = useState<string | null>(null);
+	const [savedPlaces, setSavedPlaces] = useState<BerxPlace[]>([]);
+	const [checkins, setCheckins] = useState<BerxRecentCheckin[]>([]);
+	const [lifeMoments, setLifeMoments] = useState<BerxLifeMoment[]>([]);
+	const [experiences, setExperiences] = useState<BerxExperience[]>([]);
 	const [gallerySeg, setGallerySeg] = useState<'moments' | 'highlights'>('highlights');
 	const [storyAuthHeaders, setStoryAuthHeaders] = useState<Record<string, string>>({});
 	const [pinnedPost, setPinnedPost] = useState<BerxPostDetail | null>(null);
@@ -226,6 +246,9 @@ export default function ProfileScreen({api, authState, username, onBack, onMessa
 			if (isOwn) {
 				api.identity().then((res) => setIdentity(res.identity)).catch(() => undefined);
 				api.friends().then((res) => setFriends(res.friends)).catch(() => undefined);
+				api.savedPlaces().then((res) => setSavedPlaces(res.places ?? [])).catch(() => undefined);
+				api.recentCheckins().then((res) => setCheckins(res.checkins ?? [])).catch(() => undefined);
+				api.myLifeMoments().then((res) => setLifeMoments(res.moments ?? [])).catch(() => undefined);
 				// MAX BUILD — real unread badge (unreadNotificationCount()
 				// was always a real client method with zero callers).
 				api.unreadNotificationCount().then((res) => setUnreadNotifications(res.unread_count)).catch(() => undefined);
@@ -238,6 +261,7 @@ export default function ProfileScreen({api, authState, username, onBack, onMessa
 			// fetch must never block the profile itself from showing.
 			if (data.guid) {
 				api.storyHighlights(data.guid).then((res) => setHighlights(res.stories)).catch(() => undefined);
+				api.experiences(data.guid).then((res) => setExperiences(res.experiences ?? [])).catch(() => undefined);
 				api.getAuthHeaders().then(setStoryAuthHeaders).catch(() => undefined);
 				api.pinnedPost(data.guid).then((res) => setPinnedPost(res.post)).catch(() => undefined);
 			}
@@ -499,7 +523,13 @@ export default function ProfileScreen({api, authState, username, onBack, onMessa
 								) : null}
 							</Berx3DTilt>
 						) : null}
-						<Text style={styles.heroWordmark}>{profile.fullname || profile.username}</Text>
+						<View style={styles.heroNameRow}>
+							<Text style={styles.heroWordmark}>{profile.fullname || profile.username}</Text>
+							{/* Server-verified only: `is_creator` is the real creator-mode
+							    flag profiles.php returns, and this badge appears if and
+							    only if it is true. It is never decorative. */}
+							{profile.is_creator ? <BerxVerifiedBadge label="Автор" /> : null}
+						</View>
 						<Text style={styles.heroUsername}>@{profile.username}</Text>
 						{!isOwn && (mutualFriends > 0 || mutualCommunities > 0) ? (
 							<Text style={styles.mutualFriends}>
@@ -649,6 +679,74 @@ export default function ProfileScreen({api, authState, username, onBack, onMessa
 			) : null}
 
 
+			{/* V9 profile sections — real rows only. About renders exactly the
+			    fields the profile endpoint returned (joined date, last real
+			    check-in as the location line, the two bounded mutual counts);
+			    Connections renders /friends, which is the CALLER's real list
+			    and so is only shown on your own profile, same rule the stat
+			    column above already follows. */}
+			<BerxProfileAbout
+				data={{
+					location: profile.last_place ? profile.last_place.title : null,
+					joined: profile.time_created ?? null,
+					mutualFriends: profile.mutual_friends_count ?? 0,
+					mutualCommunities: profile.mutual_communities_count ?? 0,
+				}}
+			/>
+
+			{/* Places, Moments and Experiences — the V9 profile sections,
+			    each rendering rows this screen genuinely fetched. Saved
+			    places and real check-ins are one list because to a reader
+			    they are one idea ("where this person goes"); a check-in
+			    carries its real timestamp, a saved place does not, and
+			    neither is given one it doesn't have. */}
+			{isOwn && (savedPlaces.length > 0 || checkins.length > 0) ? (
+				<BerxProfilePlaces
+					places={[
+						...checkins.map((c: BerxRecentCheckin) => ({
+							guid: c.place.guid,
+							title: c.place.title,
+							category: c.place.category,
+							coverUrl: c.place.cover_url,
+							visitedAt: c.time,
+						})),
+						...savedPlaces
+							.filter((pl: BerxPlace) => !checkins.some((c: BerxRecentCheckin) => c.place.guid === pl.guid))
+							.map((pl: BerxPlace) => ({guid: pl.guid, title: pl.title, category: pl.category, coverUrl: pl.cover_url})),
+					]}
+					onOpen={onOpenPlace}
+				/>
+			) : null}
+
+			{isOwn && lifeMoments.length > 0 ? (
+				<BerxProfileMoments
+					moments={lifeMoments.map((m: BerxLifeMoment) => ({
+						id: m.id,
+						text: m.text,
+						timeCreated: m.time_created,
+						peopleCount: m.people.length,
+					}))}
+				/>
+			) : null}
+
+			{experiences.length > 0 ? (
+				<BerxProfileExperiences
+					experiences={experiences.map((e: BerxExperience) => ({
+						id: e.id,
+						title: e.title,
+						scheduledStart: e.scheduled_start,
+						anchorTitle: e.anchor?.title ?? null,
+						myStatus: e.my_status,
+					}))}
+				/>
+			) : null}
+
+			{isOwn && friends.length > 0 ? (
+				<BerxProfileConnections
+					people={friends.map((f: BerxFriend) => ({guid: f.guid, fullname: f.fullname || f.username, iconUrl: f.icon}))}
+				/>
+			) : null}
+
 			{pinnedPost && onOpenPost ? (
 				<BerxFadeIn style={styles.pinnedSection} delayMs={50}>
 					<Pressable onPress={() => onOpenPost(pinnedPost.guid)}>
@@ -664,7 +762,13 @@ export default function ProfileScreen({api, authState, username, onBack, onMessa
 				<BerxFadeIn style={styles.identitySection} delayMs={60}>
 					{identity.current_streak > 0 || identity.level > 1 ? (
 						<BerxGlassSurface elevated padding="sm" style={styles.levelRow}>
-							<Text style={styles.levelText}>Уровень {identity.level}</Text>
+							{/* The level is a real quantity, so it now reads as a real
+							    badge rather than as a sentence: the V9 LevelBadge puts the
+							    number in accent ink inside an accent-tinted capsule, which
+							    is what makes it scannable beside the streak. Same value,
+							    same endpoint. */}
+							<BerxLevelBadge level={identity.level} />
+							<Text style={styles.levelText}>Уровень</Text>
 							{/* Was "🔥 3 дней подряд" — an OS emoji (full-colour, in a font
 						    BERX does not control, inside a product with its own drawn
 						    icon set) and a broken plural that only handled 1 vs
@@ -783,17 +887,58 @@ export default function ProfileScreen({api, authState, username, onBack, onMessa
 				</View>
 			) : null}
 
+			{/* Safety, as one entry point instead of two bare text links.
+			    Both sheets carry real actions: BlockSheet offers the same
+			    api.muteUser() and the same confirmed api.blockUser() this
+			    screen already had, and ReportSheet submits through the real
+			    api.submitReport() with the server's own reason enum. The
+			    block confirmation is kept — blocking is the one action here
+			    that is not one tap to undo. */}
 			{!isOwn && profile.guid ? (
 				<View style={styles.actionRow}>
-					<Pressable onPress={handleBlock} hitSlop={8} disabled={blocking}>
-						<Text style={styles.blockLink}>{blocking ? 'Блокировка…' : 'Заблокировать пользователя'}</Text>
+					<Pressable
+						accessibilityRole="button"
+						accessibilityLabel="Безопасность и жалобы"
+						onPress={() => setSafetyOpen(true)}
+						hitSlop={8}
+						disabled={blocking}>
+						<Text style={styles.blockLink}>{blocking ? 'Блокировка…' : 'Безопасность'}</Text>
 					</Pressable>
 				</View>
 			) : null}
 
-			{!isOwn && profile.guid && onReport ? (
+			{profile.guid ? (
+				<>
+					<BerxBlockSheet
+						visible={safetyOpen}
+						onClose={() => setSafetyOpen(false)}
+						name={profile.fullname || profile.username}
+						onMute={() => {
+							setSafetyOpen(false);
+							handleMute();
+						}}
+						onBlock={() => {
+							setSafetyOpen(false);
+							handleBlock();
+						}}
+					/>
+					<BerxReportSheet
+						visible={reportOpen}
+						onClose={() => setReportOpen(false)}
+						onSubmit={(reason: string) => {
+							setReportOpen(false);
+							api.submitReport('user', profile.guid!, reason as BerxReportReason)
+								.then(() => setReportStatus('Жалоба отправлена'))
+								.catch(() => setReportStatus('Не удалось отправить жалобу'));
+						}}
+					/>
+					{reportStatus ? <Text style={styles.pokeStatus}>{reportStatus}</Text> : null}
+				</>
+			) : null}
+
+			{!isOwn && profile.guid ? (
 				<View style={styles.actionRow}>
-					<Pressable onPress={() => onReport(profile.guid!)} hitSlop={8}>
+					<Pressable accessibilityRole="button" onPress={() => setReportOpen(true)} hitSlop={8}>
 						<Text style={styles.reportLink}>Пожаловаться на пользователя</Text>
 					</Pressable>
 				</View>
@@ -963,6 +1108,7 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	// scale exists for exactly that (0.72 vs 0.64 alpha). Same role
 	// correction WelcomeScreen already applies to its own copy over a
 	// drawn scene — a token role fix, not a new colour.
+	heroNameRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.xs, flexWrap: 'wrap'},
 	heroUsername: {color: colors.onMediaDim, fontSize: typography.sizeBase, marginTop: 2},
 	highlightsRail: {paddingHorizontal: spacing.lg, marginBottom: spacing.md},
 	highlightItem: {alignItems: 'center', width: 68, marginRight: spacing.md},

@@ -32,6 +32,9 @@ import {BerxButton} from '../../../../packages/design-system/src/components/Berx
 import {BerxLoadingState, BerxErrorState, BerxEmptyState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
 import {BerxAura} from '../../../../packages/design-system/src/components/BerxAura';
+import {BerxSpatialScene, BerxDepthLayer} from '../../../../packages/design-system/src/v9/BerxSpatialScene';
+import {useBerxSpatialSignal} from '../../../../packages/design-system/src/v9/useBerxSpatialSignal';
+import {useBerxReducedMotion} from '../../../../packages/design-system/src/v9/BerxBoundaries';
 import {BerxGlassSurface} from '../../../../packages/design-system/src/components/BerxGlassSurface';
 
 import {useBerxColors, useBerxScene} from '../../../../packages/design-system/src/theme';
@@ -48,6 +51,8 @@ const RADII = [1, 3, 5, 10, 25, 50];
 export default function PlacesNearbyScreen({api, onOpenPlace, onBack}: Props) {
 	const colors = useBerxColors();
 	const scene = useBerxScene();
+	const reducedMotion = useBerxReducedMotion();
+	const signal = useBerxSpatialSignal();
 	const styles = useMemo(() => makeStyles(colors), [colors]);
 	const [lat, setLat] = useState('');
 	const [lng, setLng] = useState('');
@@ -77,14 +82,26 @@ export default function PlacesNearbyScreen({api, onOpenPlace, onBack}: Props) {
 		}
 	}
 
+	/* PLACES, brought inside the V9 spatial architecture. It had a real
+	   aura and real glass already, but no camera and no depth planes at
+	   all — the runtime probe measured zero perspective layers here while
+	   every other key scene had them, which meant the aura was a painted
+	   backdrop rather than an environment the content sits IN. */
 	return (
-		<View style={styles.screen}>
-			<BerxAura ground={scene.ground} glow={scene.glow} counter={scene.counter} intensity={0.55} at={0.1} />
+		<BerxSpatialScene
+			reducedMotion={reducedMotion}
+			signalX={signal.x}
+			signalY={signal.y}
+			bind={signal.bind}
+			style={styles.screen}>
+			<BerxDepthLayer depth="D0" fill animateEntry={false}>
+				<BerxAura ground={scene.ground} glow={scene.glow} counter={scene.counter} intensity={0.55} at={0.1} />
+			</BerxDepthLayer>
 			{/* Editorial header, not a title bar: this is a destination you
 			    navigate TO, like People or Circles — not a detail pushed off a
 			    list, where a back-bar is the right weight. The second line is
 			    live state, never fixed copy. */}
-			<View style={styles.head}>
+			<BerxDepthLayer depth="D4" style={styles.head}>
 				<BerxEditorialTitle
 					topInset={!onBack}
 					style={styles.headline}
@@ -96,7 +113,10 @@ export default function PlacesNearbyScreen({api, onOpenPlace, onBack}: Props) {
 						<BerxCircleButton icon="chevron-left" onPress={onBack} />
 					</View>
 				) : null}
-			</View>
+			</BerxDepthLayer>
+			{/* The search form ACTS on the results, so it sits in front of
+			    them on the controls plane. */}
+			<BerxDepthLayer depth="D4">
 			<BerxGlassSurface level={3} padding="md" style={styles.form}>
 				<View style={styles.row}>
 					<View style={styles.half}><BerxInput placeholder="Широта" value={lat} onChangeText={setLat} keyboardType="decimal-pad" /></View>
@@ -111,7 +131,10 @@ export default function PlacesNearbyScreen({api, onOpenPlace, onBack}: Props) {
 				</View>
 				<BerxButton label="Искать" loading={loading} onPress={search} fullWidth />
 			</BerxGlassSurface>
+			</BerxDepthLayer>
 
+			{/* D3 — the places themselves, on the focal plane. */}
+			<BerxDepthLayer depth="D3" style={styles.fadeFlex}>
 			{loading ? (
 				<BerxLoadingState />
 			) : error ? (
@@ -140,7 +163,8 @@ export default function PlacesNearbyScreen({api, onOpenPlace, onBack}: Props) {
 					/>
 				</BerxFadeIn>
 			)}
-		</View>
+			</BerxDepthLayer>
+		</BerxSpatialScene>
 	);
 }
 

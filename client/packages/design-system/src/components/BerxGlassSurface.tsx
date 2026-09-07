@@ -35,6 +35,7 @@
 import React from 'react';
 import {View, StyleSheet, ViewStyle} from 'react-native';
 import {BlurView} from 'expo-blur';
+import {useBerxBlurSlot} from '../v9/BerxBoundaries';
 import {elevation as elevationTokens, spacing} from '../tokens';
 import {useBerxColors, useBerxGlass} from '../theme';
 import type {BerxGlassLevel, BerxElevation} from '../tokens';
@@ -69,6 +70,9 @@ export function BerxGlassSurface({
 	// BERX THEME — the glass MATERIAL itself is theme-resolved, not just
 	// the text on top of it.
 	const colors = useBerxColors();
+	// Claims one of the scene's three backdrop-blur slots; false once the
+	// budget is spent (see useBerxBlurSlot).
+	const mayBlur = useBerxBlurSlot(true);
 	const glass = useBerxGlass();
 	const resolvedLevel: BerxGlassLevel = level ?? (elevated ? 3 : 2);
 	const g = glass[resolvedLevel];
@@ -111,7 +115,13 @@ export function BerxGlassSurface({
 			 * DOM order regardless of position, this CSS rule doesn't
 			 * exist there; an explicit zIndex there simply confirms what
 			 * source order already gave it for free. */}
-			<BlurView pointerEvents="none" style={[StyleSheet.absoluteFillObject, styles.behind]} intensity={g.blurRadius} tint="dark" />
+			{/* The blur is BUDGETED. The scene contracts cap a mobile scene
+			    at three backdrop-blur layers and the running app was
+			    measurably over it (five on Profile, eight on Feed); beyond
+			    the budget this surface keeps its fill, its hairline and its
+			    shadow — it still reads as glass — and simply stops paying
+			    for a backdrop filter behind four other panes. */}
+			{mayBlur ? <BlurView pointerEvents="none" style={[StyleSheet.absoluteFillObject, styles.behind]} intensity={g.blurRadius} tint="dark" /> : null}
 			<View pointerEvents="none" style={[StyleSheet.absoluteFillObject, styles.behind, {backgroundColor: g.fill}]} />
 			<View style={[styles.hairline, styles.behind, {backgroundColor: active ? colors.accent : g.hairline, opacity: active ? 0.5 : 1}]} />
 			{children}

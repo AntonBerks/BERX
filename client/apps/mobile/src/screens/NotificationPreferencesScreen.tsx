@@ -13,13 +13,14 @@
  * every core OSSN notification string that exists anywhere in the fork.
  */
 import {useCallback, useEffect, useState, useMemo} from 'react';
-import {View, Text, Switch, StyleSheet} from 'react-native';
+import {View, Text, StyleSheet} from 'react-native';
 import type {BerxApiClient} from '@berx/api/client';
 import type {BerxNotificationPrefs, BerxNotificationPrefType} from '@berx/api/types';
 import {spacing, typography} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 import {BerxLoadingState, BerxErrorState} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
+import {BerxToggle} from '../../../../packages/design-system/src/v9/BerxV9Controls';
 
 import {useBerxColors} from '../../../../packages/design-system/src/theme';
 import type {BerxColorTokens} from '@berx/design-system/tokens';
@@ -139,12 +140,18 @@ export default function NotificationPreferencesScreen({api, onBack}: Props) {
 				{ORDER.map((type) => (
 					<View key={type} style={styles.row}>
 						<Text style={styles.label}>{LABELS[type]}</Text>
-						<Switch
+						{/* The platform Switch was the one control in BERX rendered
+						    by the OS rather than by the design system: two different
+						    shapes, two different animation curves and two different
+						    accent treatments on iOS and Android, inside a product
+						    with its own drawn control set. BerxToggle is the same
+						    real boolean and the same real PATCH, drawn by BERX and
+						    honouring Reduced Motion like every other control. */}
+						<BerxToggle
 							value={prefs[type]}
 							onValueChange={(v: boolean) => toggle(type, v)}
 							disabled={busyType === type}
-							trackColor={{false: colors.glass2, true: colors.accentSoft}}
-							thumbColor={prefs[type] ? colors.accent : colors.textFaint}
+							accessibilityLabel={LABELS[type]}
 						/>
 					</View>
 				))}

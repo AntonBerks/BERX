@@ -29,8 +29,9 @@ import {View, Text, Pressable, StyleSheet} from 'react-native';
 import {spacing, typography, radius} from '@berx/design-system/tokens';
 import {BerxHeader} from '../../../../packages/design-system/src/components/BerxHeader';
 
-import {useBerxColors, useBerxThemeSettings, BERX_ACCENT_LIST} from '../../../../packages/design-system/src/theme';
-import type {BerxThemeMode, BerxAccentKey} from '../../../../packages/design-system/src/theme';
+import {useBerxColors, useBerxThemeSettings} from '../../../../packages/design-system/src/theme';
+import {BerxColorVibePicker} from '../../../../packages/design-system/src/v9/BerxV9Controls';
+import type {BerxThemeMode} from '../../../../packages/design-system/src/theme';
 import type {BerxColorTokens} from '@berx/design-system/tokens';
 
 const MODE_OPTIONS: {key: BerxThemeMode; label: string}[] = [
@@ -43,7 +44,7 @@ const MODE_OPTIONS: {key: BerxThemeMode; label: string}[] = [
 function AppearanceSection() {
 	const colors = useBerxColors();
 	const styles = useMemo(() => makeStyles(colors), [colors]);
-	const {mode, accentKey, setMode, setAccentKey} = useBerxThemeSettings();
+	const {mode, setMode} = useBerxThemeSettings();
 	return (
 		<>
 			<Text style={styles.sectionLabel}>Оформление</Text>
@@ -66,19 +67,12 @@ function AppearanceSection() {
 				</View>
 				<View style={[styles.appearanceBlock, styles.appearanceBlockLast]}>
 					<Text style={styles.appearanceLabel}>Акцентный цвет</Text>
-					<View style={styles.swatchRow}>
-						{BERX_ACCENT_LIST.map((a) => {
-							const active = accentKey === a.key;
-							return (
-								<Pressable key={a.key} onPress={() => setAccentKey(a.key as BerxAccentKey)} style={styles.swatchTap} hitSlop={6}>
-									<View style={[styles.swatch, {backgroundColor: a.hex}, active && styles.swatchActive, active && {borderColor: a.hex}]}>
-										{active ? <View style={styles.swatchCheck} /> : null}
-									</View>
-									<Text style={styles.swatchLabel}>{a.label}</Text>
-								</Pressable>
-							);
-						})}
-					</View>
+					{/* Color Vibe, as the one shared control. This row was
+					    re-implemented locally here and again on the onboarding
+					    step, so the two could — and did — drift apart in swatch
+					    size, selected treatment and label. Same real state
+					    (useBerxThemeSettings), one component. */}
+					<BerxColorVibePicker />
 				</View>
 			</View>
 		</>

@@ -67,10 +67,17 @@ export interface BerxSpatialSceneProps {
 	reducedMotion?: boolean;
 	/** Defaults to the camera every scene contract declares. */
 	perspective?: number;
+	/**
+	 * The pointer handlers from useBerxSpatialSignal(), spread onto the
+	 * scene root. Without this the web half of the signal has nothing to
+	 * attach to, so a scene would silently never move on the one platform
+	 * this project can actually verify.
+	 */
+	bind?: Record<string, unknown>;
 	style?: StyleProp<ViewStyle>;
 }
 
-export function BerxSpatialScene({children, signalX, signalY, reducedMotion = false, perspective = BERX_V9_CAMERA.perspectivePx, style}: BerxSpatialSceneProps) {
+export function BerxSpatialScene({children, signalX, signalY, reducedMotion = false, perspective = BERX_V9_CAMERA.perspectivePx, bind, style}: BerxSpatialSceneProps) {
 	const colors = useBerxColors();
 	const value = useMemo<SceneSignal>(
 		() => ({x: reducedMotion ? null : signalX ?? null, y: reducedMotion ? null : signalY ?? null, reducedMotion, perspective}),
@@ -78,7 +85,7 @@ export function BerxSpatialScene({children, signalX, signalY, reducedMotion = fa
 	);
 	return (
 		<SceneContext.Provider value={value}>
-			<View style={[styles.scene, {backgroundColor: colors.bg}, style]}>{children}</View>
+			<View {...(bind ?? {})} style={[styles.scene, {backgroundColor: colors.bg}, style]}>{children}</View>
 		</SceneContext.Provider>
 	);
 }

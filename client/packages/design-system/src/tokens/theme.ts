@@ -31,7 +31,18 @@ export type BerxAccentKey = 'aquamarine' | 'purple' | 'pink' | 'gold' | 'emerald
 
 /** Obsidian & Aurora's five named accent colours. */
 export const accentColors: Record<BerxAccentKey, string> = {
-	aquamarine: '#00E5CC',
+	/**
+	 * V9. The archive's own accent (berx.tokens.v9.json `accent`),
+	 * replacing the pre-V9 #00E5CC.
+	 *
+	 * This map — not the ACCENT_AQUAMARINE constant in tokens/index.ts —
+	 * is what the LIVE theme actually resolves `colors.accent` from, so
+	 * while the token file already carried #4FD6E8 the running product
+	 * was still painting every accent surface in the old colour. A
+	 * browser probe of the real computed styles caught it:
+	 * rgba(0, 229, 204, .16) on the selected filter chip.
+	 */
+	aquamarine: '#4FD6E8',
 	purple: '#8B5CF6',
 	pink: '#FF4D8D',
 	/** Reserved for premium — see the spec this file implements. */

@@ -54,15 +54,22 @@ import type {BerxConversationSummary, BerxOnlineFriend, BerxPeopleSuggestion, Be
 import {relativeTimeLabel} from '@berx/domain';
 import {ruPlural} from '@berx/domain';
 import {spacing, radius, typography} from '@berx/design-system/tokens';
-import {BerxInput} from '../../../../packages/design-system/src/components/BerxInput';
 import {BerxEditorialTitle, BerxCircleButton} from '../../../../packages/design-system/src/components/BerxGreetingHeader';
 import {BerxScrim} from '../../../../packages/design-system/src/components/BerxScrim';
 import {BerxErrorState, BerxEmptyState, BerxSkeleton} from '../../../../packages/design-system/src/components/BerxStates';
 import {BerxAvatar} from '../../../../packages/design-system/src/components/BerxAvatar';
 import {BerxFadeIn} from '../../../../packages/design-system/src/components/BerxFadeIn';
+import {BerxAuroraField} from '../../../../packages/design-system/src/components/BerxAuroraField';
+import {useWindowDimensions} from 'react-native';
+import {depthShadowV9} from '../../../../packages/design-system/src/v9/depth';
+import {BerxSpatialScene, BerxDepthLayer} from '../../../../packages/design-system/src/v9/BerxSpatialScene';
+import {BerxSearchField} from '../../../../packages/design-system/src/v9/BerxV9Primitives';
+import {BerxContextMenu, BerxToast} from '../../../../packages/design-system/src/v9/BerxV9Overlays';
+import type {BerxContextMenuItem} from '../../../../packages/design-system/src/v9/BerxV9Overlays';
+import {useBerxReducedMotion} from '../../../../packages/design-system/src/v9/BerxBoundaries';
 
-import {useBerxColors} from '../../../../packages/design-system/src/theme';
-import type {BerxColorTokens} from '@berx/design-system/tokens';
+import {useBerxColors, useBerxGlass} from '../../../../packages/design-system/src/theme';
+import type {BerxColorTokens, BerxGlassLevelTokens, BerxGlassLevel} from '@berx/design-system/tokens';
 
 
 interface Props {
@@ -76,11 +83,17 @@ interface Props {
 
 export default function ConversationListScreen({api, onOpenConversation, onOpenMessageSearch, onOpenGroup, onCreateGroup}: Props) {
 	const colors = useBerxColors();
-	const styles = useMemo(() => makeStyles(colors), [colors]);
+	const reducedMotion = useBerxReducedMotion();
+	const win = useWindowDimensions();
+	const glass = useBerxGlass();
+	const styles = useMemo(() => makeStyles(colors, glass), [colors, glass]);
 	const [items, setItems] = useState<BerxConversationSummary[]>([]);
 	const [query, setQuery] = useState('');
 	const [loading, setLoading] = useState(true);
 	const [refreshing, setRefreshing] = useState(false);
+	/** The conversation a long-press opened the action menu for. */
+	const [menuFor, setMenuFor] = useState<BerxConversationSummary | null>(null);
+	const [toast, setToast] = useState<string | null>(null);
 	const [error, setError] = useState<string | null>(null);
 	const [unread, setUnread] = useState(0);
 	const [online, setOnline] = useState<BerxOnlineFriend[]>([]);
@@ -141,6 +154,54 @@ export default function ConversationListScreen({api, onOpenConversation, onOpenM
 		return items.filter((it) => (it.with_username ?? '').toLowerCase().includes(q));
 	}, [items, query]);
 
+	/* Real actions on a real conversation. Both endpoints already exist
+	   and are already used by ProfileScreen — muteUser hides someone's
+	   posts from the feed, blockUser ends contact entirely — so this adds
+	   reach, not capability. The list reloads after a block because the
+	   conversation genuinely stops existing for you. */
+	const menuItems: BerxContextMenuItem[] = useMemo(() => {
+		const target = menuFor;
+		if (!target) return [];
+		const name = target.with_username ?? `#${target.with_guid}`;
+		return [
+			{
+				key: 'open',
+				label: 'Открыть диалог',
+				icon: 'message-circle',
+				onPress: () => {
+					setMenuFor(null);
+					onOpenConversation(target.with_guid, target.with_username ?? undefined);
+				},
+			},
+			{
+				key: 'mute',
+				label: 'Заглушить',
+				icon: 'bell-off',
+				onPress: () => {
+					setMenuFor(null);
+					api.muteUser(target.with_guid)
+						.then(() => setToast(`${name} заглушён`))
+						.catch(() => setToast('Не удалось заглушить'));
+				},
+			},
+			{
+				key: 'block',
+				label: 'Заблокировать',
+				icon: 'user-x',
+				destructive: true,
+				onPress: () => {
+					setMenuFor(null);
+					api.blockUser(target.with_guid)
+						.then(() => {
+							setToast(`${name} заблокирован`);
+							load();
+						})
+						.catch(() => setToast('Не удалось заблокировать'));
+				},
+			},
+		];
+	}, [menuFor, api, onOpenConversation, load]);
+
 	if (loading) {
 		return (
 			<View style={styles.screen}>
@@ -163,15 +224,28 @@ export default function ConversationListScreen({api, onOpenConversation, onOpenM
 	}
 	if (error) return <BerxErrorState message={error} onRetry={load} />;
 
+	/* MESSAGING, rebuilt inside the V9 spatial architecture.
+	   The whole surface was one flat View: the editorial head, the
+	   presence rail, the people cards and the conversation list all
+	   painted on the same plane, so nothing floated over anything. It is
+	   now a real scene — D4 for the head and the filter that act ON the
+	   list, D3 for the list itself — and a long-press on a conversation
+	   finally reaches the real moderation actions this screen already
+	   had endpoints for but no way to invoke. */
 	return (
-		<View style={styles.screen}>
+		<BerxSpatialScene reducedMotion={reducedMotion} style={styles.screen}>
 			{/* OPUS 5 — reference composition: the same live editorial
 			    headline + circular glass utility the other non-feed surfaces
 			    use, so MESSAGING stops being the one screen with a plain text
 			    title bar. Both the second line and the search badge are real
 			    loaded counts — the unread total the same poll already tracks,
 			    and how many friends the presence endpoint actually returned. */}
-			<View style={styles.head}>
+			{/* D0 atmosphere — see SearchScreen's note. */}
+			<BerxDepthLayer depth="D0" fill animateEntry={false} style={styles.atmosphere}>
+				<BerxAuroraField width={win.width} height={win.height} />
+			</BerxDepthLayer>
+
+			<BerxDepthLayer depth="D4" style={styles.head}>
 				<BerxEditorialTitle
 					style={styles.headline}
 					accentIndex={1}
@@ -190,7 +264,7 @@ export default function ConversationListScreen({api, onOpenConversation, onOpenM
 				{onOpenMessageSearch ? (
 					<BerxCircleButton icon="search" label="Поиск" onPress={onOpenMessageSearch} />
 				) : null}
-			</View>
+			</BerxDepthLayer>
 
 			{groupRequests.length > 0 ? (
 				<View style={styles.peopleSection}>
@@ -278,10 +352,16 @@ export default function ConversationListScreen({api, onOpenConversation, onOpenM
 				</View>
 			) : null}
 
-			<View style={styles.searchBar}>
-				<BerxInput placeholder="Фильтр по списку" value={query} onChangeText={setQuery} autoCapitalize="none" />
-			</View>
+			<BerxDepthLayer depth="D4" style={styles.searchBar}>
+				<BerxSearchField
+					placeholder="Фильтр по списку"
+					value={query}
+					onChangeText={setQuery}
+					accessibilityLabel="Фильтр по списку диалогов"
+				/>
+			</BerxDepthLayer>
 
+			<BerxDepthLayer depth="D3" style={styles.listPlane}>
 			{items.length === 0 ? (
 				<BerxEmptyState title="Пока нет диалогов" subtitle="Начните переписку через профиль пользователя." />
 			) : filtered.length === 0 ? (
@@ -306,6 +386,9 @@ export default function ConversationListScreen({api, onOpenConversation, onOpenM
 							<Pressable
 								style={styles.row}
 								onPress={() => onOpenConversation(item.with_guid, item.with_username ?? undefined)}
+								onLongPress={() => setMenuFor(item)}
+								delayLongPress={350}
+								accessibilityHint="Удерживайте для действий с диалогом"
 							>
 								<View style={[styles.rowAvatarWrap, item.has_unread && styles.rowAvatarWrapUnread]}>
 									<BerxAvatar
@@ -328,11 +411,29 @@ export default function ConversationListScreen({api, onOpenConversation, onOpenM
 					/>
 				</BerxFadeIn>
 			)}
-		</View>
+			</BerxDepthLayer>
+
+			{/* Real moderation, not a decorative menu: mute and block are the
+			    same api.muteUser()/api.blockUser() calls the profile screen
+			    makes, and until now the conversation list — the place you
+			    actually notice someone you want to stop hearing from — had no
+			    way to reach either. Both are reversible from Settings, which
+			    is why neither asks for confirmation here. */}
+			<BerxContextMenu
+				visible={menuFor !== null}
+				onClose={() => setMenuFor(null)}
+				items={menuItems}
+			/>
+			<BerxToast
+				visible={toast !== null}
+				message={toast ?? ''}
+				onDismiss={() => setToast(null)}
+			/>
+		</BerxSpatialScene>
 	);
 }
 
-const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
+const makeStyles = (colors: BerxColorTokens, glass: Record<BerxGlassLevel, BerxGlassLevelTokens>) => StyleSheet.create({
 	railScroll: {flexGrow: 0, flexShrink: 0},
 	screen: {flex: 1, backgroundColor: colors.bg},
 	head: {flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', paddingHorizontal: spacing.lg, paddingTop: spacing.md, gap: spacing.md},
@@ -345,31 +446,57 @@ const makeStyles = (colors: BerxColorTokens) => StyleSheet.create({
 	onlineAvatar: {width: 48, height: 48, borderRadius: 24, backgroundColor: colors.graphite},
 	onlineDot: {position: 'absolute', bottom: 0, right: 0, width: 12, height: 12, borderRadius: 6, backgroundColor: colors.accent, borderWidth: 2, borderColor: colors.bg},
 	onlineName: {fontSize: typography.sizeXs, color: colors.textDim, marginTop: 4},
+	// Depth, not a painted panel — same reasoning as SearchScreen's
+	// `results`: a material on a viewport-length list plane is an empty
+	// bordered box until the list is full.
+	listPlane: {flex: 1},
+	atmosphere: {opacity: 0.5},
 	peopleSection: {marginTop: spacing.sm},
 	peopleLabel: {color: colors.text, fontSize: typography.sizeLg, fontWeight: typography.weightBold, letterSpacing: -0.4, paddingHorizontal: spacing.lg, marginBottom: spacing.md},
 	peopleRow: {paddingHorizontal: spacing.lg, gap: spacing.sm},
 	peopleCard: {width: 148, height: 190, borderRadius: radius.md, overflow: 'hidden', backgroundColor: colors.graphite, marginRight: spacing.sm, justifyContent: 'flex-end'},
 	peopleCardContent: {padding: spacing.sm, gap: 2},
 	peopleName: {color: colors.white, fontSize: typography.sizeSm, fontWeight: typography.weightBold},
-	peopleMeta: {color: colors.textDim, fontSize: typography.sizeXs},
+	// OVER A PHOTO, so it must use the on-media ink family, not the
+	// environment's. It was colors.textDim, which in the rebuilt Day
+	// environment is a DARK alpha — near-black text sitting on the dark
+	// half of a portrait, genuinely unreadable. The name beside it was
+	// already correct (colors.white); this line simply never got the
+	// same treatment.
+	peopleMeta: {color: colors.onMediaDim, fontSize: typography.sizeXs},
 	requestRow: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.lg, paddingVertical: spacing.sm, gap: spacing.sm},
 	requestName: {flex: 1, color: colors.text, fontSize: typography.sizeSm, fontWeight: typography.weightMedium},
 	requestActions: {flexDirection: 'row', gap: spacing.xs},
 	requestAccept: {paddingHorizontal: spacing.sm, paddingVertical: spacing.xs, borderRadius: radius.pill, backgroundColor: colors.accentSoft},
 	requestAcceptText: {color: colors.accent, fontSize: typography.sizeXs, fontWeight: typography.weightMedium},
 	requestDecline: {paddingHorizontal: spacing.sm, paddingVertical: spacing.xs, borderRadius: radius.pill, backgroundColor: colors.surface},
-	requestDeclineText: {color: colors.textFaint, fontSize: typography.sizeXs},
+	// textFaint is a 42%-alpha ink meant for de-emphasised METADATA, not
+	// for an interactive control: "Отклонить" is a real action and was
+	// rendering below the AA threshold against its own chip in Day.
+	requestDeclineText: {color: colors.textDim, fontSize: typography.sizeXs},
 	searchBar: {padding: spacing.lg, paddingBottom: spacing.sm},
 	listFade: {flex: 1},
 	list: {backgroundColor: colors.bg, flex: 1},
+	// A conversation is an OBJECT on the focal plane, not a table row.
+	// It was a full-bleed band with a bottom divider, which is why this
+	// scene measured zero depth shadows in the runtime probe while every
+	// other key scene cast them. Inset, rounded, lit on the top edge
+	// where the key light catches it, and standing off the plane behind
+	// it by the system's own D3 shadow.
 	row: {
 		flexDirection: 'row',
 		alignItems: 'center',
 		gap: spacing.md,
 		paddingHorizontal: spacing.lg,
 		paddingVertical: spacing.md,
-		borderBottomWidth: 1,
-		borderBottomColor: colors.borderSoft,
+		marginHorizontal: spacing.md,
+		marginBottom: spacing.sm,
+		borderRadius: radius.lg,
+		borderWidth: StyleSheet.hairlineWidth,
+		borderColor: colors.borderSoft,
+		borderTopColor: glass[1].hairline,
+		backgroundColor: colors.glass2,
+		...depthShadowV9('D3', colors.mediaScrim),
 	},
 	rowAvatarWrap: {width: 52, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center'},
 	// BERX WORLD TRANSFORMATION — unread state reads on the object

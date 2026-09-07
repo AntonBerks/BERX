@@ -134,9 +134,12 @@ export const colors = {
 	/** The accent as it appears ON media. Always the bright Night aquamarine: Day's deepened teal is tuned for a light ground and would undershoot contrast over mediaScrim. */
 	accentOnMedia: ACCENT_AQUAMARINE,
 
-	// V9 semantic colours, from the archive's own token file.
+	// V9 semantic colours, from the archive's own token file. `warning`
+	// is a real V9 token this palette was missing entirely — added here
+	// rather than approximated at a call site.
 	danger: '#FF5F6D',
 	success: '#57E6A6',
+	warning: '#FFC857',
 
 	/**
 	 * Spatial Glass / Living Media layer — additive, new tokens for
@@ -243,8 +246,11 @@ export const colorsDay = {
 	onMediaFaint: 'rgba(245,247,250,0.45)',
 	accentOnMedia: ACCENT_AQUAMARINE,
 
-	danger: '#ff4d4f',
-	success: '#3ddc84',
+	// Day: the same V9 semantics, deepened to read on a white ground
+	// (the bright forms measure ~1.9-2.3:1 there).
+	danger: '#C4213A',
+	success: '#0E7A52',
+	warning: '#8A5B00',
 
 	glassBusiness: 'rgba(255,255,255,0.72)',
 	glassBusinessBorder: 'rgba(16,18,24,0.12)',

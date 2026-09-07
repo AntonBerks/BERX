@@ -22,6 +22,7 @@
 import type {ReactNode} from 'react';
 import {View, StyleSheet, StyleProp, ViewStyle, LayoutChangeEvent} from 'react-native';
 import {BlurView} from 'expo-blur';
+import {useBerxBlurSlot} from '../v9/BerxBoundaries';
 import {useBerxGlass} from '../theme';
 import type {BerxGlassLevel} from '../tokens';
 
@@ -40,6 +41,7 @@ export interface BerxGlassBarProps {
 export function BerxGlassBar({level = 2, edge = 'bottom', children, style, onLayout}: BerxGlassBarProps) {
 	const glass = useBerxGlass();
 	const g = glass[level];
+	const mayBlur = useBerxBlurSlot(true);
 	return (
 		<View style={[styles.base, style]} onLayout={onLayout}>
 			{/* See BerxGlassSurface's own header for the real bug this
@@ -47,7 +49,9 @@ export function BerxGlassBar({level = 2, edge = 'bottom', children, style, onLay
 			    layers otherwise paint ABOVE a plain <Svg> child regardless
 			    of DOM order (react-native-svg's <Svg> stays CSS
 			    `position: static`, unlike RNW's own <View>). */}
-			<BlurView pointerEvents="none" style={[StyleSheet.absoluteFillObject, styles.behind]} intensity={g.blurRadius} tint="dark" />
+			{/* Chrome counts against the same three-slot blur budget as content
+			    glass: a blurred bar above three blurred cards is four layers. */}
+			{mayBlur ? <BlurView pointerEvents="none" style={[StyleSheet.absoluteFillObject, styles.behind]} intensity={g.blurRadius} tint="dark" /> : null}
 			<View pointerEvents="none" style={[StyleSheet.absoluteFillObject, styles.behind, {backgroundColor: g.fill}]} />
 			<View pointerEvents="none" style={[styles.hairline, styles.behind, edge === 'top' ? {top: 0} : {bottom: 0}, {backgroundColor: g.border}]} />
 			{children}

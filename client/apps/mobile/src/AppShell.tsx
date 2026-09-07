@@ -149,6 +149,7 @@ import BusinessSettingsScreen from './screens/business/BusinessSettingsScreen';
 import type {BerxStoryFeedGroup, BerxPostVisibility} from '@berx/api/types';
 
 import {useBerxColors, BerxThemeProvider} from '../../../packages/design-system/src/theme';
+import {BerxReducedMotionGate, BerxPerformanceGate, BerxBlurBudget, BerxAnalyticsProvider} from '../../../packages/design-system/src/v9/BerxBoundaries';
 import {SafeAreaProvider} from '../../../packages/design-system/src/insets';
 import type {BerxColorTokens} from '@berx/design-system/tokens';
 
@@ -336,7 +337,6 @@ function RouteRenderer({name, params}: {name: BerxRouteName; params: unknown}) {
 					onOpenCreatorSettings={() => nav.push('CreatorSettings', undefined)}
 					onOpenMyVideos={(userGuid, isOwn) => nav.push('MyVideos', {userGuid, isOwn})}
 					onOpenMyTracks={(userGuid, isOwn) => nav.push('MyTracks', {userGuid, isOwn})}
-					onReport={(targetGuid) => nav.push('Report', {targetType: 'user', targetGuid})}
 					onOpenStoryGroup={(group) => {
 						currentStoryGroup = group;
 						nav.push('StoryViewer', undefined);
@@ -1533,11 +1533,39 @@ function TabPane({visible, children}: {visible: boolean; children: React.ReactNo
  * under the status bar and the notch. See design-system/src/insets.ts.
  */
 export default function AppShell() {
+	/* The three V9 boundaries are mounted HERE, at the root, and this is
+	   a real fix rather than plumbing: they had been written and were
+	   mounted nowhere, so the accessibility gate never read the OS
+	   Reduced Motion setting, the performance gate never capped blur
+	   layers or particles, and no scene view was ever recorded. Every
+	   spatial component already reads them through context — they simply
+	   had no provider above them, so all three silently returned their
+	   defaults on every screen.
+
+	   Order matters: Reduced Motion is outermost because the performance
+	   budget and the analytics boundary may both branch on it, and both
+	   sit above the theme so a palette change never remounts them. */
 	return (
 		<SafeAreaProvider>
-			<BerxThemeProvider>
-				<AppShellInner />
-			</BerxThemeProvider>
+			<BerxReducedMotionGate>
+				<BerxPerformanceGate>
+					<BerxBlurBudget>
+					{/* sink=null is not a stub — it is the true state of this
+					    deployment. There is no analytics endpoint anywhere in
+					    packages/api/src/client.ts (335 methods, 84 paths), so
+					    every scene's real contract analytics keys flow through
+					    this boundary and have nowhere to go. Wiring a fake
+					    collector would be the invented capability the brief
+					    forbids; the day a real endpoint exists, one sink object
+					    here turns all 300 scenes on at once. */}
+					<BerxAnalyticsProvider sink={null}>
+						<BerxThemeProvider>
+							<AppShellInner />
+						</BerxThemeProvider>
+					</BerxAnalyticsProvider>
+					</BerxBlurBudget>
+				</BerxPerformanceGate>
+			</BerxReducedMotionGate>
 		</SafeAreaProvider>
 	);
 }

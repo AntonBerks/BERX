@@ -78,6 +78,7 @@ import type {ReactNode} from 'react';
 import {Platform, View, StyleSheet, Pressable, LayoutChangeEvent} from 'react-native';
 import type {ViewStyle, StyleProp} from 'react-native';
 import {BlurView} from 'expo-blur';
+import {useBerxBlurSlot} from '../v9/BerxBoundaries';
 import Svg, {Defs, LinearGradient as SvgLinearGradient, Stop, Rect} from 'react-native-svg';
 import Animated, {
 	useSharedValue,
@@ -132,6 +133,9 @@ function withAlpha(rgbaOrHex: string, alpha: number): string {
 
 export function BerxGlassView({children, style, intensity = 30, borderAlpha, glow, radius, onPress, backgroundLayer}: BerxGlassViewProps) {
 	const colors = useBerxColors();
+	// Claims one of the scene's three backdrop-blur slots; false once the
+	// budget is spent (see useBerxBlurSlot).
+	const mayBlur = useBerxBlurSlot(true);
 	const glass = useBerxGlass();
 	const g = glass[2];
 
@@ -288,7 +292,13 @@ export function BerxGlassView({children, style, intensity = 30, borderAlpha, glo
 				onLayout={(e: LayoutChangeEvent) => setSize({width: e.nativeEvent.layout.width, height: e.nativeEvent.layout.height})}
 				style={[styles.base, animatedBorderStyle, animatedContainerStyle, style]}
 				{...pointerHandlers}>
-				<BlurView pointerEvents="none" style={[StyleSheet.absoluteFillObject, styles.behind]} intensity={intensity} tint="dark" />
+				{/* The blur is BUDGETED. The scene contracts cap a mobile scene
+				    at three backdrop-blur layers and the running app was
+				    measurably over it (five on Profile, eight on Feed); beyond
+				    the budget this surface keeps its fill, its hairline and its
+				    shadow — it still reads as glass — and simply stops paying
+				    for a backdrop filter behind four other panes. */}
+				{mayBlur ? <BlurView pointerEvents="none" style={[StyleSheet.absoluteFillObject, styles.behind]} intensity={intensity} tint="dark" /> : null}
 				<Animated.View pointerEvents="none" style={[StyleSheet.absoluteFillObject, styles.behind, animatedFillStyle]} />
 				{backgroundLayer ? (
 					<Animated.View pointerEvents="none" style={[StyleSheet.absoluteFillObject, styles.behind, animatedBackgroundParallaxStyle]}>
