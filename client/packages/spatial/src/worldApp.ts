@@ -29,6 +29,7 @@ import {berxClampToWorld, berxNear, berxWorldBounds} from './proximity';
 import {affordancesForObject} from './spatialAffordances';
 import type {BerxSocialAction, BerxSpatialAffordance} from './socialActions';
 import type {BerxNavigationIntent} from './platform';
+import {berxCameraFromPose, berxStereoCamerasFromPose, type BerxXrPose, type BerxXrViews} from './xrPose';
 import type {BerxSpatialObject, BerxSpatialRelation} from './world';
 
 /**
@@ -316,6 +317,43 @@ export class Berx5DWorldApp {
 	}
 
 	private readonly history: BerxWorldPosition[] = [];
+
+	/**
+	 * The viewer's head, from an XR runtime.
+	 *
+	 * `dispatch({kind: 'pose'})` is the phone-tilt path: a small,
+	 * damped parallax on top of a camera the viewer is still driving.
+	 * This is the other thing entirely — ARKit, ARCore and OpenXR
+	 * report where the head actually is, and in a headset the camera is
+	 * the head. There is no damping and no blending, because a world
+	 * that lags a head is a world that makes people ill.
+	 *
+	 * Returns false when the runtime does not trust its own tracking,
+	 * and holds the camera it had rather than following a pose nobody
+	 * believes. A platform with no tracking never calls this.
+	 */
+	setHeadPose(pose: BerxXrPose): boolean {
+		const next = berxCameraFromPose(pose, this.runtime.camera.getState());
+		if (!next) return false;
+		/* the runtime's own optics, not a zoom the viewer chose */
+		this.runtime.camera.setState(next, {optics: true});
+		return true;
+	}
+
+	/**
+	 * Both eyes, from a headset that reports both.
+	 *
+	 * The left eye is the camera; the right is returned for the
+	 * renderer's second viewport. Both come from the runtime's own
+	 * poses, so the interpupillary distance and the per-eye optics are
+	 * the headset's rather than a constant BERX picked.
+	 */
+	setHeadViews(views: BerxXrViews): {left: BerxSpatialCameraState; right?: BerxSpatialCameraState} | undefined {
+		const cameras = berxStereoCamerasFromPose(views, this.runtime.camera.getState());
+		if (!cameras) return undefined;
+		this.runtime.camera.setState(cameras.left, {optics: true});
+		return cameras;
+	}
 
 	/* ---------------- intents, from any device ---------------- */
 

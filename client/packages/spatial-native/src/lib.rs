@@ -610,6 +610,141 @@ impl NativeRenderer {
         stats
     }
 
+    /// Draw two draw lists side by side into one offscreen target.
+    ///
+    /// A headset is BERX with two of these, not a second product: the
+    /// same world, the same lights and the same budget, from two cameras
+    /// the runtime's own poses put an interpupillary distance apart. The
+    /// shared core resolves each eye into its own list; all this does is
+    /// put them in two viewports of one image, which is the layout every
+    /// XR runtime submits.
+    pub fn render_stereo(&mut self, left: &DrawList, right: &DrawList) -> Result<Readback, String> {
+        let width = left.width.max(1) + right.width.max(1);
+        let height = left.height.max(1).max(right.height.max(1));
+        let prepared_left = self.prepare(left)?;
+        let prepared_right = self.prepare(right)?;
+        let (msaa_view, colour, colour_view, depth_view) = self.offscreen_targets(width, height);
+
+        let unpadded = width * 4;
+        let padded = ((unpadded + 255) / 256) * 256;
+        let staging = self.device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("berx-readback"),
+            size: (padded * height) as u64,
+            usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
+            mapped_at_creation: false,
+        });
+
+        let mut encoder = self.device.create_command_encoder(&Default::default());
+        let mut stats = self.record_viewport(
+            &prepared_left, &mut encoder, &msaa_view, &colour_view, &depth_view,
+            (0.0, 0.0, left.width.max(1) as f32, left.height.max(1) as f32), true,
+        );
+        let right_stats = self.record_viewport(
+            &prepared_right, &mut encoder, &msaa_view, &colour_view, &depth_view,
+            (left.width.max(1) as f32, 0.0, right.width.max(1) as f32, right.height.max(1) as f32), false,
+        );
+        stats.draw_calls += right_stats.draw_calls;
+        stats.triangles += right_stats.triangles;
+        encoder.copy_texture_to_buffer(
+            wgpu::ImageCopyTexture {
+                texture: &colour,
+                mip_level: 0,
+                origin: wgpu::Origin3d::ZERO,
+                aspect: wgpu::TextureAspect::All,
+            },
+            wgpu::ImageCopyBuffer {
+                buffer: &staging,
+                layout: wgpu::ImageDataLayout { offset: 0, bytes_per_row: Some(padded), rows_per_image: Some(height) },
+            },
+            wgpu::Extent3d { width, height, depth_or_array_layers: 1 },
+        );
+        self.queue.submit(Some(encoder.finish()));
+        let rgba = self.read_staging(&staging, width, height, padded, unpadded)?;
+        Ok(Readback { width, height, rgba, stats })
+    }
+
+    /// One eye: the same pass, into a viewport of a shared image.
+    ///
+    /// `clear` is true only for the first, because the second must not
+    /// wipe what the first drew.
+    fn record_viewport(
+        &self,
+        prepared: &Prepared,
+        encoder: &mut wgpu::CommandEncoder,
+        msaa_view: &wgpu::TextureView,
+        resolve_view: &wgpu::TextureView,
+        depth_view: &wgpu::TextureView,
+        viewport: (f32, f32, f32, f32),
+        clear: bool,
+    ) -> FrameStats {
+        let mut stats = FrameStats { mesh_variants: prepared.mesh_variants, skipped: prepared.skipped, ..Default::default() };
+        let load = if clear {
+            wgpu::LoadOp::Clear(wgpu::Color {
+                r: prepared.clear[0] as f64,
+                g: prepared.clear[1] as f64,
+                b: prepared.clear[2] as f64,
+                a: 1.0,
+            })
+        } else {
+            wgpu::LoadOp::Load
+        };
+        let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            label: Some("berx-world-eye"),
+            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                view: msaa_view,
+                resolve_target: Some(resolve_view),
+                ops: wgpu::Operations { load, store: wgpu::StoreOp::Store },
+            })],
+            depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                view: depth_view,
+                /* each eye clears its own depth: they share an image but
+                   not a view, and depth from the left eye would occlude
+                   the right one for no reason a viewer could see */
+                depth_ops: Some(wgpu::Operations { load: wgpu::LoadOp::Clear(1.0), store: wgpu::StoreOp::Store }),
+                stencil_ops: None,
+            }),
+            timestamp_writes: None,
+            occlusion_query_set: None,
+        });
+        pass.set_viewport(viewport.0, viewport.1, viewport.2, viewport.3, 0.0, 1.0);
+        pass.set_pipeline(&self.pipeline);
+        pass.set_bind_group(0, &prepared.globals_bind, &[]);
+        pass.set_bind_group(2, &self.media_bind, &[]);
+        for (i, (key, count)) in prepared.plan.iter().enumerate() {
+            let m = self.meshes.get(key).expect("planned");
+            pass.set_bind_group(1, &prepared.draw_bind, &[(i as u64 * DRAW_STRIDE) as u32]);
+            pass.set_vertex_buffer(0, m.vertices.slice(..));
+            pass.set_index_buffer(m.indices.slice(..), wgpu::IndexFormat::Uint16);
+            pass.draw_indexed(0..*count, 0, 0..1);
+            stats.draw_calls += 1;
+            stats.triangles += count / 3;
+        }
+        stats
+    }
+
+    /// Map a staging buffer and unpad its rows.
+    fn read_staging(&self, staging: &wgpu::Buffer, width: u32, height: u32, padded: u32, unpadded: u32) -> Result<Vec<u8>, String> {
+        let _ = width;
+        let slice = staging.slice(..);
+        let (tx, rx) = std::sync::mpsc::channel();
+        slice.map_async(wgpu::MapMode::Read, move |r| {
+            let _ = tx.send(r);
+        });
+        self.device.poll(wgpu::Maintain::Wait);
+        rx.recv()
+            .map_err(|e| format!("BERX 5D native: readback never completed: {e}"))?
+            .map_err(|e| format!("BERX 5D native: readback failed: {e}"))?;
+        let data = slice.get_mapped_range();
+        let mut rgba = Vec::with_capacity((unpadded * height) as usize);
+        for row in 0..height {
+            let start = (row * padded) as usize;
+            rgba.extend_from_slice(&data[start..start + unpadded as usize]);
+        }
+        drop(data);
+        staging.unmap();
+        Ok(rgba)
+    }
+
     /// Draw the list into an offscreen target and read the pixels back.
     ///
     /// The readback is the point: a native backend that renders and is

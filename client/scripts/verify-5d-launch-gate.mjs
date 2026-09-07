@@ -128,10 +128,10 @@ const nativeReason = 'there is no watchOS, ARKit, ARCore or OpenXR target in thi
 if (noNative) {
 	blocked('ios-metal', "the Metal surface path is written in packages/spatial-native/src/platform.rs and the Swift app that drives it is in client/apps/native/ios, but nothing about it can be built here: several of wgpu's dependencies run build scripts needing xcrun, which is part of Xcode's toolchain, so even cargo check fails before reaching this crate", 'client/apps/native/ios', 'repository');
 	blocked('android-vulkan', 'the crate type-checks for aarch64-linux-android with its ANativeWindow surface path and JNI bridge active (verify:5d-native-targets), and the Gradle project that loads it is in client/apps/native/android, but linking the shared library needs the Android NDK and assembling an APK needs the SDK, neither of which is present — and a compiled backend is not a running one', 'client/apps/native/android', 'repository');
-	blocked('watchos', nativeReason, 'client/apps/mobile', 'repository');
-	blocked('arkit', `${nativeReason}; ARKit additionally needs a real device for pose, depth and anchors`, 'client/apps/mobile', 'repository');
-	blocked('arcore', `${nativeReason}; ARCore additionally needs a real device for pose, depth and anchors`, 'client/apps/mobile', 'repository');
-	blocked('openxr', `${nativeReason}; OpenXR additionally needs a headset for a real stereo frame loop`, 'client/apps/mobile', 'repository');
+	blocked('watchos', 'a watch is a display form the shared core already frames for, and there is no watchOS target: nothing about it can be compiled or run here', 'client/apps/native', 'repository');
+	blocked('arkit', "the pose path is shared and verified — a head pose becomes a camera in one place, so a head turn means the same thing on every platform (verify:5d-xr) — but ARKit needs an iPhone, and world tracking, plane detection and anchors cannot be exercised without one", 'client/packages/spatial/src/xrPose.ts', 'device');
+	blocked('arcore', "the same shared pose path, and ARCore needs an Android device with an ARCore-capable camera", 'client/packages/spatial/src/xrPose.ts', 'device');
+	blocked('openxr', "the stereo path is shared and really drawn: the runtime's own eye poses become two cameras, the same world is resolved for each, and the native backend draws both into one image with measurable parallax (verify:5d-xr). An OpenXR session still needs a runtime and a headset, so the frame loop, swapchain acquisition and reprojection are unexercised", 'client/packages/spatial/src/xrPose.ts', 'device');
 	records.push(berxEvidence({
 		requirement: 'packaging',
 		status: records.find((r) => r.requirement === 'desktop')?.status ?? 'blocked',

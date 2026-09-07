@@ -1,6 +1,6 @@
 //! Render a BERX draw list on a real GPU and report what came back.
 //!
-//! Usage: berx-render <draw-list.json> [--png out.png] [--rgba out.rgba]
+//! Usage: berx-render <draw-list.json> [--right <right-eye.json>] [--png out.png] [--rgba out.rgba]
 //!
 //! Reads the draw list the shared TypeScript core produced, renders it
 //! through wgpu, reads the pixels back off the GPU, and prints a JSON
@@ -15,12 +15,15 @@ use berx_spatial_native::{drawlist::DrawList, NativeRenderer, CAPABILITIES};
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     let Some(path) = args.get(1) else {
-        eprintln!("usage: berx-render <draw-list.json> [--png out.png] [--rgba out.rgba]");
+        eprintln!("usage: berx-render <draw-list.json> [--right <right-eye.json>] [--png out.png] [--rgba out.rgba]");
         std::process::exit(2);
     };
     let png_out = args.iter().position(|a| a == "--png").and_then(|i| args.get(i + 1)).cloned();
     /* the raw bytes, for a comparison that must not go through an encoder */
     let rgba_out = args.iter().position(|a| a == "--rgba").and_then(|i| args.get(i + 1)).cloned();
+    /* the second eye, resolved by the shared core from the runtime's own
+       right-eye pose — never derived here from an assumed IPD */
+    let right_path = args.iter().position(|a| a == "--right").and_then(|i| args.get(i + 1)).cloned();
 
     let source = match std::fs::read_to_string(path) {
         Ok(s) => s,
@@ -44,7 +47,26 @@ fn main() {
             std::process::exit(3);
         }
     };
-    let readback = match renderer.render(&list) {
+    let right: Option<DrawList> = match right_path.as_ref() {
+        None => None,
+        Some(path) => match std::fs::read_to_string(path).map(|s| serde_json::from_str::<DrawList>(&s)) {
+            Ok(Ok(l)) => Some(l),
+            Ok(Err(e)) => {
+                eprintln!("BERX 5D native: the right eye's draw list does not match the shared core's shape: {e}");
+                std::process::exit(1);
+            }
+            Err(e) => {
+                eprintln!("BERX 5D native: cannot read {path}: {e}");
+                std::process::exit(1);
+            }
+        },
+    };
+
+    let rendered = match right.as_ref() {
+        Some(other) => renderer.render_stereo(&list, other),
+        None => renderer.render(&list),
+    };
+    let readback = match rendered {
         Ok(r) => r,
         Err(e) => {
             eprintln!("{e}");
@@ -105,6 +127,7 @@ fn main() {
         "meshVariants": readback.stats.mesh_variants,
         "itemsWithNoNativePath": readback.stats.skipped,
         "listItems": list.items.len(),
+        "stereo": right.is_some(),
         "listStats": {
             "visible": list.stats.visible,
             "inFrustum": list.stats.in_frustum,

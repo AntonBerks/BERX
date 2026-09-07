@@ -80,6 +80,8 @@ jobs:
         run: rustup target add aarch64-linux-android
       - name: The native renderer compiles for the platforms it claims
         run: npm run verify:5d-native-targets
+      - name: Stereo from a headset's own poses
+        run: npm run verify:5d-xr
       - name: V9 contracts
         run: npm run verify:v9
       - name: Build spatial web

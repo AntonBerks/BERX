@@ -31,6 +31,7 @@ export * from './actionRing';
 export * from './proximity';
 export * from './frustum';
 export * from './drawList';
+export * from './xrPose';
 export * from './launch/fullMax5DLaunchGate';
 export * from './geometry';
 export * from './spatialPresentation';

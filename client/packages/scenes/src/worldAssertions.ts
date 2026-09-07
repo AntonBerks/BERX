@@ -261,4 +261,50 @@ export function assertBerx5DWorldInvariants(): void {
 	if (dupe.latestFrame.world.objects.length !== countBefore) {
 		fail('the same place arriving from NOW created a second object');
 	}
+
+	/* ---- a head pose is a camera, and only where it is trusted ---- */
+	const posed = build();
+	const cameraBefore = posed.latestFrame.camera;
+	/* a quarter turn to the left about Y: sin(45°) on y and w */
+	const quarterLeft = {x: 0, y: Math.SQRT1_2, z: 0, w: Math.SQRT1_2};
+	if (!posed.setHeadPose({position: {x: 1, y: 1.6, z: 2}, orientation: quarterLeft, fovDegrees: 90})) {
+		fail('a confident pose was refused');
+	}
+	const head = posed.latestFrame.camera;
+	if (Math.abs(head.position.x - 1) > 1e-6 || Math.abs(head.position.y - 1.6) > 1e-6 || Math.abs(head.position.z - 2) > 1e-6) {
+		fail('the camera is not where the head is');
+	}
+	/* looking along -Z rotated a quarter turn about +Y is -X */
+	if (Math.abs(head.target.x - 0) > 1e-6 || Math.abs(head.target.z - 2) > 1e-6) {
+		fail(`the camera does not look where the head looks: ${head.target.x}, ${head.target.z}`);
+	}
+	if (head.fov !== 90) fail('the headset asked for 90 degrees and did not get them');
+	if (head.near !== cameraBefore.near || head.far !== cameraBefore.far) {
+		fail('a head pose changed the near or far plane, which belongs to the world rather than the head');
+	}
+
+	/* tracking nobody trusts moves nothing */
+	const held = {...posed.latestFrame.camera.position};
+	if (posed.setHeadPose({position: {x: 9, y: 9, z: 9}, orientation: quarterLeft, fovDegrees: 90, confidence: 0.1})) {
+		fail('a pose the runtime does not trust was accepted');
+	}
+	const stillThere = posed.latestFrame.camera.position;
+	if (stillThere.x !== held.x || stillThere.y !== held.y || stillThere.z !== held.z) {
+		fail('an untrusted pose moved the camera anyway');
+	}
+
+	/* two eyes come from the runtime, with its own interpupillary distance */
+	const stereo = posed.setHeadViews({
+		left: {position: {x: -0.0315, y: 1.6, z: 0}, orientation: {x: 0, y: 0, z: 0, w: 1}, fovDegrees: 100},
+		right: {position: {x: 0.0315, y: 1.6, z: 0}, orientation: {x: 0, y: 0, z: 0, w: 1}, fovDegrees: 100},
+	});
+	if (!stereo?.right) fail('a headset reporting two eyes produced one camera');
+	const ipd = Math.abs(stereo!.right!.position.x - stereo!.left.position.x);
+	if (Math.abs(ipd - 0.063) > 1e-9) fail(`the eyes are ${ipd}m apart, not the 63mm the runtime reported`);
+	if (stereo!.left.fov !== 100 || stereo!.right!.fov !== 100) {
+		fail('the headset asked for 100 degrees per eye and did not get them');
+	}
+	/* and a monoscopic runtime gets one camera, not an invented second */
+	const mono = posed.setHeadViews({left: {position: {x: 0, y: 1.6, z: 0}, orientation: {x: 0, y: 0, z: 0, w: 1}, fovDegrees: 60}});
+	if (!mono || mono.right !== undefined) fail('a handheld AR session was given a second eye it never reported');
 }

@@ -24,7 +24,17 @@ export class BerxSpatialCamera {
   this.baseTarget=copy(this.state.target);this.limits={maxTiltDeg:limits?.maxTiltDeg??2.5,maxDepth:limits?.maxDepth??30,minFov:limits?.minFov??28,maxFov:limits?.maxFov??58};
  }
  getState(){return {position:copy(this.state.position),target:copy(this.state.target),rotation:{...this.state.rotation},fov:this.state.fov,near:this.state.near,far:this.state.far};}
- setState(next:BerxSpatialCameraState){this.state={position:copy(next.position),target:copy(next.target),rotation:{...next.rotation},fov:clamp(next.fov,this.limits.minFov,this.limits.maxFov),near:next.near,far:next.far};this.baseTarget=copy(next.target);}
+/**
+  * Put the camera somewhere.
+  *
+  * The field of view is clamped to the limits a screen's zoom may
+  * reach — except when the caller says the value came from a device.
+  * A headset's optics are not a zoom: a runtime that reports 100° per
+  * eye is describing its lenses, and rendering the world at 58°
+  * through them makes it the wrong size. `optics` is how a pose says
+  * so, and nothing else may use it.
+  */
+ setState(next:BerxSpatialCameraState,source:{optics?:boolean}={}){this.state={position:copy(next.position),target:copy(next.target),rotation:{...next.rotation},fov:source.optics===true?next.fov:clamp(next.fov,this.limits.minFov,this.limits.maxFov),near:next.near,far:next.far};this.baseTarget=copy(next.target);}
  applyInput(input:BerxCameraInput){
   this.velocity.x+=input.panX*0.18;this.velocity.y+=input.panY*0.18;this.velocity.z+=input.depthDelta*0.28;this.state.fov=clamp(this.state.fov-input.pinch*0.45,this.limits.minFov,this.limits.maxFov);
   if(input.motion){const factor=clamp(input.motion.intensity,0,1),tilt=this.limits.maxTiltDeg*factor;this.state.rotation.x=clamp(input.motion.pitch*tilt,-this.limits.maxTiltDeg,this.limits.maxTiltDeg);this.state.rotation.z=clamp(input.motion.roll*tilt,-this.limits.maxTiltDeg,this.limits.maxTiltDeg);this.state.rotation.y=clamp(input.motion.yaw*tilt*0.55,-this.limits.maxTiltDeg,this.limits.maxTiltDeg);

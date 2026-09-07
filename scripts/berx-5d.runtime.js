@@ -1784,8 +1784,18 @@ var init_spatialCamera = __esm({
       getState() {
         return { position: copy(this.state.position), target: copy(this.state.target), rotation: { ...this.state.rotation }, fov: this.state.fov, near: this.state.near, far: this.state.far };
       }
-      setState(next) {
-        this.state = { position: copy(next.position), target: copy(next.target), rotation: { ...next.rotation }, fov: clamp2(next.fov, this.limits.minFov, this.limits.maxFov), near: next.near, far: next.far };
+      /**
+        * Put the camera somewhere.
+        *
+        * The field of view is clamped to the limits a screen's zoom may
+        * reach — except when the caller says the value came from a device.
+        * A headset's optics are not a zoom: a runtime that reports 100° per
+        * eye is describing its lenses, and rendering the world at 58°
+        * through them makes it the wrong size. `optics` is how a pose says
+        * so, and nothing else may use it.
+        */
+      setState(next, source = {}) {
+        this.state = { position: copy(next.position), target: copy(next.target), rotation: { ...next.rotation }, fov: source.optics === true ? next.fov : clamp2(next.fov, this.limits.minFov, this.limits.maxFov), near: next.near, far: next.far };
         this.baseTarget = copy(next.target);
       }
       applyInput(input) {
@@ -2170,6 +2180,68 @@ var init_spatialAffordances = __esm({
   }
 });
 
+// packages/spatial/src/xrPose.ts
+function berxRotateByQuaternion(v, q) {
+  const l = Math.hypot(q.x, q.y, q.z, q.w) || 1;
+  const x = q.x / l;
+  const y = q.y / l;
+  const z = q.z / l;
+  const w = q.w / l;
+  const tx = 2 * (y * v.z - z * v.y);
+  const ty = 2 * (z * v.x - x * v.z);
+  const tz = 2 * (x * v.y - y * v.x);
+  return {
+    x: v.x + w * tx + (y * tz - z * ty),
+    y: v.y + w * ty + (z * tx - x * tz),
+    z: v.z + w * tz + (x * ty - y * tx)
+  };
+}
+function berxCameraFromPose(pose, previous, minConfidence = BERX_MIN_POSE_CONFIDENCE) {
+  if (pose.confidence !== void 0 && pose.confidence < minConfidence) return void 0;
+  if (!Number.isFinite(pose.position.x) || !Number.isFinite(pose.position.y) || !Number.isFinite(pose.position.z)) return void 0;
+  const forward = berxRotateByQuaternion({ x: 0, y: 0, z: -LOOK_DISTANCE }, pose.orientation);
+  return {
+    position: { ...pose.position },
+    target: {
+      x: pose.position.x + forward.x,
+      y: pose.position.y + forward.y,
+      z: pose.position.z + forward.z
+    },
+    /* the head's own roll, kept: a tilted head is a tilted world */
+    rotation: berxEulerFromQuaternion(pose.orientation),
+    fov: pose.fovDegrees > 0 ? pose.fovDegrees : previous.fov,
+    near: previous.near,
+    far: previous.far
+  };
+}
+function berxStereoCamerasFromPose(views, previous, minConfidence = BERX_MIN_POSE_CONFIDENCE) {
+  const left = berxCameraFromPose(views.left, previous, minConfidence);
+  if (!left) return void 0;
+  const right = views.right ? berxCameraFromPose(views.right, previous, minConfidence) : void 0;
+  return { left, right };
+}
+function berxEulerFromQuaternion(q) {
+  const l = Math.hypot(q.x, q.y, q.z, q.w) || 1;
+  const x = q.x / l;
+  const y = q.y / l;
+  const z = q.z / l;
+  const w = q.w / l;
+  const sinPitch = Math.max(-1, Math.min(1, 2 * (w * x - y * z)));
+  return {
+    x: Math.asin(sinPitch),
+    y: Math.atan2(2 * (w * y + x * z), 1 - 2 * (x * x + y * y)),
+    z: Math.atan2(2 * (w * z + x * y), 1 - 2 * (x * x + z * z))
+  };
+}
+var LOOK_DISTANCE, BERX_MIN_POSE_CONFIDENCE;
+var init_xrPose = __esm({
+  "packages/spatial/src/xrPose.ts"() {
+    "use strict";
+    LOOK_DISTANCE = 1;
+    BERX_MIN_POSE_CONFIDENCE = 0.5;
+  }
+});
+
 // packages/spatial/src/worldApp.ts
 function regionForKind(kind) {
   switch (kind) {
@@ -2203,6 +2275,7 @@ var init_worldApp = __esm({
     init_relational();
     init_proximity();
     init_spatialAffordances();
+    init_xrPose();
     BERX_PERSISTENCE_VERSION = 1;
     Berx5DWorldApp = class {
       constructor(options = {}) {
@@ -2382,6 +2455,40 @@ var init_worldApp = __esm({
           this.options.onPositionChange?.(this.worldPosition);
         }
         return true;
+      }
+      /**
+       * The viewer's head, from an XR runtime.
+       *
+       * `dispatch({kind: 'pose'})` is the phone-tilt path: a small,
+       * damped parallax on top of a camera the viewer is still driving.
+       * This is the other thing entirely — ARKit, ARCore and OpenXR
+       * report where the head actually is, and in a headset the camera is
+       * the head. There is no damping and no blending, because a world
+       * that lags a head is a world that makes people ill.
+       *
+       * Returns false when the runtime does not trust its own tracking,
+       * and holds the camera it had rather than following a pose nobody
+       * believes. A platform with no tracking never calls this.
+       */
+      setHeadPose(pose) {
+        const next = berxCameraFromPose(pose, this.runtime.camera.getState());
+        if (!next) return false;
+        this.runtime.camera.setState(next, { optics: true });
+        return true;
+      }
+      /**
+       * Both eyes, from a headset that reports both.
+       *
+       * The left eye is the camera; the right is returned for the
+       * renderer's second viewport. Both come from the runtime's own
+       * poses, so the interpupillary distance and the per-eye optics are
+       * the headset's rather than a constant BERX picked.
+       */
+      setHeadViews(views) {
+        const cameras = berxStereoCamerasFromPose(views, this.runtime.camera.getState());
+        if (!cameras) return void 0;
+        this.runtime.camera.setState(cameras.left, { optics: true });
+        return cameras;
       }
       /* ---------------- intents, from any device ---------------- */
       /**
@@ -3057,6 +3164,7 @@ var init_src = __esm({
     init_proximity();
     init_frustum();
     init_drawList();
+    init_xrPose();
     init_fullMax5DLaunchGate();
     init_geometry();
     init_spatialPresentation();
