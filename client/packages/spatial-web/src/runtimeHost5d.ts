@@ -67,6 +67,10 @@ export interface Berx5DWebHostOptions {
 	 * it entirely.
 	 */
 	haptics?: BerxHapticBackend | false;
+	/** Whether the air carries dust, energy and the far field. Default on. */
+	particles?: boolean;
+	/** Whether the key light is visible in the air. Default on. */
+	volumetric?: boolean;
 	/**
 	 * The GPU backend to draw with.
 	 *
@@ -102,6 +106,22 @@ export interface Berx5DWebHost {
 	readonly quality: BerxSpatialQualityResult;
 	/** False while the GPU context is lost; the world state survives. */
 	readonly contextAlive: boolean;
+	/**
+	 * Whether the air carries dust, energy and the far field.
+	 *
+	 * A real switch on the host, not just in the renderer: a low-tier
+	 * device drops the whole pass, and a measurement that needs one
+	 * object's outline can stop the field filling the frame around it.
+	 */
+	setParticles(on: boolean): void;
+	/**
+	 * Whether the key light is visible in the air.
+	 *
+	 * Same reasoning as setParticles: a real switch for a low-tier
+	 * device, and the only way a measurement of one object's outline can
+	 * stop the in-scatter lighting every pixel around it.
+	 */
+	setVolumetric(on: boolean): void;
 	/**
 	 * What the last frame actually cost, plus how long it took.
 	 *
@@ -209,6 +229,8 @@ export function createBerx5DWebHost(options: Berx5DWebHostOptions = {}): Berx5DW
 	   it does on a phone; this only chooses the hardware. Reduced
 	   motion silences it, because a device asking for less motion is
 	   asking for less buzzing too. */
+	let particles = options.particles !== false;
+	let volumetric = options.volumetric !== false;
 	const haptics = new BerxHaptics(options.haptics === false ? undefined : (options.haptics ?? new BerxWebHaptics()));
 	haptics.setReducedMotion(reducedMotion);
 	const pixelRatioCap = Math.max(1, options.pixelRatioCap ?? 2);
@@ -288,7 +310,7 @@ export function createBerx5DWebHost(options: Berx5DWebHostOptions = {}): Berx5DW
 			syncQualityToLoad();
 			/* what can be done with what is focused, this frame */
 			if (world) renderer.setAffordances(world.affordances());
-			renderer.render(world ? world.frame(dt) : runtime.frame(dt), {maxObjects: quality.maxObjects, ambientMotion: quality.ambientMotion});
+			renderer.render(world ? world.frame(dt) : runtime.frame(dt), {maxObjects: quality.maxObjects, ambientMotion: quality.ambientMotion, particles, volumetric});
 		} else {
 			/* the world keeps time even with no GPU to draw it, so a
 			   restore resumes where it was rather than snapping */
@@ -604,6 +626,12 @@ export function createBerx5DWebHost(options: Berx5DWebHostOptions = {}): Berx5DW
 				residentLabels: stats.residentLabels,
 				quality: quality.quality,
 			};
+		},
+		setParticles: (on) => {
+			particles = on;
+		},
+		setVolumetric: (on) => {
+			volumetric = on;
 		},
 		world,
 		ingest: (entries) => {

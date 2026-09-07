@@ -87,6 +87,13 @@ pub struct ShadowCamera {
 
 #[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
+pub struct Basis {
+    pub right: Vec3,
+    pub up: Vec3,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct DrawList {
     pub width: u32,
     pub height: u32,
@@ -103,6 +110,15 @@ pub struct DrawList {
     /// order is the core's and there is exactly one opinion about it.
     #[serde(default)]
     pub volumetric: Vec<f32>,
+    /// One packed spec per particle field, from the shared core's
+    /// berxParticleUniform: colour+alpha, extent/speed/size/period, then
+    /// count and kind. Forwarded, never interpreted.
+    #[serde(default)]
+    pub particles: Vec<Vec<f32>>,
+    /// The world's own clock in seconds, ticked by the runtime. Anything
+    /// that animates reads this rather than a wall clock.
+    #[serde(default)]
+    pub world_time: f32,
     pub camera: Vec3,
     pub clear_color: [f32; 3],
     pub ambient: [f32; 3],
@@ -118,6 +134,9 @@ pub struct DrawList {
     pub environment: Vec<f32>,
     pub key: KeyLight,
     pub items: Vec<DrawItem>,
+    /// The camera's right and up, for the quads that face it.
+    #[serde(default)]
+    pub basis: Option<Basis>,
     /// Absent when there is nothing to cast, or when the core was asked
     /// for no shadows at all.
     #[serde(default)]

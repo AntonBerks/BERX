@@ -469,6 +469,98 @@ const CF = `#version 300 es\nprecision highp float;in vec2 UV;uniform sampler2D 
 /** Reads a depth texture as ordinary floats, for the verification path. */
 const DF = `#version 300 es\nprecision highp float;in vec2 UV;uniform highp sampler2D SRC;out vec4 C;void main(){C=vec4(texture(SRC,UV).r,0.,0.,1.);}`;
 
+/**
+ * THE PARTICLE PASS, in GLSL.
+ *
+ * The same hash and the same placement as particles.wgsl and as
+ * @berx/spatial's berxParticleAt, term for term. Nothing is read from a
+ * buffer: each vertex works out where its own particle is from its
+ * index, which is what makes the field identical in four languages
+ * without a buffer to keep in sync.
+ *
+ * Six vertices per particle, expanded from gl_VertexID alone — a
+ * camera-facing quad needs no vertex buffer when its corners come from
+ * arithmetic.
+ */
+const PV = `#version 300 es
+precision highp float;
+uniform mat4 PP, PVIEW;
+uniform vec4 PORIGIN;   // xyz what the field is arranged around, w time
+uniform vec4 PCOLOUR;   // rgb colour, a peak alpha
+uniform vec4 PSHAPE;    // x extent, y speed, z size, w period
+uniform vec4 PCOUNTS;   // x count, y kind (0 dust, 1 energy, 2 stars)
+uniform vec3 PRIGHT, PUP;
+out vec2 PUV;
+out float PALPHA;
+
+const float PI = 3.14159265359;
+
+float phash(uint index, uint lane){
+  uint h=2166136261u;
+  h=h^(index&0xffffu); h=h*16777619u;
+  h=h^((index>>16u)&0xffffu); h=h*16777619u;
+  h=h^(lane&0xffffu); h=h*16777619u;
+  return float(h>>8u)/16777216.;
+}
+
+void main(){
+  uint index=uint(gl_VertexID)/6u;
+  uint corner=uint(gl_VertexID)%6u;
+  vec2 c;
+  if(corner==0u) c=vec2(-1.,-1.);
+  else if(corner==1u) c=vec2(1.,-1.);
+  else if(corner==2u) c=vec2(1.,1.);
+  else if(corner==3u) c=vec2(-1.,-1.);
+  else if(corner==4u) c=vec2(1.,1.);
+  else c=vec2(-1.,1.);
+
+  float hx=phash(index,1u), hy=phash(index,2u), hz=phash(index,3u), hp=phash(index,4u);
+  float extent=PSHAPE.x, speed=PSHAPE.y, size=PSHAPE.z, period=PSHAPE.w;
+  float phase=fract(PORIGIN.w/period+hp);
+
+  vec3 centre; float alpha; float psize;
+  if(PCOUNTS.y>.5 && PCOUNTS.y<1.5){
+    // energy: a spiral leaving a surface, not a column of dots
+    float angle=hx*PI*2.+phase*PI*4.;
+    float radius=extent*(.25+hy*.55)*(1.-phase*.45);
+    centre=vec3(PORIGIN.x+cos(angle)*radius,
+                PORIGIN.y-extent*.4+phase*extent*1.8,
+                PORIGIN.z+sin(angle)*radius);
+    alpha=PCOLOUR.a*sin(phase*PI);
+    psize=size*(.6+hz*.8);
+  } else {
+    float drift=speed==0.?0.:phase*extent;
+    float wx=fract((hx*extent+drift*.35)/extent)*extent-extent*.5;
+    float wy=fract((hy*extent+drift)/extent)*extent-extent*.5;
+    float wz=fract((hz*extent+drift*.2)/extent)*extent-extent*.5;
+    centre=vec3(PORIGIN.x+wx,PORIGIN.y+wy,PORIGIN.z+wz);
+    alpha=PCOUNTS.y>1.5?PCOLOUR.a*(.65+.35*sin(phase*PI*2.)):PCOLOUR.a;
+    psize=size*(.7+hz*.6);
+  }
+
+  vec3 world=centre+PRIGHT*(c.x*psize)+PUP*(c.y*psize);
+  PUV=c;
+  PALPHA=alpha;
+  gl_Position=PP*PVIEW*vec4(world,1.);
+}`;
+const PF = `#version 300 es
+precision highp float;
+in vec2 PUV;
+in float PALPHA;
+uniform vec4 PCOLOUR;
+out vec4 C;
+void main(){
+  // A round, soft mote. A square particle reads as a missing texture and
+  // a hard-edged circle reads as a UI dot.
+  float r=length(PUV);
+  if(r>1.) discard;
+  float falloff=1.-r*r;
+  float a=PALPHA*falloff*falloff;
+  if(a<.002) discard;
+  // premultiplied: drawn additively, so the colour carries the alpha
+  C=vec4(PCOLOUR.rgb*a,a);
+}`;
+
 export interface BerxSpatialRenderOptions {
 	maxObjects?:number;
 	ambientMotion?:boolean;
@@ -484,6 +576,8 @@ export interface BerxSpatialRenderOptions {
 	ssao?:boolean;
 	/** Whether the key light is visible in the air. Passed to the shared core. */
 	volumetric?:boolean;
+	/** Whether the air carries dust, energy and the far field. */
+	particles?:boolean;
 	/**
 	 * Two eyes, drawn side by side into one backing store.
 	 *
@@ -503,6 +597,7 @@ export class BerxThreeRuntimeRenderer implements BerxSpatialRenderer {
  private readonly volProgram:WebGLProgram;private readonly compositeProgram:WebGLProgram;
  private readonly VINV:Loc;private readonly VLVP:Loc;private readonly VSHADOW:Loc;private readonly VPARAMS:Loc;private readonly VDIMS:Loc;private readonly VEYE:Loc;private readonly VLDIR:Loc;private readonly VLCOL:Loc;private readonly VLI:Loc;private readonly VFWD:Loc;private readonly VGBUF:Loc;private readonly VSMAP:Loc;private readonly CSRC:Loc;private readonly depthReadProgram:WebGLProgram;private readonly DSRC:Loc;
  private volTexture?:WebGLTexture;private volFbo?:WebGLFramebuffer;private volSize={w:0,h:0};
+ private readonly particleProgram:WebGLProgram;private readonly PP:Loc;private readonly PVIEW:Loc;private readonly PORIGIN:Loc;private readonly PCOLOUR:Loc;private readonly PSHAPE:Loc;private readonly PCOUNTS:Loc;private readonly PRIGHT:Loc;private readonly PUP:Loc;private particleVao?:WebGLVertexArrayObject;
  /**
   * A NEAREST comparison sampler, used only by the volumetric march.
   *
@@ -560,6 +655,8 @@ export class BerxThreeRuntimeRenderer implements BerxSpatialRenderer {
   this.GBUF=gl.getUniformLocation(this.aoProgram,'GBUF');this.K=gl.getUniformLocation(this.aoProgram,'K');this.DIM=gl.getUniformLocation(this.aoProgram,'DIM');this.KEY_DIR=gl.getUniformLocation(this.program,'KEY_DIR');this.KEY_COL=gl.getUniformLocation(this.program,'KEY_COL');this.KEY_I=gl.getUniformLocation(this.program,'KEY_I');this.PL_POS=gl.getUniformLocation(this.program,'PL_POS');this.PL_COL=gl.getUniformLocation(this.program,'PL_COL');this.PL_I=gl.getUniformLocation(this.program,'PL_I');this.PL_R=gl.getUniformLocation(this.program,'PL_R');this.PL_N=gl.getUniformLocation(this.program,'PL_N');this.MET=gl.getUniformLocation(this.program,'MET');this.ROUGH=gl.getUniformLocation(this.program,'ROUGH');this.OPAC=gl.getUniformLocation(this.program,'OPAC');this.TRANS=gl.getUniformLocation(this.program,'TRANS');this.HT=gl.getUniformLocation(this.program,'HT');this.TS=gl.getUniformLocation(this.program,'TS');this.TEX=gl.getUniformLocation(this.program,'TEX');this.LVP=gl.getUniformLocation(this.program,'LVP');this.SHADOW=gl.getUniformLocation(this.program,'SHADOW');this.SHADOW_MAP=gl.getUniformLocation(this.program,'SHADOW_MAP');
   this.shadowProgram=program(gl,SV,SF);this.SLVP=gl.getUniformLocation(this.shadowProgram,'LVP');this.SM=gl.getUniformLocation(this.shadowProgram,'M');
   this.volProgram=program(gl,VV,VF);this.compositeProgram=program(gl,CV,CF);
+  this.particleProgram=program(gl,PV,PF);
+  this.PP=gl.getUniformLocation(this.particleProgram,'PP');this.PVIEW=gl.getUniformLocation(this.particleProgram,'PVIEW');this.PORIGIN=gl.getUniformLocation(this.particleProgram,'PORIGIN');this.PCOLOUR=gl.getUniformLocation(this.particleProgram,'PCOLOUR');this.PSHAPE=gl.getUniformLocation(this.particleProgram,'PSHAPE');this.PCOUNTS=gl.getUniformLocation(this.particleProgram,'PCOUNTS');this.PRIGHT=gl.getUniformLocation(this.particleProgram,'PRIGHT');this.PUP=gl.getUniformLocation(this.particleProgram,'PUP');
   this.shadowNearest=gl.createSampler()??undefined;
   if(this.shadowNearest){
    gl.samplerParameteri(this.shadowNearest,gl.TEXTURE_COMPARE_MODE,gl.COMPARE_REF_TO_TEXTURE);
@@ -711,6 +808,54 @@ export class BerxThreeRuntimeRenderer implements BerxSpatialRenderer {
   gl.enable(gl.DEPTH_TEST);gl.depthMask(true);gl.enable(gl.BLEND);
   gl.activeTexture(gl.TEXTURE0);
   return true;
+ }
+
+ /**
+  * The air with something in it.
+  *
+  * Three fields, drawn after the world so the depth buffer already holds
+  * everything solid: a mote behind a place is hidden by it. Depth WRITES
+  * are off — particles never occlude each other into flicker — and the
+  * blend is additive, because a mote is light rather than a surface.
+  *
+  * Where each field sits is a fact about the world, not a setting: dust
+  * and stars are arranged around the VIEWER (they are the room and the
+  * distance), and energy around whatever the world says is most alive
+  * (list.items carries the energy the server raised). A world with
+  * nothing live draws no energy particles at all, which is what keeps
+  * BERX Energy rare by construction rather than by promise.
+  */
+ private renderParticles(list:ReturnType<typeof berxBuildDrawList>):number{
+  const gl=this.gl;
+  if(!this.particleVao)this.particleVao=gl.createVertexArray()??undefined;
+  if(!this.particleVao||!list.basis||list.particles.length===0)return 0;
+  gl.useProgram(this.particleProgram);
+  gl.bindVertexArray(this.particleVao);
+  gl.uniformMatrix4fv(this.PP,false,new Float32Array(list.projection));
+  gl.uniformMatrix4fv(this.PVIEW,false,new Float32Array(list.view));
+  gl.uniform3f(this.PRIGHT,list.basis.right.x,list.basis.right.y,list.basis.right.z);
+  gl.uniform3f(this.PUP,list.basis.up.x,list.basis.up.y,list.basis.up.z);
+  gl.depthMask(false);
+  gl.enable(gl.BLEND);gl.blendFunc(gl.ONE,gl.ONE);
+  let calls=0;
+  /* Every field the core put in the list, including where it sits.
+     Nothing about a field is decided here: which kinds exist, how many
+     particles each has and what it is arranged around are all readings
+     of the world, and three backends reading the world separately is
+     three worlds. */
+  for(const field of list.particles){
+   gl.uniform4f(this.PORIGIN,field[12],field[13],field[14],list.worldTime);
+   gl.uniform4f(this.PCOLOUR,field[0],field[1],field[2],field[3]);
+   gl.uniform4f(this.PSHAPE,field[4],field[5],field[6],field[7]);
+   gl.uniform4f(this.PCOUNTS,field[8],field[9],0,0);
+   gl.drawArrays(gl.TRIANGLES,0,field[8]*6);
+   calls++;
+  }
+  gl.bindVertexArray(null);
+  /* leave GL as this pass found it — see the note in renderVolumetric */
+  gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);
+  gl.depthMask(true);
+  return calls;
  }
 
  /**
@@ -993,10 +1138,13 @@ export class BerxThreeRuntimeRenderer implements BerxSpatialRenderer {
   /* after the world and its names: the air is in front of everything,
      and it adds to what is behind it rather than covering it */
   if(options.volumetric!==false)this.renderVolumetric(list,width,height,originX);
+  /* the air's contents, after the light in it: a mote is lit by the same
+     room and drawn additively over whatever the shafts put down */
+  const particleCalls=options.particles===false?0:this.renderParticles(list);
   this.stats={
    visible:list.stats.visible,
    inFrustum:list.stats.inFrustum,
-   drawCalls:drawCalls+labelCalls,
+   drawCalls:drawCalls+labelCalls+particleCalls,
    triangles,
    lodReduced:list.stats.lodReduced,
    budgetCut:list.stats.budgetCut,

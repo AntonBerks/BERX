@@ -187,7 +187,13 @@ if (noBackend) {
 		}));
 	}
 }
-blocked('realtime-sync', 'no realtime transport exists in this repository, so no second client can be shown receiving a mutation', 'client/packages/api/src/client.ts', 'repository');
+/* realtime-sync was blocked for a real reason — the API was
+   request/response, so no second client could be SHOWN receiving a
+   mutation. There is a transport now (backend/scripts/berx-realtime-
+   server.php, a dependency-free RFC 6455 server) and a gate that drives
+   two real sockets through it, so this is measured rather than
+   asserted. */
+runGate('realtime-sync', 'verify:5d-realtime', 'two real WebSocket clients against the real backend: a POST /api/v1/posts made over plain HTTP arrives at the OTHER client with nobody polling, and a channel the viewer is not entitled to is refused by the same code the HTTP API uses');
 records.push(berxEvidence({
 	requirement: 'crash-recovery', status: shell.status,
 	evidence: 'the renderer process holding the world is killed outright with chrome://crash — no unload handler runs and nothing is written on the way out — and a new page in the same browser context comes back to the same region, the same focused entity, the same temporal cursor and a camera pose restored bit-for-bit, with the entities re-read from the server rather than from disk (verify:5d-app-shell)',

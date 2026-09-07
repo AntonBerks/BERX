@@ -28,6 +28,7 @@ import {
 	BERX_WORLD_CLEAR,
 	BERX_SSAO_FLOATS,
 	berxSSAOUniform,
+	BERX_PARTICLE_KINDS,
 	berxVolumetricUniform,
 	BERX_VOLUMETRIC_STEPS,
 	berxInvertMat4,
@@ -40,7 +41,7 @@ import {
 	type BerxSpatialRenderer,
 	type BerxWorldLighting,
 } from '@berx/spatial';
-import {BERX_LABEL_WGSL, BERX_SSAO_WGSL, BERX_VOLUMETRIC_WGSL, BERX_WORLD_WGSL} from '@berx/spatial-shaders';
+import {BERX_LABEL_WGSL, BERX_PARTICLES_WGSL, BERX_SSAO_WGSL, BERX_VOLUMETRIC_WGSL, BERX_WORLD_WGSL} from '@berx/spatial-shaders';
 import {createBox, createSphere, createRing, createFrame, type BerxPrimitiveMesh} from './primitiveGeometry';
 import {BerxWebGPUMediaTextures} from './webgpuMediaTextures';
 import {BerxWebGPUTextAtlas} from './webgpuText';
@@ -59,6 +60,10 @@ const SHADOW_FORMAT: GPUTextureFormat = 'depth32float';
    light_vp(64) + shadow(16) + params(16) + dims(16) + forward(16) —
    the VolGlobals struct in volumetric.wgsl, in declaration order. */
 const VOL_GLOBALS_BYTES = 240;
+/* proj(64) + view(64) + origin(16) + colour(16) + shape(16) +
+   counts(16) + right(16) + up(16) — the ParticleGlobals struct in
+   particles.wgsl, in declaration order. */
+const PARTICLE_GLOBALS_BYTES = 224;
 /** Bytes per label. One dynamic offset each, at the alignment the API wants. */
 const LABEL_STRIDE = 256;
 const LABEL_GLOBALS_BYTES = 160;
@@ -212,6 +217,8 @@ export class BerxWebGPURuntimeRenderer implements BerxSpatialRenderer {
 	private volUniform?: GPUBuffer;
 	private volSampler?: GPUSampler;
 	private volPointSampler?: GPUSampler;
+	private particleUniform?: GPUBuffer;
+	private particleBind?: GPUBindGroup;
 	private gbufferDepth?: GPUTexture;
 	private aoMap?: GPUTexture;
 	private readonly shadowGlobalsBind: GPUBindGroup;
@@ -286,6 +293,8 @@ export class BerxWebGPURuntimeRenderer implements BerxSpatialRenderer {
 		private readonly compositePipeline: GPURenderPipeline,
 		private readonly volLayout: GPUBindGroupLayout,
 		private readonly compositeLayout: GPUBindGroupLayout,
+		private readonly particlePipeline: GPURenderPipeline,
+		private readonly particleLayout: GPUBindGroupLayout,
 		options: {textureBudget?: number; labelBudget?: number; onMediaError?: (uri: string, error: unknown) => void},
 	) {
 		/* The kernel and its parameters come from the shared core; this
@@ -631,7 +640,43 @@ export class BerxWebGPURuntimeRenderer implements BerxSpatialRenderer {
 			depthStencil: {format: 'depth32float', depthWriteEnabled: false, depthCompare: 'always'},
 			multisample: {count: SAMPLE_COUNT},
 		});
-		const renderer = new BerxWebGPURuntimeRenderer(canvas, device, context, format, pipeline, drawLayout, mediaLayout, labelPipeline, labelLayout, shadowPipeline, gbufferPipeline, ssaoPipeline, volPipeline, compositePipeline, volLayout, compositeLayout, options);
+		/**
+		 * The particle fields.
+		 *
+		 * No vertex buffer at all: six vertices per particle, expanded
+		 * from the vertex index, with the position hashed from that index.
+		 * Additive and depth-tested but not depth-writing — a mote is
+		 * light, not a surface, and motes must not occlude each other into
+		 * flicker.
+		 */
+		const particleModule = device.createShaderModule({code: BERX_PARTICLES_WGSL});
+		const particleLayout = device.createBindGroupLayout({
+			entries: [{
+				binding: 0,
+				visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
+				buffer: {type: 'uniform', hasDynamicOffset: true, minBindingSize: PARTICLE_GLOBALS_BYTES},
+			}],
+		});
+		const particlePipeline = device.createRenderPipeline({
+			layout: device.createPipelineLayout({bindGroupLayouts: [particleLayout]}),
+			vertex: {module: particleModule, entryPoint: 'vs_particles'},
+			fragment: {
+				module: particleModule, entryPoint: 'fs_particles',
+				targets: [{
+					format,
+					blend: {
+						/* premultiplied and additive: the shader hands back a
+						   colour that already carries its alpha */
+						color: {srcFactor: 'one', dstFactor: 'one', operation: 'add'},
+						alpha: {srcFactor: 'one', dstFactor: 'one', operation: 'add'},
+					},
+				}],
+			},
+			primitive: {topology: 'triangle-list'},
+			depthStencil: {format: 'depth32float', depthWriteEnabled: false, depthCompare: 'less'},
+			multisample: {count: SAMPLE_COUNT},
+		});
+		const renderer = new BerxWebGPURuntimeRenderer(canvas, device, context, format, pipeline, drawLayout, mediaLayout, labelPipeline, labelLayout, shadowPipeline, gbufferPipeline, ssaoPipeline, volPipeline, compositePipeline, volLayout, compositeLayout, particlePipeline, particleLayout, options);
 		renderer.errors = errors;
 		renderer.adapter = adapter;
 		renderer.lostPromise = device.lost.then((info) => {
@@ -852,7 +897,7 @@ export class BerxWebGPURuntimeRenderer implements BerxSpatialRenderer {
 		/* `ssao: false` skips the G-buffer and occlusion passes entirely and
 		   makes the world pass use 1.0 — the verification's own switch, and
 		   the same shape `shadows: false` already has on the draw list. */
-		pass_?: {clear?: boolean; keep?: boolean; ssao?: boolean; volumetric?: boolean},
+		pass_?: {clear?: boolean; keep?: boolean; ssao?: boolean; volumetric?: boolean; particles?: boolean},
 	): void {
 		if (this.lost) return;
 		const device = this.device;
@@ -1123,6 +1168,54 @@ export class BerxWebGPURuntimeRenderer implements BerxSpatialRenderer {
 		/* names and the action ring, in the same pass and of the same
 		   material — a word standing in the world beside its object */
 		drawCalls += this.drawLabels(pass, list);
+		/**
+		 * The air's contents, drawn after the world so the depth buffer
+		 * already holds everything solid.
+		 *
+		 * Dust and stars are arranged around the VIEWER — they are the
+		 * room and the distance — and energy around whatever the world
+		 * says is most alive. A world with nothing live draws no energy
+		 * particles at all, which is what keeps BERX Energy rare by
+		 * construction rather than by promise.
+		 */
+		if (pass_?.particles !== false && list.basis && list.particles.length > 0) {
+			/* One dynamically-offset buffer for all the fields: a bind group
+			   each would be three allocations per frame for three vec4s of
+			   difference. 256 bytes is the minimum dynamic-offset alignment
+			   WebGPU guarantees. */
+			const stride = 256;
+			if (!this.particleUniform) {
+				this.particleUniform = device.createBuffer({
+					size: stride * BERX_PARTICLE_KINDS.length,
+					usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+				});
+				this.particleBind = device.createBindGroup({
+					layout: this.particleLayout,
+					entries: [{binding: 0, resource: {buffer: this.particleUniform, size: PARTICLE_GLOBALS_BYTES}}],
+				});
+			}
+			/* Every field the core put in the list, including where it sits
+			   — nothing about a field is decided here. */
+			list.particles.forEach((field, slot) => {
+				const globals = new Float32Array(PARTICLE_GLOBALS_BYTES / 4);
+				globals.set(glToWgpuDepth(list.projection), 0);
+				globals.set(list.view, 16);
+				globals.set([field[12], field[13], field[14], list.worldTime], 32);
+				globals.set([field[0], field[1], field[2], field[3]], 36);
+				globals.set([field[4], field[5], field[6], field[7]], 40);
+				globals.set([field[8], field[9], 0, 0], 44);
+				globals.set([list.basis!.right.x, list.basis!.right.y, list.basis!.right.z, 0], 48);
+				globals.set([list.basis!.up.x, list.basis!.up.y, list.basis!.up.z, 0], 52);
+				device.queue.writeBuffer(this.particleUniform!, slot * stride, globals);
+			});
+			pass.setPipeline(this.particlePipeline);
+			list.particles.forEach((field, slot) => {
+				pass.setBindGroup(0, this.particleBind!, [slot * stride]);
+				pass.draw(field[8] * 6);
+				drawCalls++;
+			});
+		}
+
 		/* after the world and its names: the air is in front of everything,
 		   and it adds to what is behind it rather than covering it */
 		if (volumetricOn) {

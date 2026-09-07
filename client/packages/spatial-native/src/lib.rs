@@ -113,6 +113,21 @@ struct Globals {
     ssao: [f32; 4],
 }
 
+/// The particle field's uniforms — the ParticleGlobals struct in
+/// particles.wgsl, in the order it declares them.
+#[repr(C)]
+#[derive(Clone, Copy, Pod, Zeroable)]
+struct ParticleGlobals {
+    proj: [f32; 16],
+    view: [f32; 16],
+    origin: [f32; 4],
+    colour: [f32; 4],
+    shape: [f32; 4],
+    counts: [f32; 4],
+    right: [f32; 4],
+    up: [f32; 4],
+}
+
 /// The volumetric march's uniforms — the VolGlobals struct in
 /// volumetric.wgsl, in the order it declares them.
 #[repr(C)]
@@ -170,6 +185,11 @@ pub struct Prepared {
     /// binds. Absent when there is nothing to cast.
     shadow: Option<PreparedShadow>,
     volumetric: Option<PreparedVolumetric>,
+    /// One entry per field actually drawn: its dynamic offset and how
+    /// many vertices it needs. Empty when the frame has no camera basis
+    /// to face the quads with.
+    particles: Vec<(u32, u32)>,
+    particle_bind: Option<wgpu::BindGroup>,
     plan: Vec<(String, u32)>,
     mesh_variants: u32,
     clear: [f32; 3],
@@ -252,6 +272,8 @@ pub struct NativeRenderer {
     composite_layout: wgpu::BindGroupLayout,
     vol_sampler: wgpu::Sampler,
     vol_point_sampler: wgpu::Sampler,
+    particle_pipeline: wgpu::RenderPipeline,
+    particle_layout: wgpu::BindGroupLayout,
     shadow_globals_layout: wgpu::BindGroupLayout,
     shadow_sampler: wgpu::Sampler,
     draw_layout: wgpu::BindGroupLayout,
@@ -743,6 +765,72 @@ impl NativeRenderer {
             multisample: wgpu::MultisampleState { count: SAMPLE_COUNT, ..Default::default() },
             multiview: None,
         });
+        /* The particle fields. No vertex buffer at all: six vertices per
+           particle, expanded from the vertex index, with the position
+           hashed from that index — the same hash the other three ports
+           run, so the field is identical without a buffer to sync. */
+        let particle_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some("berx-particles"),
+            source: wgpu::ShaderSource::Wgsl(include_str!("../../spatial-shaders/particles.wgsl").into()),
+        });
+        let particle_bind_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: Some("berx-particles-bind"),
+            entries: &[wgpu::BindGroupLayoutEntry {
+                binding: 0,
+                visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
+                ty: wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Uniform,
+                    has_dynamic_offset: true,
+                    min_binding_size: NonZeroU64::new(std::mem::size_of::<ParticleGlobals>() as u64),
+                },
+                count: None,
+            }],
+        });
+        let particle_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+            label: Some("berx-particles-pipeline"),
+            bind_group_layouts: &[&particle_bind_layout],
+            push_constant_ranges: &[],
+        });
+        let particle_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some("berx-particles"),
+            layout: Some(&particle_pipeline_layout),
+            vertex: wgpu::VertexState { module: &particle_shader, entry_point: "vs_particles", buffers: &[] },
+            fragment: Some(wgpu::FragmentState {
+                module: &particle_shader,
+                entry_point: "fs_particles",
+                targets: &[Some(wgpu::ColorTargetState {
+                    format,
+                    /* premultiplied and additive: a mote is light, not a
+                       surface */
+                    blend: Some(wgpu::BlendState {
+                        color: wgpu::BlendComponent {
+                            src_factor: wgpu::BlendFactor::One,
+                            dst_factor: wgpu::BlendFactor::One,
+                            operation: wgpu::BlendOperation::Add,
+                        },
+                        alpha: wgpu::BlendComponent {
+                            src_factor: wgpu::BlendFactor::One,
+                            dst_factor: wgpu::BlendFactor::One,
+                            operation: wgpu::BlendOperation::Add,
+                        },
+                    }),
+                    write_mask: wgpu::ColorWrites::ALL,
+                })],
+            }),
+            primitive: wgpu::PrimitiveState { topology: wgpu::PrimitiveTopology::TriangleList, ..Default::default() },
+            depth_stencil: Some(wgpu::DepthStencilState {
+                format: wgpu::TextureFormat::Depth32Float,
+                /* tested but not written: motes must not occlude each
+                   other into flicker */
+                depth_write_enabled: false,
+                depth_compare: wgpu::CompareFunction::Less,
+                stencil: Default::default(),
+                bias: Default::default(),
+            }),
+            multisample: wgpu::MultisampleState { count: SAMPLE_COUNT, ..Default::default() },
+            multiview: None,
+        });
+
         let vol_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
             label: Some("berx-volumetric-shadow-sampler"),
             /* nearest, not linear: 32 dithered taps along a ray do not need
@@ -785,6 +873,8 @@ impl NativeRenderer {
             composite_layout: composite_bind_layout,
             vol_sampler,
             vol_point_sampler,
+            particle_pipeline,
+            particle_layout: particle_bind_layout,
             shadow_globals_layout,
             shadow_sampler,
             globals_layout,
@@ -1007,14 +1097,11 @@ impl NativeRenderer {
             .filter(|(_, item)| item.opacity >= 0.95)
             .map(|(i, _)| i)
             .collect();
-        /**
-         * The volumetric resources: a G-buffer, an in-scatter target and
-         * the bind groups the two passes need.
-         *
-         * Only when there is a shadow camera — a march with no shadow map
-         * has nothing to make a shaft out of, and would produce a uniform
-         * haze that looks like the pass working when it is not.
-         */
+        /* The volumetric resources: a G-buffer, an in-scatter target and
+           the bind groups the two passes need. Only when there is a shadow
+           camera — a march with no shadow map has nothing to make a shaft
+           out of, and would produce a uniform haze that looks like the
+           pass working when it is not. */
         let volumetric = list.shadow.as_ref().map(|shadow| {
             let width = list.width.max(1);
             let height = list.height.max(1);
@@ -1118,6 +1205,61 @@ impl NativeRenderer {
             }
         });
 
+        /* The particle fields. Every one comes from the draw list, packed
+           by the shared core's berxParticleUniform and including where it
+           sits — so nothing about a field is decided here, and a frame with
+           nothing live simply carries no energy field. */
+        let mut particles: Vec<(u32, u32)> = Vec::new();
+        let mut particle_bind = None;
+        if let (Some(basis), false) = (list.basis.as_ref(), list.particles.is_empty()) {
+            /* 256-byte stride: the minimum dynamic-offset alignment wgpu
+               guarantees, so one buffer serves every field. */
+            const STRIDE: usize = 256;
+            let mut bytes = vec![0u8; STRIDE * list.particles.len()];
+            for (slot, field) in list.particles.iter().enumerate() {
+                if field.len() < 16 {
+                    continue;
+                }
+                /* Every field the core put in the list, including where it
+                   sits. Nothing about a field is decided here: which kinds
+                   exist and what each is arranged around are readings of
+                   the world, and three backends reading the world
+                   separately is three worlds. */
+                let globals = ParticleGlobals {
+                    proj: gl_to_wgpu_depth(&list.projection),
+                    view: list.view,
+                    origin: [field[12], field[13], field[14], list.world_time],
+                    colour: [field[0], field[1], field[2], field[3]],
+                    shape: [field[4], field[5], field[6], field[7]],
+                    counts: [field[8], field[9], 0.0, 0.0],
+                    right: [basis.right.x, basis.right.y, basis.right.z, 0.0],
+                    up: [basis.up.x, basis.up.y, basis.up.z, 0.0],
+                };
+                let src = bytemuck::bytes_of(&globals);
+                bytes[slot * STRIDE..slot * STRIDE + src.len()].copy_from_slice(src);
+                particles.push(((slot * STRIDE) as u32, (field[8] as u32) * 6));
+            }
+            if !particles.is_empty() {
+                let buffer = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("berx-particles-globals"),
+                    contents: &bytes,
+                    usage: wgpu::BufferUsages::UNIFORM,
+                });
+                particle_bind = Some(self.device.create_bind_group(&wgpu::BindGroupDescriptor {
+                    label: Some("berx-particles-bind"),
+                    layout: &self.particle_layout,
+                    entries: &[wgpu::BindGroupEntry {
+                        binding: 0,
+                        resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                            buffer: &buffer,
+                            offset: 0,
+                            size: NonZeroU64::new(std::mem::size_of::<ParticleGlobals>() as u64),
+                        }),
+                    }],
+                }));
+            }
+        }
+
         let shadow = list.shadow.as_ref().map(|_| PreparedShadow {
             view: shadow_view,
             globals_bind: shadow_globals_bind,
@@ -1129,6 +1271,8 @@ impl NativeRenderer {
             draw_bind,
             shadow,
             volumetric,
+            particles,
+            particle_bind,
             plan,
             mesh_variants: variants.len() as u32,
             clear: [list.clear_color[0], list.clear_color[1], list.clear_color[2]],
@@ -1318,6 +1462,17 @@ impl NativeRenderer {
             stats.draw_calls += 1;
             stats.triangles += count / 3;
         }
+        /* the air's contents, after the world so the depth buffer already
+           holds everything solid */
+        if let Some(bind) = &prepared.particle_bind {
+            pass.set_pipeline(&self.particle_pipeline);
+            for (offset, vertices) in &prepared.particles {
+                pass.set_bind_group(0, bind, &[*offset]);
+                pass.draw(0..*vertices, 0..1);
+                stats.draw_calls += 1;
+            }
+        }
+
         /* the air is in front of everything, and it ADDS to what is
            behind it rather than covering it */
         if let Some(vol) = &prepared.volumetric {

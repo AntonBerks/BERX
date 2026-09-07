@@ -224,6 +224,14 @@ try {
 		   geometry that would be measured as part of it */
 		const orb = mapUserToSpatial({guid: 9, username: 'r', fullname: 'R', email: '', icon_url: '', profile_url: '', time_created: 0}, {position: {x: 0, y: 0, z: 2}}).object;
 		host.addObject({...orb, label: undefined});
+		/* The field would fill the frame around the orb, and this measures
+		   the ORB's outline: with particles on, "everything that is not
+		   the ground" is the whole canvas. One thing at a time. */
+		host.setParticles(false);
+		/* and the in-scatter, for the same reason: it lights every pixel in
+		   the frame, so "everything that is not the ground" would be the
+		   whole canvas however round the orb is */
+		host.setVolumetric(false);
 		const measure = async (w, h) => {
 			document.getElementById('host').style.width = `${w}px`;
 			document.getElementById('host').style.height = `${h}px`;

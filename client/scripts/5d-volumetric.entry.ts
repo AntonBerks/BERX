@@ -81,6 +81,62 @@ const api = {
 		for (let y = 0; y < HEIGHT; y++) out.set(px.subarray((HEIGHT - 1 - y) * stride, (HEIGHT - y) * stride), y * stride);
 		return {width: WIDTH, height: HEIGHT, rgba: Array.from(out)};
 	},
+	/**
+	 * The particle fields, on and off, through both web backends.
+	 *
+	 * The same frame either way, so the difference between the two images
+	 * is the field and nothing else. The draw list is handed back too:
+	 * the gate re-runs the shared core's berxParticleAt over it and
+	 * projects each particle itself, which is how a prediction is made
+	 * rather than a description written.
+	 */
+	particles(on: boolean) {
+		const frame = berxVolumetricFixtureFrame();
+		const lighting = berxVolumetricFixtureLighting();
+		const c = canvas();
+		const renderer = new BerxThreeRuntimeRenderer(c);
+		renderer.setLighting(lighting);
+		renderer.resize(WIDTH, HEIGHT);
+		/* volumetric off: it and the particles both add light, and two
+		   things changing at once is not a measurement */
+		renderer.render(frame, {particles: on, volumetric: false});
+		/* the same surfaces the depth test used, so the gate can predict
+		   which particles are hidden as well as which are visible */
+		const gbuffer = renderer.readSSAOBuffers();
+		const gl = c.getContext('webgl2');
+		if (!gl) throw new Error('no WebGL2 context');
+		const px = new Uint8Array(WIDTH * HEIGHT * 4);
+		gl.readPixels(0, 0, WIDTH, HEIGHT, gl.RGBA, gl.UNSIGNED_BYTE, px);
+		const out = new Uint8Array(px.length);
+		const stride = WIDTH * 4;
+		for (let y = 0; y < HEIGHT; y++) out.set(px.subarray((HEIGHT - 1 - y) * stride, (HEIGHT - y) * stride), y * stride);
+		const list = berxBuildDrawList(frame, {width: WIDTH, height: HEIGHT, lighting});
+		return {
+			width: WIDTH, height: HEIGHT, rgba: Array.from(out),
+			projection: list.projection, view: list.view, camera: list.camera,
+			basis: list.basis, worldTime: list.worldTime, particles: list.particles,
+			gbuffer: gbuffer ? Array.from(gbuffer.gbuffer) : undefined,
+			items: list.items.map((i) => ({emissive: i.emissive, model: i.model})),
+		};
+	},
+	async particlesWebGPU(on: boolean) {
+		const c = canvas();
+		const renderer = await BerxWebGPURuntimeRenderer.create(c);
+		if (!renderer) return {available: false as const, reason: 'this browser granted no WebGPU device'};
+		renderer.setLighting(berxVolumetricFixtureLighting());
+		renderer.resize(WIDTH, HEIGHT);
+		renderer.draw(
+			berxBuildDrawList(berxVolumetricFixtureFrame(), {
+				width: WIDTH, height: HEIGHT, lighting: berxVolumetricFixtureLighting(),
+			}),
+			true,
+			undefined,
+			{particles: on, volumetric: false},
+		);
+		const rgba = Array.from(await renderer.readback());
+		renderer.dispose();
+		return {available: true as const, width: WIDTH, height: HEIGHT, rgba};
+	},
 	/** WebGPU, composited, so the two web backends can be compared. */
 	async webgpuComposited(volumetric: boolean) {
 		const c = canvas();

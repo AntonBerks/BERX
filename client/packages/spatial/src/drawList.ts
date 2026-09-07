@@ -39,6 +39,7 @@ import type {BerxSpatialCameraState} from './spatialCamera';
 import {berxTransitionModulation} from './transitions';
 import {berxShadowCamera, type BerxShadowCamera} from './shadowMap';
 import {berxVolumetricUniform, BERX_VOLUMETRIC_STEPS} from './lighting/berxVolumetric';
+import {berxParticleOrigin, berxParticleUniform, BERX_PARTICLE_KINDS} from './lighting/berxParticles';
 import type {BerxSpatialAffordance} from './socialActions';
 import type {BerxSpatialEntityKind, BerxSpatialObject, BerxVec3} from './world';
 
@@ -192,6 +193,25 @@ export interface BerxDrawList {
 	 */
 	volumetric: number[];
 	/**
+	 * The world's own clock, in seconds — ticked by Berx5DRuntime, not
+	 * read from a wall clock.
+	 *
+	 * Anything that animates reads this. A pass driven by
+	 * performance.now() cannot be compared between two backends, cannot
+	 * be predicted by a CPU twin, and produces a different picture on
+	 * every run — which is the same reason nothing here calls
+	 * Math.random.
+	 */
+	worldTime: number;
+	/**
+	 * One packed spec per particle field, from berxParticleUniform.
+	 *
+	 * Packed rather than structured for the same reason the environment
+	 * and the march are: a backend forwards it to a uniform without
+	 * interpreting it, so there is exactly one opinion about the order.
+	 */
+	particles: number[][];
+	/**
 	 * The key light's own camera, fitted to what is being drawn.
 	 *
 	 * Decided here so all three backends put the light in exactly the
@@ -219,6 +239,8 @@ export interface BerxDrawListOptions {
 	mediaFor?: (objectId: string) => string | undefined;
 	/** What can be done to the focused entity, from the world application. */
 	affordances?: readonly BerxSpatialAffordance[];
+	/** Whether the air carries dust, energy and the far field. */
+	particles?: boolean;
 	/**
 	 * Whether the key light casts.
 	 *
@@ -445,6 +467,34 @@ export function berxBuildDrawList(frame: Berx5DFrame, options: BerxDrawListOptio
 		}
 	}
 
+	/**
+	 * The particle fields, and where each one sits.
+	 *
+	 * Decided here, once, from what the world is doing: the brightest
+	 * emissive entity is what "live" means, and it is the same reading
+	 * every backend would otherwise have to make for itself.
+	 */
+	const forward = {
+		x: c.target.x - c.position.x,
+		y: c.target.y - c.position.y,
+		z: c.target.z - c.position.z,
+	};
+	const forwardLength = Math.hypot(forward.x, forward.y, forward.z) || 1;
+	const viewAhead = {x: forward.x / forwardLength, y: forward.y / forwardLength, z: forward.z / forwardLength};
+	let live: {position: BerxVec3; energy: number} | undefined;
+	for (const item of items) {
+		const energy = item.emissive[0] + item.emissive[1] + item.emissive[2];
+		if (energy > 0.35 && (!live || energy > live.energy)) {
+			live = {position: {x: item.model[12], y: item.model[13], z: item.model[14]}, energy};
+		}
+	}
+	const particleFields: number[][] = [];
+	for (const kind of BERX_PARTICLE_KINDS) {
+		const origin = berxParticleOrigin(kind, c.position, viewAhead, live?.position);
+		if (!origin) continue;
+		particleFields.push(berxParticleUniform(kind, origin));
+	}
+
 	return {
 		width,
 		height,
@@ -479,6 +529,8 @@ export function berxBuildDrawList(frame: Berx5DFrame, options: BerxDrawListOptio
 		 * already has, since it is the same list.
 		 */
 		volumetric: [...berxVolumetricUniform(), BERX_VOLUMETRIC_STEPS, 0, 0, 0],
+		worldTime: frame.world.worldTime,
+		particles: options.particles === false ? [] : particleFields,
 		shadow: options.shadows === false
 			? undefined
 			: berxShadowCamera(

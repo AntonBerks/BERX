@@ -194,18 +194,20 @@ gate('the two runtimes place every object at the same coordinates',
 	sameShape && maxMatrixDelta < 1e-6,
 	`largest difference across every model matrix: ${maxMatrixDelta.toExponential(2)}`);
 
-/* One call per entity, plus one for the volumetric composite. The
-   composite is a single fullscreen triangle that ADDS the in-scatter the
-   march produced, so it is a real draw and is counted as one — an
-   assertion of exactly items.length would now be asserting that the air
-   is not lit. */
+/* One call per entity, plus one per particle field, plus one for the
+   volumetric composite. Each of those is a real draw and is counted as
+   one — an assertion of exactly items.length would now be asserting
+   that the air is neither lit nor carrying anything. */
 const compositeCalls = list.volumetric && list.shadow ? 1 : 0;
+const particleCalls = list.basis ? list.particles.length : 0;
+const airCalls = compositeCalls + particleCalls;
+const airNote = `${list.items.length} entities + ${particleCalls} particle fields + ${compositeCalls} volumetric composite`;
 
 /* ---- 2. the native backend really ran on a GPU ---- */
 if (native) {
 	gate('a native GPU backend rendered the world',
-		native.drawCalls === list.items.length + compositeCalls && native.triangles > 0,
-		`${native.backend} · ${native.adapter} · ${native.drawCalls} draw calls (${list.items.length} entities + ${compositeCalls} volumetric composite) · ${native.triangles} triangles · ${native.meshVariants} mesh variants`);
+		native.drawCalls === list.items.length + airCalls && native.triangles > 0,
+		`${native.backend} · ${native.adapter} · ${native.drawCalls} draw calls (${airNote}) · ${native.triangles} triangles · ${native.meshVariants} mesh variants`);
 	gate('the native frame came back off the GPU with a world in it',
 		native.readback.nonGroundPixels > 0 && native.readback.nonGroundPixels < native.readback.totalPixels,
 		`${native.readback.nonGroundPixels} of ${native.readback.totalPixels} pixels are not the ground; brightest luma ${native.readback.brightestLuma}`);
@@ -320,8 +322,8 @@ if (webgpuRgba) {
 		web.webgpu.errors.length === 0,
 		web.webgpu.errors.length === 0 ? 'no uncaptured validation or out-of-memory errors' : web.webgpu.errors.join(' | '));
 	gate('a WebGPU backend of BERX rendered the world',
-		web.webgpu.kind === 'webgpu' && web.webgpu.stats.drawCalls === list.items.length + compositeCalls && web.webgpu.stats.triangles > 0,
-		`${web.webgpu.stats.drawCalls} draw calls (${list.items.length} entities + ${compositeCalls} volumetric composite) · ${web.webgpu.stats.triangles} triangles · ${web.webgpu.stats.meshVariants} mesh variants`);
+		web.webgpu.kind === 'webgpu' && web.webgpu.stats.drawCalls === list.items.length + airCalls && web.webgpu.stats.triangles > 0,
+		`${web.webgpu.stats.drawCalls} draw calls (${airNote}) · ${web.webgpu.stats.triangles} triangles · ${web.webgpu.stats.meshVariants} mesh variants`);
 	gate('the WebGPU backend reports only what it implements',
 		web.webgpu.capabilities.shadows === true && web.webgpu.capabilities.postProcessing === false &&
 		web.webgpu.capabilities.mediaMipmaps === true && web.webgpu.capabilities.labelMipmaps === true &&
@@ -420,8 +422,8 @@ if (nativeVsWebgl) {
 /* ---- 3e. a real window, a real swapchain ---- */
 if (windowed) {
 	gate('a real desktop window presents the world',
-		windowed.framesPresented >= 8 && windowed.drawCalls === list.items.length + compositeCalls && windowed.capabilities.swapchain === true,
-		`${windowed.backend} · ${windowed.adapter} · ${windowed.framesPresented} frames presented to a ${windowed.surfaceFormat} swapchain, ${windowed.drawCalls} draw calls (${list.items.length} entities + ${compositeCalls} volumetric composite)`);
+		windowed.framesPresented >= 8 && windowed.drawCalls === list.items.length + airCalls && windowed.capabilities.swapchain === true,
+		`${windowed.backend} · ${windowed.adapter} · ${windowed.framesPresented} frames presented to a ${windowed.surfaceFormat} swapchain, ${windowed.drawCalls} draw calls (${airNote})`);
 	gate('the window really resizes, and keeps drawing',
 		windowed.resized.resizedTo === windowed.resized.resizeRequested &&
 		windowed.resized.window.width === 320 && windowed.resized.window.height === 240 &&
@@ -496,7 +498,7 @@ if (packaged) {
 		ran = undefined;
 	}
 	gate('the installed application opens a window and draws the world',
-		ran !== undefined && ran.framesPresented >= 4 && ran.drawCalls === list.items.length + compositeCalls,
+		ran !== undefined && ran.framesPresented >= 4 && ran.drawCalls === list.items.length + airCalls,
 		ran ? `${ran.framesPresented} frames presented by /usr/bin/berx from the unpacked package` : 'the installed binary did not present a frame');
 
 	console.log('BLOCKED  desktop-signing');

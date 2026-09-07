@@ -508,6 +508,103 @@ var init_berxSSAO = __esm({
   }
 });
 
+// packages/spatial/src/lighting/berxVolumetric.ts
+function berxVolumetricParams() {
+  return {
+    density: 0.035,
+    phaseG: 0.45,
+    maxDistance: 28,
+    intensity: 0.85
+  };
+}
+function berxVolumetricUniform(params = berxVolumetricParams()) {
+  return [params.density, params.phaseG, params.maxDistance, params.intensity];
+}
+var BERX_VOLUMETRIC_STEPS;
+var init_berxVolumetric = __esm({
+  "packages/spatial/src/lighting/berxVolumetric.ts"() {
+    "use strict";
+    BERX_VOLUMETRIC_STEPS = 32;
+  }
+});
+
+// packages/spatial/src/lighting/berxParticles.ts
+function berxParticleUniform(kind, origin = { x: 0, y: 0, z: 0 }) {
+  const s = SPECS[kind];
+  return [
+    s.colour[0],
+    s.colour[1],
+    s.colour[2],
+    s.alpha,
+    s.extent,
+    s.speed,
+    s.size,
+    s.period,
+    s.count,
+    BERX_PARTICLE_KINDS.indexOf(kind),
+    0,
+    0,
+    origin.x,
+    origin.y,
+    origin.z,
+    0
+  ];
+}
+function berxParticleOrigin(kind, camera, forward, live) {
+  if (kind === "energy") return live;
+  const lead = SPECS[kind].extent * BERX_PARTICLE_LEAD;
+  return {
+    x: camera.x + forward.x * lead,
+    y: camera.y + forward.y * lead,
+    z: camera.z + forward.z * lead
+  };
+}
+var BERX_PARTICLE_KINDS, BERX_ENERGY, SPECS, BERX_PARTICLE_LEAD;
+var init_berxParticles = __esm({
+  "packages/spatial/src/lighting/berxParticles.ts"() {
+    "use strict";
+    BERX_PARTICLE_KINDS = ["dust", "energy", "stars"];
+    BERX_ENERGY = [79 / 255, 214 / 255, 232 / 255];
+    SPECS = Object.freeze({
+      dust: {
+        count: 512,
+        extent: 24,
+        speed: 0.08,
+        size: 0.035,
+        /* #A7ADB4 — the palette's mist, not white: white motes read as
+           dirt on the lens rather than as air in the room */
+        colour: [167 / 255, 173 / 255, 180 / 255],
+        alpha: 0.22,
+        period: 26,
+        meaning: "motes in the room \u2014 what makes a lit volume read as air"
+      },
+      energy: {
+        count: 128,
+        extent: 3.2,
+        speed: 0.55,
+        size: 0.05,
+        colour: BERX_ENERGY,
+        alpha: 0.5,
+        period: 4.5,
+        meaning: "BERX Energy rising off something live, and nothing else"
+      },
+      stars: {
+        count: 256,
+        extent: 90,
+        /* fixed in the world: a star that drifts is not far away */
+        speed: 0,
+        size: 0.05,
+        /* #F2F0EB — pearl, the palette's own light */
+        colour: [242 / 255, 240 / 255, 235 / 255],
+        alpha: 0.3,
+        period: 60,
+        meaning: "the far field \u2014 the world continues past what is drawn"
+      }
+    });
+    BERX_PARTICLE_LEAD = 0.35;
+  }
+});
+
 // packages/spatial/src/worldMaterials.ts
 function berxWorldMaterial(name) {
   return BERX_WORLD_MATERIALS[name] ?? BERX_WORLD_MATERIALS.ceramic;
@@ -568,20 +665,20 @@ var init_platformTargets = __esm({
 
 // packages/spatial/src/transitions.ts
 function berxTransitionSpec(kind) {
-  return SPECS[kind];
+  return SPECS2[kind];
 }
 function berxTransitionForTravel(reason) {
   return REASONS[reason];
 }
 function berxTransitionModulation(kind, progress) {
   if (!kind) return none;
-  return SPECS[kind].modulate(clamp01(progress));
+  return SPECS2[kind].modulate(clamp01(progress));
 }
 function berxTransitionArcOffset(kind, easedProgress) {
   if (!kind) return 0;
-  return SPECS[kind].arcMetres * hill(easedProgress);
+  return SPECS2[kind].arcMetres * hill(easedProgress);
 }
-var clamp01, hill, smooth, none, SPECS, REASONS, BERX_FAR_TRAVEL_METRES;
+var clamp01, hill, smooth, none, SPECS2, REASONS, BERX_FAR_TRAVEL_METRES;
 var init_transitions = __esm({
   "packages/spatial/src/transitions.ts"() {
     "use strict";
@@ -595,7 +692,7 @@ var init_transitions = __esm({
       return c * c * (3 - 2 * c);
     };
     none = { opacity: 1, emissive: 0, scale: 1, fov: 1 };
-    SPECS = Object.freeze({
+    SPECS2 = Object.freeze({
       /**
        * Distance collapsing. The field of view opens hard while the
        * camera accelerates, which is a real dolly-zoom: the world at the
@@ -1875,6 +1972,51 @@ function berxLookAt(position, target) {
   m[15] = 1;
   return m;
 }
+function berxInvertMat4(m) {
+  const a00 = m[0], a01 = m[1], a02 = m[2], a03 = m[3];
+  const a10 = m[4], a11 = m[5], a12 = m[6], a13 = m[7];
+  const a20 = m[8], a21 = m[9], a22 = m[10], a23 = m[11];
+  const a30 = m[12], a31 = m[13], a32 = m[14], a33 = m[15];
+  const b00 = a00 * a11 - a01 * a10;
+  const b01 = a00 * a12 - a02 * a10;
+  const b02 = a00 * a13 - a03 * a10;
+  const b03 = a01 * a12 - a02 * a11;
+  const b04 = a01 * a13 - a03 * a11;
+  const b05 = a02 * a13 - a03 * a12;
+  const b06 = a20 * a31 - a21 * a30;
+  const b07 = a20 * a32 - a22 * a30;
+  const b08 = a20 * a33 - a23 * a30;
+  const b09 = a21 * a32 - a22 * a31;
+  const b10 = a21 * a33 - a23 * a31;
+  const b11 = a22 * a33 - a23 * a32;
+  const det = b00 * b11 - b01 * b10 + b02 * b09 + b03 * b08 - b04 * b07 + b05 * b06;
+  const out = new Float32Array(16);
+  if (!det) {
+    out[0] = 1;
+    out[5] = 1;
+    out[10] = 1;
+    out[15] = 1;
+    return out;
+  }
+  const d = 1 / det;
+  out[0] = (a11 * b11 - a12 * b10 + a13 * b09) * d;
+  out[1] = (a02 * b10 - a01 * b11 - a03 * b09) * d;
+  out[2] = (a31 * b05 - a32 * b04 + a33 * b03) * d;
+  out[3] = (a22 * b04 - a21 * b05 - a23 * b03) * d;
+  out[4] = (a12 * b08 - a10 * b11 - a13 * b07) * d;
+  out[5] = (a00 * b11 - a02 * b08 + a03 * b07) * d;
+  out[6] = (a32 * b02 - a30 * b05 - a33 * b01) * d;
+  out[7] = (a20 * b05 - a22 * b02 + a23 * b01) * d;
+  out[8] = (a10 * b10 - a11 * b08 + a13 * b06) * d;
+  out[9] = (a01 * b08 - a00 * b10 - a03 * b06) * d;
+  out[10] = (a30 * b04 - a31 * b02 + a33 * b00) * d;
+  out[11] = (a21 * b02 - a20 * b04 - a23 * b00) * d;
+  out[12] = (a11 * b07 - a10 * b09 - a12 * b06) * d;
+  out[13] = (a00 * b09 - a01 * b07 + a02 * b06) * d;
+  out[14] = (a31 * b01 - a30 * b03 - a32 * b00) * d;
+  out[15] = (a20 * b03 - a21 * b01 + a22 * b00) * d;
+  return out;
+}
 var init_frustum = __esm({
   "packages/spatial/src/frustum.ts"() {
     "use strict";
@@ -2168,11 +2310,32 @@ function berxBuildDrawList(frame, options) {
       });
     }
   }
+  const forward = {
+    x: c.target.x - c.position.x,
+    y: c.target.y - c.position.y,
+    z: c.target.z - c.position.z
+  };
+  const forwardLength = Math.hypot(forward.x, forward.y, forward.z) || 1;
+  const viewAhead = { x: forward.x / forwardLength, y: forward.y / forwardLength, z: forward.z / forwardLength };
+  let live;
+  for (const item of items) {
+    const energy = item.emissive[0] + item.emissive[1] + item.emissive[2];
+    if (energy > 0.35 && (!live || energy > live.energy)) {
+      live = { position: { x: item.model[12], y: item.model[13], z: item.model[14] }, energy };
+    }
+  }
+  const particleFields = [];
+  for (const kind of BERX_PARTICLE_KINDS) {
+    const origin = berxParticleOrigin(kind, c.position, viewAhead, live?.position);
+    if (!origin) continue;
+    particleFields.push(berxParticleUniform(kind, origin));
+  }
   return {
     width,
     height,
     projection: Array.from(projection),
     view: Array.from(view),
+    invViewProjection: Array.from(berxInvertMat4(berxMultiplyMat4(projection, view))),
     camera: { ...c.position },
     clearColor: [...BERX_WORLD_CLEAR],
     environment: berxEnvironmentUniform(lighting.environment),
@@ -2200,6 +2363,9 @@ function berxBuildDrawList(frame, options) {
      * place. The cost is bounded by the same budget the main pass
      * already has, since it is the same list.
      */
+    volumetric: [...berxVolumetricUniform(), BERX_VOLUMETRIC_STEPS, 0, 0, 0],
+    worldTime: frame.world.worldTime,
+    particles: options.particles === false ? [] : particleFields,
     shadow: options.shadows === false ? void 0 : berxShadowCamera(
       drawn.map((o) => ({ position: o.transform.position, radius: radiusOf(o) })),
       lighting.key.direction
@@ -2227,6 +2393,8 @@ var init_drawList = __esm({
     init_worldLighting();
     init_transitions();
     init_shadowMap();
+    init_berxVolumetric();
+    init_berxParticles();
     BERX_LOD_DISTANCE = 18;
     BERX_WORLD_CLEAR = [7 / 255, 8 / 255, 10 / 255];
     BERX_LABEL_HEIGHT = 0.34;
@@ -2377,6 +2545,8 @@ var init_src = __esm({
     init_worldLighting();
     init_berxEnvironment();
     init_berxSSAO();
+    init_berxVolumetric();
+    init_berxParticles();
     init_worldMaterials();
     init_spatialAudio();
     init_platform();
@@ -2816,7 +2986,7 @@ function meshFor(kind, lod) {
       return createSphere(0.58, far ? 11 : 28, far ? 7 : 18);
   }
 }
-var V, SV, SF, F, TV, TF, GV, GF, AV, AF, BerxThreeRuntimeRenderer;
+var V, SV, SF, F, TV, TF, GV, GF, AV, AF, VV, VF, CV, CF, DF, PV, PF, BerxThreeRuntimeRenderer;
 var init_threeRuntime = __esm({
   "packages/spatial-web/src/threeRuntime.ts"() {
     "use strict";
@@ -3056,6 +3226,184 @@ void main(){
   float ratio=occluded/16.;
   C=vec4(max(0.,1.-pow(ratio,power)*strength),0.,0.,1.);
 }`;
+    VV = `#version 300 es
+precision highp float;out vec2 UV;void main(){vec2 c=vec2((gl_VertexID==1)?3.:-1.,(gl_VertexID==2)?3.:-1.);UV=vec2(c.x*.5+.5,c.y*.5+.5);gl_Position=vec4(c,0.,1.);}`;
+    VF = `#version 300 es
+precision highp float;
+precision highp sampler2DShadow;
+in vec2 UV;
+uniform mat4 INV_VP;            // pixel -> world ray
+uniform mat4 VLVP;              // the light's own view-projection
+uniform vec4 VSHADOW;           // x = 1/mapSize, y = depth bias, z unused, w = strength
+uniform vec4 VPARAMS;           // x = density, y = phase g, z = max distance, w = intensity
+uniform vec4 VDIMS;             // x = width, y = height, z = steps, w unused
+uniform vec3 VEYE, VLIGHT_DIR, VLIGHT_COL, VFORWARD;
+uniform float VLIGHT_I;
+uniform sampler2D VGBUF;
+uniform sampler2DShadow VSHADOW_MAP;
+out vec4 C;
+
+const float PI = 3.14159265359;
+
+// The same curve as @berx/spatial's berxPhaseHG, clamp included: at g->1
+// and cosTheta->1 the denominator goes to zero and the phase to
+// infinity, which is the singular lobe that blows a shaft out to white.
+float phaseHG(float cosTheta, float g){
+  float g2=g*g;
+  float denom=1.+g2-2.*g*cosTheta;
+  return (1.-g2)/(4.*PI*pow(max(denom,1e-4),1.5));
+}
+
+// FNV-1a over the pixel coordinate \u2014 the same hash as
+// berxVolumetricJitter, so a shaft dithers identically in four languages
+// without shipping a noise texture.
+float vjitter(int x,int y){
+  uint h=2166136261u;
+  h=h^(uint(x)&0xffffu); h=h*16777619u;
+  h=h^(uint(y)&0xffffu); h=h*16777619u;
+  return float(h>>8u)/16777216.;
+}
+
+float litAt(vec3 world){
+  if(VSHADOW.w<=0.) return 1.;
+  vec4 clip=VLVP*vec4(world,1.);
+  vec3 ndc=clip.xyz/max(clip.w,1e-6);
+  if(ndc.x<-1.||ndc.x>1.||ndc.y<-1.||ndc.y>1.||ndc.z>1.) return 1.;
+  // GL: -1..1 to 0..1, and the origin is at the bottom
+  vec2 uv=ndc.xy*.5+.5;
+  return texture(VSHADOW_MAP,vec3(uv,ndc.z*.5+.5-VSHADOW.y));
+}
+
+void main(){
+  int px=int(UV.x*VDIMS.x);
+  // TOP-DOWN, deliberately, even though GL's own buffers are bottom-up:
+  // the jitter is a hash of the pixel index, and WGSL's uv origin is at
+  // the top. Hashing GL's bottom-up row gave the same physical pixel a
+  // different march offset in the two backends \u2014 a real disagreement of
+  // up to 49/255 between two ports that were otherwise identical, and
+  // one only a cross-backend comparison could find.
+  int py=int((1.-UV.y)*VDIMS.y);
+
+  vec2 ndc=vec2(UV.x*2.-1.,UV.y*2.-1.);
+  vec4 nearH=INV_VP*vec4(ndc,-1.,1.);
+  vec4 farH=INV_VP*vec4(ndc,1.,1.);
+  vec3 nearP=nearH.xyz/max(nearH.w,1e-6);
+  vec3 farP=farH.xyz/max(farH.w,1e-6);
+  vec3 dir=normalize(farP-nearP);
+
+  // Distance to the first surface. The march stops there: air behind a
+  // wall does not scatter light into the eye.
+  // The G-buffer stores VIEW DEPTH \u2014 distance along the camera's forward
+  // axis \u2014 and the march needs distance along THIS ray. For an off-axis
+  // pixel those differ by 1/cos.
+  float depth=texture(VGBUF,UV).a;
+  float along=max(dot(dir,normalize(VFORWARD)),1e-3);
+  float surface=depth>0.?depth/along:VPARAMS.z;
+  float far=min(VPARAMS.z,surface);
+  if(far<=0.){ C=vec4(0.,0.,0.,1.); return; }
+
+  int steps=int(VDIMS.z);
+  float stepLength=far/float(steps);
+  float phase=phaseHG(dot(dir,normalize(VLIGHT_DIR)),VPARAMS.y);
+  float offset=vjitter(px,py);
+
+  float inscatter=0.;
+  for(int s=0;s<64;s++){
+    if(s>=steps) break;
+    float t=(float(s)+offset)*stepLength;
+    vec3 p=VEYE+dir*t;
+    float lit=litAt(p);
+    if(lit<=0.) continue;
+    float transmittance=exp(-VPARAMS.x*t);
+    inscatter+=lit*phase*VPARAMS.x*stepLength*transmittance;
+  }
+  float energy=inscatter*VPARAMS.w;
+  C=vec4(VLIGHT_COL*VLIGHT_I*energy,1.);
+}`;
+    CV = `#version 300 es
+precision highp float;out vec2 UV;void main(){vec2 c=vec2((gl_VertexID==1)?3.:-1.,(gl_VertexID==2)?3.:-1.);UV=vec2(c.x*.5+.5,c.y*.5+.5);gl_Position=vec4(c,0.,1.);}`;
+    CF = `#version 300 es
+precision highp float;in vec2 UV;uniform sampler2D SRC;out vec4 C;void main(){C=vec4(texture(SRC,UV).rgb,1.);}`;
+    DF = `#version 300 es
+precision highp float;in vec2 UV;uniform highp sampler2D SRC;out vec4 C;void main(){C=vec4(texture(SRC,UV).r,0.,0.,1.);}`;
+    PV = `#version 300 es
+precision highp float;
+uniform mat4 PP, PVIEW;
+uniform vec4 PORIGIN;   // xyz what the field is arranged around, w time
+uniform vec4 PCOLOUR;   // rgb colour, a peak alpha
+uniform vec4 PSHAPE;    // x extent, y speed, z size, w period
+uniform vec4 PCOUNTS;   // x count, y kind (0 dust, 1 energy, 2 stars)
+uniform vec3 PRIGHT, PUP;
+out vec2 PUV;
+out float PALPHA;
+
+const float PI = 3.14159265359;
+
+float phash(uint index, uint lane){
+  uint h=2166136261u;
+  h=h^(index&0xffffu); h=h*16777619u;
+  h=h^((index>>16u)&0xffffu); h=h*16777619u;
+  h=h^(lane&0xffffu); h=h*16777619u;
+  return float(h>>8u)/16777216.;
+}
+
+void main(){
+  uint index=uint(gl_VertexID)/6u;
+  uint corner=uint(gl_VertexID)%6u;
+  vec2 c;
+  if(corner==0u) c=vec2(-1.,-1.);
+  else if(corner==1u) c=vec2(1.,-1.);
+  else if(corner==2u) c=vec2(1.,1.);
+  else if(corner==3u) c=vec2(-1.,-1.);
+  else if(corner==4u) c=vec2(1.,1.);
+  else c=vec2(-1.,1.);
+
+  float hx=phash(index,1u), hy=phash(index,2u), hz=phash(index,3u), hp=phash(index,4u);
+  float extent=PSHAPE.x, speed=PSHAPE.y, size=PSHAPE.z, period=PSHAPE.w;
+  float phase=fract(PORIGIN.w/period+hp);
+
+  vec3 centre; float alpha; float psize;
+  if(PCOUNTS.y>.5 && PCOUNTS.y<1.5){
+    // energy: a spiral leaving a surface, not a column of dots
+    float angle=hx*PI*2.+phase*PI*4.;
+    float radius=extent*(.25+hy*.55)*(1.-phase*.45);
+    centre=vec3(PORIGIN.x+cos(angle)*radius,
+                PORIGIN.y-extent*.4+phase*extent*1.8,
+                PORIGIN.z+sin(angle)*radius);
+    alpha=PCOLOUR.a*sin(phase*PI);
+    psize=size*(.6+hz*.8);
+  } else {
+    float drift=speed==0.?0.:phase*extent;
+    float wx=fract((hx*extent+drift*.35)/extent)*extent-extent*.5;
+    float wy=fract((hy*extent+drift)/extent)*extent-extent*.5;
+    float wz=fract((hz*extent+drift*.2)/extent)*extent-extent*.5;
+    centre=vec3(PORIGIN.x+wx,PORIGIN.y+wy,PORIGIN.z+wz);
+    alpha=PCOUNTS.y>1.5?PCOLOUR.a*(.65+.35*sin(phase*PI*2.)):PCOLOUR.a;
+    psize=size*(.7+hz*.6);
+  }
+
+  vec3 world=centre+PRIGHT*(c.x*psize)+PUP*(c.y*psize);
+  PUV=c;
+  PALPHA=alpha;
+  gl_Position=PP*PVIEW*vec4(world,1.);
+}`;
+    PF = `#version 300 es
+precision highp float;
+in vec2 PUV;
+in float PALPHA;
+uniform vec4 PCOLOUR;
+out vec4 C;
+void main(){
+  // A round, soft mote. A square particle reads as a missing texture and
+  // a hard-edged circle reads as a UI dot.
+  float r=length(PUV);
+  if(r>1.) discard;
+  float falloff=1.-r*r;
+  float a=PALPHA*falloff*falloff;
+  if(a<.002) discard;
+  // premultiplied: drawn additively, so the colour carries the alpha
+  C=vec4(PCOLOUR.rgb*a,a);
+}`;
     BerxThreeRuntimeRenderer = class {
       constructor(canvas, options = {}) {
         this.kind = "webgl2";
@@ -3063,6 +3411,7 @@ void main(){
         this.capabilities = { perspective: true, depthBuffer: true, physicallyLitMaterials: true, shadows: true, postProcessing: false };
         this.meshes = /* @__PURE__ */ new Map();
         this.ssaoSize = { w: 0, h: 0 };
+        this.volSize = { w: 0, h: 0 };
         this.shadowSize = 0;
         /** objectId -> the one media URI drawn on its face */
         this.media = /* @__PURE__ */ new Map();
@@ -3135,6 +3484,41 @@ void main(){
         this.shadowProgram = program(gl, SV, SF);
         this.SLVP = gl.getUniformLocation(this.shadowProgram, "LVP");
         this.SM = gl.getUniformLocation(this.shadowProgram, "M");
+        this.volProgram = program(gl, VV, VF);
+        this.compositeProgram = program(gl, CV, CF);
+        this.particleProgram = program(gl, PV, PF);
+        this.PP = gl.getUniformLocation(this.particleProgram, "PP");
+        this.PVIEW = gl.getUniformLocation(this.particleProgram, "PVIEW");
+        this.PORIGIN = gl.getUniformLocation(this.particleProgram, "PORIGIN");
+        this.PCOLOUR = gl.getUniformLocation(this.particleProgram, "PCOLOUR");
+        this.PSHAPE = gl.getUniformLocation(this.particleProgram, "PSHAPE");
+        this.PCOUNTS = gl.getUniformLocation(this.particleProgram, "PCOUNTS");
+        this.PRIGHT = gl.getUniformLocation(this.particleProgram, "PRIGHT");
+        this.PUP = gl.getUniformLocation(this.particleProgram, "PUP");
+        this.shadowNearest = gl.createSampler() ?? void 0;
+        if (this.shadowNearest) {
+          gl.samplerParameteri(this.shadowNearest, gl.TEXTURE_COMPARE_MODE, gl.COMPARE_REF_TO_TEXTURE);
+          gl.samplerParameteri(this.shadowNearest, gl.TEXTURE_COMPARE_FUNC, gl.LEQUAL);
+          gl.samplerParameteri(this.shadowNearest, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+          gl.samplerParameteri(this.shadowNearest, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+          gl.samplerParameteri(this.shadowNearest, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+          gl.samplerParameteri(this.shadowNearest, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        }
+        this.VINV = gl.getUniformLocation(this.volProgram, "INV_VP");
+        this.VLVP = gl.getUniformLocation(this.volProgram, "VLVP");
+        this.VSHADOW = gl.getUniformLocation(this.volProgram, "VSHADOW");
+        this.VPARAMS = gl.getUniformLocation(this.volProgram, "VPARAMS");
+        this.VDIMS = gl.getUniformLocation(this.volProgram, "VDIMS");
+        this.VEYE = gl.getUniformLocation(this.volProgram, "VEYE");
+        this.VLDIR = gl.getUniformLocation(this.volProgram, "VLIGHT_DIR");
+        this.VLCOL = gl.getUniformLocation(this.volProgram, "VLIGHT_COL");
+        this.VLI = gl.getUniformLocation(this.volProgram, "VLIGHT_I");
+        this.VFWD = gl.getUniformLocation(this.volProgram, "VFORWARD");
+        this.VGBUF = gl.getUniformLocation(this.volProgram, "VGBUF");
+        this.VSMAP = gl.getUniformLocation(this.volProgram, "VSHADOW_MAP");
+        this.CSRC = gl.getUniformLocation(this.compositeProgram, "SRC");
+        this.depthReadProgram = program(gl, CV, DF);
+        this.DSRC = gl.getUniformLocation(this.depthReadProgram, "SRC");
         this.textures = new BerxMediaTextureCache(gl, { budget: options.textureBudget, onError: options.onMediaError });
         this.labels = new BerxSpatialTextAtlas(gl, { budget: options.labelBudget });
         this.labelProgram = program(gl, TV, TF);
@@ -3298,6 +3682,201 @@ void main(){
         return true;
       }
       /**
+       * The air with something in it.
+       *
+       * Three fields, drawn after the world so the depth buffer already holds
+       * everything solid: a mote behind a place is hidden by it. Depth WRITES
+       * are off — particles never occlude each other into flicker — and the
+       * blend is additive, because a mote is light rather than a surface.
+       *
+       * Where each field sits is a fact about the world, not a setting: dust
+       * and stars are arranged around the VIEWER (they are the room and the
+       * distance), and energy around whatever the world says is most alive
+       * (list.items carries the energy the server raised). A world with
+       * nothing live draws no energy particles at all, which is what keeps
+       * BERX Energy rare by construction rather than by promise.
+       */
+      renderParticles(list) {
+        const gl = this.gl;
+        if (!this.particleVao) this.particleVao = gl.createVertexArray() ?? void 0;
+        if (!this.particleVao || !list.basis || list.particles.length === 0) return 0;
+        gl.useProgram(this.particleProgram);
+        gl.bindVertexArray(this.particleVao);
+        gl.uniformMatrix4fv(this.PP, false, new Float32Array(list.projection));
+        gl.uniformMatrix4fv(this.PVIEW, false, new Float32Array(list.view));
+        gl.uniform3f(this.PRIGHT, list.basis.right.x, list.basis.right.y, list.basis.right.z);
+        gl.uniform3f(this.PUP, list.basis.up.x, list.basis.up.y, list.basis.up.z);
+        gl.depthMask(false);
+        gl.enable(gl.BLEND);
+        gl.blendFunc(gl.ONE, gl.ONE);
+        let calls = 0;
+        for (const field of list.particles) {
+          gl.uniform4f(this.PORIGIN, field[12], field[13], field[14], list.worldTime);
+          gl.uniform4f(this.PCOLOUR, field[0], field[1], field[2], field[3]);
+          gl.uniform4f(this.PSHAPE, field[4], field[5], field[6], field[7]);
+          gl.uniform4f(this.PCOUNTS, field[8], field[9], 0, 0);
+          gl.drawArrays(gl.TRIANGLES, 0, field[8] * 6);
+          calls++;
+        }
+        gl.bindVertexArray(null);
+        gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+        gl.depthMask(true);
+        return calls;
+      }
+      /**
+       * The key light, made visible in the air.
+       *
+       * Runs AFTER the world pass and composites additively: light in the air
+       * ADDS to what is behind it — it does not replace it, and a volumetric
+       * pass that blends over the world is a fog overlay, not scattering.
+       *
+       * It needs the G-buffer the occlusion pass already builds (for the
+       * distance to the first surface along each ray) and the shadow map the
+       * world pass already builds (for which parts of the ray are lit). Both
+       * are reused rather than rebuilt: a second G-buffer would be a second
+       * opinion about where the surfaces are.
+       *
+       * Returns false when it could not run, so the caller can say so rather
+       * than show a frame that quietly has no shafts in it.
+       */
+      renderVolumetric(list, width, height, originX) {
+        if (!this.floatColour || !list.shadow || !this.shadowTexture || !this.gbufTexture) return false;
+        const gl = this.gl;
+        if (this.volSize.w !== width || this.volSize.h !== height) {
+          if (this.volTexture) gl.deleteTexture(this.volTexture);
+          if (this.volFbo) gl.deleteFramebuffer(this.volFbo);
+          this.volTexture = gl.createTexture();
+          gl.bindTexture(gl.TEXTURE_2D, this.volTexture);
+          gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, width, height, 0, gl.RGBA, gl.FLOAT, null);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+          this.volFbo = gl.createFramebuffer();
+          gl.bindFramebuffer(gl.FRAMEBUFFER, this.volFbo);
+          gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.volTexture, 0);
+          this.volSize = { w: width, h: height };
+        }
+        gl.bindFramebuffer(gl.FRAMEBUFFER, this.volFbo);
+        gl.viewport(0, 0, width, height);
+        gl.clearColor(0, 0, 0, 1);
+        gl.clear(gl.COLOR_BUFFER_BIT);
+        gl.disable(gl.DEPTH_TEST);
+        gl.depthMask(false);
+        gl.disable(gl.BLEND);
+        gl.useProgram(this.volProgram);
+        const viewProj = berxMultiplyMat4(new Float32Array(list.projection), new Float32Array(list.view));
+        gl.uniformMatrix4fv(this.VINV, false, berxInvertMat4(viewProj));
+        gl.uniformMatrix4fv(this.VLVP, false, new Float32Array(list.shadow.viewProjection));
+        gl.uniform4f(this.VSHADOW, 1 / list.shadow.mapSize, list.shadow.depthBias, 0, list.shadow.strength);
+        const vp = berxVolumetricUniform();
+        gl.uniform4f(this.VPARAMS, vp[0], vp[1], vp[2], vp[3]);
+        gl.uniform4f(this.VDIMS, width, height, BERX_VOLUMETRIC_STEPS, 0);
+        gl.uniform3f(this.VEYE, list.camera.x, list.camera.y, list.camera.z);
+        gl.uniform3f(this.VLDIR, list.key.direction.x, list.key.direction.y, list.key.direction.z);
+        gl.uniform3f(this.VLCOL, list.key.colour[0], list.key.colour[1], list.key.colour[2]);
+        gl.uniform1f(this.VLI, list.key.intensity);
+        gl.uniform3f(this.VFWD, -list.view[2], -list.view[6], -list.view[10]);
+        gl.activeTexture(gl.TEXTURE2);
+        gl.bindTexture(gl.TEXTURE_2D, this.gbufTexture);
+        gl.uniform1i(this.VGBUF, 2);
+        gl.activeTexture(gl.TEXTURE1);
+        gl.bindTexture(gl.TEXTURE_2D, this.shadowTexture);
+        gl.uniform1i(this.VSMAP, 1);
+        if (this.shadowNearest) gl.bindSampler(1, this.shadowNearest);
+        gl.bindVertexArray(this.aoVao);
+        gl.drawArrays(gl.TRIANGLES, 0, 3);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        gl.viewport(originX, 0, width, height);
+        gl.useProgram(this.compositeProgram);
+        gl.activeTexture(gl.TEXTURE2);
+        gl.bindTexture(gl.TEXTURE_2D, this.volTexture);
+        gl.uniform1i(this.CSRC, 2);
+        gl.enable(gl.BLEND);
+        gl.blendFunc(gl.ONE, gl.ONE);
+        gl.drawArrays(gl.TRIANGLES, 0, 3);
+        gl.bindVertexArray(null);
+        gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+        gl.enable(gl.DEPTH_TEST);
+        gl.depthMask(true);
+        gl.bindSampler(1, null);
+        gl.activeTexture(gl.TEXTURE0);
+        return true;
+      }
+      /**
+       * The shadow map's depth, as readable floats.
+       *
+       * WebGL2 cannot readPixels a depth texture, so this samples it as an
+       * ordinary texture with the comparison mode temporarily off, into a
+       * float target. The mode is put back: leaving it off would turn every
+       * later sampler2DShadow read into undefined behaviour.
+       *
+       * It exists for the gate. The oracle has to perform the SAME lookup
+       * the march performed, and a CPU twin that reconstructs visibility
+       * from geometry instead would be testing a different question.
+       */
+      readShadowMap() {
+        if (!this.shadowTexture || this.shadowSize === 0 || !this.floatColour) return void 0;
+        const gl = this.gl;
+        const size = this.shadowSize;
+        const texture = gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_2D, texture);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.R32F, size, size, 0, gl.RED, gl.FLOAT, null);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+        const fbo = gl.createFramebuffer();
+        gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture, 0);
+        gl.viewport(0, 0, size, size);
+        gl.disable(gl.DEPTH_TEST);
+        gl.depthMask(false);
+        gl.disable(gl.BLEND);
+        gl.useProgram(this.depthReadProgram);
+        gl.activeTexture(gl.TEXTURE2);
+        gl.bindTexture(gl.TEXTURE_2D, this.shadowTexture);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_COMPARE_MODE, gl.NONE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+        gl.uniform1i(this.DSRC, 2);
+        gl.bindVertexArray(this.aoVao);
+        gl.drawArrays(gl.TRIANGLES, 0, 3);
+        const rgba = new Float32Array(size * size * 4);
+        gl.readPixels(0, 0, size, size, gl.RGBA, gl.FLOAT, rgba);
+        const depth = new Float32Array(size * size);
+        for (let i = 0; i < depth.length; i++) depth[i] = rgba[i * 4];
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_COMPARE_MODE, gl.COMPARE_REF_TO_TEXTURE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        gl.bindVertexArray(null);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        gl.deleteFramebuffer(fbo);
+        gl.deleteTexture(texture);
+        gl.enable(gl.DEPTH_TEST);
+        gl.depthMask(true);
+        gl.enable(gl.BLEND);
+        gl.activeTexture(gl.TEXTURE0);
+        return { depth, size };
+      }
+      /**
+       * The in-scatter buffer this backend produced, for verification.
+       *
+       * The gate runs the shared core's berxVolumetricAt over the same rays
+       * and the same shadow map and compares. Reading the buffer rather than
+       * the composited frame is what separates "the march is right" from
+       * "the composite is right" — two different failures that look the same
+       * on screen.
+       */
+      readVolumetricBuffer() {
+        if (!this.volTexture || this.volSize.w === 0) return void 0;
+        const gl = this.gl;
+        const w = this.volSize.w, h = this.volSize.h;
+        const rgba = new Float32Array(w * h * 4);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, this.volFbo);
+        gl.readPixels(0, 0, w, h, gl.RGBA, gl.FLOAT, rgba);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        return { rgba, width: w, height: h };
+      }
+      /**
        * The G-buffer and the AO map this backend produced, for verification.
        *
        * The occlusion gate runs the shared core's berxSSAOAt over these exact
@@ -3333,7 +3912,9 @@ void main(){
           affordances: this.affordances
         });
         this.renderShadowMap(list);
-        const aoReady = options.ssao === false ? false : this.renderSSAO(list, width, height);
+        const wantsGbuffer = options.ssao !== false || options.volumetric !== false;
+        const gbufferReady = wantsGbuffer ? this.renderSSAO(list, width, height) : false;
+        const aoReady = options.ssao === false ? false : gbufferReady;
         gl.useProgram(this.program);
         gl.viewport(originX, 0, width, height);
         if (clear) {
@@ -3418,10 +3999,12 @@ void main(){
         gl.bindVertexArray(null);
         gl.bindTexture(gl.TEXTURE_2D, null);
         const labelCalls = this.renderLabels(list);
+        if (options.volumetric !== false) this.renderVolumetric(list, width, height, originX);
+        const particleCalls = options.particles === false ? 0 : this.renderParticles(list);
         this.stats = {
           visible: list.stats.visible,
           inFrustum: list.stats.inFrustum,
-          drawCalls: drawCalls + labelCalls,
+          drawCalls: drawCalls + labelCalls + particleCalls,
           triangles,
           lodReduced: list.stats.lodReduced,
           budgetCut: list.stats.budgetCut,
@@ -3658,13 +4241,15 @@ void main(){
 });
 
 // packages/spatial-shaders/src/index.ts
-var BERX_WORLD_WGSL, BERX_LABEL_WGSL, BERX_SSAO_WGSL;
+var BERX_WORLD_WGSL, BERX_LABEL_WGSL, BERX_VOLUMETRIC_WGSL, BERX_SSAO_WGSL, BERX_PARTICLES_WGSL;
 var init_src2 = __esm({
   "packages/spatial-shaders/src/index.ts"() {
     "use strict";
     BERX_WORLD_WGSL = "// The BERX forward pass, in WGSL. This file is the only copy of it.\n//\n// Two backends run this exact text: @berx/spatial-web's WebGPU renderer,\n// which imports it through @berx/spatial-shaders, and the native\n// berx-spatial-native crate, which include_str!s it. A shader duplicated\n// per backend is how two renderers quietly stop drawing the same world.\n//\n// The same microfacet BRDF the WebGL2 backend runs: GGX, height-correlated\n// Smith visibility, Schlick Fresnel, metalness splitting the diffuse and\n// specular lobes, one directional key, up to four windowed point lights, and\n// and image-based lighting from an ANALYTIC environment \u2014 a closed-form\n// room rather than a captured cubemap, because BERX ships no HDR asset and\n// a closed form is the only thing four languages can evaluate identically.\n// There is no post chain here, and both backends' reported capabilities say\n// so.\n//\n// The key light casts. Its camera is fitted in the shared core\n// (@berx/spatial's berxShadowCamera) so every backend puts the light in\n// exactly the same place, and this file only reads the depth it captured:\n// 3x3 PCF, a normal-offset sample, and a shadow that removes the KEY term\n// only. Ambient and the point lights are untouched, because a surface in\n// shadow still receives the bounced room \u2014 zeroing the pixel is what makes\n// a render look like a cutout rather than a place.\n//\n// One thing differs from the GLSL source, and it is a clip-space convention\n// rather than shading: WGSL depth runs 0..1 where GL runs -1..1, so the host\n// hands this shader a projection already remapped.\n//\n// Media is a planar projection onto the face that points at you, exactly as\n// in the GLSL pass: object-space position and normal give the UVs from the\n// local XY extent, and the texture is applied only where the surface faces\n// +Z, so an avatar on an orb reads as a face rather than as a photograph\n// smeared around a ball. A backend with no image to bind binds a 1x1 texture\n// and leaves the flag at zero; nothing is approximated with a colour.\n\nstruct Globals {\n  proj: mat4x4<f32>,\n  view: mat4x4<f32>,\n  camera: vec4<f32>,\n  ambient: vec4<f32>,\n  key_dir: vec4<f32>,\n  key_col: vec4<f32>,   // rgb, intensity in w\n  // The light's own view-projection, already in this API's depth range.\n  light_vp: mat4x4<f32>,\n  // x = 1/mapSize, y = depth bias, z = normal bias, w = strength (0 = off)\n  shadow: vec4<f32>,\n  // THE ROOM, packed by the shared core's berxEnvironmentUniform. The\n  // order is that function's, not this file's: changing it here without\n  // changing it there is how a renderer ends up lit by the ground\n  // colour. w components carry the scalars so the block stays five\n  // vec4s rather than five vec4s and four loose floats.\n  env_zenith: vec4<f32>,   // rgb zenith,          w = sun intensity\n  env_horizon: vec4<f32>,  // rgb horizon,         w = sun sharpness\n  env_ground: vec4<f32>,   // rgb ground * bounce, w = overall intensity\n  env_sun_dir: vec4<f32>,  // xyz toward the key light\n  env_sun: vec4<f32>,      // rgb sun colour\n  // x = 1 when an SSAO pass ran for this frame, 0 when it did not.\n  ssao: vec4<f32>,\n};\n\nstruct Draw {\n  model: mat4x4<f32>,\n  base: vec4<f32>,              // rgb base colour, w = local half-extent in X\n  emissive: vec4<f32>,          // rgb emission,    w = local half-extent in Y\n  surface: vec4<f32>,           // metalness, roughness, opacity, transmission\n  pl_pos: array<vec4<f32>, 4>,  // xyz position, w range\n  pl_col: array<vec4<f32>, 4>,  // rgb colour, w intensity\n  // x = point light count, yz = UV cover/contain correction, w = has texture\n  counts: vec4<f32>,\n};\n\n@group(0) @binding(0) var<uniform> g: Globals;\n// A comparison sampler, not a plain one: the hardware does the depth test\n// per sample and averages the RESULTS, which is what makes a 3x3 tap a soft\n// edge instead of four hard ones. Sampling depth and comparing afterwards\n// would average DEPTHS, and an averaged depth is a surface that exists\n// nowhere.\n@group(0) @binding(1) var shadow_sampler: sampler_comparison;\n@group(0) @binding(2) var shadow_texture: texture_depth_2d;\n// The occlusion the SSAO pass computed for this frame, at screen\n// resolution. Read with textureLoad rather than sampled: it is looked up\n// at exactly the fragment's own pixel, so there is nothing to filter and\n// no sampler to keep in step across three backends. A backend with the\n// pass switched off binds a 1x1 white texture and ssao_on stays 0.\n@group(0) @binding(3) var ao_texture: texture_2d<f32>;\n@group(1) @binding(0) var<uniform> d: Draw;\n@group(2) @binding(0) var media_sampler: sampler;\n@group(2) @binding(1) var media_texture: texture_2d<f32>;\n\nstruct VsOut {\n  @builtin(position) clip: vec4<f32>,\n  @location(0) n: vec3<f32>,\n  @location(1) w: vec3<f32>,\n  // object space, so media projects onto the form rather than the screen\n  @location(2) local: vec3<f32>,\n  @location(3) local_n: vec3<f32>,\n};\n\n/**\n * The depth-only pass, from the light.\n *\n * The same vertex data and the same model matrix as the main pass \u2014 a\n * shadow cast by a different shape from the one drawn is worse than no\n * shadow, because it is a shape that is not there.\n */\n@vertex\nfn vs_shadow(@location(0) p: vec3<f32>, @location(1) n: vec3<f32>) -> @builtin(position) vec4<f32> {\n  return g.light_vp * d.model * vec4<f32>(p, 1.0);\n}\n\n@vertex\nfn vs(@location(0) p: vec3<f32>, @location(1) n: vec3<f32>) -> VsOut {\n  var o: VsOut;\n  let w = d.model * vec4<f32>(p, 1.0);\n  o.w = w.xyz;\n  o.n = (mat3x3<f32>(d.model[0].xyz, d.model[1].xyz, d.model[2].xyz)) * n;\n  o.local = p;\n  o.local_n = n;\n  o.clip = g.proj * g.view * w;\n  return o;\n}\n\nconst PI: f32 = 3.14159265359;\n\nfn d_ggx(noh: f32, a: f32) -> f32 {\n  let a2 = a * a;\n  let den = noh * noh * (a2 - 1.0) + 1.0;\n  return a2 / max(PI * den * den, 1e-7);\n}\n\nfn v_smith(nov: f32, nol: f32, a: f32) -> f32 {\n  let a2 = a * a;\n  let v = nol * sqrt(nov * nov * (1.0 - a2) + a2);\n  let l = nov * sqrt(nol * nol * (1.0 - a2) + a2);\n  return 0.5 / max(v + l, 1e-7);\n}\n\nfn f_schlick(f0: vec3<f32>, u: f32) -> vec3<f32> {\n  let m = clamp(1.0 - u, 0.0, 1.0);\n  let m2 = m * m;\n  return f0 + (vec3<f32>(1.0) - f0) * (m2 * m2 * m);\n}\n\n/**\n * BERX ENVIRONMENT \u2014 the analytic room, in WGSL.\n *\n * The same three terms as @berx/spatial's berxEnvironmentRadiance, in\n * the same order, from the same constants: a sky gradient over the\n * upper hemisphere, the floor's weak return below it, and a sun lobe\n * around the key direction. There is no cubemap to sample because BERX\n * ships no captured HDR environment; this is a closed form, which is\n * the only reason four languages can evaluate it identically.\n *\n * `dir` must already be normalised \u2014 the caller normalises, and a\n * hidden normalise here would be a place for the ports to differ.\n * `smoothstep(0,1,x)` is WGSL's builtin, which is the same Hermite\n * polynomial berxEnvSmoothstep01 spells out in TypeScript.\n */\nfn berx_environment(dir: vec3<f32>) -> vec3<f32> {\n  let up = clamp(dir.y, 0.0, 1.0);\n  let down = clamp(-dir.y, 0.0, 1.0);\n  let sky = mix(g.env_horizon.rgb, g.env_zenith.rgb, smoothstep(0.0, 1.0, up));\n  // the floor's return is already scaled by `bounce` on the host side\n  let base = mix(sky, g.env_ground.rgb, smoothstep(0.0, 1.0, down));\n  // both vectors point TOWARD the light, so this peaks at 1 looking at it\n  let cos_a = max(dot(dir, g.env_sun_dir.xyz), 0.0);\n  let glow = pow(cos_a, g.env_horizon.w) * g.env_zenith.w;\n  return (base + g.env_sun.rgb * glow) * g.env_ground.w;\n}\n\nfn shade(n: vec3<f32>, v: vec3<f32>, l: vec3<f32>, radiance: vec3<f32>,\n         diffuse_color: vec3<f32>, f0: vec3<f32>, a: f32) -> vec3<f32> {\n  let h = normalize(v + l);\n  let nol = max(dot(n, l), 0.0);\n  if (nol <= 0.0) { return vec3<f32>(0.0); }\n  let nov = max(dot(n, v), 1e-4);\n  let noh = max(dot(n, h), 0.0);\n  let voh = max(dot(v, h), 0.0);\n  let f = f_schlick(f0, voh);\n  let vis = v_smith(nov, nol, a);\n  let dist = d_ggx(noh, a);\n  let spec = f * (dist * vis);\n  // energy that was not reflected is the only energy left to scatter\n  let kd = vec3<f32>(1.0) - f;\n  let diff = kd * diffuse_color / PI;\n  return (diff + spec) * radiance * nol;\n}\n\n/**\n * How much of the key light reaches this point. 1 is full light.\n *\n * The sample is pushed along the surface normal before projecting, which\n * is what stops a lit surface shadowing itself at grazing angles without\n * the constant depth bias that would detach a shadow from the foot of\n * the thing casting it.\n */\nfn key_visibility(world: vec3<f32>, n: vec3<f32>, nol: f32) -> f32 {\n  if (g.shadow.w <= 0.0) { return 1.0; }\n  // more offset where the light grazes, none where it is head-on\n  let slope = clamp(1.0 - nol, 0.0, 1.0);\n  let offset = world + n * (g.shadow.z * (1.0 + slope * 2.0));\n  let light_clip = g.light_vp * vec4<f32>(offset, 1.0);\n  let ndc = light_clip.xyz / max(light_clip.w, 1e-6);\n  // outside the light's own box: lit, not shadowed. A world larger than\n  // the map must not grow a hard black edge where the map ends.\n  if (ndc.x < -1.0 || ndc.x > 1.0 || ndc.y < -1.0 || ndc.y > 1.0 || ndc.z > 1.0) { return 1.0; }\n  let uv = vec2<f32>(ndc.x * 0.5 + 0.5, 0.5 - ndc.y * 0.5);\n  let depth = ndc.z - g.shadow.y;\n  var sum = 0.0;\n  for (var y: i32 = -1; y <= 1; y = y + 1) {\n    for (var x: i32 = -1; x <= 1; x = x + 1) {\n      let tap = uv + vec2<f32>(f32(x), f32(y)) * g.shadow.x;\n      sum = sum + textureSampleCompareLevel(shadow_texture, shadow_sampler, tap, depth);\n    }\n  }\n  let lit = sum / 9.0;\n  return mix(1.0, lit, g.shadow.w);\n}\n\n@fragment\nfn fs(i: VsOut) -> @location(0) vec4<f32> {\n  // Media is a planar projection onto the face that points at you.\n  //\n  // The sample is taken unconditionally and then selected, rather than\n  // taken inside the test: textureSample needs uniform control flow, and\n  // whether a fragment is on the front face and inside the picture is a\n  // per-fragment fact. A backend with nothing to show binds a 1x1\n  // texture and leaves counts.w at zero, so the sample is discarded.\n  let half_extent = vec2<f32>(max(d.base.w, 1e-4), max(d.emissive.w, 1e-4));\n  let uv = (i.local.xy / half_extent) * 0.5 * d.counts.yz + vec2<f32>(0.5);\n  let sampled = textureSample(media_texture, media_sampler, vec2<f32>(uv.x, 1.0 - uv.y)).rgb;\n  let inside = uv.x >= 0.0 && uv.x <= 1.0 && uv.y >= 0.0 && uv.y <= 1.0;\n  let facing = normalize(i.local_n).z > 0.5;\n  let base = select(d.base.rgb, sampled, d.counts.w > 0.5 && facing && inside);\n  let n = normalize(i.n);\n  let v = normalize(g.camera.xyz - i.w);\n  let a = max(d.surface.y * d.surface.y, 1e-3);\n  // metals have no diffuse term and tint their reflection; dielectrics\n  // reflect 4% white and keep their colour in the diffuse lobe\n  let diffuse_color = base * (1.0 - d.surface.x);\n  let f0 = mix(vec3<f32>(0.04), base, vec3<f32>(d.surface.x));\n\n  let key_l = normalize(g.key_dir.xyz);\n  // The key alone is shadowed. Ambient and the point lights are not: a\n  // surface out of the sun still receives the room.\n  let visibility = key_visibility(i.w, n, max(dot(n, key_l), 0.0));\n  var lit = shade(n, v, key_l, g.key_col.rgb * g.key_col.w, diffuse_color, f0, a) * visibility;\n\n  let count = i32(d.counts.x);\n  for (var k: i32 = 0; k < 4; k = k + 1) {\n    if (k >= count) { break; }\n    let lp = d.pl_pos[k];\n    let lc = d.pl_col[k];\n    let delta = lp.xyz - i.w;\n    let dist = length(delta);\n    if (dist > lp.w) { continue; }\n    // inverse-square, windowed so a light ends where its range says\n    let win = clamp(1.0 - pow(dist / lp.w, 4.0), 0.0, 1.0);\n    let atten = win * win / max(dist * dist, 1e-4);\n    lit = lit + shade(n, v, delta / max(dist, 1e-4), lc.rgb * lc.w * atten, diffuse_color, f0, a);\n  }\n\n  /* AMBIENT IS NOW THE ROOM, not one colour.\n     Diffuse takes the environment along the normal \u2014 what a matte\n     surface actually faces. Specular takes it along the reflection,\n     blended toward the normal by roughness: a rough surface's lobe is\n     wide, so it sees an average of the room rather than a mirror of it,\n     and that blend is this backend's prefilter. There is no prefiltered\n     mip chain because there is no map to prefilter. */\n  let nov = max(dot(n, v), 0.0);\n  let refl = reflect(-v, n);\n  let env_d = berx_environment(n);\n  let env_s = berx_environment(normalize(mix(refl, n, d.surface.y)));\n  let fres = f_schlick(f0, nov);\n  /* AMBIENT OCCLUSION SCALES THE ROOM, AND ONLY THE ROOM.\n     A point in the crease where two surfaces meet can see very little of\n     the environment, which is the darkening the eye reads as contact.\n     The key light already has its own shadow; multiplying a direct light\n     by an ambient term is how a render grows a black core wherever two\n     things touch. g.ssao.x is 1 when the pass ran, 0 when it did not. */\n  let ao = select(1.0, textureLoad(ao_texture, vec2<i32>(i.clip.xy), 0).r, g.ssao.x > 0.5);\n  let amb = (env_d * diffuse_color * (vec3<f32>(1.0) - fres) + env_s * fres) * ao;\n  let colour = lit + amb + d.emissive.rgb;\n  // transmission lets the ground through a glass surface rather than\n  // fading it to nothing\n  let alpha = clamp(d.surface.z * (1.0 - d.surface.w * 0.55), 0.02, 1.0);\n  return vec4<f32>(colour, alpha);\n}\n\n/* ------------------------------------------------------------------ *\n * THE G-BUFFER, for ambient occlusion\n * ------------------------------------------------------------------ *\n *\n * View-space normal in rgb, view-space depth in metres in a. Not a\n * hardware depth texture, and the reason is portability rather than\n * convenience: reconstructing a view position from a depth buffer needs\n * the projection's own conventions, and WGSL's depth range runs 0..1\n * where GL's runs -1..1 \u2014 so three backends reconstructing \"the same\"\n * position would be three different reconstructions. A linear view depth\n * written here is the same number everywhere, and the shared core's\n * berxSSAOAt reads exactly these two fields.\n */\n\nstruct GbufOut {\n  @builtin(position) clip: vec4<f32>,\n  @location(0) view_normal: vec3<f32>,\n  @location(1) view_pos: vec3<f32>,\n};\n\n@vertex\nfn vs_gbuffer(@location(0) p: vec3<f32>, @location(1) n: vec3<f32>) -> GbufOut {\n  var o: GbufOut;\n  let w = d.model * vec4<f32>(p, 1.0);\n  let world_n = (mat3x3<f32>(d.model[0].xyz, d.model[1].xyz, d.model[2].xyz)) * n;\n  // into view space: the rotation part of the view matrix\n  o.view_normal = (mat3x3<f32>(g.view[0].xyz, g.view[1].xyz, g.view[2].xyz)) * world_n;\n  o.view_pos = (g.view * w).xyz;\n  o.clip = g.proj * g.view * w;\n  return o;\n}\n\n@fragment\nfn fs_gbuffer(i: GbufOut) -> @location(0) vec4<f32> {\n  // The view looks down -Z, so depth in front of the eye is -view_pos.z.\n  return vec4<f32>(normalize(i.view_normal), -i.view_pos.z);\n}\n";
     BERX_LABEL_WGSL = "// Names standing in the world, in WGSL. This file is the only copy of it.\n//\n// Unlit on purpose: a name is not a surface in the room, it is a name, and\n// shading it would make it dimmer the further it turned from the key light \u2014\n// the opposite of what a label is for. It is still real geometry, at a real\n// world position with a real height in metres, and depth-tested, so anything\n// in front of it hides it.\n//\n// The quad turns to face the camera by being built from the camera's own\n// right and up vectors, which the shared core hands over with the label's\n// position. Nothing here decides where a name goes.\n\nstruct LabelGlobals {\n  proj: mat4x4<f32>,\n  view: mat4x4<f32>,\n  right: vec4<f32>,\n  up: vec4<f32>,\n};\n\nstruct Label {\n  // xyz world centre, w unused\n  centre: vec4<f32>,\n  // xy half-extent in metres, z alpha, w unused\n  size: vec4<f32>,\n};\n\n@group(0) @binding(0) var<uniform> g: LabelGlobals;\n@group(1) @binding(0) var<uniform> l: Label;\n@group(2) @binding(0) var glyph_sampler: sampler;\n@group(2) @binding(1) var glyph_texture: texture_2d<f32>;\n\nstruct VsOut {\n  @builtin(position) clip: vec4<f32>,\n  @location(0) uv: vec2<f32>,\n};\n\n@vertex\nfn vs(@builtin(vertex_index) v: u32) -> VsOut {\n  // two triangles, as a quad in the camera's plane\n  var corners = array<vec2<f32>, 6>(\n    vec2<f32>(-1.0, -1.0), vec2<f32>(1.0, -1.0), vec2<f32>(1.0, 1.0),\n    vec2<f32>(-1.0, -1.0), vec2<f32>(1.0, 1.0), vec2<f32>(-1.0, 1.0),\n  );\n  let q = corners[v];\n  var o: VsOut;\n  // the rasterised glyphs run top row first, so V is flipped here rather\n  // than in the upload \u2014 writeTexture has no flip of its own\n  o.uv = vec2<f32>(q.x * 0.5 + 0.5, 0.5 - q.y * 0.5);\n  let w = l.centre.xyz + g.right.xyz * (q.x * l.size.x) + g.up.xyz * (q.y * l.size.y);\n  o.clip = g.proj * g.view * vec4<f32>(w, 1.0);\n  return o;\n}\n\n@fragment\nfn fs(i: VsOut) -> @location(0) vec4<f32> {\n  let t = textureSample(glyph_texture, glyph_sampler, i.uv);\n  let a = t.a * l.size.z;\n  if (a < 0.01) { discard; }\n  return vec4<f32>(t.rgb, a);\n}\n";
+    BERX_VOLUMETRIC_WGSL = "// BERX volumetric light, in WGSL. This file is the only copy of it.\n//\n// Two backends run this exact text: @berx/spatial-web's WebGPU renderer,\n// which imports it through @berx/spatial-shaders, and the native\n// berx-spatial-native crate, which include_str!s it. WebGL2 runs the same\n// maths as a fullscreen fragment pass (see threeRuntime.ts) \u2014 the march\n// below is line for line the same sequence.\n//\n// A fullscreen FRAGMENT pass rather than a compute one, unlike ssao.wgsl,\n// and for a reason: WebGL2 has no compute stage, so a fragment shape is\n// the only one all three backends can run identically. SSAO writes to a\n// storage texture it then reads at a different pixel, which a fragment\n// pass cannot do; this one only ever writes the pixel it is on.\n//\n// What is NOT here is anything that decides the answer: the density, the\n// phase asymmetry, the march length and the intensity all arrive in `v`\n// from @berx/spatial's berxVolumetricUniform, and the loop is the same\n// sequence of operations as that module's berxVolumetricAt \u2014 the CPU twin\n// the gate predicts pixels with.\n\nstruct VolGlobals {\n  // the inverse of projection * view, for turning a pixel into a ray\n  inv_view_proj: mat4x4<f32>,\n  // xyz eye position, w unused\n  eye: vec4<f32>,\n  // xyz toward the key light, w unused\n  light_dir: vec4<f32>,\n  // rgb the key's colour, w its intensity\n  light_col: vec4<f32>,\n  // the light's own view-projection, in this API's depth range\n  light_vp: mat4x4<f32>,\n  // x = 1/mapSize, y = depth bias, z unused, w = shadow strength\n  shadow: vec4<f32>,\n  // x = density, y = phase g, z = max distance, w = intensity\n  params: vec4<f32>,\n  // x = width, y = height, z = steps, w unused\n  dims: vec4<f32>,\n  // xyz the camera's forward direction, w unused. Turns the G-buffer's\n  // view depth into a distance along THIS ray.\n  forward: vec4<f32>,\n};\n\n@group(0) @binding(0) var<uniform> v: VolGlobals;\n@group(0) @binding(1) var shadow_sampler: sampler_comparison;\n@group(0) @binding(2) var shadow_texture: texture_depth_2d;\n// rgb = view-space normal, a = linear view depth in metres (0 = nothing)\n@group(0) @binding(3) var gbuffer: texture_2d<f32>;\n\n// The composite's own resources, on a second group: a WGSL module cannot\n// declare two different resources at the same @group/@binding, and the\n// composite reads what the march wrote rather than what the march read.\n@group(1) @binding(0) var vol_sampler: sampler;\n@group(1) @binding(1) var vol_texture: texture_2d<f32>;\n\nconst PI: f32 = 3.14159265359;\n\nstruct VsOut {\n  @builtin(position) clip: vec4<f32>,\n  @location(0) uv: vec2<f32>,\n};\n\n@vertex\nfn vs_fullscreen(@builtin(vertex_index) i: u32) -> VsOut {\n  // one triangle covering the screen: fewer vertices than a quad and no\n  // seam down the diagonal where two triangles meet\n  var corners = array<vec2<f32>, 3>(\n    vec2<f32>(-1.0, -1.0), vec2<f32>(3.0, -1.0), vec2<f32>(-1.0, 3.0),\n  );\n  let c = corners[i];\n  var o: VsOut;\n  o.clip = vec4<f32>(c, 0.0, 1.0);\n  o.uv = vec2<f32>(c.x * 0.5 + 0.5, 0.5 - c.y * 0.5);\n  return o;\n}\n\n/**\n * Henyey\u2013Greenstein. The same curve as @berx/spatial's berxPhaseHG,\n * including the clamp: at g\u21921 and cosTheta\u21921 the denominator goes to\n * zero and the phase to infinity, which is the singular lobe that blows\n * a shaft out to white.\n */\nfn phase_hg(cos_theta: f32, g: f32) -> f32 {\n  let g2 = g * g;\n  let denom = 1.0 + g2 - 2.0 * g * cos_theta;\n  return (1.0 - g2) / (4.0 * PI * pow(max(denom, 1e-4), 1.5));\n}\n\n/**\n * FNV-1a over the pixel coordinate \u2014 the same hash as\n * berxVolumetricJitter, which is why a shaft dithers identically in\n * four languages without shipping a noise texture.\n */\nfn jitter(x: i32, y: i32) -> f32 {\n  var h: u32 = 0x811c9dc5u;\n  h = h ^ (u32(x) & 0xffffu);\n  h = h * 0x01000193u;\n  h = h ^ (u32(y) & 0xffffu);\n  h = h * 0x01000193u;\n  return f32(h >> 8u) / 16777216.0;\n}\n\n/** 1 where the key light reaches this point, 0 where the map says it does not. */\nfn lit_at(world: vec3<f32>) -> f32 {\n  if (v.shadow.w <= 0.0) { return 1.0; }\n  let clip = v.light_vp * vec4<f32>(world, 1.0);\n  let ndc = clip.xyz / max(clip.w, 1e-6);\n  // outside the light's own box the air is lit, not dark: a world larger\n  // than the map must not grow a hard black wall where the map ends\n  if (ndc.x < -1.0 || ndc.x > 1.0 || ndc.y < -1.0 || ndc.y > 1.0 || ndc.z > 1.0) { return 1.0; }\n  let uv = vec2<f32>(ndc.x * 0.5 + 0.5, 0.5 - ndc.y * 0.5);\n  return textureSampleCompareLevel(shadow_texture, shadow_sampler, uv, ndc.z - v.shadow.y);\n}\n\n@fragment\nfn fs_volumetric(i: VsOut) -> @location(0) vec4<f32> {\n  let px = i32(i.uv.x * v.dims.x);\n  let py = i32(i.uv.y * v.dims.y);\n\n  // The ray through this pixel, from the inverse view-projection. Two\n  // points on it rather than a direction guess, so the reconstruction is\n  // exactly the camera's own.\n  let ndc = vec2<f32>(i.uv.x * 2.0 - 1.0, 1.0 - i.uv.y * 2.0);\n  let near_h = v.inv_view_proj * vec4<f32>(ndc, 0.0, 1.0);\n  let far_h = v.inv_view_proj * vec4<f32>(ndc, 1.0, 1.0);\n  let near_p = near_h.xyz / max(near_h.w, 1e-6);\n  let far_p = far_h.xyz / max(far_h.w, 1e-6);\n  let dir = normalize(far_p - near_p);\n\n  // Distance to the first surface. The march stops there: air behind a\n  // wall does not scatter light into the eye, and marching past it is how\n  // a volumetric pass glows through solid objects.\n  //\n  // The G-buffer stores VIEW DEPTH \u2014 distance along the camera's forward\n  // axis \u2014 and the march needs distance along THIS ray. For an off-axis\n  // pixel those differ by 1/cos, and using the depth directly cuts the\n  // march short by that factor: a measurable error toward the corners of\n  // the frame, and one the CPU twin would reproduce only by making the\n  // same mistake.\n  let g = textureLoad(gbuffer, vec2<i32>(px, py), 0);\n  let along = max(dot(dir, normalize(v.forward.xyz)), 1e-3);\n  let surface = select(v.params.z, g.a / along, g.a > 0.0);\n  let far = min(v.params.z, surface);\n  if (far <= 0.0) { return vec4<f32>(0.0, 0.0, 0.0, 1.0); }\n\n  let steps = i32(v.dims.z);\n  let step_length = far / f32(steps);\n  let phase = phase_hg(dot(dir, normalize(v.light_dir.xyz)), v.params.y);\n  let offset = jitter(px, py);\n\n  var inscatter = 0.0;\n  for (var s: i32 = 0; s < steps; s = s + 1) {\n    let t = (f32(s) + offset) * step_length;\n    let p = v.eye.xyz + dir * t;\n    let lit = lit_at(p);\n    if (lit <= 0.0) { continue; }\n    // Beer\u2013Lambert: what scatters here still has to reach the eye\n    let transmittance = exp(-v.params.x * t);\n    inscatter = inscatter + lit * phase * v.params.x * step_length * transmittance;\n  }\n\n  let energy = inscatter * v.params.w;\n  // The scattering is grey; the colour is the key light's own. Keeping\n  // them apart means a change of light colour cannot silently change the\n  // amount of scattering.\n  return vec4<f32>(v.light_col.rgb * v.light_col.w * energy, 1.0);\n}\n\n/**\n * The additive composite.\n *\n * Light in the air ADDS to what is behind it. A composite that blended\n * over the world would be a fog overlay: it would darken something, and\n * scattering never darkens anything. The blend state on the pipeline is\n * ONE/ONE for exactly that reason, and this shader only has to hand back\n * the in-scatter it was given.\n */\n@fragment\nfn fs_composite(i: VsOut) -> @location(0) vec4<f32> {\n  return vec4<f32>(textureSampleLevel(vol_texture, vol_sampler, i.uv, 0.0).rgb, 1.0);\n}\n";
     BERX_SSAO_WGSL = "// BERX SSAO, in WGSL. This file is the only copy of it.\n//\n// Two backends run this exact text: @berx/spatial-web's WebGPU renderer,\n// which imports it through @berx/spatial-shaders, and the native\n// berx-spatial-native crate, which include_str!s it. WebGL2 has no\n// compute stage, so it runs the same maths as a fullscreen fragment pass\n// (see threeRuntime.ts) \u2014 the loop is line for line this one.\n//\n// It is a separate module from world.wgsl rather than another entry point\n// in it because a WGSL module cannot declare two different resources at\n// the same @group/@binding, and this pass needs its own bind group.\n\n/* ------------------------------------------------------------------ *\n * SSAO \u2014 the compute pass\n * ------------------------------------------------------------------ *\n *\n * The loop is here because a pixel has to ask its neighbours, and that\n * cannot be a closed form. What is NOT here is anything that decides the\n * answer: the sample kernel, the radius, the bias, the strength and the\n * falloff all arrive in `k` from @berx/spatial's berxSSAOUniform, and the\n * accumulation below is the same sequence of operations as that module's\n * berxSSAOAt \u2014 which is the CPU twin the gate predicts pixels with.\n *\n * There is no per-pixel random rotation and no blur pass to hide one.\n * The kernel is an evenly-spaced golden-angle spiral, which does not need\n * the rotation, and a blur would add a radius three backends would have\n * to agree on for no gain.\n */\n\nstruct SsaoKernel {\n  // BERX_SSAO_SAMPLES hemisphere offsets, then one vec4 of parameters:\n  // x = radius, y = bias, z = strength, w = power.\n  s: array<vec4<f32>, 17>,\n};\n\n@group(0) @binding(0) var<uniform> sk: SsaoKernel;\n@group(0) @binding(1) var gbuffer: texture_2d<f32>;\n@group(0) @binding(2) var ao_out: texture_storage_2d<r32float, write>;\n// x = width, y = height, z = focal length in pixels, w unused\n@group(0) @binding(3) var<uniform> sdim: vec4<f32>;\n\n@compute @workgroup_size(8, 8)\nfn cs_ssao(@builtin(global_invocation_id) id: vec3<u32>) {\n  let w = i32(sdim.x);\n  let h = i32(sdim.y);\n  let x = i32(id.x);\n  let y = i32(id.y);\n  if (x >= w || y >= h) { return; }\n\n  let centre = textureLoad(gbuffer, vec2<i32>(x, y), 0);\n  // nothing was drawn here, so there is nothing to occlude\n  if (centre.a <= 0.0) {\n    textureStore(ao_out, vec2<i32>(x, y), vec4<f32>(1.0, 0.0, 0.0, 1.0));\n    return;\n  }\n\n  let params = sk.s[16];\n  let radius = params.x;\n  let strength = params.z;\n  let power = params.w;\n  let n = normalize(centre.xyz);\n\n  // A deterministic basis, not a noise-texture rotation \u2014 see the note\n  // above and berxSSAOAt's own.\n  var up = vec3<f32>(0.0, 0.0, 1.0);\n  if (abs(n.z) >= 0.999) { up = vec3<f32>(1.0, 0.0, 0.0); }\n  let tx = normalize(cross(up, n));\n  let ty = cross(n, tx);\n  // Slope-scaled bias \u2014 see berxSSAOAt's own note. A sample lands on a\n  // whole pixel, and on an oblique surface the geometry there is up to\n  // half a pixel of slope away in depth; a constant bias leaves every\n  // tilted surface with a uniform haze.\n  let slope = 1.0 - min(1.0, abs(n.z));\n  let bias = params.y * (1.0 + slope * 4.0);\n\n  var occluded = 0.0;\n  for (var j: i32 = 0; j < 16; j = j + 1) {\n    let k = sk.s[j].xyz;\n    let s = tx * k.x + ty * k.y + n * k.z;\n    let sample_depth = centre.a - s.z * radius;\n    if (sample_depth <= 0.0) { continue; }\n    let sx = x + i32(round((s.x * radius * sdim.z) / sample_depth));\n    let sy = y - i32(round((s.y * radius * sdim.z) / sample_depth));\n    if (sx < 0 || sy < 0 || sx >= w || sy >= h) { continue; }\n    let there = textureLoad(gbuffer, vec2<i32>(sx, sy), 0);\n    if (there.a <= 0.0) { continue; }\n    if (there.a < sample_depth - bias) {\n      // range check: without it every silhouette grows a dark halo from\n      // whatever happens to be far behind it\n      let range = radius / max(abs(centre.a - there.a), 1e-4);\n      occluded = occluded + min(1.0, range);\n    }\n  }\n\n  let ratio = occluded / 16.0;\n  let ao = max(0.0, 1.0 - pow(ratio, power) * strength);\n  textureStore(ao_out, vec2<i32>(x, y), vec4<f32>(ao, 0.0, 0.0, 1.0));\n}\n";
+    BERX_PARTICLES_WGSL = "// BERX particles, in WGSL. This file is the only copy of it.\n//\n// Two backends run this exact text: @berx/spatial-web's WebGPU renderer,\n// which imports it through @berx/spatial-shaders, and the native\n// berx-spatial-native crate, which include_str!s it. WebGL2 runs the same\n// maths as a GLSL port (see threeRuntime.ts) \u2014 the hash and the placement\n// below are the same sequence.\n//\n// NOTHING IS READ FROM A BUFFER. Each vertex works out where its own\n// particle is from a hash of its index, exactly as @berx/spatial's\n// berxParticleAt does \u2014 which is what makes the field identical in four\n// languages without a buffer to keep in sync, and what lets a CPU twin\n// say where every particle will be before the GPU draws it.\n//\n// Six vertices per particle, expanded from the vertex index alone: a\n// camera-facing quad needs no vertex buffer at all when its corners come\n// from arithmetic.\n\nstruct ParticleGlobals {\n  proj: mat4x4<f32>,\n  view: mat4x4<f32>,\n  // xyz what the field is arranged around, w the time in seconds\n  origin: vec4<f32>,\n  // rgb colour, a peak alpha\n  colour: vec4<f32>,\n  // x = extent, y = speed, z = size, w = period\n  shape: vec4<f32>,\n  // x = count, y = kind (0 dust, 1 energy, 2 stars), zw unused\n  counts: vec4<f32>,\n  // the camera's right and up, for the quads that face it\n  right: vec4<f32>,\n  up: vec4<f32>,\n};\n\n@group(0) @binding(0) var<uniform> p: ParticleGlobals;\n\nconst PI: f32 = 3.14159265359;\n\n/**\n * FNV-1a over an index and a lane \u2014 the same hash as\n * berxParticleHash. `lane` turns one index into several independent\n * numbers without needing four hashes or a table.\n */\nfn phash(index: u32, lane: u32) -> f32 {\n  var h: u32 = 0x811c9dc5u;\n  h = h ^ (index & 0xffffu);\n  h = h * 0x01000193u;\n  h = h ^ ((index >> 16u) & 0xffffu);\n  h = h * 0x01000193u;\n  h = h ^ (lane & 0xffffu);\n  h = h * 0x01000193u;\n  return f32(h >> 8u) / 16777216.0;\n}\n\nstruct Particle {\n  centre: vec3<f32>,\n  alpha: f32,\n  size: f32,\n};\n\n/** The same placement as berxParticleAt, term for term. */\nfn particle_at(index: u32) -> Particle {\n  let hx = phash(index, 1u);\n  let hy = phash(index, 2u);\n  let hz = phash(index, 3u);\n  let hp = phash(index, 4u);\n  let extent = p.shape.x;\n  let speed = p.shape.y;\n  let size = p.shape.z;\n  let period = p.shape.w;\n  let alpha = p.colour.a;\n  let phase = fract(p.origin.w / period + hp);\n\n  var out: Particle;\n  if (p.counts.y > 0.5 && p.counts.y < 1.5) {\n    // energy: a spiral leaving a surface, not a column of dots\n    let angle = hx * PI * 2.0 + phase * PI * 4.0;\n    let radius = extent * (0.25 + hy * 0.55) * (1.0 - phase * 0.45);\n    out.centre = vec3<f32>(\n      p.origin.x + cos(angle) * radius,\n      p.origin.y - extent * 0.4 + phase * extent * 1.8,\n      p.origin.z + sin(angle) * radius,\n    );\n    // fades in and out over its own life: a particle that appears at\n    // full brightness is a flicker, not a rising ember\n    out.alpha = alpha * sin(phase * PI);\n    out.size = size * (0.6 + hz * 0.8);\n    return out;\n  }\n\n  // dust and stars: a hashed cube around the origin, drifting. The drift\n  // wraps by construction, so there is no respawn and no lifetime\n  // bookkeeping to desynchronise between backends.\n  var drift = phase * extent;\n  if (speed == 0.0) { drift = 0.0; }\n  let wx = fract((hx * extent + drift * 0.35) / extent) * extent - extent * 0.5;\n  let wy = fract((hy * extent + drift) / extent) * extent - extent * 0.5;\n  let wz = fract((hz * extent + drift * 0.2) / extent) * extent - extent * 0.5;\n  out.centre = vec3<f32>(p.origin.x + wx, p.origin.y + wy, p.origin.z + wz);\n  // stars twinkle very slightly; dust does not \u2014 a twinkling mote in the\n  // near field reads as a rendering error\n  if (p.counts.y > 1.5) {\n    out.alpha = alpha * (0.65 + 0.35 * sin(phase * PI * 2.0));\n  } else {\n    out.alpha = alpha;\n  }\n  out.size = size * (0.7 + hz * 0.6);\n  return out;\n}\n\nstruct VsOut {\n  @builtin(position) clip: vec4<f32>,\n  @location(0) uv: vec2<f32>,\n  @location(1) alpha: f32,\n};\n\n@vertex\nfn vs_particles(@builtin(vertex_index) v: u32) -> VsOut {\n  let index = v / 6u;\n  let corner = v % 6u;\n  var corners = array<vec2<f32>, 6>(\n    vec2<f32>(-1.0, -1.0), vec2<f32>(1.0, -1.0), vec2<f32>(1.0, 1.0),\n    vec2<f32>(-1.0, -1.0), vec2<f32>(1.0, 1.0), vec2<f32>(-1.0, 1.0),\n  );\n  let q = corners[corner];\n  let particle = particle_at(index);\n  let world = particle.centre\n    + p.right.xyz * (q.x * particle.size)\n    + p.up.xyz * (q.y * particle.size);\n  var o: VsOut;\n  o.uv = q;\n  o.alpha = particle.alpha;\n  o.clip = p.proj * p.view * vec4<f32>(world, 1.0);\n  return o;\n}\n\n@fragment\nfn fs_particles(i: VsOut) -> @location(0) vec4<f32> {\n  // A round, soft mote. A square particle reads as a missing texture,\n  // and a hard-edged circle reads as a UI dot.\n  let r = length(i.uv);\n  if (r > 1.0) { discard; }\n  let falloff = 1.0 - r * r;\n  let a = i.alpha * falloff * falloff;\n  if (a < 0.002) { discard; }\n  // premultiplied: these are drawn additively, so the colour carries the\n  // alpha and the blend adds it to whatever is behind\n  return vec4<f32>(p.colour.rgb * a, a);\n}\n";
   }
 });
 
@@ -4017,7 +4602,7 @@ async function berxWebGPUCanvasPresentable() {
     }
   }
 }
-var DRAW_STRIDE, GLOBALS_BYTES, SHADOW_FORMAT, LABEL_STRIDE, LABEL_GLOBALS_BYTES, SAMPLE_COUNT, BerxWebGPURuntimeRenderer;
+var DRAW_STRIDE, GLOBALS_BYTES, SHADOW_FORMAT, VOL_GLOBALS_BYTES, PARTICLE_GLOBALS_BYTES, LABEL_STRIDE, LABEL_GLOBALS_BYTES, SAMPLE_COUNT, BerxWebGPURuntimeRenderer;
 var init_webgpuRuntime = __esm({
   "packages/spatial-web/src/webgpuRuntime.ts"() {
     "use strict";
@@ -4029,11 +4614,13 @@ var init_webgpuRuntime = __esm({
     DRAW_STRIDE = 256;
     GLOBALS_BYTES = 368;
     SHADOW_FORMAT = "depth32float";
+    VOL_GLOBALS_BYTES = 240;
+    PARTICLE_GLOBALS_BYTES = 224;
     LABEL_STRIDE = 256;
     LABEL_GLOBALS_BYTES = 160;
     SAMPLE_COUNT = 4;
     BerxWebGPURuntimeRenderer = class _BerxWebGPURuntimeRenderer {
-      constructor(canvas, device, context, format, pipeline, drawLayout, mediaLayout, labelPipeline, labelLayout, shadowPipeline, gbufferPipeline, ssaoPipeline, options) {
+      constructor(canvas, device, context, format, pipeline, drawLayout, mediaLayout, labelPipeline, labelLayout, shadowPipeline, gbufferPipeline, ssaoPipeline, volPipeline, compositePipeline, volLayout, compositeLayout, particlePipeline, particleLayout, options) {
         this.canvas = canvas;
         this.device = device;
         this.context = context;
@@ -4045,6 +4632,12 @@ var init_webgpuRuntime = __esm({
         this.shadowPipeline = shadowPipeline;
         this.gbufferPipeline = gbufferPipeline;
         this.ssaoPipeline = ssaoPipeline;
+        this.volPipeline = volPipeline;
+        this.compositePipeline = compositePipeline;
+        this.volLayout = volLayout;
+        this.compositeLayout = compositeLayout;
+        this.particlePipeline = particlePipeline;
+        this.particleLayout = particleLayout;
         this.kind = "webgpu";
         /* what this backend really does, and nothing it does not */
         this.capabilities = {
@@ -4315,7 +4908,83 @@ var init_webgpuRuntime = __esm({
           depthStencil: { format: "depth32float", depthWriteEnabled: false, depthCompare: "less" },
           multisample: { count: SAMPLE_COUNT }
         });
-        const renderer = new _BerxWebGPURuntimeRenderer(canvas, device, context, format, pipeline, drawLayout, mediaLayout, labelPipeline, labelLayout, shadowPipeline, gbufferPipeline, ssaoPipeline, options);
+        const volModule = device.createShaderModule({ code: BERX_VOLUMETRIC_WGSL });
+        const volLayout = device.createBindGroupLayout({
+          entries: [
+            { binding: 0, visibility: GPUShaderStage.FRAGMENT, buffer: { type: "uniform", minBindingSize: VOL_GLOBALS_BYTES } },
+            /* nearest, not filtering: 32 dithered taps along a ray do not
+               need hardware PCF, and a filtered lookup would make the
+               result depend on a texel-weighting convention the CPU twin
+               would have to guess at */
+            { binding: 1, visibility: GPUShaderStage.FRAGMENT, sampler: { type: "comparison" } },
+            { binding: 2, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: "depth", viewDimension: "2d" } },
+            { binding: 3, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: "unfilterable-float", viewDimension: "2d" } }
+          ]
+        });
+        const volPipeline = device.createRenderPipeline({
+          layout: device.createPipelineLayout({ bindGroupLayouts: [volLayout] }),
+          vertex: { module: volModule, entryPoint: "vs_fullscreen" },
+          fragment: { module: volModule, entryPoint: "fs_volumetric", targets: [{ format: "rgba32float" }] },
+          primitive: { topology: "triangle-list" }
+        });
+        const compositeLayout = device.createBindGroupLayout({
+          entries: [
+            { binding: 0, visibility: GPUShaderStage.FRAGMENT, sampler: { type: "non-filtering" } },
+            { binding: 1, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: "unfilterable-float", viewDimension: "2d" } }
+          ]
+        });
+        const compositePipeline = device.createRenderPipeline({
+          /* group 0 is declared in the same module and must still be in the
+             layout even though this entry point does not read it */
+          layout: device.createPipelineLayout({ bindGroupLayouts: [volLayout, compositeLayout] }),
+          vertex: { module: volModule, entryPoint: "vs_fullscreen" },
+          fragment: {
+            module: volModule,
+            entryPoint: "fs_composite",
+            targets: [{
+              format,
+              /* ONE/ONE: light in the air adds to what is behind it */
+              blend: {
+                color: { srcFactor: "one", dstFactor: "one", operation: "add" },
+                alpha: { srcFactor: "one", dstFactor: "one", operation: "add" }
+              }
+            }]
+          },
+          primitive: { topology: "triangle-list" },
+          /* the world pass it joins is multisampled, and a pipeline whose
+             sample count disagrees with its attachment is rejected outright */
+          depthStencil: { format: "depth32float", depthWriteEnabled: false, depthCompare: "always" },
+          multisample: { count: SAMPLE_COUNT }
+        });
+        const particleModule = device.createShaderModule({ code: BERX_PARTICLES_WGSL });
+        const particleLayout = device.createBindGroupLayout({
+          entries: [{
+            binding: 0,
+            visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
+            buffer: { type: "uniform", hasDynamicOffset: true, minBindingSize: PARTICLE_GLOBALS_BYTES }
+          }]
+        });
+        const particlePipeline = device.createRenderPipeline({
+          layout: device.createPipelineLayout({ bindGroupLayouts: [particleLayout] }),
+          vertex: { module: particleModule, entryPoint: "vs_particles" },
+          fragment: {
+            module: particleModule,
+            entryPoint: "fs_particles",
+            targets: [{
+              format,
+              blend: {
+                /* premultiplied and additive: the shader hands back a
+                   colour that already carries its alpha */
+                color: { srcFactor: "one", dstFactor: "one", operation: "add" },
+                alpha: { srcFactor: "one", dstFactor: "one", operation: "add" }
+              }
+            }]
+          },
+          primitive: { topology: "triangle-list" },
+          depthStencil: { format: "depth32float", depthWriteEnabled: false, depthCompare: "less" },
+          multisample: { count: SAMPLE_COUNT }
+        });
+        const renderer = new _BerxWebGPURuntimeRenderer(canvas, device, context, format, pipeline, drawLayout, mediaLayout, labelPipeline, labelLayout, shadowPipeline, gbufferPipeline, ssaoPipeline, volPipeline, compositePipeline, volLayout, compositeLayout, particlePipeline, particleLayout, options);
         renderer.errors = errors;
         renderer.adapter = adapter;
         renderer.lostPromise = device.lost.then((info) => {
@@ -4413,6 +5082,12 @@ var init_webgpuRuntime = __esm({
           sampleCount: SAMPLE_COUNT,
           format: "depth32float",
           usage: GPUTextureUsage.RENDER_ATTACHMENT
+        });
+        this.volTexture?.destroy();
+        this.volTexture = this.device.createTexture({
+          size: { width, height },
+          format: "rgba32float",
+          usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_SRC
         });
         this.gbuffer = this.device.createTexture({
           size: { width: this.width, height: this.height },
@@ -4648,6 +5323,57 @@ var init_webgpuRuntime = __esm({
           aoPass.dispatchWorkgroups(Math.ceil(this.width / 8), Math.ceil(this.height / 8));
           aoPass.end();
         }
+        const volumetricOn = pass_?.volumetric !== false && ssaoOn && list.shadow && this.volTexture;
+        if (volumetricOn) {
+          if (!this.volUniform) {
+            this.volUniform = device.createBuffer({ size: VOL_GLOBALS_BYTES, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+          }
+          if (!this.volSampler) {
+            this.volSampler = device.createSampler({
+              compare: "less",
+              magFilter: "nearest",
+              minFilter: "nearest",
+              addressModeU: "clamp-to-edge",
+              addressModeV: "clamp-to-edge"
+            });
+          }
+          if (!this.volPointSampler) {
+            this.volPointSampler = device.createSampler({ magFilter: "nearest", minFilter: "nearest" });
+          }
+          const viewProj = berxMultiplyMat4(new Float32Array(list.projection), new Float32Array(list.view));
+          const volGlobals = new Float32Array(VOL_GLOBALS_BYTES / 4);
+          volGlobals.set(berxInvertMat4(viewProj), 0);
+          volGlobals.set([list.camera.x, list.camera.y, list.camera.z, 0], 16);
+          volGlobals.set([list.key.direction.x, list.key.direction.y, list.key.direction.z, 0], 20);
+          volGlobals.set([list.key.colour[0], list.key.colour[1], list.key.colour[2], list.key.intensity], 24);
+          volGlobals.set(glToWgpuDepth(list.shadow.viewProjection), 28);
+          volGlobals.set([1 / list.shadow.mapSize, list.shadow.depthBias, 0, list.shadow.strength], 44);
+          volGlobals.set(berxVolumetricUniform(), 48);
+          volGlobals.set([this.width, this.height, BERX_VOLUMETRIC_STEPS, 0], 52);
+          volGlobals.set([-list.view[2], -list.view[6], -list.view[10], 0], 56);
+          device.queue.writeBuffer(this.volUniform, 0, volGlobals);
+          const volBind = device.createBindGroup({
+            layout: this.volLayout,
+            entries: [
+              { binding: 0, resource: { buffer: this.volUniform } },
+              { binding: 1, resource: this.volSampler },
+              { binding: 2, resource: this.shadowMap.createView() },
+              { binding: 3, resource: this.gbuffer.createView() }
+            ]
+          });
+          const volPass = encoder.beginRenderPass({
+            colorAttachments: [{
+              view: this.volTexture.createView(),
+              clearValue: { r: 0, g: 0, b: 0, a: 1 },
+              loadOp: "clear",
+              storeOp: "store"
+            }]
+          });
+          volPass.setPipeline(this.volPipeline);
+          volPass.setBindGroup(0, volBind);
+          volPass.draw(3);
+          volPass.end();
+        }
         const pass = encoder.beginRenderPass({
           colorAttachments: [{
             view: this.msaa.createView(),
@@ -4677,6 +5403,58 @@ var init_webgpuRuntime = __esm({
           triangles += mesh.count / 3;
         });
         drawCalls += this.drawLabels(pass, list);
+        if (pass_?.particles !== false && list.basis && list.particles.length > 0) {
+          const stride = 256;
+          if (!this.particleUniform) {
+            this.particleUniform = device.createBuffer({
+              size: stride * BERX_PARTICLE_KINDS.length,
+              usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+            });
+            this.particleBind = device.createBindGroup({
+              layout: this.particleLayout,
+              entries: [{ binding: 0, resource: { buffer: this.particleUniform, size: PARTICLE_GLOBALS_BYTES } }]
+            });
+          }
+          list.particles.forEach((field, slot) => {
+            const globals2 = new Float32Array(PARTICLE_GLOBALS_BYTES / 4);
+            globals2.set(glToWgpuDepth(list.projection), 0);
+            globals2.set(list.view, 16);
+            globals2.set([field[12], field[13], field[14], list.worldTime], 32);
+            globals2.set([field[0], field[1], field[2], field[3]], 36);
+            globals2.set([field[4], field[5], field[6], field[7]], 40);
+            globals2.set([field[8], field[9], 0, 0], 44);
+            globals2.set([list.basis.right.x, list.basis.right.y, list.basis.right.z, 0], 48);
+            globals2.set([list.basis.up.x, list.basis.up.y, list.basis.up.z, 0], 52);
+            device.queue.writeBuffer(this.particleUniform, slot * stride, globals2);
+          });
+          pass.setPipeline(this.particlePipeline);
+          list.particles.forEach((field, slot) => {
+            pass.setBindGroup(0, this.particleBind, [slot * stride]);
+            pass.draw(field[8] * 6);
+            drawCalls++;
+          });
+        }
+        if (volumetricOn) {
+          pass.setPipeline(this.compositePipeline);
+          pass.setBindGroup(0, device.createBindGroup({
+            layout: this.volLayout,
+            entries: [
+              { binding: 0, resource: { buffer: this.volUniform } },
+              { binding: 1, resource: this.volSampler },
+              { binding: 2, resource: this.shadowMap.createView() },
+              { binding: 3, resource: this.gbuffer.createView() }
+            ]
+          }));
+          pass.setBindGroup(1, device.createBindGroup({
+            layout: this.compositeLayout,
+            entries: [
+              { binding: 0, resource: this.volPointSampler },
+              { binding: 1, resource: this.volTexture.createView() }
+            ]
+          }));
+          pass.draw(3);
+          drawCalls++;
+        }
         pass.end();
         device.queue.submit([encoder.finish()]);
         this.slots = list.actionSlots;
@@ -6477,6 +7255,8 @@ function createBerx5DWebHost(options = {}) {
   world?.setAccessibility({ reducedMotion });
   let renderer = options.renderer ?? new BerxThreeRuntimeRenderer(canvas, { textureBudget: options.textureBudget, onMediaError: options.onMediaError });
   const mediaByObject = /* @__PURE__ */ new Map();
+  let particles = options.particles !== false;
+  let volumetric = options.volumetric !== false;
   const haptics = new BerxHaptics(options.haptics === false ? void 0 : options.haptics ?? new BerxWebHaptics());
   haptics.setReducedMotion(reducedMotion);
   const pixelRatioCap = Math.max(1, options.pixelRatioCap ?? 2);
@@ -6539,7 +7319,7 @@ function createBerx5DWebHost(options = {}) {
     if (contextAlive) {
       syncQualityToLoad();
       if (world) renderer.setAffordances(world.affordances());
-      renderer.render(world ? world.frame(dt) : runtime.frame(dt), { maxObjects: quality.maxObjects, ambientMotion: quality.ambientMotion });
+      renderer.render(world ? world.frame(dt) : runtime.frame(dt), { maxObjects: quality.maxObjects, ambientMotion: quality.ambientMotion, particles, volumetric });
     } else {
       if (world) world.frame(dt);
       else runtime.frame(dt);
@@ -6805,6 +7585,12 @@ function createBerx5DWebHost(options = {}) {
         residentLabels: stats.residentLabels,
         quality: quality.quality
       };
+    },
+    setParticles: (on) => {
+      particles = on;
+    },
+    setVolumetric: (on) => {
+      volumetric = on;
     },
     world,
     ingest: (entries) => {
