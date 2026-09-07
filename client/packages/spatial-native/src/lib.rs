@@ -10,10 +10,13 @@
 //!
 //! What it does not do yet is stated rather than faked: there is no
 //! media decoder, so an item's `media` surface is not drawn; there is
-//! no text rasteriser, so labels are not drawn; and there is no shadow
-//! map, no image-based lighting and no post chain, exactly as on the
-//! web backend. `Capabilities` below reports all of that truthfully and
-//! is what the verification reads.
+//! no text rasteriser, so labels are not drawn; and there is no
+//! image-based lighting and no post chain, exactly as on the web
+//! backend. The key light DOES cast — a depth-only pass from the
+//! light's own camera, a comparison sampler and a 3x3 kernel — which
+//! this paragraph denied for one commit after the shadow pass landed.
+//! `Capabilities` below reports all of that truthfully and is what the
+//! verification reads.
 
 pub mod drawlist;
 pub mod ffi;
@@ -50,9 +53,11 @@ pub const CAPABILITIES: Capabilities = Capabilities {
     perspective: true,
     depth_buffer: true,
     physically_lit_materials: true,
-    /// The key light casts: a depth-only pass from the light's own
-    /// camera (fitted by the shared core), sampled with a comparison
-    /// sampler and a 3x3 kernel in the shared WGSL.
+    // The key light casts: a depth-only pass from the light's own
+    // camera (fitted by the shared core), sampled with a comparison
+    // sampler and a 3x3 kernel in the shared WGSL. A plain comment, not
+    // a doc comment: rustdoc does not document an expression field, so
+    // `///` here only produced an unused_doc_comments warning.
     shadows: true,
     post_processing: false,
     media_surfaces: false,

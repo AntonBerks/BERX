@@ -472,11 +472,172 @@ var init_platformTargets = __esm({
   }
 });
 
+// packages/spatial/src/transitions.ts
+function berxTransitionSpec(kind) {
+  return SPECS[kind];
+}
+function berxTransitionForTravel(reason) {
+  return REASONS[reason];
+}
+function berxTransitionModulation(kind, progress) {
+  if (!kind) return none;
+  return SPECS[kind].modulate(clamp01(progress));
+}
+function berxTransitionArcOffset(kind, easedProgress) {
+  if (!kind) return 0;
+  return SPECS[kind].arcMetres * hill(easedProgress);
+}
+var clamp01, hill, smooth, none, SPECS, REASONS, BERX_FAR_TRAVEL_METRES;
+var init_transitions = __esm({
+  "packages/spatial/src/transitions.ts"() {
+    "use strict";
+    clamp01 = (t) => t < 0 ? 0 : t > 1 ? 1 : t;
+    hill = (t) => {
+      const c = clamp01(t);
+      return 4 * c * (1 - c);
+    };
+    smooth = (t) => {
+      const c = clamp01(t);
+      return c * c * (3 - 2 * c);
+    };
+    none = { opacity: 1, emissive: 0, scale: 1, fov: 1 };
+    SPECS = Object.freeze({
+      /**
+       * Distance collapsing. The field of view opens hard while the
+       * camera accelerates, which is a real dolly-zoom: the world at the
+       * edges rushes past and the thing ahead stays put.
+       */
+      wormhole: {
+        kind: "wormhole",
+        durationSeconds: 1.5,
+        arcMetres: 0,
+        meaning: "distance collapses \u2014 for travel that crosses the world",
+        ease: (t) => 1 - Math.pow(1 - clamp01(t), 4),
+        modulate: (t) => ({ opacity: 1, emissive: 0.18 * hill(t), scale: 1, fov: 1 + 0.55 * hill(t) })
+      },
+      /**
+       * The world thins out and comes back. Nothing moves that would not
+       * have moved anyway — the only change is that surfaces stop hiding
+       * each other for a moment, which reads as passing through.
+       */
+      dissolve: {
+        kind: "dissolve",
+        durationSeconds: 1,
+        arcMetres: 0,
+        meaning: "the world thins and reforms \u2014 for arriving somewhere unrelated",
+        ease: smooth,
+        modulate: (t) => ({ opacity: 1 - 0.72 * hill(t), emissive: 0, scale: 1, fov: 1 })
+      },
+      /**
+       * The path bends over the top. A fold is the only kind that leaves
+       * the straight line by a large amount, so it is the one you can
+       * recognise from the camera path alone.
+       */
+      fold: {
+        kind: "fold",
+        durationSeconds: 1.2,
+        arcMetres: 3.4,
+        meaning: "space folds over \u2014 for moving between two things side by side",
+        ease: smooth,
+        modulate: (t) => ({ opacity: 1 - 0.2 * hill(t), emissive: 0, scale: 1, fov: 1 - 0.12 * hill(t) })
+      },
+      /** Fast and hard. The shortest of the moving kinds. */
+      warp: {
+        kind: "warp",
+        durationSeconds: 0.8,
+        arcMetres: 0.6,
+        meaning: "a hard jump \u2014 for a deliberate, known destination",
+        ease: (t) => {
+          const c = clamp01(t);
+          return c < 0.5 ? 4 * c * c * c : 1 - Math.pow(-2 * c + 2, 3) / 2;
+        },
+        modulate: (t) => ({ opacity: 1, emissive: 0.1 * hill(t), scale: 1 + 0.08 * hill(t), fov: 1 + 0.3 * hill(t) })
+      },
+      /**
+       * Not a move: a cut, with a flash that decays after it.
+       *
+       * The camera is already there at 5% of a very short duration. The
+       * flash is what makes it legible as a jump rather than as a
+       * dropped frame — a cut with no acknowledgement is indistinguishable
+       * from a bug.
+       */
+      teleport: {
+        /* The one kind that is NOT the identity at t=0: the flash is the
+           cut itself, and a cut acknowledged one frame late reads as a
+           glitch. Every kind is the identity at t=1, including this one. */
+        kind: "teleport",
+        durationSeconds: 0.28,
+        arcMetres: 0,
+        meaning: "a cut, acknowledged \u2014 for returning somewhere already known",
+        ease: (t) => clamp01(t) < 0.05 ? 0 : 1,
+        modulate: (t) => ({ opacity: 1, emissive: 0.5 * Math.pow(1 - clamp01(t), 2), scale: 1, fov: 1 })
+      },
+      /**
+       * The slowest. Pacing is most of it — but not all of it, and the
+       * distinction matters: an effect whose only difference is duration
+       * looks identical in any single frame, which means it is a name
+       * rather than a thing. So flow also breathes the field of view
+       * open by a few degrees and lets it settle, which is what an
+       * unhurried move through time looks like from inside it. Small on
+       * purpose: this is the one that must never announce itself.
+       */
+      flow: {
+        kind: "flow",
+        durationSeconds: 2,
+        arcMetres: 1.2,
+        meaning: "unhurried travel \u2014 for moving through time, not space",
+        ease: (t) => {
+          const c = clamp01(t);
+          return c < 0.5 ? 2 * c * c : 1 - Math.pow(-2 * c + 2, 2) / 2;
+        },
+        modulate: (t) => ({ opacity: 1, emissive: 0, scale: 1, fov: 1 + 0.07 * hill(t) })
+      },
+      /** Light first, movement second — for arriving at something alive. */
+      bloom: {
+        kind: "bloom",
+        durationSeconds: 0.9,
+        arcMetres: 0.4,
+        meaning: "light swells \u2014 for arriving at something happening now",
+        ease: smooth,
+        modulate: (t) => ({ opacity: 1, emissive: 0.42 * hill(t), scale: 1 + 0.06 * hill(t), fov: 1 })
+      },
+      /** Everything draws in toward the destination, then releases. */
+      collapse: {
+        kind: "collapse",
+        durationSeconds: 0.7,
+        arcMetres: 0,
+        meaning: "the world draws in \u2014 for going back, or closing something",
+        ease: (t) => clamp01(t) * clamp01(t),
+        modulate: (t) => ({ opacity: 1, emissive: 0, scale: 1 - 0.22 * hill(t), fov: 1 - 0.18 * hill(t) })
+      }
+    });
+    REASONS = Object.freeze({
+      /* the ordinary case: somewhere else in the world you can see */
+      travel: "warp",
+      /* far enough that the world between is worth showing collapsing */
+      "travel-far": "wormhole",
+      back: "collapse",
+      /* focusing is not travelling; it is the gentlest thing there is */
+      focus: "flow",
+      /* something is happening NOW — the one place light leads */
+      live: "bloom",
+      /* moving along T rather than through XYZ */
+      time: "flow",
+      /* a different kind of place entirely */
+      region: "dissolve",
+      /* somewhere already known: no ceremony, just an acknowledged cut */
+      return: "teleport"
+    });
+    BERX_FAR_TRAVEL_METRES = 14;
+  }
+});
+
 // packages/spatial/src/spatialCamera.ts
 var clamp2, lerp, copy, smoothstep, BerxSpatialCamera, BerxCameraTransition;
 var init_spatialCamera = __esm({
   "packages/spatial/src/spatialCamera.ts"() {
     "use strict";
+    init_transitions();
     clamp2 = (v, min, max) => Math.max(min, Math.min(max, v));
     lerp = (a, b, t) => a + (b - a) * t;
     copy = (v) => ({ x: v.x, y: v.y, z: v.z });
@@ -546,24 +707,31 @@ var init_spatialCamera = __esm({
         const radius = Math.max(scale.x, scale.y, scale.z, framingRadius, 0.5), d = distance2 ?? Math.max(2.4, radius * 3.2);
         return { position: { x: position.x, y: position.y, z: position.z + d }, target: copy(position) };
       }
-      moveToPose(pose, durationSeconds = 0.65) {
-        return new BerxCameraTransition(this.getState(), pose, durationSeconds);
+      moveToPose(pose, durationSeconds = 0.65, kind) {
+        return new BerxCameraTransition(this.getState(), pose, durationSeconds, kind);
       }
       moveTo(target, durationSeconds = 0.65) {
         return this.moveToPose(this.poseForObject(target), durationSeconds);
       }
     };
     BerxCameraTransition = class {
-      constructor(start, destination, duration) {
+      constructor(start, destination, duration, kind) {
         this.start = start;
         this.destination = destination;
         this.elapsed = 0;
         this.duration = Math.max(1e-3, duration);
+        this.spec = kind ? berxTransitionSpec(kind) : void 0;
+      }
+      /** The eased progress this frame — what the arc and the modulation read. */
+      get progress() {
+        return Math.min(1, this.elapsed / this.duration);
       }
       step(deltaSeconds) {
         this.elapsed = Math.min(this.duration, this.elapsed + Math.max(0, deltaSeconds));
-        const t = smoothstep(this.elapsed / this.duration);
-        return { position: { x: lerp(this.start.position.x, this.destination.position.x, t), y: lerp(this.start.position.y, this.destination.position.y, t), z: lerp(this.start.position.z, this.destination.position.z, t) }, target: { x: lerp(this.start.target.x, this.destination.target.x, t), y: lerp(this.start.target.y, this.destination.target.y, t), z: lerp(this.start.target.z, this.destination.target.z, t) }, rotation: { x: lerp(this.start.rotation.x, 0, t), y: lerp(this.start.rotation.y, 0, t), z: lerp(this.start.rotation.z, 0, t) }, fov: this.start.fov, near: this.start.near, far: this.start.far };
+        const raw = this.elapsed / this.duration;
+        const t = this.spec ? this.spec.ease(raw) : smoothstep(raw);
+        const lift = this.spec ? berxTransitionArcOffset(this.spec.kind, raw) : 0;
+        return { position: { x: lerp(this.start.position.x, this.destination.position.x, t), y: lerp(this.start.position.y, this.destination.position.y, t) + lift, z: lerp(this.start.position.z, this.destination.position.z, t) }, target: { x: lerp(this.start.target.x, this.destination.target.x, t), y: lerp(this.start.target.y, this.destination.target.y, t), z: lerp(this.start.target.z, this.destination.target.z, t) }, rotation: { x: lerp(this.start.rotation.x, 0, t), y: lerp(this.start.rotation.y, 0, t), z: lerp(this.start.rotation.z, 0, t) }, fov: this.start.fov, near: this.start.near, far: this.start.far };
       }
       get done() {
         return this.elapsed >= this.duration;
@@ -668,6 +836,7 @@ var init_runtime5d = __esm({
     "use strict";
     init_spatialCamera();
     init_world();
+    init_transitions();
     cloneCamera = (c) => ({ position: { ...c.position }, target: { ...c.target }, rotation: { ...c.rotation }, fov: c.fov, near: c.near, far: c.far });
     cloneWorld = (w) => ({ ...w, camera: cloneCamera(w.camera) });
     Berx5DRuntime = class {
@@ -679,6 +848,16 @@ var init_runtime5d = __esm({
         this.deviceMotionEnabled = options.deviceMotionEnabled !== false;
         this.transitionDuration = Math.max(0.01, options.transitionDuration ?? 0.65);
         this.currentWorld = { id: "root", enteredAt: Date.now(), camera: this.camera.getState() };
+      }
+      /**
+       * How long a transition takes. Its KIND decides — pacing is half of
+       * what makes eight effects distinguishable — except under reduced
+       * motion, where everything is effectively instant, which is what
+       * reduced motion means.
+       */
+      durationFor(kind) {
+        if (this.reducedMotion) return 0.01;
+        return kind ? berxTransitionSpec(kind).durationSeconds : this.transitionDuration;
       }
       get worldState() {
         return { ...this.currentWorld, camera: this.camera.getState() };
@@ -717,39 +896,40 @@ var init_runtime5d = __esm({
        * application knows what a thing affords and passes it; a bare
        * runtime has no affordances and passes nothing.
        */
-      focus(objectId, framingRadius = 0) {
+      focus(objectId, framingRadius = 0, kind) {
         const object = this.world.getObject(objectId);
         if (!object) return false;
         this.world.setActiveObject(objectId);
         this.currentWorld.focusObjectId = objectId;
         const pose = this.camera.poseForObject(object.transform.position, object.transform.scale, void 0, framingRadius);
-        this.beginCameraTransition(pose, this.reducedMotion ? 0.01 : this.transitionDuration);
+        this.beginCameraTransition(pose, this.durationFor(kind), this.currentWorld, this.reducedMotion ? void 0 : kind);
         return true;
       }
-      beginCameraTransition(pose, duration, toWorld = this.currentWorld) {
+      beginCameraTransition(pose, duration, toWorld = this.currentWorld, kind) {
         const fromCamera = this.camera.getState();
-        this.cameraTransition = this.camera.moveToPose(pose, duration);
-        this.transition = { fromWorld: cloneWorld(this.currentWorld), toWorld: cloneWorld(toWorld), fromCamera, destination: { ...pose.position }, progress: 0, duration: Math.max(1e-3, duration) };
+        this.cameraTransition = this.camera.moveToPose(pose, duration, kind);
+        this.transition = { fromWorld: cloneWorld(this.currentWorld), toWorld: cloneWorld(toWorld), fromCamera, destination: { ...pose.position }, progress: 0, duration: Math.max(1e-3, duration), kind };
       }
-      enterWorld(world, destination) {
+      enterWorld(world, destination, kind) {
         const previous = cloneWorld({ ...this.currentWorld, camera: this.camera.getState() });
         this.history.push(previous);
         this.currentWorld = { ...world, enteredAt: Date.now(), camera: this.camera.getState() };
         const object = destination ? void 0 : this.world.getActiveObject();
         const focus = destination ?? object?.transform.position ?? { x: 0, y: 0, z: 0 };
         const pose = object ? this.camera.poseForObject(object.transform.position, object.transform.scale) : this.camera.poseForObject(focus);
-        this.beginCameraTransition(pose, this.reducedMotion ? 0.01 : this.transitionDuration, this.currentWorld);
+        this.beginCameraTransition(pose, this.durationFor(kind), this.currentWorld, this.reducedMotion ? void 0 : kind);
       }
-      back() {
+      back(kind) {
         const previous = this.history.pop();
         if (!previous) return false;
         const from = cloneWorld({ ...this.currentWorld, camera: this.camera.getState() });
         this.currentWorld = cloneWorld(previous);
         this.world.setActiveObject(previous.focusObjectId);
         const pose = { position: cloneCamera(previous.camera).position, target: cloneCamera(previous.camera).target };
-        const duration = this.reducedMotion ? 0.01 : this.transitionDuration;
-        this.cameraTransition = this.camera.moveToPose(pose, duration);
-        this.transition = { fromWorld: from, toWorld: cloneWorld(previous), fromCamera: this.camera.getState(), destination: { ...pose.position }, progress: 0, duration: Math.max(1e-3, duration) };
+        const duration = this.durationFor(kind);
+        const effect = this.reducedMotion ? void 0 : kind;
+        this.cameraTransition = this.camera.moveToPose(pose, duration, effect);
+        this.transition = { fromWorld: from, toWorld: cloneWorld(previous), fromCamera: this.camera.getState(), destination: { ...pose.position }, progress: 0, duration: Math.max(1e-3, duration), kind: effect };
         return true;
       }
       input(input) {
@@ -1070,6 +1250,7 @@ var init_worldApp = __esm({
     init_relational();
     init_proximity();
     init_spatialAffordances();
+    init_transitions();
     init_actionRing();
     init_xrPose();
     BERX_PERSISTENCE_VERSION = 1;
@@ -1196,9 +1377,15 @@ var init_worldApp = __esm({
         const object = this.runtime.world.getObject(objectId);
         if (!object) return false;
         const target = region ?? regionForKind(object.kind);
+        const from = this.runtime.camera.getState().position;
+        const to = object.transform.position;
+        const metres = Math.hypot(to.x - from.x, to.y - from.y, to.z - from.z);
+        const visited = this.history.some((at) => at.focusId === objectId);
+        const reason = visited ? "return" : target !== this.position.region ? "region" : metres > BERX_FAR_TRAVEL_METRES ? "travel-far" : "travel";
+        const kind = berxTransitionForTravel(reason);
         this.history.push(this.worldPosition);
-        this.runtime.enterWorld({ id: `${target}:${objectId}`, focusObjectId: objectId, enteredAt: Date.now() }, object.transform.position);
-        this.runtime.focus(objectId, berxActionRingRadius(object, this.affordancesFor(object)));
+        this.runtime.enterWorld({ id: `${target}:${objectId}`, focusObjectId: objectId, enteredAt: Date.now() }, object.transform.position, kind);
+        this.runtime.focus(objectId, berxActionRingRadius(object, this.affordancesFor(object)), kind);
         this.position = { ...this.position, region: target, focusId: objectId };
         this.options.onPositionChange?.(this.worldPosition);
         return true;
@@ -1234,7 +1421,7 @@ var init_worldApp = __esm({
       /** Travel to a region without a particular entity in it. */
       enterRegion(region) {
         this.history.push(this.worldPosition);
-        this.runtime.enterWorld({ id: region, enteredAt: Date.now() });
+        this.runtime.enterWorld({ id: region, enteredAt: Date.now() }, void 0, berxTransitionForTravel("region"));
         this.position = { ...this.position, region, focusId: void 0 };
         this.options.onPositionChange?.(this.worldPosition);
       }
@@ -1245,7 +1432,7 @@ var init_worldApp = __esm({
        */
       back() {
         const previous = this.history.pop();
-        if (!this.runtime.back()) return false;
+        if (!this.runtime.back(berxTransitionForTravel("back"))) return false;
         if (previous) {
           this.position = previous;
           this.options.onPositionChange?.(this.worldPosition);
@@ -1332,7 +1519,7 @@ var init_worldApp = __esm({
        */
       focus(objectId) {
         const object = this.runtime.world.getObject(objectId);
-        const ok = this.runtime.focus(objectId, berxActionRingRadius(object, this.affordancesFor(object)));
+        const ok = this.runtime.focus(objectId, berxActionRingRadius(object, this.affordancesFor(object)), berxTransitionForTravel("focus"));
         if (ok) {
           this.position = { ...this.position, focusId: objectId };
           this.options.onPositionChange?.(this.worldPosition);
@@ -1681,6 +1868,95 @@ var init_spatialPresentation = __esm({
   }
 });
 
+// packages/spatial/src/shadowMap.ts
+function berxShadowCamera(casters, lightDirection, mapSize = BERX_SHADOW_MAP_SIZE) {
+  if (casters.length === 0) return void 0;
+  const bounds = {
+    min: { x: Infinity, y: Infinity, z: Infinity },
+    max: { x: -Infinity, y: -Infinity, z: -Infinity }
+  };
+  for (const c of casters) {
+    bounds.min.x = Math.min(bounds.min.x, c.position.x - c.radius);
+    bounds.min.y = Math.min(bounds.min.y, c.position.y - c.radius);
+    bounds.min.z = Math.min(bounds.min.z, c.position.z - c.radius);
+    bounds.max.x = Math.max(bounds.max.x, c.position.x + c.radius);
+    bounds.max.y = Math.max(bounds.max.y, c.position.y + c.radius);
+    bounds.max.z = Math.max(bounds.max.z, c.position.z + c.radius);
+  }
+  const centre = {
+    x: (bounds.min.x + bounds.max.x) * 0.5,
+    y: (bounds.min.y + bounds.max.y) * 0.5,
+    z: (bounds.min.z + bounds.max.z) * 0.5
+  };
+  const radius = Math.max(
+    0.5,
+    Math.hypot(bounds.max.x - centre.x, bounds.max.y - centre.y, bounds.max.z - centre.z)
+  );
+  const length = Math.hypot(lightDirection.x, lightDirection.y, lightDirection.z) || 1;
+  const dir = { x: lightDirection.x / length, y: lightDirection.y / length, z: lightDirection.z / length };
+  const back = radius * 2;
+  const texelWorldSize = radius * 2 / mapSize;
+  const basis = berxLookAt(dir, { x: 0, y: 0, z: 0 });
+  const toLight = (v) => ({
+    x: basis[0] * v.x + basis[4] * v.y + basis[8] * v.z,
+    y: basis[1] * v.x + basis[5] * v.y + basis[9] * v.z,
+    z: basis[2] * v.x + basis[6] * v.y + basis[10] * v.z
+  });
+  const toWorld = (v) => ({
+    x: basis[0] * v.x + basis[1] * v.y + basis[2] * v.z,
+    y: basis[4] * v.x + basis[5] * v.y + basis[6] * v.z,
+    z: basis[8] * v.x + basis[9] * v.y + basis[10] * v.z
+  });
+  const inLight = toLight(centre);
+  const snapped = toWorld({
+    x: Math.round(inLight.x / texelWorldSize) * texelWorldSize,
+    y: Math.round(inLight.y / texelWorldSize) * texelWorldSize,
+    z: inLight.z
+  });
+  const eye = { x: snapped.x + dir.x * back, y: snapped.y + dir.y * back, z: snapped.z + dir.z * back };
+  const view = berxLookAt(eye, snapped);
+  const near = 0.01;
+  const far = back + radius * 2;
+  const projection = berxOrthographic(-radius, radius, -radius, radius, near, far);
+  return {
+    view: Array.from(view),
+    projection: Array.from(projection),
+    viewProjection: Array.from(berxMultiplyMat4(projection, view)),
+    texelWorldSize,
+    /* Scaled by the texel, so it is correct at any box size rather
+       than tuned for one scene. The constants are the smallest that
+       remove acne on a 2048 map at this world scale, measured on the
+       real render rather than guessed. */
+    depthBias: Math.max(1e-4, texelWorldSize * 1.5),
+    normalBias: texelWorldSize * 1.4,
+    mapSize,
+    strength: BERX_SHADOW_STRENGTH
+  };
+}
+function berxOrthographic(left, right, bottom, top, near, far) {
+  const m = new Float32Array(16);
+  const w = right - left || 1;
+  const h = top - bottom || 1;
+  const d = far - near || 1;
+  m[0] = 2 / w;
+  m[5] = 2 / h;
+  m[10] = -2 / d;
+  m[12] = -(right + left) / w;
+  m[13] = -(top + bottom) / h;
+  m[14] = -(far + near) / d;
+  m[15] = 1;
+  return m;
+}
+var BERX_SHADOW_MAP_SIZE, BERX_SHADOW_STRENGTH;
+var init_shadowMap = __esm({
+  "packages/spatial/src/shadowMap.ts"() {
+    "use strict";
+    init_frustum();
+    BERX_SHADOW_MAP_SIZE = 2048;
+    BERX_SHADOW_STRENGTH = 1;
+  }
+});
+
 // packages/spatial/src/drawList.ts
 function berxEyeCamera(camera, ipd, sign) {
   const basis = cameraBasis(camera);
@@ -1704,7 +1980,8 @@ function berxBuildDrawList(frame, options) {
   const c = frame.camera;
   const width = Math.max(1, Math.floor(options.width));
   const height = Math.max(1, Math.floor(options.height));
-  const projection = berxPerspective(c.fov, width / height, c.near, c.far);
+  const modulation = berxTransitionModulation(frame.transition?.kind, frame.transition?.progress ?? 0);
+  const projection = berxPerspective(c.fov * modulation.fov, width / height, c.near, c.far);
   const view = berxLookAt(c.position, c.target);
   const planes = berxFrustumPlanes(berxMultiplyMat4(projection, view));
   const all = frame.world.objects.filter((o) => o.visible);
@@ -1739,20 +2016,28 @@ function berxBuildDrawList(frame, options) {
       kind: o.kind,
       primitive: spec.kind,
       lod,
-      model: modelMatrix(o.transform.position, o.transform.scale, o.transform.rotation),
+      /* The transition's own scale is folded into the model matrix
+         here rather than into the object, so a transition never
+         mutates the world: the same world, mid-collapse, is still
+         the world it was when the transition ends. */
+      model: modelMatrix(
+        o.transform.position,
+        modulation.scale === 1 ? o.transform.scale : { x: o.transform.scale.x * modulation.scale, y: o.transform.scale.y * modulation.scale, z: o.transform.scale.z * modulation.scale },
+        o.transform.rotation
+      ),
       base: [...presentation.base],
       /* the palette decides the colour; the material decides how the
          surface behaves. Neither is guessed from the other. */
       emissive: [
-        presentation.emissive[0] + material.emission[0] * o.energy,
-        presentation.emissive[1] + material.emission[1] * o.energy,
-        presentation.emissive[2] + material.emission[2] * o.energy
+        presentation.emissive[0] + material.emission[0] * o.energy + modulation.emissive,
+        presentation.emissive[1] + material.emission[1] * o.energy + modulation.emissive,
+        presentation.emissive[2] + material.emission[2] * o.energy + modulation.emissive
       ],
       /* the object's own state is authoritative: a screen may have
          changed a value since the named material was resolved */
       metalness: o.material.metalness,
       roughness: o.material.roughness,
-      opacity: o.material.opacity,
+      opacity: o.material.opacity * modulation.opacity,
       transmission: o.material.transmission,
       pointLights: berxResolvePointLights(litWorld, o.transform.position),
       media: options.mediaFor?.(o.id),
@@ -1779,7 +2064,9 @@ function berxBuildDrawList(frame, options) {
           z: o.transform.position.z + basis.up.z * above
         },
         halfHeight,
-        alpha: fade * o.material.opacity,
+        /* names thin out with the world they belong to, or a
+           dissolve would leave a field of floating text */
+        alpha: fade * o.material.opacity * modulation.opacity,
         distance: distance2
       });
     }
@@ -1808,6 +2095,17 @@ function berxBuildDrawList(frame, options) {
       c,
       options.affordances ?? []
     ),
+    /**
+     * Everything drawn casts and receives. Not a per-object flag:
+     * a world where some things cast shadows and others do not is a
+     * world where a viewer learns the rendering rather than the
+     * place. The cost is bounded by the same budget the main pass
+     * already has, since it is the same list.
+     */
+    shadow: options.shadows === false ? void 0 : berxShadowCamera(
+      drawn.map((o) => ({ position: o.transform.position, radius: radiusOf(o) })),
+      lighting.key.direction
+    ),
     basis: basis ? { right: { ...basis.right }, up: { ...basis.up } } : void 0,
     stats: {
       visible: all.length,
@@ -1828,6 +2126,8 @@ var init_drawList = __esm({
     init_spatialPresentation();
     init_worldMaterials();
     init_worldLighting();
+    init_transitions();
+    init_shadowMap();
     BERX_LOD_DISTANCE = 18;
     BERX_WORLD_CLEAR = [7 / 255, 8 / 255, 10 / 255];
     BERX_LABEL_HEIGHT = 0.34;
@@ -1883,6 +2183,81 @@ var init_mediaSurface = __esm({
   }
 });
 
+// packages/spatial/src/haptics.ts
+function berxHapticWaveform(pattern, intensity = 1) {
+  const scale = Math.max(0, Math.min(1, intensity));
+  if (scale === 0) return [];
+  return BERX_HAPTICS[pattern].waveform.map((ms) => Math.max(1, Math.round(ms * scale)));
+}
+function berxHapticDuration(pattern, intensity = 1) {
+  return berxHapticWaveform(pattern, intensity).reduce((total, ms) => total + ms, 0);
+}
+function berxHapticForMoment(moment) {
+  return MOMENTS[moment];
+}
+var BERX_HAPTICS, BERX_HAPTIC_PATTERNS, MOMENTS, BerxHaptics;
+var init_haptics = __esm({
+  "packages/spatial/src/haptics.ts"() {
+    "use strict";
+    BERX_HAPTICS = Object.freeze({
+      /** The lightest thing the hardware can do: something was chosen. */
+      selection: { waveform: [10], ios: "light", meaning: "a thing was selected" },
+      /** Slightly firmer: the camera has arrived and something is held. */
+      focus: { waveform: [16], ios: "medium", meaning: "the world focused on something" },
+      /** A departure and an arrival, which is what a travel is. */
+      transition: { waveform: [28, 22, 48], ios: "heavy", meaning: "the viewer travelled somewhere" },
+      /** Two taps and a longer settle — read as "done" without a sound. */
+      success: { waveform: [18, 14, 18, 14, 56], ios: "success", meaning: "something completed" },
+      /** Two long, blunt pulses. Deliberately unpleasant. */
+      error: { waveform: [78, 48, 78], ios: "error", meaning: "something was refused or failed" }
+    });
+    BERX_HAPTIC_PATTERNS = Object.keys(BERX_HAPTICS);
+    MOMENTS = Object.freeze({
+      select: "selection",
+      focus: "focus",
+      /* Letting go is not an event the hand needs told about; a buzz for
+         every blur is what makes a device feel noisy rather than alive. */
+      blur: void 0,
+      travel: "transition",
+      arrive: "focus",
+      back: "transition",
+      "action-ok": "success",
+      "action-refused": "error"
+    });
+    BerxHaptics = class {
+      constructor(backend, now = () => Date.now()) {
+        this.muted = false;
+        this.busyUntil = 0;
+        this.backend = backend;
+        this.now = now;
+      }
+      setBackend(backend) {
+        this.backend = backend;
+      }
+      /** Reduced motion silences haptics too — same accessibility signal. */
+      setReducedMotion(reduced) {
+        this.muted = reduced;
+      }
+      get available() {
+        return this.backend !== void 0 && !this.muted;
+      }
+      play(pattern, intensity = 1) {
+        if (!this.backend || this.muted) return false;
+        const at = this.now();
+        if (at < this.busyUntil) return false;
+        const played = this.backend.play(pattern, intensity);
+        if (played) this.busyUntil = at + berxHapticDuration(pattern, intensity);
+        return played;
+      }
+      /** What the world did, rather than what the motor should do. */
+      moment(moment, intensity = 1) {
+        const pattern = berxHapticForMoment(moment);
+        return pattern ? this.play(pattern, intensity) : false;
+      }
+    };
+  }
+});
+
 // packages/spatial/src/index.ts
 var init_src = __esm({
   "packages/spatial/src/index.ts"() {
@@ -1923,6 +2298,9 @@ var init_src = __esm({
     init_geometry();
     init_spatialPresentation();
     init_mediaSurface();
+    init_haptics();
+    init_transitions();
+    init_shadowMap();
   }
 });
 
@@ -2337,7 +2715,7 @@ function meshFor(kind, lod) {
       return createSphere(0.58, far ? 11 : 28, far ? 7 : 18);
   }
 }
-var V, F, TV, TF, BerxThreeRuntimeRenderer;
+var V, SV, SF, F, TV, TF, BerxThreeRuntimeRenderer;
 var init_threeRuntime = __esm({
   "packages/spatial-web/src/threeRuntime.ts"() {
     "use strict";
@@ -2347,6 +2725,10 @@ var init_threeRuntime = __esm({
     init_spatialText();
     V = `#version 300 es
 precision highp float;layout(location=0)in vec3 p;layout(location=1)in vec3 n;uniform mat4 P,V,M;out vec3 N,W,L,LN;void main(){vec4 w=M*vec4(p,1.);W=w.xyz;N=mat3(M)*n;L=p;LN=n;gl_Position=P*V*w;}`;
+    SV = `#version 300 es
+precision highp float;layout(location=0)in vec3 p;uniform mat4 LVP,M;void main(){gl_Position=LVP*M*vec4(p,1.);}`;
+    SF = `#version 300 es
+precision highp float;void main(){}`;
     F = `#version 300 es
 precision highp float;
 in vec3 N,W,L,LN;
@@ -2361,6 +2743,18 @@ uniform vec3 BASE, EMIT;
 uniform float MET, ROUGH, OPAC, TRANS, HT;
 uniform vec4 TS;
 uniform sampler2D TEX;
+// The light's own view-projection, from the shared core.
+uniform mat4 LVP;
+// x = 1/mapSize, y = depth bias, z = normal bias, w = strength (0 = off)
+uniform vec4 SHADOW;
+/**
+ * A shadow sampler, not a plain sampler2D: the hardware does the depth
+ * test per sample and averages the RESULTS, which is what makes a 3x3
+ * tap a soft edge instead of four hard ones. Sampling depth and
+ * comparing afterwards would average DEPTHS, and an averaged depth is a
+ * surface that exists nowhere.
+ */
+uniform highp sampler2DShadow SHADOW_MAP;
 out vec4 C;
 
 const float PI = 3.14159265359;
@@ -2393,6 +2787,36 @@ vec3 shade(vec3 n, vec3 v, vec3 l, vec3 radiance, vec3 diffuseColor, vec3 f0, fl
   return (diff+spec)*radiance*NoL;
 }
 
+/**
+ * How much of the key light reaches this point. 1 is full light.
+ *
+ * The same maths as the WGSL source, with the two conventions that
+ * genuinely differ between the APIs written out rather than hidden:
+ * GL clip space runs z from -1 to 1 (WGSL runs 0 to 1), and GL texture
+ * space has its origin at the bottom (WGSL at the top). Everything else
+ * \u2014 the normal offset, the slope scale, the 3x3 kernel and the fact
+ * that only the KEY is shadowed \u2014 is identical.
+ */
+float keyVisibility(vec3 world, vec3 n, float NoL){
+  if(SHADOW.w<=0.) return 1.;
+  float slope=clamp(1.-NoL,0.,1.);
+  vec3 offset=world+n*(SHADOW.z*(1.+slope*2.));
+  vec4 lc=LVP*vec4(offset,1.);
+  vec3 ndc=lc.xyz/max(lc.w,1e-6);
+  if(ndc.x<-1.||ndc.x>1.||ndc.y<-1.||ndc.y>1.||ndc.z>1.) return 1.;
+  // GL: -1..1 to 0..1 for both the texture coordinate and the depth
+  vec2 uv=ndc.xy*.5+.5;
+  float depth=ndc.z*.5+.5-SHADOW.y;
+  float sum=0.;
+  for(int y=-1;y<=1;y++){
+    for(int x=-1;x<=1;x++){
+      vec2 tap=uv+vec2(float(x),float(y))*SHADOW.x;
+      sum+=texture(SHADOW_MAP,vec3(tap,depth));
+    }
+  }
+  return mix(1.,sum/9.,SHADOW.w);
+}
+
 void main(){
   vec3 base=BASE;
   // media is a planar projection onto the face that points at you
@@ -2408,7 +2832,11 @@ void main(){
   vec3 diffuseColor=base*(1.-MET);
   vec3 f0=mix(vec3(.04),base,MET);
 
-  vec3 lit=shade(n,v,normalize(KEY_DIR),KEY_COL*KEY_I,diffuseColor,f0,a);
+  vec3 keyL=normalize(KEY_DIR);
+  // The key alone is shadowed. Ambient and the point lights are not: a
+  // surface out of the sun still receives the room.
+  float visibility=keyVisibility(W,n,max(dot(n,keyL),0.));
+  vec3 lit=shade(n,v,keyL,KEY_COL*KEY_I,diffuseColor,f0,a)*visibility;
   for(int i=0;i<4;i++){
     if(i>=PL_N) break;
     vec3 d=PL_POS[i]-W;
@@ -2437,8 +2865,9 @@ precision highp float;in vec2 T;uniform sampler2D TEX;uniform float A;out vec4 C
       constructor(canvas, options = {}) {
         this.kind = "webgl2";
         /* what this backend really does, and nothing it does not */
-        this.capabilities = { perspective: true, depthBuffer: true, physicallyLitMaterials: true, shadows: false, postProcessing: false };
+        this.capabilities = { perspective: true, depthBuffer: true, physicallyLitMaterials: true, shadows: true, postProcessing: false };
         this.meshes = /* @__PURE__ */ new Map();
+        this.shadowSize = 0;
         /** objectId -> the one media URI drawn on its face */
         this.media = /* @__PURE__ */ new Map();
         this.width = 1;
@@ -2483,6 +2912,12 @@ precision highp float;in vec2 T;uniform sampler2D TEX;uniform float A;out vec4 C
         this.HT = gl.getUniformLocation(this.program, "HT");
         this.TS = gl.getUniformLocation(this.program, "TS");
         this.TEX = gl.getUniformLocation(this.program, "TEX");
+        this.LVP = gl.getUniformLocation(this.program, "LVP");
+        this.SHADOW = gl.getUniformLocation(this.program, "SHADOW");
+        this.SHADOW_MAP = gl.getUniformLocation(this.program, "SHADOW_MAP");
+        this.shadowProgram = program(gl, SV, SF);
+        this.SLVP = gl.getUniformLocation(this.shadowProgram, "LVP");
+        this.SM = gl.getUniformLocation(this.shadowProgram, "M");
         this.textures = new BerxMediaTextureCache(gl, { budget: options.textureBudget, onError: options.onMediaError });
         this.labels = new BerxSpatialTextAtlas(gl, { budget: options.labelBudget });
         this.labelProgram = program(gl, TV, TF);
@@ -2532,24 +2967,14 @@ precision highp float;in vec2 T;uniform sampler2D TEX;uniform float A;out vec4 C
       render(frame, options = {}) {
         const gl = this.gl;
         if (options.stereo) {
-          const basis = cameraBasis(frame.camera);
           const half = Math.max(1, Math.floor(this.width / 2));
-          const shift = (sign) => {
-            if (!basis) return frame;
-            const o = options.stereo.ipd * 0.5 * sign;
-            return { ...frame, camera: {
-              ...frame.camera,
-              position: { x: frame.camera.position.x + basis.right.x * o, y: frame.camera.position.y + basis.right.y * o, z: frame.camera.position.z + basis.right.z * o },
-              target: { x: frame.camera.target.x + basis.right.x * o, y: frame.camera.target.y + basis.right.y * o, z: frame.camera.target.z + basis.right.z * o }
-            } };
-          };
+          const shift = (sign) => ({ ...frame, camera: berxEyeCamera(frame.camera, options.stereo.ipd, sign) });
           gl.viewport(0, 0, this.width, this.height);
           gl.clearColor(BERX_WORLD_CLEAR[0], BERX_WORLD_CLEAR[1], BERX_WORLD_CLEAR[2], 1);
           gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
           let calls = 0, tris = 0, lod = 0, frustum = 0, budget = 0, visibleCount = 0;
           for (const [index, eye] of [shift(-1), shift(1)].entries()) {
-            gl.viewport(index * half, 0, half, this.height);
-            this.drawEye(eye, options, half, this.height, false);
+            this.drawEye(eye, options, half, this.height, false, index * half);
             calls += this.stats.drawCalls;
             tris += this.stats.triangles;
             lod += this.stats.lodReduced;
@@ -2564,7 +2989,17 @@ precision highp float;in vec2 T;uniform sampler2D TEX;uniform float A;out vec4 C
         gl.viewport(0, 0, this.width, this.height);
         this.drawEye(frame, options, this.width, this.height, true);
       }
-      drawEye(frame, options, width, height, clear) {
+      /**
+      * Draw one eye into a viewport starting at `originX`.
+      *
+      * REAL BUG THIS FIXES: this used to set `gl.viewport(0,0,width,height)`
+      * unconditionally, which threw away the x offset the stereo loop had
+      * just set — so BOTH eyes drew into the left half and the right half of
+      * a stereo frame was empty. It cannot simply leave the viewport alone
+      * either, because renderShadowMap below re-points it at the shadow map;
+      * the origin has to travel with the call.
+      */
+      drawEye(frame, options, width, height, clear, originX = 0) {
         const gl = this.gl;
         gl.useProgram(this.program);
         const list = berxBuildDrawList(frame, {
@@ -2572,14 +3007,31 @@ precision highp float;in vec2 T;uniform sampler2D TEX;uniform float A;out vec4 C
           height,
           maxObjects: options.maxObjects,
           ambientMotion: options.ambientMotion,
+          shadows: options.shadows,
           lighting: this.lighting,
           mediaFor: (id) => this.media.get(id),
           affordances: this.affordances
         });
+        this.renderShadowMap(list);
+        gl.useProgram(this.program);
+        gl.viewport(originX, 0, width, height);
         if (clear) {
           gl.clearColor(list.clearColor[0], list.clearColor[1], list.clearColor[2], 1);
           gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
         }
+        if (list.shadow && this.shadowTexture) {
+          gl.uniformMatrix4fv(this.LVP, false, new Float32Array(list.shadow.viewProjection));
+          gl.uniform4f(this.SHADOW, 1 / list.shadow.mapSize, list.shadow.depthBias, list.shadow.normalBias, list.shadow.strength);
+          gl.activeTexture(gl.TEXTURE1);
+          gl.bindTexture(gl.TEXTURE_2D, this.shadowTexture);
+          gl.uniform1i(this.SHADOW_MAP, 1);
+        } else {
+          gl.uniform4f(this.SHADOW, 0, 0, 0, 0);
+          gl.activeTexture(gl.TEXTURE1);
+          gl.bindTexture(gl.TEXTURE_2D, this.ensureShadowTarget(1).texture);
+          gl.uniform1i(this.SHADOW_MAP, 1);
+        }
+        gl.activeTexture(gl.TEXTURE0);
         gl.uniformMatrix4fv(this.P, false, new Float32Array(list.projection));
         gl.uniformMatrix4fv(this.V, false, new Float32Array(list.view));
         this.textures.beginFrame();
@@ -2645,6 +3097,78 @@ precision highp float;in vec2 T;uniform sampler2D TEX;uniform float A;out vec4 C
           residentLabels: this.labels.residentCount,
           meshVariants: this.meshes.size
         };
+      }
+      /**
+       * The depth-only pass, from the light.
+       *
+       * Front faces are culled rather than back faces — the standard trick,
+       * and worth stating because it looks wrong: recording the BACK of each
+       * caster puts the recorded depth on the far side of the object, which
+       * moves the whole surface away from the comparison and removes
+       * self-shadowing acne without a bias large enough to detach the
+       * shadow from the object's foot.
+       *
+       * Nothing is decided here. Which objects cast, where the light stands
+       * and how big its box is all come from list.shadow, which the shared
+       * core computed — so this backend cannot disagree with the others
+       * about where a shadow falls.
+       */
+      renderShadowMap(list) {
+        const gl = this.gl;
+        if (!list.shadow) {
+          return;
+        }
+        const target = this.ensureShadowTarget(list.shadow.mapSize);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, target.fbo);
+        gl.viewport(0, 0, list.shadow.mapSize, list.shadow.mapSize);
+        gl.clear(gl.DEPTH_BUFFER_BIT);
+        gl.useProgram(this.shadowProgram);
+        gl.enable(gl.CULL_FACE);
+        gl.cullFace(gl.FRONT);
+        gl.uniformMatrix4fv(this.SLVP, false, new Float32Array(list.shadow.viewProjection));
+        for (const item of list.items) {
+          if (item.opacity < 0.95) {
+            continue;
+          }
+          const mesh = this.getMesh(item.primitive, item.lod);
+          gl.bindVertexArray(mesh.vao);
+          gl.uniformMatrix4fv(this.SM, false, new Float32Array(item.model));
+          gl.drawElements(gl.TRIANGLES, mesh.count, gl.UNSIGNED_SHORT, 0);
+        }
+        gl.bindVertexArray(null);
+        gl.cullFace(gl.BACK);
+        gl.disable(gl.CULL_FACE);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      }
+      /** The depth target, built once and rebuilt only if the size changes. */
+      ensureShadowTarget(size) {
+        const gl = this.gl;
+        if (this.shadowFbo && this.shadowTexture && this.shadowSize === size) {
+          return { fbo: this.shadowFbo, texture: this.shadowTexture };
+        }
+        if (this.shadowFbo) gl.deleteFramebuffer(this.shadowFbo);
+        if (this.shadowTexture) gl.deleteTexture(this.shadowTexture);
+        const texture = gl.createTexture();
+        const fbo = gl.createFramebuffer();
+        if (!texture || !fbo) throw Error("BERX 5D shadow target allocation failed");
+        gl.bindTexture(gl.TEXTURE_2D, texture);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.DEPTH_COMPONENT24, size, size, 0, gl.DEPTH_COMPONENT, gl.UNSIGNED_INT, null);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_COMPARE_MODE, gl.COMPARE_REF_TO_TEXTURE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_COMPARE_FUNC, gl.LEQUAL);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D, texture, 0);
+        const status = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        gl.bindTexture(gl.TEXTURE_2D, null);
+        if (status !== gl.FRAMEBUFFER_COMPLETE) throw Error(`BERX 5D shadow framebuffer incomplete: 0x${status.toString(16)}`);
+        this.shadowFbo = fbo;
+        this.shadowTexture = texture;
+        this.shadowSize = size;
+        return { fbo, texture };
       }
       /**
        * The names, standing where their entities stand.
@@ -2765,6 +3289,12 @@ precision highp float;in vec2 T;uniform sampler2D TEX;uniform float A;out vec4 C
         this.textures.dispose();
         this.labels.dispose();
         this.media.clear();
+        if (this.shadowFbo) gl.deleteFramebuffer(this.shadowFbo);
+        if (this.shadowTexture) gl.deleteTexture(this.shadowTexture);
+        this.shadowFbo = void 0;
+        this.shadowTexture = void 0;
+        this.shadowSize = 0;
+        gl.deleteProgram(this.shadowProgram);
         gl.deleteProgram(this.program);
         gl.getExtension("WEBGL_lose_context")?.loseContext();
       }
@@ -2787,6 +3317,9 @@ precision highp float;in vec2 T;uniform sampler2D TEX;uniform float A;out vec4 C
         this.meshes.clear();
         this.textures.handleContextLost();
         this.labels.handleContextLost();
+        this.shadowFbo = void 0;
+        this.shadowTexture = void 0;
+        this.shadowSize = 0;
       }
     };
   }
@@ -2797,7 +3330,7 @@ var BERX_WORLD_WGSL, BERX_LABEL_WGSL;
 var init_src2 = __esm({
   "packages/spatial-shaders/src/index.ts"() {
     "use strict";
-    BERX_WORLD_WGSL = "// The BERX forward pass, in WGSL. This file is the only copy of it.\n//\n// Two backends run this exact text: @berx/spatial-web's WebGPU renderer,\n// which imports it through @berx/spatial-shaders, and the native\n// berx-spatial-native crate, which include_str!s it. A shader duplicated\n// per backend is how two renderers quietly stop drawing the same world.\n//\n// The same microfacet BRDF the WebGL2 backend runs: GGX, height-correlated\n// Smith visibility, Schlick Fresnel, metalness splitting the diffuse and\n// specular lobes, one directional key, up to four windowed point lights, and\n// an ambient term that stands in for the bounced room without pretending to\n// be image-based lighting. There is no shadow map and no post chain here,\n// and both backends' reported capabilities say so.\n//\n// One thing differs from the GLSL source, and it is a clip-space convention\n// rather than shading: WGSL depth runs 0..1 where GL runs -1..1, so the host\n// hands this shader a projection already remapped.\n//\n// Media is a planar projection onto the face that points at you, exactly as\n// in the GLSL pass: object-space position and normal give the UVs from the\n// local XY extent, and the texture is applied only where the surface faces\n// +Z, so an avatar on an orb reads as a face rather than as a photograph\n// smeared around a ball. A backend with no image to bind binds a 1x1 texture\n// and leaves the flag at zero; nothing is approximated with a colour.\n\nstruct Globals {\n  proj: mat4x4<f32>,\n  view: mat4x4<f32>,\n  camera: vec4<f32>,\n  ambient: vec4<f32>,\n  key_dir: vec4<f32>,\n  key_col: vec4<f32>,   // rgb, intensity in w\n};\n\nstruct Draw {\n  model: mat4x4<f32>,\n  base: vec4<f32>,              // rgb base colour, w = local half-extent in X\n  emissive: vec4<f32>,          // rgb emission,    w = local half-extent in Y\n  surface: vec4<f32>,           // metalness, roughness, opacity, transmission\n  pl_pos: array<vec4<f32>, 4>,  // xyz position, w range\n  pl_col: array<vec4<f32>, 4>,  // rgb colour, w intensity\n  // x = point light count, yz = UV cover/contain correction, w = has texture\n  counts: vec4<f32>,\n};\n\n@group(0) @binding(0) var<uniform> g: Globals;\n@group(1) @binding(0) var<uniform> d: Draw;\n@group(2) @binding(0) var media_sampler: sampler;\n@group(2) @binding(1) var media_texture: texture_2d<f32>;\n\nstruct VsOut {\n  @builtin(position) clip: vec4<f32>,\n  @location(0) n: vec3<f32>,\n  @location(1) w: vec3<f32>,\n  // object space, so media projects onto the form rather than the screen\n  @location(2) local: vec3<f32>,\n  @location(3) local_n: vec3<f32>,\n};\n\n@vertex\nfn vs(@location(0) p: vec3<f32>, @location(1) n: vec3<f32>) -> VsOut {\n  var o: VsOut;\n  let w = d.model * vec4<f32>(p, 1.0);\n  o.w = w.xyz;\n  o.n = (mat3x3<f32>(d.model[0].xyz, d.model[1].xyz, d.model[2].xyz)) * n;\n  o.local = p;\n  o.local_n = n;\n  o.clip = g.proj * g.view * w;\n  return o;\n}\n\nconst PI: f32 = 3.14159265359;\n\nfn d_ggx(noh: f32, a: f32) -> f32 {\n  let a2 = a * a;\n  let den = noh * noh * (a2 - 1.0) + 1.0;\n  return a2 / max(PI * den * den, 1e-7);\n}\n\nfn v_smith(nov: f32, nol: f32, a: f32) -> f32 {\n  let a2 = a * a;\n  let v = nol * sqrt(nov * nov * (1.0 - a2) + a2);\n  let l = nov * sqrt(nol * nol * (1.0 - a2) + a2);\n  return 0.5 / max(v + l, 1e-7);\n}\n\nfn f_schlick(f0: vec3<f32>, u: f32) -> vec3<f32> {\n  let m = clamp(1.0 - u, 0.0, 1.0);\n  let m2 = m * m;\n  return f0 + (vec3<f32>(1.0) - f0) * (m2 * m2 * m);\n}\n\nfn shade(n: vec3<f32>, v: vec3<f32>, l: vec3<f32>, radiance: vec3<f32>,\n         diffuse_color: vec3<f32>, f0: vec3<f32>, a: f32) -> vec3<f32> {\n  let h = normalize(v + l);\n  let nol = max(dot(n, l), 0.0);\n  if (nol <= 0.0) { return vec3<f32>(0.0); }\n  let nov = max(dot(n, v), 1e-4);\n  let noh = max(dot(n, h), 0.0);\n  let voh = max(dot(v, h), 0.0);\n  let f = f_schlick(f0, voh);\n  let vis = v_smith(nov, nol, a);\n  let dist = d_ggx(noh, a);\n  let spec = f * (dist * vis);\n  // energy that was not reflected is the only energy left to scatter\n  let kd = vec3<f32>(1.0) - f;\n  let diff = kd * diffuse_color / PI;\n  return (diff + spec) * radiance * nol;\n}\n\n@fragment\nfn fs(i: VsOut) -> @location(0) vec4<f32> {\n  // Media is a planar projection onto the face that points at you.\n  //\n  // The sample is taken unconditionally and then selected, rather than\n  // taken inside the test: textureSample needs uniform control flow, and\n  // whether a fragment is on the front face and inside the picture is a\n  // per-fragment fact. A backend with nothing to show binds a 1x1\n  // texture and leaves counts.w at zero, so the sample is discarded.\n  let half_extent = vec2<f32>(max(d.base.w, 1e-4), max(d.emissive.w, 1e-4));\n  let uv = (i.local.xy / half_extent) * 0.5 * d.counts.yz + vec2<f32>(0.5);\n  let sampled = textureSample(media_texture, media_sampler, vec2<f32>(uv.x, 1.0 - uv.y)).rgb;\n  let inside = uv.x >= 0.0 && uv.x <= 1.0 && uv.y >= 0.0 && uv.y <= 1.0;\n  let facing = normalize(i.local_n).z > 0.5;\n  let base = select(d.base.rgb, sampled, d.counts.w > 0.5 && facing && inside);\n  let n = normalize(i.n);\n  let v = normalize(g.camera.xyz - i.w);\n  let a = max(d.surface.y * d.surface.y, 1e-3);\n  // metals have no diffuse term and tint their reflection; dielectrics\n  // reflect 4% white and keep their colour in the diffuse lobe\n  let diffuse_color = base * (1.0 - d.surface.x);\n  let f0 = mix(vec3<f32>(0.04), base, vec3<f32>(d.surface.x));\n\n  var lit = shade(n, v, normalize(g.key_dir.xyz), g.key_col.rgb * g.key_col.w, diffuse_color, f0, a);\n\n  let count = i32(d.counts.x);\n  for (var k: i32 = 0; k < 4; k = k + 1) {\n    if (k >= count) { break; }\n    let lp = d.pl_pos[k];\n    let lc = d.pl_col[k];\n    let delta = lp.xyz - i.w;\n    let dist = length(delta);\n    if (dist > lp.w) { continue; }\n    // inverse-square, windowed so a light ends where its range says\n    let win = clamp(1.0 - pow(dist / lp.w, 4.0), 0.0, 1.0);\n    let atten = win * win / max(dist * dist, 1e-4);\n    lit = lit + shade(n, v, delta / max(dist, 1e-4), lc.rgb * lc.w * atten, diffuse_color, f0, a);\n  }\n\n  let amb = g.ambient.rgb * (diffuse_color + f0 * pow(1.0 - max(dot(n, v), 0.0), 5.0));\n  let colour = lit + amb + d.emissive.rgb;\n  // transmission lets the ground through a glass surface rather than\n  // fading it to nothing\n  let alpha = clamp(d.surface.z * (1.0 - d.surface.w * 0.55), 0.02, 1.0);\n  return vec4<f32>(colour, alpha);\n}\n";
+    BERX_WORLD_WGSL = "// The BERX forward pass, in WGSL. This file is the only copy of it.\n//\n// Two backends run this exact text: @berx/spatial-web's WebGPU renderer,\n// which imports it through @berx/spatial-shaders, and the native\n// berx-spatial-native crate, which include_str!s it. A shader duplicated\n// per backend is how two renderers quietly stop drawing the same world.\n//\n// The same microfacet BRDF the WebGL2 backend runs: GGX, height-correlated\n// Smith visibility, Schlick Fresnel, metalness splitting the diffuse and\n// specular lobes, one directional key, up to four windowed point lights, and\n// an ambient term that stands in for the bounced room without pretending to\n// be image-based lighting. There is no post chain here, and both backends'\n// reported capabilities say so.\n//\n// The key light casts. Its camera is fitted in the shared core\n// (@berx/spatial's berxShadowCamera) so every backend puts the light in\n// exactly the same place, and this file only reads the depth it captured:\n// 3x3 PCF, a normal-offset sample, and a shadow that removes the KEY term\n// only. Ambient and the point lights are untouched, because a surface in\n// shadow still receives the bounced room \u2014 zeroing the pixel is what makes\n// a render look like a cutout rather than a place.\n//\n// One thing differs from the GLSL source, and it is a clip-space convention\n// rather than shading: WGSL depth runs 0..1 where GL runs -1..1, so the host\n// hands this shader a projection already remapped.\n//\n// Media is a planar projection onto the face that points at you, exactly as\n// in the GLSL pass: object-space position and normal give the UVs from the\n// local XY extent, and the texture is applied only where the surface faces\n// +Z, so an avatar on an orb reads as a face rather than as a photograph\n// smeared around a ball. A backend with no image to bind binds a 1x1 texture\n// and leaves the flag at zero; nothing is approximated with a colour.\n\nstruct Globals {\n  proj: mat4x4<f32>,\n  view: mat4x4<f32>,\n  camera: vec4<f32>,\n  ambient: vec4<f32>,\n  key_dir: vec4<f32>,\n  key_col: vec4<f32>,   // rgb, intensity in w\n  // The light's own view-projection, already in this API's depth range.\n  light_vp: mat4x4<f32>,\n  // x = 1/mapSize, y = depth bias, z = normal bias, w = strength (0 = off)\n  shadow: vec4<f32>,\n};\n\nstruct Draw {\n  model: mat4x4<f32>,\n  base: vec4<f32>,              // rgb base colour, w = local half-extent in X\n  emissive: vec4<f32>,          // rgb emission,    w = local half-extent in Y\n  surface: vec4<f32>,           // metalness, roughness, opacity, transmission\n  pl_pos: array<vec4<f32>, 4>,  // xyz position, w range\n  pl_col: array<vec4<f32>, 4>,  // rgb colour, w intensity\n  // x = point light count, yz = UV cover/contain correction, w = has texture\n  counts: vec4<f32>,\n};\n\n@group(0) @binding(0) var<uniform> g: Globals;\n// A comparison sampler, not a plain one: the hardware does the depth test\n// per sample and averages the RESULTS, which is what makes a 3x3 tap a soft\n// edge instead of four hard ones. Sampling depth and comparing afterwards\n// would average DEPTHS, and an averaged depth is a surface that exists\n// nowhere.\n@group(0) @binding(1) var shadow_sampler: sampler_comparison;\n@group(0) @binding(2) var shadow_texture: texture_depth_2d;\n@group(1) @binding(0) var<uniform> d: Draw;\n@group(2) @binding(0) var media_sampler: sampler;\n@group(2) @binding(1) var media_texture: texture_2d<f32>;\n\nstruct VsOut {\n  @builtin(position) clip: vec4<f32>,\n  @location(0) n: vec3<f32>,\n  @location(1) w: vec3<f32>,\n  // object space, so media projects onto the form rather than the screen\n  @location(2) local: vec3<f32>,\n  @location(3) local_n: vec3<f32>,\n};\n\n/**\n * The depth-only pass, from the light.\n *\n * The same vertex data and the same model matrix as the main pass \u2014 a\n * shadow cast by a different shape from the one drawn is worse than no\n * shadow, because it is a shape that is not there.\n */\n@vertex\nfn vs_shadow(@location(0) p: vec3<f32>, @location(1) n: vec3<f32>) -> @builtin(position) vec4<f32> {\n  return g.light_vp * d.model * vec4<f32>(p, 1.0);\n}\n\n@vertex\nfn vs(@location(0) p: vec3<f32>, @location(1) n: vec3<f32>) -> VsOut {\n  var o: VsOut;\n  let w = d.model * vec4<f32>(p, 1.0);\n  o.w = w.xyz;\n  o.n = (mat3x3<f32>(d.model[0].xyz, d.model[1].xyz, d.model[2].xyz)) * n;\n  o.local = p;\n  o.local_n = n;\n  o.clip = g.proj * g.view * w;\n  return o;\n}\n\nconst PI: f32 = 3.14159265359;\n\nfn d_ggx(noh: f32, a: f32) -> f32 {\n  let a2 = a * a;\n  let den = noh * noh * (a2 - 1.0) + 1.0;\n  return a2 / max(PI * den * den, 1e-7);\n}\n\nfn v_smith(nov: f32, nol: f32, a: f32) -> f32 {\n  let a2 = a * a;\n  let v = nol * sqrt(nov * nov * (1.0 - a2) + a2);\n  let l = nov * sqrt(nol * nol * (1.0 - a2) + a2);\n  return 0.5 / max(v + l, 1e-7);\n}\n\nfn f_schlick(f0: vec3<f32>, u: f32) -> vec3<f32> {\n  let m = clamp(1.0 - u, 0.0, 1.0);\n  let m2 = m * m;\n  return f0 + (vec3<f32>(1.0) - f0) * (m2 * m2 * m);\n}\n\nfn shade(n: vec3<f32>, v: vec3<f32>, l: vec3<f32>, radiance: vec3<f32>,\n         diffuse_color: vec3<f32>, f0: vec3<f32>, a: f32) -> vec3<f32> {\n  let h = normalize(v + l);\n  let nol = max(dot(n, l), 0.0);\n  if (nol <= 0.0) { return vec3<f32>(0.0); }\n  let nov = max(dot(n, v), 1e-4);\n  let noh = max(dot(n, h), 0.0);\n  let voh = max(dot(v, h), 0.0);\n  let f = f_schlick(f0, voh);\n  let vis = v_smith(nov, nol, a);\n  let dist = d_ggx(noh, a);\n  let spec = f * (dist * vis);\n  // energy that was not reflected is the only energy left to scatter\n  let kd = vec3<f32>(1.0) - f;\n  let diff = kd * diffuse_color / PI;\n  return (diff + spec) * radiance * nol;\n}\n\n/**\n * How much of the key light reaches this point. 1 is full light.\n *\n * The sample is pushed along the surface normal before projecting, which\n * is what stops a lit surface shadowing itself at grazing angles without\n * the constant depth bias that would detach a shadow from the foot of\n * the thing casting it.\n */\nfn key_visibility(world: vec3<f32>, n: vec3<f32>, nol: f32) -> f32 {\n  if (g.shadow.w <= 0.0) { return 1.0; }\n  // more offset where the light grazes, none where it is head-on\n  let slope = clamp(1.0 - nol, 0.0, 1.0);\n  let offset = world + n * (g.shadow.z * (1.0 + slope * 2.0));\n  let light_clip = g.light_vp * vec4<f32>(offset, 1.0);\n  let ndc = light_clip.xyz / max(light_clip.w, 1e-6);\n  // outside the light's own box: lit, not shadowed. A world larger than\n  // the map must not grow a hard black edge where the map ends.\n  if (ndc.x < -1.0 || ndc.x > 1.0 || ndc.y < -1.0 || ndc.y > 1.0 || ndc.z > 1.0) { return 1.0; }\n  let uv = vec2<f32>(ndc.x * 0.5 + 0.5, 0.5 - ndc.y * 0.5);\n  let depth = ndc.z - g.shadow.y;\n  var sum = 0.0;\n  for (var y: i32 = -1; y <= 1; y = y + 1) {\n    for (var x: i32 = -1; x <= 1; x = x + 1) {\n      let tap = uv + vec2<f32>(f32(x), f32(y)) * g.shadow.x;\n      sum = sum + textureSampleCompareLevel(shadow_texture, shadow_sampler, tap, depth);\n    }\n  }\n  let lit = sum / 9.0;\n  return mix(1.0, lit, g.shadow.w);\n}\n\n@fragment\nfn fs(i: VsOut) -> @location(0) vec4<f32> {\n  // Media is a planar projection onto the face that points at you.\n  //\n  // The sample is taken unconditionally and then selected, rather than\n  // taken inside the test: textureSample needs uniform control flow, and\n  // whether a fragment is on the front face and inside the picture is a\n  // per-fragment fact. A backend with nothing to show binds a 1x1\n  // texture and leaves counts.w at zero, so the sample is discarded.\n  let half_extent = vec2<f32>(max(d.base.w, 1e-4), max(d.emissive.w, 1e-4));\n  let uv = (i.local.xy / half_extent) * 0.5 * d.counts.yz + vec2<f32>(0.5);\n  let sampled = textureSample(media_texture, media_sampler, vec2<f32>(uv.x, 1.0 - uv.y)).rgb;\n  let inside = uv.x >= 0.0 && uv.x <= 1.0 && uv.y >= 0.0 && uv.y <= 1.0;\n  let facing = normalize(i.local_n).z > 0.5;\n  let base = select(d.base.rgb, sampled, d.counts.w > 0.5 && facing && inside);\n  let n = normalize(i.n);\n  let v = normalize(g.camera.xyz - i.w);\n  let a = max(d.surface.y * d.surface.y, 1e-3);\n  // metals have no diffuse term and tint their reflection; dielectrics\n  // reflect 4% white and keep their colour in the diffuse lobe\n  let diffuse_color = base * (1.0 - d.surface.x);\n  let f0 = mix(vec3<f32>(0.04), base, vec3<f32>(d.surface.x));\n\n  let key_l = normalize(g.key_dir.xyz);\n  // The key alone is shadowed. Ambient and the point lights are not: a\n  // surface out of the sun still receives the room.\n  let visibility = key_visibility(i.w, n, max(dot(n, key_l), 0.0));\n  var lit = shade(n, v, key_l, g.key_col.rgb * g.key_col.w, diffuse_color, f0, a) * visibility;\n\n  let count = i32(d.counts.x);\n  for (var k: i32 = 0; k < 4; k = k + 1) {\n    if (k >= count) { break; }\n    let lp = d.pl_pos[k];\n    let lc = d.pl_col[k];\n    let delta = lp.xyz - i.w;\n    let dist = length(delta);\n    if (dist > lp.w) { continue; }\n    // inverse-square, windowed so a light ends where its range says\n    let win = clamp(1.0 - pow(dist / lp.w, 4.0), 0.0, 1.0);\n    let atten = win * win / max(dist * dist, 1e-4);\n    lit = lit + shade(n, v, delta / max(dist, 1e-4), lc.rgb * lc.w * atten, diffuse_color, f0, a);\n  }\n\n  let amb = g.ambient.rgb * (diffuse_color + f0 * pow(1.0 - max(dot(n, v), 0.0), 5.0));\n  let colour = lit + amb + d.emissive.rgb;\n  // transmission lets the ground through a glass surface rather than\n  // fading it to nothing\n  let alpha = clamp(d.surface.z * (1.0 - d.surface.w * 0.55), 0.02, 1.0);\n  return vec4<f32>(colour, alpha);\n}\n";
     BERX_LABEL_WGSL = "// Names standing in the world, in WGSL. This file is the only copy of it.\n//\n// Unlit on purpose: a name is not a surface in the room, it is a name, and\n// shading it would make it dimmer the further it turned from the key light \u2014\n// the opposite of what a label is for. It is still real geometry, at a real\n// world position with a real height in metres, and depth-tested, so anything\n// in front of it hides it.\n//\n// The quad turns to face the camera by being built from the camera's own\n// right and up vectors, which the shared core hands over with the label's\n// position. Nothing here decides where a name goes.\n\nstruct LabelGlobals {\n  proj: mat4x4<f32>,\n  view: mat4x4<f32>,\n  right: vec4<f32>,\n  up: vec4<f32>,\n};\n\nstruct Label {\n  // xyz world centre, w unused\n  centre: vec4<f32>,\n  // xy half-extent in metres, z alpha, w unused\n  size: vec4<f32>,\n};\n\n@group(0) @binding(0) var<uniform> g: LabelGlobals;\n@group(1) @binding(0) var<uniform> l: Label;\n@group(2) @binding(0) var glyph_sampler: sampler;\n@group(2) @binding(1) var glyph_texture: texture_2d<f32>;\n\nstruct VsOut {\n  @builtin(position) clip: vec4<f32>,\n  @location(0) uv: vec2<f32>,\n};\n\n@vertex\nfn vs(@builtin(vertex_index) v: u32) -> VsOut {\n  // two triangles, as a quad in the camera's plane\n  var corners = array<vec2<f32>, 6>(\n    vec2<f32>(-1.0, -1.0), vec2<f32>(1.0, -1.0), vec2<f32>(1.0, 1.0),\n    vec2<f32>(-1.0, -1.0), vec2<f32>(1.0, 1.0), vec2<f32>(-1.0, 1.0),\n  );\n  let q = corners[v];\n  var o: VsOut;\n  // the rasterised glyphs run top row first, so V is flipped here rather\n  // than in the upload \u2014 writeTexture has no flip of its own\n  o.uv = vec2<f32>(q.x * 0.5 + 0.5, 0.5 - q.y * 0.5);\n  let w = l.centre.xyz + g.right.xyz * (q.x * l.size.x) + g.up.xyz * (q.y * l.size.y);\n  o.clip = g.proj * g.view * vec4<f32>(w, 1.0);\n  return o;\n}\n\n@fragment\nfn fs(i: VsOut) -> @location(0) vec4<f32> {\n  let t = textureSample(glyph_texture, glyph_sampler, i.uv);\n  let a = t.a * l.size.z;\n  if (a < 0.01) { discard; }\n  return vec4<f32>(t.rgb, a);\n}\n";
   }
 });
@@ -3151,7 +3684,7 @@ async function berxWebGPUCanvasPresentable() {
     }
   }
 }
-var DRAW_STRIDE, GLOBALS_BYTES, LABEL_STRIDE, LABEL_GLOBALS_BYTES, SAMPLE_COUNT, BerxWebGPURuntimeRenderer;
+var DRAW_STRIDE, GLOBALS_BYTES, SHADOW_FORMAT, LABEL_STRIDE, LABEL_GLOBALS_BYTES, SAMPLE_COUNT, BerxWebGPURuntimeRenderer;
 var init_webgpuRuntime = __esm({
   "packages/spatial-web/src/webgpuRuntime.ts"() {
     "use strict";
@@ -3161,12 +3694,13 @@ var init_webgpuRuntime = __esm({
     init_webgpuMediaTextures();
     init_webgpuText();
     DRAW_STRIDE = 256;
-    GLOBALS_BYTES = 192;
+    GLOBALS_BYTES = 272;
+    SHADOW_FORMAT = "depth32float";
     LABEL_STRIDE = 256;
     LABEL_GLOBALS_BYTES = 160;
     SAMPLE_COUNT = 4;
     BerxWebGPURuntimeRenderer = class _BerxWebGPURuntimeRenderer {
-      constructor(canvas, device, context, format, pipeline, drawLayout, mediaLayout, labelPipeline, labelLayout, options) {
+      constructor(canvas, device, context, format, pipeline, drawLayout, mediaLayout, labelPipeline, labelLayout, shadowPipeline, options) {
         this.canvas = canvas;
         this.device = device;
         this.context = context;
@@ -3175,13 +3709,14 @@ var init_webgpuRuntime = __esm({
         this.drawLayout = drawLayout;
         this.labelPipeline = labelPipeline;
         this.labelLayout = labelLayout;
+        this.shadowPipeline = shadowPipeline;
         this.kind = "webgpu";
         /* what this backend really does, and nothing it does not */
         this.capabilities = {
           perspective: true,
           depthBuffer: true,
           physicallyLitMaterials: true,
-          shadows: false,
+          shadows: true,
           postProcessing: false
         };
         /** What this backend has, beyond the renderer interface's own list. */
@@ -3244,8 +3779,22 @@ var init_webgpuRuntime = __esm({
           ]
         });
         this.globals = device.createBuffer({ size: GLOBALS_BYTES, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
-        this.globalsBind = device.createBindGroup({
-          layout: pipeline.getBindGroupLayout(0),
+        this.shadowSampler = device.createSampler({
+          compare: "less",
+          magFilter: "linear",
+          minFilter: "linear",
+          addressModeU: "clamp-to-edge",
+          addressModeV: "clamp-to-edge"
+        });
+        this.shadowMap = device.createTexture({
+          size: { width: 1, height: 1 },
+          format: SHADOW_FORMAT,
+          usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING
+        });
+        this.shadowSize = 0;
+        this.globalsBind = this.buildGlobalsBind();
+        this.shadowGlobalsBind = device.createBindGroup({
+          layout: shadowPipeline.getBindGroupLayout(0),
           entries: [{ binding: 0, resource: { buffer: this.globals } }]
         });
         this.resize(canvas.width || 1, canvas.height || 1);
@@ -3290,11 +3839,18 @@ var init_webgpuRuntime = __esm({
           ]
         });
         const globalsLayout = device.createBindGroupLayout({
-          entries: [{
-            binding: 0,
-            visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
-            buffer: { type: "uniform", minBindingSize: GLOBALS_BYTES }
-          }]
+          entries: [
+            {
+              binding: 0,
+              visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
+              buffer: { type: "uniform", minBindingSize: GLOBALS_BYTES }
+            },
+            /* A comparison sampler, not a filtering one: the hardware
+               does the depth test per sample and averages the results,
+               which is what makes the 3x3 tap a soft edge. */
+            { binding: 1, visibility: GPUShaderStage.FRAGMENT, sampler: { type: "comparison" } },
+            { binding: 2, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: "depth", viewDimension: "2d" } }
+          ]
         });
         const pipeline = device.createRenderPipeline({
           layout: device.createPipelineLayout({ bindGroupLayouts: [globalsLayout, drawLayout, mediaLayout] }),
@@ -3324,6 +3880,29 @@ var init_webgpuRuntime = __esm({
           primitive: { topology: "triangle-list", frontFace: "ccw", cullMode: "back" },
           depthStencil: { format: "depth32float", depthWriteEnabled: true, depthCompare: "less" },
           multisample: { count: SAMPLE_COUNT }
+        });
+        const shadowGlobalsLayout = device.createBindGroupLayout({
+          entries: [{
+            binding: 0,
+            visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
+            buffer: { type: "uniform", minBindingSize: GLOBALS_BYTES }
+          }]
+        });
+        const shadowPipeline = device.createRenderPipeline({
+          layout: device.createPipelineLayout({ bindGroupLayouts: [shadowGlobalsLayout, drawLayout] }),
+          vertex: {
+            module,
+            entryPoint: "vs_shadow",
+            buffers: [{
+              arrayStride: 24,
+              attributes: [
+                { shaderLocation: 0, offset: 0, format: "float32x3" },
+                { shaderLocation: 1, offset: 12, format: "float32x3" }
+              ]
+            }]
+          },
+          primitive: { topology: "triangle-list", frontFace: "ccw", cullMode: "front" },
+          depthStencil: { format: SHADOW_FORMAT, depthWriteEnabled: true, depthCompare: "less" }
         });
         const labelModule = device.createShaderModule({ code: BERX_LABEL_WGSL });
         const labelGlobalsLayout = device.createBindGroupLayout({
@@ -3356,7 +3935,7 @@ var init_webgpuRuntime = __esm({
           depthStencil: { format: "depth32float", depthWriteEnabled: false, depthCompare: "less" },
           multisample: { count: SAMPLE_COUNT }
         });
-        const renderer = new _BerxWebGPURuntimeRenderer(canvas, device, context, format, pipeline, drawLayout, mediaLayout, labelPipeline, labelLayout, options);
+        const renderer = new _BerxWebGPURuntimeRenderer(canvas, device, context, format, pipeline, drawLayout, mediaLayout, labelPipeline, labelLayout, shadowPipeline, options);
         renderer.errors = errors;
         renderer.adapter = adapter;
         renderer.lostPromise = device.lost.then((info) => {
@@ -3483,6 +4062,7 @@ var init_webgpuRuntime = __esm({
           height,
           maxObjects: options.maxObjects,
           ambientMotion: options.ambientMotion,
+          shadows: options.shadows,
           lighting: this.lighting,
           mediaFor: (id) => this.media.get(id),
           affordances: this.affordances
@@ -3513,6 +4093,34 @@ var init_webgpuRuntime = __esm({
        * shader and the same draw list; the cross-renderer gate uses it
        * because this driver cannot copy out of a canvas texture.
        */
+      /** The bind group the world pass uses: globals plus the depth map. */
+      buildGlobalsBind() {
+        return this.device.createBindGroup({
+          layout: this.pipeline.getBindGroupLayout(0),
+          entries: [
+            { binding: 0, resource: { buffer: this.globals } },
+            { binding: 1, resource: this.shadowSampler },
+            { binding: 2, resource: this.shadowMap.createView() }
+          ]
+        });
+      }
+      /**
+       * The depth target the light writes, rebuilt only when the size
+       * changes. Rebuilding the bind group with it is not optional: a bind
+       * group holds the VIEW, so a new texture with the old group bound
+       * would sample the destroyed one.
+       */
+      ensureShadowMap(size) {
+        if (this.shadowSize === size) return;
+        this.shadowMap.destroy();
+        this.shadowMap = this.device.createTexture({
+          size: { width: size, height: size },
+          format: SHADOW_FORMAT,
+          usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING
+        });
+        this.shadowSize = size;
+        this.globalsBind = this.buildGlobalsBind();
+      }
       draw(list, offscreen = false, viewport, pass_) {
         if (this.lost) return;
         const device = this.device;
@@ -3523,6 +4131,18 @@ var init_webgpuRuntime = __esm({
         globals.set([list.ambient[0], list.ambient[1], list.ambient[2], 0], 36);
         globals.set([list.key.direction.x, list.key.direction.y, list.key.direction.z, 0], 40);
         globals.set([list.key.colour[0], list.key.colour[1], list.key.colour[2], list.key.intensity], 44);
+        if (list.shadow) {
+          this.ensureShadowMap(list.shadow.mapSize);
+          globals.set(glToWgpuDepth(list.shadow.viewProjection), 48);
+          globals.set([
+            1 / list.shadow.mapSize,
+            list.shadow.depthBias,
+            list.shadow.normalBias,
+            list.shadow.strength
+          ], 64);
+        } else {
+          globals.set([0, 0, 0, 0], 64);
+        }
         device.queue.writeBuffer(this.globals, 0, globals);
         const count = Math.max(1, list.items.length);
         if (!this.drawBuffer || this.drawCapacity < count) {
@@ -3564,6 +4184,27 @@ var init_webgpuRuntime = __esm({
         });
         device.queue.writeBuffer(this.drawBuffer, 0, draws);
         const encoder = device.createCommandEncoder();
+        if (list.shadow) {
+          const shadowPass = encoder.beginRenderPass({
+            colorAttachments: [],
+            depthStencilAttachment: {
+              view: this.shadowMap.createView(),
+              depthClearValue: 1,
+              depthLoadOp: "clear",
+              depthStoreOp: "store"
+            }
+          });
+          shadowPass.setPipeline(this.shadowPipeline);
+          shadowPass.setBindGroup(0, this.shadowGlobalsBind);
+          resolved.forEach(({ item, mesh }, i) => {
+            if (item.opacity < 0.95) return;
+            shadowPass.setBindGroup(1, this.drawBind, [i * DRAW_STRIDE]);
+            shadowPass.setVertexBuffer(0, mesh.vertices);
+            shadowPass.setIndexBuffer(mesh.indices, "uint16");
+            shadowPass.drawIndexed(mesh.count);
+          });
+          shadowPass.end();
+        }
         const pass = encoder.beginRenderPass({
           colorAttachments: [{
             view: this.msaa.createView(),
@@ -4932,6 +5573,38 @@ var BerxApiClient = class {
   async searchCommunities(q) {
     return this.request(`/search/communities?q=${encodeURIComponent(q)}`);
   }
+  // ---------------------------------------------------------------
+  // Realtime — the HTTP half of the WebSocket transport
+  // (components/OssnApi/v1/realtime.php). The bearer token never
+  // reaches a socket: this exchanges it for a short-lived, single-use
+  // credential, which is what the handshake spends.
+  // ---------------------------------------------------------------
+  /**
+   * Mint a socket credential. `url` is whatever the deployment
+   * configured and is null when it configured none — never a URL
+   * derived from this client's base by guessing a port.
+   */
+  async mintRealtimeToken() {
+    return this.request(
+      "/realtime/token",
+      { method: "POST" }
+    );
+  }
+  /** Ends every unused credential this account holds. */
+  async revokeRealtimeTokens() {
+    return this.request("/realtime/token", { method: "DELETE" });
+  }
+  /**
+   * What the server would grant this account on these channels —
+   * the same decision the socket makes, from the same code, over
+   * HTTP.
+   */
+  async authorizeRealtimeChannels(channels) {
+    return this.request("/realtime/authorize", {
+      method: "POST",
+      body: { channels: channels.join(",") }
+    });
+  }
 };
 
 // packages/scenes/src/spatialMapping.ts
@@ -4984,13 +5657,13 @@ function baseObject(kind, guid, label, sourceId, energy, placement, time) {
     visible: placement.visible ?? true,
     interactive: placement.interactive ?? true,
     focusable: placement.focusable ?? true,
-    energy: clamp01(energy),
+    energy: clamp012(energy),
     depth: placement.depth ?? DEFAULT_DEPTH,
     createdAt: now,
     updatedAt: now
   };
 }
-var clamp01 = (v) => v < 0 ? 0 : v > 1 ? 1 : v;
+var clamp012 = (v) => v < 0 ? 0 : v > 1 ? 1 : v;
 function surfaceFor(object, uri, fit = "cover") {
   if (!uri) return [];
   return [createMediaSurface(object, { mediaId: `${object.id}:media`, uri, aspectRatio: 1, fit, opacity: 1 })];
@@ -5247,6 +5920,37 @@ function resolveSpatialQuality(input) {
   return { quality: "conservative", pixelRatio: Math.min(1.5, input.devicePixelRatio), maxObjects: 60, ambientMotion: false };
 }
 
+// packages/spatial-web/src/hapticsWeb.ts
+init_src();
+var BerxWebHaptics = class {
+  constructor(source) {
+    const navigatorLike = globalThis.navigator;
+    const candidate = source ?? navigatorLike;
+    this.source = typeof candidate?.vibrate === "function" ? candidate : void 0;
+  }
+  /** False where the browser has no vibration API at all. */
+  get supported() {
+    return this.source !== void 0;
+  }
+  play(pattern, intensity = 1) {
+    if (!this.source) return false;
+    const waveform = berxHapticWaveform(pattern, intensity);
+    if (waveform.length === 0) return false;
+    try {
+      return this.source.vibrate(waveform.length === 1 ? waveform[0] : waveform) !== false;
+    } catch {
+      return false;
+    }
+  }
+  /** Stops whatever is playing — what a page hiding should do. */
+  stop() {
+    try {
+      this.source?.vibrate(0);
+    } catch {
+    }
+  }
+};
+
 // packages/spatial-web/src/runtimeHost5d.ts
 var prefersReducedMotion = () => typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
 var KIND_NAME = {
@@ -5290,6 +5994,8 @@ function createBerx5DWebHost(options = {}) {
   world?.setAccessibility({ reducedMotion });
   let renderer = options.renderer ?? new BerxThreeRuntimeRenderer(canvas, { textureBudget: options.textureBudget, onMediaError: options.onMediaError });
   const mediaByObject = /* @__PURE__ */ new Map();
+  const haptics = new BerxHaptics(options.haptics === false ? void 0 : options.haptics ?? new BerxWebHaptics());
+  haptics.setReducedMotion(reducedMotion);
   const pixelRatioCap = Math.max(1, options.pixelRatioCap ?? 2);
   let quality = { quality: "balanced", pixelRatio: 1, maxObjects: 80, ambientMotion: true };
   let raf = 0;
@@ -5335,7 +6041,10 @@ function createBerx5DWebHost(options = {}) {
     if (object?.id === lastAnnouncedId) return;
     lastAnnouncedId = object?.id;
     options.onFocusChange?.(object);
-    if (object) announce(`${nameOf(object)} \u0432 \u0444\u043E\u043A\u0443\u0441\u0435`);
+    if (object) {
+      announce(`${nameOf(object)} \u0432 \u0444\u043E\u043A\u0443\u0441\u0435`);
+      haptics.moment("focus");
+    }
   };
   const frame = (now) => {
     if (!running) return;
@@ -5382,9 +6091,12 @@ function createBerx5DWebHost(options = {}) {
     const slot = ray && world ? pickActionSlot(renderer.actionSlots, frameState.camera, ray.direction, canvas.width / canvas.height) : void 0;
     if (slot && world) {
       announce(`${slot.affordance.label}\u2026`);
+      haptics.moment("select");
       void world.act(slot.affordance.id).then((done) => {
         announce(done ? `${slot.affordance.label}: \u0433\u043E\u0442\u043E\u0432\u043E` : `${slot.affordance.label}: \u043D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C`);
+        haptics.moment(done ? "action-ok" : "action-refused");
       }).catch((error) => {
+        haptics.moment("action-refused");
         announce(error instanceof Error ? error.message : `${slot.affordance.label}: \u043D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C`);
       });
       return;
@@ -5462,13 +6174,17 @@ function createBerx5DWebHost(options = {}) {
           if (world) world.travelTo(object.id);
           else runtime.enterWorld({ id: `${object.kind}:${object.id}`, focusObjectId: object.id, enteredAt: Date.now() });
           announce(`${nameOf(object)} \u2014 \u043A\u0430\u043C\u0435\u0440\u0430 \u043F\u0435\u0440\u0435\u043C\u0435\u0449\u0430\u0435\u0442\u0441\u044F`);
+          haptics.moment("travel");
         } else handled = false;
         break;
       }
       case "Escape":
       case "Backspace":
         handled = world ? world.back() : runtime.back();
-        if (handled) announce("\u041D\u0430\u0437\u0430\u0434");
+        if (handled) {
+          announce("\u041D\u0430\u0437\u0430\u0434");
+          haptics.moment("back");
+        }
         break;
       /* what is happening, from anywhere in the world */
       case "l":

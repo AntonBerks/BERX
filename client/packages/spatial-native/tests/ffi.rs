@@ -123,7 +123,15 @@ fn the_capabilities_bitmask_says_only_what_is_implemented() {
     assert_eq!(bits & 0b1, 0b1, "perspective");
     assert_eq!(bits & 0b10, 0b10, "depth buffer");
     assert_eq!(bits & 0b100, 0b100, "physically lit materials");
-    assert_eq!(bits & 0b1000, 0, "no shadow pass exists");
+    /* The shadow bit went true when the depth pass, the comparison
+       sampler and the 3x3 kernel landed in this crate; this assertion
+       was left asserting the old answer, so the FFI test failed while
+       the renderer was correct. The bitmask must track what is really
+       implemented — that is the whole point of this test — so it is the
+       expectation that moves, and only because the pass is really
+       there: verify:5d-shadows measures a real readback going 52.44 →
+       14.65 under the occluder and 52.44 → 52.44 beside it. */
+    assert_eq!(bits & 0b1000, 0b1000, "the key light casts a real shadow pass");
     assert_eq!(bits & 0b1_0000, 0, "no post chain exists");
     assert_eq!(bits & 0b10_0000, 0, "no image decoder exists");
     assert_eq!(bits & 0b100_0000, 0, "no text rasteriser exists");

@@ -15,7 +15,7 @@
 import {
   pickSpatialObject,
   rayFromNdc,
-  cameraBasis,
+  berxEyeCamera,
   geometryForEntity,
   type Berx5DFrame,
   type BerxHit,
@@ -304,22 +304,20 @@ export class BerxThreeRuntimeRenderer implements BerxSpatialRenderer {
  render(frame:Berx5DFrame,options:BerxSpatialRenderOptions={}){
   const gl=this.gl;
   if(options.stereo){
-   const basis=cameraBasis(frame.camera);
    const half=Math.max(1,Math.floor(this.width/2));
-   const shift=(sign:number)=>{
-    if(!basis)return frame;
-    const o=options.stereo!.ipd*.5*sign;
-    return {...frame,camera:{...frame.camera,
-     position:{x:frame.camera.position.x+basis.right.x*o,y:frame.camera.position.y+basis.right.y*o,z:frame.camera.position.z+basis.right.z*o},
-     target:{x:frame.camera.target.x+basis.right.x*o,y:frame.camera.target.y+basis.right.y*o,z:frame.camera.target.z+basis.right.z*o}}};
-   };
+   /* The eye offset is the SHARED core's, not this backend's. It was a
+      local re-derivation of berxEyeCamera — the same formula written
+      twice — which is exactly the drift the one-math rule exists to
+      prevent: WebGPU already called the shared function, so the two web
+      backends could have disagreed about where an eye is without any
+      test noticing. */
+   const shift=(sign:-1|1)=>({...frame,camera:berxEyeCamera(frame.camera,options.stereo!.ipd,sign)});
    /* the clear covers the whole surface once; each eye then owns half */
    gl.viewport(0,0,this.width,this.height);
    gl.clearColor(BERX_WORLD_CLEAR[0],BERX_WORLD_CLEAR[1],BERX_WORLD_CLEAR[2],1);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
    let calls=0,tris=0,lod=0,frustum=0,budget=0,visibleCount=0;
    for(const [index,eye] of [shift(-1),shift(1)].entries()){
-    gl.viewport(index*half,0,half,this.height);
-    this.drawEye(eye,options,half,this.height,false);
+    this.drawEye(eye,options,half,this.height,false,index*half);
     calls+=this.stats.drawCalls;tris+=this.stats.triangles;lod+=this.stats.lodReduced;
     frustum+=this.stats.inFrustum;budget+=this.stats.budgetCut;visibleCount=this.stats.visible;
    }
@@ -331,7 +329,17 @@ export class BerxThreeRuntimeRenderer implements BerxSpatialRenderer {
   this.drawEye(frame,options,this.width,this.height,true);
  }
 
- private drawEye(frame:Berx5DFrame,options:BerxSpatialRenderOptions,width:number,height:number,clear:boolean){
+ /**
+ * Draw one eye into a viewport starting at `originX`.
+ *
+ * REAL BUG THIS FIXES: this used to set `gl.viewport(0,0,width,height)`
+ * unconditionally, which threw away the x offset the stereo loop had
+ * just set — so BOTH eyes drew into the left half and the right half of
+ * a stereo frame was empty. It cannot simply leave the viewport alone
+ * either, because renderShadowMap below re-points it at the shadow map;
+ * the origin has to travel with the call.
+ */
+ private drawEye(frame:Berx5DFrame,options:BerxSpatialRenderOptions,width:number,height:number,clear:boolean,originX=0){
   const gl=this.gl;
   gl.useProgram(this.program);
   /* What to draw is decided in @berx/spatial, not here: the cull, the
@@ -352,7 +360,7 @@ export class BerxThreeRuntimeRenderer implements BerxSpatialRenderer {
      backend and the others put the light in exactly the same place. */
   this.renderShadowMap(list);
   gl.useProgram(this.program);
-  gl.viewport(0,0,width,height);
+  gl.viewport(originX,0,width,height);
   if(clear){gl.clearColor(list.clearColor[0],list.clearColor[1],list.clearColor[2],1);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);}
   if(list.shadow&&this.shadowTexture){
    gl.uniformMatrix4fv(this.LVP,false,new Float32Array(list.shadow.viewProjection));

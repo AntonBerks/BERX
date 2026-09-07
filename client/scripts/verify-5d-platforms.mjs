@@ -174,10 +174,20 @@ try {
 		ratio(stereo.two.left.lit) > 0.85 && ratio(stereo.two.right.lit) > 0.85,
 		`mono draws ${monoTotal} lit pixels in total; each stereo eye draws ${stereo.two.left.lit} and ${stereo.two.right.lit} — ${(ratio(stereo.two.left.lit) * 100).toFixed(0)}% and ${(ratio(stereo.two.right.lit) * 100).toFixed(0)}% of a whole frame, in half the width`,
 	);
+	/* Both eyes must actually HAVE a centroid before their positions can
+	   be compared. `side()` returns x = -1 for an empty half, and -1 sits
+	   a long way from any real centroid — so while the right eye was
+	   drawing nothing at all, this check passed on that sentinel and
+	   reported that the eyes "see it from different places" about an eye
+	   that saw nothing. That is how a real stereo bug (both eyes drawing
+	   into the left half) sat behind a green check. */
+	const bothEyesDrew = stereo.two.left.lit > 0 && stereo.two.right.lit > 0;
 	gate(
 		'the two eyes see it from different places',
-		Math.abs((stereo.two.right.x - stereo.two.width / 2) - stereo.two.left.x) > 0.05,
-		`left eye centroid at ${stereo.two.left.x.toFixed(2)}px of its half, right at ${(stereo.two.right.x - stereo.two.width / 2).toFixed(2)}px of its own`,
+		bothEyesDrew && Math.abs((stereo.two.right.x - stereo.two.width / 2) - stereo.two.left.x) > 0.05,
+		bothEyesDrew
+			? `left eye centroid at ${stereo.two.left.x.toFixed(2)}px of its half, right at ${(stereo.two.right.x - stereo.two.width / 2).toFixed(2)}px of its own`
+			: `an eye drew nothing, so there is no position to compare: left ${stereo.two.left.lit} lit pixels, right ${stereo.two.right.lit}`,
 	);
 	gate(
 		'stereo costs two passes over one world, not two worlds',
