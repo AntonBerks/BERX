@@ -16,6 +16,7 @@ export * from './relational';
 export * from './worldLighting';
 export * from './lighting/berxEnvironment';
 export * from './lighting/berxSSAO';
+export * from './lighting/berxVolumetric';
 export * from './worldMaterials';
 export * from './spatialAudio';
 export * from './platform';

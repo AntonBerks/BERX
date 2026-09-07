@@ -299,3 +299,95 @@ export function berxSSAOFixtureFrame(): Berx5DFrame {
 		camera: {...frame.camera, position: {x: 0, y: 1.2, z: 4.6}, target: {x: 0, y: -0.6, z: 0}},
 	};
 }
+
+/**
+ * A world built so light shafts either happen or visibly do not.
+ *
+ * The shadow fixture is the wrong shape for this question: its light
+ * points straight down and the camera looks along the floor, so the
+ * view ray and the light direction are nearly perpendicular and
+ * forward scattering — the thing that makes a shaft bright — is at its
+ * weakest. Here the light is IN FRONT of the camera and an occluder
+ * stands between them, which is the only arrangement where "is there a
+ * shaft" has a visible answer:
+ *
+ *   air beside the occluder   fully lit along the ray  → bright
+ *   air behind the occluder   the ray crosses its shadow → dim
+ *
+ * The difference between those two is the measurement. Everything else
+ * about the frame is a real BERX world: real spatial objects, the real
+ * palette and material resolution, the real camera, the real draw list.
+ */
+export function berxVolumetricFixtureFrame(): Berx5DFrame {
+	const app = new Berx5DWorldApp({
+		viewerId: berxSpatialId('person', PERSON),
+		cursor: berxTemporalCursor(NOW_SECONDS),
+		transitionDuration: 0.01,
+	});
+	const occluder = mapUserToSpatial(user);
+	const backdrop = mapFeedItemToSpatial(moment);
+	app.ingest([
+		{object: occluder.object, relations: [], media: []},
+		{object: backdrop.object, relations: [], media: []},
+	]);
+
+	const frame = app.latestFrame;
+	const objects = frame.world.objects.map((o) => {
+		if (o.id === occluder.object.id) {
+			/* between the eye and the light, and big enough that its shadow
+			   volume is wider than the dither's own noise */
+			return {
+				...o,
+				label: undefined,
+				energy: 0,
+				transform: {position: {x: 0, y: 0, z: -2}, rotation: {x: 0, y: 0, z: 0}, scale: {x: 3, y: 3, z: 3}},
+			};
+		}
+		/* a far wall, so every ray ends on a surface at a known distance
+		   rather than at the march's own limit — a march that always runs
+		   to maxDistance cannot show that it stops at geometry */
+		return {
+			...o,
+			label: undefined,
+			energy: 0,
+			transform: {position: {x: 0, y: 0, z: -14}, rotation: {x: 0, y: 0, z: 0}, scale: {x: 24, y: 24, z: 0.4}},
+		};
+	});
+
+	return {
+		...frame,
+		world: {...frame.world, objects, activeObjectId: undefined},
+		camera: {
+			position: {x: 0, y: 0, z: 9},
+			target: {x: 0, y: 0, z: 0},
+			rotation: {x: 0, y: 0, z: 0},
+			fov: 55,
+			near: 0.1,
+			far: 100,
+		},
+		transition: undefined,
+		reducedMotion: true,
+	};
+}
+
+/**
+ * The key light in front of the camera and slightly above it.
+ *
+ * `direction` points TOWARD the light, so this puts it beyond the far
+ * wall: the view ray and the light direction are then nearly parallel,
+ * which is where a forward-scattering phase function actually shows a
+ * shaft. Pointing it anywhere else does not make the pass wrong, it
+ * makes the question unanswerable.
+ */
+export function berxVolumetricFixtureLighting(): BerxWorldLighting {
+	const lighting = berxWorldLighting();
+	const length = Math.hypot(0, 0.32, -1);
+	return {
+		...lighting,
+		key: {
+			...lighting.key,
+			direction: {x: 0, y: 0.32 / length, z: -1 / length},
+			intensity: Math.max(lighting.key.intensity, 1.4),
+		},
+	};
+}

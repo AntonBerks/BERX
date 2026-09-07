@@ -20,7 +20,7 @@
  * LOD distance, the same material and light resolution.
  */
 import {berxActionRing, type BerxActionSlot} from './actionRing';
-import {berxFrustumPlanes, berxLookAt, berxMultiplyMat4, berxPerspective, berxSphereInFrustum} from './frustum';
+import {berxFrustumPlanes, berxInvertMat4, berxLookAt, berxMultiplyMat4, berxPerspective, berxSphereInFrustum} from './frustum';
 import {geometryForEntity, geometryScale, type BerxGeometryKind} from './geometry';
 import {cameraBasis} from './spatialInteraction';
 import {presentationForKind} from './spatialPresentation';
@@ -38,6 +38,7 @@ import type {Berx5DFrame} from './runtime5d';
 import type {BerxSpatialCameraState} from './spatialCamera';
 import {berxTransitionModulation} from './transitions';
 import {berxShadowCamera, type BerxShadowCamera} from './shadowMap';
+import {berxVolumetricUniform, BERX_VOLUMETRIC_STEPS} from './lighting/berxVolumetric';
 import type {BerxSpatialAffordance} from './socialActions';
 import type {BerxSpatialEntityKind, BerxSpatialObject, BerxVec3} from './world';
 
@@ -141,6 +142,15 @@ export interface BerxDrawList {
 	/** Column-major, as every GPU API wants them. */
 	projection: number[];
 	view: number[];
+	/**
+	 * The inverse of projection * view — a pixel back into a world ray.
+	 *
+	 * Here rather than in each backend because any pass that marches
+	 * through the scene needs it, and a matrix inverted three times in
+	 * three languages is three matrices the moment one of them rounds
+	 * differently.
+	 */
+	invViewProjection: number[];
 	camera: BerxVec3;
 	clearColor: BerxShaderRgb3;
 	/** Ambient colour already multiplied by its intensity. */
@@ -171,6 +181,16 @@ export interface BerxDrawList {
 	 * belongs to. Empty when nothing is focused or nothing is offered.
 	 */
 	actionSlots: BerxActionSlot[];
+	/**
+	 * The march's own parameters, packed by berxVolumetricUniform, plus
+	 * the step count. Packed rather than structured for the same reason
+	 * the environment is: a backend forwards it to a uniform without
+	 * interpreting it, so there is exactly one opinion about the order.
+	 *
+	 * x = density, y = phase g, z = max distance, w = intensity,
+	 * then [steps, 0, 0, 0].
+	 */
+	volumetric: number[];
 	/**
 	 * The key light's own camera, fitted to what is being drawn.
 	 *
@@ -430,6 +450,7 @@ export function berxBuildDrawList(frame: Berx5DFrame, options: BerxDrawListOptio
 		height,
 		projection: Array.from(projection),
 		view: Array.from(view),
+		invViewProjection: Array.from(berxInvertMat4(berxMultiplyMat4(projection, view))),
 		camera: {...c.position},
 		clearColor: [...BERX_WORLD_CLEAR] as BerxShaderRgb3,
 		environment: berxEnvironmentUniform(lighting.environment),
@@ -457,6 +478,7 @@ export function berxBuildDrawList(frame: Berx5DFrame, options: BerxDrawListOptio
 		 * place. The cost is bounded by the same budget the main pass
 		 * already has, since it is the same list.
 		 */
+		volumetric: [...berxVolumetricUniform(), BERX_VOLUMETRIC_STEPS, 0, 0, 0],
 		shadow: options.shadows === false
 			? undefined
 			: berxShadowCamera(

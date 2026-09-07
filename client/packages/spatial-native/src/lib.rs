@@ -43,6 +43,10 @@ pub struct Capabilities {
     pub physically_lit_materials: bool,
     pub shadows: bool,
     pub post_processing: bool,
+    /// The key light is visible in the air: a G-buffer, a ray march that
+    /// samples the shadow map, and an additive composite — the same
+    /// volumetric.wgsl the WebGPU backend runs.
+    pub volumetric: bool,
     /// No image decoder in this crate yet: media surfaces are not drawn.
     pub media_surfaces: bool,
     /// No text rasteriser in this crate yet: labels are not drawn.
@@ -73,6 +77,7 @@ pub const CAPABILITIES: Capabilities = Capabilities {
     // `///` here only produced an unused_doc_comments warning.
     shadows: true,
     post_processing: false,
+    volumetric: true,
     media_surfaces: false,
     world_space_labels: false,
 };
@@ -106,6 +111,22 @@ struct Globals {
     /// the shader's is a buffer-size validation error that fails the
     /// whole submission — which is exactly what it did.
     ssao: [f32; 4],
+}
+
+/// The volumetric march's uniforms — the VolGlobals struct in
+/// volumetric.wgsl, in the order it declares them.
+#[repr(C)]
+#[derive(Clone, Copy, Pod, Zeroable)]
+struct VolGlobals {
+    inv_view_proj: [f32; 16],
+    eye: [f32; 4],
+    light_dir: [f32; 4],
+    light_col: [f32; 4],
+    light_vp: [f32; 16],
+    shadow: [f32; 4],
+    params: [f32; 4],
+    dims: [f32; 4],
+    forward: [f32; 4],
 }
 
 #[repr(C)]
@@ -148,10 +169,22 @@ pub struct Prepared {
     /// The depth map the key light writes, and the group the shadow pass
     /// binds. Absent when there is nothing to cast.
     shadow: Option<PreparedShadow>,
+    volumetric: Option<PreparedVolumetric>,
     plan: Vec<(String, u32)>,
     mesh_variants: u32,
     clear: [f32; 3],
     skipped: u32,
+}
+
+/// The G-buffer, the in-scatter target and the two bind groups the
+/// volumetric passes need. Absent when there is nothing to light.
+pub struct PreparedVolumetric {
+    gbuffer_view: wgpu::TextureView,
+    gbuffer_depth_view: wgpu::TextureView,
+    vol_view: wgpu::TextureView,
+    vol_bind: wgpu::BindGroup,
+    composite_bind: wgpu::BindGroup,
+    globals_bind: wgpu::BindGroup,
 }
 
 pub struct PreparedShadow {
@@ -212,6 +245,13 @@ pub struct NativeRenderer {
     pipeline: wgpu::RenderPipeline,
     globals_layout: wgpu::BindGroupLayout,
     shadow_pipeline: wgpu::RenderPipeline,
+    gbuffer_pipeline: wgpu::RenderPipeline,
+    vol_pipeline: wgpu::RenderPipeline,
+    composite_pipeline: wgpu::RenderPipeline,
+    vol_layout: wgpu::BindGroupLayout,
+    composite_layout: wgpu::BindGroupLayout,
+    vol_sampler: wgpu::Sampler,
+    vol_point_sampler: wgpu::Sampler,
     shadow_globals_layout: wgpu::BindGroupLayout,
     shadow_sampler: wgpu::Sampler,
     draw_layout: wgpu::BindGroupLayout,
@@ -514,6 +554,215 @@ impl NativeRenderer {
             multisample: wgpu::MultisampleState::default(),
             multiview: None,
         });
+        /* The G-buffer: view-space normal in rgb, view depth in metres in
+           a. Written by the world module's own vs_gbuffer/fs_gbuffer, so
+           this backend's idea of where the surfaces are is the same one
+           the web backends have. */
+        let gbuffer_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+            label: Some("berx-gbuffer-pipeline"),
+            bind_group_layouts: &[&shadow_globals_layout, &draw_layout],
+            push_constant_ranges: &[],
+        });
+        let gbuffer_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some("berx-gbuffer"),
+            layout: Some(&gbuffer_layout),
+            vertex: wgpu::VertexState {
+                module: &shader,
+                entry_point: "vs_gbuffer",
+                buffers: &[wgpu::VertexBufferLayout {
+                    array_stride: 24,
+                    step_mode: wgpu::VertexStepMode::Vertex,
+                    attributes: &[
+                        wgpu::VertexAttribute { offset: 0, shader_location: 0, format: wgpu::VertexFormat::Float32x3 },
+                        wgpu::VertexAttribute { offset: 12, shader_location: 1, format: wgpu::VertexFormat::Float32x3 },
+                    ],
+                }],
+            },
+            fragment: Some(wgpu::FragmentState {
+                module: &shader,
+                entry_point: "fs_gbuffer",
+                targets: &[Some(wgpu::ColorTargetState {
+                    format: wgpu::TextureFormat::Rgba32Float,
+                    blend: None,
+                    write_mask: wgpu::ColorWrites::ALL,
+                })],
+            }),
+            primitive: wgpu::PrimitiveState {
+                topology: wgpu::PrimitiveTopology::TriangleList,
+                front_face: wgpu::FrontFace::Ccw,
+                cull_mode: Some(wgpu::Face::Back),
+                ..Default::default()
+            },
+            depth_stencil: Some(wgpu::DepthStencilState {
+                format: wgpu::TextureFormat::Depth32Float,
+                depth_write_enabled: true,
+                depth_compare: wgpu::CompareFunction::Less,
+                stencil: Default::default(),
+                bias: Default::default(),
+            }),
+            multisample: wgpu::MultisampleState::default(),
+            multiview: None,
+        });
+
+        /* The volumetric march and the composite that adds it. Two
+           pipelines because they run in different passes: the march
+           writes a single-sample float target of its own, and the
+           composite adds that target into the multisampled world pass.
+           Marching directly into the world pass would run the whole ray
+           march once per SAMPLE. */
+        let vol_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some("berx-volumetric"),
+            source: wgpu::ShaderSource::Wgsl(include_str!("../../spatial-shaders/volumetric.wgsl").into()),
+        });
+        let vol_bind_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: Some("berx-volumetric-bind"),
+            entries: &[
+                wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: NonZeroU64::new(std::mem::size_of::<VolGlobals>() as u64),
+                    },
+                    count: None,
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 1,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Comparison),
+                    count: None,
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 2,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Texture {
+                        sample_type: wgpu::TextureSampleType::Depth,
+                        view_dimension: wgpu::TextureViewDimension::D2,
+                        multisampled: false,
+                    },
+                    count: None,
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 3,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Texture {
+                        sample_type: wgpu::TextureSampleType::Float { filterable: false },
+                        view_dimension: wgpu::TextureViewDimension::D2,
+                        multisampled: false,
+                    },
+                    count: None,
+                },
+            ],
+        });
+        let composite_bind_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: Some("berx-composite-bind"),
+            entries: &[
+                wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::NonFiltering),
+                    count: None,
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 1,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Texture {
+                        sample_type: wgpu::TextureSampleType::Float { filterable: false },
+                        view_dimension: wgpu::TextureViewDimension::D2,
+                        multisampled: false,
+                    },
+                    count: None,
+                },
+            ],
+        });
+        let vol_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+            label: Some("berx-volumetric-pipeline"),
+            bind_group_layouts: &[&vol_bind_layout],
+            push_constant_ranges: &[],
+        });
+        let vol_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some("berx-volumetric"),
+            layout: Some(&vol_pipeline_layout),
+            vertex: wgpu::VertexState { module: &vol_shader, entry_point: "vs_fullscreen", buffers: &[] },
+            fragment: Some(wgpu::FragmentState {
+                module: &vol_shader,
+                entry_point: "fs_volumetric",
+                targets: &[Some(wgpu::ColorTargetState {
+                    format: wgpu::TextureFormat::Rgba32Float,
+                    blend: None,
+                    write_mask: wgpu::ColorWrites::ALL,
+                })],
+            }),
+            primitive: wgpu::PrimitiveState { topology: wgpu::PrimitiveTopology::TriangleList, ..Default::default() },
+            depth_stencil: None,
+            multisample: wgpu::MultisampleState::default(),
+            multiview: None,
+        });
+        let composite_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+            label: Some("berx-composite-pipeline"),
+            bind_group_layouts: &[&vol_bind_layout, &composite_bind_layout],
+            push_constant_ranges: &[],
+        });
+        let composite_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some("berx-composite"),
+            layout: Some(&composite_pipeline_layout),
+            vertex: wgpu::VertexState { module: &vol_shader, entry_point: "vs_fullscreen", buffers: &[] },
+            fragment: Some(wgpu::FragmentState {
+                module: &vol_shader,
+                entry_point: "fs_composite",
+                targets: &[Some(wgpu::ColorTargetState {
+                    format,
+                    /* ONE/ONE: light in the air adds to what is behind it */
+                    blend: Some(wgpu::BlendState {
+                        color: wgpu::BlendComponent {
+                            src_factor: wgpu::BlendFactor::One,
+                            dst_factor: wgpu::BlendFactor::One,
+                            operation: wgpu::BlendOperation::Add,
+                        },
+                        alpha: wgpu::BlendComponent {
+                            src_factor: wgpu::BlendFactor::One,
+                            dst_factor: wgpu::BlendFactor::One,
+                            operation: wgpu::BlendOperation::Add,
+                        },
+                    }),
+                    write_mask: wgpu::ColorWrites::ALL,
+                })],
+            }),
+            primitive: wgpu::PrimitiveState { topology: wgpu::PrimitiveTopology::TriangleList, ..Default::default() },
+            /* it joins the multisampled world pass, and a pipeline whose
+               depth state or sample count disagrees with its attachments
+               is rejected outright — the whole command buffer with it */
+            depth_stencil: Some(wgpu::DepthStencilState {
+                format: wgpu::TextureFormat::Depth32Float,
+                depth_write_enabled: false,
+                depth_compare: wgpu::CompareFunction::Always,
+                stencil: Default::default(),
+                bias: Default::default(),
+            }),
+            multisample: wgpu::MultisampleState { count: SAMPLE_COUNT, ..Default::default() },
+            multiview: None,
+        });
+        let vol_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+            label: Some("berx-volumetric-shadow-sampler"),
+            /* nearest, not linear: 32 dithered taps along a ray do not need
+               hardware PCF, and a filtered lookup would make the result
+               depend on a texel-weighting convention the CPU twin would
+               have to guess at */
+            compare: Some(wgpu::CompareFunction::Less),
+            mag_filter: wgpu::FilterMode::Nearest,
+            min_filter: wgpu::FilterMode::Nearest,
+            address_mode_u: wgpu::AddressMode::ClampToEdge,
+            address_mode_v: wgpu::AddressMode::ClampToEdge,
+            ..Default::default()
+        });
+        let vol_point_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+            label: Some("berx-volumetric-point-sampler"),
+            mag_filter: wgpu::FilterMode::Nearest,
+            min_filter: wgpu::FilterMode::Nearest,
+            ..Default::default()
+        });
+
         let shadow_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
             label: Some("berx-shadow-sampler"),
             compare: Some(wgpu::CompareFunction::Less),
@@ -529,6 +778,13 @@ impl NativeRenderer {
             queue,
             pipeline,
             shadow_pipeline,
+            gbuffer_pipeline,
+            vol_pipeline,
+            composite_pipeline,
+            vol_layout: vol_bind_layout,
+            composite_layout: composite_bind_layout,
+            vol_sampler,
+            vol_point_sampler,
             shadow_globals_layout,
             shadow_sampler,
             globals_layout,
@@ -751,6 +1007,117 @@ impl NativeRenderer {
             .filter(|(_, item)| item.opacity >= 0.95)
             .map(|(i, _)| i)
             .collect();
+        /**
+         * The volumetric resources: a G-buffer, an in-scatter target and
+         * the bind groups the two passes need.
+         *
+         * Only when there is a shadow camera — a march with no shadow map
+         * has nothing to make a shaft out of, and would produce a uniform
+         * haze that looks like the pass working when it is not.
+         */
+        let volumetric = list.shadow.as_ref().map(|shadow| {
+            let width = list.width.max(1);
+            let height = list.height.max(1);
+            let gbuffer = self.device.create_texture(&wgpu::TextureDescriptor {
+                label: Some("berx-gbuffer"),
+                size: wgpu::Extent3d { width, height, depth_or_array_layers: 1 },
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: wgpu::TextureDimension::D2,
+                format: wgpu::TextureFormat::Rgba32Float,
+                usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
+                view_formats: &[],
+            });
+            let gbuffer_depth = self.device.create_texture(&wgpu::TextureDescriptor {
+                label: Some("berx-gbuffer-depth"),
+                size: wgpu::Extent3d { width, height, depth_or_array_layers: 1 },
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: wgpu::TextureDimension::D2,
+                format: wgpu::TextureFormat::Depth32Float,
+                usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+                view_formats: &[],
+            });
+            let vol_texture = self.device.create_texture(&wgpu::TextureDescriptor {
+                label: Some("berx-inscatter"),
+                size: wgpu::Extent3d { width, height, depth_or_array_layers: 1 },
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: wgpu::TextureDimension::D2,
+                format: wgpu::TextureFormat::Rgba32Float,
+                usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
+                view_formats: &[],
+            });
+            /* Both of these come from the shared core in the draw list —
+               see drawlist.rs. Nothing about the march is decided here. */
+            let mut params = [0.0f32; 4];
+            let mut steps = 0.0f32;
+            if list.volumetric.len() >= 5 {
+                params.copy_from_slice(&list.volumetric[0..4]);
+                steps = list.volumetric[4];
+            }
+            let mut inv_view_proj = [0.0f32; 16];
+            if list.inv_view_projection.len() >= 16 {
+                inv_view_proj.copy_from_slice(&list.inv_view_projection[0..16]);
+            }
+            let vol_globals = VolGlobals {
+                inv_view_proj,
+                eye: [list.camera.x, list.camera.y, list.camera.z, 0.0],
+                light_dir: [list.key.direction.x, list.key.direction.y, list.key.direction.z, 0.0],
+                light_col: [
+                    list.key.colour[0],
+                    list.key.colour[1],
+                    list.key.colour[2],
+                    list.key.intensity,
+                ],
+                /* the same depth remap every other projection goes through */
+                light_vp: gl_to_wgpu_depth(&shadow.view_projection),
+                shadow: [1.0 / shadow.map_size as f32, shadow.depth_bias, 0.0, shadow.strength],
+                params,
+                dims: [width as f32, height as f32, steps, 0.0],
+                /* the camera's forward, straight off the view matrix the
+                   core built — never re-derived from a target */
+                forward: [-list.view[2], -list.view[6], -list.view[10], 0.0],
+            };
+            let vol_buffer = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("berx-volumetric-globals"),
+                contents: bytemuck::bytes_of(&vol_globals),
+                usage: wgpu::BufferUsages::UNIFORM,
+            });
+            let gbuffer_view = gbuffer.create_view(&Default::default());
+            let vol_view = vol_texture.create_view(&Default::default());
+            let vol_bind = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
+                label: Some("berx-volumetric-bind"),
+                layout: &self.vol_layout,
+                entries: &[
+                    wgpu::BindGroupEntry { binding: 0, resource: vol_buffer.as_entire_binding() },
+                    wgpu::BindGroupEntry { binding: 1, resource: wgpu::BindingResource::Sampler(&self.vol_sampler) },
+                    wgpu::BindGroupEntry { binding: 2, resource: wgpu::BindingResource::TextureView(&shadow_view) },
+                    wgpu::BindGroupEntry { binding: 3, resource: wgpu::BindingResource::TextureView(&gbuffer_view) },
+                ],
+            });
+            let composite_bind = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
+                label: Some("berx-composite-bind"),
+                layout: &self.composite_layout,
+                entries: &[
+                    wgpu::BindGroupEntry { binding: 0, resource: wgpu::BindingResource::Sampler(&self.vol_point_sampler) },
+                    wgpu::BindGroupEntry { binding: 1, resource: wgpu::BindingResource::TextureView(&vol_view) },
+                ],
+            });
+            PreparedVolumetric {
+                gbuffer_view,
+                gbuffer_depth_view: gbuffer_depth.create_view(&Default::default()),
+                vol_view,
+                vol_bind,
+                composite_bind,
+                globals_bind: self.device.create_bind_group(&wgpu::BindGroupDescriptor {
+                    label: Some("berx-gbuffer-globals"),
+                    layout: &self.shadow_globals_layout,
+                    entries: &[wgpu::BindGroupEntry { binding: 0, resource: globals_buffer.as_entire_binding() }],
+                }),
+            }
+        });
+
         let shadow = list.shadow.as_ref().map(|_| PreparedShadow {
             view: shadow_view,
             globals_bind: shadow_globals_bind,
@@ -761,6 +1128,7 @@ impl NativeRenderer {
             globals_bind,
             draw_bind,
             shadow,
+            volumetric,
             plan,
             mesh_variants: variants.len() as u32,
             clear: [list.clear_color[0], list.clear_color[1], list.clear_color[2]],
@@ -862,6 +1230,59 @@ impl NativeRenderer {
                 shadow_pass.draw_indexed(0..*count, 0, 0..1);
             }
         }
+        /* The G-buffer and the march, before the world pass: the composite
+           runs INSIDE that pass and cannot sample a target it is writing. */
+        if let Some(vol) = &prepared.volumetric {
+            let mut g_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("berx-gbuffer"),
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view: &vol.gbuffer_view,
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        /* depth 0 means "nothing was drawn here", which is
+                           what the march tests for */
+                        load: wgpu::LoadOp::Clear(wgpu::Color { r: 0.0, g: 0.0, b: 0.0, a: 0.0 }),
+                        store: wgpu::StoreOp::Store,
+                    },
+                })],
+                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                    view: &vol.gbuffer_depth_view,
+                    depth_ops: Some(wgpu::Operations { load: wgpu::LoadOp::Clear(1.0), store: wgpu::StoreOp::Store }),
+                    stencil_ops: None,
+                }),
+                timestamp_writes: None,
+                occlusion_query_set: None,
+            });
+            g_pass.set_pipeline(&self.gbuffer_pipeline);
+            g_pass.set_bind_group(0, &vol.globals_bind, &[]);
+            for (i, (key, count)) in prepared.plan.iter().enumerate() {
+                let m = self.meshes.get(key).expect("planned");
+                g_pass.set_bind_group(1, &prepared.draw_bind, &[(i as u64 * DRAW_STRIDE) as u32]);
+                g_pass.set_vertex_buffer(0, m.vertices.slice(..));
+                g_pass.set_index_buffer(m.indices.slice(..), wgpu::IndexFormat::Uint16);
+                g_pass.draw_indexed(0..*count, 0, 0..1);
+            }
+            drop(g_pass);
+
+            let mut vol_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("berx-volumetric"),
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view: &vol.vol_view,
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(wgpu::Color { r: 0.0, g: 0.0, b: 0.0, a: 1.0 }),
+                        store: wgpu::StoreOp::Store,
+                    },
+                })],
+                depth_stencil_attachment: None,
+                timestamp_writes: None,
+                occlusion_query_set: None,
+            });
+            vol_pass.set_pipeline(&self.vol_pipeline);
+            vol_pass.set_bind_group(0, &vol.vol_bind, &[]);
+            vol_pass.draw(0..3, 0..1);
+        }
+
         let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("berx-world"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
@@ -896,6 +1317,15 @@ impl NativeRenderer {
             pass.draw_indexed(0..*count, 0, 0..1);
             stats.draw_calls += 1;
             stats.triangles += count / 3;
+        }
+        /* the air is in front of everything, and it ADDS to what is
+           behind it rather than covering it */
+        if let Some(vol) = &prepared.volumetric {
+            pass.set_pipeline(&self.composite_pipeline);
+            pass.set_bind_group(0, &vol.vol_bind, &[]);
+            pass.set_bind_group(1, &vol.composite_bind, &[]);
+            pass.draw(0..3, 0..1);
+            stats.draw_calls += 1;
         }
         stats
     }

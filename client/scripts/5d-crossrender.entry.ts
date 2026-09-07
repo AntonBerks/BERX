@@ -72,7 +72,12 @@ const api = {
 			const renderer = new BerxThreeRuntimeRenderer(canvas);
 			renderer.setLighting(lighting);
 			renderer.resize(canvas.width, canvas.height);
-			renderer.render(frame, {shadows});
+			/* volumetric OFF, deliberately: it runs only when there IS a
+			   shadow camera, so leaving it on would toggle two things at
+			   once and the difference between the two images would no
+			   longer be the shadow. Measured: it made the floor BESIDE the
+			   occluder brighter with shadows on, which a shadow cannot do. */
+			renderer.render(frame, {shadows, volumetric: false});
 			const gl = canvas.getContext('webgl2');
 			if (!gl) throw new Error('no WebGL2 context');
 			const px = new Uint8Array(canvas.width * canvas.height * 4);
@@ -243,9 +248,13 @@ const api = {
 			/* the offscreen path: the same pipeline, the same shader and
 			   the same draw list as the canvas one, resolving somewhere
 			   that can actually be read back */
-			renderer.draw(berxBuildDrawList(frame, {
-				width: canvas.width, height: canvas.height, lighting, shadows,
-			}), true);
+			renderer.draw(
+				berxBuildDrawList(frame, {width: canvas.width, height: canvas.height, lighting, shadows}),
+				true,
+				undefined,
+				/* the same control as the WebGL2 path above */
+				{volumetric: false},
+			);
 			const rgba = Array.from(await renderer.readback());
 			renderer.dispose();
 			return rgba;

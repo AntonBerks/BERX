@@ -28,6 +28,10 @@ import {
 	BERX_WORLD_CLEAR,
 	BERX_SSAO_FLOATS,
 	berxSSAOUniform,
+	berxVolumetricUniform,
+	BERX_VOLUMETRIC_STEPS,
+	berxInvertMat4,
+	berxMultiplyMat4,
 	type Berx5DFrame,
 	type BerxActionSlot,
 	type BerxDrawList,
@@ -36,7 +40,7 @@ import {
 	type BerxSpatialRenderer,
 	type BerxWorldLighting,
 } from '@berx/spatial';
-import {BERX_LABEL_WGSL, BERX_SSAO_WGSL, BERX_WORLD_WGSL} from '@berx/spatial-shaders';
+import {BERX_LABEL_WGSL, BERX_SSAO_WGSL, BERX_VOLUMETRIC_WGSL, BERX_WORLD_WGSL} from '@berx/spatial-shaders';
 import {createBox, createSphere, createRing, createFrame, type BerxPrimitiveMesh} from './primitiveGeometry';
 import {BerxWebGPUMediaTextures} from './webgpuMediaTextures';
 import {BerxWebGPUTextAtlas} from './webgpuText';
@@ -51,6 +55,10 @@ const DRAW_STRIDE = 256;
 const GLOBALS_BYTES = 368;
 /** The square depth map the key light writes. Matches the shared core's. */
 const SHADOW_FORMAT: GPUTextureFormat = 'depth32float';
+/* inv_view_proj(64) + eye(16) + light_dir(16) + light_col(16) +
+   light_vp(64) + shadow(16) + params(16) + dims(16) + forward(16) —
+   the VolGlobals struct in volumetric.wgsl, in declaration order. */
+const VOL_GLOBALS_BYTES = 240;
 /** Bytes per label. One dynamic offset each, at the alignment the API wants. */
 const LABEL_STRIDE = 256;
 const LABEL_GLOBALS_BYTES = 160;
@@ -200,6 +208,10 @@ export class BerxWebGPURuntimeRenderer implements BerxSpatialRenderer {
 	/** One r32float white pixel, bound whenever the pass did not run. */
 	private readonly blankAo: GPUTexture;
 	private gbuffer?: GPUTexture;
+	private volTexture?: GPUTexture;
+	private volUniform?: GPUBuffer;
+	private volSampler?: GPUSampler;
+	private volPointSampler?: GPUSampler;
 	private gbufferDepth?: GPUTexture;
 	private aoMap?: GPUTexture;
 	private readonly shadowGlobalsBind: GPUBindGroup;
@@ -270,6 +282,10 @@ export class BerxWebGPURuntimeRenderer implements BerxSpatialRenderer {
 		private readonly shadowPipeline: GPURenderPipeline,
 		private readonly gbufferPipeline: GPURenderPipeline,
 		private readonly ssaoPipeline: GPUComputePipeline,
+		private readonly volPipeline: GPURenderPipeline,
+		private readonly compositePipeline: GPURenderPipeline,
+		private readonly volLayout: GPUBindGroupLayout,
+		private readonly compositeLayout: GPUBindGroupLayout,
 		options: {textureBudget?: number; labelBudget?: number; onMediaError?: (uri: string, error: unknown) => void},
 	) {
 		/* The kernel and its parameters come from the shared core; this
@@ -558,7 +574,64 @@ export class BerxWebGPURuntimeRenderer implements BerxSpatialRenderer {
 			multisample: {count: SAMPLE_COUNT},
 		});
 
-		const renderer = new BerxWebGPURuntimeRenderer(canvas, device, context, format, pipeline, drawLayout, mediaLayout, labelPipeline, labelLayout, shadowPipeline, gbufferPipeline, ssaoPipeline, options);
+		/**
+		 * The volumetric march, and the composite that adds it.
+		 *
+		 * Two pipelines rather than one because they run in different
+		 * passes: the march writes a single-sample float target of its own,
+		 * and the composite adds that target into the multisampled world
+		 * pass. Marching directly into the world pass would run the whole
+		 * ray march once per SAMPLE, which is four times the cost for a
+		 * result that is constant across a pixel's samples anyway.
+		 */
+		const volModule = device.createShaderModule({code: BERX_VOLUMETRIC_WGSL});
+		const volLayout = device.createBindGroupLayout({
+			entries: [
+				{binding: 0, visibility: GPUShaderStage.FRAGMENT, buffer: {type: 'uniform', minBindingSize: VOL_GLOBALS_BYTES}},
+				/* nearest, not filtering: 32 dithered taps along a ray do not
+				   need hardware PCF, and a filtered lookup would make the
+				   result depend on a texel-weighting convention the CPU twin
+				   would have to guess at */
+				{binding: 1, visibility: GPUShaderStage.FRAGMENT, sampler: {type: 'comparison'}},
+				{binding: 2, visibility: GPUShaderStage.FRAGMENT, texture: {sampleType: 'depth', viewDimension: '2d'}},
+				{binding: 3, visibility: GPUShaderStage.FRAGMENT, texture: {sampleType: 'unfilterable-float', viewDimension: '2d'}},
+			],
+		});
+		const volPipeline = device.createRenderPipeline({
+			layout: device.createPipelineLayout({bindGroupLayouts: [volLayout]}),
+			vertex: {module: volModule, entryPoint: 'vs_fullscreen'},
+			fragment: {module: volModule, entryPoint: 'fs_volumetric', targets: [{format: 'rgba32float'}]},
+			primitive: {topology: 'triangle-list'},
+		});
+		const compositeLayout = device.createBindGroupLayout({
+			entries: [
+				{binding: 0, visibility: GPUShaderStage.FRAGMENT, sampler: {type: 'non-filtering'}},
+				{binding: 1, visibility: GPUShaderStage.FRAGMENT, texture: {sampleType: 'unfilterable-float', viewDimension: '2d'}},
+			],
+		});
+		const compositePipeline = device.createRenderPipeline({
+			/* group 0 is declared in the same module and must still be in the
+			   layout even though this entry point does not read it */
+			layout: device.createPipelineLayout({bindGroupLayouts: [volLayout, compositeLayout]}),
+			vertex: {module: volModule, entryPoint: 'vs_fullscreen'},
+			fragment: {
+				module: volModule, entryPoint: 'fs_composite',
+				targets: [{
+					format,
+					/* ONE/ONE: light in the air adds to what is behind it */
+					blend: {
+						color: {srcFactor: 'one', dstFactor: 'one', operation: 'add'},
+						alpha: {srcFactor: 'one', dstFactor: 'one', operation: 'add'},
+					},
+				}],
+			},
+			primitive: {topology: 'triangle-list'},
+			/* the world pass it joins is multisampled, and a pipeline whose
+			   sample count disagrees with its attachment is rejected outright */
+			depthStencil: {format: 'depth32float', depthWriteEnabled: false, depthCompare: 'always'},
+			multisample: {count: SAMPLE_COUNT},
+		});
+		const renderer = new BerxWebGPURuntimeRenderer(canvas, device, context, format, pipeline, drawLayout, mediaLayout, labelPipeline, labelLayout, shadowPipeline, gbufferPipeline, ssaoPipeline, volPipeline, compositePipeline, volLayout, compositeLayout, options);
 		renderer.errors = errors;
 		renderer.adapter = adapter;
 		renderer.lostPromise = device.lost.then((info) => {
@@ -655,6 +728,11 @@ export class BerxWebGPURuntimeRenderer implements BerxSpatialRenderer {
 		   direction nothing faces. rgba32float so the view depth in .a
 		   keeps full precision, which is what lets the gate predict a
 		   pixel from the same numbers. */
+		this.volTexture?.destroy();
+		this.volTexture = this.device.createTexture({
+			size: {width, height}, format: 'rgba32float',
+			usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_SRC,
+		});
 		this.gbuffer = this.device.createTexture({
 			size: {width: this.width, height: this.height},
 			format: 'rgba32float',
@@ -774,7 +852,7 @@ export class BerxWebGPURuntimeRenderer implements BerxSpatialRenderer {
 		/* `ssao: false` skips the G-buffer and occlusion passes entirely and
 		   makes the world pass use 1.0 — the verification's own switch, and
 		   the same shape `shadows: false` already has on the draw list. */
-		pass_?: {clear?: boolean; keep?: boolean; ssao?: boolean},
+		pass_?: {clear?: boolean; keep?: boolean; ssao?: boolean; volumetric?: boolean},
 	): void {
 		if (this.lost) return;
 		const device = this.device;
@@ -954,6 +1032,69 @@ export class BerxWebGPURuntimeRenderer implements BerxSpatialRenderer {
 			aoPass.end();
 		}
 
+		/**
+		 * The key light, made visible in the air.
+		 *
+		 * Its own single-sample pass, before the world pass, because the
+		 * composite that adds it runs INSIDE the world pass and cannot
+		 * sample a target that pass is writing. It needs the G-buffer (for
+		 * where each ray ends) and the shadow map (for which parts of the
+		 * ray are lit) — both already built above, reused rather than
+		 * rebuilt: a second G-buffer would be a second opinion about where
+		 * the surfaces are.
+		 */
+		const volumetricOn = pass_?.volumetric !== false && ssaoOn && list.shadow && this.volTexture;
+		if (volumetricOn) {
+			if (!this.volUniform) {
+				this.volUniform = device.createBuffer({size: VOL_GLOBALS_BYTES, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST});
+			}
+			if (!this.volSampler) {
+				this.volSampler = device.createSampler({
+					compare: 'less', magFilter: 'nearest', minFilter: 'nearest',
+					addressModeU: 'clamp-to-edge', addressModeV: 'clamp-to-edge',
+				});
+			}
+			if (!this.volPointSampler) {
+				this.volPointSampler = device.createSampler({magFilter: 'nearest', minFilter: 'nearest'});
+			}
+			const viewProj = berxMultiplyMat4(new Float32Array(list.projection), new Float32Array(list.view));
+			const volGlobals = new Float32Array(VOL_GLOBALS_BYTES / 4);
+			volGlobals.set(berxInvertMat4(viewProj), 0);
+			volGlobals.set([list.camera.x, list.camera.y, list.camera.z, 0], 16);
+			volGlobals.set([list.key.direction.x, list.key.direction.y, list.key.direction.z, 0], 20);
+			volGlobals.set([list.key.colour[0], list.key.colour[1], list.key.colour[2], list.key.intensity], 24);
+			/* the same depth remap every other projection goes through */
+			volGlobals.set(glToWgpuDepth(list.shadow!.viewProjection), 28);
+			volGlobals.set([1 / list.shadow!.mapSize, list.shadow!.depthBias, 0, list.shadow!.strength], 44);
+			volGlobals.set(berxVolumetricUniform(), 48);
+			volGlobals.set([this.width, this.height, BERX_VOLUMETRIC_STEPS, 0], 52);
+			/* the camera's forward, straight off the view matrix the core
+			   built — never re-derived from a target, which could disagree */
+			volGlobals.set([-list.view[2], -list.view[6], -list.view[10], 0], 56);
+			device.queue.writeBuffer(this.volUniform, 0, volGlobals);
+
+			const volBind = device.createBindGroup({
+				layout: this.volLayout,
+				entries: [
+					{binding: 0, resource: {buffer: this.volUniform}},
+					{binding: 1, resource: this.volSampler},
+					{binding: 2, resource: this.shadowMap.createView()},
+					{binding: 3, resource: this.gbuffer!.createView()},
+				],
+			});
+			const volPass = encoder.beginRenderPass({
+				colorAttachments: [{
+					view: this.volTexture!.createView(),
+					clearValue: {r: 0, g: 0, b: 0, a: 1},
+					loadOp: 'clear', storeOp: 'store',
+				}],
+			});
+			volPass.setPipeline(this.volPipeline);
+			volPass.setBindGroup(0, volBind);
+			volPass.draw(3);
+			volPass.end();
+		}
+
 		const pass = encoder.beginRenderPass({
 			colorAttachments: [{
 				view: this.msaa!.createView(),
@@ -982,6 +1123,29 @@ export class BerxWebGPURuntimeRenderer implements BerxSpatialRenderer {
 		/* names and the action ring, in the same pass and of the same
 		   material — a word standing in the world beside its object */
 		drawCalls += this.drawLabels(pass, list);
+		/* after the world and its names: the air is in front of everything,
+		   and it adds to what is behind it rather than covering it */
+		if (volumetricOn) {
+			pass.setPipeline(this.compositePipeline);
+			pass.setBindGroup(0, device.createBindGroup({
+				layout: this.volLayout,
+				entries: [
+					{binding: 0, resource: {buffer: this.volUniform!}},
+					{binding: 1, resource: this.volSampler!},
+					{binding: 2, resource: this.shadowMap.createView()},
+					{binding: 3, resource: this.gbuffer!.createView()},
+				],
+			}));
+			pass.setBindGroup(1, device.createBindGroup({
+				layout: this.compositeLayout,
+				entries: [
+					{binding: 0, resource: this.volPointSampler!},
+					{binding: 1, resource: this.volTexture!.createView()},
+				],
+			}));
+			pass.draw(3);
+			drawCalls++;
+		}
 		pass.end();
 		device.queue.submit([encoder.finish()]);
 

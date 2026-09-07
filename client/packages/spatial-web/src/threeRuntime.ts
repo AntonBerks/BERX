@@ -21,6 +21,10 @@ import {
   type BerxHit,
   berxBuildDrawList,
   berxSSAOUniform,
+  berxVolumetricUniform,
+  BERX_VOLUMETRIC_STEPS,
+  berxInvertMat4,
+  berxMultiplyMat4,
   BERX_WORLD_CLEAR,
   type BerxDrawList,
   berxWorldLighting,
@@ -350,6 +354,121 @@ function gpuMesh(gl:WebGL2RenderingContext,mesh:BerxPrimitiveMesh):GpuMesh { con
 function meshFor(kind:ReturnType<typeof geometryForEntity>['kind'],lod:0|1):BerxPrimitiveMesh { const far=lod===1; switch(kind){case'orb':return createSphere(.5,far?10:24,far?7:16);case'ring':return createRing(.62,.42,far?16:48);case'frame':return createFrame(1,1,.12);case'surface':return createBox(1,1,.06);case'portal':return createFrame(1,1.2,.16);case'node':return createSphere(.58,far?9:20,far?6:12);case'stack':return createBox(1,1,.32);case'message':return createBox(1,.46,.12);case'create':return createSphere(.58,far?11:28,far?7:18);} }
 
 
+/**
+ * THE VOLUMETRIC PASS, in GLSL.
+ *
+ * The same march as volumetric.wgsl, line for line, as a fullscreen
+ * fragment pass — which is the shape WebGL2 can run, and the shape the
+ * WGSL uses too for exactly that reason. Everything that decides the
+ * answer (density, phase asymmetry, march length, intensity) arrives in
+ * VPARAMS from @berx/spatial's berxVolumetricUniform, and the loop is
+ * the same sequence of operations as berxVolumetricAt — the CPU twin
+ * the gate predicts pixels with.
+ *
+ * Two conventions differ from the WGSL and are written out rather than
+ * hidden: GL clip space runs z from -1 to 1 where WGSL runs 0 to 1, and
+ * GL texture space has its origin at the bottom. Both appear only in
+ * the shadow lookup.
+ */
+const VV = `#version 300 es\nprecision highp float;out vec2 UV;void main(){vec2 c=vec2((gl_VertexID==1)?3.:-1.,(gl_VertexID==2)?3.:-1.);UV=vec2(c.x*.5+.5,c.y*.5+.5);gl_Position=vec4(c,0.,1.);}`;
+const VF = `#version 300 es
+precision highp float;
+precision highp sampler2DShadow;
+in vec2 UV;
+uniform mat4 INV_VP;            // pixel -> world ray
+uniform mat4 VLVP;              // the light's own view-projection
+uniform vec4 VSHADOW;           // x = 1/mapSize, y = depth bias, z unused, w = strength
+uniform vec4 VPARAMS;           // x = density, y = phase g, z = max distance, w = intensity
+uniform vec4 VDIMS;             // x = width, y = height, z = steps, w unused
+uniform vec3 VEYE, VLIGHT_DIR, VLIGHT_COL, VFORWARD;
+uniform float VLIGHT_I;
+uniform sampler2D VGBUF;
+uniform sampler2DShadow VSHADOW_MAP;
+out vec4 C;
+
+const float PI = 3.14159265359;
+
+// The same curve as @berx/spatial's berxPhaseHG, clamp included: at g->1
+// and cosTheta->1 the denominator goes to zero and the phase to
+// infinity, which is the singular lobe that blows a shaft out to white.
+float phaseHG(float cosTheta, float g){
+  float g2=g*g;
+  float denom=1.+g2-2.*g*cosTheta;
+  return (1.-g2)/(4.*PI*pow(max(denom,1e-4),1.5));
+}
+
+// FNV-1a over the pixel coordinate — the same hash as
+// berxVolumetricJitter, so a shaft dithers identically in four languages
+// without shipping a noise texture.
+float vjitter(int x,int y){
+  uint h=2166136261u;
+  h=h^(uint(x)&0xffffu); h=h*16777619u;
+  h=h^(uint(y)&0xffffu); h=h*16777619u;
+  return float(h>>8u)/16777216.;
+}
+
+float litAt(vec3 world){
+  if(VSHADOW.w<=0.) return 1.;
+  vec4 clip=VLVP*vec4(world,1.);
+  vec3 ndc=clip.xyz/max(clip.w,1e-6);
+  if(ndc.x<-1.||ndc.x>1.||ndc.y<-1.||ndc.y>1.||ndc.z>1.) return 1.;
+  // GL: -1..1 to 0..1, and the origin is at the bottom
+  vec2 uv=ndc.xy*.5+.5;
+  return texture(VSHADOW_MAP,vec3(uv,ndc.z*.5+.5-VSHADOW.y));
+}
+
+void main(){
+  int px=int(UV.x*VDIMS.x);
+  // TOP-DOWN, deliberately, even though GL's own buffers are bottom-up:
+  // the jitter is a hash of the pixel index, and WGSL's uv origin is at
+  // the top. Hashing GL's bottom-up row gave the same physical pixel a
+  // different march offset in the two backends — a real disagreement of
+  // up to 49/255 between two ports that were otherwise identical, and
+  // one only a cross-backend comparison could find.
+  int py=int((1.-UV.y)*VDIMS.y);
+
+  vec2 ndc=vec2(UV.x*2.-1.,UV.y*2.-1.);
+  vec4 nearH=INV_VP*vec4(ndc,-1.,1.);
+  vec4 farH=INV_VP*vec4(ndc,1.,1.);
+  vec3 nearP=nearH.xyz/max(nearH.w,1e-6);
+  vec3 farP=farH.xyz/max(farH.w,1e-6);
+  vec3 dir=normalize(farP-nearP);
+
+  // Distance to the first surface. The march stops there: air behind a
+  // wall does not scatter light into the eye.
+  // The G-buffer stores VIEW DEPTH — distance along the camera's forward
+  // axis — and the march needs distance along THIS ray. For an off-axis
+  // pixel those differ by 1/cos.
+  float depth=texture(VGBUF,UV).a;
+  float along=max(dot(dir,normalize(VFORWARD)),1e-3);
+  float surface=depth>0.?depth/along:VPARAMS.z;
+  float far=min(VPARAMS.z,surface);
+  if(far<=0.){ C=vec4(0.,0.,0.,1.); return; }
+
+  int steps=int(VDIMS.z);
+  float stepLength=far/float(steps);
+  float phase=phaseHG(dot(dir,normalize(VLIGHT_DIR)),VPARAMS.y);
+  float offset=vjitter(px,py);
+
+  float inscatter=0.;
+  for(int s=0;s<64;s++){
+    if(s>=steps) break;
+    float t=(float(s)+offset)*stepLength;
+    vec3 p=VEYE+dir*t;
+    float lit=litAt(p);
+    if(lit<=0.) continue;
+    float transmittance=exp(-VPARAMS.x*t);
+    inscatter+=lit*phase*VPARAMS.x*stepLength*transmittance;
+  }
+  float energy=inscatter*VPARAMS.w;
+  C=vec4(VLIGHT_COL*VLIGHT_I*energy,1.);
+}`;
+/** Additive composite of the in-scatter buffer over the world. */
+const CV = `#version 300 es\nprecision highp float;out vec2 UV;void main(){vec2 c=vec2((gl_VertexID==1)?3.:-1.,(gl_VertexID==2)?3.:-1.);UV=vec2(c.x*.5+.5,c.y*.5+.5);gl_Position=vec4(c,0.,1.);}`;
+const CF = `#version 300 es\nprecision highp float;in vec2 UV;uniform sampler2D SRC;out vec4 C;void main(){C=vec4(texture(SRC,UV).rgb,1.);}`;
+/** Reads a depth texture as ordinary floats, for the verification path. */
+const DF = `#version 300 es\nprecision highp float;in vec2 UV;uniform highp sampler2D SRC;out vec4 C;void main(){C=vec4(texture(SRC,UV).r,0.,0.,1.);}`;
+
 export interface BerxSpatialRenderOptions {
 	maxObjects?:number;
 	ambientMotion?:boolean;
@@ -363,6 +482,8 @@ export interface BerxSpatialRenderOptions {
 	 * existed — which is what the gate renders to measure the difference.
 	 */
 	ssao?:boolean;
+	/** Whether the key light is visible in the air. Passed to the shared core. */
+	volumetric?:boolean;
 	/**
 	 * Two eyes, drawn side by side into one backing store.
 	 *
@@ -378,7 +499,21 @@ export class BerxThreeRuntimeRenderer implements BerxSpatialRenderer {
  readonly kind='webgl2' as const;
  /* what this backend really does, and nothing it does not */
  readonly capabilities={perspective:true,depthBuffer:true,physicallyLitMaterials:true,shadows:true,postProcessing:false} as const;
- private readonly gl:WebGL2RenderingContext;private readonly program:WebGLProgram;private readonly meshes=new Map<string,GpuMesh>();private readonly P:Loc;private readonly V:Loc;private readonly M:Loc;private readonly BASE:Loc;private readonly EMIT:Loc;private readonly CAM:Loc;private readonly AMB:Loc;private readonly ENV_ZEN:Loc;private readonly ENV_HOR:Loc;private readonly ENV_GND:Loc;private readonly ENV_SUN_DIR:Loc;private readonly ENV_SUN:Loc;private readonly AO_MAP:Loc;private readonly AO_ON:Loc;private readonly gbufProgram:WebGLProgram;private readonly aoProgram:WebGLProgram;private readonly GP:Loc;private readonly GV_:Loc;private readonly GM:Loc;private readonly GBUF:Loc;private readonly K:Loc;private readonly DIM:Loc;private gbufTexture?:WebGLTexture;private gbufDepth?:WebGLRenderbuffer;private gbufFbo?:WebGLFramebuffer;private aoTexture?:WebGLTexture;private aoFbo?:WebGLFramebuffer;private aoVao?:WebGLVertexArrayObject;private blankAo?:WebGLTexture;private ssaoSize={w:0,h:0};private readonly floatColour:boolean;private readonly KEY_DIR:Loc;private readonly KEY_COL:Loc;private readonly KEY_I:Loc;private readonly PL_POS:Loc;private readonly PL_COL:Loc;private readonly PL_I:Loc;private readonly PL_R:Loc;private readonly PL_N:Loc;private readonly MET:Loc;private readonly ROUGH:Loc;private readonly OPAC:Loc;private readonly TRANS:Loc;private readonly HT:Loc;private readonly TS:Loc;private readonly TEX:Loc;private readonly LVP:Loc;private readonly SHADOW:Loc;private readonly SHADOW_MAP:Loc;
+ private readonly gl:WebGL2RenderingContext;private readonly program:WebGLProgram;private readonly meshes=new Map<string,GpuMesh>();private readonly P:Loc;private readonly V:Loc;private readonly M:Loc;private readonly BASE:Loc;private readonly EMIT:Loc;private readonly CAM:Loc;private readonly AMB:Loc;private readonly ENV_ZEN:Loc;private readonly ENV_HOR:Loc;private readonly ENV_GND:Loc;private readonly ENV_SUN_DIR:Loc;private readonly ENV_SUN:Loc;private readonly AO_MAP:Loc;private readonly AO_ON:Loc;private readonly gbufProgram:WebGLProgram;private readonly aoProgram:WebGLProgram;private readonly GP:Loc;private readonly GV_:Loc;private readonly GM:Loc;private readonly GBUF:Loc;private readonly K:Loc;private readonly DIM:Loc;private gbufTexture?:WebGLTexture;private gbufDepth?:WebGLRenderbuffer;private gbufFbo?:WebGLFramebuffer;private aoTexture?:WebGLTexture;private aoFbo?:WebGLFramebuffer;private aoVao?:WebGLVertexArrayObject;private blankAo?:WebGLTexture;private ssaoSize={w:0,h:0};
+ private readonly volProgram:WebGLProgram;private readonly compositeProgram:WebGLProgram;
+ private readonly VINV:Loc;private readonly VLVP:Loc;private readonly VSHADOW:Loc;private readonly VPARAMS:Loc;private readonly VDIMS:Loc;private readonly VEYE:Loc;private readonly VLDIR:Loc;private readonly VLCOL:Loc;private readonly VLI:Loc;private readonly VFWD:Loc;private readonly VGBUF:Loc;private readonly VSMAP:Loc;private readonly CSRC:Loc;private readonly depthReadProgram:WebGLProgram;private readonly DSRC:Loc;
+ private volTexture?:WebGLTexture;private volFbo?:WebGLFramebuffer;private volSize={w:0,h:0};
+ /**
+  * A NEAREST comparison sampler, used only by the volumetric march.
+  *
+  * The world pass wants LINEAR so its 3x3 kernel is a soft edge. The
+  * march does not: it takes 32 taps along a ray that is already
+  * dithered, so hardware 2x2 PCF adds nothing — and it would make the
+  * result depend on a filtering convention the CPU twin would have to
+  * guess at. One hard tap is exactly reproducible, which is what having
+  * an oracle at all requires.
+  */
+ private shadowNearest?:WebGLSampler;private readonly floatColour:boolean;private readonly KEY_DIR:Loc;private readonly KEY_COL:Loc;private readonly KEY_I:Loc;private readonly PL_POS:Loc;private readonly PL_COL:Loc;private readonly PL_I:Loc;private readonly PL_R:Loc;private readonly PL_N:Loc;private readonly MET:Loc;private readonly ROUGH:Loc;private readonly OPAC:Loc;private readonly TRANS:Loc;private readonly HT:Loc;private readonly TS:Loc;private readonly TEX:Loc;private readonly LVP:Loc;private readonly SHADOW:Loc;private readonly SHADOW_MAP:Loc;
  /* the depth-only pass from the light: its own program, its own target */
  private readonly shadowProgram:WebGLProgram;private readonly SLVP:Loc;private readonly SM:Loc;
  private shadowFbo?:WebGLFramebuffer;private shadowTexture?:WebGLTexture;private shadowSize=0;
@@ -424,6 +559,17 @@ export class BerxThreeRuntimeRenderer implements BerxSpatialRenderer {
   this.GP=gl.getUniformLocation(this.gbufProgram,'P');this.GV_=gl.getUniformLocation(this.gbufProgram,'V');this.GM=gl.getUniformLocation(this.gbufProgram,'M');
   this.GBUF=gl.getUniformLocation(this.aoProgram,'GBUF');this.K=gl.getUniformLocation(this.aoProgram,'K');this.DIM=gl.getUniformLocation(this.aoProgram,'DIM');this.KEY_DIR=gl.getUniformLocation(this.program,'KEY_DIR');this.KEY_COL=gl.getUniformLocation(this.program,'KEY_COL');this.KEY_I=gl.getUniformLocation(this.program,'KEY_I');this.PL_POS=gl.getUniformLocation(this.program,'PL_POS');this.PL_COL=gl.getUniformLocation(this.program,'PL_COL');this.PL_I=gl.getUniformLocation(this.program,'PL_I');this.PL_R=gl.getUniformLocation(this.program,'PL_R');this.PL_N=gl.getUniformLocation(this.program,'PL_N');this.MET=gl.getUniformLocation(this.program,'MET');this.ROUGH=gl.getUniformLocation(this.program,'ROUGH');this.OPAC=gl.getUniformLocation(this.program,'OPAC');this.TRANS=gl.getUniformLocation(this.program,'TRANS');this.HT=gl.getUniformLocation(this.program,'HT');this.TS=gl.getUniformLocation(this.program,'TS');this.TEX=gl.getUniformLocation(this.program,'TEX');this.LVP=gl.getUniformLocation(this.program,'LVP');this.SHADOW=gl.getUniformLocation(this.program,'SHADOW');this.SHADOW_MAP=gl.getUniformLocation(this.program,'SHADOW_MAP');
   this.shadowProgram=program(gl,SV,SF);this.SLVP=gl.getUniformLocation(this.shadowProgram,'LVP');this.SM=gl.getUniformLocation(this.shadowProgram,'M');
+  this.volProgram=program(gl,VV,VF);this.compositeProgram=program(gl,CV,CF);
+  this.shadowNearest=gl.createSampler()??undefined;
+  if(this.shadowNearest){
+   gl.samplerParameteri(this.shadowNearest,gl.TEXTURE_COMPARE_MODE,gl.COMPARE_REF_TO_TEXTURE);
+   gl.samplerParameteri(this.shadowNearest,gl.TEXTURE_COMPARE_FUNC,gl.LEQUAL);
+   gl.samplerParameteri(this.shadowNearest,gl.TEXTURE_MIN_FILTER,gl.NEAREST);
+   gl.samplerParameteri(this.shadowNearest,gl.TEXTURE_MAG_FILTER,gl.NEAREST);
+   gl.samplerParameteri(this.shadowNearest,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);
+   gl.samplerParameteri(this.shadowNearest,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+  }
+  this.VINV=gl.getUniformLocation(this.volProgram,'INV_VP');this.VLVP=gl.getUniformLocation(this.volProgram,'VLVP');this.VSHADOW=gl.getUniformLocation(this.volProgram,'VSHADOW');this.VPARAMS=gl.getUniformLocation(this.volProgram,'VPARAMS');this.VDIMS=gl.getUniformLocation(this.volProgram,'VDIMS');this.VEYE=gl.getUniformLocation(this.volProgram,'VEYE');this.VLDIR=gl.getUniformLocation(this.volProgram,'VLIGHT_DIR');this.VLCOL=gl.getUniformLocation(this.volProgram,'VLIGHT_COL');this.VLI=gl.getUniformLocation(this.volProgram,'VLIGHT_I');this.VFWD=gl.getUniformLocation(this.volProgram,'VFORWARD');this.VGBUF=gl.getUniformLocation(this.volProgram,'VGBUF');this.VSMAP=gl.getUniformLocation(this.volProgram,'VSHADOW_MAP');this.CSRC=gl.getUniformLocation(this.compositeProgram,'SRC');this.depthReadProgram=program(gl,CV,DF);this.DSRC=gl.getUniformLocation(this.depthReadProgram,'SRC');
   this.textures=new BerxMediaTextureCache(gl,{budget:options.textureBudget,onError:options.onMediaError});
   this.labels=new BerxSpatialTextAtlas(gl,{budget:options.labelBudget});
   this.labelProgram=program(gl,TV,TF);
@@ -568,6 +714,159 @@ export class BerxThreeRuntimeRenderer implements BerxSpatialRenderer {
  }
 
  /**
+  * The key light, made visible in the air.
+  *
+  * Runs AFTER the world pass and composites additively: light in the air
+  * ADDS to what is behind it — it does not replace it, and a volumetric
+  * pass that blends over the world is a fog overlay, not scattering.
+  *
+  * It needs the G-buffer the occlusion pass already builds (for the
+  * distance to the first surface along each ray) and the shadow map the
+  * world pass already builds (for which parts of the ray are lit). Both
+  * are reused rather than rebuilt: a second G-buffer would be a second
+  * opinion about where the surfaces are.
+  *
+  * Returns false when it could not run, so the caller can say so rather
+  * than show a frame that quietly has no shafts in it.
+  */
+ private renderVolumetric(list:ReturnType<typeof berxBuildDrawList>,width:number,height:number,originX:number):boolean{
+  if(!this.floatColour||!list.shadow||!this.shadowTexture||!this.gbufTexture)return false;
+  const gl=this.gl;
+  if(this.volSize.w!==width||this.volSize.h!==height){
+   if(this.volTexture)gl.deleteTexture(this.volTexture);
+   if(this.volFbo)gl.deleteFramebuffer(this.volFbo);
+   this.volTexture=gl.createTexture()!;
+   gl.bindTexture(gl.TEXTURE_2D,this.volTexture);
+   gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA32F,width,height,0,gl.RGBA,gl.FLOAT,null);
+   gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.NEAREST);
+   gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.NEAREST);
+   gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);
+   gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+   this.volFbo=gl.createFramebuffer()!;
+   gl.bindFramebuffer(gl.FRAMEBUFFER,this.volFbo);
+   gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.TEXTURE_2D,this.volTexture,0);
+   this.volSize={w:width,h:height};
+  }
+
+  /* ---- the march, into its own float target ---- */
+  gl.bindFramebuffer(gl.FRAMEBUFFER,this.volFbo!);
+  gl.viewport(0,0,width,height);
+  gl.clearColor(0,0,0,1);gl.clear(gl.COLOR_BUFFER_BIT);
+  gl.disable(gl.DEPTH_TEST);gl.depthMask(false);gl.disable(gl.BLEND);
+  gl.useProgram(this.volProgram);
+  const viewProj=berxMultiplyMat4(new Float32Array(list.projection),new Float32Array(list.view));
+  gl.uniformMatrix4fv(this.VINV,false,berxInvertMat4(viewProj));
+  gl.uniformMatrix4fv(this.VLVP,false,new Float32Array(list.shadow.viewProjection));
+  gl.uniform4f(this.VSHADOW,1/list.shadow.mapSize,list.shadow.depthBias,0,list.shadow.strength);
+  const vp=berxVolumetricUniform();
+  gl.uniform4f(this.VPARAMS,vp[0],vp[1],vp[2],vp[3]);
+  gl.uniform4f(this.VDIMS,width,height,BERX_VOLUMETRIC_STEPS,0);
+  gl.uniform3f(this.VEYE,list.camera.x,list.camera.y,list.camera.z);
+  gl.uniform3f(this.VLDIR,list.key.direction.x,list.key.direction.y,list.key.direction.z);
+  gl.uniform3f(this.VLCOL,list.key.colour[0],list.key.colour[1],list.key.colour[2]);
+  gl.uniform1f(this.VLI,list.key.intensity);
+  /* the camera's forward, straight off the view matrix the core built —
+     never re-derived from a target, which could disagree with it */
+  gl.uniform3f(this.VFWD,-list.view[2],-list.view[6],-list.view[10]);
+  gl.activeTexture(gl.TEXTURE2);gl.bindTexture(gl.TEXTURE_2D,this.gbufTexture!);gl.uniform1i(this.VGBUF,2);
+  gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,this.shadowTexture!);gl.uniform1i(this.VSMAP,1);
+  if(this.shadowNearest)gl.bindSampler(1,this.shadowNearest);
+  gl.bindVertexArray(this.aoVao!);
+  gl.drawArrays(gl.TRIANGLES,0,3);
+
+  /* ---- additive composite over the world ---- */
+  gl.bindFramebuffer(gl.FRAMEBUFFER,null);
+  gl.viewport(originX,0,width,height);
+  gl.useProgram(this.compositeProgram);
+  gl.activeTexture(gl.TEXTURE2);gl.bindTexture(gl.TEXTURE_2D,this.volTexture!);gl.uniform1i(this.CSRC,2);
+  gl.enable(gl.BLEND);gl.blendFunc(gl.ONE,gl.ONE);
+  gl.drawArrays(gl.TRIANGLES,0,3);
+  gl.bindVertexArray(null);
+
+  /* leave GL exactly as this pass found it: the renderer sets these once
+     in its constructor and every other pass relies on that global state.
+     A pass that leaves ONE and ONE bound draws the next frame's
+     translucent surfaces as additive glass. */
+  gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);
+  gl.enable(gl.DEPTH_TEST);gl.depthMask(true);
+  /* a sampler object left bound to a unit outrides the texture's own
+     parameters for every later pass on that unit — the world pass would
+     silently lose its soft shadow edge */
+  gl.bindSampler(1,null);
+  gl.activeTexture(gl.TEXTURE0);
+  return true;
+ }
+
+ /**
+  * The shadow map's depth, as readable floats.
+  *
+  * WebGL2 cannot readPixels a depth texture, so this samples it as an
+  * ordinary texture with the comparison mode temporarily off, into a
+  * float target. The mode is put back: leaving it off would turn every
+  * later sampler2DShadow read into undefined behaviour.
+  *
+  * It exists for the gate. The oracle has to perform the SAME lookup
+  * the march performed, and a CPU twin that reconstructs visibility
+  * from geometry instead would be testing a different question.
+  */
+ readShadowMap():{depth:Float32Array;size:number}|undefined{
+  if(!this.shadowTexture||this.shadowSize===0||!this.floatColour)return undefined;
+  const gl=this.gl;const size=this.shadowSize;
+  const texture=gl.createTexture()!;
+  gl.bindTexture(gl.TEXTURE_2D,texture);
+  gl.texImage2D(gl.TEXTURE_2D,0,gl.R32F,size,size,0,gl.RED,gl.FLOAT,null);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.NEAREST);
+  const fbo=gl.createFramebuffer()!;
+  gl.bindFramebuffer(gl.FRAMEBUFFER,fbo);
+  gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.TEXTURE_2D,texture,0);
+  gl.viewport(0,0,size,size);
+  gl.disable(gl.DEPTH_TEST);gl.depthMask(false);gl.disable(gl.BLEND);
+  gl.useProgram(this.depthReadProgram);
+  gl.activeTexture(gl.TEXTURE2);
+  gl.bindTexture(gl.TEXTURE_2D,this.shadowTexture);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_COMPARE_MODE,gl.NONE);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.NEAREST);
+  gl.uniform1i(this.DSRC,2);
+  gl.bindVertexArray(this.aoVao!);
+  gl.drawArrays(gl.TRIANGLES,0,3);
+  const rgba=new Float32Array(size*size*4);
+  gl.readPixels(0,0,size,size,gl.RGBA,gl.FLOAT,rgba);
+  const depth=new Float32Array(size*size);
+  for(let i=0;i<depth.length;i++)depth[i]=rgba[i*4];
+  /* put the shadow texture back exactly as the world pass needs it */
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_COMPARE_MODE,gl.COMPARE_REF_TO_TEXTURE);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
+  gl.bindVertexArray(null);
+  gl.bindFramebuffer(gl.FRAMEBUFFER,null);
+  gl.deleteFramebuffer(fbo);gl.deleteTexture(texture);
+  gl.enable(gl.DEPTH_TEST);gl.depthMask(true);gl.enable(gl.BLEND);
+  gl.activeTexture(gl.TEXTURE0);
+  return {depth,size};
+ }
+
+ /**
+  * The in-scatter buffer this backend produced, for verification.
+  *
+  * The gate runs the shared core's berxVolumetricAt over the same rays
+  * and the same shadow map and compares. Reading the buffer rather than
+  * the composited frame is what separates "the march is right" from
+  * "the composite is right" — two different failures that look the same
+  * on screen.
+  */
+ readVolumetricBuffer():{rgba:Float32Array;width:number;height:number}|undefined{
+  if(!this.volTexture||this.volSize.w===0)return undefined;
+  const gl=this.gl;const w=this.volSize.w,h=this.volSize.h;
+  const rgba=new Float32Array(w*h*4);
+  gl.bindFramebuffer(gl.FRAMEBUFFER,this.volFbo!);
+  gl.readPixels(0,0,w,h,gl.RGBA,gl.FLOAT,rgba);
+  gl.bindFramebuffer(gl.FRAMEBUFFER,null);
+  return {rgba,width:w,height:h};
+ }
+
+ /**
   * The G-buffer and the AO map this backend produced, for verification.
   *
   * The occlusion gate runs the shared core's berxSSAOAt over these exact
@@ -613,7 +912,14 @@ export class BerxThreeRuntimeRenderer implements BerxSpatialRenderer {
   /* The occlusion pass reads the same list, so it runs here rather than
      in render(): a stereo frame computes it per eye, which is correct —
      the two eyes see different creases. */
-  const aoReady=options.ssao===false?false:this.renderSSAO(list,width,height);
+  /* The volumetric march needs the G-buffer too — it is where the
+     distance to the first surface along each ray comes from — so the
+     pass runs whenever EITHER wants it, and only the AO map's use is
+     gated by options.ssao. Building a second G-buffer for the second
+     consumer would be a second opinion about where the surfaces are. */
+  const wantsGbuffer=options.ssao!==false||options.volumetric!==false;
+  const gbufferReady=wantsGbuffer?this.renderSSAO(list,width,height):false;
+  const aoReady=options.ssao===false?false:gbufferReady;
   gl.useProgram(this.program);
   gl.viewport(originX,0,width,height);
   if(clear){gl.clearColor(list.clearColor[0],list.clearColor[1],list.clearColor[2],1);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);}
@@ -684,6 +990,9 @@ export class BerxThreeRuntimeRenderer implements BerxSpatialRenderer {
    gl.drawElements(gl.TRIANGLES,mesh.count,gl.UNSIGNED_SHORT,0);drawCalls++;triangles+=mesh.count/3;}
   gl.bindVertexArray(null);gl.bindTexture(gl.TEXTURE_2D,null);
   const labelCalls=this.renderLabels(list);
+  /* after the world and its names: the air is in front of everything,
+     and it adds to what is behind it rather than covering it */
+  if(options.volumetric!==false)this.renderVolumetric(list,width,height,originX);
   this.stats={
    visible:list.stats.visible,
    inFrustum:list.stats.inFrustum,

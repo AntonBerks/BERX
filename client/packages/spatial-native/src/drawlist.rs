@@ -92,6 +92,17 @@ pub struct DrawList {
     pub height: u32,
     pub projection: [f32; 16],
     pub view: [f32; 16],
+    /// The inverse of projection * view, from the shared core. A pass
+    /// that marches through the scene needs it, and a matrix inverted
+    /// three times in three languages is three matrices.
+    #[serde(default)]
+    pub inv_view_projection: Vec<f32>,
+    /// The march's own parameters, packed by berxVolumetricUniform:
+    /// density, phase g, max distance, intensity, then the step count.
+    /// Forwarded to a uniform without being interpreted here — the
+    /// order is the core's and there is exactly one opinion about it.
+    #[serde(default)]
+    pub volumetric: Vec<f32>,
     pub camera: Vec3,
     pub clear_color: [f32; 3],
     pub ambient: [f32; 3],

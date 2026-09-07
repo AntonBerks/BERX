@@ -17,6 +17,7 @@ const pkg = path.resolve(here, '../packages/spatial-shaders');
 const SHADERS = [
 	['world.wgsl', 'BERX_WORLD_WGSL'],
 	['label.wgsl', 'BERX_LABEL_WGSL'],
+	['volumetric.wgsl', 'BERX_VOLUMETRIC_WGSL'],
 	['ssao.wgsl', 'BERX_SSAO_WGSL'],
 ];
 

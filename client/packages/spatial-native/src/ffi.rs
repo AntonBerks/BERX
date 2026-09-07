@@ -178,7 +178,8 @@ pub unsafe extern "C" fn berx_native_last_error(handle: *const BerxNative, out: 
 /// What this backend genuinely does, as a bitmask.
 ///
 /// Bit 0 perspective, 1 depth buffer, 2 physically lit materials,
-/// 3 shadows, 4 post-processing, 5 media surfaces, 6 world-space labels.
+/// 3 shadows, 4 post-processing, 5 media surfaces, 6 world-space labels,
+/// 7 volumetric light.
 /// The last four are zero, and they stay zero until the passes exist.
 #[no_mangle]
 pub extern "C" fn berx_native_capabilities() -> c_uint {
@@ -190,6 +191,7 @@ pub extern "C" fn berx_native_capabilities() -> c_uint {
         | ((c.post_processing as c_uint) << 4)
         | ((c.media_surfaces as c_uint) << 5)
         | ((c.world_space_labels as c_uint) << 6)
+        | ((c.volumetric as c_uint) << 7)
 }
 
 /// Release a renderer and everything it holds on the GPU.
