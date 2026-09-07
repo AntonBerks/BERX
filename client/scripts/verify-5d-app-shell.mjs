@@ -642,7 +642,7 @@ try {
 			drawCalls: host.performance.drawCalls,
 			residentTextures: host.performance.residentTextures,
 		};
-		if (before.kind !== 'webgpu') return {forced: false, reason: 'this session is not on WebGPU, and a WebGL2 context loss cannot be forced from script', before};
+		if (before.kind !== 'webgpu') return {forced: false, reason: `this session is on ${before.kind}, whose context loss is forced and verified separately below`, before};
 
 		const states = [];
 		/* the device really goes away here */
@@ -684,8 +684,79 @@ try {
 			recovery.after.residentTextures >= recovery.before.residentTextures,
 			`${recovery.before.residentTextures} textures before the loss, ${recovery.after.residentTextures} after`);
 	} else {
-		console.log('BLOCKED  gpu-device-loss');
+		console.log('BLOCKED  webgpu-device-loss');
 		console.log(`         ${recovery.reason}`);
+	}
+
+	/* --- and a real WebGL2 context loss, in the running session ---
+	   WEBGL_lose_context is the browser's own way to take a context
+	   away: it fires the same webglcontextlost the driver fires, every
+	   GL object becomes invalid, and restoreContext brings a fresh
+	   context back. So the loss and the recovery are both real, and what
+	   is being checked is that the world was never in the renderer. */
+	const glLoss = await page.evaluate(async () => {
+		const host = window.__berxHost;
+		const w = window.__berxWorld;
+		const settle = async (frames) => {
+			for (let i = 0; i < frames; i++) await new Promise((r) => requestAnimationFrame(r));
+		};
+		if (host.renderer.kind !== 'webgl2') {
+			return {forced: false, reason: `this session is on ${host.renderer.kind}, whose loss is exercised separately`};
+		}
+		const canvas = document.querySelector('canvas');
+		const gl = canvas.getContext('webgl2');
+		const extension = gl?.getExtension('WEBGL_lose_context');
+		if (!extension) return {forced: false, reason: 'WEBGL_lose_context is unavailable in this browser'};
+
+		const before = {
+			objects: w.latestFrame.world.objects.length,
+			focus: w.worldPosition.focusId,
+			cursor: w.worldPosition.cursor.at,
+			camera: {...w.latestFrame.camera.position},
+			drawCalls: host.performance.drawCalls,
+		};
+		extension.loseContext();
+		for (let i = 0; i < 300 && host.contextAlive; i++) await new Promise((r) => requestAnimationFrame(r));
+		const down = {alive: host.contextAlive, objects: w.latestFrame.world.objects.length};
+		/* the world keeps time with no GPU to draw it */
+		await settle(30);
+		const whileDown = {cursor: w.worldPosition.cursor.at, objects: w.latestFrame.world.objects.length};
+
+		extension.restoreContext();
+		for (let i = 0; i < 300 && !host.contextAlive; i++) await new Promise((r) => requestAnimationFrame(r));
+		await settle(60);
+		return {
+			forced: true,
+			before,
+			down,
+			whileDown,
+			after: {
+				alive: host.contextAlive,
+				objects: w.latestFrame.world.objects.length,
+				focus: w.worldPosition.focusId,
+				cursor: w.worldPosition.cursor.at,
+				drawCalls: host.performance.drawCalls,
+				triangles: host.performance.triangles,
+			},
+		};
+	});
+	if (glLoss.forced) {
+		gate('a real GPU context loss takes the world down',
+			glLoss.down.alive === false && glLoss.down.objects === glLoss.before.objects,
+			`WEBGL_lose_context ended the context; the host stopped drawing and still holds all ${glLoss.down.objects} entities`);
+		gate('the world keeps existing while there is no GPU to draw it',
+			glLoss.whileDown.objects === glLoss.before.objects && glLoss.whileDown.cursor === glLoss.before.cursor,
+			`${glLoss.whileDown.objects} entities and an unchanged temporal cursor with no context at all`);
+		gate('and it draws again on a restored context, in the same place',
+			glLoss.after.alive === true &&
+			glLoss.after.objects === glLoss.before.objects &&
+			glLoss.after.focus === glLoss.before.focus &&
+			glLoss.after.drawCalls > 0 &&
+			glLoss.after.triangles > 0,
+			`${glLoss.after.objects} entities, focus ${glLoss.after.focus}, ${glLoss.after.drawCalls} draw calls and ${glLoss.after.triangles} triangles on the restored context`);
+	} else {
+		console.log('BLOCKED  webgl-context-loss');
+		console.log(`         ${glLoss.reason}`);
 	}
 
 	/* --- a reload puts you back where you were standing --- */
