@@ -8,7 +8,7 @@
  */
 import {BerxThreeRuntimeRenderer} from '@berx/spatial-web/threeRuntime';
 import {BerxWebGPURuntimeRenderer} from '@berx/spatial-web/webgpuRuntime';
-import {berxBuildDrawList} from '@berx/spatial';
+import {berxBuildDrawList, type BerxTransitionKind} from '@berx/spatial';
 import {BERX_CROSS_RENDERER_VIEWPORT, berxCrossRendererFrame} from '@berx/scenes';
 
 declare global {
@@ -24,6 +24,32 @@ const api = {
 			width: BERX_CROSS_RENDERER_VIEWPORT.width,
 			height: BERX_CROSS_RENDERER_VIEWPORT.height,
 		});
+	},
+	/**
+	 * The same world, mid-transition, rendered by the real WebGL2
+	 * backend and read back.
+	 *
+	 * Every image this produces differs from every other ONLY by the
+	 * transition: same objects, same camera pose at t, same lights. So
+	 * a difference between two of them is the effect itself, which is
+	 * what turns eight names into eight things.
+	 */
+	renderTransition(kind: BerxTransitionKind, progress: number) {
+		const canvas = freshCanvas(BERX_CROSS_RENDERER_VIEWPORT.width, BERX_CROSS_RENDERER_VIEWPORT.height);
+		const renderer = new BerxThreeRuntimeRenderer(canvas);
+		renderer.resize(canvas.width, canvas.height);
+		renderer.render(berxCrossRendererFrame({transition: {kind, progress}}));
+		const gl = canvas.getContext('webgl2');
+		if (!gl) throw new Error('no WebGL2 context');
+		const px = new Uint8Array(canvas.width * canvas.height * 4);
+		gl.readPixels(0, 0, canvas.width, canvas.height, gl.RGBA, gl.UNSIGNED_BYTE, px);
+		return {
+			kind,
+			progress,
+			width: canvas.width,
+			height: canvas.height,
+			rgba: Array.from(flipRows(px, canvas.width, canvas.height)),
+		};
 	},
 	/** The same frame, rendered by the real WebGL2 backend, read back as RGBA8. */
 	render() {

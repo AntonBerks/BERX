@@ -37,3 +37,4 @@ export * from './geometry';
 export * from './spatialPresentation';
 export * from './mediaSurface';
 export * from './haptics';
+export * from './transitions';

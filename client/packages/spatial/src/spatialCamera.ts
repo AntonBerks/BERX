@@ -9,6 +9,7 @@
  * exists with precision to spare.
  */
 import type { BerxEuler3, BerxVec3 } from './world';
+import {berxTransitionArcOffset, berxTransitionSpec, type BerxTransitionKind, type BerxTransitionSpec} from './transitions';
 export interface BerxSpatialCameraState { position: BerxVec3; target: BerxVec3; rotation: BerxEuler3; fov: number; near: number; far: number; }
 export interface BerxDeviceMotion { pitch:number; roll:number; yaw:number; intensity:number; }
 export interface BerxCameraInput { panX:number; panY:number; depthDelta:number; pinch:number; motion?:BerxDeviceMotion; }
@@ -54,12 +55,40 @@ export class BerxSpatialCamera {
   * enough to crop half the ring off the bottom of the screen.
   */
  poseForObject(position:BerxVec3,scale:BerxVec3={x:1,y:1,z:1},distance?:number,framingRadius=0){const radius=Math.max(scale.x,scale.y,scale.z,framingRadius,0.5),d=distance??Math.max(2.4,radius*3.2);return {position:{x:position.x,y:position.y,z:position.z+d},target:copy(position)};}
- moveToPose(pose:{position:BerxVec3;target:BerxVec3},durationSeconds=0.65){return new BerxCameraTransition(this.getState(),pose,durationSeconds);}
+ moveToPose(pose:{position:BerxVec3;target:BerxVec3},durationSeconds=0.65,kind?:BerxTransitionKind){return new BerxCameraTransition(this.getState(),pose,durationSeconds,kind);}
  moveTo(target:BerxVec3,durationSeconds=0.65){return this.moveToPose(this.poseForObject(target),durationSeconds);}
 }
+/**
+ * The ONE camera transition. There is deliberately no second system:
+ * a transition KIND (see transitions.ts) changes this one's pacing,
+ * its arc and its field of view, rather than running beside it.
+ *
+ * Without a kind it behaves exactly as it always did — smoothstep, a
+ * straight line, an untouched fov — so every existing caller keeps its
+ * behaviour and nothing had to be re-tuned to add the eight.
+ */
 export class BerxCameraTransition {
- private elapsed=0; private readonly duration:number;
- constructor(private readonly start:BerxSpatialCameraState,private readonly destination:{position:BerxVec3;target:BerxVec3},duration:number){this.duration=Math.max(0.001,duration);}
- step(deltaSeconds:number):BerxSpatialCameraState{this.elapsed=Math.min(this.duration,this.elapsed+Math.max(0,deltaSeconds));const t=smoothstep(this.elapsed/this.duration);return {position:{x:lerp(this.start.position.x,this.destination.position.x,t),y:lerp(this.start.position.y,this.destination.position.y,t),z:lerp(this.start.position.z,this.destination.position.z,t)},target:{x:lerp(this.start.target.x,this.destination.target.x,t),y:lerp(this.start.target.y,this.destination.target.y,t),z:lerp(this.start.target.z,this.destination.target.z,t)},rotation:{x:lerp(this.start.rotation.x,0,t),y:lerp(this.start.rotation.y,0,t),z:lerp(this.start.rotation.z,0,t)},fov:this.start.fov,near:this.start.near,far:this.start.far};}
+ private elapsed=0; private readonly duration:number; private readonly spec?:BerxTransitionSpec;
+ constructor(private readonly start:BerxSpatialCameraState,private readonly destination:{position:BerxVec3;target:BerxVec3},duration:number,kind?:BerxTransitionKind){
+  this.duration=Math.max(0.001,duration);
+  this.spec=kind?berxTransitionSpec(kind):undefined;
+ }
+ /** The eased progress this frame — what the arc and the modulation read. */
+ get progress(){return Math.min(1,this.elapsed/this.duration);}
+ step(deltaSeconds:number):BerxSpatialCameraState{
+  this.elapsed=Math.min(this.duration,this.elapsed+Math.max(0,deltaSeconds));
+  const raw=this.elapsed/this.duration;
+  const t=this.spec?this.spec.ease(raw):smoothstep(raw);
+  /* The arc lifts the path off the straight line, so a fold reads as
+     going OVER something rather than sliding through it. Applied to
+     the position only: the target stays on the destination, which is
+     what keeps the thing being travelled to in view the whole way. */
+  const lift=this.spec?berxTransitionArcOffset(this.spec.kind,raw):0;
+  /* The transition's fov belongs to the PROJECTION, not to the camera:
+     berxBuildDrawList applies it, so picking, XR and anything else that
+     asks where the viewer stands never sees a transient effect, and a
+     frozen frame shows the same thing a live one does. */
+  return {position:{x:lerp(this.start.position.x,this.destination.position.x,t),y:lerp(this.start.position.y,this.destination.position.y,t)+lift,z:lerp(this.start.position.z,this.destination.position.z,t)},target:{x:lerp(this.start.target.x,this.destination.target.x,t),y:lerp(this.start.target.y,this.destination.target.y,t),z:lerp(this.start.target.z,this.destination.target.z,t)},rotation:{x:lerp(this.start.rotation.x,0,t),y:lerp(this.start.rotation.y,0,t),z:lerp(this.start.rotation.z,0,t)},fov:this.start.fov,near:this.start.near,far:this.start.far};
+ }
  get done(){return this.elapsed>=this.duration;}
 }

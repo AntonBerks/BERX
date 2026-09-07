@@ -28,6 +28,7 @@ import {berxRelationalLayout, berxRelationalWeight} from './relational';
 import {berxClampToWorld, berxNear, berxWorldBounds} from './proximity';
 import {affordancesForObject} from './spatialAffordances';
 import type {BerxSocialAction, BerxSpatialAffordance} from './socialActions';
+import {berxTransitionForTravel, BERX_FAR_TRAVEL_METRES} from './transitions';
 import {berxActionRingRadius} from './actionRing';
 import type {BerxNavigationIntent} from './platform';
 import {berxCameraFromPose, berxStereoCamerasFromPose, type BerxXrPose, type BerxXrViews} from './xrPose';
@@ -260,12 +261,35 @@ export class Berx5DWorldApp {
 		const object = this.runtime.world.getObject(objectId);
 		if (!object) return false;
 		const target = region ?? regionForKind(object.kind);
+		/**
+		 * Which of the eight this travel is — decided from the travel
+		 * itself, in one place, so the same journey feels the same
+		 * whether it was started from a keyboard, a pointer, the action
+		 * ring or a realtime event.
+		 *
+		 * Somewhere already visited is a `return` (an acknowledged cut,
+		 * no ceremony for a room you know); a different kind of place is
+		 * a `region`; far enough that the world between is worth showing
+		 * collapse is `travel-far`; anything else is an ordinary travel.
+		 */
+		const from = this.runtime.camera.getState().position;
+		const to = object.transform.position;
+		const metres = Math.hypot(to.x - from.x, to.y - from.y, to.z - from.z);
+		const visited = this.history.some((at) => at.focusId === objectId);
+		const reason = visited
+			? 'return'
+			: target !== this.position.region
+				? 'region'
+				: metres > BERX_FAR_TRAVEL_METRES
+					? 'travel-far'
+					: 'travel';
+		const kind = berxTransitionForTravel(reason);
 		/* remember where the viewer was standing, so back() restores the
 		   region, the focus and the temporal cursor together with the
 		   camera rather than only the pose */
 		this.history.push(this.worldPosition);
-		this.runtime.enterWorld({id: `${target}:${objectId}`, focusObjectId: objectId, enteredAt: Date.now()}, object.transform.position);
-		this.runtime.focus(objectId, berxActionRingRadius(object, this.affordancesFor(object)));
+		this.runtime.enterWorld({id: `${target}:${objectId}`, focusObjectId: objectId, enteredAt: Date.now()}, object.transform.position, kind);
+		this.runtime.focus(objectId, berxActionRingRadius(object, this.affordancesFor(object)), kind);
 		this.position = {...this.position, region: target, focusId: objectId};
 		this.options.onPositionChange?.(this.worldPosition);
 		return true;
@@ -306,7 +330,8 @@ export class Berx5DWorldApp {
 	/** Travel to a region without a particular entity in it. */
 	enterRegion(region: BerxWorldRegion): void {
 		this.history.push(this.worldPosition);
-		this.runtime.enterWorld({id: region, enteredAt: Date.now()});
+		/* a different kind of place entirely: the world thins and reforms */
+		this.runtime.enterWorld({id: region, enteredAt: Date.now()}, undefined, berxTransitionForTravel('region'));
 		this.position = {...this.position, region, focusId: undefined};
 		this.options.onPositionChange?.(this.worldPosition);
 	}
@@ -318,7 +343,8 @@ export class Berx5DWorldApp {
 	 */
 	back(): boolean {
 		const previous = this.history.pop();
-		if (!this.runtime.back()) return false;
+		/* going back draws the world in rather than pushing through it */
+		if (!this.runtime.back(berxTransitionForTravel('back'))) return false;
 		if (previous) {
 			this.position = previous;
 			this.options.onPositionChange?.(this.worldPosition);
@@ -416,7 +442,8 @@ export class Berx5DWorldApp {
 		   the entity and stand outside it, and framing only the entity
 		   crops them off the bottom of the screen */
 		const object = this.runtime.world.getObject(objectId);
-		const ok = this.runtime.focus(objectId, berxActionRingRadius(object, this.affordancesFor(object)));
+		/* focusing is not travelling: the gentlest of the eight */
+		const ok = this.runtime.focus(objectId, berxActionRingRadius(object, this.affordancesFor(object)), berxTransitionForTravel('focus'));
 		if (ok) {
 			this.position = {...this.position, focusId: objectId};
 			this.options.onPositionChange?.(this.worldPosition);

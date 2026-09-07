@@ -35,6 +35,7 @@ import {
 } from './worldLighting';
 import type {Berx5DFrame} from './runtime5d';
 import type {BerxSpatialCameraState} from './spatialCamera';
+import {berxTransitionModulation} from './transitions';
 import type {BerxSpatialAffordance} from './socialActions';
 import type {BerxSpatialEntityKind, BerxSpatialObject, BerxVec3} from './world';
 
@@ -242,7 +243,19 @@ export function berxBuildDrawList(frame: Berx5DFrame, options: BerxDrawListOptio
 	const c = frame.camera;
 	const width = Math.max(1, Math.floor(options.width));
 	const height = Math.max(1, Math.floor(options.height));
-	const projection = berxPerspective(c.fov, width / height, c.near, c.far);
+	/**
+	 * The transition's field of view is applied HERE, not on the camera.
+	 *
+	 * A dolly-zoom is a property of how the world is being LOOKED at for
+	 * the duration of a move, not of where the viewer is — and the
+	 * camera state is read by picking, by XR and by anything that asks
+	 * where the viewer stands, none of which should see a transient
+	 * effect. Putting it in the projection also means every backend and
+	 * every frozen frame gets it from the same place, so an effect
+	 * cannot exist in a live session and vanish in a comparison.
+	 */
+	const modulation = berxTransitionModulation(frame.transition?.kind, frame.transition?.progress ?? 0);
+	const projection = berxPerspective(c.fov * modulation.fov, width / height, c.near, c.far);
 	const view = berxLookAt(c.position, c.target);
 	const planes = berxFrustumPlanes(berxMultiplyMat4(projection, view));
 
@@ -251,6 +264,15 @@ export function berxBuildDrawList(frame: Berx5DFrame, options: BerxDrawListOptio
 
 	const focused = frame.world.activeObjectId;
 	const eye = c.position;
+	/* The modulation resolved above is applied to every item below — which
+	   is what makes the eight effects real rather than named: WebGL2,
+	   WebGPU and the native backend all consume this same list, so a
+	   dissolve looks identical in all three and the cross-renderer pixel
+	   comparison still means something.
+
+	   Note the sort above deliberately runs on the object's OWN opacity,
+	   before modulation: a dissolve must not reshuffle the draw order
+	   halfway through and make the world pop. */
 	const opaque = inFrustum
 		.filter((o) => o.material.opacity >= 1)
 		.sort((a, b) => {
@@ -287,20 +309,30 @@ export function berxBuildDrawList(frame: Berx5DFrame, options: BerxDrawListOptio
 			kind: o.kind,
 			primitive: spec.kind,
 			lod,
-			model: modelMatrix(o.transform.position, o.transform.scale, o.transform.rotation),
+			/* The transition's own scale is folded into the model matrix
+			   here rather than into the object, so a transition never
+			   mutates the world: the same world, mid-collapse, is still
+			   the world it was when the transition ends. */
+			model: modelMatrix(
+				o.transform.position,
+				modulation.scale === 1
+					? o.transform.scale
+					: {x: o.transform.scale.x * modulation.scale, y: o.transform.scale.y * modulation.scale, z: o.transform.scale.z * modulation.scale},
+				o.transform.rotation,
+			),
 			base: [...presentation.base] as [number, number, number],
 			/* the palette decides the colour; the material decides how the
 			   surface behaves. Neither is guessed from the other. */
 			emissive: [
-				presentation.emissive[0] + material.emission[0] * o.energy,
-				presentation.emissive[1] + material.emission[1] * o.energy,
-				presentation.emissive[2] + material.emission[2] * o.energy,
+				presentation.emissive[0] + material.emission[0] * o.energy + modulation.emissive,
+				presentation.emissive[1] + material.emission[1] * o.energy + modulation.emissive,
+				presentation.emissive[2] + material.emission[2] * o.energy + modulation.emissive,
 			],
 			/* the object's own state is authoritative: a screen may have
 			   changed a value since the named material was resolved */
 			metalness: o.material.metalness,
 			roughness: o.material.roughness,
-			opacity: o.material.opacity,
+			opacity: o.material.opacity * modulation.opacity,
 			transmission: o.material.transmission,
 			pointLights: berxResolvePointLights(litWorld, o.transform.position),
 			media: options.mediaFor?.(o.id),
@@ -334,7 +366,9 @@ export function berxBuildDrawList(frame: Berx5DFrame, options: BerxDrawListOptio
 					z: o.transform.position.z + basis.up.z * above,
 				},
 				halfHeight,
-				alpha: fade * o.material.opacity,
+				/* names thin out with the world they belong to, or a
+				   dissolve would leave a field of floating text */
+				alpha: fade * o.material.opacity * modulation.opacity,
 				distance,
 			});
 		}

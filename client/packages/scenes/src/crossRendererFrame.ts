@@ -27,7 +27,7 @@
  * a reason that has nothing to do with whether they agree about the
  * world.
  */
-import {Berx5DWorldApp, berxTemporalCursor, type Berx5DFrame} from '@berx/spatial';
+import {Berx5DWorldApp, berxTemporalCursor, berxTransitionSpec, type Berx5DFrame, type BerxTransitionKind} from '@berx/spatial';
 import {
 	berxSpatialId,
 	mapCommunityToSpatial,
@@ -81,7 +81,7 @@ const experience = {
  * camera pose, and a relational layout the world gate already proves
  * lands in the same place every time.
  */
-export function berxCrossRendererFrame(options: {labels?: boolean} = {}): Berx5DFrame {
+export function berxCrossRendererFrame(options: {labels?: boolean; transition?: {kind: BerxTransitionKind; progress: number}} = {}): Berx5DFrame {
 	const app = new Berx5DWorldApp({
 		viewerId: berxSpatialId('person', PERSON),
 		cursor: berxTemporalCursor(NOW_SECONDS),
@@ -112,6 +112,31 @@ export function berxCrossRendererFrame(options: {labels?: boolean} = {}): Berx5D
 				? frame.world.objects
 				: frame.world.objects.map((o) => ({...o, label: undefined})),
 		},
+		/**
+		 * A transition, frozen at one instant.
+		 *
+		 * Not a second world and not an animation: the SAME world, with
+		 * the transition state a real travel would have produced at that
+		 * progress. That is what lets the eight effects be compared as
+		 * pixels — every difference between two of these images is the
+		 * effect and nothing else, because everything else is identical.
+		 */
+		transition: options.transition
+			? {
+				/* real BerxWorldState values, not a cast: the frame's
+				   `world` is a snapshot of objects and is a different
+				   type entirely, and casting one to the other is how a
+				   fixture starts describing a shape the product does not
+				   have. */
+				fromWorld: {id: 'crossrender', enteredAt: NOW_SECONDS * 1000, camera: frame.camera},
+				toWorld: {id: 'crossrender', enteredAt: NOW_SECONDS * 1000, camera: frame.camera},
+				fromCamera: frame.camera,
+				destination: frame.camera.position,
+				progress: options.transition.progress,
+				duration: berxTransitionSpec(options.transition.kind).durationSeconds,
+				kind: options.transition.kind,
+			}
+			: frame.transition,
 		/* a still frame: ambient motion would make two runs differ */
 		reducedMotion: true,
 	};
