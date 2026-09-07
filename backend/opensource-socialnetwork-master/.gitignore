@@ -4,6 +4,13 @@
 
 #do not include following files
 /cache
+# The install marker OSSN actually writes. finish.php puts it at
+# ossn_installation_paths()->root, which is the site root — not inside
+# installation/, where the inherited upstream rule looked for it. So a
+# real install left an untracked INSTALLED at the top of the tree that
+# nothing ignored, and committing it would tell every fresh checkout it
+# was already installed.
+/INSTALLED
 /installation/INSTALLED
 /.htaccess
 Thumbs.db
