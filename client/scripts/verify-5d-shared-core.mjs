@@ -161,6 +161,23 @@ if (fs.existsSync(shaderDir)) {
 		nativeUses && webUses ? 'berx-spatial-native include_str!s it; @berx/spatial-web imports it' : 'a backend carries its own copy of the shader');
 }
 
+/* Every workspace has to be in the lockfile.
+   Adding a package and not regenerating package-lock.json breaks `npm
+   ci` — and only `npm ci`, so it passes locally and fails every clean
+   install and every CI run. It did exactly that, three runs in a row,
+   which is why it is a gate now rather than a thing to remember. */
+{
+	const lock = JSON.parse(fs.readFileSync(path.join(clientRoot, 'package-lock.json'), 'utf8'));
+	const workspaces = fs.readdirSync(path.join(clientRoot, 'packages'))
+		.filter((name) => fs.existsSync(path.join(clientRoot, 'packages', name, 'package.json')));
+	const missing = workspaces.filter((name) => !lock.packages?.[`packages/${name}`]);
+	gate('every workspace package is in the lockfile',
+		missing.length === 0,
+		missing.length === 0
+			? `${workspaces.length} workspaces, all resolvable by npm ci`
+			: `missing from package-lock.json: ${missing.join(', ')} — run npm install --package-lock-only`);
+}
+
 console.log('');
 if (failures.length > 0) {
 	console.log(`${failures.length} SHARED-CORE GATES FAILED`);
