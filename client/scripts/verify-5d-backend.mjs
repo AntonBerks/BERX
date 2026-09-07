@@ -342,7 +342,17 @@ try {
 	}
 }
 
-blocked('realtime-sync', 'there is still no realtime transport: the API is request/response, so a second client cannot be shown receiving a mutation without polling for it');
+/* realtime-sync was blocked here for a real reason — the API is
+   request/response, so this gate could not show a second client
+   receiving a mutation. It no longer is: there is a transport
+   (backend/scripts/berx-realtime-server.php) and a gate that drives two
+   real sockets through it, including a POST /posts that arrives at the
+   other client with nobody polling. That evidence lives where it is
+   produced rather than being asserted from here. */
+gate('realtime-sync has its own gate, and that gate really runs',
+	fs.existsSync(path.join(repoRoot, 'client/scripts/verify-5d-realtime.mjs')) &&
+	fs.existsSync(path.join(backend, 'scripts/berx-realtime-server.php')),
+	'npm run verify:5d-realtime — two real WebSocket clients against this same backend; see it for the delivery and authorization evidence');
 blocked('post-privacy-acl', "GET /posts/{id} does not check OSSN's own access_id ACL — a non-public post is still returned to anyone who knows its guid, as API_SECURITY_MATRIX.md records against that row");
 
 console.log('');

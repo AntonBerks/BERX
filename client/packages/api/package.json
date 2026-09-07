@@ -4,7 +4,8 @@
 	"private": true,
 	"exports": {
 		"./types": "./src/types.ts",
-		"./client": "./src/client.ts"
+		"./client": "./src/client.ts",
+		"./realtime": "./src/realtime.ts"
 	},
 	"sideEffects": false
 }

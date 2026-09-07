@@ -114,8 +114,8 @@ const BLOCKERS = [
 		claimed: () => false,
 	},
 	{
-		what: 'Map, realtime transport, payments and entitlements',
-		evidence: () => 'no map provider, realtime transport, payment provider or entitlement service exists in this repository',
+		what: 'Map, payments and entitlements',
+		evidence: () => 'no map provider, payment provider or entitlement service exists in this repository. Realtime is no longer among them: backend/scripts/berx-realtime-server.php is a real RFC 6455 server and npm run verify:5d-realtime drives two real sockets through it, including a POST /posts that reaches the other client with nobody polling',
 		claimed: () => false,
 	},
 ];

@@ -1540,4 +1540,40 @@ export class BerxApiClient {
 	async searchCommunities(q: string): Promise<{communities: BerxCommunitySearchResult[]}> {
 		return this.request<{communities: BerxCommunitySearchResult[]}>(`/search/communities?q=${encodeURIComponent(q)}`);
 	}
+
+	// ---------------------------------------------------------------
+	// Realtime — the HTTP half of the WebSocket transport
+	// (components/OssnApi/v1/realtime.php). The bearer token never
+	// reaches a socket: this exchanges it for a short-lived, single-use
+	// credential, which is what the handshake spends.
+	// ---------------------------------------------------------------
+
+	/**
+	 * Mint a socket credential. `url` is whatever the deployment
+	 * configured and is null when it configured none — never a URL
+	 * derived from this client's base by guessing a port.
+	 */
+	async mintRealtimeToken(): Promise<{token: string; expires_at: number; url: string | null; protocol: string}> {
+		return this.request<{token: string; expires_at: number; url: string | null; protocol: string}>(
+			'/realtime/token',
+			{method: 'POST'},
+		);
+	}
+
+	/** Ends every unused credential this account holds. */
+	async revokeRealtimeTokens(): Promise<{status: string}> {
+		return this.request<{status: string}>('/realtime/token', {method: 'DELETE'});
+	}
+
+	/**
+	 * What the server would grant this account on these channels —
+	 * the same decision the socket makes, from the same code, over
+	 * HTTP.
+	 */
+	async authorizeRealtimeChannels(channels: readonly string[]): Promise<{granted: string[]; refused: string[]}> {
+		return this.request<{granted: string[]; refused: string[]}>('/realtime/authorize', {
+			method: 'POST',
+			body: {channels: channels.join(',')},
+		});
+	}
 }

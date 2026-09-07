@@ -202,6 +202,22 @@ if ($segment0 === null && $method === 'PATCH') {
 	}
 
 	$fresh = ossn_api_me_fetch($api_user_guid);
+	/**
+	 * BERX REALTIME — the profile changed, so anyone who already has
+	 * this person standing in their world sees them change rather than
+	 * keeping a stale copy until their next cold load.
+	 *
+	 * The username travels with the event because the real endpoint
+	 * that answers "who is this now" is GET /profiles/{username}: an
+	 * event carrying only a guid would name a thing no endpoint can
+	 * resolve. Published on the person's OWN channel — who may listen
+	 * is decided by the real friendship at subscribe time.
+	 */
+	ossn_api_realtime_publish('person:' . intval($api_user_guid), array(
+		'kind'     => 'person:changed',
+		'guid'     => intval($api_user_guid),
+		'username' => (string) $fresh->username,
+	), $api_user_guid);
 	ossn_api_json(ossn_api_me_to_json($fresh));
 }
 

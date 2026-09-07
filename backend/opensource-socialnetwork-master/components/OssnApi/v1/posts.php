@@ -364,6 +364,24 @@ if ($segment0 === null && $method === 'POST') {
 			(new OssnPolls())->create($guid, $pollOptions, $pollEndsAt, $api_user_guid);
 		}
 	}
+	/**
+	 * BERX REALTIME — the post exists now, so anyone standing in the
+	 * world with the author already in it hears about it without
+	 * asking again.
+	 *
+	 * Published to the author's OWN person channel, not to a list of
+	 * recipients: who may listen to `person:{author}` is decided at
+	 * subscribe time by the real friendship (OssnRealtime::
+	 * authorizeChannel), so the fan-out cannot outlive a friendship
+	 * that ended, and this call needs no recipient list to build or to
+	 * keep correct. Best effort by construction — the post is already
+	 * written and answered below whether or not a socket server is
+	 * running.
+	 */
+	ossn_api_realtime_publish('person:' . intval($api_user_guid), array(
+		'kind' => 'post:created',
+		'guid' => intval($guid),
+	), $api_user_guid);
 	ossn_api_json(array('guid' => intval($guid)));
 }
 

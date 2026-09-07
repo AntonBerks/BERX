@@ -103,6 +103,11 @@ $OssnClasses = array(
 		// classes/OssnGroupChat.php's own header for why). Own tables,
 		// upgrade/upgrades/1785172300.php.
 		'GroupChat',
+		// BERX Realtime — the short-lived socket credential and the
+		// channel authorization behind the WebSocket transport
+		// (backend/scripts/berx-realtime-server.php). Own table,
+		// upgrade/upgrades/1785172400.php.
+		'Realtime',
 );
 foreach ($OssnClasses as $class) {
 		$loadClass['Ossn' . $class] = ossn_route()->classes . "Ossn{$class}.php";

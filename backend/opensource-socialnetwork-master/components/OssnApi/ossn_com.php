@@ -298,6 +298,12 @@ function ossn_api_v1_resources() {
 		// real membership list. Not a community/group reskin -- see
 		// that class's own header for the distinction from OssnGroup.
 		'worlds'        => __OSSN_API__ . 'v1/worlds.php',
+		// BERX Realtime — the HTTP half of the WebSocket transport: mints
+		// the short-lived, single-use socket credential and answers what a
+		// channel list would be granted. The socket server itself
+		// (backend/scripts/berx-realtime-server.php) holds no policy and
+		// asks OssnRealtime for both.
+		'realtime'      => __OSSN_API__ . 'v1/realtime.php',
 		// BERX Next — the forward-looking counterpart to lifegraph.php:
 		// pending Plan/World invites + upcoming Events, pure composition,
 		// no new table. See that file's own header.
@@ -484,6 +490,61 @@ function ossn_api_bearer_token() {
  * "not paginated" from "page zero" — the distinction that started all
  * of this.
  */
+/**
+ * Tell the realtime layer that the server did something.
+ *
+ * The PHP process that writes a post is not the process that holds the
+ * sockets, so this is the one door between them: a single loopback
+ * line, guarded by the per-installation secret from
+ * upgrade/upgrades/1785172400.php. Everything about it is deliberate:
+ *
+ * - Best effort, always. A realtime fan-out that can fail a write is
+ *   worse than no realtime at all, so every failure path here returns
+ *   false and the request carries on. The database is the truth; this
+ *   is a notification about it.
+ * - Bounded. 300ms to connect, 300ms to write, one line, connection
+ *   closed. A socket server that is down costs the request 300ms, not
+ *   a hung worker.
+ * - No policy. The receivers are filtered by what each of them was
+ *   granted at subscribe time (OssnRealtime::authorizeChannel), not by
+ *   anything decided here.
+ *
+ * Returns true when the server accepted the line, false otherwise —
+ * including when realtime is simply not configured, which is a normal
+ * deployment and not an error.
+ */
+function ossn_api_realtime_publish($channel, array $payload, $fromGuid = 0) {
+	/* OssnSite::getSettings(), not ossn_site_settings(): the latter only
+	   resolves the fixed reserved list (OssnSite::reservedNames()), so
+	   a deployment setting read through it is always false. */
+	$site     = new OssnSite();
+	$endpoint = $site->getSettings('berx_realtime_publish');
+	$secret   = $site->getSettings('berx_realtime_secret');
+	if (!$endpoint || !$secret) {
+		return false;
+	}
+	$parsed = class_exists('OssnRealtime') ? OssnRealtime::parseChannel($channel) : false;
+	if (!$parsed) {
+		return false;
+	}
+	$errno = 0;
+	$error = '';
+	$socket = @stream_socket_client((string) $endpoint, $errno, $error, 0.3);
+	if (!$socket) {
+		return false;
+	}
+	stream_set_timeout($socket, 0, 300000);
+	$line = 'BERX-PUBLISH ' . $secret . ' ' . json_encode(array(
+		'channel' => $parsed['channel'],
+		'payload' => $payload,
+		'from'    => intval($fromGuid),
+	), JSON_UNESCAPED_UNICODE) . "\n";
+	$written = @fwrite($socket, $line);
+	$answer  = $written ? @fgets($socket, 64) : false;
+	@fclose($socket);
+	return is_string($answer) && strncmp($answer, 'OK', 2) === 0;
+}
+
 function ossn_api_page($name, $default = null) {
 	global $api_page;
 	if (!isset($api_page[$name]) || $api_page[$name] === null || $api_page[$name] === '') {

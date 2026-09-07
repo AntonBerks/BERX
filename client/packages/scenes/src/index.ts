@@ -12,3 +12,4 @@ export * from './spatialMappingAssertions';
 export * from './worldLoader';
 export * from './worldAssertions';
 export * from './crossRendererFrame';
+export * from './realtimeWorld';
