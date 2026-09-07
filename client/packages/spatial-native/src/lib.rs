@@ -98,6 +98,14 @@ struct Globals {
     env_ground: [f32; 4],
     env_sun_dir: [f32; 4],
     env_sun: [f32; 4],
+    /// x = 1 when an SSAO pass ran for this frame, 0 when it did not.
+    ///
+    /// This crate has no occlusion pass yet, so it is always 0 and the
+    /// shader takes its `select` branch. The FIELD still has to exist:
+    /// world.wgsl declares it, and a Globals struct one vec4 short of
+    /// the shader's is a buffer-size validation error that fails the
+    /// whole submission — which is exactly what it did.
+    ssao: [f32; 4],
 }
 
 #[repr(C)]
@@ -290,6 +298,26 @@ impl NativeRenderer {
                     visibility: wgpu::ShaderStages::FRAGMENT,
                     ty: wgpu::BindingType::Texture {
                         sample_type: wgpu::TextureSampleType::Depth,
+                        view_dimension: wgpu::TextureViewDimension::D2,
+                        multisampled: false,
+                    },
+                    count: None,
+                },
+                /* The ambient-occlusion map the world shader reads.
+                   This crate has no occlusion pass yet, so what is bound
+                   is one white pixel and the `ssao` switch stays 0 — but
+                   the BINDING still has to exist, because world.wgsl
+                   declares it in the fragment stage and wgpu rejects a
+                   pipeline whose layout does not match its shader's
+                   requirements. It did: "Error matching
+                   ShaderStages(FRAGMENT) shader requirements against the
+                   pipeline", and the native renderer produced no image
+                   at all until this entry was added. */
+                wgpu::BindGroupLayoutEntry {
+                    binding: 3,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Texture {
+                        sample_type: wgpu::TextureSampleType::Float { filterable: false },
                         view_dimension: wgpu::TextureViewDimension::D2,
                         multisampled: false,
                     },
@@ -600,6 +628,7 @@ impl NativeRenderer {
             env_ground: env_slot(&list.environment, 2),
             env_sun_dir: env_slot(&list.environment, 3),
             env_sun: env_slot(&list.environment, 4),
+            ssao: [0.0; 4],
         };
         let globals_buffer = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("berx-globals"),
@@ -621,6 +650,32 @@ impl NativeRenderer {
             view_formats: &[],
         });
         let shadow_view = shadow_texture.create_view(&wgpu::TextureViewDescriptor::default());
+        /* One white pixel for the occlusion the world shader reads. This
+           crate runs no SSAO pass, so `ssao` in Globals stays 0 and the
+           shader never looks at this — but a bind group has to be
+           complete whether or not its contents are used. */
+        let ao_texture = self.device.create_texture(&wgpu::TextureDescriptor {
+            label: Some("berx-ao-stand-in"),
+            size: wgpu::Extent3d { width: 1, height: 1, depth_or_array_layers: 1 },
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::R32Float,
+            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+            view_formats: &[],
+        });
+        self.queue.write_texture(
+            wgpu::ImageCopyTexture {
+                texture: &ao_texture,
+                mip_level: 0,
+                origin: wgpu::Origin3d::ZERO,
+                aspect: wgpu::TextureAspect::All,
+            },
+            bytemuck::bytes_of(&1.0f32),
+            wgpu::ImageDataLayout { offset: 0, bytes_per_row: Some(4), rows_per_image: Some(1) },
+            wgpu::Extent3d { width: 1, height: 1, depth_or_array_layers: 1 },
+        );
+        let ao_view = ao_texture.create_view(&wgpu::TextureViewDescriptor::default());
         let globals_bind = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("berx-globals"),
             layout: &self.globals_layout,
@@ -628,6 +683,7 @@ impl NativeRenderer {
                 wgpu::BindGroupEntry { binding: 0, resource: globals_buffer.as_entire_binding() },
                 wgpu::BindGroupEntry { binding: 1, resource: wgpu::BindingResource::Sampler(&self.shadow_sampler) },
                 wgpu::BindGroupEntry { binding: 2, resource: wgpu::BindingResource::TextureView(&shadow_view) },
+                wgpu::BindGroupEntry { binding: 3, resource: wgpu::BindingResource::TextureView(&ao_view) },
             ],
         });
         let shadow_globals_bind = self.device.create_bind_group(&wgpu::BindGroupDescriptor {

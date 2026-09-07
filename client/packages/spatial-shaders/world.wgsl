@@ -54,6 +54,8 @@ struct Globals {
   env_ground: vec4<f32>,   // rgb ground * bounce, w = overall intensity
   env_sun_dir: vec4<f32>,  // xyz toward the key light
   env_sun: vec4<f32>,      // rgb sun colour
+  // x = 1 when an SSAO pass ran for this frame, 0 when it did not.
+  ssao: vec4<f32>,
 };
 
 struct Draw {
@@ -75,6 +77,12 @@ struct Draw {
 // nowhere.
 @group(0) @binding(1) var shadow_sampler: sampler_comparison;
 @group(0) @binding(2) var shadow_texture: texture_depth_2d;
+// The occlusion the SSAO pass computed for this frame, at screen
+// resolution. Read with textureLoad rather than sampled: it is looked up
+// at exactly the fragment's own pixel, so there is nothing to filter and
+// no sampler to keep in step across three backends. A backend with the
+// pass switched off binds a 1x1 white texture and ssao_on stays 0.
+@group(0) @binding(3) var ao_texture: texture_2d<f32>;
 @group(1) @binding(0) var<uniform> d: Draw;
 @group(2) @binding(0) var media_sampler: sampler;
 @group(2) @binding(1) var media_texture: texture_2d<f32>;
@@ -264,10 +272,55 @@ fn fs(i: VsOut) -> @location(0) vec4<f32> {
   let env_d = berx_environment(n);
   let env_s = berx_environment(normalize(mix(refl, n, d.surface.y)));
   let fres = f_schlick(f0, nov);
-  let amb = env_d * diffuse_color * (vec3<f32>(1.0) - fres) + env_s * fres;
+  /* AMBIENT OCCLUSION SCALES THE ROOM, AND ONLY THE ROOM.
+     A point in the crease where two surfaces meet can see very little of
+     the environment, which is the darkening the eye reads as contact.
+     The key light already has its own shadow; multiplying a direct light
+     by an ambient term is how a render grows a black core wherever two
+     things touch. g.ssao.x is 1 when the pass ran, 0 when it did not. */
+  let ao = select(1.0, textureLoad(ao_texture, vec2<i32>(i.clip.xy), 0).r, g.ssao.x > 0.5);
+  let amb = (env_d * diffuse_color * (vec3<f32>(1.0) - fres) + env_s * fres) * ao;
   let colour = lit + amb + d.emissive.rgb;
   // transmission lets the ground through a glass surface rather than
   // fading it to nothing
   let alpha = clamp(d.surface.z * (1.0 - d.surface.w * 0.55), 0.02, 1.0);
   return vec4<f32>(colour, alpha);
+}
+
+/* ------------------------------------------------------------------ *
+ * THE G-BUFFER, for ambient occlusion
+ * ------------------------------------------------------------------ *
+ *
+ * View-space normal in rgb, view-space depth in metres in a. Not a
+ * hardware depth texture, and the reason is portability rather than
+ * convenience: reconstructing a view position from a depth buffer needs
+ * the projection's own conventions, and WGSL's depth range runs 0..1
+ * where GL's runs -1..1 — so three backends reconstructing "the same"
+ * position would be three different reconstructions. A linear view depth
+ * written here is the same number everywhere, and the shared core's
+ * berxSSAOAt reads exactly these two fields.
+ */
+
+struct GbufOut {
+  @builtin(position) clip: vec4<f32>,
+  @location(0) view_normal: vec3<f32>,
+  @location(1) view_pos: vec3<f32>,
+};
+
+@vertex
+fn vs_gbuffer(@location(0) p: vec3<f32>, @location(1) n: vec3<f32>) -> GbufOut {
+  var o: GbufOut;
+  let w = d.model * vec4<f32>(p, 1.0);
+  let world_n = (mat3x3<f32>(d.model[0].xyz, d.model[1].xyz, d.model[2].xyz)) * n;
+  // into view space: the rotation part of the view matrix
+  o.view_normal = (mat3x3<f32>(g.view[0].xyz, g.view[1].xyz, g.view[2].xyz)) * world_n;
+  o.view_pos = (g.view * w).xyz;
+  o.clip = g.proj * g.view * w;
+  return o;
+}
+
+@fragment
+fn fs_gbuffer(i: GbufOut) -> @location(0) vec4<f32> {
+  // The view looks down -Z, so depth in front of the eye is -view_pos.z.
+  return vec4<f32>(normalize(i.view_normal), -i.view_pos.z);
 }

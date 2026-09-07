@@ -476,6 +476,38 @@ var init_worldLighting = __esm({
   }
 });
 
+// packages/spatial/src/lighting/berxSSAO.ts
+function berxSSAOParams() {
+  return { radius: 0.65, bias: 0.025, strength: 0.75, power: 1.6 };
+}
+function berxSSAOKernel() {
+  const GOLDEN = Math.PI * (3 - Math.sqrt(5));
+  const out = [];
+  for (let i = 0; i < BERX_SSAO_SAMPLES; i++) {
+    const z = 1 - (i + 0.5) / BERX_SSAO_SAMPLES;
+    const r = Math.sqrt(Math.max(0, 1 - z * z));
+    const theta = GOLDEN * i;
+    const t = (i + 1) / BERX_SSAO_SAMPLES;
+    const scale = 0.1 + 0.9 * t * t;
+    out.push({ x: Math.cos(theta) * r * scale, y: Math.sin(theta) * r * scale, z: z * scale });
+  }
+  return out;
+}
+function berxSSAOUniform(params = berxSSAOParams()) {
+  const out = [];
+  for (const s of berxSSAOKernel()) out.push(s.x, s.y, s.z, 0);
+  out.push(params.radius, params.bias, params.strength, params.power);
+  return out;
+}
+var BERX_SSAO_SAMPLES, BERX_SSAO_FLOATS;
+var init_berxSSAO = __esm({
+  "packages/spatial/src/lighting/berxSSAO.ts"() {
+    "use strict";
+    BERX_SSAO_SAMPLES = 16;
+    BERX_SSAO_FLOATS = (BERX_SSAO_SAMPLES + 1) * 4;
+  }
+});
+
 // packages/spatial/src/worldMaterials.ts
 function berxWorldMaterial(name) {
   return BERX_WORLD_MATERIALS[name] ?? BERX_WORLD_MATERIALS.ceramic;
@@ -2344,6 +2376,7 @@ var init_src = __esm({
     init_relational();
     init_worldLighting();
     init_berxEnvironment();
+    init_berxSSAO();
     init_worldMaterials();
     init_spatialAudio();
     init_platform();
@@ -2783,7 +2816,7 @@ function meshFor(kind, lod) {
       return createSphere(0.58, far ? 11 : 28, far ? 7 : 18);
   }
 }
-var V, SV, SF, F, TV, TF, BerxThreeRuntimeRenderer;
+var V, SV, SF, F, TV, TF, GV, GF, AV, AF, BerxThreeRuntimeRenderer;
 var init_threeRuntime = __esm({
   "packages/spatial-web/src/threeRuntime.ts"() {
     "use strict";
@@ -2809,6 +2842,8 @@ uniform vec4 ENV_HOR;             // rgb horizon,         w = sun sharpness
 uniform vec4 ENV_GND;             // rgb ground * bounce, w = overall intensity
 uniform vec3 ENV_SUN_DIR;         // toward the key light
 uniform vec3 ENV_SUN;             // sun colour
+uniform sampler2D AO_MAP;         // the occlusion this frame's pass wrote
+uniform float AO_ON;              // 1 when the pass ran, 0 when it did not
 uniform vec3 KEY_DIR, KEY_COL;    // directional key
 uniform float KEY_I;
 uniform vec3 PL_POS[4], PL_COL[4];
@@ -2958,7 +2993,11 @@ void main(){
   vec3 envD=berxEnvironment(n);
   vec3 envS=berxEnvironment(normalize(mix(refl,n,ROUGH)));
   vec3 fres=F_Schlick(f0,nov);
-  vec3 amb=envD*diffuseColor*(vec3(1.)-fres)+envS*fres;
+  /* AMBIENT OCCLUSION SCALES THE ROOM, AND ONLY THE ROOM \u2014 see the same
+     block in world.wgsl. Read at this fragment's own pixel, so there is
+     nothing to filter. */
+  float ao=AO_ON>.5?texelFetch(AO_MAP,ivec2(gl_FragCoord.xy),0).r:1.;
+  vec3 amb=(envD*diffuseColor*(vec3(1.)-fres)+envS*fres)*ao;
   vec3 colour=lit+amb+EMIT;
   // transmission lets the ground through a glass surface rather than
   // fading it to nothing
@@ -2969,12 +3008,61 @@ void main(){
 precision highp float;layout(location=0)in vec2 q;uniform mat4 P,V;uniform vec3 C,R,U;uniform vec2 S;out vec2 T;void main(){T=q*.5+.5;vec3 w=C+R*(q.x*S.x)+U*(q.y*S.y);gl_Position=P*V*vec4(w,1.);}`;
     TF = `#version 300 es
 precision highp float;in vec2 T;uniform sampler2D TEX;uniform float A;out vec4 C;void main(){vec4 t=texture(TEX,T);C=vec4(t.rgb,t.a*A);if(C.a<.01)discard;}`;
+    GV = `#version 300 es
+precision highp float;layout(location=0)in vec3 p;layout(location=1)in vec3 n;uniform mat4 P,V,M;out vec3 VN,VP;void main(){vec4 w=M*vec4(p,1.);VN=mat3(V)*(mat3(M)*n);VP=(V*w).xyz;gl_Position=P*V*w;}`;
+    GF = `#version 300 es
+precision highp float;in vec3 VN,VP;out vec4 C;void main(){C=vec4(normalize(VN),-VP.z);}`;
+    AV = `#version 300 es
+precision highp float;void main(){vec2 q=vec2((gl_VertexID<<1)&2,gl_VertexID&2);gl_Position=vec4(q*2.-1.,0.,1.);}`;
+    AF = `#version 300 es
+precision highp float;
+precision highp sampler2D;
+uniform sampler2D GBUF;
+// BERX_SSAO_SAMPLES offsets, then one vec4: radius, bias, strength, power
+uniform vec4 K[17];
+// x = width, y = height, z = focal length in pixels
+uniform vec3 DIM;
+out vec4 C;
+void main(){
+  ivec2 at=ivec2(gl_FragCoord.xy);
+  int w=int(DIM.x), h=int(DIM.y);
+  vec4 centre=texelFetch(GBUF,at,0);
+  if(centre.a<=0.){C=vec4(1.);return;}
+  vec4 params=K[16];
+  float radius=params.x, strength=params.z, power=params.w;
+  vec3 n=normalize(centre.xyz);
+  vec3 up=abs(n.z)>=.999?vec3(1.,0.,0.):vec3(0.,0.,1.);
+  vec3 tx=normalize(cross(up,n));
+  vec3 ty=cross(n,tx);
+  // slope-scaled bias \u2014 see berxSSAOAt's own note
+  float slope=1.-min(1.,abs(n.z));
+  float bias=params.y*(1.+slope*4.);
+  float occluded=0.;
+  for(int j=0;j<16;j++){
+    vec3 k=K[j].xyz;
+    vec3 s=tx*k.x+ty*k.y+n*k.z;
+    float sd=centre.a-s.z*radius;
+    if(sd<=0.) continue;
+    int sx=at.x+int(floor((s.x*radius*DIM.z)/sd+.5));
+    int sy=at.y+int(floor((s.y*radius*DIM.z)/sd+.5));
+    if(sx<0||sy<0||sx>=w||sy>=h) continue;
+    vec4 there=texelFetch(GBUF,ivec2(sx,sy),0);
+    if(there.a<=0.) continue;
+    if(there.a<sd-bias){
+      float range=radius/max(abs(centre.a-there.a),1e-4);
+      occluded+=min(1.,range);
+    }
+  }
+  float ratio=occluded/16.;
+  C=vec4(max(0.,1.-pow(ratio,power)*strength),0.,0.,1.);
+}`;
     BerxThreeRuntimeRenderer = class {
       constructor(canvas, options = {}) {
         this.kind = "webgl2";
         /* what this backend really does, and nothing it does not */
         this.capabilities = { perspective: true, depthBuffer: true, physicallyLitMaterials: true, shadows: true, postProcessing: false };
         this.meshes = /* @__PURE__ */ new Map();
+        this.ssaoSize = { w: 0, h: 0 };
         this.shadowSize = 0;
         /** objectId -> the one media URI drawn on its face */
         this.media = /* @__PURE__ */ new Map();
@@ -3010,6 +3098,22 @@ precision highp float;in vec2 T;uniform sampler2D TEX;uniform float A;out vec4 C
         this.ENV_GND = gl.getUniformLocation(this.program, "ENV_GND");
         this.ENV_SUN_DIR = gl.getUniformLocation(this.program, "ENV_SUN_DIR");
         this.ENV_SUN = gl.getUniformLocation(this.program, "ENV_SUN");
+        this.AO_MAP = gl.getUniformLocation(this.program, "AO_MAP");
+        this.AO_ON = gl.getUniformLocation(this.program, "AO_ON");
+        this.floatColour = !!gl.getExtension("EXT_color_buffer_float");
+        this.blankAo = gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_2D, this.blankAo);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.R32F, 1, 1, 0, gl.RED, gl.FLOAT, new Float32Array([1]));
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+        this.gbufProgram = program(gl, GV, GF);
+        this.aoProgram = program(gl, AV, AF);
+        this.GP = gl.getUniformLocation(this.gbufProgram, "P");
+        this.GV_ = gl.getUniformLocation(this.gbufProgram, "V");
+        this.GM = gl.getUniformLocation(this.gbufProgram, "M");
+        this.GBUF = gl.getUniformLocation(this.aoProgram, "GBUF");
+        this.K = gl.getUniformLocation(this.aoProgram, "K");
+        this.DIM = gl.getUniformLocation(this.aoProgram, "DIM");
         this.KEY_DIR = gl.getUniformLocation(this.program, "KEY_DIR");
         this.KEY_COL = gl.getUniformLocation(this.program, "KEY_COL");
         this.KEY_I = gl.getUniformLocation(this.program, "KEY_I");
@@ -3112,6 +3216,109 @@ precision highp float;in vec2 T;uniform sampler2D TEX;uniform float A;out vec4 C
       * either, because renderShadowMap below re-points it at the shadow map;
       * the origin has to travel with the call.
       */
+      /**
+       * The G-buffer and the occlusion computed from it.
+       *
+       * Runs before the world pass because the world pass reads the AO map.
+       * Returns false when it could not run at all — without
+       * EXT_color_buffer_float there is no float colour attachment to write a
+       * view depth into, and an occlusion pass that silently wrote nothing
+       * would leave the world lit by whatever the map last held.
+       */
+      renderSSAO(list, width, height) {
+        if (!this.floatColour) return false;
+        const gl = this.gl;
+        if (this.ssaoSize.w !== width || this.ssaoSize.h !== height) {
+          if (this.gbufTexture) gl.deleteTexture(this.gbufTexture);
+          if (this.gbufDepth) gl.deleteRenderbuffer(this.gbufDepth);
+          if (this.gbufFbo) gl.deleteFramebuffer(this.gbufFbo);
+          if (this.aoTexture) gl.deleteTexture(this.aoTexture);
+          if (this.aoFbo) gl.deleteFramebuffer(this.aoFbo);
+          this.gbufTexture = gl.createTexture();
+          gl.bindTexture(gl.TEXTURE_2D, this.gbufTexture);
+          gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, width, height, 0, gl.RGBA, gl.FLOAT, null);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+          this.gbufDepth = gl.createRenderbuffer();
+          gl.bindRenderbuffer(gl.RENDERBUFFER, this.gbufDepth);
+          gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT24, width, height);
+          this.gbufFbo = gl.createFramebuffer();
+          gl.bindFramebuffer(gl.FRAMEBUFFER, this.gbufFbo);
+          gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.gbufTexture, 0);
+          gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, this.gbufDepth);
+          this.aoTexture = gl.createTexture();
+          gl.bindTexture(gl.TEXTURE_2D, this.aoTexture);
+          gl.texImage2D(gl.TEXTURE_2D, 0, gl.R32F, width, height, 0, gl.RED, gl.FLOAT, null);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+          this.aoFbo = gl.createFramebuffer();
+          gl.bindFramebuffer(gl.FRAMEBUFFER, this.aoFbo);
+          gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.aoTexture, 0);
+          if (!this.aoVao) this.aoVao = gl.createVertexArray();
+          this.ssaoSize = { w: width, h: height };
+        }
+        gl.bindFramebuffer(gl.FRAMEBUFFER, this.gbufFbo);
+        gl.viewport(0, 0, width, height);
+        gl.clearColor(0, 0, 0, 0);
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+        gl.enable(gl.DEPTH_TEST);
+        gl.depthMask(true);
+        gl.disable(gl.BLEND);
+        gl.useProgram(this.gbufProgram);
+        gl.uniformMatrix4fv(this.GP, false, new Float32Array(list.projection));
+        gl.uniformMatrix4fv(this.GV_, false, new Float32Array(list.view));
+        for (const item of list.items) {
+          const mesh = this.getMesh(item.primitive, item.lod);
+          gl.uniformMatrix4fv(this.GM, false, new Float32Array(item.model));
+          gl.bindVertexArray(mesh.vao);
+          gl.drawElements(gl.TRIANGLES, mesh.count, gl.UNSIGNED_SHORT, 0);
+        }
+        gl.bindFramebuffer(gl.FRAMEBUFFER, this.aoFbo);
+        gl.viewport(0, 0, width, height);
+        gl.disable(gl.DEPTH_TEST);
+        gl.depthMask(false);
+        gl.useProgram(this.aoProgram);
+        gl.activeTexture(gl.TEXTURE2);
+        gl.bindTexture(gl.TEXTURE_2D, this.gbufTexture);
+        gl.uniform1i(this.GBUF, 2);
+        gl.uniform4fv(this.K, new Float32Array(berxSSAOUniform()));
+        gl.uniform3f(this.DIM, width, height, list.projection[5] * height * 0.5);
+        gl.bindVertexArray(this.aoVao);
+        gl.drawArrays(gl.TRIANGLES, 0, 3);
+        gl.bindVertexArray(null);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        gl.enable(gl.DEPTH_TEST);
+        gl.depthMask(true);
+        gl.enable(gl.BLEND);
+        gl.activeTexture(gl.TEXTURE0);
+        return true;
+      }
+      /**
+       * The G-buffer and the AO map this backend produced, for verification.
+       *
+       * The occlusion gate runs the shared core's berxSSAOAt over these exact
+       * numbers, exactly as it does for WebGPU. Reading the inputs AND the
+       * output is the only way to tell a wrong sign from a wrong formula.
+       */
+      readSSAOBuffers() {
+        if (!this.gbufFbo || !this.aoFbo) return void 0;
+        const gl = this.gl;
+        const w = this.ssaoSize.w, h = this.ssaoSize.h;
+        const gbuffer = new Float32Array(w * h * 4);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, this.gbufFbo);
+        gl.readPixels(0, 0, w, h, gl.RGBA, gl.FLOAT, gbuffer);
+        const ao = new Float32Array(w * h * 4);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, this.aoFbo);
+        gl.readPixels(0, 0, w, h, gl.RGBA, gl.FLOAT, ao);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        const red = new Float32Array(w * h);
+        for (let i = 0; i < w * h; i++) red[i] = ao[i * 4];
+        return { gbuffer, ao: red, width: w, height: h };
+      }
       drawEye(frame, options, width, height, clear, originX = 0) {
         const gl = this.gl;
         gl.useProgram(this.program);
@@ -3126,6 +3333,7 @@ precision highp float;in vec2 T;uniform sampler2D TEX;uniform float A;out vec4 C
           affordances: this.affordances
         });
         this.renderShadowMap(list);
+        const aoReady = options.ssao === false ? false : this.renderSSAO(list, width, height);
         gl.useProgram(this.program);
         gl.viewport(originX, 0, width, height);
         if (clear) {
@@ -3158,6 +3366,11 @@ precision highp float;in vec2 T;uniform sampler2D TEX;uniform float A;out vec4 C
         gl.uniform4f(this.ENV_GND, e[8], e[9], e[10], e[11]);
         gl.uniform3f(this.ENV_SUN_DIR, e[12], e[13], e[14]);
         gl.uniform3f(this.ENV_SUN, e[16], e[17], e[18]);
+        gl.activeTexture(gl.TEXTURE3);
+        gl.bindTexture(gl.TEXTURE_2D, aoReady ? this.aoTexture : this.blankAo);
+        gl.uniform1i(this.AO_MAP, 3);
+        gl.uniform1f(this.AO_ON, aoReady ? 1 : 0);
+        gl.activeTexture(gl.TEXTURE0);
         gl.uniform3f(this.KEY_DIR, list.key.direction.x, list.key.direction.y, list.key.direction.z);
         gl.uniform3f(this.KEY_COL, list.key.colour[0], list.key.colour[1], list.key.colour[2]);
         gl.uniform1f(this.KEY_I, list.key.intensity);
@@ -3445,12 +3658,13 @@ precision highp float;in vec2 T;uniform sampler2D TEX;uniform float A;out vec4 C
 });
 
 // packages/spatial-shaders/src/index.ts
-var BERX_WORLD_WGSL, BERX_LABEL_WGSL;
+var BERX_WORLD_WGSL, BERX_LABEL_WGSL, BERX_SSAO_WGSL;
 var init_src2 = __esm({
   "packages/spatial-shaders/src/index.ts"() {
     "use strict";
-    BERX_WORLD_WGSL = "// The BERX forward pass, in WGSL. This file is the only copy of it.\n//\n// Two backends run this exact text: @berx/spatial-web's WebGPU renderer,\n// which imports it through @berx/spatial-shaders, and the native\n// berx-spatial-native crate, which include_str!s it. A shader duplicated\n// per backend is how two renderers quietly stop drawing the same world.\n//\n// The same microfacet BRDF the WebGL2 backend runs: GGX, height-correlated\n// Smith visibility, Schlick Fresnel, metalness splitting the diffuse and\n// specular lobes, one directional key, up to four windowed point lights, and\n// and image-based lighting from an ANALYTIC environment \u2014 a closed-form\n// room rather than a captured cubemap, because BERX ships no HDR asset and\n// a closed form is the only thing four languages can evaluate identically.\n// There is no post chain here, and both backends' reported capabilities say\n// so.\n//\n// The key light casts. Its camera is fitted in the shared core\n// (@berx/spatial's berxShadowCamera) so every backend puts the light in\n// exactly the same place, and this file only reads the depth it captured:\n// 3x3 PCF, a normal-offset sample, and a shadow that removes the KEY term\n// only. Ambient and the point lights are untouched, because a surface in\n// shadow still receives the bounced room \u2014 zeroing the pixel is what makes\n// a render look like a cutout rather than a place.\n//\n// One thing differs from the GLSL source, and it is a clip-space convention\n// rather than shading: WGSL depth runs 0..1 where GL runs -1..1, so the host\n// hands this shader a projection already remapped.\n//\n// Media is a planar projection onto the face that points at you, exactly as\n// in the GLSL pass: object-space position and normal give the UVs from the\n// local XY extent, and the texture is applied only where the surface faces\n// +Z, so an avatar on an orb reads as a face rather than as a photograph\n// smeared around a ball. A backend with no image to bind binds a 1x1 texture\n// and leaves the flag at zero; nothing is approximated with a colour.\n\nstruct Globals {\n  proj: mat4x4<f32>,\n  view: mat4x4<f32>,\n  camera: vec4<f32>,\n  ambient: vec4<f32>,\n  key_dir: vec4<f32>,\n  key_col: vec4<f32>,   // rgb, intensity in w\n  // The light's own view-projection, already in this API's depth range.\n  light_vp: mat4x4<f32>,\n  // x = 1/mapSize, y = depth bias, z = normal bias, w = strength (0 = off)\n  shadow: vec4<f32>,\n  // THE ROOM, packed by the shared core's berxEnvironmentUniform. The\n  // order is that function's, not this file's: changing it here without\n  // changing it there is how a renderer ends up lit by the ground\n  // colour. w components carry the scalars so the block stays five\n  // vec4s rather than five vec4s and four loose floats.\n  env_zenith: vec4<f32>,   // rgb zenith,          w = sun intensity\n  env_horizon: vec4<f32>,  // rgb horizon,         w = sun sharpness\n  env_ground: vec4<f32>,   // rgb ground * bounce, w = overall intensity\n  env_sun_dir: vec4<f32>,  // xyz toward the key light\n  env_sun: vec4<f32>,      // rgb sun colour\n};\n\nstruct Draw {\n  model: mat4x4<f32>,\n  base: vec4<f32>,              // rgb base colour, w = local half-extent in X\n  emissive: vec4<f32>,          // rgb emission,    w = local half-extent in Y\n  surface: vec4<f32>,           // metalness, roughness, opacity, transmission\n  pl_pos: array<vec4<f32>, 4>,  // xyz position, w range\n  pl_col: array<vec4<f32>, 4>,  // rgb colour, w intensity\n  // x = point light count, yz = UV cover/contain correction, w = has texture\n  counts: vec4<f32>,\n};\n\n@group(0) @binding(0) var<uniform> g: Globals;\n// A comparison sampler, not a plain one: the hardware does the depth test\n// per sample and averages the RESULTS, which is what makes a 3x3 tap a soft\n// edge instead of four hard ones. Sampling depth and comparing afterwards\n// would average DEPTHS, and an averaged depth is a surface that exists\n// nowhere.\n@group(0) @binding(1) var shadow_sampler: sampler_comparison;\n@group(0) @binding(2) var shadow_texture: texture_depth_2d;\n@group(1) @binding(0) var<uniform> d: Draw;\n@group(2) @binding(0) var media_sampler: sampler;\n@group(2) @binding(1) var media_texture: texture_2d<f32>;\n\nstruct VsOut {\n  @builtin(position) clip: vec4<f32>,\n  @location(0) n: vec3<f32>,\n  @location(1) w: vec3<f32>,\n  // object space, so media projects onto the form rather than the screen\n  @location(2) local: vec3<f32>,\n  @location(3) local_n: vec3<f32>,\n};\n\n/**\n * The depth-only pass, from the light.\n *\n * The same vertex data and the same model matrix as the main pass \u2014 a\n * shadow cast by a different shape from the one drawn is worse than no\n * shadow, because it is a shape that is not there.\n */\n@vertex\nfn vs_shadow(@location(0) p: vec3<f32>, @location(1) n: vec3<f32>) -> @builtin(position) vec4<f32> {\n  return g.light_vp * d.model * vec4<f32>(p, 1.0);\n}\n\n@vertex\nfn vs(@location(0) p: vec3<f32>, @location(1) n: vec3<f32>) -> VsOut {\n  var o: VsOut;\n  let w = d.model * vec4<f32>(p, 1.0);\n  o.w = w.xyz;\n  o.n = (mat3x3<f32>(d.model[0].xyz, d.model[1].xyz, d.model[2].xyz)) * n;\n  o.local = p;\n  o.local_n = n;\n  o.clip = g.proj * g.view * w;\n  return o;\n}\n\nconst PI: f32 = 3.14159265359;\n\nfn d_ggx(noh: f32, a: f32) -> f32 {\n  let a2 = a * a;\n  let den = noh * noh * (a2 - 1.0) + 1.0;\n  return a2 / max(PI * den * den, 1e-7);\n}\n\nfn v_smith(nov: f32, nol: f32, a: f32) -> f32 {\n  let a2 = a * a;\n  let v = nol * sqrt(nov * nov * (1.0 - a2) + a2);\n  let l = nov * sqrt(nol * nol * (1.0 - a2) + a2);\n  return 0.5 / max(v + l, 1e-7);\n}\n\nfn f_schlick(f0: vec3<f32>, u: f32) -> vec3<f32> {\n  let m = clamp(1.0 - u, 0.0, 1.0);\n  let m2 = m * m;\n  return f0 + (vec3<f32>(1.0) - f0) * (m2 * m2 * m);\n}\n\n/**\n * BERX ENVIRONMENT \u2014 the analytic room, in WGSL.\n *\n * The same three terms as @berx/spatial's berxEnvironmentRadiance, in\n * the same order, from the same constants: a sky gradient over the\n * upper hemisphere, the floor's weak return below it, and a sun lobe\n * around the key direction. There is no cubemap to sample because BERX\n * ships no captured HDR environment; this is a closed form, which is\n * the only reason four languages can evaluate it identically.\n *\n * `dir` must already be normalised \u2014 the caller normalises, and a\n * hidden normalise here would be a place for the ports to differ.\n * `smoothstep(0,1,x)` is WGSL's builtin, which is the same Hermite\n * polynomial berxEnvSmoothstep01 spells out in TypeScript.\n */\nfn berx_environment(dir: vec3<f32>) -> vec3<f32> {\n  let up = clamp(dir.y, 0.0, 1.0);\n  let down = clamp(-dir.y, 0.0, 1.0);\n  let sky = mix(g.env_horizon.rgb, g.env_zenith.rgb, smoothstep(0.0, 1.0, up));\n  // the floor's return is already scaled by `bounce` on the host side\n  let base = mix(sky, g.env_ground.rgb, smoothstep(0.0, 1.0, down));\n  // both vectors point TOWARD the light, so this peaks at 1 looking at it\n  let cos_a = max(dot(dir, g.env_sun_dir.xyz), 0.0);\n  let glow = pow(cos_a, g.env_horizon.w) * g.env_zenith.w;\n  return (base + g.env_sun.rgb * glow) * g.env_ground.w;\n}\n\nfn shade(n: vec3<f32>, v: vec3<f32>, l: vec3<f32>, radiance: vec3<f32>,\n         diffuse_color: vec3<f32>, f0: vec3<f32>, a: f32) -> vec3<f32> {\n  let h = normalize(v + l);\n  let nol = max(dot(n, l), 0.0);\n  if (nol <= 0.0) { return vec3<f32>(0.0); }\n  let nov = max(dot(n, v), 1e-4);\n  let noh = max(dot(n, h), 0.0);\n  let voh = max(dot(v, h), 0.0);\n  let f = f_schlick(f0, voh);\n  let vis = v_smith(nov, nol, a);\n  let dist = d_ggx(noh, a);\n  let spec = f * (dist * vis);\n  // energy that was not reflected is the only energy left to scatter\n  let kd = vec3<f32>(1.0) - f;\n  let diff = kd * diffuse_color / PI;\n  return (diff + spec) * radiance * nol;\n}\n\n/**\n * How much of the key light reaches this point. 1 is full light.\n *\n * The sample is pushed along the surface normal before projecting, which\n * is what stops a lit surface shadowing itself at grazing angles without\n * the constant depth bias that would detach a shadow from the foot of\n * the thing casting it.\n */\nfn key_visibility(world: vec3<f32>, n: vec3<f32>, nol: f32) -> f32 {\n  if (g.shadow.w <= 0.0) { return 1.0; }\n  // more offset where the light grazes, none where it is head-on\n  let slope = clamp(1.0 - nol, 0.0, 1.0);\n  let offset = world + n * (g.shadow.z * (1.0 + slope * 2.0));\n  let light_clip = g.light_vp * vec4<f32>(offset, 1.0);\n  let ndc = light_clip.xyz / max(light_clip.w, 1e-6);\n  // outside the light's own box: lit, not shadowed. A world larger than\n  // the map must not grow a hard black edge where the map ends.\n  if (ndc.x < -1.0 || ndc.x > 1.0 || ndc.y < -1.0 || ndc.y > 1.0 || ndc.z > 1.0) { return 1.0; }\n  let uv = vec2<f32>(ndc.x * 0.5 + 0.5, 0.5 - ndc.y * 0.5);\n  let depth = ndc.z - g.shadow.y;\n  var sum = 0.0;\n  for (var y: i32 = -1; y <= 1; y = y + 1) {\n    for (var x: i32 = -1; x <= 1; x = x + 1) {\n      let tap = uv + vec2<f32>(f32(x), f32(y)) * g.shadow.x;\n      sum = sum + textureSampleCompareLevel(shadow_texture, shadow_sampler, tap, depth);\n    }\n  }\n  let lit = sum / 9.0;\n  return mix(1.0, lit, g.shadow.w);\n}\n\n@fragment\nfn fs(i: VsOut) -> @location(0) vec4<f32> {\n  // Media is a planar projection onto the face that points at you.\n  //\n  // The sample is taken unconditionally and then selected, rather than\n  // taken inside the test: textureSample needs uniform control flow, and\n  // whether a fragment is on the front face and inside the picture is a\n  // per-fragment fact. A backend with nothing to show binds a 1x1\n  // texture and leaves counts.w at zero, so the sample is discarded.\n  let half_extent = vec2<f32>(max(d.base.w, 1e-4), max(d.emissive.w, 1e-4));\n  let uv = (i.local.xy / half_extent) * 0.5 * d.counts.yz + vec2<f32>(0.5);\n  let sampled = textureSample(media_texture, media_sampler, vec2<f32>(uv.x, 1.0 - uv.y)).rgb;\n  let inside = uv.x >= 0.0 && uv.x <= 1.0 && uv.y >= 0.0 && uv.y <= 1.0;\n  let facing = normalize(i.local_n).z > 0.5;\n  let base = select(d.base.rgb, sampled, d.counts.w > 0.5 && facing && inside);\n  let n = normalize(i.n);\n  let v = normalize(g.camera.xyz - i.w);\n  let a = max(d.surface.y * d.surface.y, 1e-3);\n  // metals have no diffuse term and tint their reflection; dielectrics\n  // reflect 4% white and keep their colour in the diffuse lobe\n  let diffuse_color = base * (1.0 - d.surface.x);\n  let f0 = mix(vec3<f32>(0.04), base, vec3<f32>(d.surface.x));\n\n  let key_l = normalize(g.key_dir.xyz);\n  // The key alone is shadowed. Ambient and the point lights are not: a\n  // surface out of the sun still receives the room.\n  let visibility = key_visibility(i.w, n, max(dot(n, key_l), 0.0));\n  var lit = shade(n, v, key_l, g.key_col.rgb * g.key_col.w, diffuse_color, f0, a) * visibility;\n\n  let count = i32(d.counts.x);\n  for (var k: i32 = 0; k < 4; k = k + 1) {\n    if (k >= count) { break; }\n    let lp = d.pl_pos[k];\n    let lc = d.pl_col[k];\n    let delta = lp.xyz - i.w;\n    let dist = length(delta);\n    if (dist > lp.w) { continue; }\n    // inverse-square, windowed so a light ends where its range says\n    let win = clamp(1.0 - pow(dist / lp.w, 4.0), 0.0, 1.0);\n    let atten = win * win / max(dist * dist, 1e-4);\n    lit = lit + shade(n, v, delta / max(dist, 1e-4), lc.rgb * lc.w * atten, diffuse_color, f0, a);\n  }\n\n  /* AMBIENT IS NOW THE ROOM, not one colour.\n     Diffuse takes the environment along the normal \u2014 what a matte\n     surface actually faces. Specular takes it along the reflection,\n     blended toward the normal by roughness: a rough surface's lobe is\n     wide, so it sees an average of the room rather than a mirror of it,\n     and that blend is this backend's prefilter. There is no prefiltered\n     mip chain because there is no map to prefilter. */\n  let nov = max(dot(n, v), 0.0);\n  let refl = reflect(-v, n);\n  let env_d = berx_environment(n);\n  let env_s = berx_environment(normalize(mix(refl, n, d.surface.y)));\n  let fres = f_schlick(f0, nov);\n  let amb = env_d * diffuse_color * (vec3<f32>(1.0) - fres) + env_s * fres;\n  let colour = lit + amb + d.emissive.rgb;\n  // transmission lets the ground through a glass surface rather than\n  // fading it to nothing\n  let alpha = clamp(d.surface.z * (1.0 - d.surface.w * 0.55), 0.02, 1.0);\n  return vec4<f32>(colour, alpha);\n}\n";
+    BERX_WORLD_WGSL = "// The BERX forward pass, in WGSL. This file is the only copy of it.\n//\n// Two backends run this exact text: @berx/spatial-web's WebGPU renderer,\n// which imports it through @berx/spatial-shaders, and the native\n// berx-spatial-native crate, which include_str!s it. A shader duplicated\n// per backend is how two renderers quietly stop drawing the same world.\n//\n// The same microfacet BRDF the WebGL2 backend runs: GGX, height-correlated\n// Smith visibility, Schlick Fresnel, metalness splitting the diffuse and\n// specular lobes, one directional key, up to four windowed point lights, and\n// and image-based lighting from an ANALYTIC environment \u2014 a closed-form\n// room rather than a captured cubemap, because BERX ships no HDR asset and\n// a closed form is the only thing four languages can evaluate identically.\n// There is no post chain here, and both backends' reported capabilities say\n// so.\n//\n// The key light casts. Its camera is fitted in the shared core\n// (@berx/spatial's berxShadowCamera) so every backend puts the light in\n// exactly the same place, and this file only reads the depth it captured:\n// 3x3 PCF, a normal-offset sample, and a shadow that removes the KEY term\n// only. Ambient and the point lights are untouched, because a surface in\n// shadow still receives the bounced room \u2014 zeroing the pixel is what makes\n// a render look like a cutout rather than a place.\n//\n// One thing differs from the GLSL source, and it is a clip-space convention\n// rather than shading: WGSL depth runs 0..1 where GL runs -1..1, so the host\n// hands this shader a projection already remapped.\n//\n// Media is a planar projection onto the face that points at you, exactly as\n// in the GLSL pass: object-space position and normal give the UVs from the\n// local XY extent, and the texture is applied only where the surface faces\n// +Z, so an avatar on an orb reads as a face rather than as a photograph\n// smeared around a ball. A backend with no image to bind binds a 1x1 texture\n// and leaves the flag at zero; nothing is approximated with a colour.\n\nstruct Globals {\n  proj: mat4x4<f32>,\n  view: mat4x4<f32>,\n  camera: vec4<f32>,\n  ambient: vec4<f32>,\n  key_dir: vec4<f32>,\n  key_col: vec4<f32>,   // rgb, intensity in w\n  // The light's own view-projection, already in this API's depth range.\n  light_vp: mat4x4<f32>,\n  // x = 1/mapSize, y = depth bias, z = normal bias, w = strength (0 = off)\n  shadow: vec4<f32>,\n  // THE ROOM, packed by the shared core's berxEnvironmentUniform. The\n  // order is that function's, not this file's: changing it here without\n  // changing it there is how a renderer ends up lit by the ground\n  // colour. w components carry the scalars so the block stays five\n  // vec4s rather than five vec4s and four loose floats.\n  env_zenith: vec4<f32>,   // rgb zenith,          w = sun intensity\n  env_horizon: vec4<f32>,  // rgb horizon,         w = sun sharpness\n  env_ground: vec4<f32>,   // rgb ground * bounce, w = overall intensity\n  env_sun_dir: vec4<f32>,  // xyz toward the key light\n  env_sun: vec4<f32>,      // rgb sun colour\n  // x = 1 when an SSAO pass ran for this frame, 0 when it did not.\n  ssao: vec4<f32>,\n};\n\nstruct Draw {\n  model: mat4x4<f32>,\n  base: vec4<f32>,              // rgb base colour, w = local half-extent in X\n  emissive: vec4<f32>,          // rgb emission,    w = local half-extent in Y\n  surface: vec4<f32>,           // metalness, roughness, opacity, transmission\n  pl_pos: array<vec4<f32>, 4>,  // xyz position, w range\n  pl_col: array<vec4<f32>, 4>,  // rgb colour, w intensity\n  // x = point light count, yz = UV cover/contain correction, w = has texture\n  counts: vec4<f32>,\n};\n\n@group(0) @binding(0) var<uniform> g: Globals;\n// A comparison sampler, not a plain one: the hardware does the depth test\n// per sample and averages the RESULTS, which is what makes a 3x3 tap a soft\n// edge instead of four hard ones. Sampling depth and comparing afterwards\n// would average DEPTHS, and an averaged depth is a surface that exists\n// nowhere.\n@group(0) @binding(1) var shadow_sampler: sampler_comparison;\n@group(0) @binding(2) var shadow_texture: texture_depth_2d;\n// The occlusion the SSAO pass computed for this frame, at screen\n// resolution. Read with textureLoad rather than sampled: it is looked up\n// at exactly the fragment's own pixel, so there is nothing to filter and\n// no sampler to keep in step across three backends. A backend with the\n// pass switched off binds a 1x1 white texture and ssao_on stays 0.\n@group(0) @binding(3) var ao_texture: texture_2d<f32>;\n@group(1) @binding(0) var<uniform> d: Draw;\n@group(2) @binding(0) var media_sampler: sampler;\n@group(2) @binding(1) var media_texture: texture_2d<f32>;\n\nstruct VsOut {\n  @builtin(position) clip: vec4<f32>,\n  @location(0) n: vec3<f32>,\n  @location(1) w: vec3<f32>,\n  // object space, so media projects onto the form rather than the screen\n  @location(2) local: vec3<f32>,\n  @location(3) local_n: vec3<f32>,\n};\n\n/**\n * The depth-only pass, from the light.\n *\n * The same vertex data and the same model matrix as the main pass \u2014 a\n * shadow cast by a different shape from the one drawn is worse than no\n * shadow, because it is a shape that is not there.\n */\n@vertex\nfn vs_shadow(@location(0) p: vec3<f32>, @location(1) n: vec3<f32>) -> @builtin(position) vec4<f32> {\n  return g.light_vp * d.model * vec4<f32>(p, 1.0);\n}\n\n@vertex\nfn vs(@location(0) p: vec3<f32>, @location(1) n: vec3<f32>) -> VsOut {\n  var o: VsOut;\n  let w = d.model * vec4<f32>(p, 1.0);\n  o.w = w.xyz;\n  o.n = (mat3x3<f32>(d.model[0].xyz, d.model[1].xyz, d.model[2].xyz)) * n;\n  o.local = p;\n  o.local_n = n;\n  o.clip = g.proj * g.view * w;\n  return o;\n}\n\nconst PI: f32 = 3.14159265359;\n\nfn d_ggx(noh: f32, a: f32) -> f32 {\n  let a2 = a * a;\n  let den = noh * noh * (a2 - 1.0) + 1.0;\n  return a2 / max(PI * den * den, 1e-7);\n}\n\nfn v_smith(nov: f32, nol: f32, a: f32) -> f32 {\n  let a2 = a * a;\n  let v = nol * sqrt(nov * nov * (1.0 - a2) + a2);\n  let l = nov * sqrt(nol * nol * (1.0 - a2) + a2);\n  return 0.5 / max(v + l, 1e-7);\n}\n\nfn f_schlick(f0: vec3<f32>, u: f32) -> vec3<f32> {\n  let m = clamp(1.0 - u, 0.0, 1.0);\n  let m2 = m * m;\n  return f0 + (vec3<f32>(1.0) - f0) * (m2 * m2 * m);\n}\n\n/**\n * BERX ENVIRONMENT \u2014 the analytic room, in WGSL.\n *\n * The same three terms as @berx/spatial's berxEnvironmentRadiance, in\n * the same order, from the same constants: a sky gradient over the\n * upper hemisphere, the floor's weak return below it, and a sun lobe\n * around the key direction. There is no cubemap to sample because BERX\n * ships no captured HDR environment; this is a closed form, which is\n * the only reason four languages can evaluate it identically.\n *\n * `dir` must already be normalised \u2014 the caller normalises, and a\n * hidden normalise here would be a place for the ports to differ.\n * `smoothstep(0,1,x)` is WGSL's builtin, which is the same Hermite\n * polynomial berxEnvSmoothstep01 spells out in TypeScript.\n */\nfn berx_environment(dir: vec3<f32>) -> vec3<f32> {\n  let up = clamp(dir.y, 0.0, 1.0);\n  let down = clamp(-dir.y, 0.0, 1.0);\n  let sky = mix(g.env_horizon.rgb, g.env_zenith.rgb, smoothstep(0.0, 1.0, up));\n  // the floor's return is already scaled by `bounce` on the host side\n  let base = mix(sky, g.env_ground.rgb, smoothstep(0.0, 1.0, down));\n  // both vectors point TOWARD the light, so this peaks at 1 looking at it\n  let cos_a = max(dot(dir, g.env_sun_dir.xyz), 0.0);\n  let glow = pow(cos_a, g.env_horizon.w) * g.env_zenith.w;\n  return (base + g.env_sun.rgb * glow) * g.env_ground.w;\n}\n\nfn shade(n: vec3<f32>, v: vec3<f32>, l: vec3<f32>, radiance: vec3<f32>,\n         diffuse_color: vec3<f32>, f0: vec3<f32>, a: f32) -> vec3<f32> {\n  let h = normalize(v + l);\n  let nol = max(dot(n, l), 0.0);\n  if (nol <= 0.0) { return vec3<f32>(0.0); }\n  let nov = max(dot(n, v), 1e-4);\n  let noh = max(dot(n, h), 0.0);\n  let voh = max(dot(v, h), 0.0);\n  let f = f_schlick(f0, voh);\n  let vis = v_smith(nov, nol, a);\n  let dist = d_ggx(noh, a);\n  let spec = f * (dist * vis);\n  // energy that was not reflected is the only energy left to scatter\n  let kd = vec3<f32>(1.0) - f;\n  let diff = kd * diffuse_color / PI;\n  return (diff + spec) * radiance * nol;\n}\n\n/**\n * How much of the key light reaches this point. 1 is full light.\n *\n * The sample is pushed along the surface normal before projecting, which\n * is what stops a lit surface shadowing itself at grazing angles without\n * the constant depth bias that would detach a shadow from the foot of\n * the thing casting it.\n */\nfn key_visibility(world: vec3<f32>, n: vec3<f32>, nol: f32) -> f32 {\n  if (g.shadow.w <= 0.0) { return 1.0; }\n  // more offset where the light grazes, none where it is head-on\n  let slope = clamp(1.0 - nol, 0.0, 1.0);\n  let offset = world + n * (g.shadow.z * (1.0 + slope * 2.0));\n  let light_clip = g.light_vp * vec4<f32>(offset, 1.0);\n  let ndc = light_clip.xyz / max(light_clip.w, 1e-6);\n  // outside the light's own box: lit, not shadowed. A world larger than\n  // the map must not grow a hard black edge where the map ends.\n  if (ndc.x < -1.0 || ndc.x > 1.0 || ndc.y < -1.0 || ndc.y > 1.0 || ndc.z > 1.0) { return 1.0; }\n  let uv = vec2<f32>(ndc.x * 0.5 + 0.5, 0.5 - ndc.y * 0.5);\n  let depth = ndc.z - g.shadow.y;\n  var sum = 0.0;\n  for (var y: i32 = -1; y <= 1; y = y + 1) {\n    for (var x: i32 = -1; x <= 1; x = x + 1) {\n      let tap = uv + vec2<f32>(f32(x), f32(y)) * g.shadow.x;\n      sum = sum + textureSampleCompareLevel(shadow_texture, shadow_sampler, tap, depth);\n    }\n  }\n  let lit = sum / 9.0;\n  return mix(1.0, lit, g.shadow.w);\n}\n\n@fragment\nfn fs(i: VsOut) -> @location(0) vec4<f32> {\n  // Media is a planar projection onto the face that points at you.\n  //\n  // The sample is taken unconditionally and then selected, rather than\n  // taken inside the test: textureSample needs uniform control flow, and\n  // whether a fragment is on the front face and inside the picture is a\n  // per-fragment fact. A backend with nothing to show binds a 1x1\n  // texture and leaves counts.w at zero, so the sample is discarded.\n  let half_extent = vec2<f32>(max(d.base.w, 1e-4), max(d.emissive.w, 1e-4));\n  let uv = (i.local.xy / half_extent) * 0.5 * d.counts.yz + vec2<f32>(0.5);\n  let sampled = textureSample(media_texture, media_sampler, vec2<f32>(uv.x, 1.0 - uv.y)).rgb;\n  let inside = uv.x >= 0.0 && uv.x <= 1.0 && uv.y >= 0.0 && uv.y <= 1.0;\n  let facing = normalize(i.local_n).z > 0.5;\n  let base = select(d.base.rgb, sampled, d.counts.w > 0.5 && facing && inside);\n  let n = normalize(i.n);\n  let v = normalize(g.camera.xyz - i.w);\n  let a = max(d.surface.y * d.surface.y, 1e-3);\n  // metals have no diffuse term and tint their reflection; dielectrics\n  // reflect 4% white and keep their colour in the diffuse lobe\n  let diffuse_color = base * (1.0 - d.surface.x);\n  let f0 = mix(vec3<f32>(0.04), base, vec3<f32>(d.surface.x));\n\n  let key_l = normalize(g.key_dir.xyz);\n  // The key alone is shadowed. Ambient and the point lights are not: a\n  // surface out of the sun still receives the room.\n  let visibility = key_visibility(i.w, n, max(dot(n, key_l), 0.0));\n  var lit = shade(n, v, key_l, g.key_col.rgb * g.key_col.w, diffuse_color, f0, a) * visibility;\n\n  let count = i32(d.counts.x);\n  for (var k: i32 = 0; k < 4; k = k + 1) {\n    if (k >= count) { break; }\n    let lp = d.pl_pos[k];\n    let lc = d.pl_col[k];\n    let delta = lp.xyz - i.w;\n    let dist = length(delta);\n    if (dist > lp.w) { continue; }\n    // inverse-square, windowed so a light ends where its range says\n    let win = clamp(1.0 - pow(dist / lp.w, 4.0), 0.0, 1.0);\n    let atten = win * win / max(dist * dist, 1e-4);\n    lit = lit + shade(n, v, delta / max(dist, 1e-4), lc.rgb * lc.w * atten, diffuse_color, f0, a);\n  }\n\n  /* AMBIENT IS NOW THE ROOM, not one colour.\n     Diffuse takes the environment along the normal \u2014 what a matte\n     surface actually faces. Specular takes it along the reflection,\n     blended toward the normal by roughness: a rough surface's lobe is\n     wide, so it sees an average of the room rather than a mirror of it,\n     and that blend is this backend's prefilter. There is no prefiltered\n     mip chain because there is no map to prefilter. */\n  let nov = max(dot(n, v), 0.0);\n  let refl = reflect(-v, n);\n  let env_d = berx_environment(n);\n  let env_s = berx_environment(normalize(mix(refl, n, d.surface.y)));\n  let fres = f_schlick(f0, nov);\n  /* AMBIENT OCCLUSION SCALES THE ROOM, AND ONLY THE ROOM.\n     A point in the crease where two surfaces meet can see very little of\n     the environment, which is the darkening the eye reads as contact.\n     The key light already has its own shadow; multiplying a direct light\n     by an ambient term is how a render grows a black core wherever two\n     things touch. g.ssao.x is 1 when the pass ran, 0 when it did not. */\n  let ao = select(1.0, textureLoad(ao_texture, vec2<i32>(i.clip.xy), 0).r, g.ssao.x > 0.5);\n  let amb = (env_d * diffuse_color * (vec3<f32>(1.0) - fres) + env_s * fres) * ao;\n  let colour = lit + amb + d.emissive.rgb;\n  // transmission lets the ground through a glass surface rather than\n  // fading it to nothing\n  let alpha = clamp(d.surface.z * (1.0 - d.surface.w * 0.55), 0.02, 1.0);\n  return vec4<f32>(colour, alpha);\n}\n\n/* ------------------------------------------------------------------ *\n * THE G-BUFFER, for ambient occlusion\n * ------------------------------------------------------------------ *\n *\n * View-space normal in rgb, view-space depth in metres in a. Not a\n * hardware depth texture, and the reason is portability rather than\n * convenience: reconstructing a view position from a depth buffer needs\n * the projection's own conventions, and WGSL's depth range runs 0..1\n * where GL's runs -1..1 \u2014 so three backends reconstructing \"the same\"\n * position would be three different reconstructions. A linear view depth\n * written here is the same number everywhere, and the shared core's\n * berxSSAOAt reads exactly these two fields.\n */\n\nstruct GbufOut {\n  @builtin(position) clip: vec4<f32>,\n  @location(0) view_normal: vec3<f32>,\n  @location(1) view_pos: vec3<f32>,\n};\n\n@vertex\nfn vs_gbuffer(@location(0) p: vec3<f32>, @location(1) n: vec3<f32>) -> GbufOut {\n  var o: GbufOut;\n  let w = d.model * vec4<f32>(p, 1.0);\n  let world_n = (mat3x3<f32>(d.model[0].xyz, d.model[1].xyz, d.model[2].xyz)) * n;\n  // into view space: the rotation part of the view matrix\n  o.view_normal = (mat3x3<f32>(g.view[0].xyz, g.view[1].xyz, g.view[2].xyz)) * world_n;\n  o.view_pos = (g.view * w).xyz;\n  o.clip = g.proj * g.view * w;\n  return o;\n}\n\n@fragment\nfn fs_gbuffer(i: GbufOut) -> @location(0) vec4<f32> {\n  // The view looks down -Z, so depth in front of the eye is -view_pos.z.\n  return vec4<f32>(normalize(i.view_normal), -i.view_pos.z);\n}\n";
     BERX_LABEL_WGSL = "// Names standing in the world, in WGSL. This file is the only copy of it.\n//\n// Unlit on purpose: a name is not a surface in the room, it is a name, and\n// shading it would make it dimmer the further it turned from the key light \u2014\n// the opposite of what a label is for. It is still real geometry, at a real\n// world position with a real height in metres, and depth-tested, so anything\n// in front of it hides it.\n//\n// The quad turns to face the camera by being built from the camera's own\n// right and up vectors, which the shared core hands over with the label's\n// position. Nothing here decides where a name goes.\n\nstruct LabelGlobals {\n  proj: mat4x4<f32>,\n  view: mat4x4<f32>,\n  right: vec4<f32>,\n  up: vec4<f32>,\n};\n\nstruct Label {\n  // xyz world centre, w unused\n  centre: vec4<f32>,\n  // xy half-extent in metres, z alpha, w unused\n  size: vec4<f32>,\n};\n\n@group(0) @binding(0) var<uniform> g: LabelGlobals;\n@group(1) @binding(0) var<uniform> l: Label;\n@group(2) @binding(0) var glyph_sampler: sampler;\n@group(2) @binding(1) var glyph_texture: texture_2d<f32>;\n\nstruct VsOut {\n  @builtin(position) clip: vec4<f32>,\n  @location(0) uv: vec2<f32>,\n};\n\n@vertex\nfn vs(@builtin(vertex_index) v: u32) -> VsOut {\n  // two triangles, as a quad in the camera's plane\n  var corners = array<vec2<f32>, 6>(\n    vec2<f32>(-1.0, -1.0), vec2<f32>(1.0, -1.0), vec2<f32>(1.0, 1.0),\n    vec2<f32>(-1.0, -1.0), vec2<f32>(1.0, 1.0), vec2<f32>(-1.0, 1.0),\n  );\n  let q = corners[v];\n  var o: VsOut;\n  // the rasterised glyphs run top row first, so V is flipped here rather\n  // than in the upload \u2014 writeTexture has no flip of its own\n  o.uv = vec2<f32>(q.x * 0.5 + 0.5, 0.5 - q.y * 0.5);\n  let w = l.centre.xyz + g.right.xyz * (q.x * l.size.x) + g.up.xyz * (q.y * l.size.y);\n  o.clip = g.proj * g.view * vec4<f32>(w, 1.0);\n  return o;\n}\n\n@fragment\nfn fs(i: VsOut) -> @location(0) vec4<f32> {\n  let t = textureSample(glyph_texture, glyph_sampler, i.uv);\n  let a = t.a * l.size.z;\n  if (a < 0.01) { discard; }\n  return vec4<f32>(t.rgb, a);\n}\n";
+    BERX_SSAO_WGSL = "// BERX SSAO, in WGSL. This file is the only copy of it.\n//\n// Two backends run this exact text: @berx/spatial-web's WebGPU renderer,\n// which imports it through @berx/spatial-shaders, and the native\n// berx-spatial-native crate, which include_str!s it. WebGL2 has no\n// compute stage, so it runs the same maths as a fullscreen fragment pass\n// (see threeRuntime.ts) \u2014 the loop is line for line this one.\n//\n// It is a separate module from world.wgsl rather than another entry point\n// in it because a WGSL module cannot declare two different resources at\n// the same @group/@binding, and this pass needs its own bind group.\n\n/* ------------------------------------------------------------------ *\n * SSAO \u2014 the compute pass\n * ------------------------------------------------------------------ *\n *\n * The loop is here because a pixel has to ask its neighbours, and that\n * cannot be a closed form. What is NOT here is anything that decides the\n * answer: the sample kernel, the radius, the bias, the strength and the\n * falloff all arrive in `k` from @berx/spatial's berxSSAOUniform, and the\n * accumulation below is the same sequence of operations as that module's\n * berxSSAOAt \u2014 which is the CPU twin the gate predicts pixels with.\n *\n * There is no per-pixel random rotation and no blur pass to hide one.\n * The kernel is an evenly-spaced golden-angle spiral, which does not need\n * the rotation, and a blur would add a radius three backends would have\n * to agree on for no gain.\n */\n\nstruct SsaoKernel {\n  // BERX_SSAO_SAMPLES hemisphere offsets, then one vec4 of parameters:\n  // x = radius, y = bias, z = strength, w = power.\n  s: array<vec4<f32>, 17>,\n};\n\n@group(0) @binding(0) var<uniform> sk: SsaoKernel;\n@group(0) @binding(1) var gbuffer: texture_2d<f32>;\n@group(0) @binding(2) var ao_out: texture_storage_2d<r32float, write>;\n// x = width, y = height, z = focal length in pixels, w unused\n@group(0) @binding(3) var<uniform> sdim: vec4<f32>;\n\n@compute @workgroup_size(8, 8)\nfn cs_ssao(@builtin(global_invocation_id) id: vec3<u32>) {\n  let w = i32(sdim.x);\n  let h = i32(sdim.y);\n  let x = i32(id.x);\n  let y = i32(id.y);\n  if (x >= w || y >= h) { return; }\n\n  let centre = textureLoad(gbuffer, vec2<i32>(x, y), 0);\n  // nothing was drawn here, so there is nothing to occlude\n  if (centre.a <= 0.0) {\n    textureStore(ao_out, vec2<i32>(x, y), vec4<f32>(1.0, 0.0, 0.0, 1.0));\n    return;\n  }\n\n  let params = sk.s[16];\n  let radius = params.x;\n  let strength = params.z;\n  let power = params.w;\n  let n = normalize(centre.xyz);\n\n  // A deterministic basis, not a noise-texture rotation \u2014 see the note\n  // above and berxSSAOAt's own.\n  var up = vec3<f32>(0.0, 0.0, 1.0);\n  if (abs(n.z) >= 0.999) { up = vec3<f32>(1.0, 0.0, 0.0); }\n  let tx = normalize(cross(up, n));\n  let ty = cross(n, tx);\n  // Slope-scaled bias \u2014 see berxSSAOAt's own note. A sample lands on a\n  // whole pixel, and on an oblique surface the geometry there is up to\n  // half a pixel of slope away in depth; a constant bias leaves every\n  // tilted surface with a uniform haze.\n  let slope = 1.0 - min(1.0, abs(n.z));\n  let bias = params.y * (1.0 + slope * 4.0);\n\n  var occluded = 0.0;\n  for (var j: i32 = 0; j < 16; j = j + 1) {\n    let k = sk.s[j].xyz;\n    let s = tx * k.x + ty * k.y + n * k.z;\n    let sample_depth = centre.a - s.z * radius;\n    if (sample_depth <= 0.0) { continue; }\n    let sx = x + i32(round((s.x * radius * sdim.z) / sample_depth));\n    let sy = y - i32(round((s.y * radius * sdim.z) / sample_depth));\n    if (sx < 0 || sy < 0 || sx >= w || sy >= h) { continue; }\n    let there = textureLoad(gbuffer, vec2<i32>(sx, sy), 0);\n    if (there.a <= 0.0) { continue; }\n    if (there.a < sample_depth - bias) {\n      // range check: without it every silhouette grows a dark halo from\n      // whatever happens to be far behind it\n      let range = radius / max(abs(centre.a - there.a), 1e-4);\n      occluded = occluded + min(1.0, range);\n    }\n  }\n\n  let ratio = occluded / 16.0;\n  let ao = max(0.0, 1.0 - pow(ratio, power) * strength);\n  textureStore(ao_out, vec2<i32>(x, y), vec4<f32>(ao, 0.0, 0.0, 1.0));\n}\n";
   }
 });
 
@@ -3813,13 +4027,13 @@ var init_webgpuRuntime = __esm({
     init_webgpuMediaTextures();
     init_webgpuText();
     DRAW_STRIDE = 256;
-    GLOBALS_BYTES = 352;
+    GLOBALS_BYTES = 368;
     SHADOW_FORMAT = "depth32float";
     LABEL_STRIDE = 256;
     LABEL_GLOBALS_BYTES = 160;
     SAMPLE_COUNT = 4;
     BerxWebGPURuntimeRenderer = class _BerxWebGPURuntimeRenderer {
-      constructor(canvas, device, context, format, pipeline, drawLayout, mediaLayout, labelPipeline, labelLayout, shadowPipeline, options) {
+      constructor(canvas, device, context, format, pipeline, drawLayout, mediaLayout, labelPipeline, labelLayout, shadowPipeline, gbufferPipeline, ssaoPipeline, options) {
         this.canvas = canvas;
         this.device = device;
         this.context = context;
@@ -3829,6 +4043,8 @@ var init_webgpuRuntime = __esm({
         this.labelPipeline = labelPipeline;
         this.labelLayout = labelLayout;
         this.shadowPipeline = shadowPipeline;
+        this.gbufferPipeline = gbufferPipeline;
+        this.ssaoPipeline = ssaoPipeline;
         this.kind = "webgpu";
         /* what this backend really does, and nothing it does not */
         this.capabilities = {
@@ -3875,6 +4091,12 @@ var init_webgpuRuntime = __esm({
           meshVariants: 0
         };
         this.stereoCarry = { drawCalls: 0, triangles: 0, inFrustum: 0, lodReduced: 0, budgetCut: 0 };
+        this.ssaoKernel = device.createBuffer({
+          size: BERX_SSAO_FLOATS * 4,
+          usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+        });
+        device.queue.writeBuffer(this.ssaoKernel, 0, new Float32Array(berxSSAOUniform()));
+        this.ssaoDims = device.createBuffer({ size: 16, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
         this.labels = new BerxWebGPUTextAtlas(device, { budget: options.labelBudget });
         this.labelGlobals = device.createBuffer({ size: LABEL_GLOBALS_BYTES, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
         this.labelGlobalsBind = device.createBindGroup({
@@ -3890,6 +4112,12 @@ var init_webgpuRuntime = __esm({
           usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST
         });
         device.queue.writeTexture({ texture: blank }, new Uint8Array([255, 255, 255, 255]), { bytesPerRow: 4, rowsPerImage: 1 }, { width: 1, height: 1 });
+        this.blankAo = device.createTexture({
+          size: { width: 1, height: 1 },
+          format: "r32float",
+          usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST
+        });
+        device.queue.writeTexture({ texture: this.blankAo }, new Float32Array([1]), { bytesPerRow: 4, rowsPerImage: 1 }, { width: 1, height: 1 });
         this.blankBind = device.createBindGroup({
           layout: mediaLayout,
           entries: [
@@ -3968,7 +4196,11 @@ var init_webgpuRuntime = __esm({
                does the depth test per sample and averages the results,
                which is what makes the 3x3 tap a soft edge. */
             { binding: 1, visibility: GPUShaderStage.FRAGMENT, sampler: { type: "comparison" } },
-            { binding: 2, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: "depth", viewDimension: "2d" } }
+            { binding: 2, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: "depth", viewDimension: "2d" } },
+            /* The occlusion the compute pass wrote. Unfilterable-float
+               because it is read with textureLoad at the fragment's own
+               pixel — there is nothing to filter. */
+            { binding: 3, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: "unfilterable-float", viewDimension: "2d" } }
           ]
         });
         const pipeline = device.createRenderPipeline({
@@ -4023,6 +4255,35 @@ var init_webgpuRuntime = __esm({
           primitive: { topology: "triangle-list", frontFace: "ccw", cullMode: "front" },
           depthStencil: { format: SHADOW_FORMAT, depthWriteEnabled: true, depthCompare: "less" }
         });
+        const gbufferGlobalsLayout = device.createBindGroupLayout({
+          entries: [{
+            binding: 0,
+            visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
+            buffer: { type: "uniform", minBindingSize: GLOBALS_BYTES }
+          }]
+        });
+        const gbufferPipeline = device.createRenderPipeline({
+          layout: device.createPipelineLayout({ bindGroupLayouts: [gbufferGlobalsLayout, drawLayout] }),
+          vertex: {
+            module,
+            entryPoint: "vs_gbuffer",
+            buffers: [{
+              arrayStride: 24,
+              attributes: [
+                { shaderLocation: 0, offset: 0, format: "float32x3" },
+                { shaderLocation: 1, offset: 12, format: "float32x3" }
+              ]
+            }]
+          },
+          fragment: { module, entryPoint: "fs_gbuffer", targets: [{ format: "rgba32float" }] },
+          primitive: { topology: "triangle-list", frontFace: "ccw", cullMode: "back" },
+          depthStencil: { format: "depth32float", depthWriteEnabled: true, depthCompare: "less" }
+        });
+        const ssaoModule = device.createShaderModule({ code: BERX_SSAO_WGSL });
+        const ssaoPipeline = device.createComputePipeline({
+          layout: "auto",
+          compute: { module: ssaoModule, entryPoint: "cs_ssao" }
+        });
         const labelModule = device.createShaderModule({ code: BERX_LABEL_WGSL });
         const labelGlobalsLayout = device.createBindGroupLayout({
           entries: [{ binding: 0, visibility: GPUShaderStage.VERTEX, buffer: { type: "uniform", minBindingSize: LABEL_GLOBALS_BYTES } }]
@@ -4054,7 +4315,7 @@ var init_webgpuRuntime = __esm({
           depthStencil: { format: "depth32float", depthWriteEnabled: false, depthCompare: "less" },
           multisample: { count: SAMPLE_COUNT }
         });
-        const renderer = new _BerxWebGPURuntimeRenderer(canvas, device, context, format, pipeline, drawLayout, mediaLayout, labelPipeline, labelLayout, shadowPipeline, options);
+        const renderer = new _BerxWebGPURuntimeRenderer(canvas, device, context, format, pipeline, drawLayout, mediaLayout, labelPipeline, labelLayout, shadowPipeline, gbufferPipeline, ssaoPipeline, options);
         renderer.errors = errors;
         renderer.adapter = adapter;
         renderer.lostPromise = device.lost.then((info) => {
@@ -4153,6 +4414,22 @@ var init_webgpuRuntime = __esm({
           format: "depth32float",
           usage: GPUTextureUsage.RENDER_ATTACHMENT
         });
+        this.gbuffer = this.device.createTexture({
+          size: { width: this.width, height: this.height },
+          format: "rgba32float",
+          usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_SRC
+        });
+        this.gbufferDepth = this.device.createTexture({
+          size: { width: this.width, height: this.height },
+          format: "depth32float",
+          usage: GPUTextureUsage.RENDER_ATTACHMENT
+        });
+        this.aoMap = this.device.createTexture({
+          size: { width: this.width, height: this.height },
+          format: "r32float",
+          usage: GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_SRC
+        });
+        this.globalsBind = this.buildGlobalsBind();
       }
       mesh(primitive, lod) {
         const key = `${primitive}:${lod}`;
@@ -4219,7 +4496,8 @@ var init_webgpuRuntime = __esm({
           entries: [
             { binding: 0, resource: { buffer: this.globals } },
             { binding: 1, resource: this.shadowSampler },
-            { binding: 2, resource: this.shadowMap.createView() }
+            { binding: 2, resource: this.shadowMap.createView() },
+            { binding: 3, resource: (this.aoMap ?? this.blankAo).createView() }
           ]
         });
       }
@@ -4263,6 +4541,7 @@ var init_webgpuRuntime = __esm({
           globals.set([0, 0, 0, 0], 64);
         }
         globals.set(list.environment, 68);
+        globals.set([pass_?.ssao === false ? 0 : 1, 0, 0, 0], 88);
         device.queue.writeBuffer(this.globals, 0, globals);
         const count = Math.max(1, list.items.length);
         if (!this.drawBuffer || this.drawCapacity < count) {
@@ -4324,6 +4603,50 @@ var init_webgpuRuntime = __esm({
             shadowPass.drawIndexed(mesh.count);
           });
           shadowPass.end();
+        }
+        const ssaoOn = pass_?.ssao !== false && this.gbuffer && this.aoMap && this.gbufferDepth;
+        if (ssaoOn) {
+          const gPass = encoder.beginRenderPass({
+            colorAttachments: [{
+              view: this.gbuffer.createView(),
+              /* depth 0 means "nothing was drawn here", which is what
+                 the occlusion pass tests for. */
+              clearValue: { r: 0, g: 0, b: 0, a: 0 },
+              loadOp: "clear",
+              storeOp: "store"
+            }],
+            depthStencilAttachment: {
+              view: this.gbufferDepth.createView(),
+              depthClearValue: 1,
+              depthLoadOp: "clear",
+              depthStoreOp: "store"
+            }
+          });
+          gPass.setPipeline(this.gbufferPipeline);
+          gPass.setBindGroup(0, this.shadowGlobalsBind);
+          resolved.forEach(({ mesh }, i) => {
+            gPass.setBindGroup(1, this.drawBind, [i * DRAW_STRIDE]);
+            gPass.setVertexBuffer(0, mesh.vertices);
+            gPass.setIndexBuffer(mesh.indices, "uint16");
+            gPass.drawIndexed(mesh.count);
+          });
+          gPass.end();
+          const focalPx = list.projection[5] * this.height * 0.5;
+          device.queue.writeBuffer(this.ssaoDims, 0, new Float32Array([this.width, this.height, focalPx, 0]));
+          const ssaoBind = device.createBindGroup({
+            layout: this.ssaoPipeline.getBindGroupLayout(0),
+            entries: [
+              { binding: 0, resource: { buffer: this.ssaoKernel } },
+              { binding: 1, resource: this.gbuffer.createView() },
+              { binding: 2, resource: this.aoMap.createView() },
+              { binding: 3, resource: { buffer: this.ssaoDims } }
+            ]
+          });
+          const aoPass = encoder.beginComputePass();
+          aoPass.setPipeline(this.ssaoPipeline);
+          aoPass.setBindGroup(0, ssaoBind);
+          aoPass.dispatchWorkgroups(Math.ceil(this.width / 8), Math.ceil(this.height / 8));
+          aoPass.end();
         }
         const pass = encoder.beginRenderPass({
           colorAttachments: [{
@@ -4539,6 +4862,46 @@ var init_webgpuRuntime = __esm({
         staging.unmap();
         staging.destroy();
         return out;
+      }
+      /**
+       * The G-buffer and the AO map, off the GPU.
+       *
+       * These exist for verification and for nothing else: the occlusion
+       * gate predicts a pixel of the AO map by running the shared core's
+       * berxSSAOAt over the G-buffer this returns. Reading the inputs AND
+       * the output is what turns "the backends agree" into "the shader
+       * computed what the core says", which is a different claim.
+       */
+      async readFloatTexture(texture, channels) {
+        const unpadded = this.width * channels * 4;
+        const padded = Math.ceil(unpadded / 256) * 256;
+        const staging = this.device.createBuffer({
+          size: padded * this.height,
+          usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ
+        });
+        const encoder = this.device.createCommandEncoder();
+        encoder.copyTextureToBuffer(
+          { texture },
+          { buffer: staging, bytesPerRow: padded, rowsPerImage: this.height },
+          { width: this.width, height: this.height }
+        );
+        this.device.queue.submit([encoder.finish()]);
+        await this.device.queue.onSubmittedWorkDone();
+        await staging.mapAsync(GPUMapMode.READ);
+        const data = new Uint8Array(staging.getMappedRange());
+        const out = new Uint8Array(unpadded * this.height);
+        for (let row = 0; row < this.height; row++) {
+          out.set(data.subarray(row * padded, row * padded + unpadded), row * unpadded);
+        }
+        staging.unmap();
+        staging.destroy();
+        return new Float32Array(out.buffer, out.byteOffset, out.byteLength / 4);
+      }
+      async readbackGbuffer() {
+        return this.readFloatTexture(this.gbuffer, 4);
+      }
+      async readbackAo() {
+        return this.readFloatTexture(this.aoMap, 1);
       }
       dispose() {
         if (this.lost) {

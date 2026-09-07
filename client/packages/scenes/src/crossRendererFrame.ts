@@ -267,3 +267,35 @@ export function berxEnvironmentFixtureLightingScaled(sunIntensity: number): Berx
 	const lighting = berxEnvironmentFixtureLighting();
 	return {...lighting, environment: {...lighting.environment, sunIntensity}};
 }
+
+/**
+ * The fixture the occlusion gate measures: an orb RESTING ON the floor.
+ *
+ * The shadow fixture floats its orb 2.6 units above the ground, which is
+ * right for a shadow — the light needs somewhere to throw one — and
+ * useless for ambient occlusion, whose whole subject is the crease where
+ * two surfaces meet. At that separation, with a 0.65-unit hemisphere,
+ * the correct answer is "no occlusion anywhere", and a gate that
+ * measured it would be measuring nothing.
+ *
+ * So the orb comes down until it touches. Everything else is the shadow
+ * fixture's — same floor, same camera, same materials — so the two gates
+ * differ by the one thing each is about.
+ */
+export function berxSSAOFixtureFrame(): Berx5DFrame {
+	const frame = berxShadowFixtureFrame();
+	const objects = frame.world.objects.map((o) => {
+		/* the caster, lowered onto the floor: the floor's top sits at
+		   y = -1.2 and the orb's own radius is 0.72 * 1.6 */
+		if (o.transform.position.y > 0) {
+			return {...o, transform: {...o.transform, position: {x: 0, y: -1.2 + 0.72 * 1.6, z: 0}}};
+		}
+		return o;
+	});
+	return {
+		...frame,
+		world: {...frame.world, objects},
+		/* closer in, so the contact crease is more than a few pixels */
+		camera: {...frame.camera, position: {x: 0, y: 1.2, z: 4.6}, target: {x: 0, y: -0.6, z: 0}},
+	};
+}

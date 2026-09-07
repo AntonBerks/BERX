@@ -20,6 +20,7 @@ import {
   type Berx5DFrame,
   type BerxHit,
   berxBuildDrawList,
+  berxSSAOUniform,
   BERX_WORLD_CLEAR,
   type BerxDrawList,
   berxWorldLighting,
@@ -74,6 +75,8 @@ uniform vec4 ENV_HOR;             // rgb horizon,         w = sun sharpness
 uniform vec4 ENV_GND;             // rgb ground * bounce, w = overall intensity
 uniform vec3 ENV_SUN_DIR;         // toward the key light
 uniform vec3 ENV_SUN;             // sun colour
+uniform sampler2D AO_MAP;         // the occlusion this frame's pass wrote
+uniform float AO_ON;              // 1 when the pass ran, 0 when it did not
 uniform vec3 KEY_DIR, KEY_COL;    // directional key
 uniform float KEY_I;
 uniform vec3 PL_POS[4], PL_COL[4];
@@ -223,7 +226,11 @@ void main(){
   vec3 envD=berxEnvironment(n);
   vec3 envS=berxEnvironment(normalize(mix(refl,n,ROUGH)));
   vec3 fres=F_Schlick(f0,nov);
-  vec3 amb=envD*diffuseColor*(vec3(1.)-fres)+envS*fres;
+  /* AMBIENT OCCLUSION SCALES THE ROOM, AND ONLY THE ROOM — see the same
+     block in world.wgsl. Read at this fragment's own pixel, so there is
+     nothing to filter. */
+  float ao=AO_ON>.5?texelFetch(AO_MAP,ivec2(gl_FragCoord.xy),0).r:1.;
+  vec3 amb=(envD*diffuseColor*(vec3(1.)-fres)+envS*fres)*ao;
   vec3 colour=lit+amb+EMIT;
   // transmission lets the ground through a glass surface rather than
   // fading it to nothing
@@ -242,6 +249,67 @@ const TV = `#version 300 es\nprecision highp float;layout(location=0)in vec2 q;u
 const TF = `#version 300 es\nprecision highp float;in vec2 T;uniform sampler2D TEX;uniform float A;out vec4 C;void main(){vec4 t=texture(TEX,T);C=vec4(t.rgb,t.a*A);if(C.a<.01)discard;}`;
 
 function shader(gl: WebGL2RenderingContext, t: number, s: string) { const x=gl.createShader(t); if(!x) throw Error('BERX 5D shader allocation failed'); gl.shaderSource(x,s); gl.compileShader(x); if(!gl.getShaderParameter(x,gl.COMPILE_STATUS)){const e=gl.getShaderInfoLog(x)||'shader error';gl.deleteShader(x);throw Error(e);}return x; }
+/* ------------------------------------------------------------------ *
+ * THE G-BUFFER AND SSAO, in GLSL
+ * ------------------------------------------------------------------ *
+ *
+ * WebGL2 has no compute stage, so the occlusion that ssao.wgsl computes
+ * in a compute pass is computed here as a fullscreen fragment pass. The
+ * LOOP is line for line the WGSL one and the shared core's berxSSAOAt —
+ * the kernel, the radius, the slope-scaled bias, the range check and the
+ * falloff all arrive from @berx/spatial's berxSSAOUniform, so the only
+ * thing that differs between the three is which stage runs it.
+ */
+const GV = `#version 300 es\nprecision highp float;layout(location=0)in vec3 p;layout(location=1)in vec3 n;uniform mat4 P,V,M;out vec3 VN,VP;void main(){vec4 w=M*vec4(p,1.);VN=mat3(V)*(mat3(M)*n);VP=(V*w).xyz;gl_Position=P*V*w;}`;
+/* view-space normal in rgb, view-space depth in metres in a — see the
+   note in ssao.wgsl for why this is not a hardware depth texture */
+const GF = `#version 300 es\nprecision highp float;in vec3 VN,VP;out vec4 C;void main(){C=vec4(normalize(VN),-VP.z);}`;
+
+/** A fullscreen triangle, so the AO pass needs no vertex buffer of its own. */
+const AV = `#version 300 es\nprecision highp float;void main(){vec2 q=vec2((gl_VertexID<<1)&2,gl_VertexID&2);gl_Position=vec4(q*2.-1.,0.,1.);}`;
+const AF = `#version 300 es
+precision highp float;
+precision highp sampler2D;
+uniform sampler2D GBUF;
+// BERX_SSAO_SAMPLES offsets, then one vec4: radius, bias, strength, power
+uniform vec4 K[17];
+// x = width, y = height, z = focal length in pixels
+uniform vec3 DIM;
+out vec4 C;
+void main(){
+  ivec2 at=ivec2(gl_FragCoord.xy);
+  int w=int(DIM.x), h=int(DIM.y);
+  vec4 centre=texelFetch(GBUF,at,0);
+  if(centre.a<=0.){C=vec4(1.);return;}
+  vec4 params=K[16];
+  float radius=params.x, strength=params.z, power=params.w;
+  vec3 n=normalize(centre.xyz);
+  vec3 up=abs(n.z)>=.999?vec3(1.,0.,0.):vec3(0.,0.,1.);
+  vec3 tx=normalize(cross(up,n));
+  vec3 ty=cross(n,tx);
+  // slope-scaled bias — see berxSSAOAt's own note
+  float slope=1.-min(1.,abs(n.z));
+  float bias=params.y*(1.+slope*4.);
+  float occluded=0.;
+  for(int j=0;j<16;j++){
+    vec3 k=K[j].xyz;
+    vec3 s=tx*k.x+ty*k.y+n*k.z;
+    float sd=centre.a-s.z*radius;
+    if(sd<=0.) continue;
+    int sx=at.x+int(floor((s.x*radius*DIM.z)/sd+.5));
+    int sy=at.y+int(floor((s.y*radius*DIM.z)/sd+.5));
+    if(sx<0||sy<0||sx>=w||sy>=h) continue;
+    vec4 there=texelFetch(GBUF,ivec2(sx,sy),0);
+    if(there.a<=0.) continue;
+    if(there.a<sd-bias){
+      float range=radius/max(abs(centre.a-there.a),1e-4);
+      occluded+=min(1.,range);
+    }
+  }
+  float ratio=occluded/16.;
+  C=vec4(max(0.,1.-pow(ratio,power)*strength),0.,0.,1.);
+}`;
+
 function program(gl: WebGL2RenderingContext,vs=V,fs=F) { const p=gl.createProgram();if(!p)throw Error('BERX 5D program allocation failed');const a=shader(gl,gl.VERTEX_SHADER,vs),b=shader(gl,gl.FRAGMENT_SHADER,fs);gl.attachShader(p,a);gl.attachShader(p,b);gl.linkProgram(p);gl.deleteShader(a);gl.deleteShader(b);if(!gl.getProgramParameter(p,gl.LINK_STATUS)){const e=gl.getProgramInfoLog(p)||'program link error';gl.deleteProgram(p);throw Error(e);}return p; }
 /* The culler, the projection and the view matrix all live in
    @berx/spatial: one definition, used by the renderer that draws and by
@@ -288,6 +356,14 @@ export interface BerxSpatialRenderOptions {
 	/** Whether the key light casts. Passed straight to the shared core. */
 	shadows?:boolean;
 	/**
+	 * Whether the ambient-occlusion pass runs.
+	 *
+	 * False skips the G-buffer and the AO pass and makes the shader use
+	 * 1.0, so a frame without it is lit exactly as it was before the pass
+	 * existed — which is what the gate renders to measure the difference.
+	 */
+	ssao?:boolean;
+	/**
 	 * Two eyes, drawn side by side into one backing store.
 	 *
 	 * `ipd` is the real interpupillary distance in world units. This is
@@ -302,7 +378,7 @@ export class BerxThreeRuntimeRenderer implements BerxSpatialRenderer {
  readonly kind='webgl2' as const;
  /* what this backend really does, and nothing it does not */
  readonly capabilities={perspective:true,depthBuffer:true,physicallyLitMaterials:true,shadows:true,postProcessing:false} as const;
- private readonly gl:WebGL2RenderingContext;private readonly program:WebGLProgram;private readonly meshes=new Map<string,GpuMesh>();private readonly P:Loc;private readonly V:Loc;private readonly M:Loc;private readonly BASE:Loc;private readonly EMIT:Loc;private readonly CAM:Loc;private readonly AMB:Loc;private readonly ENV_ZEN:Loc;private readonly ENV_HOR:Loc;private readonly ENV_GND:Loc;private readonly ENV_SUN_DIR:Loc;private readonly ENV_SUN:Loc;private readonly KEY_DIR:Loc;private readonly KEY_COL:Loc;private readonly KEY_I:Loc;private readonly PL_POS:Loc;private readonly PL_COL:Loc;private readonly PL_I:Loc;private readonly PL_R:Loc;private readonly PL_N:Loc;private readonly MET:Loc;private readonly ROUGH:Loc;private readonly OPAC:Loc;private readonly TRANS:Loc;private readonly HT:Loc;private readonly TS:Loc;private readonly TEX:Loc;private readonly LVP:Loc;private readonly SHADOW:Loc;private readonly SHADOW_MAP:Loc;
+ private readonly gl:WebGL2RenderingContext;private readonly program:WebGLProgram;private readonly meshes=new Map<string,GpuMesh>();private readonly P:Loc;private readonly V:Loc;private readonly M:Loc;private readonly BASE:Loc;private readonly EMIT:Loc;private readonly CAM:Loc;private readonly AMB:Loc;private readonly ENV_ZEN:Loc;private readonly ENV_HOR:Loc;private readonly ENV_GND:Loc;private readonly ENV_SUN_DIR:Loc;private readonly ENV_SUN:Loc;private readonly AO_MAP:Loc;private readonly AO_ON:Loc;private readonly gbufProgram:WebGLProgram;private readonly aoProgram:WebGLProgram;private readonly GP:Loc;private readonly GV_:Loc;private readonly GM:Loc;private readonly GBUF:Loc;private readonly K:Loc;private readonly DIM:Loc;private gbufTexture?:WebGLTexture;private gbufDepth?:WebGLRenderbuffer;private gbufFbo?:WebGLFramebuffer;private aoTexture?:WebGLTexture;private aoFbo?:WebGLFramebuffer;private aoVao?:WebGLVertexArrayObject;private blankAo?:WebGLTexture;private ssaoSize={w:0,h:0};private readonly floatColour:boolean;private readonly KEY_DIR:Loc;private readonly KEY_COL:Loc;private readonly KEY_I:Loc;private readonly PL_POS:Loc;private readonly PL_COL:Loc;private readonly PL_I:Loc;private readonly PL_R:Loc;private readonly PL_N:Loc;private readonly MET:Loc;private readonly ROUGH:Loc;private readonly OPAC:Loc;private readonly TRANS:Loc;private readonly HT:Loc;private readonly TS:Loc;private readonly TEX:Loc;private readonly LVP:Loc;private readonly SHADOW:Loc;private readonly SHADOW_MAP:Loc;
  /* the depth-only pass from the light: its own program, its own target */
  private readonly shadowProgram:WebGLProgram;private readonly SLVP:Loc;private readonly SM:Loc;
  private shadowFbo?:WebGLFramebuffer;private shadowTexture?:WebGLTexture;private shadowSize=0;
@@ -327,7 +403,26 @@ export class BerxThreeRuntimeRenderer implements BerxSpatialRenderer {
  private slots:BerxActionSlot[]=[];
  /** What the last frame actually cost. Measured during the draw. */
  private stats:BerxFrameStats={visible:0,inFrustum:0,drawCalls:0,triangles:0,lodReduced:0,budgetCut:0,residentTextures:0,residentLabels:0,meshVariants:0};
- constructor(canvas:HTMLCanvasElement,options:{textureBudget?:number;labelBudget?:number;onMediaError?:(uri:string,error:unknown)=>void}={}){const gl=canvas.getContext('webgl2',{antialias:true,alpha:false,depth:true,powerPreference:'high-performance'});if(!gl)throw Error('BERX 5D requires WebGL2');this.gl=gl;this.program=program(gl);this.P=gl.getUniformLocation(this.program,'P');this.V=gl.getUniformLocation(this.program,'V');this.M=gl.getUniformLocation(this.program,'M');this.BASE=gl.getUniformLocation(this.program,'BASE');this.EMIT=gl.getUniformLocation(this.program,'EMIT');this.CAM=gl.getUniformLocation(this.program,'CAM');this.AMB=gl.getUniformLocation(this.program,'AMB');this.ENV_ZEN=gl.getUniformLocation(this.program,'ENV_ZEN');this.ENV_HOR=gl.getUniformLocation(this.program,'ENV_HOR');this.ENV_GND=gl.getUniformLocation(this.program,'ENV_GND');this.ENV_SUN_DIR=gl.getUniformLocation(this.program,'ENV_SUN_DIR');this.ENV_SUN=gl.getUniformLocation(this.program,'ENV_SUN');this.KEY_DIR=gl.getUniformLocation(this.program,'KEY_DIR');this.KEY_COL=gl.getUniformLocation(this.program,'KEY_COL');this.KEY_I=gl.getUniformLocation(this.program,'KEY_I');this.PL_POS=gl.getUniformLocation(this.program,'PL_POS');this.PL_COL=gl.getUniformLocation(this.program,'PL_COL');this.PL_I=gl.getUniformLocation(this.program,'PL_I');this.PL_R=gl.getUniformLocation(this.program,'PL_R');this.PL_N=gl.getUniformLocation(this.program,'PL_N');this.MET=gl.getUniformLocation(this.program,'MET');this.ROUGH=gl.getUniformLocation(this.program,'ROUGH');this.OPAC=gl.getUniformLocation(this.program,'OPAC');this.TRANS=gl.getUniformLocation(this.program,'TRANS');this.HT=gl.getUniformLocation(this.program,'HT');this.TS=gl.getUniformLocation(this.program,'TS');this.TEX=gl.getUniformLocation(this.program,'TEX');this.LVP=gl.getUniformLocation(this.program,'LVP');this.SHADOW=gl.getUniformLocation(this.program,'SHADOW');this.SHADOW_MAP=gl.getUniformLocation(this.program,'SHADOW_MAP');
+ constructor(canvas:HTMLCanvasElement,options:{textureBudget?:number;labelBudget?:number;onMediaError?:(uri:string,error:unknown)=>void}={}){const gl=canvas.getContext('webgl2',{antialias:true,alpha:false,depth:true,powerPreference:'high-performance'});if(!gl)throw Error('BERX 5D requires WebGL2');this.gl=gl;this.program=program(gl);this.P=gl.getUniformLocation(this.program,'P');this.V=gl.getUniformLocation(this.program,'V');this.M=gl.getUniformLocation(this.program,'M');this.BASE=gl.getUniformLocation(this.program,'BASE');this.EMIT=gl.getUniformLocation(this.program,'EMIT');this.CAM=gl.getUniformLocation(this.program,'CAM');this.AMB=gl.getUniformLocation(this.program,'AMB');this.ENV_ZEN=gl.getUniformLocation(this.program,'ENV_ZEN');this.ENV_HOR=gl.getUniformLocation(this.program,'ENV_HOR');this.ENV_GND=gl.getUniformLocation(this.program,'ENV_GND');this.ENV_SUN_DIR=gl.getUniformLocation(this.program,'ENV_SUN_DIR');this.ENV_SUN=gl.getUniformLocation(this.program,'ENV_SUN');this.AO_MAP=gl.getUniformLocation(this.program,'AO_MAP');this.AO_ON=gl.getUniformLocation(this.program,'AO_ON');
+  /* Rendering the G-buffer needs float colour attachments. Without the
+     extension the pass cannot run at all, so the flag is recorded and the
+     occlusion is reported as absent rather than silently wrong. */
+  this.floatColour=!!gl.getExtension('EXT_color_buffer_float');
+  /* A 1x1 white texture for the sampler to point at when the pass did
+     not run. Binding null instead left unit 3 incomplete, and an
+     incomplete texture on a sampled unit makes the whole draw invalid in
+     WebGL2 — the world pass rendered nothing at all and the frame came
+     back as the clear colour. AO_ON already tells the shader to ignore
+     the value; the unit still has to hold something. */
+  this.blankAo=gl.createTexture()!;
+  gl.bindTexture(gl.TEXTURE_2D,this.blankAo);
+  gl.texImage2D(gl.TEXTURE_2D,0,gl.R32F,1,1,0,gl.RED,gl.FLOAT,new Float32Array([1]));
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.NEAREST);
+  this.gbufProgram=program(gl,GV,GF);
+  this.aoProgram=program(gl,AV,AF);
+  this.GP=gl.getUniformLocation(this.gbufProgram,'P');this.GV_=gl.getUniformLocation(this.gbufProgram,'V');this.GM=gl.getUniformLocation(this.gbufProgram,'M');
+  this.GBUF=gl.getUniformLocation(this.aoProgram,'GBUF');this.K=gl.getUniformLocation(this.aoProgram,'K');this.DIM=gl.getUniformLocation(this.aoProgram,'DIM');this.KEY_DIR=gl.getUniformLocation(this.program,'KEY_DIR');this.KEY_COL=gl.getUniformLocation(this.program,'KEY_COL');this.KEY_I=gl.getUniformLocation(this.program,'KEY_I');this.PL_POS=gl.getUniformLocation(this.program,'PL_POS');this.PL_COL=gl.getUniformLocation(this.program,'PL_COL');this.PL_I=gl.getUniformLocation(this.program,'PL_I');this.PL_R=gl.getUniformLocation(this.program,'PL_R');this.PL_N=gl.getUniformLocation(this.program,'PL_N');this.MET=gl.getUniformLocation(this.program,'MET');this.ROUGH=gl.getUniformLocation(this.program,'ROUGH');this.OPAC=gl.getUniformLocation(this.program,'OPAC');this.TRANS=gl.getUniformLocation(this.program,'TRANS');this.HT=gl.getUniformLocation(this.program,'HT');this.TS=gl.getUniformLocation(this.program,'TS');this.TEX=gl.getUniformLocation(this.program,'TEX');this.LVP=gl.getUniformLocation(this.program,'LVP');this.SHADOW=gl.getUniformLocation(this.program,'SHADOW');this.SHADOW_MAP=gl.getUniformLocation(this.program,'SHADOW_MAP');
   this.shadowProgram=program(gl,SV,SF);this.SLVP=gl.getUniformLocation(this.shadowProgram,'LVP');this.SM=gl.getUniformLocation(this.shadowProgram,'M');
   this.textures=new BerxMediaTextureCache(gl,{budget:options.textureBudget,onError:options.onMediaError});
   this.labels=new BerxSpatialTextAtlas(gl,{budget:options.labelBudget});
@@ -379,6 +474,122 @@ export class BerxThreeRuntimeRenderer implements BerxSpatialRenderer {
  * either, because renderShadowMap below re-points it at the shadow map;
  * the origin has to travel with the call.
  */
+ /**
+  * The G-buffer and the occlusion computed from it.
+  *
+  * Runs before the world pass because the world pass reads the AO map.
+  * Returns false when it could not run at all — without
+  * EXT_color_buffer_float there is no float colour attachment to write a
+  * view depth into, and an occlusion pass that silently wrote nothing
+  * would leave the world lit by whatever the map last held.
+  */
+ private renderSSAO(list:ReturnType<typeof berxBuildDrawList>,width:number,height:number):boolean{
+  if(!this.floatColour) return false;
+  const gl=this.gl;
+  if(this.ssaoSize.w!==width||this.ssaoSize.h!==height){
+   if(this.gbufTexture)gl.deleteTexture(this.gbufTexture);
+   if(this.gbufDepth)gl.deleteRenderbuffer(this.gbufDepth);
+   if(this.gbufFbo)gl.deleteFramebuffer(this.gbufFbo);
+   if(this.aoTexture)gl.deleteTexture(this.aoTexture);
+   if(this.aoFbo)gl.deleteFramebuffer(this.aoFbo);
+   /* Not multisampled, deliberately: the occlusion pass reads this per
+      pixel, and a resolve would average normals — an averaged normal is
+      a surface facing a direction nothing faces. */
+   this.gbufTexture=gl.createTexture()!;
+   gl.bindTexture(gl.TEXTURE_2D,this.gbufTexture);
+   gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA32F,width,height,0,gl.RGBA,gl.FLOAT,null);
+   gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.NEAREST);
+   gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.NEAREST);
+   gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);
+   gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+   this.gbufDepth=gl.createRenderbuffer()!;
+   gl.bindRenderbuffer(gl.RENDERBUFFER,this.gbufDepth);
+   gl.renderbufferStorage(gl.RENDERBUFFER,gl.DEPTH_COMPONENT24,width,height);
+   this.gbufFbo=gl.createFramebuffer()!;
+   gl.bindFramebuffer(gl.FRAMEBUFFER,this.gbufFbo);
+   gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.TEXTURE_2D,this.gbufTexture,0);
+   gl.framebufferRenderbuffer(gl.FRAMEBUFFER,gl.DEPTH_ATTACHMENT,gl.RENDERBUFFER,this.gbufDepth);
+   this.aoTexture=gl.createTexture()!;
+   gl.bindTexture(gl.TEXTURE_2D,this.aoTexture);
+   gl.texImage2D(gl.TEXTURE_2D,0,gl.R32F,width,height,0,gl.RED,gl.FLOAT,null);
+   gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.NEAREST);
+   gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.NEAREST);
+   gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);
+   gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+   this.aoFbo=gl.createFramebuffer()!;
+   gl.bindFramebuffer(gl.FRAMEBUFFER,this.aoFbo);
+   gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.TEXTURE_2D,this.aoTexture,0);
+   if(!this.aoVao) this.aoVao=gl.createVertexArray()!;
+   this.ssaoSize={w:width,h:height};
+  }
+  /* ---- the G-buffer ---- */
+  gl.bindFramebuffer(gl.FRAMEBUFFER,this.gbufFbo!);
+  gl.viewport(0,0,width,height);
+  /* depth 0 means "nothing drawn here", which is what the AO pass tests */
+  gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
+  /* The G-buffer wants no blending — it writes a normal and a depth, and
+     averaging those with what is behind them is meaningless. Blending is
+     turned back on before returning: this renderer enables it ONCE in the
+     constructor and every later pass relies on that global state, so a
+     pass that leaves it off renders the translucent floor opaque. That is
+     what happened — turning the occlusion pass on made the frame BRIGHTER,
+     which is not something ambient occlusion can do. */
+  gl.enable(gl.DEPTH_TEST);gl.depthMask(true);gl.disable(gl.BLEND);
+  gl.useProgram(this.gbufProgram);
+  gl.uniformMatrix4fv(this.GP,false,new Float32Array(list.projection));
+  gl.uniformMatrix4fv(this.GV_,false,new Float32Array(list.view));
+  /* Everything visible goes in, glass included: a shadow asks whether a
+     surface blocks light, occlusion asks what a point can see, and a
+     surface you can see through is still in the way. */
+  for(const item of list.items){
+   const mesh=this.getMesh(item.primitive as never,item.lod);
+   gl.uniformMatrix4fv(this.GM,false,new Float32Array(item.model));
+   gl.bindVertexArray(mesh.vao);
+   gl.drawElements(gl.TRIANGLES,mesh.count,gl.UNSIGNED_SHORT,0);
+  }
+  /* ---- the occlusion ---- */
+  gl.bindFramebuffer(gl.FRAMEBUFFER,this.aoFbo!);
+  gl.viewport(0,0,width,height);
+  gl.disable(gl.DEPTH_TEST);gl.depthMask(false);
+  gl.useProgram(this.aoProgram);
+  gl.activeTexture(gl.TEXTURE2);gl.bindTexture(gl.TEXTURE_2D,this.gbufTexture!);gl.uniform1i(this.GBUF,2);
+  gl.uniform4fv(this.K,new Float32Array(berxSSAOUniform()));
+  /* Focal length in pixels, off the projection the core built — never
+     re-derived from a field of view, which could disagree with it. */
+  gl.uniform3f(this.DIM,width,height,list.projection[5]*height*0.5);
+  gl.bindVertexArray(this.aoVao!);
+  gl.drawArrays(gl.TRIANGLES,0,3);
+  gl.bindVertexArray(null);
+  gl.bindFramebuffer(gl.FRAMEBUFFER,null);
+  /* leave GL exactly as this pass found it */
+  gl.enable(gl.DEPTH_TEST);gl.depthMask(true);gl.enable(gl.BLEND);
+  gl.activeTexture(gl.TEXTURE0);
+  return true;
+ }
+
+ /**
+  * The G-buffer and the AO map this backend produced, for verification.
+  *
+  * The occlusion gate runs the shared core's berxSSAOAt over these exact
+  * numbers, exactly as it does for WebGPU. Reading the inputs AND the
+  * output is the only way to tell a wrong sign from a wrong formula.
+  */
+ readSSAOBuffers():{gbuffer:Float32Array;ao:Float32Array;width:number;height:number}|undefined{
+  if(!this.gbufFbo||!this.aoFbo) return undefined;
+  const gl=this.gl;const w=this.ssaoSize.w,h=this.ssaoSize.h;
+  const gbuffer=new Float32Array(w*h*4);
+  gl.bindFramebuffer(gl.FRAMEBUFFER,this.gbufFbo);
+  gl.readPixels(0,0,w,h,gl.RGBA,gl.FLOAT,gbuffer);
+  const ao=new Float32Array(w*h*4);
+  gl.bindFramebuffer(gl.FRAMEBUFFER,this.aoFbo);
+  gl.readPixels(0,0,w,h,gl.RGBA,gl.FLOAT,ao);
+  gl.bindFramebuffer(gl.FRAMEBUFFER,null);
+  /* R only: the AO map is r32float, and readPixels hands back RGBA */
+  const red=new Float32Array(w*h);
+  for(let i=0;i<w*h;i++) red[i]=ao[i*4];
+  return {gbuffer,ao:red,width:w,height:h};
+ }
+
  private drawEye(frame:Berx5DFrame,options:BerxSpatialRenderOptions,width:number,height:number,clear:boolean,originX=0){
   const gl=this.gl;
   gl.useProgram(this.program);
@@ -399,6 +610,10 @@ export class BerxThreeRuntimeRenderer implements BerxSpatialRenderer {
      writes. Its camera is the shared core's (list.shadow), so this
      backend and the others put the light in exactly the same place. */
   this.renderShadowMap(list);
+  /* The occlusion pass reads the same list, so it runs here rather than
+     in render(): a stereo frame computes it per eye, which is correct —
+     the two eyes see different creases. */
+  const aoReady=options.ssao===false?false:this.renderSSAO(list,width,height);
   gl.useProgram(this.program);
   gl.viewport(originX,0,width,height);
   if(clear){gl.clearColor(list.clearColor[0],list.clearColor[1],list.clearColor[2],1);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);}
@@ -429,6 +644,17 @@ export class BerxThreeRuntimeRenderer implements BerxSpatialRenderer {
   gl.uniform4f(this.ENV_GND,e[8],e[9],e[10],e[11]);
   gl.uniform3f(this.ENV_SUN_DIR,e[12],e[13],e[14]);
   gl.uniform3f(this.ENV_SUN,e[16],e[17],e[18]);
+  /* Unit 3: unit 0 is media, 1 is the shadow map, 2 is the G-buffer.
+     The active unit is put BACK to 0 afterwards, and that line is the
+     whole point of this comment: the per-item loop below binds each
+     object's media with a bare gl.bindTexture, which lands on whatever
+     unit is active. Leaving it at 3 sent every media texture to the AO
+     slot and left unit 0 holding a stale one — the frame still looked
+     plausible, and the cross-renderer gate caught it as 26000 pixels of
+     silhouette that WebGPU did not have. */
+  gl.activeTexture(gl.TEXTURE3);gl.bindTexture(gl.TEXTURE_2D,aoReady?this.aoTexture!:this.blankAo!);
+  gl.uniform1i(this.AO_MAP,3);gl.uniform1f(this.AO_ON,aoReady?1:0);
+  gl.activeTexture(gl.TEXTURE0);
   gl.uniform3f(this.KEY_DIR,list.key.direction.x,list.key.direction.y,list.key.direction.z);
   gl.uniform3f(this.KEY_COL,list.key.colour[0],list.key.colour[1],list.key.colour[2]);
   gl.uniform1f(this.KEY_I,list.key.intensity);

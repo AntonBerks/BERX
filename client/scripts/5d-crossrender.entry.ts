@@ -9,7 +9,7 @@
 import {BerxThreeRuntimeRenderer} from '@berx/spatial-web/threeRuntime';
 import {BerxWebGPURuntimeRenderer} from '@berx/spatial-web/webgpuRuntime';
 import {berxBuildDrawList, type BerxTransitionKind} from '@berx/spatial';
-import {BERX_CROSS_RENDERER_VIEWPORT, berxCrossRendererFrame, berxShadowFixtureFrame, berxShadowFixtureLighting, berxEnvironmentFixtureLighting, berxEnvironmentFixtureLightingScaled} from '@berx/scenes';
+import {BERX_CROSS_RENDERER_VIEWPORT, berxCrossRendererFrame, berxShadowFixtureFrame, berxShadowFixtureLighting, berxEnvironmentFixtureLighting, berxEnvironmentFixtureLightingScaled, berxSSAOFixtureFrame} from '@berx/scenes';
 
 declare global {
 	interface Window {
@@ -141,6 +141,78 @@ const api = {
 	},
 
 	/** The same room-only frame through WebGPU, for the three-way comparison. */
+	/**
+	 * The fixture with and without the occlusion pass, on WebGPU, plus the
+	 * G-buffer the pass actually read.
+	 *
+	 * The G-buffer comes back because it is what makes the gate an oracle
+	 * rather than a comparison: berxSSAOAt runs on these exact numbers and
+	 * predicts what the AO map should hold.
+	 */
+	/** The same occlusion fixture through WebGL2, with and without the pass. */
+	renderSSAO() {
+		const frame = berxSSAOFixtureFrame();
+		const lighting = berxEnvironmentFixtureLighting();
+		const shoot = (ssao: boolean) => {
+			const canvas = freshCanvas(BERX_CROSS_RENDERER_VIEWPORT.width, BERX_CROSS_RENDERER_VIEWPORT.height);
+			const renderer = new BerxThreeRuntimeRenderer(canvas);
+			renderer.setLighting(lighting);
+			renderer.resize(canvas.width, canvas.height);
+			renderer.render(frame, {shadows: false, ssao});
+			const gl = canvas.getContext('webgl2');
+			if (!gl) throw new Error('no WebGL2 context');
+			const px = new Uint8Array(canvas.width * canvas.height * 4);
+			gl.readPixels(0, 0, canvas.width, canvas.height, gl.RGBA, gl.UNSIGNED_BYTE, px);
+			return Array.from(flipRows(px, canvas.width, canvas.height));
+		};
+		const list = berxBuildDrawList(frame, {
+			width: BERX_CROSS_RENDERER_VIEWPORT.width,
+			height: BERX_CROSS_RENDERER_VIEWPORT.height,
+			lighting, shadows: false,
+		});
+		/* One more render, kept alive so its buffers can be read: shoot()
+		   disposes nothing but each call makes a fresh context, and the
+		   oracle needs the G-buffer and AO map from the SAME render. */
+		const canvas = freshCanvas(BERX_CROSS_RENDERER_VIEWPORT.width, BERX_CROSS_RENDERER_VIEWPORT.height);
+		const probe = new BerxThreeRuntimeRenderer(canvas);
+		probe.setLighting(lighting);
+		probe.resize(canvas.width, canvas.height);
+		probe.render(frame, {shadows: false, ssao: true});
+		const buffers = probe.readSSAOBuffers();
+		return {
+			width: BERX_CROSS_RENDERER_VIEWPORT.width,
+			height: BERX_CROSS_RENDERER_VIEWPORT.height,
+			withAo: shoot(true), withoutAo: shoot(false), list,
+			gbuffer: buffers ? Array.from(buffers.gbuffer) : undefined,
+			ao: buffers ? Array.from(buffers.ao) : undefined,
+		};
+	},
+
+	async renderSSAOWebGPU() {
+		const frame = berxSSAOFixtureFrame();
+		const lighting = berxEnvironmentFixtureLighting();
+		const canvas = freshCanvas(BERX_CROSS_RENDERER_VIEWPORT.width, BERX_CROSS_RENDERER_VIEWPORT.height);
+		const renderer = await BerxWebGPURuntimeRenderer.create(canvas);
+		if (!renderer) return {available: false as const, reason: 'this browser granted no WebGPU device'};
+		renderer.setLighting(lighting);
+		renderer.resize(canvas.width, canvas.height);
+		const list = berxBuildDrawList(frame, {
+			width: canvas.width, height: canvas.height, lighting, shadows: false,
+		});
+		renderer.draw(list, true, undefined, {ssao: true});
+		const withAo = Array.from(await renderer.readback());
+		const gbuffer = Array.from(await renderer.readbackGbuffer());
+		const ao = Array.from(await renderer.readbackAo());
+		renderer.draw(list, true, undefined, {ssao: false});
+		const withoutAo = Array.from(await renderer.readback());
+		renderer.dispose();
+		return {
+			available: true as const,
+			width: canvas.width, height: canvas.height,
+			withAo, withoutAo, gbuffer, ao, list,
+		};
+	},
+
 	async renderEnvironmentWebGPU(sunIntensity?: number) {
 		const frame = berxShadowFixtureFrame();
 		const lighting = sunIntensity === undefined
@@ -298,7 +370,7 @@ const api = {
 	 * without it, so "the picture is on the surface" is measured rather
 	 * than assumed.
 	 */
-	async renderMedia(uri: string) {
+	async renderMedia(uri: string, ssao = true) {
 		const wait = () => new Promise<void>((r) => requestAnimationFrame(() => r()));
 		const list = api.drawList();
 		const frame = berxCrossRendererFrame();
@@ -313,10 +385,10 @@ const api = {
 		   renderer reports how many textures are resident, so this waits
 		   on that fact rather than on a timeout */
 		for (let i = 0; i < 240 && gl2.frameStats.residentTextures === 0; i++) {
-			gl2.render(frame);
+			gl2.render(frame, {ssao});
 			await wait();
 		}
-		gl2.render(frame);
+		gl2.render(frame, {ssao});
 		const glContext = glCanvas.getContext('webgl2');
 		if (!glContext) throw new Error('no WebGL2 context');
 		const glPixels = new Uint8Array(list.width * list.height * 4);
@@ -332,19 +404,23 @@ const api = {
 			gpu.draw(berxBuildDrawList(frame, {
 				width: list.width, height: list.height,
 				mediaFor: (id) => (id === target.id ? uri : undefined),
-			}), true);
+			}), true, undefined, {ssao});
 			await wait();
 		}
 		gpu.draw(berxBuildDrawList(frame, {
 			width: list.width, height: list.height,
 			mediaFor: (id) => (id === target.id ? uri : undefined),
-		}), true);
+		}), true, undefined, {ssao});
 		const gpuPixels = await gpu.readback();
 		const result = {
 			available: true as const,
 			objectId: target.id,
 			webgl: {rgba: Array.from(flipRows(glPixels, list.width, list.height)), residentTextures: glResident},
 			webgpu: {rgba: Array.from(gpuPixels), residentTextures: gpu.frameStats.residentTextures},
+			/* the two occlusion maps, so a disagreement about the picture can
+			   be traced to the pass that produced it rather than guessed at */
+			aoGpu: Array.from(await gpu.readbackAo()),
+			aoGl: (() => { const b = gl2.readSSAOBuffers(); return b ? Array.from(b.ao) : undefined; })(),
 			errors: [...gpu.errors],
 		};
 		gpu.dispose();

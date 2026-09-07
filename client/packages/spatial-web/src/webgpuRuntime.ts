@@ -26,6 +26,8 @@ import {
 	pickSpatialObject,
 	rayFromNdc,
 	BERX_WORLD_CLEAR,
+	BERX_SSAO_FLOATS,
+	berxSSAOUniform,
 	type Berx5DFrame,
 	type BerxActionSlot,
 	type BerxDrawList,
@@ -34,7 +36,7 @@ import {
 	type BerxSpatialRenderer,
 	type BerxWorldLighting,
 } from '@berx/spatial';
-import {BERX_LABEL_WGSL, BERX_WORLD_WGSL} from '@berx/spatial-shaders';
+import {BERX_LABEL_WGSL, BERX_SSAO_WGSL, BERX_WORLD_WGSL} from '@berx/spatial-shaders';
 import {createBox, createSphere, createRing, createFrame, type BerxPrimitiveMesh} from './primitiveGeometry';
 import {BerxWebGPUMediaTextures} from './webgpuMediaTextures';
 import {BerxWebGPUTextAtlas} from './webgpuText';
@@ -44,8 +46,9 @@ import type {BerxFrameStats, BerxSpatialRenderOptions} from './threeRuntime';
 const DRAW_STRIDE = 256;
 /* proj(64) + view(64) + camera(16) + ambient(16) + key_dir(16) +
    key_col(16) + light_vp(64) + shadow(16) + the room's five vec4s (80)
-   — the Globals struct in world.wgsl, in the order it declares them. */
-const GLOBALS_BYTES = 352;
+   plus the ssao switch (16) — the Globals struct in world.wgsl, in the
+   order it declares them. */
+const GLOBALS_BYTES = 368;
 /** The square depth map the key light writes. Matches the shared core's. */
 const SHADOW_FORMAT: GPUTextureFormat = 'depth32float';
 /** Bytes per label. One dynamic offset each, at the alignment the API wants. */
@@ -190,6 +193,15 @@ export class BerxWebGPURuntimeRenderer implements BerxSpatialRenderer {
 	private readonly shadowSampler: GPUSampler;
 	private shadowMap: GPUTexture;
 	private shadowSize: number;
+	/* --- the occlusion pass. Pipelines arrive from create(), like the
+	   others; the textures are sized when the surface is. --- */
+	private readonly ssaoKernel: GPUBuffer;
+	private readonly ssaoDims: GPUBuffer;
+	/** One r32float white pixel, bound whenever the pass did not run. */
+	private readonly blankAo: GPUTexture;
+	private gbuffer?: GPUTexture;
+	private gbufferDepth?: GPUTexture;
+	private aoMap?: GPUTexture;
 	private readonly shadowGlobalsBind: GPUBindGroup;
 	private drawBuffer?: GPUBuffer;
 	private drawBind?: GPUBindGroup;
@@ -256,8 +268,18 @@ export class BerxWebGPURuntimeRenderer implements BerxSpatialRenderer {
 		private readonly labelPipeline: GPURenderPipeline,
 		private readonly labelLayout: GPUBindGroupLayout,
 		private readonly shadowPipeline: GPURenderPipeline,
+		private readonly gbufferPipeline: GPURenderPipeline,
+		private readonly ssaoPipeline: GPUComputePipeline,
 		options: {textureBudget?: number; labelBudget?: number; onMediaError?: (uri: string, error: unknown) => void},
 	) {
+		/* The kernel and its parameters come from the shared core; this
+		   backend fills the buffer and never decides what goes in it. */
+		this.ssaoKernel = device.createBuffer({
+			size: BERX_SSAO_FLOATS * 4,
+			usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+		});
+		device.queue.writeBuffer(this.ssaoKernel, 0, new Float32Array(berxSSAOUniform()));
+		this.ssaoDims = device.createBuffer({size: 16, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST});
 		this.labels = new BerxWebGPUTextAtlas(device, {budget: options.labelBudget});
 		this.labelGlobals = device.createBuffer({size: LABEL_GLOBALS_BYTES, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST});
 		this.labelGlobalsBind = device.createBindGroup({
@@ -275,6 +297,15 @@ export class BerxWebGPURuntimeRenderer implements BerxSpatialRenderer {
 		/* one defined white pixel: unused where the flag is zero, but a
 		   texture is never left with undefined contents */
 		device.queue.writeTexture({texture: blank}, new Uint8Array([255, 255, 255, 255]), {bytesPerRow: 4, rowsPerImage: 1}, {width: 1, height: 1});
+		/* r32float rather than rgba8unorm: it is bound where the shader
+		   expects the AO map's own format, and a format mismatch is a
+		   pipeline error rather than a wrong colour. */
+		this.blankAo = device.createTexture({
+			size: {width: 1, height: 1},
+			format: 'r32float',
+			usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,
+		});
+		device.queue.writeTexture({texture: this.blankAo}, new Float32Array([1]), {bytesPerRow: 4, rowsPerImage: 1}, {width: 1, height: 1});
 		this.blankBind = device.createBindGroup({
 			layout: mediaLayout,
 			entries: [
@@ -374,6 +405,10 @@ export class BerxWebGPURuntimeRenderer implements BerxSpatialRenderer {
 				   which is what makes the 3x3 tap a soft edge. */
 				{binding: 1, visibility: GPUShaderStage.FRAGMENT, sampler: {type: 'comparison'}},
 				{binding: 2, visibility: GPUShaderStage.FRAGMENT, texture: {sampleType: 'depth', viewDimension: '2d'}},
+				/* The occlusion the compute pass wrote. Unfilterable-float
+				   because it is read with textureLoad at the fragment's own
+				   pixel — there is nothing to filter. */
+				{binding: 3, visibility: GPUShaderStage.FRAGMENT, texture: {sampleType: 'unfilterable-float', viewDimension: '2d'}},
 			],
 		});
 		const pipeline = device.createRenderPipeline({
@@ -449,6 +484,45 @@ export class BerxWebGPURuntimeRenderer implements BerxSpatialRenderer {
 			primitive: {topology: 'triangle-list', frontFace: 'ccw', cullMode: 'front'},
 			depthStencil: {format: SHADOW_FORMAT, depthWriteEnabled: true, depthCompare: 'less'},
 		});
+		/* ---- the G-buffer pass, and the occlusion computed from it ----
+		 *
+		 * Its own group-0 layout for the same reason the shadow pass has
+		 * one: this pass must not carry a bind group holding a texture it
+		 * is simultaneously rendering into.
+		 */
+		const gbufferGlobalsLayout = device.createBindGroupLayout({
+			entries: [{
+				binding: 0,
+				visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
+				buffer: {type: 'uniform', minBindingSize: GLOBALS_BYTES},
+			}],
+		});
+		const gbufferPipeline = device.createRenderPipeline({
+			layout: device.createPipelineLayout({bindGroupLayouts: [gbufferGlobalsLayout, drawLayout]}),
+			vertex: {
+				module, entryPoint: 'vs_gbuffer',
+				buffers: [{
+					arrayStride: 24,
+					attributes: [
+						{shaderLocation: 0, offset: 0, format: 'float32x3'},
+						{shaderLocation: 1, offset: 12, format: 'float32x3'},
+					],
+				}],
+			},
+			fragment: {module, entryPoint: 'fs_gbuffer', targets: [{format: 'rgba32float'}]},
+			primitive: {topology: 'triangle-list', frontFace: 'ccw', cullMode: 'back'},
+			depthStencil: {format: 'depth32float', depthWriteEnabled: true, depthCompare: 'less'},
+		});
+
+		/* The occlusion pass. Its kernel and its parameters come from the
+		   shared core (berxSSAOUniform) — this backend fills the buffer
+		   and never decides what goes in it. */
+		const ssaoModule = device.createShaderModule({code: BERX_SSAO_WGSL});
+		const ssaoPipeline = device.createComputePipeline({
+			layout: 'auto',
+			compute: {module: ssaoModule, entryPoint: 'cs_ssao'},
+		});
+
 		/* the label pass: its own pipeline, its own quad, its own atlas.
 		   Depth-tested against the world so a name behind a place is
 		   hidden by it, with depth writes off so names never occlude each
@@ -484,7 +558,7 @@ export class BerxWebGPURuntimeRenderer implements BerxSpatialRenderer {
 			multisample: {count: SAMPLE_COUNT},
 		});
 
-		const renderer = new BerxWebGPURuntimeRenderer(canvas, device, context, format, pipeline, drawLayout, mediaLayout, labelPipeline, labelLayout, shadowPipeline, options);
+		const renderer = new BerxWebGPURuntimeRenderer(canvas, device, context, format, pipeline, drawLayout, mediaLayout, labelPipeline, labelLayout, shadowPipeline, gbufferPipeline, ssaoPipeline, options);
 		renderer.errors = errors;
 		renderer.adapter = adapter;
 		renderer.lostPromise = device.lost.then((info) => {
@@ -575,6 +649,28 @@ export class BerxWebGPURuntimeRenderer implements BerxSpatialRenderer {
 			format: 'depth32float',
 			usage: GPUTextureUsage.RENDER_ATTACHMENT,
 		});
+		/* The G-buffer is deliberately NOT multisampled: the occlusion
+		   pass reads it per pixel with textureLoad, and a resolve would
+		   average normals — an averaged normal is a surface facing a
+		   direction nothing faces. rgba32float so the view depth in .a
+		   keeps full precision, which is what lets the gate predict a
+		   pixel from the same numbers. */
+		this.gbuffer = this.device.createTexture({
+			size: {width: this.width, height: this.height},
+			format: 'rgba32float',
+			usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_SRC,
+		});
+		this.gbufferDepth = this.device.createTexture({
+			size: {width: this.width, height: this.height},
+			format: 'depth32float',
+			usage: GPUTextureUsage.RENDER_ATTACHMENT,
+		});
+		this.aoMap = this.device.createTexture({
+			size: {width: this.width, height: this.height},
+			format: 'r32float',
+			usage: GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_SRC,
+		});
+		this.globalsBind = this.buildGlobalsBind();
 	}
 
 	private mesh(primitive: string, lod: 0 | 1): GpuMesh {
@@ -649,6 +745,7 @@ export class BerxWebGPURuntimeRenderer implements BerxSpatialRenderer {
 				{binding: 0, resource: {buffer: this.globals}},
 				{binding: 1, resource: this.shadowSampler},
 				{binding: 2, resource: this.shadowMap.createView()},
+				{binding: 3, resource: (this.aoMap ?? this.blankAo).createView()},
 			],
 		});
 	}
@@ -674,7 +771,10 @@ export class BerxWebGPURuntimeRenderer implements BerxSpatialRenderer {
 		list: BerxDrawList,
 		offscreen = false,
 		viewport?: {x: number; width: number},
-		pass_?: {clear: boolean; keep: boolean},
+		/* `ssao: false` skips the G-buffer and occlusion passes entirely and
+		   makes the world pass use 1.0 — the verification's own switch, and
+		   the same shape `shadows: false` already has on the draw list. */
+		pass_?: {clear?: boolean; keep?: boolean; ssao?: boolean},
 	): void {
 		if (this.lost) return;
 		const device = this.device;
@@ -710,6 +810,10 @@ export class BerxWebGPURuntimeRenderer implements BerxSpatialRenderer {
 		   owns it, world.wgsl's uniform block mirrors it, and a copy here
 		   would be a third opinion about which slot holds the sun. */
 		globals.set(list.environment, 68);
+		/* The occlusion switch. 0 makes the shader take its `select` branch
+		   and use 1.0, so a frame with no AO pass is lit exactly as it was
+		   before this existed rather than by whatever the map last held. */
+		globals.set([pass_?.ssao === false ? 0 : 1, 0, 0, 0], 88);
 		device.queue.writeBuffer(this.globals, 0, globals);
 
 		const count = Math.max(1, list.items.length);
@@ -785,6 +889,71 @@ export class BerxWebGPURuntimeRenderer implements BerxSpatialRenderer {
 			});
 			shadowPass.end();
 		}
+
+		/* ---- the G-buffer, then the occlusion computed from it ----
+		 *
+		 * Both run before the world pass, in the same submission, because
+		 * the world pass reads the AO map they produce. The G-buffer holds
+		 * view-space normal in rgb and view-space depth in metres in a —
+		 * not a hardware depth texture, so no backend has to reconstruct a
+		 * position through its own clip-space convention.
+		 */
+		const ssaoOn = pass_?.ssao !== false && this.gbuffer && this.aoMap && this.gbufferDepth;
+		if (ssaoOn) {
+			const gPass = encoder.beginRenderPass({
+				colorAttachments: [{
+					view: this.gbuffer!.createView(),
+					/* depth 0 means "nothing was drawn here", which is what
+					   the occlusion pass tests for. */
+					clearValue: {r: 0, g: 0, b: 0, a: 0},
+					loadOp: 'clear', storeOp: 'store',
+				}],
+				depthStencilAttachment: {
+					view: this.gbufferDepth!.createView(),
+					depthClearValue: 1, depthLoadOp: 'clear', depthStoreOp: 'store',
+				},
+			});
+			gPass.setPipeline(this.gbufferPipeline);
+			gPass.setBindGroup(0, this.shadowGlobalsBind);
+			resolved.forEach(({mesh}, i) => {
+				/* EVERYTHING VISIBLE GOES IN, including glass.
+				   The shadow pass skips translucent casters, and copying
+				   that rule here was wrong: a shadow asks "does this block
+				   the light", but ambient occlusion asks "what can this
+				   point see", and a surface you can see through is still a
+				   surface in the way. Skipping the floor left the fixture's
+				   G-buffer holding only the orb — 4634 pixels of 172800,
+				   nothing for it to be occluded against, and an AO map that
+				   was 1.0 almost everywhere. */
+				gPass.setBindGroup(1, this.drawBind!, [i * DRAW_STRIDE]);
+				gPass.setVertexBuffer(0, mesh.vertices);
+				gPass.setIndexBuffer(mesh.indices, 'uint16');
+				gPass.drawIndexed(mesh.count);
+			});
+			gPass.end();
+
+			/* Focal length in pixels: the projection's own [1][1] scaled by
+			   half the height. Taken from the matrix the core built rather
+			   than re-derived from a field of view, so it cannot disagree
+			   with the camera actually being used. */
+			const focalPx = list.projection[5] * this.height * 0.5;
+			device.queue.writeBuffer(this.ssaoDims, 0, new Float32Array([this.width, this.height, focalPx, 0]));
+			const ssaoBind = device.createBindGroup({
+				layout: this.ssaoPipeline.getBindGroupLayout(0),
+				entries: [
+					{binding: 0, resource: {buffer: this.ssaoKernel}},
+					{binding: 1, resource: this.gbuffer!.createView()},
+					{binding: 2, resource: this.aoMap!.createView()},
+					{binding: 3, resource: {buffer: this.ssaoDims}},
+				],
+			});
+			const aoPass = encoder.beginComputePass();
+			aoPass.setPipeline(this.ssaoPipeline);
+			aoPass.setBindGroup(0, ssaoBind);
+			aoPass.dispatchWorkgroups(Math.ceil(this.width / 8), Math.ceil(this.height / 8));
+			aoPass.end();
+		}
+
 		const pass = encoder.beginRenderPass({
 			colorAttachments: [{
 				view: this.msaa!.createView(),
@@ -1020,6 +1189,49 @@ export class BerxWebGPURuntimeRenderer implements BerxSpatialRenderer {
 		staging.unmap();
 		staging.destroy();
 		return out;
+	}
+
+	/**
+	 * The G-buffer and the AO map, off the GPU.
+	 *
+	 * These exist for verification and for nothing else: the occlusion
+	 * gate predicts a pixel of the AO map by running the shared core's
+	 * berxSSAOAt over the G-buffer this returns. Reading the inputs AND
+	 * the output is what turns "the backends agree" into "the shader
+	 * computed what the core says", which is a different claim.
+	 */
+	private async readFloatTexture(texture: GPUTexture, channels: 1 | 4): Promise<Float32Array> {
+		const unpadded = this.width * channels * 4;
+		const padded = Math.ceil(unpadded / 256) * 256;
+		const staging = this.device.createBuffer({
+			size: padded * this.height,
+			usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
+		});
+		const encoder = this.device.createCommandEncoder();
+		encoder.copyTextureToBuffer(
+			{texture},
+			{buffer: staging, bytesPerRow: padded, rowsPerImage: this.height},
+			{width: this.width, height: this.height},
+		);
+		this.device.queue.submit([encoder.finish()]);
+		await this.device.queue.onSubmittedWorkDone();
+		await staging.mapAsync(GPUMapMode.READ);
+		const data = new Uint8Array(staging.getMappedRange());
+		const out = new Uint8Array(unpadded * this.height);
+		for (let row = 0; row < this.height; row++) {
+			out.set(data.subarray(row * padded, row * padded + unpadded), row * unpadded);
+		}
+		staging.unmap();
+		staging.destroy();
+		return new Float32Array(out.buffer, out.byteOffset, out.byteLength / 4);
+	}
+
+	async readbackGbuffer(): Promise<Float32Array> {
+		return this.readFloatTexture(this.gbuffer!, 4);
+	}
+
+	async readbackAo(): Promise<Float32Array> {
+		return this.readFloatTexture(this.aoMap!, 1);
 	}
 
 	dispose(): void {
