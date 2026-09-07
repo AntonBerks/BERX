@@ -95,6 +95,16 @@ pub struct DrawList {
     pub camera: Vec3,
     pub clear_color: [f32; 3],
     pub ambient: [f32; 3],
+    /// THE ROOM, packed by the shared core's berxEnvironmentUniform: five
+    /// vec4s in the order world.wgsl's uniform block declares them. This
+    /// crate never interprets the packing, it forwards it — the order is
+    /// the core's and there must be exactly one opinion about it.
+    ///
+    /// Defaulted so a draw list emitted before the environment existed
+    /// still parses; an all-zero room renders black rather than throwing,
+    /// and the gate would catch that instantly.
+    #[serde(default)]
+    pub environment: Vec<f32>,
     pub key: KeyLight,
     pub items: Vec<DrawItem>,
     /// Absent when there is nothing to cast, or when the core was asked

@@ -21,10 +21,11 @@
  */
 import {berxActionRing, type BerxActionSlot} from './actionRing';
 import {berxFrustumPlanes, berxLookAt, berxMultiplyMat4, berxPerspective, berxSphereInFrustum} from './frustum';
-import {geometryForEntity, type BerxGeometryKind} from './geometry';
+import {geometryForEntity, geometryScale, type BerxGeometryKind} from './geometry';
 import {cameraBasis} from './spatialInteraction';
 import {presentationForKind} from './spatialPresentation';
 import {berxWorldMaterial} from './worldMaterials';
+import {berxEnvironmentUniform} from './lighting/berxEnvironment';
 import {
 	berxEnergyLight,
 	berxResolvePointLights,
@@ -78,6 +79,18 @@ export interface BerxDrawItem {
 	media?: string;
 	/** Its name, for the label pass and for anyone not looking. */
 	label?: string;
+	/**
+	 * The bounding radius this object occupies in world units.
+	 *
+	 * The core has always computed this (it is what the frustum cull and
+	 * the shadow-camera fit are built on) and simply did not pass it on,
+	 * so anything downstream that needed an object's size had to
+	 * reconstruct it from the model matrix — which gives the TRANSFORM
+	 * scale, not the geometry's own extent, and those differ by the
+	 * primitive's radius. Carrying the real number removes that whole
+	 * class of near-miss.
+	 */
+	radius: number;
 	/** Metres from the eye. Renderers may not reorder by it; it is evidence. */
 	distance: number;
 }
@@ -132,6 +145,14 @@ export interface BerxDrawList {
 	clearColor: BerxShaderRgb3;
 	/** Ambient colour already multiplied by its intensity. */
 	ambient: BerxShaderRgb3;
+	/**
+	 * The room, packed exactly as the shaders' uniform block declares it
+	 * (see berxEnvironmentUniform). Every backend uploads this array
+	 * verbatim rather than re-deriving the packing, because three
+	 * hand-written packings is three chances to put the ground colour in
+	 * the sun slot.
+	 */
+	environment: number[];
 	key: {direction: BerxVec3; colour: BerxShaderRgb3; intensity: number};
 	/** In draw order: opaque focus-first and near-to-far, then blended far-to-near. */
 	items: BerxDrawItem[];
@@ -322,6 +343,15 @@ export function berxBuildDrawList(frame: Berx5DFrame, options: BerxDrawListOptio
 		const presentation = presentationForKind(o.kind, o);
 		const material = berxWorldMaterial(o.material.material);
 		const distance = distanceTo(eye, o);
+		/* The geometry's OWN extent times the transform's, which is not
+		   what radiusOf() gives: that one is the cull sphere, deliberately
+		   a rough over-estimate of the transform scale alone. A caller
+		   that needs to land a point on this object's surface needs the
+		   real one. */
+		const geo = geometryScale(spec);
+		const radius =
+			Math.max(geo.x, geo.y, geo.z) *
+			Math.max(o.transform.scale.x, o.transform.scale.y, o.transform.scale.z);
 		const lod: 0 | 1 = distance > BERX_LOD_DISTANCE ? 1 : 0;
 		if (lod === 1) lodReduced++;
 		return {
@@ -329,6 +359,7 @@ export function berxBuildDrawList(frame: Berx5DFrame, options: BerxDrawListOptio
 			kind: o.kind,
 			primitive: spec.kind,
 			lod,
+			radius,
 			/* The transition's own scale is folded into the model matrix
 			   here rather than into the object, so a transition never
 			   mutates the world: the same world, mid-collapse, is still
@@ -401,6 +432,7 @@ export function berxBuildDrawList(frame: Berx5DFrame, options: BerxDrawListOptio
 		view: Array.from(view),
 		camera: {...c.position},
 		clearColor: [...BERX_WORLD_CLEAR] as BerxShaderRgb3,
+		environment: berxEnvironmentUniform(lighting.environment),
 		ambient: [
 			lighting.ambient[0] * lighting.ambientIntensity,
 			lighting.ambient[1] * lighting.ambientIntensity,

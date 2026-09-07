@@ -67,6 +67,13 @@ precision highp float;
 in vec3 N,W,L,LN;
 uniform vec3 CAM;                 // camera position, world space
 uniform vec3 AMB;                 // ambient colour * intensity
+// THE ROOM. Same five slots as the WGSL's uniform block, filled from the
+// same berxEnvironmentUniform array, in the same order.
+uniform vec4 ENV_ZEN;             // rgb zenith,          w = sun intensity
+uniform vec4 ENV_HOR;             // rgb horizon,         w = sun sharpness
+uniform vec4 ENV_GND;             // rgb ground * bounce, w = overall intensity
+uniform vec3 ENV_SUN_DIR;         // toward the key light
+uniform vec3 ENV_SUN;             // sun colour
 uniform vec3 KEY_DIR, KEY_COL;    // directional key
 uniform float KEY_I;
 uniform vec3 PL_POS[4], PL_COL[4];
@@ -102,6 +109,30 @@ float V_Smith(float NoV, float NoL, float a){
   return .5/max(v+l,1e-7);
 }
 vec3 F_Schlick(vec3 f0, float u){ float m=clamp(1.-u,0.,1.); float m2=m*m; return f0+(1.-f0)*(m2*m2*m); }
+
+/**
+ * BERX ENVIRONMENT — the analytic room, in GLSL.
+ *
+ * Line for line the same three terms as @berx/spatial's
+ * berxEnvironmentRadiance and the same function in world.wgsl: a sky
+ * gradient over the upper hemisphere, the floor's weak return below it,
+ * and a sun lobe around the key direction. GLSL's smoothstep is the same
+ * Hermite polynomial berxEnvSmoothstep01 spells out in TypeScript, which
+ * is why the builtin can be called here rather than reimplemented.
+ *
+ * The direction must already be normalised; the callers normalise.
+ */
+vec3 berxEnvironment(vec3 dir){
+  float up=clamp(dir.y,0.,1.);
+  float down=clamp(-dir.y,0.,1.);
+  vec3 sky=mix(ENV_HOR.rgb,ENV_ZEN.rgb,smoothstep(0.,1.,up));
+  // the floor's return is already scaled by the bounce factor host-side
+  vec3 base=mix(sky,ENV_GND.rgb,smoothstep(0.,1.,down));
+  // both vectors point TOWARD the light, so this peaks at 1 looking at it
+  float cosA=max(dot(dir,ENV_SUN_DIR),0.);
+  float glow=pow(cosA,ENV_HOR.w)*ENV_ZEN.w;
+  return (base+ENV_SUN*glow)*ENV_GND.w;
+}
 
 vec3 shade(vec3 n, vec3 v, vec3 l, vec3 radiance, vec3 diffuseColor, vec3 f0, float a){
   vec3 h=normalize(v+l);
@@ -183,7 +214,16 @@ void main(){
   // ambient stands in for the bounced room. It is not image-based
   // lighting and does not pretend to be: one term, applied to the
   // diffuse colour and to the grazing reflection.
-  vec3 amb=AMB*(diffuseColor+f0*pow(1.-max(dot(n,v),0.),5.));
+  /* AMBIENT IS NOW THE ROOM — see the same block in world.wgsl. Diffuse
+     samples the environment along the normal, specular along the
+     reflection blended toward the normal by roughness, which is this
+     backend's prefilter: there is no mip chain because there is no map. */
+  float nov=max(dot(n,v),0.);
+  vec3 refl=reflect(-v,n);
+  vec3 envD=berxEnvironment(n);
+  vec3 envS=berxEnvironment(normalize(mix(refl,n,ROUGH)));
+  vec3 fres=F_Schlick(f0,nov);
+  vec3 amb=envD*diffuseColor*(vec3(1.)-fres)+envS*fres;
   vec3 colour=lit+amb+EMIT;
   // transmission lets the ground through a glass surface rather than
   // fading it to nothing
@@ -262,7 +302,7 @@ export class BerxThreeRuntimeRenderer implements BerxSpatialRenderer {
  readonly kind='webgl2' as const;
  /* what this backend really does, and nothing it does not */
  readonly capabilities={perspective:true,depthBuffer:true,physicallyLitMaterials:true,shadows:true,postProcessing:false} as const;
- private readonly gl:WebGL2RenderingContext;private readonly program:WebGLProgram;private readonly meshes=new Map<string,GpuMesh>();private readonly P:Loc;private readonly V:Loc;private readonly M:Loc;private readonly BASE:Loc;private readonly EMIT:Loc;private readonly CAM:Loc;private readonly AMB:Loc;private readonly KEY_DIR:Loc;private readonly KEY_COL:Loc;private readonly KEY_I:Loc;private readonly PL_POS:Loc;private readonly PL_COL:Loc;private readonly PL_I:Loc;private readonly PL_R:Loc;private readonly PL_N:Loc;private readonly MET:Loc;private readonly ROUGH:Loc;private readonly OPAC:Loc;private readonly TRANS:Loc;private readonly HT:Loc;private readonly TS:Loc;private readonly TEX:Loc;private readonly LVP:Loc;private readonly SHADOW:Loc;private readonly SHADOW_MAP:Loc;
+ private readonly gl:WebGL2RenderingContext;private readonly program:WebGLProgram;private readonly meshes=new Map<string,GpuMesh>();private readonly P:Loc;private readonly V:Loc;private readonly M:Loc;private readonly BASE:Loc;private readonly EMIT:Loc;private readonly CAM:Loc;private readonly AMB:Loc;private readonly ENV_ZEN:Loc;private readonly ENV_HOR:Loc;private readonly ENV_GND:Loc;private readonly ENV_SUN_DIR:Loc;private readonly ENV_SUN:Loc;private readonly KEY_DIR:Loc;private readonly KEY_COL:Loc;private readonly KEY_I:Loc;private readonly PL_POS:Loc;private readonly PL_COL:Loc;private readonly PL_I:Loc;private readonly PL_R:Loc;private readonly PL_N:Loc;private readonly MET:Loc;private readonly ROUGH:Loc;private readonly OPAC:Loc;private readonly TRANS:Loc;private readonly HT:Loc;private readonly TS:Loc;private readonly TEX:Loc;private readonly LVP:Loc;private readonly SHADOW:Loc;private readonly SHADOW_MAP:Loc;
  /* the depth-only pass from the light: its own program, its own target */
  private readonly shadowProgram:WebGLProgram;private readonly SLVP:Loc;private readonly SM:Loc;
  private shadowFbo?:WebGLFramebuffer;private shadowTexture?:WebGLTexture;private shadowSize=0;
@@ -287,7 +327,7 @@ export class BerxThreeRuntimeRenderer implements BerxSpatialRenderer {
  private slots:BerxActionSlot[]=[];
  /** What the last frame actually cost. Measured during the draw. */
  private stats:BerxFrameStats={visible:0,inFrustum:0,drawCalls:0,triangles:0,lodReduced:0,budgetCut:0,residentTextures:0,residentLabels:0,meshVariants:0};
- constructor(canvas:HTMLCanvasElement,options:{textureBudget?:number;labelBudget?:number;onMediaError?:(uri:string,error:unknown)=>void}={}){const gl=canvas.getContext('webgl2',{antialias:true,alpha:false,depth:true,powerPreference:'high-performance'});if(!gl)throw Error('BERX 5D requires WebGL2');this.gl=gl;this.program=program(gl);this.P=gl.getUniformLocation(this.program,'P');this.V=gl.getUniformLocation(this.program,'V');this.M=gl.getUniformLocation(this.program,'M');this.BASE=gl.getUniformLocation(this.program,'BASE');this.EMIT=gl.getUniformLocation(this.program,'EMIT');this.CAM=gl.getUniformLocation(this.program,'CAM');this.AMB=gl.getUniformLocation(this.program,'AMB');this.KEY_DIR=gl.getUniformLocation(this.program,'KEY_DIR');this.KEY_COL=gl.getUniformLocation(this.program,'KEY_COL');this.KEY_I=gl.getUniformLocation(this.program,'KEY_I');this.PL_POS=gl.getUniformLocation(this.program,'PL_POS');this.PL_COL=gl.getUniformLocation(this.program,'PL_COL');this.PL_I=gl.getUniformLocation(this.program,'PL_I');this.PL_R=gl.getUniformLocation(this.program,'PL_R');this.PL_N=gl.getUniformLocation(this.program,'PL_N');this.MET=gl.getUniformLocation(this.program,'MET');this.ROUGH=gl.getUniformLocation(this.program,'ROUGH');this.OPAC=gl.getUniformLocation(this.program,'OPAC');this.TRANS=gl.getUniformLocation(this.program,'TRANS');this.HT=gl.getUniformLocation(this.program,'HT');this.TS=gl.getUniformLocation(this.program,'TS');this.TEX=gl.getUniformLocation(this.program,'TEX');this.LVP=gl.getUniformLocation(this.program,'LVP');this.SHADOW=gl.getUniformLocation(this.program,'SHADOW');this.SHADOW_MAP=gl.getUniformLocation(this.program,'SHADOW_MAP');
+ constructor(canvas:HTMLCanvasElement,options:{textureBudget?:number;labelBudget?:number;onMediaError?:(uri:string,error:unknown)=>void}={}){const gl=canvas.getContext('webgl2',{antialias:true,alpha:false,depth:true,powerPreference:'high-performance'});if(!gl)throw Error('BERX 5D requires WebGL2');this.gl=gl;this.program=program(gl);this.P=gl.getUniformLocation(this.program,'P');this.V=gl.getUniformLocation(this.program,'V');this.M=gl.getUniformLocation(this.program,'M');this.BASE=gl.getUniformLocation(this.program,'BASE');this.EMIT=gl.getUniformLocation(this.program,'EMIT');this.CAM=gl.getUniformLocation(this.program,'CAM');this.AMB=gl.getUniformLocation(this.program,'AMB');this.ENV_ZEN=gl.getUniformLocation(this.program,'ENV_ZEN');this.ENV_HOR=gl.getUniformLocation(this.program,'ENV_HOR');this.ENV_GND=gl.getUniformLocation(this.program,'ENV_GND');this.ENV_SUN_DIR=gl.getUniformLocation(this.program,'ENV_SUN_DIR');this.ENV_SUN=gl.getUniformLocation(this.program,'ENV_SUN');this.KEY_DIR=gl.getUniformLocation(this.program,'KEY_DIR');this.KEY_COL=gl.getUniformLocation(this.program,'KEY_COL');this.KEY_I=gl.getUniformLocation(this.program,'KEY_I');this.PL_POS=gl.getUniformLocation(this.program,'PL_POS');this.PL_COL=gl.getUniformLocation(this.program,'PL_COL');this.PL_I=gl.getUniformLocation(this.program,'PL_I');this.PL_R=gl.getUniformLocation(this.program,'PL_R');this.PL_N=gl.getUniformLocation(this.program,'PL_N');this.MET=gl.getUniformLocation(this.program,'MET');this.ROUGH=gl.getUniformLocation(this.program,'ROUGH');this.OPAC=gl.getUniformLocation(this.program,'OPAC');this.TRANS=gl.getUniformLocation(this.program,'TRANS');this.HT=gl.getUniformLocation(this.program,'HT');this.TS=gl.getUniformLocation(this.program,'TS');this.TEX=gl.getUniformLocation(this.program,'TEX');this.LVP=gl.getUniformLocation(this.program,'LVP');this.SHADOW=gl.getUniformLocation(this.program,'SHADOW');this.SHADOW_MAP=gl.getUniformLocation(this.program,'SHADOW_MAP');
   this.shadowProgram=program(gl,SV,SF);this.SLVP=gl.getUniformLocation(this.shadowProgram,'LVP');this.SM=gl.getUniformLocation(this.shadowProgram,'M');
   this.textures=new BerxMediaTextureCache(gl,{budget:options.textureBudget,onError:options.onMediaError});
   this.labels=new BerxSpatialTextAtlas(gl,{budget:options.labelBudget});
@@ -380,6 +420,15 @@ export class BerxThreeRuntimeRenderer implements BerxSpatialRenderer {
   gl.activeTexture(gl.TEXTURE0);gl.uniform1i(this.TEX,0);
   gl.uniform3f(this.CAM,list.camera.x,list.camera.y,list.camera.z);
   gl.uniform3f(this.AMB,list.ambient[0],list.ambient[1],list.ambient[2]);
+  /* The room, read out of the shared core's packing rather than
+     re-derived here. e[3] is the sun intensity, e[7] the sharpness and
+     e[11] the overall intensity — see berxEnvironmentUniform. */
+  const e=list.environment;
+  gl.uniform4f(this.ENV_ZEN,e[0],e[1],e[2],e[3]);
+  gl.uniform4f(this.ENV_HOR,e[4],e[5],e[6],e[7]);
+  gl.uniform4f(this.ENV_GND,e[8],e[9],e[10],e[11]);
+  gl.uniform3f(this.ENV_SUN_DIR,e[12],e[13],e[14]);
+  gl.uniform3f(this.ENV_SUN,e[16],e[17],e[18]);
   gl.uniform3f(this.KEY_DIR,list.key.direction.x,list.key.direction.y,list.key.direction.z);
   gl.uniform3f(this.KEY_COL,list.key.colour[0],list.key.colour[1],list.key.colour[2]);
   gl.uniform1f(this.KEY_I,list.key.intensity);

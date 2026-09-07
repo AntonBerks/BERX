@@ -240,7 +240,17 @@ try {
 			for (let y = 0; y < canvas.height; y++) {
 				for (let x = 0; x < canvas.width; x++) {
 					const o = (y * canvas.width + x) * 4;
-					if (px[o] + px[o + 1] + px[o + 2] > 60) {
+					/* The silhouette is EVERYTHING THAT IS NOT THE GROUND, not
+					   everything above a brightness. It used to be
+					   `sum > 60`, which worked only while an object was lit
+					   evenly enough that all of it cleared that bar. With a
+					   real environment it is not: the underside of the orb
+					   faces the floor and is genuinely dark, so a brightness
+					   threshold dropped the bottom of the sphere out of its
+					   own outline and reported a round object as an oval.
+					   #07080A is the clear colour every backend uses. */
+					const notGround = Math.abs(px[o] - 7) > 3 || Math.abs(px[o + 1] - 8) > 3 || Math.abs(px[o + 2] - 10) > 3;
+					if (notGround) {
 						if (x < minX) minX = x;
 						if (x > maxX) maxX = x;
 						if (y < minY) minY = y;
@@ -543,6 +553,15 @@ try {
 			/* a gate claiming GPU execution with no device is the lie */
 			liars: report.results.filter((r) => r.gpuExecuted && !device).map((r) => r.gate),
 			cpuStage: report.results.filter((r) => r.cpuVerified).map((r) => r.gate),
+			/* Verified WITHOUT evidence: neither a real readback nor an
+			   honest CPU-stage label. Derived from the report's own flags
+			   rather than by reading its prose, which is what the first
+			   version of this check did — and it then flagged the CPU ray
+			   picker purely because that gate's sentence happens not to
+			   contain the words "CPU stage". */
+			unproven: report.results
+				.filter((r) => r.verified && !(r.gpuExecuted && r.readbackVerified) && !r.cpuVerified)
+				.map((r) => r.gate),
 			/* gates that really submitted work and really read a value back */
 			gpuProven: report.results.filter((r) => r.gpuExecuted && r.readbackVerified).map((r) => r.gate),
 			unimplemented: report.results.filter((r) => r.blocked && r.evidence.startsWith('not implemented')).map((r) => r.gate),
@@ -563,10 +582,23 @@ try {
 			? `${webgpu.gpuProven.length} proved GPU work: ${webgpu.gpuProven.join(', ')} — all: ${webgpu.all.join(' | ')}`
 			: 'no device on this machine; every GPU gate reported blocked, which is the honest result',
 	);
+	/* The question is whether a gate can PASS WITHOUT EVIDENCE, not how
+	   much is still unbuilt.
+	
+	   This used to require `unimplemented.length >= 4`: a count that had
+	   to stay high, which meant implementing a feature broke the honesty
+	   check. IBL landing is exactly what tripped it. A threshold on how
+	   much is missing measures the roadmap, not the truthfulness of the
+	   report — so it is replaced by the two things actually worth
+	   asserting: every gate claiming `verified` carries real evidence,
+	   and no CPU-stage gate is filed as unimplemented. */
+	const unproven = webgpu.unproven;
 	gate(
-		'unimplemented features report as unimplemented, not as passes',
-		webgpu.unimplemented.length >= 4 && !webgpu.unimplemented.some((g) => webgpu.cpuStage.includes(g)),
-		`reported not implemented: ${webgpu.unimplemented.join(', ')}; honest CPU-stage gates: ${webgpu.cpuStage.join(', ')}`,
+		'nothing reports verified without evidence, and CPU stages are labelled as such',
+		unproven.length === 0 && !webgpu.unimplemented.some((g) => webgpu.cpuStage.includes(g)),
+		unproven.length
+			? `claimed verified with neither a readback nor a CPU-stage flag: ${unproven.join(', ')}`
+			: `every verified gate carries a readback or is labelled a CPU stage; still unimplemented: ${webgpu.unimplemented.join(', ') || 'none'}; CPU-stage gates: ${webgpu.cpuStage.join(', ')}`,
 	);
 
 	gate('no page or console errors', pageErrors.length === 0, pageErrors.slice(0, 3).join(' | ') || 'clean');

@@ -43,9 +43,9 @@ import type {BerxFrameStats, BerxSpatialRenderOptions} from './threeRuntime';
 /** Bytes per draw item. The struct is exactly this, and it is also the alignment. */
 const DRAW_STRIDE = 256;
 /* proj(64) + view(64) + camera(16) + ambient(16) + key_dir(16) +
-   key_col(16) + light_vp(64) + shadow(16) — the Globals struct in
-   world.wgsl, in the order it declares them. */
-const GLOBALS_BYTES = 272;
+   key_col(16) + light_vp(64) + shadow(16) + the room's five vec4s (80)
+   — the Globals struct in world.wgsl, in the order it declares them. */
+const GLOBALS_BYTES = 352;
 /** The square depth map the key light writes. Matches the shared core's. */
 const SHADOW_FORMAT: GPUTextureFormat = 'depth32float';
 /** Bytes per label. One dynamic offset each, at the alignment the API wants. */
@@ -705,6 +705,11 @@ export class BerxWebGPURuntimeRenderer implements BerxSpatialRenderer {
 			   stays bound */
 			globals.set([0, 0, 0, 0], 64);
 		}
+		/* THE ROOM. Copied verbatim from the shared core's packing — this
+		   backend does not know the order and must not: berxEnvironmentUniform
+		   owns it, world.wgsl's uniform block mirrors it, and a copy here
+		   would be a third opinion about which slot holds the sun. */
+		globals.set(list.environment, 68);
 		device.queue.writeBuffer(this.globals, 0, globals);
 
 		const count = Math.max(1, list.items.length);

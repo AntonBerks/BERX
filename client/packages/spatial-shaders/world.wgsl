@@ -8,9 +8,11 @@
 // The same microfacet BRDF the WebGL2 backend runs: GGX, height-correlated
 // Smith visibility, Schlick Fresnel, metalness splitting the diffuse and
 // specular lobes, one directional key, up to four windowed point lights, and
-// an ambient term that stands in for the bounced room without pretending to
-// be image-based lighting. There is no post chain here, and both backends'
-// reported capabilities say so.
+// and image-based lighting from an ANALYTIC environment — a closed-form
+// room rather than a captured cubemap, because BERX ships no HDR asset and
+// a closed form is the only thing four languages can evaluate identically.
+// There is no post chain here, and both backends' reported capabilities say
+// so.
 //
 // The key light casts. Its camera is fitted in the shared core
 // (@berx/spatial's berxShadowCamera) so every backend puts the light in
@@ -42,6 +44,16 @@ struct Globals {
   light_vp: mat4x4<f32>,
   // x = 1/mapSize, y = depth bias, z = normal bias, w = strength (0 = off)
   shadow: vec4<f32>,
+  // THE ROOM, packed by the shared core's berxEnvironmentUniform. The
+  // order is that function's, not this file's: changing it here without
+  // changing it there is how a renderer ends up lit by the ground
+  // colour. w components carry the scalars so the block stays five
+  // vec4s rather than five vec4s and four loose floats.
+  env_zenith: vec4<f32>,   // rgb zenith,          w = sun intensity
+  env_horizon: vec4<f32>,  // rgb horizon,         w = sun sharpness
+  env_ground: vec4<f32>,   // rgb ground * bounce, w = overall intensity
+  env_sun_dir: vec4<f32>,  // xyz toward the key light
+  env_sun: vec4<f32>,      // rgb sun colour
 };
 
 struct Draw {
@@ -119,6 +131,33 @@ fn f_schlick(f0: vec3<f32>, u: f32) -> vec3<f32> {
   let m = clamp(1.0 - u, 0.0, 1.0);
   let m2 = m * m;
   return f0 + (vec3<f32>(1.0) - f0) * (m2 * m2 * m);
+}
+
+/**
+ * BERX ENVIRONMENT — the analytic room, in WGSL.
+ *
+ * The same three terms as @berx/spatial's berxEnvironmentRadiance, in
+ * the same order, from the same constants: a sky gradient over the
+ * upper hemisphere, the floor's weak return below it, and a sun lobe
+ * around the key direction. There is no cubemap to sample because BERX
+ * ships no captured HDR environment; this is a closed form, which is
+ * the only reason four languages can evaluate it identically.
+ *
+ * `dir` must already be normalised — the caller normalises, and a
+ * hidden normalise here would be a place for the ports to differ.
+ * `smoothstep(0,1,x)` is WGSL's builtin, which is the same Hermite
+ * polynomial berxEnvSmoothstep01 spells out in TypeScript.
+ */
+fn berx_environment(dir: vec3<f32>) -> vec3<f32> {
+  let up = clamp(dir.y, 0.0, 1.0);
+  let down = clamp(-dir.y, 0.0, 1.0);
+  let sky = mix(g.env_horizon.rgb, g.env_zenith.rgb, smoothstep(0.0, 1.0, up));
+  // the floor's return is already scaled by `bounce` on the host side
+  let base = mix(sky, g.env_ground.rgb, smoothstep(0.0, 1.0, down));
+  // both vectors point TOWARD the light, so this peaks at 1 looking at it
+  let cos_a = max(dot(dir, g.env_sun_dir.xyz), 0.0);
+  let glow = pow(cos_a, g.env_horizon.w) * g.env_zenith.w;
+  return (base + g.env_sun.rgb * glow) * g.env_ground.w;
 }
 
 fn shade(n: vec3<f32>, v: vec3<f32>, l: vec3<f32>, radiance: vec3<f32>,
@@ -213,7 +252,19 @@ fn fs(i: VsOut) -> @location(0) vec4<f32> {
     lit = lit + shade(n, v, delta / max(dist, 1e-4), lc.rgb * lc.w * atten, diffuse_color, f0, a);
   }
 
-  let amb = g.ambient.rgb * (diffuse_color + f0 * pow(1.0 - max(dot(n, v), 0.0), 5.0));
+  /* AMBIENT IS NOW THE ROOM, not one colour.
+     Diffuse takes the environment along the normal — what a matte
+     surface actually faces. Specular takes it along the reflection,
+     blended toward the normal by roughness: a rough surface's lobe is
+     wide, so it sees an average of the room rather than a mirror of it,
+     and that blend is this backend's prefilter. There is no prefiltered
+     mip chain because there is no map to prefilter. */
+  let nov = max(dot(n, v), 0.0);
+  let refl = reflect(-v, n);
+  let env_d = berx_environment(n);
+  let env_s = berx_environment(normalize(mix(refl, n, d.surface.y)));
+  let fres = f_schlick(f0, nov);
+  let amb = env_d * diffuse_color * (vec3<f32>(1.0) - fres) + env_s * fres;
   let colour = lit + amb + d.emissive.rgb;
   // transmission lets the ground through a glass surface rather than
   // fading it to nothing

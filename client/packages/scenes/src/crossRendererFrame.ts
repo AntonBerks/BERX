@@ -233,3 +233,37 @@ export function berxShadowFixtureLighting(): BerxWorldLighting {
 		key: {...lighting.key, direction: {x: 0, y: 1, z: 0}, intensity: Math.max(lighting.key.intensity, 1.6)},
 	};
 }
+
+/**
+ * The lighting the environment gate measures: the room, alone.
+ *
+ * The key is turned OFF and the shadow pass with it, so every photon in
+ * the resulting frame came from the analytic environment. That is what
+ * makes the readback comparable against berxEnvironmentRadiance
+ * directly: with a key light in the frame the gate would be checking a
+ * sum, and a sum can be right for the wrong reasons.
+ *
+ * `environment` is untouched — the room under test is the real one the
+ * product ships, not a fixture-only room.
+ */
+export function berxEnvironmentFixtureLighting(): BerxWorldLighting {
+	const lighting = berxWorldLighting();
+	return {
+		...lighting,
+		key: {...lighting.key, intensity: 0},
+		points: [],
+	};
+}
+
+/**
+ * The same lighting with the sun's contribution scaled.
+ *
+ * Used to prove the shaders read the environment the shared core sends
+ * rather than constants of their own: change one number here, and every
+ * backend's pixels must move by the amount the core predicts. A shader
+ * with the room baked in would not move at all.
+ */
+export function berxEnvironmentFixtureLightingScaled(sunIntensity: number): BerxWorldLighting {
+	const lighting = berxEnvironmentFixtureLighting();
+	return {...lighting, environment: {...lighting.environment, sunIntensity}};
+}

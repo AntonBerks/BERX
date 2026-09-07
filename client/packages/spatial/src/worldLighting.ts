@@ -8,16 +8,21 @@
  * gradient stop.
  *
  * What is here is what is implemented: ambient, one directional key,
- * and point lights that a region can place. The key now casts — its
- * camera is fitted in shadowMap.ts and its depth is read by both
- * shader sources — so `shadows` is true in the renderers' reported
- * capabilities. There is still no ambient-occlusion pass and no
- * image-based lighting, so neither appears in this file. When one is
- * genuinely written, its light gains a field
- * here and the capability flips — not before.
+ * point lights that a region can place, and — as of this commit — a
+ * real environment. The key casts (its camera is fitted in shadowMap.ts
+ * and its depth is read by every shader source) and the room is now
+ * image-based lighting without an image: an ANALYTIC environment, in
+ * lighting/berxEnvironment.ts, evaluated identically in TypeScript,
+ * WGSL, GLSL and Rust.
+ *
+ * This paragraph used to promise that "when one is genuinely written,
+ * its light gains a field here and the capability flips — not before".
+ * `environment` below is that field. There is still no
+ * ambient-occlusion pass, so that one does not appear.
  */
 import {parseColor} from './color';
 import type {BerxVec3} from './world';
+import {berxEnvironment, type BerxEnvironment} from './lighting/berxEnvironment';
 
 export type BerxShaderRgb3 = [number, number, number];
 
@@ -47,6 +52,15 @@ export interface BerxWorldLighting {
 	ambient: BerxShaderRgb3;
 	ambientIntensity: number;
 	key: BerxDirectionalLight;
+	/**
+	 * The room itself, as a function of direction rather than one colour.
+	 *
+	 * `ambient` above is kept because it is still what a surface receives
+	 * when a backend has no environment — and because the environment is
+	 * built to agree with it at the horizon, so turning the room off
+	 * dims a scene rather than changing its colour.
+	 */
+	environment: BerxEnvironment;
 	/** At most this many reach the shader; the rest are culled by distance. */
 	points: BerxPointLight[];
 }
@@ -67,16 +81,21 @@ const normalise = (v: BerxVec3): BerxVec3 => {
  * BERX room instead of in an empty renderer.
  */
 export function berxWorldLighting(): BerxWorldLighting {
+	/* One vector, used twice on purpose: the sun in the environment is a
+	   reflection OF the key light, so if the two could drift apart a
+	   glass surface would show a highlight where no light is. */
+	const keyDirection = normalise({x: 0.45, y: 0.72, z: 0.9});
 	return {
 		/* #15191E: the room, bounced */
 		ambient: rgb('#15191E'),
 		ambientIntensity: 1.35,
 		key: {
-			direction: normalise({x: 0.45, y: 0.72, z: 0.9}),
+			direction: keyDirection,
 			/* #F2F0EB: daylight-neutral pearl, not white */
 			colour: rgb('#F2F0EB'),
 			intensity: 1.0,
 		},
+		environment: berxEnvironment(keyDirection),
 		points: [],
 	};
 }

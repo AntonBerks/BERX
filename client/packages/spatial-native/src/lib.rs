@@ -49,6 +49,19 @@ pub struct Capabilities {
     pub world_space_labels: bool,
 }
 
+/// One vec4 out of the shared core's packed environment.
+///
+/// Returns zeros for a draw list that carries no room, which renders an
+/// unlit black scene — visibly wrong, and caught by the gate — rather
+/// than reading past the end of a short array.
+fn env_slot(packed: &[f32], index: usize) -> [f32; 4] {
+    let at = index * 4;
+    if packed.len() < at + 4 {
+        return [0.0; 4];
+    }
+    [packed[at], packed[at + 1], packed[at + 2], packed[at + 3]]
+}
+
 pub const CAPABILITIES: Capabilities = Capabilities {
     perspective: true,
     depth_buffer: true,
@@ -77,6 +90,14 @@ struct Globals {
     light_vp: [f32; 16],
     /// x = 1/mapSize, y = depth bias, z = normal bias, w = strength.
     shadow: [f32; 4],
+    /// THE ROOM — the five vec4s world.wgsl declares, in its order. The
+    /// shared core packs them (berxEnvironmentUniform); this struct only
+    /// has to lay them out at the same offsets.
+    env_zenith: [f32; 4],
+    env_horizon: [f32; 4],
+    env_ground: [f32; 4],
+    env_sun_dir: [f32; 4],
+    env_sun: [f32; 4],
 }
 
 #[repr(C)]
@@ -574,6 +595,11 @@ impl NativeRenderer {
             key_col: [list.key.colour[0], list.key.colour[1], list.key.colour[2], list.key.intensity],
             light_vp,
             shadow: shadow_params,
+            env_zenith: env_slot(&list.environment, 0),
+            env_horizon: env_slot(&list.environment, 1),
+            env_ground: env_slot(&list.environment, 2),
+            env_sun_dir: env_slot(&list.environment, 3),
+            env_sun: env_slot(&list.environment, 4),
         };
         let globals_buffer = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("berx-globals"),

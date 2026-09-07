@@ -9,7 +9,7 @@
 import {BerxThreeRuntimeRenderer} from '@berx/spatial-web/threeRuntime';
 import {BerxWebGPURuntimeRenderer} from '@berx/spatial-web/webgpuRuntime';
 import {berxBuildDrawList, type BerxTransitionKind} from '@berx/spatial';
-import {BERX_CROSS_RENDERER_VIEWPORT, berxCrossRendererFrame, berxShadowFixtureFrame, berxShadowFixtureLighting} from '@berx/scenes';
+import {BERX_CROSS_RENDERER_VIEWPORT, berxCrossRendererFrame, berxShadowFixtureFrame, berxShadowFixtureLighting, berxEnvironmentFixtureLighting, berxEnvironmentFixtureLightingScaled} from '@berx/scenes';
 
 declare global {
 	interface Window {
@@ -100,6 +100,65 @@ const api = {
 	 * shadow. This asks WebGPU directly: the same world, with the key
 	 * casting and with it not.
 	 */
+	/**
+	 * The shadow fixture lit by the ROOM ALONE, on WebGL2.
+	 *
+	 * The key is off and the shadow pass with it, so every photon in the
+	 * frame came from the analytic environment — which is what lets the
+	 * gate compare a pixel against berxEnvironmentRadiance directly
+	 * rather than against a sum it would have to unpick.
+	 *
+	 * `sunIntensity` is a real parameter rather than a fixed fixture so
+	 * the gate can change ONE number in the shared core and watch every
+	 * backend move by the predicted amount. A shader with the room baked
+	 * into it would not move at all, which is the difference between
+	 * "the shaders agree" and "the shaders run the core's maths".
+	 */
+	renderEnvironment(sunIntensity?: number) {
+		const frame = berxShadowFixtureFrame();
+		const lighting = sunIntensity === undefined
+			? berxEnvironmentFixtureLighting()
+			: berxEnvironmentFixtureLightingScaled(sunIntensity);
+		const canvas = freshCanvas(BERX_CROSS_RENDERER_VIEWPORT.width, BERX_CROSS_RENDERER_VIEWPORT.height);
+		const renderer = new BerxThreeRuntimeRenderer(canvas);
+		renderer.setLighting(lighting);
+		renderer.resize(canvas.width, canvas.height);
+		/* The same list the renderer will build for itself — kept so the
+		   gate can read the real material values it must predict against
+		   instead of assuming them. */
+		const list = berxBuildDrawList(frame, {
+			width: canvas.width, height: canvas.height, lighting, shadows: false,
+		});
+		renderer.render(frame, {shadows: false});
+		const gl = canvas.getContext('webgl2');
+		if (!gl) throw new Error('no WebGL2 context');
+		const px = new Uint8Array(canvas.width * canvas.height * 4);
+		gl.readPixels(0, 0, canvas.width, canvas.height, gl.RGBA, gl.UNSIGNED_BYTE, px);
+		/* readPixels hands back rows bottom-first; every other helper here
+		   flips at the source so a caller can address a pixel by the
+		   coordinates it projected, and so can this one. */
+		return {width: canvas.width, height: canvas.height, rgba: Array.from(flipRows(px, canvas.width, canvas.height)), list};
+	},
+
+	/** The same room-only frame through WebGPU, for the three-way comparison. */
+	async renderEnvironmentWebGPU(sunIntensity?: number) {
+		const frame = berxShadowFixtureFrame();
+		const lighting = sunIntensity === undefined
+			? berxEnvironmentFixtureLighting()
+			: berxEnvironmentFixtureLightingScaled(sunIntensity);
+		const canvas = freshCanvas(BERX_CROSS_RENDERER_VIEWPORT.width, BERX_CROSS_RENDERER_VIEWPORT.height);
+		const renderer = await BerxWebGPURuntimeRenderer.create(canvas);
+		if (!renderer) return {available: false as const, reason: 'this browser granted no WebGPU device'};
+		renderer.setLighting(lighting);
+		renderer.resize(canvas.width, canvas.height);
+		renderer.draw(berxBuildDrawList(frame, {
+			width: canvas.width, height: canvas.height, lighting, shadows: false,
+		}), true);
+		const rgba = Array.from(await renderer.readback());
+		renderer.dispose();
+		return {available: true as const, width: canvas.width, height: canvas.height, rgba};
+	},
+
 	async renderShadowPairWebGPU() {
 		const frame = berxShadowFixtureFrame();
 		const lighting = berxShadowFixtureLighting();

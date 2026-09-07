@@ -1650,18 +1650,79 @@ var init_relational = __esm({
   }
 });
 
+// packages/spatial/src/lighting/berxEnvironment.ts
+function berxEnvironment(sunDirection) {
+  return {
+    zenith: rgb("#15191E"),
+    horizon: rgb("#07080A"),
+    ground: rgb("#0D1014"),
+    sun: rgb("#4FD6E8"),
+    /* The sun is the only part of the room brighter than the room. It
+       is deliberately modest: a glow that out-runs the key light stops
+       reading as a reflection of it and starts reading as a second
+       light nobody placed. */
+    sunIntensity: 0.55,
+    /* ~18° of visible lobe. Tight enough to be a sun rather than a
+       tinted sky, wide enough that a rough surface still finds it. */
+    sunSharpness: 32,
+    /* A floor returns a little of what falls on it. This is the number
+       that keeps a downward face dim but not black. */
+    bounce: 0.35,
+    intensity: 1,
+    sunDirection
+  };
+}
+function berxEnvironmentUniform(env) {
+  return [
+    env.zenith[0],
+    env.zenith[1],
+    env.zenith[2],
+    env.sunIntensity,
+    env.horizon[0],
+    env.horizon[1],
+    env.horizon[2],
+    env.sunSharpness,
+    env.ground[0] * env.bounce,
+    env.ground[1] * env.bounce,
+    env.ground[2] * env.bounce,
+    env.intensity,
+    env.sunDirection.x,
+    env.sunDirection.y,
+    env.sunDirection.z,
+    0,
+    env.sun[0],
+    env.sun[1],
+    env.sun[2],
+    0
+  ];
+}
+var rgb;
+var init_berxEnvironment = __esm({
+  "packages/spatial/src/lighting/berxEnvironment.ts"() {
+    "use strict";
+    init_color();
+    rgb = (hex) => {
+      const c = parseColor(hex);
+      if (!c) throw new Error(`BERX 5D environment: ${hex} is not a colour`);
+      return [c.r / 255, c.g / 255, c.b / 255];
+    };
+  }
+});
+
 // packages/spatial/src/worldLighting.ts
 function berxWorldLighting() {
+  const keyDirection = normalise({ x: 0.45, y: 0.72, z: 0.9 });
   return {
     /* #15191E: the room, bounced */
-    ambient: rgb("#15191E"),
+    ambient: rgb2("#15191E"),
     ambientIntensity: 1.35,
     key: {
-      direction: normalise({ x: 0.45, y: 0.72, z: 0.9 }),
+      direction: keyDirection,
       /* #F2F0EB: daylight-neutral pearl, not white */
-      colour: rgb("#F2F0EB"),
+      colour: rgb2("#F2F0EB"),
       intensity: 1
     },
+    environment: berxEnvironment(keyDirection),
     points: []
   };
 }
@@ -1676,17 +1737,18 @@ function berxEnergyLight(position, energy) {
   if (e <= 0.01) return void 0;
   return {
     position: { ...position },
-    colour: rgb("#4FD6E8"),
+    colour: rgb2("#4FD6E8"),
     intensity: e * 1.6,
     range: 4 + e * 6
   };
 }
-var rgb, BERX_MAX_POINT_LIGHTS, normalise;
+var rgb2, BERX_MAX_POINT_LIGHTS, normalise;
 var init_worldLighting = __esm({
   "packages/spatial/src/worldLighting.ts"() {
     "use strict";
     init_color();
-    rgb = (hex) => {
+    init_berxEnvironment();
+    rgb2 = (hex) => {
       const c = parseColor(hex);
       if (!c) throw new Error(`BERX 5D lighting: ${hex} is not a colour`);
       return [c.r / 255, c.g / 255, c.b / 255];
@@ -1703,12 +1765,12 @@ var init_worldLighting = __esm({
 function berxWorldMaterial(name) {
   return BERX_WORLD_MATERIALS[name] ?? BERX_WORLD_MATERIALS.ceramic;
 }
-var rgb2, NONE, BERX_WORLD_MATERIALS;
+var rgb3, NONE, BERX_WORLD_MATERIALS;
 var init_worldMaterials = __esm({
   "packages/spatial/src/worldMaterials.ts"() {
     "use strict";
     init_color();
-    rgb2 = (hex) => {
+    rgb3 = (hex) => {
       const c = parseColor(hex);
       if (!c) throw new Error(`BERX 5D material: ${hex} is not a colour`);
       return [c.r / 255, c.g / 255, c.b / 255];
@@ -1716,22 +1778,22 @@ var init_worldMaterials = __esm({
     NONE = [0, 0, 0];
     BERX_WORLD_MATERIALS = {
       /* the ground itself: near-black, smooth, and it holds a reflection */
-      obsidian: { baseColor: rgb2("#07080A"), metalness: 0.08, roughness: 0.18, emission: NONE, opacity: 1, transmission: 0, ior: 1.5 },
-      graphite: { baseColor: rgb2("#15191E"), metalness: 0.12, roughness: 0.52, emission: NONE, opacity: 1, transmission: 0, ior: 1.5 },
+      obsidian: { baseColor: rgb3("#07080A"), metalness: 0.08, roughness: 0.18, emission: NONE, opacity: 1, transmission: 0, ior: 1.5 },
+      graphite: { baseColor: rgb3("#15191E"), metalness: 0.12, roughness: 0.52, emission: NONE, opacity: 1, transmission: 0, ior: 1.5 },
       /* people: bright, faintly waxy, not a mirror and not chalk */
-      pearl: { baseColor: rgb2("#F2F0EB"), metalness: 0.04, roughness: 0.34, emission: NONE, opacity: 1, transmission: 0, ior: 1.5 },
-      champagne: { baseColor: rgb2("#C9B58A"), metalness: 0.25, roughness: 0.3, emission: NONE, opacity: 1, transmission: 0, ior: 1.5 },
+      pearl: { baseColor: rgb3("#F2F0EB"), metalness: 0.04, roughness: 0.34, emission: NONE, opacity: 1, transmission: 0, ior: 1.5 },
+      champagne: { baseColor: rgb3("#C9B58A"), metalness: 0.25, roughness: 0.3, emission: NONE, opacity: 1, transmission: 0, ior: 1.5 },
       /* a real metal: its own tint, no diffuse term */
-      "soft-gold": { baseColor: rgb2("#C9B58A"), metalness: 0.92, roughness: 0.28, emission: NONE, opacity: 1, transmission: 0, ior: 1.5 },
-      "dark-glass": { baseColor: rgb2("#0D1014"), metalness: 0, roughness: 0.08, emission: NONE, opacity: 0.68, transmission: 0.55, ior: 1.5 },
-      ceramic: { baseColor: rgb2("#A7ADB4"), metalness: 0, roughness: 0.42, emission: NONE, opacity: 1, transmission: 0, ior: 1.45 },
-      metal: { baseColor: rgb2("#6F767E"), metalness: 0.96, roughness: 0.24, emission: NONE, opacity: 1, transmission: 0, ior: 1.5 },
+      "soft-gold": { baseColor: rgb3("#C9B58A"), metalness: 0.92, roughness: 0.28, emission: NONE, opacity: 1, transmission: 0, ior: 1.5 },
+      "dark-glass": { baseColor: rgb3("#0D1014"), metalness: 0, roughness: 0.08, emission: NONE, opacity: 0.68, transmission: 0.55, ior: 1.5 },
+      ceramic: { baseColor: rgb3("#A7ADB4"), metalness: 0, roughness: 0.42, emission: NONE, opacity: 1, transmission: 0, ior: 1.45 },
+      metal: { baseColor: rgb3("#6F767E"), metalness: 0.96, roughness: 0.24, emission: NONE, opacity: 1, transmission: 0, ior: 1.5 },
       /* cloth scatters: rough, dielectric, no visible highlight */
-      fabric: { baseColor: rgb2("#1C2228"), metalness: 0, roughness: 0.88, emission: NONE, opacity: 1, transmission: 0, ior: 1.45 },
+      fabric: { baseColor: rgb3("#1C2228"), metalness: 0, roughness: 0.88, emission: NONE, opacity: 1, transmission: 0, ior: 1.45 },
       /* a photograph is its own colour; the surface under it must not tint it */
-      media: { baseColor: rgb2("#F2F0EB"), metalness: 0, roughness: 0.62, emission: NONE, opacity: 1, transmission: 0, ior: 1.5 },
+      media: { baseColor: rgb3("#F2F0EB"), metalness: 0, roughness: 0.62, emission: NONE, opacity: 1, transmission: 0, ior: 1.5 },
       /* the only material that emits at rest, and only where energy puts it */
-      energy: { baseColor: rgb2("#1C2228"), metalness: 0.1, roughness: 0.3, emission: rgb2("#4FD6E8"), opacity: 1, transmission: 0, ior: 1.5 }
+      energy: { baseColor: rgb3("#1C2228"), metalness: 0.1, roughness: 0.3, emission: rgb3("#4FD6E8"), opacity: 1, transmission: 0, ior: 1.5 }
     };
   }
 });
@@ -3084,6 +3146,9 @@ var init_frustum = __esm({
 function geometryForEntity(kind) {
   return { ...specs[kind] };
 }
+function geometryScale(spec) {
+  return { x: spec.width ?? spec.radius ?? 1, y: spec.height ?? spec.radius ?? 1, z: spec.depth ?? spec.radius ?? 1 };
+}
 var specs;
 var init_geometry = __esm({
   "packages/spatial/src/geometry.ts"() {
@@ -3299,6 +3364,8 @@ function berxBuildDrawList(frame, options) {
     const presentation = presentationForKind(o.kind, o);
     const material = berxWorldMaterial(o.material.material);
     const distance2 = distanceTo(eye, o);
+    const geo = geometryScale(spec);
+    const radius = Math.max(geo.x, geo.y, geo.z) * Math.max(o.transform.scale.x, o.transform.scale.y, o.transform.scale.z);
     const lod = distance2 > BERX_LOD_DISTANCE ? 1 : 0;
     if (lod === 1) lodReduced++;
     return {
@@ -3306,6 +3373,7 @@ function berxBuildDrawList(frame, options) {
       kind: o.kind,
       primitive: spec.kind,
       lod,
+      radius,
       /* The transition's own scale is folded into the model matrix
          here rather than into the object, so a transition never
          mutates the world: the same world, mid-collapse, is still
@@ -3368,6 +3436,7 @@ function berxBuildDrawList(frame, options) {
     view: Array.from(view),
     camera: { ...c.position },
     clearColor: [...BERX_WORLD_CLEAR],
+    environment: berxEnvironmentUniform(lighting.environment),
     ambient: [
       lighting.ambient[0] * lighting.ambientIntensity,
       lighting.ambient[1] * lighting.ambientIntensity,
@@ -3415,6 +3484,7 @@ var init_drawList = __esm({
     init_spatialInteraction();
     init_spatialPresentation();
     init_worldMaterials();
+    init_berxEnvironment();
     init_worldLighting();
     init_transitions();
     init_shadowMap();
@@ -3559,6 +3629,7 @@ var init_src = __esm({
     init_temporal();
     init_relational();
     init_worldLighting();
+    init_berxEnvironment();
     init_worldMaterials();
     init_spatialAudio();
     init_platform();
@@ -4017,6 +4088,13 @@ precision highp float;
 in vec3 N,W,L,LN;
 uniform vec3 CAM;                 // camera position, world space
 uniform vec3 AMB;                 // ambient colour * intensity
+// THE ROOM. Same five slots as the WGSL's uniform block, filled from the
+// same berxEnvironmentUniform array, in the same order.
+uniform vec4 ENV_ZEN;             // rgb zenith,          w = sun intensity
+uniform vec4 ENV_HOR;             // rgb horizon,         w = sun sharpness
+uniform vec4 ENV_GND;             // rgb ground * bounce, w = overall intensity
+uniform vec3 ENV_SUN_DIR;         // toward the key light
+uniform vec3 ENV_SUN;             // sun colour
 uniform vec3 KEY_DIR, KEY_COL;    // directional key
 uniform float KEY_I;
 uniform vec3 PL_POS[4], PL_COL[4];
@@ -4052,6 +4130,30 @@ float V_Smith(float NoV, float NoL, float a){
   return .5/max(v+l,1e-7);
 }
 vec3 F_Schlick(vec3 f0, float u){ float m=clamp(1.-u,0.,1.); float m2=m*m; return f0+(1.-f0)*(m2*m2*m); }
+
+/**
+ * BERX ENVIRONMENT \u2014 the analytic room, in GLSL.
+ *
+ * Line for line the same three terms as @berx/spatial's
+ * berxEnvironmentRadiance and the same function in world.wgsl: a sky
+ * gradient over the upper hemisphere, the floor's weak return below it,
+ * and a sun lobe around the key direction. GLSL's smoothstep is the same
+ * Hermite polynomial berxEnvSmoothstep01 spells out in TypeScript, which
+ * is why the builtin can be called here rather than reimplemented.
+ *
+ * The direction must already be normalised; the callers normalise.
+ */
+vec3 berxEnvironment(vec3 dir){
+  float up=clamp(dir.y,0.,1.);
+  float down=clamp(-dir.y,0.,1.);
+  vec3 sky=mix(ENV_HOR.rgb,ENV_ZEN.rgb,smoothstep(0.,1.,up));
+  // the floor's return is already scaled by the bounce factor host-side
+  vec3 base=mix(sky,ENV_GND.rgb,smoothstep(0.,1.,down));
+  // both vectors point TOWARD the light, so this peaks at 1 looking at it
+  float cosA=max(dot(dir,ENV_SUN_DIR),0.);
+  float glow=pow(cosA,ENV_HOR.w)*ENV_ZEN.w;
+  return (base+ENV_SUN*glow)*ENV_GND.w;
+}
 
 vec3 shade(vec3 n, vec3 v, vec3 l, vec3 radiance, vec3 diffuseColor, vec3 f0, float a){
   vec3 h=normalize(v+l);
@@ -4133,7 +4235,16 @@ void main(){
   // ambient stands in for the bounced room. It is not image-based
   // lighting and does not pretend to be: one term, applied to the
   // diffuse colour and to the grazing reflection.
-  vec3 amb=AMB*(diffuseColor+f0*pow(1.-max(dot(n,v),0.),5.));
+  /* AMBIENT IS NOW THE ROOM \u2014 see the same block in world.wgsl. Diffuse
+     samples the environment along the normal, specular along the
+     reflection blended toward the normal by roughness, which is this
+     backend's prefilter: there is no mip chain because there is no map. */
+  float nov=max(dot(n,v),0.);
+  vec3 refl=reflect(-v,n);
+  vec3 envD=berxEnvironment(n);
+  vec3 envS=berxEnvironment(normalize(mix(refl,n,ROUGH)));
+  vec3 fres=F_Schlick(f0,nov);
+  vec3 amb=envD*diffuseColor*(vec3(1.)-fres)+envS*fres;
   vec3 colour=lit+amb+EMIT;
   // transmission lets the ground through a glass surface rather than
   // fading it to nothing
@@ -4180,6 +4291,11 @@ precision highp float;in vec2 T;uniform sampler2D TEX;uniform float A;out vec4 C
         this.EMIT = gl.getUniformLocation(this.program, "EMIT");
         this.CAM = gl.getUniformLocation(this.program, "CAM");
         this.AMB = gl.getUniformLocation(this.program, "AMB");
+        this.ENV_ZEN = gl.getUniformLocation(this.program, "ENV_ZEN");
+        this.ENV_HOR = gl.getUniformLocation(this.program, "ENV_HOR");
+        this.ENV_GND = gl.getUniformLocation(this.program, "ENV_GND");
+        this.ENV_SUN_DIR = gl.getUniformLocation(this.program, "ENV_SUN_DIR");
+        this.ENV_SUN = gl.getUniformLocation(this.program, "ENV_SUN");
         this.KEY_DIR = gl.getUniformLocation(this.program, "KEY_DIR");
         this.KEY_COL = gl.getUniformLocation(this.program, "KEY_COL");
         this.KEY_I = gl.getUniformLocation(this.program, "KEY_I");
@@ -4322,6 +4438,12 @@ precision highp float;in vec2 T;uniform sampler2D TEX;uniform float A;out vec4 C
         gl.uniform1i(this.TEX, 0);
         gl.uniform3f(this.CAM, list.camera.x, list.camera.y, list.camera.z);
         gl.uniform3f(this.AMB, list.ambient[0], list.ambient[1], list.ambient[2]);
+        const e = list.environment;
+        gl.uniform4f(this.ENV_ZEN, e[0], e[1], e[2], e[3]);
+        gl.uniform4f(this.ENV_HOR, e[4], e[5], e[6], e[7]);
+        gl.uniform4f(this.ENV_GND, e[8], e[9], e[10], e[11]);
+        gl.uniform3f(this.ENV_SUN_DIR, e[12], e[13], e[14]);
+        gl.uniform3f(this.ENV_SUN, e[16], e[17], e[18]);
         gl.uniform3f(this.KEY_DIR, list.key.direction.x, list.key.direction.y, list.key.direction.z);
         gl.uniform3f(this.KEY_COL, list.key.colour[0], list.key.colour[1], list.key.colour[2]);
         gl.uniform1f(this.KEY_I, list.key.intensity);
@@ -4613,7 +4735,7 @@ var BERX_WORLD_WGSL, BERX_LABEL_WGSL;
 var init_src2 = __esm({
   "packages/spatial-shaders/src/index.ts"() {
     "use strict";
-    BERX_WORLD_WGSL = "// The BERX forward pass, in WGSL. This file is the only copy of it.\n//\n// Two backends run this exact text: @berx/spatial-web's WebGPU renderer,\n// which imports it through @berx/spatial-shaders, and the native\n// berx-spatial-native crate, which include_str!s it. A shader duplicated\n// per backend is how two renderers quietly stop drawing the same world.\n//\n// The same microfacet BRDF the WebGL2 backend runs: GGX, height-correlated\n// Smith visibility, Schlick Fresnel, metalness splitting the diffuse and\n// specular lobes, one directional key, up to four windowed point lights, and\n// an ambient term that stands in for the bounced room without pretending to\n// be image-based lighting. There is no post chain here, and both backends'\n// reported capabilities say so.\n//\n// The key light casts. Its camera is fitted in the shared core\n// (@berx/spatial's berxShadowCamera) so every backend puts the light in\n// exactly the same place, and this file only reads the depth it captured:\n// 3x3 PCF, a normal-offset sample, and a shadow that removes the KEY term\n// only. Ambient and the point lights are untouched, because a surface in\n// shadow still receives the bounced room \u2014 zeroing the pixel is what makes\n// a render look like a cutout rather than a place.\n//\n// One thing differs from the GLSL source, and it is a clip-space convention\n// rather than shading: WGSL depth runs 0..1 where GL runs -1..1, so the host\n// hands this shader a projection already remapped.\n//\n// Media is a planar projection onto the face that points at you, exactly as\n// in the GLSL pass: object-space position and normal give the UVs from the\n// local XY extent, and the texture is applied only where the surface faces\n// +Z, so an avatar on an orb reads as a face rather than as a photograph\n// smeared around a ball. A backend with no image to bind binds a 1x1 texture\n// and leaves the flag at zero; nothing is approximated with a colour.\n\nstruct Globals {\n  proj: mat4x4<f32>,\n  view: mat4x4<f32>,\n  camera: vec4<f32>,\n  ambient: vec4<f32>,\n  key_dir: vec4<f32>,\n  key_col: vec4<f32>,   // rgb, intensity in w\n  // The light's own view-projection, already in this API's depth range.\n  light_vp: mat4x4<f32>,\n  // x = 1/mapSize, y = depth bias, z = normal bias, w = strength (0 = off)\n  shadow: vec4<f32>,\n};\n\nstruct Draw {\n  model: mat4x4<f32>,\n  base: vec4<f32>,              // rgb base colour, w = local half-extent in X\n  emissive: vec4<f32>,          // rgb emission,    w = local half-extent in Y\n  surface: vec4<f32>,           // metalness, roughness, opacity, transmission\n  pl_pos: array<vec4<f32>, 4>,  // xyz position, w range\n  pl_col: array<vec4<f32>, 4>,  // rgb colour, w intensity\n  // x = point light count, yz = UV cover/contain correction, w = has texture\n  counts: vec4<f32>,\n};\n\n@group(0) @binding(0) var<uniform> g: Globals;\n// A comparison sampler, not a plain one: the hardware does the depth test\n// per sample and averages the RESULTS, which is what makes a 3x3 tap a soft\n// edge instead of four hard ones. Sampling depth and comparing afterwards\n// would average DEPTHS, and an averaged depth is a surface that exists\n// nowhere.\n@group(0) @binding(1) var shadow_sampler: sampler_comparison;\n@group(0) @binding(2) var shadow_texture: texture_depth_2d;\n@group(1) @binding(0) var<uniform> d: Draw;\n@group(2) @binding(0) var media_sampler: sampler;\n@group(2) @binding(1) var media_texture: texture_2d<f32>;\n\nstruct VsOut {\n  @builtin(position) clip: vec4<f32>,\n  @location(0) n: vec3<f32>,\n  @location(1) w: vec3<f32>,\n  // object space, so media projects onto the form rather than the screen\n  @location(2) local: vec3<f32>,\n  @location(3) local_n: vec3<f32>,\n};\n\n/**\n * The depth-only pass, from the light.\n *\n * The same vertex data and the same model matrix as the main pass \u2014 a\n * shadow cast by a different shape from the one drawn is worse than no\n * shadow, because it is a shape that is not there.\n */\n@vertex\nfn vs_shadow(@location(0) p: vec3<f32>, @location(1) n: vec3<f32>) -> @builtin(position) vec4<f32> {\n  return g.light_vp * d.model * vec4<f32>(p, 1.0);\n}\n\n@vertex\nfn vs(@location(0) p: vec3<f32>, @location(1) n: vec3<f32>) -> VsOut {\n  var o: VsOut;\n  let w = d.model * vec4<f32>(p, 1.0);\n  o.w = w.xyz;\n  o.n = (mat3x3<f32>(d.model[0].xyz, d.model[1].xyz, d.model[2].xyz)) * n;\n  o.local = p;\n  o.local_n = n;\n  o.clip = g.proj * g.view * w;\n  return o;\n}\n\nconst PI: f32 = 3.14159265359;\n\nfn d_ggx(noh: f32, a: f32) -> f32 {\n  let a2 = a * a;\n  let den = noh * noh * (a2 - 1.0) + 1.0;\n  return a2 / max(PI * den * den, 1e-7);\n}\n\nfn v_smith(nov: f32, nol: f32, a: f32) -> f32 {\n  let a2 = a * a;\n  let v = nol * sqrt(nov * nov * (1.0 - a2) + a2);\n  let l = nov * sqrt(nol * nol * (1.0 - a2) + a2);\n  return 0.5 / max(v + l, 1e-7);\n}\n\nfn f_schlick(f0: vec3<f32>, u: f32) -> vec3<f32> {\n  let m = clamp(1.0 - u, 0.0, 1.0);\n  let m2 = m * m;\n  return f0 + (vec3<f32>(1.0) - f0) * (m2 * m2 * m);\n}\n\nfn shade(n: vec3<f32>, v: vec3<f32>, l: vec3<f32>, radiance: vec3<f32>,\n         diffuse_color: vec3<f32>, f0: vec3<f32>, a: f32) -> vec3<f32> {\n  let h = normalize(v + l);\n  let nol = max(dot(n, l), 0.0);\n  if (nol <= 0.0) { return vec3<f32>(0.0); }\n  let nov = max(dot(n, v), 1e-4);\n  let noh = max(dot(n, h), 0.0);\n  let voh = max(dot(v, h), 0.0);\n  let f = f_schlick(f0, voh);\n  let vis = v_smith(nov, nol, a);\n  let dist = d_ggx(noh, a);\n  let spec = f * (dist * vis);\n  // energy that was not reflected is the only energy left to scatter\n  let kd = vec3<f32>(1.0) - f;\n  let diff = kd * diffuse_color / PI;\n  return (diff + spec) * radiance * nol;\n}\n\n/**\n * How much of the key light reaches this point. 1 is full light.\n *\n * The sample is pushed along the surface normal before projecting, which\n * is what stops a lit surface shadowing itself at grazing angles without\n * the constant depth bias that would detach a shadow from the foot of\n * the thing casting it.\n */\nfn key_visibility(world: vec3<f32>, n: vec3<f32>, nol: f32) -> f32 {\n  if (g.shadow.w <= 0.0) { return 1.0; }\n  // more offset where the light grazes, none where it is head-on\n  let slope = clamp(1.0 - nol, 0.0, 1.0);\n  let offset = world + n * (g.shadow.z * (1.0 + slope * 2.0));\n  let light_clip = g.light_vp * vec4<f32>(offset, 1.0);\n  let ndc = light_clip.xyz / max(light_clip.w, 1e-6);\n  // outside the light's own box: lit, not shadowed. A world larger than\n  // the map must not grow a hard black edge where the map ends.\n  if (ndc.x < -1.0 || ndc.x > 1.0 || ndc.y < -1.0 || ndc.y > 1.0 || ndc.z > 1.0) { return 1.0; }\n  let uv = vec2<f32>(ndc.x * 0.5 + 0.5, 0.5 - ndc.y * 0.5);\n  let depth = ndc.z - g.shadow.y;\n  var sum = 0.0;\n  for (var y: i32 = -1; y <= 1; y = y + 1) {\n    for (var x: i32 = -1; x <= 1; x = x + 1) {\n      let tap = uv + vec2<f32>(f32(x), f32(y)) * g.shadow.x;\n      sum = sum + textureSampleCompareLevel(shadow_texture, shadow_sampler, tap, depth);\n    }\n  }\n  let lit = sum / 9.0;\n  return mix(1.0, lit, g.shadow.w);\n}\n\n@fragment\nfn fs(i: VsOut) -> @location(0) vec4<f32> {\n  // Media is a planar projection onto the face that points at you.\n  //\n  // The sample is taken unconditionally and then selected, rather than\n  // taken inside the test: textureSample needs uniform control flow, and\n  // whether a fragment is on the front face and inside the picture is a\n  // per-fragment fact. A backend with nothing to show binds a 1x1\n  // texture and leaves counts.w at zero, so the sample is discarded.\n  let half_extent = vec2<f32>(max(d.base.w, 1e-4), max(d.emissive.w, 1e-4));\n  let uv = (i.local.xy / half_extent) * 0.5 * d.counts.yz + vec2<f32>(0.5);\n  let sampled = textureSample(media_texture, media_sampler, vec2<f32>(uv.x, 1.0 - uv.y)).rgb;\n  let inside = uv.x >= 0.0 && uv.x <= 1.0 && uv.y >= 0.0 && uv.y <= 1.0;\n  let facing = normalize(i.local_n).z > 0.5;\n  let base = select(d.base.rgb, sampled, d.counts.w > 0.5 && facing && inside);\n  let n = normalize(i.n);\n  let v = normalize(g.camera.xyz - i.w);\n  let a = max(d.surface.y * d.surface.y, 1e-3);\n  // metals have no diffuse term and tint their reflection; dielectrics\n  // reflect 4% white and keep their colour in the diffuse lobe\n  let diffuse_color = base * (1.0 - d.surface.x);\n  let f0 = mix(vec3<f32>(0.04), base, vec3<f32>(d.surface.x));\n\n  let key_l = normalize(g.key_dir.xyz);\n  // The key alone is shadowed. Ambient and the point lights are not: a\n  // surface out of the sun still receives the room.\n  let visibility = key_visibility(i.w, n, max(dot(n, key_l), 0.0));\n  var lit = shade(n, v, key_l, g.key_col.rgb * g.key_col.w, diffuse_color, f0, a) * visibility;\n\n  let count = i32(d.counts.x);\n  for (var k: i32 = 0; k < 4; k = k + 1) {\n    if (k >= count) { break; }\n    let lp = d.pl_pos[k];\n    let lc = d.pl_col[k];\n    let delta = lp.xyz - i.w;\n    let dist = length(delta);\n    if (dist > lp.w) { continue; }\n    // inverse-square, windowed so a light ends where its range says\n    let win = clamp(1.0 - pow(dist / lp.w, 4.0), 0.0, 1.0);\n    let atten = win * win / max(dist * dist, 1e-4);\n    lit = lit + shade(n, v, delta / max(dist, 1e-4), lc.rgb * lc.w * atten, diffuse_color, f0, a);\n  }\n\n  let amb = g.ambient.rgb * (diffuse_color + f0 * pow(1.0 - max(dot(n, v), 0.0), 5.0));\n  let colour = lit + amb + d.emissive.rgb;\n  // transmission lets the ground through a glass surface rather than\n  // fading it to nothing\n  let alpha = clamp(d.surface.z * (1.0 - d.surface.w * 0.55), 0.02, 1.0);\n  return vec4<f32>(colour, alpha);\n}\n";
+    BERX_WORLD_WGSL = "// The BERX forward pass, in WGSL. This file is the only copy of it.\n//\n// Two backends run this exact text: @berx/spatial-web's WebGPU renderer,\n// which imports it through @berx/spatial-shaders, and the native\n// berx-spatial-native crate, which include_str!s it. A shader duplicated\n// per backend is how two renderers quietly stop drawing the same world.\n//\n// The same microfacet BRDF the WebGL2 backend runs: GGX, height-correlated\n// Smith visibility, Schlick Fresnel, metalness splitting the diffuse and\n// specular lobes, one directional key, up to four windowed point lights, and\n// and image-based lighting from an ANALYTIC environment \u2014 a closed-form\n// room rather than a captured cubemap, because BERX ships no HDR asset and\n// a closed form is the only thing four languages can evaluate identically.\n// There is no post chain here, and both backends' reported capabilities say\n// so.\n//\n// The key light casts. Its camera is fitted in the shared core\n// (@berx/spatial's berxShadowCamera) so every backend puts the light in\n// exactly the same place, and this file only reads the depth it captured:\n// 3x3 PCF, a normal-offset sample, and a shadow that removes the KEY term\n// only. Ambient and the point lights are untouched, because a surface in\n// shadow still receives the bounced room \u2014 zeroing the pixel is what makes\n// a render look like a cutout rather than a place.\n//\n// One thing differs from the GLSL source, and it is a clip-space convention\n// rather than shading: WGSL depth runs 0..1 where GL runs -1..1, so the host\n// hands this shader a projection already remapped.\n//\n// Media is a planar projection onto the face that points at you, exactly as\n// in the GLSL pass: object-space position and normal give the UVs from the\n// local XY extent, and the texture is applied only where the surface faces\n// +Z, so an avatar on an orb reads as a face rather than as a photograph\n// smeared around a ball. A backend with no image to bind binds a 1x1 texture\n// and leaves the flag at zero; nothing is approximated with a colour.\n\nstruct Globals {\n  proj: mat4x4<f32>,\n  view: mat4x4<f32>,\n  camera: vec4<f32>,\n  ambient: vec4<f32>,\n  key_dir: vec4<f32>,\n  key_col: vec4<f32>,   // rgb, intensity in w\n  // The light's own view-projection, already in this API's depth range.\n  light_vp: mat4x4<f32>,\n  // x = 1/mapSize, y = depth bias, z = normal bias, w = strength (0 = off)\n  shadow: vec4<f32>,\n  // THE ROOM, packed by the shared core's berxEnvironmentUniform. The\n  // order is that function's, not this file's: changing it here without\n  // changing it there is how a renderer ends up lit by the ground\n  // colour. w components carry the scalars so the block stays five\n  // vec4s rather than five vec4s and four loose floats.\n  env_zenith: vec4<f32>,   // rgb zenith,          w = sun intensity\n  env_horizon: vec4<f32>,  // rgb horizon,         w = sun sharpness\n  env_ground: vec4<f32>,   // rgb ground * bounce, w = overall intensity\n  env_sun_dir: vec4<f32>,  // xyz toward the key light\n  env_sun: vec4<f32>,      // rgb sun colour\n};\n\nstruct Draw {\n  model: mat4x4<f32>,\n  base: vec4<f32>,              // rgb base colour, w = local half-extent in X\n  emissive: vec4<f32>,          // rgb emission,    w = local half-extent in Y\n  surface: vec4<f32>,           // metalness, roughness, opacity, transmission\n  pl_pos: array<vec4<f32>, 4>,  // xyz position, w range\n  pl_col: array<vec4<f32>, 4>,  // rgb colour, w intensity\n  // x = point light count, yz = UV cover/contain correction, w = has texture\n  counts: vec4<f32>,\n};\n\n@group(0) @binding(0) var<uniform> g: Globals;\n// A comparison sampler, not a plain one: the hardware does the depth test\n// per sample and averages the RESULTS, which is what makes a 3x3 tap a soft\n// edge instead of four hard ones. Sampling depth and comparing afterwards\n// would average DEPTHS, and an averaged depth is a surface that exists\n// nowhere.\n@group(0) @binding(1) var shadow_sampler: sampler_comparison;\n@group(0) @binding(2) var shadow_texture: texture_depth_2d;\n@group(1) @binding(0) var<uniform> d: Draw;\n@group(2) @binding(0) var media_sampler: sampler;\n@group(2) @binding(1) var media_texture: texture_2d<f32>;\n\nstruct VsOut {\n  @builtin(position) clip: vec4<f32>,\n  @location(0) n: vec3<f32>,\n  @location(1) w: vec3<f32>,\n  // object space, so media projects onto the form rather than the screen\n  @location(2) local: vec3<f32>,\n  @location(3) local_n: vec3<f32>,\n};\n\n/**\n * The depth-only pass, from the light.\n *\n * The same vertex data and the same model matrix as the main pass \u2014 a\n * shadow cast by a different shape from the one drawn is worse than no\n * shadow, because it is a shape that is not there.\n */\n@vertex\nfn vs_shadow(@location(0) p: vec3<f32>, @location(1) n: vec3<f32>) -> @builtin(position) vec4<f32> {\n  return g.light_vp * d.model * vec4<f32>(p, 1.0);\n}\n\n@vertex\nfn vs(@location(0) p: vec3<f32>, @location(1) n: vec3<f32>) -> VsOut {\n  var o: VsOut;\n  let w = d.model * vec4<f32>(p, 1.0);\n  o.w = w.xyz;\n  o.n = (mat3x3<f32>(d.model[0].xyz, d.model[1].xyz, d.model[2].xyz)) * n;\n  o.local = p;\n  o.local_n = n;\n  o.clip = g.proj * g.view * w;\n  return o;\n}\n\nconst PI: f32 = 3.14159265359;\n\nfn d_ggx(noh: f32, a: f32) -> f32 {\n  let a2 = a * a;\n  let den = noh * noh * (a2 - 1.0) + 1.0;\n  return a2 / max(PI * den * den, 1e-7);\n}\n\nfn v_smith(nov: f32, nol: f32, a: f32) -> f32 {\n  let a2 = a * a;\n  let v = nol * sqrt(nov * nov * (1.0 - a2) + a2);\n  let l = nov * sqrt(nol * nol * (1.0 - a2) + a2);\n  return 0.5 / max(v + l, 1e-7);\n}\n\nfn f_schlick(f0: vec3<f32>, u: f32) -> vec3<f32> {\n  let m = clamp(1.0 - u, 0.0, 1.0);\n  let m2 = m * m;\n  return f0 + (vec3<f32>(1.0) - f0) * (m2 * m2 * m);\n}\n\n/**\n * BERX ENVIRONMENT \u2014 the analytic room, in WGSL.\n *\n * The same three terms as @berx/spatial's berxEnvironmentRadiance, in\n * the same order, from the same constants: a sky gradient over the\n * upper hemisphere, the floor's weak return below it, and a sun lobe\n * around the key direction. There is no cubemap to sample because BERX\n * ships no captured HDR environment; this is a closed form, which is\n * the only reason four languages can evaluate it identically.\n *\n * `dir` must already be normalised \u2014 the caller normalises, and a\n * hidden normalise here would be a place for the ports to differ.\n * `smoothstep(0,1,x)` is WGSL's builtin, which is the same Hermite\n * polynomial berxEnvSmoothstep01 spells out in TypeScript.\n */\nfn berx_environment(dir: vec3<f32>) -> vec3<f32> {\n  let up = clamp(dir.y, 0.0, 1.0);\n  let down = clamp(-dir.y, 0.0, 1.0);\n  let sky = mix(g.env_horizon.rgb, g.env_zenith.rgb, smoothstep(0.0, 1.0, up));\n  // the floor's return is already scaled by `bounce` on the host side\n  let base = mix(sky, g.env_ground.rgb, smoothstep(0.0, 1.0, down));\n  // both vectors point TOWARD the light, so this peaks at 1 looking at it\n  let cos_a = max(dot(dir, g.env_sun_dir.xyz), 0.0);\n  let glow = pow(cos_a, g.env_horizon.w) * g.env_zenith.w;\n  return (base + g.env_sun.rgb * glow) * g.env_ground.w;\n}\n\nfn shade(n: vec3<f32>, v: vec3<f32>, l: vec3<f32>, radiance: vec3<f32>,\n         diffuse_color: vec3<f32>, f0: vec3<f32>, a: f32) -> vec3<f32> {\n  let h = normalize(v + l);\n  let nol = max(dot(n, l), 0.0);\n  if (nol <= 0.0) { return vec3<f32>(0.0); }\n  let nov = max(dot(n, v), 1e-4);\n  let noh = max(dot(n, h), 0.0);\n  let voh = max(dot(v, h), 0.0);\n  let f = f_schlick(f0, voh);\n  let vis = v_smith(nov, nol, a);\n  let dist = d_ggx(noh, a);\n  let spec = f * (dist * vis);\n  // energy that was not reflected is the only energy left to scatter\n  let kd = vec3<f32>(1.0) - f;\n  let diff = kd * diffuse_color / PI;\n  return (diff + spec) * radiance * nol;\n}\n\n/**\n * How much of the key light reaches this point. 1 is full light.\n *\n * The sample is pushed along the surface normal before projecting, which\n * is what stops a lit surface shadowing itself at grazing angles without\n * the constant depth bias that would detach a shadow from the foot of\n * the thing casting it.\n */\nfn key_visibility(world: vec3<f32>, n: vec3<f32>, nol: f32) -> f32 {\n  if (g.shadow.w <= 0.0) { return 1.0; }\n  // more offset where the light grazes, none where it is head-on\n  let slope = clamp(1.0 - nol, 0.0, 1.0);\n  let offset = world + n * (g.shadow.z * (1.0 + slope * 2.0));\n  let light_clip = g.light_vp * vec4<f32>(offset, 1.0);\n  let ndc = light_clip.xyz / max(light_clip.w, 1e-6);\n  // outside the light's own box: lit, not shadowed. A world larger than\n  // the map must not grow a hard black edge where the map ends.\n  if (ndc.x < -1.0 || ndc.x > 1.0 || ndc.y < -1.0 || ndc.y > 1.0 || ndc.z > 1.0) { return 1.0; }\n  let uv = vec2<f32>(ndc.x * 0.5 + 0.5, 0.5 - ndc.y * 0.5);\n  let depth = ndc.z - g.shadow.y;\n  var sum = 0.0;\n  for (var y: i32 = -1; y <= 1; y = y + 1) {\n    for (var x: i32 = -1; x <= 1; x = x + 1) {\n      let tap = uv + vec2<f32>(f32(x), f32(y)) * g.shadow.x;\n      sum = sum + textureSampleCompareLevel(shadow_texture, shadow_sampler, tap, depth);\n    }\n  }\n  let lit = sum / 9.0;\n  return mix(1.0, lit, g.shadow.w);\n}\n\n@fragment\nfn fs(i: VsOut) -> @location(0) vec4<f32> {\n  // Media is a planar projection onto the face that points at you.\n  //\n  // The sample is taken unconditionally and then selected, rather than\n  // taken inside the test: textureSample needs uniform control flow, and\n  // whether a fragment is on the front face and inside the picture is a\n  // per-fragment fact. A backend with nothing to show binds a 1x1\n  // texture and leaves counts.w at zero, so the sample is discarded.\n  let half_extent = vec2<f32>(max(d.base.w, 1e-4), max(d.emissive.w, 1e-4));\n  let uv = (i.local.xy / half_extent) * 0.5 * d.counts.yz + vec2<f32>(0.5);\n  let sampled = textureSample(media_texture, media_sampler, vec2<f32>(uv.x, 1.0 - uv.y)).rgb;\n  let inside = uv.x >= 0.0 && uv.x <= 1.0 && uv.y >= 0.0 && uv.y <= 1.0;\n  let facing = normalize(i.local_n).z > 0.5;\n  let base = select(d.base.rgb, sampled, d.counts.w > 0.5 && facing && inside);\n  let n = normalize(i.n);\n  let v = normalize(g.camera.xyz - i.w);\n  let a = max(d.surface.y * d.surface.y, 1e-3);\n  // metals have no diffuse term and tint their reflection; dielectrics\n  // reflect 4% white and keep their colour in the diffuse lobe\n  let diffuse_color = base * (1.0 - d.surface.x);\n  let f0 = mix(vec3<f32>(0.04), base, vec3<f32>(d.surface.x));\n\n  let key_l = normalize(g.key_dir.xyz);\n  // The key alone is shadowed. Ambient and the point lights are not: a\n  // surface out of the sun still receives the room.\n  let visibility = key_visibility(i.w, n, max(dot(n, key_l), 0.0));\n  var lit = shade(n, v, key_l, g.key_col.rgb * g.key_col.w, diffuse_color, f0, a) * visibility;\n\n  let count = i32(d.counts.x);\n  for (var k: i32 = 0; k < 4; k = k + 1) {\n    if (k >= count) { break; }\n    let lp = d.pl_pos[k];\n    let lc = d.pl_col[k];\n    let delta = lp.xyz - i.w;\n    let dist = length(delta);\n    if (dist > lp.w) { continue; }\n    // inverse-square, windowed so a light ends where its range says\n    let win = clamp(1.0 - pow(dist / lp.w, 4.0), 0.0, 1.0);\n    let atten = win * win / max(dist * dist, 1e-4);\n    lit = lit + shade(n, v, delta / max(dist, 1e-4), lc.rgb * lc.w * atten, diffuse_color, f0, a);\n  }\n\n  /* AMBIENT IS NOW THE ROOM, not one colour.\n     Diffuse takes the environment along the normal \u2014 what a matte\n     surface actually faces. Specular takes it along the reflection,\n     blended toward the normal by roughness: a rough surface's lobe is\n     wide, so it sees an average of the room rather than a mirror of it,\n     and that blend is this backend's prefilter. There is no prefiltered\n     mip chain because there is no map to prefilter. */\n  let nov = max(dot(n, v), 0.0);\n  let refl = reflect(-v, n);\n  let env_d = berx_environment(n);\n  let env_s = berx_environment(normalize(mix(refl, n, d.surface.y)));\n  let fres = f_schlick(f0, nov);\n  let amb = env_d * diffuse_color * (vec3<f32>(1.0) - fres) + env_s * fres;\n  let colour = lit + amb + d.emissive.rgb;\n  // transmission lets the ground through a glass surface rather than\n  // fading it to nothing\n  let alpha = clamp(d.surface.z * (1.0 - d.surface.w * 0.55), 0.02, 1.0);\n  return vec4<f32>(colour, alpha);\n}\n";
     BERX_LABEL_WGSL = "// Names standing in the world, in WGSL. This file is the only copy of it.\n//\n// Unlit on purpose: a name is not a surface in the room, it is a name, and\n// shading it would make it dimmer the further it turned from the key light \u2014\n// the opposite of what a label is for. It is still real geometry, at a real\n// world position with a real height in metres, and depth-tested, so anything\n// in front of it hides it.\n//\n// The quad turns to face the camera by being built from the camera's own\n// right and up vectors, which the shared core hands over with the label's\n// position. Nothing here decides where a name goes.\n\nstruct LabelGlobals {\n  proj: mat4x4<f32>,\n  view: mat4x4<f32>,\n  right: vec4<f32>,\n  up: vec4<f32>,\n};\n\nstruct Label {\n  // xyz world centre, w unused\n  centre: vec4<f32>,\n  // xy half-extent in metres, z alpha, w unused\n  size: vec4<f32>,\n};\n\n@group(0) @binding(0) var<uniform> g: LabelGlobals;\n@group(1) @binding(0) var<uniform> l: Label;\n@group(2) @binding(0) var glyph_sampler: sampler;\n@group(2) @binding(1) var glyph_texture: texture_2d<f32>;\n\nstruct VsOut {\n  @builtin(position) clip: vec4<f32>,\n  @location(0) uv: vec2<f32>,\n};\n\n@vertex\nfn vs(@builtin(vertex_index) v: u32) -> VsOut {\n  // two triangles, as a quad in the camera's plane\n  var corners = array<vec2<f32>, 6>(\n    vec2<f32>(-1.0, -1.0), vec2<f32>(1.0, -1.0), vec2<f32>(1.0, 1.0),\n    vec2<f32>(-1.0, -1.0), vec2<f32>(1.0, 1.0), vec2<f32>(-1.0, 1.0),\n  );\n  let q = corners[v];\n  var o: VsOut;\n  // the rasterised glyphs run top row first, so V is flipped here rather\n  // than in the upload \u2014 writeTexture has no flip of its own\n  o.uv = vec2<f32>(q.x * 0.5 + 0.5, 0.5 - q.y * 0.5);\n  let w = l.centre.xyz + g.right.xyz * (q.x * l.size.x) + g.up.xyz * (q.y * l.size.y);\n  o.clip = g.proj * g.view * vec4<f32>(w, 1.0);\n  return o;\n}\n\n@fragment\nfn fs(i: VsOut) -> @location(0) vec4<f32> {\n  let t = textureSample(glyph_texture, glyph_sampler, i.uv);\n  let a = t.a * l.size.z;\n  if (a < 0.01) { discard; }\n  return vec4<f32>(t.rgb, a);\n}\n";
   }
 });
@@ -4977,7 +5099,7 @@ var init_webgpuRuntime = __esm({
     init_webgpuMediaTextures();
     init_webgpuText();
     DRAW_STRIDE = 256;
-    GLOBALS_BYTES = 272;
+    GLOBALS_BYTES = 352;
     SHADOW_FORMAT = "depth32float";
     LABEL_STRIDE = 256;
     LABEL_GLOBALS_BYTES = 160;
@@ -5426,6 +5548,7 @@ var init_webgpuRuntime = __esm({
         } else {
           globals.set([0, 0, 0, 0], 64);
         }
+        globals.set(list.environment, 68);
         device.queue.writeBuffer(this.globals, 0, globals);
         const count = Math.max(1, list.items.length);
         if (!this.drawBuffer || this.drawCapacity < count) {
@@ -5849,8 +5972,8 @@ function rgbaOf(color, alpha) {
     const n = parseInt(hex[1], 16);
     return `rgba(${n >> 16 & 255}, ${n >> 8 & 255}, ${n & 255}, ${alpha})`;
   }
-  const rgb3 = /^rgba?\(([^,]+),([^,]+),([^,)]+)(?:,([^)]+))?\)$/.exec(color.replace(/\s/g, ""));
-  if (rgb3) return `rgba(${rgb3[1]}, ${rgb3[2]}, ${rgb3[3]}, ${alpha})`;
+  const rgb4 = /^rgba?\(([^,]+),([^,]+),([^,)]+)(?:,([^)]+))?\)$/.exec(color.replace(/\s/g, ""));
+  if (rgb4) return `rgba(${rgb4[1]}, ${rgb4[2]}, ${rgb4[3]}, ${alpha})`;
   throw new Error(`BERX: focus surround colour "${color}" is not a colour this runtime can fade.`);
 }
 function focusCustomProperties(field) {
