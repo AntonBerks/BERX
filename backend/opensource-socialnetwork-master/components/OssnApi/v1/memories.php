@@ -132,7 +132,7 @@ if ($segment0 === 'from-event-checkin' && $segment1 !== null && is_numeric($segm
 
 if ($segment0 === 'saved' && $segment1 === null && $method === 'GET') {
 	$memoriesModel = new OssnMemories();
-	$limit = input('limit') ? max(1, min(100, intval(input('limit')))) : 50;
+	$limit = ossn_api_page('limit') ? max(1, min(100, intval(ossn_api_page('limit')))) : 50;
 	$rows = $memoriesModel->myMemories($api_user_guid, $limit);
 	$out = array();
 	foreach ($rows as $row) {

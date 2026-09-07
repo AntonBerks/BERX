@@ -317,7 +317,7 @@ if ($segment0 !== null && is_numeric($segment0) && $segment1 === 'messages' && $
 		ossn_api_error('not_found', 'Group not found', 404);
 	}
 	$before = input('before');
-	$limit = input('limit');
+	$limit = ossn_api_page('limit');
 	$rows = $model->messages($row->id, ($limit && is_numeric($limit)) ? min(200, intval($limit)) : 50, ($before && is_numeric($before)) ? intval($before) : null);
 	$out = array();
 	foreach ($rows as $m) {

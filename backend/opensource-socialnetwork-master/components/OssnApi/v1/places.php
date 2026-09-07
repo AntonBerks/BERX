@@ -317,7 +317,7 @@ if ($segment0 !== null && is_numeric($segment0) && $segment1 === 'checkin' && $m
  * rather than shown with a fake zero-vs-zero tie.
  */
 if ($segment0 === 'trending' && $segment1 === null && $method === 'GET') {
-	$limit = input('limit') ? max(1, min(50, intval(input('limit')))) : 10;
+	$limit = ossn_api_page('limit') ? max(1, min(50, intval(ossn_api_page('limit')))) : 10;
 	$candidates = $model->listPlaces(array('limit' => 100), $api_user_guid);
 	$scored = array();
 	if (class_exists('OssnSignals') && $candidates) {

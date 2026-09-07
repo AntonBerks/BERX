@@ -17,11 +17,13 @@
  * phone.
  */
 import {execFileSync} from 'node:child_process';
+import fs from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const crate = path.resolve(here, '../packages/spatial-native');
+const repoRoot = path.resolve(here, '../..');
 
 const failures = [];
 const gate = (name, ok, detail) => {
@@ -60,12 +62,22 @@ if (!installed.includes(ANDROID)) {
 	blocked('android-target', `the ${ANDROID} Rust target is not installed, so the Android build cannot be attempted here`);
 } else {
 	try {
-		execFileSync('cargo', ['check', '--release', '--lib', '--no-default-features', '--target', ANDROID], {
+		/* `cargo check` stops at type-checking, which is not a build.
+		   This asks for real codegen for the Android ABI and keeps the
+		   artifact, so the claim is backed by a file whose machine type
+		   can be read rather than by an exit code. `--crate-type rlib`
+		   is what makes that possible without the NDK: every crate
+		   including wgpu, jni and ndk is compiled for the target, and
+		   only the final shared-library LINK — the one step that needs
+		   the NDK's linker — is left out. */
+		execFileSync('cargo', ['rustc', '--release', '--lib', '--no-default-features', '--target', ANDROID, '--crate-type', 'rlib'], {
 			cwd: crate, stdio: ['ignore', 'pipe', 'pipe'],
 		});
+		const rlib = path.join(crate, 'target', ANDROID, 'release', 'libberx_spatial_native.rlib');
+		const bytes = fs.existsSync(rlib) ? fs.statSync(rlib).size : 0;
 		gate('the renderer compiles for Android, with its surface path active',
-			true,
-			`${ANDROID}: the crate and berx_native_surface_android type-check against ANativeWindow through wgpu's Vulkan backend`);
+			bytes > 0,
+			`${ANDROID}: the crate and berx_native_surface_android compile against ANativeWindow through wgpu's Vulkan backend — ${bytes} bytes of AArch64 Android object code at ${path.relative(repoRoot, rlib)}`);
 	} catch (error) {
 		gate('the renderer compiles for Android, with its surface path active', false,
 			String(error.stderr ?? error.message).trim().split('\n').slice(-3).join(' | '));

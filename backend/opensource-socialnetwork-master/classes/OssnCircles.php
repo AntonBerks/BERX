@@ -101,7 +101,17 @@ class OssnCircles extends OssnDatabase {
 				));
 		}
 
-		public function delete($id, $actingGuid) {
+		/**
+		 * MAX BUILD — real fix: this was `delete()`, which overrode
+		 * OssnDatabase's own low-level `delete()` with an incompatible
+		 * signature. PHP 7 warned; PHP 8 makes it a fatal error the
+		 * moment the class is loaded, so every API request that touched
+		 * this class died — POST /api/v1/posts answered with a fatal error and an empty body. The two were never the same
+		 * operation anyway: one is "delete this circle, if this caller may", the other is "run this
+		 * SQL", and the parent's is still called below to do exactly
+		 * that.
+		 */
+		public function deleteCircle($id, $actingGuid) {
 				$circle = $this->get($id);
 				if (!$this->canAccess($circle, $actingGuid)) {
 						return false;

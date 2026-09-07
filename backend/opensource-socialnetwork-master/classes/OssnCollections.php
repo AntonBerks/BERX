@@ -166,7 +166,17 @@ class OssnCollections extends OssnDatabase {
 				return $rows ? $rows : array();
 		}
 
-		public function update($id, $actingGuid, array $fields) {
+		/**
+		 * MAX BUILD — real fix: this was `update()`, which overrode
+		 * OssnDatabase's own low-level `update()` with an incompatible
+		 * signature. PHP 7 warned; PHP 8 makes it a fatal error the
+		 * moment the class is loaded, so every API request that touched
+		 * this class died — every collection write died before it began. The two were never the same
+		 * operation anyway: one is "change this collection, if this caller may", the other is "run this
+		 * SQL", and the parent's is still called below to do exactly
+		 * that.
+		 */
+		public function updateCollection($id, $actingGuid, array $fields) {
 				$collection = $this->get($id);
 				if (!$this->canEdit($collection, $actingGuid)) {
 						return false;
@@ -206,7 +216,17 @@ class OssnCollections extends OssnDatabase {
 				));
 		}
 
-		public function delete($id, $actingGuid) {
+		/**
+		 * MAX BUILD — real fix: this was `delete()`, which overrode
+		 * OssnDatabase's own low-level `delete()` with an incompatible
+		 * signature. PHP 7 warned; PHP 8 makes it a fatal error the
+		 * moment the class is loaded, so every API request that touched
+		 * this class died — every collection write died before it began. The two were never the same
+		 * operation anyway: one is "delete this collection, if this caller may", the other is "run this
+		 * SQL", and the parent's is still called below to do exactly
+		 * that.
+		 */
+		public function deleteCollection($id, $actingGuid) {
 				$collection = $this->get($id);
 				if (!$this->canEdit($collection, $actingGuid)) {
 						return false;

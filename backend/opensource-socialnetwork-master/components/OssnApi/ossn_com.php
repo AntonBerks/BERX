@@ -376,6 +376,34 @@ function ossn_api_dispatch($pages) {
 		}
 	}
 
+	/**
+	 * BERX pagination, kept out of OSSN core's pagination.
+	 *
+	 * Every core helper that can paginate — OssnObject::searchObject(),
+	 * ossn_get_relationships(), OssnNotifications::searchNotifications()
+	 * — defaults its own `offset` to the GLOBAL `input('offset')`, and
+	 * reads it as a 1-BASED PAGE NUMBER. This API's `offset` is a
+	 * 0-based item offset, which is what every BERX client sends. So a
+	 * plain `GET /api/v1/feed?offset=0` reached OssnDatabase::
+	 * generateLimit() as page 0 and produced `LIMIT -10, 10`: MariaDB
+	 * rejected the query and the endpoint answered a fatal error under
+	 * a 200 header. It poisoned any core query in any request carrying
+	 * the parameter, not just the feed's.
+	 *
+	 * Fixed once, here, at the same choke point auth already is: the
+	 * API's own pagination is lifted out of the superglobals before any
+	 * resource file runs, so core falls back to its own default of page
+	 * 1, and the v1 files read it through ossn_api_page() instead. No
+	 * client change, and no per-endpoint workaround to forget.
+	 */
+	global $api_page;
+	$api_page = array(
+		'limit'  => isset($_REQUEST['limit']) ? $_REQUEST['limit'] : null,
+		'offset' => isset($_REQUEST['offset']) ? $_REQUEST['offset'] : null,
+	);
+	unset($_REQUEST['offset'], $_GET['offset'], $_POST['offset']);
+	unset($_REQUEST['limit'], $_GET['limit'], $_POST['limit']);
+
 	$api_user_guid = null;
 	if ($resource !== 'auth') {
 		$token = ossn_api_bearer_token();
@@ -449,6 +477,21 @@ function ossn_api_bearer_token() {
  * rewriting them is not part of this plan (see
  * docs/BERX_API_V1_IMPLEMENTATION_PLAN.md §1).
  */
+/**
+ * The API's own `limit`/`offset`, which core never sees.
+ *
+ * Returns null where the caller sent nothing, so an endpoint can tell
+ * "not paginated" from "page zero" — the distinction that started all
+ * of this.
+ */
+function ossn_api_page($name, $default = null) {
+	global $api_page;
+	if (!isset($api_page[$name]) || $api_page[$name] === null || $api_page[$name] === '') {
+		return $default;
+	}
+	return $api_page[$name];
+}
+
 function ossn_api_json($data, $status = 200) {
 	http_response_code($status);
 	echo json_encode($data);

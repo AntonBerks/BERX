@@ -48,7 +48,7 @@ if ($segments[0] === 'worlds') {
 		ossn_api_json(array('worlds' => array()));
 	}
 	$worldsModel = new OssnWorlds();
-	$limit = input('limit') ? max(1, min(100, intval(input('limit')))) : 30;
+	$limit = ossn_api_page('limit') ? max(1, min(100, intval(ossn_api_page('limit')))) : 30;
 	$rows = $worldsModel->discoverPublicWorlds($userGuid, $limit);
 	$out = array();
 	foreach ($rows as $row) {

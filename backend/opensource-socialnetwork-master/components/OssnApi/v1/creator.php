@@ -43,7 +43,7 @@ if ($segment0 === null && $method === 'PATCH') {
 	if (($v = input('bio')) !== false) {
 		$fields['bio'] = $v;
 	}
-	$ok = $model->update($api_user_guid, $api_user_guid, $fields);
+	$ok = $model->updateProfile($api_user_guid, $api_user_guid, $fields);
 	if (!$ok) {
 		ossn_api_error('update_failed', 'Could not update creator profile', 422);
 	}

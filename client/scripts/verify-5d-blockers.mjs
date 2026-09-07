@@ -29,10 +29,17 @@ const webgpuRenderer = read(path.join(clientRoot, 'packages/spatial-web/src/webg
 const BLOCKERS = [
 	{
 		what: 'Native iOS (Metal) and Android (Vulkan) renderers',
-		evidence: () =>
-			!fs.existsSync(path.join(clientRoot, 'apps/mobile/ios')) && !fs.existsSync(path.join(clientRoot, 'apps/mobile/android'))
-				? 'client/apps/mobile has no ios/ or android/ project, so a native backend cannot be compiled, linked, launched, rendered or verified here'
-				: undefined,
+		evidence: () => {
+			/* Both projects exist now — apps/native/ios (SwiftPM:
+			   BerxViewController/BerxWorldView over the Rust C ABI) and
+			   apps/native/android (Gradle: BerxActivity/BerxSurfaceView
+			   over the JNI bridge). What is missing is downstream of the
+			   source, so the blocker names that instead of pretending the
+			   code is absent. */
+			const ios = fs.existsSync(path.join(clientRoot, 'apps/native/ios/Package.swift'));
+			const android = fs.existsSync(path.join(clientRoot, 'apps/native/android/settings.gradle'));
+			return `the iOS (${ios ? 'SwiftPM project present' : 'absent'}) and Android (${android ? 'Gradle project present' : 'absent'}) shells wrap the same Rust/wgpu renderer, but neither can be built or run here: there is no Xcode/Apple SDK for the Metal path and no Android SDK/NDK for the Vulkan path, and no device of either kind is reachable — so nothing about a Metal or Vulkan surface, its swapchain or its pixels is verified`;
+		},
 		claimed: () => /kind\s*=\s*'(metal|vulkan)'/.test(renderer),
 	},
 	{
@@ -100,7 +107,7 @@ const BLOCKERS = [
 			const missing = ['OssnCommunities', 'OssnDating', 'OssnStories', 'OssnReport']
 				.filter((name) => !fs.existsSync(path.join(components, name)));
 			return missing.length > 0
-				? `${missing.join(', ')} are registered active in ossn_components and their source is in no commit in this repository — lost to the same inherited .gitignore rule that hid OssnApi, and unlike OssnApi they cannot be restored from history because they were never committed. Their domain classes survive in classes/ and their schema is in the install SQL; what is gone is the component wrapper each one needs to load. POST /api/v1/posts and GET /api/v1/profiles/{username} answer 500 because of it`
+				? `${missing.join(', ')} are registered active in ossn_components and their source is in no commit in this repository — lost to the same inherited .gitignore rule that hid OssnApi, and unlike OssnApi they cannot be restored from history because they were never committed. Their domain classes survive in classes/ (OssnDating, OssnStories, OssnReport; communities runs on core's own OssnGroup and never had a class of its own) and their schema is in the install SQL; what is gone is the component wrapper each one needs to load. This blocker does NOT explain the 500s that were once attributed to it: those were measured to two other causes, both now fixed — PHP 8 signature clashes in five classes, and OSSN core reading offset as a 1-based page number. POST /api/v1/posts, GET /api/v1/profiles/{username} and GET /api/v1/feed all answer 200 against the running server`
 				: undefined;
 		},
 		/* claiming them present without the directories would be the lie */

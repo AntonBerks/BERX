@@ -41,7 +41,7 @@ if ($segment0 === 'categories' && $segment1 === null && $method === 'GET') {
  * are left out, not shown as a fake tie.
  */
 if ($segment0 === 'trending' && $segment1 === null && $method === 'GET') {
-	$limit = input('limit') ? max(1, min(50, intval(input('limit')))) : 10;
+	$limit = ossn_api_page('limit') ? max(1, min(50, intval(ossn_api_page('limit')))) : 10;
 	$candidates = $model->listEvents(array('past' => false, 'limit' => 100), $api_user_guid);
 	$scored = array();
 	if (class_exists('OssnSignals') && $candidates) {

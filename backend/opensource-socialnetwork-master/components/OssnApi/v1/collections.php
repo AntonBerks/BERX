@@ -86,7 +86,7 @@ if ($segment0 !== null && $segment1 === null && $method === 'PATCH') {
 	if (($v = input('visibility')) !== false) {
 		$fields['visibility'] = $v === 'public' ? OssnCollections::VISIBILITY_PUBLIC : OssnCollections::VISIBILITY_PRIVATE;
 	}
-	$ok = $model->update(intval($segment0), $api_user_guid, $fields);
+	$ok = $model->updateCollection(intval($segment0), $api_user_guid, $fields);
 	if (!$ok) {
 		ossn_api_error('update_failed', 'Could not update collection', 422);
 	}
@@ -95,7 +95,7 @@ if ($segment0 !== null && $segment1 === null && $method === 'PATCH') {
 }
 
 if ($segment0 !== null && $segment1 === null && $method === 'DELETE') {
-	$ok = $model->delete(intval($segment0), $api_user_guid);
+	$ok = $model->deleteCollection(intval($segment0), $api_user_guid);
 	ossn_api_json(array('status' => $ok ? 'ok' : 'forbidden'));
 }
 

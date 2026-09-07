@@ -118,7 +118,7 @@ if ($segment0 === 'mine' && $method === 'GET') {
  * membership actually begins for every community, public or private).
  */
 if ($segment0 === 'trending' && $method === 'GET') {
-	$limit = input('limit') ? max(1, min(50, intval(input('limit')))) : 10;
+	$limit = ossn_api_page('limit') ? max(1, min(50, intval(ossn_api_page('limit')))) : 10;
 	$candidates = $model->searchGroups('');
 	$scored = array();
 	if (class_exists('OssnSignals') && $candidates) {

@@ -90,7 +90,17 @@ class OssnCreator extends OssnDatabase {
 				));
 		}
 
-		public function update($userGuid, $actingGuid, array $fields) {
+		/**
+		 * MAX BUILD — real fix: this was `update()`, which overrode
+		 * OssnDatabase's own low-level `update()` with an incompatible
+		 * signature. PHP 7 warned; PHP 8 makes it a fatal error the
+		 * moment the class is loaded, so every API request that touched
+		 * this class died — GET /api/v1/profiles/{username} answered with a fatal error and an empty body. The two were never the same
+		 * operation anyway: one is "change this creator's profile, if this caller may", the other is "run this
+		 * SQL", and the parent's is still called below to do exactly
+		 * that.
+		 */
+		public function updateProfile($userGuid, $actingGuid, array $fields) {
 				$userGuid = intval($userGuid);
 				if (!$userGuid || (intval($actingGuid) !== $userGuid && !ossn_api_is_admin($actingGuid))) {
 						return false;

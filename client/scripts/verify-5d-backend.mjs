@@ -207,15 +207,22 @@ try {
 		`GET /uservalidate/activate/${guid}/… cleared the activation code`);
 
 	/* ---------------- a session, and what it can do ---------------- */
-	const session = berx('login', username, password);
+	const text = `вечер удался ${stamp}`;
+	const session = berx('session', username, password, text);
 	if (session.failed) {
-		gate('an activated account gets a real token', false,
-			`the client's own login failed: ${session.status ?? '?'} ${JSON.stringify(session.body)}`);
+		gate('a real session mints a token, identifies its user and writes a post', false,
+			`the client's own ${session.step ?? '?'} call failed: ${session.status ?? '?'} ${JSON.stringify(session.body)} — ${session.message}`);
 		throw new Error('the session could not be established');
 	}
-	gate('an activated account gets a real token',
-		typeof session.token === 'string' && session.token.length === 64 && session.guid > 0 && session.expiresAt > Date.now() / 1000,
-		`a 64-character token for guid ${session.guid}, expiring ${new Date(session.expiresAt * 1000).toISOString().slice(0, 10)}`);
+	gate('a real session mints a token, identifies its user and writes a post',
+		typeof session.token === 'string' && session.token.length === 64 &&
+		session.guid > 0 &&
+		session.me.username === username &&
+		typeof session.created?.guid === 'number',
+		`a 64-character token for guid ${session.guid}, /me returned ${session.me.username}, post ${session.created?.guid} created`);
+	gate('what was written comes back on the next read',
+		session.feed.some((p) => p.text === text && p.owner === session.guid),
+		`the feed contains post ${session.created.guid} owned by ${session.guid}`);
 
 	const identity = berx('me-with-token', session.token);
 	gate('the token identifies exactly its own user, with real server data',
@@ -229,20 +236,6 @@ try {
 		mysql(`SELECT COUNT(*) FROM ossn_api_tokens WHERE token_hash = '${session.token}'`, database).trim() === '0',
 		`ossn_api_tokens holds a 64-character hash for guid ${tokenRow[1]}, and the bearer token itself appears nowhere in the table`);
 
-	/* What writing does not do yet, measured rather than assumed. */
-	const wrote = await fetch(`${base}/api/v1/posts`, {
-		method: 'POST',
-		headers: {'Content-Type': 'application/x-www-form-urlencoded', Authorization: `Bearer ${session.token}`},
-		body: new URLSearchParams({text: `вечер удался ${stamp}`}).toString(),
-	}).catch(() => undefined);
-	const wroteBody = wrote ? await wrote.text() : '';
-	if (wrote?.ok && wroteBody.trim().startsWith('{')) {
-		gate('a post written through the client comes back from the server',
-			true, `POST /posts answered ${wrote.status} with ${wroteBody.slice(0, 80)}`);
-	} else {
-		blocked('post-write', `POST /api/v1/posts answers ${wrote ? wrote.status : 'nothing'} with ${wroteBody.length} bytes of body on a freshly installed database. Reading works — registration, activation, login, /me and the token table are all verified above — so this is one endpoint, not the API. It is not chased further here because the cause is inside a component this checkout still does not have: components/OssnCommunities, OssnDating, OssnStories and OssnReport are registered active in ossn_components and their source exists in no commit in this repository, lost to the same .gitignore rule that hid OssnApi`);
-	}
-
 	/* ---------------- persistence across a restart ---------------- */
 	server.kill('SIGTERM');
 	await waitFor(async () => (await fetch(`${base}/api/v1/me`).catch(() => undefined)) === undefined, 30);
@@ -250,10 +243,10 @@ try {
 		cwd: backend, stdio: ['ignore', 'ignore', 'ignore'],
 	});
 	await waitFor(async () => (await fetch(`${base}/api/v1/me`).catch(() => undefined))?.status === 401, 40);
-	const afterRestart = berx('me-with-token', session.token);
-	gate('the session survives the server being restarted',
-		afterRestart.guid === session.guid && afterRestart.username === username,
-		`the same token still identifies ${username} after the PHP process was killed and started again — the account and its token are in MySQL, not in memory`);
+	const afterRestart = berx('feed-with-token', session.token);
+	gate('the world survives the server being restarted',
+		afterRestart.posts?.some((p) => p.text === text && p.owner === session.guid),
+		`the same post and the same token still work after the PHP process was killed and started again — the state is in MySQL, not in memory`);
 
 	/* ---------------- authorization ---------------- */
 	const noToken = await fetch(`${base}/api/v1/me`);
@@ -318,13 +311,13 @@ try {
 	} catch {
 		profileBody = undefined;
 	}
-	if (profileBody) {
-		gate('a profile another user reads carries no private fields',
-			profile.status === 200 && profileBody.email === undefined && profileBody.password === undefined && profileBody.activation === undefined && profileBody.salt === undefined,
-			`GET /profiles/${username} returned ${Object.keys(profileBody).join(', ')} — no email, no password, no salt, no activation code`);
-	} else {
-		blocked('profile-read', `GET /api/v1/profiles/{username} answers ${profile.status} with ${profileText.length} bytes that are not JSON, the same failure mode as POST /posts and for the same reason — a component whose source no longer exists anywhere in this repository. What privacy IS verified above stands on its own: /me returns the caller's own address and nobody else's, and one account's token never resolves to another's identity`);
-	}
+	gate('a profile another user reads carries no private fields',
+		profileBody !== undefined && profile.status === 200 &&
+		profileBody.email === undefined && profileBody.password === undefined &&
+		profileBody.salt === undefined && profileBody.activation === undefined,
+		profileBody
+			? `GET /profiles/${username} returned ${Object.keys(profileBody).length} fields — no email, no password, no salt, no activation code among them`
+			: `GET /profiles/${username} answered ${profile.status} with ${profileText.length} bytes that are not JSON`);
 
 	/* privacy that can be checked without that endpoint: the one thing
 	   a token must never do is hand over another account's private data */

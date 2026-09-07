@@ -140,7 +140,7 @@ if ($segment0 !== null && $segment1 === null && $method === 'PATCH') {
 	if (($v = input('end_date')) !== false) {
 		$fields['end_date'] = $v === '' ? null : intval($v);
 	}
-	$ok = $model->update(intval($segment0), $api_user_guid, $fields);
+	$ok = $model->updateTrip(intval($segment0), $api_user_guid, $fields);
 	if (!$ok) {
 		ossn_api_error('update_failed', 'Could not update trip', 422);
 	}
@@ -149,7 +149,7 @@ if ($segment0 !== null && $segment1 === null && $method === 'PATCH') {
 }
 
 if ($segment0 !== null && $segment1 === null && $method === 'DELETE') {
-	$ok = $model->delete(intval($segment0), $api_user_guid);
+	$ok = $model->deleteTrip(intval($segment0), $api_user_guid);
 	ossn_api_json(array('status' => $ok ? 'ok' : 'forbidden'));
 }
 

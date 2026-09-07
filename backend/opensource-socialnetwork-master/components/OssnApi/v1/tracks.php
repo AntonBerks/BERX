@@ -38,8 +38,8 @@ if ($segment0 === null && $method === 'GET') {
 	if ($userGuid) {
 		$assets = $mediaModel->listByOwnerAndMediaType(intval($userGuid), OssnMediaAssets::TYPE_AUDIO, 'post');
 	} else {
-		$limit  = intval(input('limit')) ?: 20;
-		$offset = intval(input('offset')) ?: 0;
+		$limit  = intval(ossn_api_page('limit')) ?: 20;
+		$offset = intval(ossn_api_page('offset')) ?: 0;
 		$assets = $mediaModel->listByMediaType(OssnMediaAssets::TYPE_AUDIO, 'post', $limit, $offset);
 	}
 	$wall = new OssnWall();

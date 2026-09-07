@@ -124,7 +124,7 @@ if ($segment0 === null && $method === 'POST') {
 }
 
 if ($segment0 === 'mine' && $method === 'GET') {
-	$limit = input('limit') ? max(1, min(100, intval(input('limit')))) : 50;
+	$limit = ossn_api_page('limit') ? max(1, min(100, intval(ossn_api_page('limit')))) : 50;
 	$out = array();
 	foreach ($worlds->myWorlds($api_user_guid, $limit) as $row) {
 		$out[] = ossn_api_world_json($row, $api_user_guid, $worlds);

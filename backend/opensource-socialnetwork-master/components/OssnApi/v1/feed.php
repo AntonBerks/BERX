@@ -44,12 +44,12 @@ if ($method !== 'GET') {
 	ossn_api_error('not_found', 'Unknown feed action', 404);
 }
 
-$limit = intval(input('limit'));
+$limit = intval(ossn_api_page('limit'));
 if ($limit <= 0) {
 	$limit = 20;
 }
 $limit  = min($limit, 50);
-$offset = max(0, intval(input('offset')));
+$offset = max(0, intval(ossn_api_page('offset')));
 
 $userModel = new OssnUser();
 $userModel->guid = intval($api_user_guid);
@@ -70,7 +70,24 @@ $wall = new OssnWall();
 // to rank and paginate several pages without a second full pass;
 // capped so one request can never pull the entire friends wall.
 $poolSize = min(300, max(120, ($offset + $limit) * 4));
-$posts = $wall->getFriendsPosts(array('limit' => $poolSize, 'page_limit' => false, 'distinct' => true));
+// Core pagination is 1-BASED PAGES, BERX's is 0-based items — measured,
+// not assumed: every core helper defaults its own `offset` to the
+// GLOBAL `input('offset')`, so the client's real `?offset=0` reached
+// OssnDatabase::generateLimit() as page 0 and produced `LIMIT -10, 10`,
+// which MariaDB rejects outright. GET /feed answered every request with
+// a fatal SQL error under a 200 header. The API's own limit/offset are
+// now lifted out of the superglobals by the dispatcher before any
+// resource file runs (see components/OssnApi/ossn_com.php), so core
+// never sees them at all; this call still names core's own first page
+// explicitly rather than relying on that default, with a page big
+// enough to hold the whole candidate pool. BERX's 0-based paging stays
+// where it already was — the array_slice() below.
+$posts = $wall->getFriendsPosts(array(
+	'limit'      => $poolSize,
+	'page_limit' => $poolSize,
+	'offset'     => 1,
+	'distinct'   => true,
+));
 unset($_SESSION['OSSN_USER']);
 
 // BERX WORLD — real feed Mute (components/OssnApi/v1/mute.php). One
@@ -130,14 +147,22 @@ $mediaCovers = array();
 $mediaCounts = array();
 if ($pageGuids) {
 	$db = new OssnDatabase();
-	$guidList = implode(',', $pageGuids);
+	/* OssnDatabase's own IN handling takes an ARRAY and builds one
+	   placeholder per element (classes/OssnDatabase.php, the
+	   $in_or_notin branch). Handed anything else it `continue`s —
+	   silently dropping the condition and leaving the connector before
+	   it dangling, which is a syntax error, not a wider result set:
+	   every query below answered
+	   `SQLSTATE[42000] ... near ') GROUP BY subject_id'` under a 200
+	   header as soon as the page held a single post. Measured against
+	   the running server, not read off the signature. */
 
 	$likeRows = $db->select(array(
 		'from'     => 'ossn_likes',
 		'params'   => array('subject_id', 'COUNT(*) as c'),
 		'wheres'   => array(
 			OssnDatabase::wheres('type', '=', 'post'),
-			OssnDatabase::wheres('subject_id', 'IN', $guidList),
+			OssnDatabase::wheres('subject_id', 'IN', $pageGuids),
 		),
 		'group_by' => 'subject_id',
 	), true);
@@ -153,7 +178,7 @@ if ($pageGuids) {
 		'wheres' => array(
 			OssnDatabase::wheres('type', '=', 'post'),
 			OssnDatabase::wheres('guid', '=', intval($api_user_guid)),
-			OssnDatabase::wheres('subject_id', 'IN', $guidList),
+			OssnDatabase::wheres('subject_id', 'IN', $pageGuids),
 		),
 	), true);
 	if ($mineRows) {
@@ -173,7 +198,7 @@ if ($pageGuids) {
 		'params'   => array('id', 'context_guid', 'media_type'),
 		'wheres'   => array(
 			OssnDatabase::wheres('context_type', '=', 'post'),
-			OssnDatabase::wheres('context_guid', 'IN', $guidList),
+			OssnDatabase::wheres('context_guid', 'IN', $pageGuids),
 		),
 		'order_by' => 'time_created ASC',
 	), true);
@@ -192,7 +217,7 @@ if ($pageGuids) {
 		'params'   => array('subject_guid', 'COUNT(*) as c'),
 		'wheres'   => array(
 			OssnDatabase::wheres('type', '=', 'comments:post'),
-			OssnDatabase::wheres('subject_guid', 'IN', $guidList),
+			OssnDatabase::wheres('subject_guid', 'IN', $pageGuids),
 		),
 		'group_by' => 'subject_guid',
 	), true);

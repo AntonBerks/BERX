@@ -89,7 +89,7 @@ if ($segment0 !== null && $segment1 === null && $method === 'PATCH') {
 }
 
 if ($segment0 !== null && $segment1 === null && $method === 'DELETE') {
-	$ok = $model->delete(intval($segment0), $api_user_guid);
+	$ok = $model->deleteCircle(intval($segment0), $api_user_guid);
 	ossn_api_json(array('status' => $ok ? 'ok' : 'forbidden'));
 }
 

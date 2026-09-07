@@ -145,7 +145,7 @@ if ($segment0 !== null && $segment1 === null && $method === 'PATCH') {
 	if (($v = input('visibility')) !== false) {
 		$fields['visibility'] = $v === 'public' ? OssnExperiences::VISIBILITY_PUBLIC : OssnExperiences::VISIBILITY_PRIVATE;
 	}
-	$ok = $model->update(intval($segment0), $api_user_guid, $fields);
+	$ok = $model->updateExperience(intval($segment0), $api_user_guid, $fields);
 	if (!$ok) {
 		ossn_api_error('update_failed', 'Could not update experience', 422);
 	}
@@ -154,7 +154,7 @@ if ($segment0 !== null && $segment1 === null && $method === 'PATCH') {
 }
 
 if ($segment0 !== null && $segment1 === null && $method === 'DELETE') {
-	$ok = $model->delete(intval($segment0), $api_user_guid);
+	$ok = $model->deleteExperience(intval($segment0), $api_user_guid);
 	ossn_api_json(array('status' => $ok ? 'ok' : 'forbidden'));
 }
 

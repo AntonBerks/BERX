@@ -82,7 +82,7 @@ if ($segment0 === 'for-source' && $segment1 !== null && $segment2 !== null && is
 }
 
 if ($segment0 === 'mine' && $segment1 === null && $method === 'GET') {
-	$limit = input('limit') ? max(1, min(100, intval(input('limit')))) : 50;
+	$limit = ossn_api_page('limit') ? max(1, min(100, intval(ossn_api_page('limit')))) : 50;
 	$out = array();
 	foreach ($model->myMoments($api_user_guid, $limit) as $row) {
 		$out[] = ossn_api_moment_json($row, $model);

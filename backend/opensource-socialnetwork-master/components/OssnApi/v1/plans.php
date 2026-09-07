@@ -92,7 +92,7 @@ if ($segment0 === null && $method === 'POST') {
 }
 
 if ($segment0 === 'mine' && $method === 'GET') {
-	$limit = input('limit') ? max(1, min(100, intval(input('limit')))) : 50;
+	$limit = ossn_api_page('limit') ? max(1, min(100, intval(ossn_api_page('limit')))) : 50;
 	$rows = $plans->myPlans($api_user_guid, $limit);
 	$out = array();
 	foreach ($rows as $row) {

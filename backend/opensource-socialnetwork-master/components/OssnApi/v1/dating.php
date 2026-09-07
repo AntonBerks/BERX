@@ -30,8 +30,8 @@ $segment0 = isset($segments[0]) ? $segments[0] : null;
 $model = new OssnDating();
 
 if ($segment0 === 'discover' && $method === 'GET') {
-	$limit  = intval(input('limit')) ?: 20;
-	$offset = intval(input('offset')) ?: 0;
+	$limit  = intval(ossn_api_page('limit')) ?: 20;
+	$offset = intval(ossn_api_page('offset')) ?: 0;
 	$rows = $model->discover($api_user_guid, $limit, $offset);
 	$out = array();
 	foreach ($rows as $row) {
@@ -77,8 +77,8 @@ if ($segment0 === 'profile' && $method === 'GET') {
 
 if ($segment0 === 'search' && $method === 'GET') {
 	$q = input('q');
-	$limit  = intval(input('limit')) ?: 20;
-	$offset = intval(input('offset')) ?: 0;
+	$limit  = intval(ossn_api_page('limit')) ?: 20;
+	$offset = intval(ossn_api_page('offset')) ?: 0;
 	$rows = $model->search($api_user_guid, $q ? $q : '', $limit, $offset);
 	$out = array();
 	foreach ($rows as $row) {

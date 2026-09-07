@@ -160,8 +160,8 @@ $segment0 = isset($segments[0]) ? $segments[0] : null;
 $model = new OssnNotifications();
 
 if ($segment0 === null && $method === 'GET') {
-	$limit  = intval(input('limit')) ?: 20;
-	$offset = intval(input('offset')) ?: 1;
+	$limit  = intval(ossn_api_page('limit')) ?: 20;
+	$offset = intval(ossn_api_page('offset')) ?: 1;
 	$unreadOnly = input('unread') === '1';
 
 	$params = array(
