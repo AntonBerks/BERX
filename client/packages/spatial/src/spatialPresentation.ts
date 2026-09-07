@@ -74,26 +74,39 @@ export const BERX_5D_DNA = {
  *
  * Rarity is enforced by the only thing that can honestly enforce it:
  * `energy` is raised solely by a real server signal, and an object at
- * rest carries zero, so it emits zero. Gold for what is scheduled and
- * happening, energy cyan for what is live right now.
+ * rest carries zero, so it emits zero. Gold is a *base* — what a
+ * scheduled thing is made of; BERX Energy is the *glow* — what
+ * anything gives off while it is live right now. Every kind glows the
+ * same colour for the same reason, and only the base says what kind of
+ * thing it is.
+ *
+ * `amount` is the fraction of `glow` emitted at full energy, and these
+ * numbers used to be far too small to mean anything. The world's
+ * ambient term is #15191E at 1.35, which is about 0.13 per channel; an
+ * event running right now emitted 0.044, a third of the light already
+ * falling on it, and rendered as a dark ring. An emissive below
+ * ambient is not a subtle signal, it is an absent one — so a fully
+ * live object now emits several times ambient and is unmistakable,
+ * while an object at rest still emits exactly nothing.
  */
 const materials: Record<BerxSpatialEntityKind, {base: BerxShaderRgb; glow: BerxShaderRgb; amount: number}> = {
   /* people carry the light in this world */
-  person: {base: BERX_5D_DNA.pearl, glow: BERX_5D_DNA.energy, amount: 0.08},
+  person: {base: BERX_5D_DNA.pearl, glow: BERX_5D_DNA.energy, amount: 0.45},
   /* a moment is live only while it is live */
-  moment: {base: BERX_5D_DNA.mist, glow: BERX_5D_DNA.energy, amount: 0.10},
+  moment: {base: BERX_5D_DNA.mist, glow: BERX_5D_DNA.energy, amount: 0.55},
   /* architecture, lit rather than lighting — until something is
      happening inside it, which is what NOW is */
-  place: {base: BERX_5D_DNA.steel, glow: BERX_5D_DNA.energy, amount: 0.07},
-  /* gold is for what is happening — the warm end of the DNA */
-  event: {base: BERX_5D_DNA.gold, glow: BERX_5D_DNA.gold, amount: 0.08},
-  experience: {base: BERX_5D_DNA.gold, glow: BERX_5D_DNA.gold, amount: 0.06},
-  community: {base: BERX_5D_DNA.mist, glow: BERX_5D_DNA.energy, amount: 0.05},
-  business: {base: BERX_5D_DNA.steel, glow: BERX_5D_DNA.gold, amount: 0.05},
-  collection: {base: BERX_5D_DNA.graphite, glow: BERX_5D_DNA.energy, amount: 0.04},
-  message: {base: BERX_5D_DNA.mist, glow: BERX_5D_DNA.energy, amount: 0.06},
+  place: {base: BERX_5D_DNA.steel, glow: BERX_5D_DNA.energy, amount: 0.5},
+  /* gold is what an event is made of; cyan is what it gives off while
+     it is actually running */
+  event: {base: BERX_5D_DNA.gold, glow: BERX_5D_DNA.energy, amount: 0.7},
+  experience: {base: BERX_5D_DNA.gold, glow: BERX_5D_DNA.energy, amount: 0.5},
+  community: {base: BERX_5D_DNA.mist, glow: BERX_5D_DNA.energy, amount: 0.4},
+  business: {base: BERX_5D_DNA.steel, glow: BERX_5D_DNA.energy, amount: 0.4},
+  collection: {base: BERX_5D_DNA.graphite, glow: BERX_5D_DNA.energy, amount: 0.35},
+  message: {base: BERX_5D_DNA.mist, glow: BERX_5D_DNA.energy, amount: 0.45},
   /* creating is a focus moment, and focus is where energy belongs */
-  create: {base: BERX_5D_DNA.steel, glow: BERX_5D_DNA.energy, amount: 0.18},
+  create: {base: BERX_5D_DNA.steel, glow: BERX_5D_DNA.energy, amount: 0.8},
 };
 
 export function presentationForKind(kind: BerxSpatialEntityKind, object?: BerxSpatialObject): BerxSpatialPresentation {

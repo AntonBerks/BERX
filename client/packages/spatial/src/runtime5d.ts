@@ -29,9 +29,17 @@ export class Berx5DRuntime{
   setDeviceMotionEnabled(enabled:boolean){this.deviceMotionEnabled=enabled;}
   registerObject(object:BerxSpatialObject){this.world.upsertObject(object);}
   removeObject(id:string){this.world.removeObject(id);if(this.currentWorld.focusObjectId===id)this.currentWorld.focusObjectId=undefined;}
-  focus(objectId:string){
+  /**
+   * Look at something.
+   *
+   * `framingRadius` is how far anything that belongs to the object but
+   * stands outside it reaches — the ring of actions. The world
+   * application knows what a thing affords and passes it; a bare
+   * runtime has no affordances and passes nothing.
+   */
+  focus(objectId:string,framingRadius=0){
     const object=this.world.getObject(objectId);if(!object)return false;this.world.setActiveObject(objectId);this.currentWorld.focusObjectId=objectId;
-    const pose=this.camera.poseForObject(object.transform.position,object.transform.scale);this.beginCameraTransition(pose,this.reducedMotion?0.01:this.transitionDuration);return true;
+    const pose=this.camera.poseForObject(object.transform.position,object.transform.scale,undefined,framingRadius);this.beginCameraTransition(pose,this.reducedMotion?0.01:this.transitionDuration);return true;
   }
   private beginCameraTransition(pose:{position:BerxVec3;target:BerxVec3},duration:number,toWorld=this.currentWorld){
     const fromCamera=this.camera.getState();this.cameraTransition=this.camera.moveToPose(pose,duration);

@@ -76,7 +76,8 @@ export interface BerxAppShellOptions {
 	 */
 	act?: (action: BerxSocialAction, object: BerxSpatialObject) => Promise<BerxWorldIngest | undefined>;
 	/** What each action is called, in the viewer's language. */
-	actionLabels?: Partial<Record<BerxSocialAction, string>>;
+	/** Every action's name in the viewer's language — all of them, see Berx5DWorldApp. */
+	actionLabels?: Record<BerxSocialAction, string>;
 	/**
 	 * Bring back whatever a region needs that the first load did not.
 	 *

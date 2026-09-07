@@ -1,0 +1,633 @@
+<?php
+/**
+ * BERX Dating / Match. Schema already existed and was already
+ * migrated (installation/sql/opensource-socialnetwork.sql —
+ * ossn_dating_profiles/interests/passes/photos/photo_access) —
+ * confirmed real, pre-existing, well-commented schema before writing
+ * any of this class, not invented alongside it.
+ *
+ * A "match" is not its own row: it is the real, live fact that BOTH
+ * directions of ossn_dating_interests exist for a pair — computed on
+ * read, never cached, so it can never drift from the truth.
+ *
+ * No method here is named update()/delete() — same self-recursion
+ * class of bug documented across the other BERX classes this session.
+ *
+ * MAX BUILD — "profile boost" is now real: a prior session already
+ * added the boosted_until column via upgrade/upgrades/1785168700.php
+ * (idempotent, confirmed by reading it) but boostProfile() itself,
+ * discover()'s boosted-first ordering, and the /dating/boost route
+ * were never actually written — this comment previously claimed the
+ * column didn't exist, which was stale/false. boostProfile() spends
+ * real points via OssnPoints::spend('dating_boost', 50 — the same
+ * SPEND_PRICES entry points.php's own /spend route already
+ * authorizes), never a client-claimed spend.
+ */
+class OssnDating extends OssnDatabase {
+
+	const PROFILES_TABLE     = 'ossn_dating_profiles';
+	const INTERESTS_TABLE    = 'ossn_dating_interests';
+	const PASSES_TABLE       = 'ossn_dating_passes';
+	const PHOTOS_TABLE       = 'ossn_dating_photos';
+	const PHOTO_ACCESS_TABLE = 'ossn_dating_photo_access';
+
+	const VALID_PHOTO_ACCESS_POLICIES = array('nobody', 'mutual', 'anyone');
+
+	/**
+	 * MAX BUILD — real upload finally added (the ossn_dating_photos
+	 * table + list/delete existed, but no addPhoto() ever wrote a row
+	 * into it — see dating.php's own now-corrected header comment).
+	 * Images only (a private "dating photo" is a photo, not a video);
+	 * same real byte-sniffed finfo MIME detection and bare-random-
+	 * filename storage pattern as OssnStories::addStory() — this table
+	 * predates OssnFile/OssnMediaAssets the same way stories' table
+	 * does, confirmed by its own schema comment ("storage_name is a
+	 * randomised on-disk filename, never derivable from the photo id").
+	 */
+	const ALLOWED_PHOTO_MIME = array(
+		'image/jpeg' => 'jpg',
+		'image/png'  => 'png',
+		'image/webp' => 'webp',
+		'image/gif'  => 'gif',
+	);
+
+	/* ---------------- Profile ---------------- */
+
+	public function getProfile($guid) {
+		$guid = intval($guid);
+		if (!$guid) {
+			return false;
+		}
+		$row = $this->select(array(
+			'from'   => self::PROFILES_TABLE,
+			'wheres' => array(self::wheres('guid', '=', $guid)),
+		));
+		return $row ? $row : false;
+	}
+
+	public function hasProfile($guid) {
+		return (bool) $this->getProfile($guid);
+	}
+
+	/** Create-or-update — the only dating endpoint callable before a profile exists. */
+	public function saveProfile($guid, array $fields) {
+		$guid = intval($guid);
+		if (!$guid || !isset($fields['pseudonym']) || trim((string) $fields['pseudonym']) === '') {
+			return false;
+		}
+		$pseudonym = mb_substr(trim((string) $fields['pseudonym']), 0, 100, 'UTF-8');
+		$existing = $this->getProfile($guid);
+		$now = time();
+		if ($existing) {
+			$names = array('pseudonym');
+			$values = array($pseudonym);
+			foreach (array('age', 'city', 'goal', 'bio', 'interests') as $f) {
+				if (isset($fields[$f])) {
+					$names[] = $f;
+					$values[] = $f === 'age' ? intval($fields[$f]) : (string) $fields[$f];
+				}
+			}
+			$names[] = 'time_updated';
+			$values[] = $now;
+			return parent::update(array(
+				'table'  => self::PROFILES_TABLE,
+				'names'  => $names,
+				'values' => $values,
+				'wheres' => array(self::wheres('guid', '=', $guid)),
+			));
+		}
+		return $this->insert(array(
+			'into'   => self::PROFILES_TABLE,
+			'names'  => array('guid', 'pseudonym', 'age', 'city', 'goal', 'bio', 'interests', 'time_created', 'time_updated'),
+			'values' => array(
+				$guid,
+				$pseudonym,
+				isset($fields['age']) ? intval($fields['age']) : null,
+				isset($fields['city']) ? (string) $fields['city'] : null,
+				isset($fields['goal']) ? (string) $fields['goal'] : null,
+				isset($fields['bio']) ? (string) $fields['bio'] : null,
+				isset($fields['interests']) ? (string) $fields['interests'] : null,
+				$now,
+				$now,
+			),
+		));
+	}
+
+	public function updateLocation($guid, array $fields) {
+		$names = array();
+		$values = array();
+		if (isset($fields['latitude'])) {
+			$names[] = 'latitude';
+			$values[] = $fields['latitude'] === null ? null : floatval($fields['latitude']);
+		}
+		if (isset($fields['longitude'])) {
+			$names[] = 'longitude';
+			$values[] = $fields['longitude'] === null ? null : floatval($fields['longitude']);
+		}
+		if (isset($fields['hide_location'])) {
+			$names[] = 'hide_location';
+			$values[] = $fields['hide_location'] ? 1 : 0;
+		}
+		if (empty($names)) {
+			return false;
+		}
+		$names[] = 'time_updated';
+		$values[] = time();
+		return parent::update(array(
+			'table'  => self::PROFILES_TABLE,
+			'names'  => $names,
+			'values' => $values,
+			'wheres' => array(self::wheres('guid', '=', intval($guid))),
+		));
+	}
+
+	public function updatePrivacy($guid, array $fields) {
+		$names = array();
+		$values = array();
+		foreach (array('hide_profile', 'hide_online', 'hide_age', 'hide_city', 'invisible_mode') as $f) {
+			if (isset($fields[$f])) {
+				$names[] = $f;
+				$values[] = $fields[$f] ? 1 : 0;
+			}
+		}
+		if (empty($names)) {
+			return false;
+		}
+		$names[] = 'time_updated';
+		$values[] = time();
+		return parent::update(array(
+			'table'  => self::PROFILES_TABLE,
+			'names'  => $names,
+			'values' => $values,
+			'wheres' => array(self::wheres('guid', '=', intval($guid))),
+		));
+	}
+
+	/**
+	 * MAX BUILD -- real, admin-only moderation action (closes
+	 * report.php's target_type='dating_profile' real, honest 501).
+	 * Deliberately separate from the user's own hide_profile/
+	 * invisible_mode toggles: those stay theirs to control, this is a
+	 * distinct, reversible layer an admin applies on top -- never a
+	 * destructive row delete (a dating profile carries real photos/
+	 * interests/passes across four other tables; a full cascade
+	 * without a real MySQL runtime here to verify it against is a real,
+	 * avoidable risk).
+	 */
+	public function hideProfile($guid, $actingGuid) {
+		$guid = intval($guid);
+		if (!$guid || !ossn_api_is_admin($actingGuid)) {
+			return false;
+		}
+		return (bool) parent::update(array(
+			'table'  => self::PROFILES_TABLE,
+			'names'  => array('moderation_hidden'),
+			'values' => array(1),
+			'wheres' => array(self::wheres('guid', '=', $guid)),
+		));
+	}
+
+	public function unhideProfile($guid, $actingGuid) {
+		$guid = intval($guid);
+		if (!$guid || !ossn_api_is_admin($actingGuid)) {
+			return false;
+		}
+		return (bool) parent::update(array(
+			'table'  => self::PROFILES_TABLE,
+			'names'  => array('moderation_hidden'),
+			'values' => array(0),
+			'wheres' => array(self::wheres('guid', '=', $guid)),
+		));
+	}
+
+	/* ---------------- Discover / search ---------------- */
+
+	private function excludedGuids($viewerGuid) {
+		$viewerGuid = intval($viewerGuid);
+		$excluded = array($viewerGuid);
+		$interested = $this->select(array(
+			'from'   => self::INTERESTS_TABLE,
+			'wheres' => array(self::wheres('from_guid', '=', $viewerGuid)),
+		), true);
+		foreach ((array) $interested as $row) {
+			$excluded[] = intval($row->to_guid);
+		}
+		$passed = $this->select(array(
+			'from'   => self::PASSES_TABLE,
+			'wheres' => array(self::wheres('from_guid', '=', $viewerGuid)),
+		), true);
+		foreach ((array) $passed as $row) {
+			$excluded[] = intval($row->to_guid);
+		}
+		return array_unique($excluded);
+	}
+
+	/**
+	 * OssnBlock::isBlocked($usera, $userb) reads ->guid off each
+	 * argument (confirmed by reading its real body) — it does not
+	 * accept raw guids. Minimal stdClass stand-ins are enough; the
+	 * method never reads anything else off either argument.
+	 */
+	private function isBlockedPair($aGuid, $bGuid) {
+		$a = new stdClass();
+		$a->guid = intval($aGuid);
+		$b = new stdClass();
+		$b->guid = intval($bGuid);
+		return (bool) OssnBlock::isBlocked($a, $b);
+	}
+
+	/**
+	 * Real candidate list: excludes self, anyone already liked/passed,
+	 * hidden/invisible profiles, and (both directions) blocked users.
+	 * Ordered by real recent activity (time_updated DESC) — no
+	 * distance/compatibility scoring exists, not faked as one.
+	 */
+	public function discover($viewerGuid, $limit = 20, $offset = 0) {
+		$viewerGuid = intval($viewerGuid);
+		$excluded = $this->excludedGuids($viewerGuid);
+		$wheres = array(
+			self::wheres('hide_profile', '=', 0),
+			self::wheres('invisible_mode', '=', 0),
+			self::wheres('moderation_hidden', '=', 0),
+			self::wheres('guid', 'NOT IN', $excluded),
+		);
+		// Real boosted-first ordering: a still-active boost (boosted_until
+		// in the future) sorts ahead of everything else, ties broken by
+		// the existing recency order — the actual point of spending real
+		// points on a boost, not decorative.
+		$rows = $this->select(array(
+			'from'     => self::PROFILES_TABLE,
+			'wheres'   => $wheres,
+			'order_by' => '(boosted_until > ' . time() . ') DESC, time_updated DESC',
+			'limit'    => intval($limit),
+			'offset'   => intval($offset) > 0 ? intval($offset) : 0,
+		), true);
+		$out = array();
+		foreach ((array) $rows as $row) {
+			if ($this->isBlockedPair($viewerGuid, $row->guid)) {
+				continue;
+			}
+			$out[] = $row;
+		}
+		return $out;
+	}
+
+	/**
+	 * @return array {status: 'ok', boosted_until: int} on success, or
+	 *         {status: 'no_profile'|'insufficient_balance'|'failed'}
+	 */
+	public function boostProfile($guid) {
+		$guid = intval($guid);
+		if (!$this->hasProfile($guid)) {
+			return array('status' => 'no_profile');
+		}
+		$result = (new OssnPoints())->spend($guid, 'dating_boost', OssnPoints::SPEND_PRICES['dating_boost']);
+		if (!is_int($result)) {
+			return array('status' => (string) $result);
+		}
+		// 30 minutes — the real, already-shipped UI copy on PointsScreen
+		// ("Показ выше в Discover на 30 минут") promised this exact
+		// duration before the backend existed to honor it.
+		$boostedUntil = time() + (30 * 60);
+		$ok = parent::update(array(
+			'table'  => self::PROFILES_TABLE,
+			'names'  => array('boosted_until'),
+			'values' => array($boostedUntil),
+			'wheres' => array(self::wheres('guid', '=', $guid)),
+		));
+		if (!$ok) {
+			return array('status' => 'failed');
+		}
+		return array('status' => 'ok', 'boosted_until' => $boostedUntil);
+	}
+
+	public function search($viewerGuid, $q, $limit = 20, $offset = 0) {
+		$excluded = $this->excludedGuids($viewerGuid);
+		$rows = $this->select(array(
+			'from'     => self::PROFILES_TABLE,
+			'wheres'   => array(
+				self::wheres('hide_profile', '=', 0),
+				self::wheres('moderation_hidden', '=', 0),
+				self::wheres('guid', 'NOT IN', $excluded),
+				self::wheres('pseudonym', 'LIKE', '%' . $q . '%'),
+			),
+			'order_by' => 'time_updated DESC',
+			'limit'    => intval($limit),
+			'offset'   => intval($offset) > 0 ? intval($offset) : 0,
+		), true);
+		return (array) $rows;
+	}
+
+	/* ---------------- Like / pass / undo / matches ---------------- */
+
+	/**
+	 * MAX BUILD — a real rate limit. API_SECURITY_MATRIX.md's own row
+	 * for POST /dating/interests already claimed "✅ 30/60сек" and
+	 * DatingDiscoverScreen.tsx's own comment already relied on it
+	 * existing ("dating/interests has a real 30/60s limit") — but no
+	 * such mechanism existed anywhere in code, only in that
+	 * documentation. Closed with the same real, disclosed reasoning as
+	 * OssnApiToken's login rate limit (identifier-keyed COUNT() over a
+	 * time window) — except here the caller is already an
+	 * authenticated $guid, so no separate attempts table is needed:
+	 * ossn_relationships already IS a generic timestamped edge log, so
+	 * a new relation type ('dating:action', one real row per like/pass
+	 * attempt, never deduped) reuses it instead of a new table.
+	 */
+	const ACTION_RELATION = 'dating:action';
+	const ACTION_WINDOW_SECONDS = 60;
+	const ACTION_MAX = 30;
+
+	private function isActionRateLimited($guid) {
+		$since = time() - self::ACTION_WINDOW_SECONDS;
+		$count = intval(ossn_get_relationships(array(
+			'from'   => intval($guid),
+			'type'   => self::ACTION_RELATION,
+			'count'  => true,
+			'wheres' => "r.time >= {$since}",
+		)));
+		return $count >= self::ACTION_MAX;
+	}
+
+	/** Recorded for EVERY real like/pass attempt, success or no-op — same real intent as OssnApiToken::recordLoginAttempt()'s own comment. */
+	private function recordAction($fromGuid, $toGuid) {
+		ossn_add_relation(intval($fromGuid), intval($toGuid), self::ACTION_RELATION);
+	}
+
+	public function isMutual($aGuid, $bGuid) {
+		$ab = $this->select(array(
+			'from'   => self::INTERESTS_TABLE,
+			'wheres' => array(self::wheres('from_guid', '=', intval($aGuid)), self::wheres('to_guid', '=', intval($bGuid))),
+		));
+		$ba = $this->select(array(
+			'from'   => self::INTERESTS_TABLE,
+			'wheres' => array(self::wheres('from_guid', '=', intval($bGuid)), self::wheres('to_guid', '=', intval($aGuid))),
+		));
+		return (bool) ($ab && $ba);
+	}
+
+	public function like($fromGuid, $toGuid) {
+		$fromGuid = intval($fromGuid);
+		$toGuid   = intval($toGuid);
+		if (!$fromGuid || !$toGuid || $fromGuid === $toGuid) {
+			return array('status' => 'invalid', 'mutual' => false);
+		}
+		if ($this->isActionRateLimited($fromGuid)) {
+			return array('status' => 'rate_limited', 'mutual' => false);
+		}
+		// Recorded before we know the outcome — same real intent as
+		// OssnApiToken::recordLoginAttempt()'s own comment: a repeat
+		// like on an already-liked profile still counts as an attempt.
+		$this->recordAction($fromGuid, $toGuid);
+		$existing = $this->select(array(
+			'from'   => self::INTERESTS_TABLE,
+			'wheres' => array(self::wheres('from_guid', '=', $fromGuid), self::wheres('to_guid', '=', $toGuid)),
+		));
+		if (!$existing) {
+			$this->insert(array(
+				'into'   => self::INTERESTS_TABLE,
+				'names'  => array('from_guid', 'to_guid', 'time_created'),
+				'values' => array($fromGuid, $toGuid, time()),
+			));
+		}
+		return array('status' => 'ok', 'mutual' => $this->isMutual($fromGuid, $toGuid));
+	}
+
+	/** @return 'ok'|'rate_limited'|'invalid' */
+	public function pass($fromGuid, $toGuid) {
+		$fromGuid = intval($fromGuid);
+		$toGuid   = intval($toGuid);
+		if (!$fromGuid || !$toGuid || $fromGuid === $toGuid) {
+			return 'invalid';
+		}
+		if ($this->isActionRateLimited($fromGuid)) {
+			return 'rate_limited';
+		}
+		$this->recordAction($fromGuid, $toGuid);
+		$existing = $this->select(array(
+			'from'   => self::PASSES_TABLE,
+			'wheres' => array(self::wheres('from_guid', '=', $fromGuid), self::wheres('to_guid', '=', $toGuid)),
+		));
+		if ($existing) {
+			return 'ok';
+		}
+		return $this->insert(array(
+			'into'   => self::PASSES_TABLE,
+			'names'  => array('from_guid', 'to_guid', 'time_created'),
+			'values' => array($fromGuid, $toGuid, time()),
+		)) ? 'ok' : 'invalid';
+	}
+
+	/** Undoes the caller's own single most recent pass. */
+	public function undoLastPass($guid) {
+		$guid = intval($guid);
+		$row = $this->select(array(
+			'from'     => self::PASSES_TABLE,
+			'wheres'   => array(self::wheres('from_guid', '=', $guid)),
+			'order_by' => 'id DESC',
+		));
+		if (!$row) {
+			return null;
+		}
+		parent::delete(array(
+			'from'   => self::PASSES_TABLE,
+			'wheres' => array(self::wheres('id', '=', intval($row->id))),
+		));
+		return intval($row->to_guid);
+	}
+
+	/** Real mutual matches — computed live, both directions checked, never cached. */
+	public function matches($guid) {
+		$guid = intval($guid);
+		$mine = $this->select(array(
+			'from'   => self::INTERESTS_TABLE,
+			'wheres' => array(self::wheres('from_guid', '=', $guid)),
+		), true);
+		$out = array();
+		foreach ((array) $mine as $row) {
+			if ($this->isMutual($guid, $row->to_guid)) {
+				$out[] = intval($row->to_guid);
+			}
+		}
+		return $out;
+	}
+
+	public function unmatch($guid, $otherGuid) {
+		if (!$this->isMutual($guid, $otherGuid)) {
+			return false;
+		}
+		parent::delete(array(
+			'from'   => self::INTERESTS_TABLE,
+			'wheres' => array(self::wheres('from_guid', '=', intval($guid)), self::wheres('to_guid', '=', intval($otherGuid))),
+		));
+		parent::delete(array(
+			'from'   => self::INTERESTS_TABLE,
+			'wheres' => array(self::wheres('from_guid', '=', intval($otherGuid)), self::wheres('to_guid', '=', intval($guid))),
+		));
+		return true;
+	}
+
+	/* ---------------- Photos ---------------- */
+
+	/**
+	 * $tmpPath must be a real PHP-uploaded tmp file
+	 * ($_FILES[...]['tmp_name']) for this exact request — verified via
+	 * is_uploaded_file(), never accepted as an arbitrary server path.
+	 * Real MIME is byte-sniffed, never trusted from the client-reported
+	 * Content-Type — same discipline as OssnStories::addStory().
+	 */
+	public function addPhoto($ownerGuid, $tmpPath, $originalName = '') {
+		$ownerGuid = intval($ownerGuid);
+		if (!$ownerGuid || !$tmpPath || !is_uploaded_file($tmpPath)) {
+			return false;
+		}
+		$finfo = finfo_open(FILEINFO_MIME_TYPE);
+		$mime = $finfo ? finfo_file($finfo, $tmpPath) : false;
+		if ($finfo) {
+			finfo_close($finfo);
+		}
+		if (!$mime || !isset(self::ALLOWED_PHOTO_MIME[$mime])) {
+			return false;
+		}
+
+		$ext = self::ALLOWED_PHOTO_MIME[$mime];
+		$storageName = bin2hex(random_bytes(16)) . '.' . $ext;
+		$dir = ossn_get_userdata("dating_photos/{$ownerGuid}/");
+		if (!is_dir($dir) && !mkdir($dir, 0755, true) && !is_dir($dir)) {
+			return false;
+		}
+		if (!move_uploaded_file($tmpPath, $dir . $storageName)) {
+			return false;
+		}
+
+		$id = $this->insert(array(
+			'into'   => self::PHOTOS_TABLE,
+			'names'  => array('owner_guid', 'storage_name', 'original_name', 'mime_type', 'time_created'),
+			'values' => array($ownerGuid, $storageName, $originalName !== '' ? mb_substr((string) $originalName, 0, 255, 'UTF-8') : null, $mime, time()),
+		));
+		return $id ? $this->getLastEntry() : false;
+	}
+
+	public function storagePath($photo) {
+		return ossn_get_userdata("dating_photos/{$photo->owner_guid}/{$photo->storage_name}");
+	}
+
+	public function ownPhotos($guid) {
+		$rows = $this->select(array(
+			'from'     => self::PHOTOS_TABLE,
+			'wheres'   => array(self::wheres('owner_guid', '=', intval($guid))),
+			'order_by' => 'time_created DESC',
+		), true);
+		return (array) $rows;
+	}
+
+	public function getPhoto($id) {
+		$row = $this->select(array(
+			'from'   => self::PHOTOS_TABLE,
+			'wheres' => array(self::wheres('id', '=', intval($id))),
+		));
+		return $row ? $row : false;
+	}
+
+	public function deletePhoto($id, $actingGuid) {
+		$photo = $this->getPhoto($id);
+		if (!$photo || intval($photo->owner_guid) !== intval($actingGuid)) {
+			return false;
+		}
+		return (bool) parent::delete(array(
+			'from'   => self::PHOTOS_TABLE,
+			'wheres' => array(self::wheres('id', '=', intval($id))),
+		));
+	}
+
+	/* ---------------- Private photo access ---------------- */
+
+	public function requestPhotoAccess($photoId, $requesterGuid) {
+		$photo = $this->getPhoto($photoId);
+		if (!$photo || intval($photo->owner_guid) === intval($requesterGuid)) {
+			return false;
+		}
+		$existing = $this->select(array(
+			'from'   => self::PHOTO_ACCESS_TABLE,
+			'wheres' => array(self::wheres('photo_id', '=', intval($photoId)), self::wheres('requester_guid', '=', intval($requesterGuid))),
+		));
+		if ($existing) {
+			return true;
+		}
+		return (bool) $this->insert(array(
+			'into'   => self::PHOTO_ACCESS_TABLE,
+			'names'  => array('photo_id', 'owner_guid', 'requester_guid', 'status', 'time_created'),
+			'values' => array(intval($photoId), intval($photo->owner_guid), intval($requesterGuid), 'pending', time()),
+		));
+	}
+
+	/** Only the real photo owner may grant/deny — never the requester. */
+	public function respondPhotoAccess($accessId, $actingGuid, $grant) {
+		$row = $this->select(array(
+			'from'   => self::PHOTO_ACCESS_TABLE,
+			'wheres' => array(self::wheres('id', '=', intval($accessId))),
+		));
+		if (!$row || intval($row->owner_guid) !== intval($actingGuid)) {
+			return false;
+		}
+		return (bool) parent::update(array(
+			'table'  => self::PHOTO_ACCESS_TABLE,
+			'names'  => array('status', 'time_responded'),
+			'values' => array($grant ? 'granted' : 'denied', time()),
+			'wheres' => array(self::wheres('id', '=', intval($accessId))),
+		));
+	}
+
+	public function revokeAccess($accessId, $actingGuid) {
+		$row = $this->select(array(
+			'from'   => self::PHOTO_ACCESS_TABLE,
+			'wheres' => array(self::wheres('id', '=', intval($accessId))),
+		));
+		if (!$row || intval($row->owner_guid) !== intval($actingGuid)) {
+			return false;
+		}
+		return (bool) parent::update(array(
+			'table'  => self::PHOTO_ACCESS_TABLE,
+			'names'  => array('status', 'time_responded'),
+			'values' => array('revoked', time()),
+			'wheres' => array(self::wheres('id', '=', intval($accessId))),
+		));
+	}
+
+	public function listIncomingRequests($ownerGuid) {
+		$rows = $this->select(array(
+			'from'     => self::PHOTO_ACCESS_TABLE,
+			'wheres'   => array(self::wheres('owner_guid', '=', intval($ownerGuid)), self::wheres('status', '=', 'pending')),
+			'order_by' => 'time_created DESC',
+		), true);
+		return (array) $rows;
+	}
+
+	/** Same shape as listIncomingRequests(), status='granted' — real list to drive a revoke UI, which had no way to know which access_ids exist to revoke. */
+	public function listGrantedAccess($ownerGuid) {
+		$rows = $this->select(array(
+			'from'     => self::PHOTO_ACCESS_TABLE,
+			'wheres'   => array(self::wheres('owner_guid', '=', intval($ownerGuid)), self::wheres('status', '=', 'granted')),
+			'order_by' => 'time_responded DESC',
+		), true);
+		return (array) $rows;
+	}
+
+	public function canViewPhoto($photo, $viewerGuid) {
+		if (!$photo) {
+			return false;
+		}
+		if (intval($photo->owner_guid) === intval($viewerGuid)) {
+			return true;
+		}
+		$access = $this->select(array(
+			'from'   => self::PHOTO_ACCESS_TABLE,
+			'wheres' => array(
+				self::wheres('photo_id', '=', intval($photo->id)),
+				self::wheres('requester_guid', '=', intval($viewerGuid)),
+				self::wheres('status', '=', 'granted'),
+			),
+		));
+		return (bool) $access;
+	}
+}

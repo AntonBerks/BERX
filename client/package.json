@@ -22,14 +22,15 @@
     "verify:5d-app-shell": "node ./scripts/verify-5d-app-shell.mjs",
     "verify:5d-lighting": "node ./scripts/verify-5d-lighting.mjs",
     "verify:5d-platforms": "node ./scripts/verify-5d-platforms.mjs",
-    "verify:5d": "npm run typecheck && npm run verify:static && npm run verify:5d-shared-core && npm run verify:5d-world && npm run verify:5d-runtime && npm run verify:5d-geometry && npm run verify:5d-gpu && npm run verify:5d-lighting && npm run verify:5d-platforms && npm run build:spatial-web && npm run verify:5d-app-shell && npm run verify:5d-crossrender && npm run verify:5d-native-targets && npm run verify:5d-xr && npm run verify:v9 && npm run verify:v9:web && npm run verify:5d-blockers && npm run verify:5d-launch-gate",
+    "verify:5d": "npm run typecheck && npm run verify:static && npm run verify:5d-shared-core && npm run verify:5d-world && npm run verify:5d-runtime && npm run verify:5d-geometry && npm run verify:5d-gpu && npm run verify:5d-lighting && npm run verify:5d-platforms && npm run build:spatial-web && npm run verify:5d-app-shell && npm run verify:5d-crossrender && npm run verify:5d-native-targets && npm run verify:5d-xr && npm run verify:5d-backend && npm run verify:v9 && npm run verify:v9:web && npm run verify:5d-blockers && npm run verify:5d-launch-gate",
     "verify:5d-blockers": "node ./scripts/verify-5d-blockers.mjs",
     "verify:5d-launch-gate": "node ./scripts/verify-5d-launch-gate.mjs",
     "verify:5d-crossrender": "node ./scripts/verify-5d-crossrender.mjs",
     "generate:shaders": "node ./scripts/generate-shaders.mjs",
     "package:desktop": "node ./scripts/package-desktop.mjs",
     "verify:5d-native-targets": "node ./scripts/verify-5d-native-targets.mjs",
-    "verify:5d-xr": "node ./scripts/verify-5d-xr.mjs"
+    "verify:5d-xr": "node ./scripts/verify-5d-xr.mjs",
+    "verify:5d-backend": "node ./scripts/verify-5d-backend.mjs"
   },
   "engines": {
     "node": ">=20"

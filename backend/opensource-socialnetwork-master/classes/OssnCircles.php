@@ -53,12 +53,19 @@ class OssnCircles extends OssnDatabase {
 				return $row ? $row : false;
 		}
 
-		/** Strictly owner-or-admin — no read/write distinction, unlike Collections. */
+		/**
+		 * Strictly owner-or-admin — no read/write distinction, unlike
+		 * Collections.
+		 *
+		 * MAX BUILD -- real fix, same class of bug found/fixed elsewhere
+		 * this session: ossn_isAdminLoggedin() reads $_SESSION, never
+		 * populated for a bearer-token API request.
+		 */
 		public function canAccess($circle, $actingGuid) {
 				if (!$circle || !$actingGuid) {
 						return false;
 				}
-				if (ossn_isAdminLoggedin()) {
+				if (ossn_api_is_admin($actingGuid)) {
 						return true;
 				}
 				return intval($circle->owner_guid) === intval($actingGuid);
@@ -174,7 +181,16 @@ class OssnCircles extends OssnDatabase {
 		}
 
 		public function memberCount($circleId) {
-				return count($this->members($circleId, 2000));
+				// members() returns a real array only when EMPTY (see its own
+				// `return $rows ? $rows : array();`) — a non-empty result is
+				// select(..., true)'s real return value, arrayObject()'s
+				// stdClass wrapper (numeric properties, not a PHP array).
+				// count() on that throws TypeError on PHP 8+ (confirmed by
+				// tracing OssnDatabase::fetch()/arrayObject() before writing
+				// this fix, not assumed) — count() only ever worked here by
+				// accident, on the empty-array branch. (array) cast first,
+				// safe for both shapes.
+				return count((array) $this->members($circleId, 2000));
 		}
 
 		/* ---------------- Post visibility ----------------
@@ -213,7 +229,9 @@ class OssnCircles extends OssnDatabase {
 				if (intval($post->owner_guid) === intval($viewerGuid)) {
 						return true;
 				}
-				if (ossn_isAdminLoggedin()) {
+				// MAX BUILD -- real fix, same class of bug found/fixed
+				// elsewhere this session.
+				if (ossn_api_is_admin($viewerGuid)) {
 						return true;
 				}
 				$visibility = (isset($post->berx_visibility) && $post->berx_visibility !== '') ? (string) $post->berx_visibility : self::VISIBILITY_PUBLIC;

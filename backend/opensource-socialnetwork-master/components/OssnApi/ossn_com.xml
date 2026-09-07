@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+	BERX API v1 — the component manifest OSSN needs to load a component
+	at all.
+
+	This file was missing everywhere: not from this branch, not from any
+	branch, not from any commit in the repository's history. The cause is
+	the same inherited upstream .gitignore rule that blanket-ignored
+	/components/*, which took every BERX component's manifest with it —
+	so components/OssnApi/ossn_com.php could be restored from history
+	while the component still refused to load, because
+	OssnComponents::getComponentsDir() requires both files and
+	loadComs() includes nothing without the name this manifest carries.
+
+	The values below are the component's own: its id is the one already
+	in the ossn_components table and in upgrade/upgrades/1785168400.php,
+	and its version is the API version the client is written against.
+	Nothing here describes behaviour — behaviour is in ossn_com.php and
+	v1/, which are the real, restored source.
+-->
+<component xmlns="http://www.opensource-socialnetwork.org/v/3.0">
+    <name>BERX API</name>
+    <id>OssnApi</id>
+    <author>BERX</author>
+    <description>BERX API v1 — the stateless bearer-token /api/v1 layer every BERX client is written against.</description>
+    <license>Open Source Social Network License (OSSN LICENSE)</license>
+    <author_url>https://berx.app/</author_url>
+    <license_url>http://www.opensource-socialnetwork.org/licence/</license_url>
+    <version>1.0</version>
+	<requires>
+		<type>ossn_version</type>
+		<version>9.6</version>
+	</requires>
+</component>

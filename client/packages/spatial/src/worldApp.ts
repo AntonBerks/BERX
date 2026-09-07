@@ -28,6 +28,7 @@ import {berxRelationalLayout, berxRelationalWeight} from './relational';
 import {berxClampToWorld, berxNear, berxWorldBounds} from './proximity';
 import {affordancesForObject} from './spatialAffordances';
 import type {BerxSocialAction, BerxSpatialAffordance} from './socialActions';
+import {berxActionRingRadius} from './actionRing';
 import type {BerxNavigationIntent} from './platform';
 import {berxCameraFromPose, berxStereoCamerasFromPose, type BerxXrPose, type BerxXrViews} from './xrPose';
 import type {BerxSpatialObject, BerxSpatialRelation} from './world';
@@ -96,7 +97,16 @@ export interface Berx5DWorldAppOptions {
 	 */
 	onAction?: (action: BerxSocialAction, object: BerxSpatialObject) => Promise<BerxWorldIngest | undefined>;
 	/** What each action is called, in the viewer's language. */
-	actionLabels?: Partial<Record<BerxSocialAction, string>>;
+	/**
+	 * What each action is called, in the viewer's language.
+	 *
+	 * Every action, not some of them: a missing entry used to fall back
+	 * to the action's own identifier, and `view-event` was drawn in the
+	 * world, in English, next to «Пойду» and «Поделиться». A complete
+	 * record makes that a build error instead of something only a
+	 * screenshot catches.
+	 */
+	actionLabels?: Record<BerxSocialAction, string>;
 }
 
 export interface BerxWorldIngest {
@@ -255,7 +265,7 @@ export class Berx5DWorldApp {
 		   camera rather than only the pose */
 		this.history.push(this.worldPosition);
 		this.runtime.enterWorld({id: `${target}:${objectId}`, focusObjectId: objectId, enteredAt: Date.now()}, object.transform.position);
-		this.runtime.focus(objectId);
+		this.runtime.focus(objectId, berxActionRingRadius(object, this.affordancesFor(object)));
 		this.position = {...this.position, region: target, focusId: objectId};
 		this.options.onPositionChange?.(this.worldPosition);
 		return true;
@@ -402,7 +412,11 @@ export class Berx5DWorldApp {
 	 * looking at something and going to it.
 	 */
 	focus(objectId: string): boolean {
-		const ok = this.runtime.focus(objectId);
+		/* stand far enough back to see the actions too: they belong to
+		   the entity and stand outside it, and framing only the entity
+		   crops them off the bottom of the screen */
+		const object = this.runtime.world.getObject(objectId);
+		const ok = this.runtime.focus(objectId, berxActionRingRadius(object, this.affordancesFor(object)));
 		if (ok) {
 			this.position = {...this.position, focusId: objectId};
 			this.options.onPositionChange?.(this.worldPosition);
@@ -458,6 +472,12 @@ export class Berx5DWorldApp {
 	affordances(): BerxSpatialAffordance[] {
 		const object = this.runtime.world.getActiveObject();
 		if (!object || !this.options.onAction) return [];
+		return this.affordancesFor(object);
+	}
+
+	/** What an entity affords, whether or not it is the focused one. */
+	private affordancesFor(object: BerxSpatialObject | undefined): BerxSpatialAffordance[] {
+		if (!object) return [];
 		return affordancesForObject(object, this.options.actionLabels).affordances.filter((a) => a.state !== 'disabled');
 	}
 

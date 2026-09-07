@@ -33,13 +33,39 @@ class OssnCreator extends OssnDatabase {
 		}
 
 		/**
+		 * Which of these users are creators — ONE query for a whole page.
+		 * isCreator() is a per-user lookup, so badging a 20-post feed with
+		 * it would have been 20 extra queries; the feed builder uses this
+		 * instead, the same way feed.php already batches like/comment
+		 * counts.
+		 */
+		public function creatorGuids(array $userGuids) {
+				$ids = array_values(array_unique(array_filter(array_map('intval', $userGuids))));
+				if (empty($ids)) {
+						return array();
+				}
+				$rows = $this->select(array(
+						'from'   => self::TABLE,
+						'params' => array('user_guid'),
+						'wheres' => array(self::wheres('user_guid', 'IN', implode(',', $ids))),
+				), true);
+				$out = array();
+				if ($rows) {
+						foreach ($rows as $row) {
+								$out[intval($row->user_guid)] = true;
+						}
+				}
+				return $out;
+		}
+
+		/**
 		 * Enable Creator Mode for $userGuid — $actingGuid must be that
 		 * same user (or admin); a caller can never enable creator mode
 		 * on someone else's behalf.
 		 */
 		public function enable($userGuid, $actingGuid, $category = null, $bio = '') {
 				$userGuid = intval($userGuid);
-				if (!$userGuid || (intval($actingGuid) !== $userGuid && !ossn_isAdminLoggedin())) {
+				if (!$userGuid || (intval($actingGuid) !== $userGuid && !ossn_api_is_admin($actingGuid))) {
 						return false;
 				}
 				if ($this->isCreator($userGuid)) {
@@ -55,7 +81,7 @@ class OssnCreator extends OssnDatabase {
 
 		public function disable($userGuid, $actingGuid) {
 				$userGuid = intval($userGuid);
-				if (!$userGuid || (intval($actingGuid) !== $userGuid && !ossn_isAdminLoggedin())) {
+				if (!$userGuid || (intval($actingGuid) !== $userGuid && !ossn_api_is_admin($actingGuid))) {
 						return false;
 				}
 				return $this->delete(array(
@@ -66,7 +92,7 @@ class OssnCreator extends OssnDatabase {
 
 		public function update($userGuid, $actingGuid, array $fields) {
 				$userGuid = intval($userGuid);
-				if (!$userGuid || (intval($actingGuid) !== $userGuid && !ossn_isAdminLoggedin())) {
+				if (!$userGuid || (intval($actingGuid) !== $userGuid && !ossn_api_is_admin($actingGuid))) {
 						return false;
 				}
 				if (!$this->isCreator($userGuid)) {
@@ -200,6 +226,13 @@ class OssnCreator extends OssnDatabase {
 				}
 				$experiences = new OssnExperiences();
 				$rows = $experiences->listByOwner(intval($creatorGuid), $viewerGuid);
-				return array_slice($rows, 0, intval($limit));
+				// listByOwner() returns a real array only when empty — a
+				// non-empty result is OssnDatabase::select(...,true)'s real
+				// return value, arrayObject()'s stdClass wrapper, not a PHP
+				// array. array_slice() on that throws TypeError on PHP 8+
+				// (same real bug class fixed in OssnCollections::itemCount()/
+				// OssnCircles::memberCount() — confirmed by tracing
+				// OssnDatabase::fetch()/arrayObject(), not assumed).
+				return array_slice((array) $rows, 0, intval($limit));
 		}
 }

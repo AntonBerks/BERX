@@ -534,8 +534,16 @@ var init_spatialCamera = __esm({
           this.state.target = { ...this.baseTarget };
         }
       }
-      poseForObject(position, scale = { x: 1, y: 1, z: 1 }, distance2) {
-        const radius = Math.max(scale.x, scale.y, scale.z, 0.5), d = distance2 ?? Math.max(2.4, radius * 3.2);
+      /**
+        * Where to stand to see a thing.
+        *
+        * `framingRadius` is anything that belongs to the object but is not
+        * part of it — the ring of actions, which stands outside its edge. It
+        * used to be ignored, so focusing a person put the camera close
+        * enough to crop half the ring off the bottom of the screen.
+        */
+      poseForObject(position, scale = { x: 1, y: 1, z: 1 }, distance2, framingRadius = 0) {
+        const radius = Math.max(scale.x, scale.y, scale.z, framingRadius, 0.5), d = distance2 ?? Math.max(2.4, radius * 3.2);
         return { position: { x: position.x, y: position.y, z: position.z + d }, target: copy(position) };
       }
       moveToPose(pose, durationSeconds = 0.65) {
@@ -701,12 +709,20 @@ var init_runtime5d = __esm({
         this.world.removeObject(id);
         if (this.currentWorld.focusObjectId === id) this.currentWorld.focusObjectId = void 0;
       }
-      focus(objectId) {
+      /**
+       * Look at something.
+       *
+       * `framingRadius` is how far anything that belongs to the object but
+       * stands outside it reaches — the ring of actions. The world
+       * application knows what a thing affords and passes it; a bare
+       * runtime has no affordances and passes nothing.
+       */
+      focus(objectId, framingRadius = 0) {
         const object = this.world.getObject(objectId);
         if (!object) return false;
         this.world.setActiveObject(objectId);
         this.currentWorld.focusObjectId = objectId;
-        const pose = this.camera.poseForObject(object.transform.position, object.transform.scale);
+        const pose = this.camera.poseForObject(object.transform.position, object.transform.scale, void 0, framingRadius);
         this.beginCameraTransition(pose, this.reducedMotion ? 0.01 : this.transitionDuration);
         return true;
       }
@@ -887,6 +903,78 @@ var init_spatialAffordances = __esm({
   }
 });
 
+// packages/spatial/src/actionRing.ts
+function berxActionRingRadius(object, affordances) {
+  if (!object || affordances.length === 0) return 0;
+  const longest = affordances.reduce((n, a) => Math.max(n, a.label.trim().length), 1);
+  const needed = longest * SLOT_HEIGHT * WIDTH_PER_CHARACTER;
+  return Math.max(
+    Math.max(object.transform.scale.x, object.transform.scale.y) * 0.5 + RING_GAP,
+    needed * affordances.length / (Math.PI * 1.35)
+  );
+}
+function berxActionRing(object, camera, affordances) {
+  if (!object || affordances.length === 0) return [];
+  const basis = cameraBasis(camera);
+  if (!basis) return [];
+  const drop = object.transform.scale.y * 0.5 + SLOT_HEIGHT * 1.4;
+  const longest = affordances.reduce((n, a) => Math.max(n, a.label.trim().length), 1);
+  const needed = longest * SLOT_HEIGHT * WIDTH_PER_CHARACTER;
+  const radius = berxActionRingRadius(object, affordances);
+  const perSlot = Math.min(0.9, needed / Math.max(radius * 1.35, 1e-3));
+  const spread = Math.min(Math.PI * 0.9, perSlot * Math.max(1, affordances.length - 1));
+  const start = -spread / 2;
+  const step = affordances.length > 1 ? spread / (affordances.length - 1) : 0;
+  return affordances.map((affordance, index) => {
+    const angle = start + step * index;
+    const across = Math.sin(angle) * radius * 1.35;
+    const under = Math.cos(angle) * radius * 0.35;
+    return {
+      affordance,
+      position: {
+        x: object.transform.position.x + basis.right.x * across - basis.up.x * (drop + under),
+        y: object.transform.position.y + basis.right.y * across - basis.up.y * (drop + under),
+        z: object.transform.position.z + basis.right.z * across - basis.up.z * (drop + under)
+      },
+      halfHeight: SLOT_HEIGHT * 0.5
+    };
+  });
+}
+function pickActionSlot(slots, camera, rayDirection, aspect) {
+  const basis = cameraBasis(camera);
+  if (!basis) return void 0;
+  let best;
+  let bestDistance = Infinity;
+  for (const slot of slots) {
+    const d = {
+      x: slot.position.x - camera.position.x,
+      y: slot.position.y - camera.position.y,
+      z: slot.position.z - camera.position.z
+    };
+    const along = d.x * basis.forward.x + d.y * basis.forward.y + d.z * basis.forward.z;
+    if (along <= 0) continue;
+    const scale = along / Math.max(1e-4, rayDirection.x * basis.forward.x + rayDirection.y * basis.forward.y + rayDirection.z * basis.forward.z);
+    const hit = { x: rayDirection.x * scale, y: rayDirection.y * scale, z: rayDirection.z * scale };
+    const dx = (hit.x - d.x) * basis.right.x + (hit.y - d.y) * basis.right.y + (hit.z - d.z) * basis.right.z;
+    const dy = (hit.x - d.x) * basis.up.x + (hit.y - d.y) * basis.up.y + (hit.z - d.z) * basis.up.z;
+    if (Math.abs(dx) <= slot.halfHeight * 4 * aspect && Math.abs(dy) <= slot.halfHeight * 1.6 && along < bestDistance) {
+      bestDistance = along;
+      best = slot;
+    }
+  }
+  return best;
+}
+var RING_GAP, SLOT_HEIGHT, WIDTH_PER_CHARACTER;
+var init_actionRing = __esm({
+  "packages/spatial/src/actionRing.ts"() {
+    "use strict";
+    init_spatialInteraction();
+    RING_GAP = 0.55;
+    SLOT_HEIGHT = 0.26;
+    WIDTH_PER_CHARACTER = 0.58;
+  }
+});
+
 // packages/spatial/src/xrPose.ts
 function berxRotateByQuaternion(v, q) {
   const l = Math.hypot(q.x, q.y, q.z, q.w) || 1;
@@ -982,6 +1070,7 @@ var init_worldApp = __esm({
     init_relational();
     init_proximity();
     init_spatialAffordances();
+    init_actionRing();
     init_xrPose();
     BERX_PERSISTENCE_VERSION = 1;
     Berx5DWorldApp = class {
@@ -1109,7 +1198,7 @@ var init_worldApp = __esm({
         const target = region ?? regionForKind(object.kind);
         this.history.push(this.worldPosition);
         this.runtime.enterWorld({ id: `${target}:${objectId}`, focusObjectId: objectId, enteredAt: Date.now() }, object.transform.position);
-        this.runtime.focus(objectId);
+        this.runtime.focus(objectId, berxActionRingRadius(object, this.affordancesFor(object)));
         this.position = { ...this.position, region: target, focusId: objectId };
         this.options.onPositionChange?.(this.worldPosition);
         return true;
@@ -1242,7 +1331,8 @@ var init_worldApp = __esm({
        * looking at something and going to it.
        */
       focus(objectId) {
-        const ok = this.runtime.focus(objectId);
+        const object = this.runtime.world.getObject(objectId);
+        const ok = this.runtime.focus(objectId, berxActionRingRadius(object, this.affordancesFor(object)));
         if (ok) {
           this.position = { ...this.position, focusId: objectId };
           this.options.onPositionChange?.(this.worldPosition);
@@ -1291,6 +1381,11 @@ var init_worldApp = __esm({
       affordances() {
         const object = this.runtime.world.getActiveObject();
         if (!object || !this.options.onAction) return [];
+        return this.affordancesFor(object);
+      }
+      /** What an entity affords, whether or not it is the focused one. */
+      affordancesFor(object) {
+        if (!object) return [];
         return affordancesForObject(object, this.options.actionLabels).affordances.filter((a) => a.state !== "disabled");
       }
       /**
@@ -1416,65 +1511,6 @@ var init_renderer = __esm({
 var init_socialActions = __esm({
   "packages/spatial/src/socialActions.ts"() {
     "use strict";
-  }
-});
-
-// packages/spatial/src/actionRing.ts
-function berxActionRing(object, camera, affordances) {
-  if (!object || affordances.length === 0) return [];
-  const basis = cameraBasis(camera);
-  if (!basis) return [];
-  const radius = Math.max(object.transform.scale.x, object.transform.scale.y) * 0.5 + RING_GAP;
-  const drop = object.transform.scale.y * 0.5 + SLOT_HEIGHT * 1.4;
-  const spread = Math.min(Math.PI * 0.9, 0.42 * Math.max(1, affordances.length - 1));
-  const start = -spread / 2;
-  const step = affordances.length > 1 ? spread / (affordances.length - 1) : 0;
-  return affordances.map((affordance, index) => {
-    const angle = start + step * index;
-    const across = Math.sin(angle) * radius * 1.35;
-    const under = Math.cos(angle) * radius * 0.35;
-    return {
-      affordance,
-      position: {
-        x: object.transform.position.x + basis.right.x * across - basis.up.x * (drop + under),
-        y: object.transform.position.y + basis.right.y * across - basis.up.y * (drop + under),
-        z: object.transform.position.z + basis.right.z * across - basis.up.z * (drop + under)
-      },
-      halfHeight: SLOT_HEIGHT * 0.5
-    };
-  });
-}
-function pickActionSlot(slots, camera, rayDirection, aspect) {
-  const basis = cameraBasis(camera);
-  if (!basis) return void 0;
-  let best;
-  let bestDistance = Infinity;
-  for (const slot of slots) {
-    const d = {
-      x: slot.position.x - camera.position.x,
-      y: slot.position.y - camera.position.y,
-      z: slot.position.z - camera.position.z
-    };
-    const along = d.x * basis.forward.x + d.y * basis.forward.y + d.z * basis.forward.z;
-    if (along <= 0) continue;
-    const scale = along / Math.max(1e-4, rayDirection.x * basis.forward.x + rayDirection.y * basis.forward.y + rayDirection.z * basis.forward.z);
-    const hit = { x: rayDirection.x * scale, y: rayDirection.y * scale, z: rayDirection.z * scale };
-    const dx = (hit.x - d.x) * basis.right.x + (hit.y - d.y) * basis.right.y + (hit.z - d.z) * basis.right.z;
-    const dy = (hit.x - d.x) * basis.up.x + (hit.y - d.y) * basis.up.y + (hit.z - d.z) * basis.up.z;
-    if (Math.abs(dx) <= slot.halfHeight * 4 * aspect && Math.abs(dy) <= slot.halfHeight * 1.6 && along < bestDistance) {
-      bestDistance = along;
-      best = slot;
-    }
-  }
-  return best;
-}
-var RING_GAP, SLOT_HEIGHT;
-var init_actionRing = __esm({
-  "packages/spatial/src/actionRing.ts"() {
-    "use strict";
-    init_spatialInteraction();
-    RING_GAP = 0.55;
-    SLOT_HEIGHT = 0.26;
   }
 });
 
@@ -1625,21 +1661,22 @@ var init_spatialPresentation = __esm({
     };
     materials = {
       /* people carry the light in this world */
-      person: { base: BERX_5D_DNA.pearl, glow: BERX_5D_DNA.energy, amount: 0.08 },
+      person: { base: BERX_5D_DNA.pearl, glow: BERX_5D_DNA.energy, amount: 0.45 },
       /* a moment is live only while it is live */
-      moment: { base: BERX_5D_DNA.mist, glow: BERX_5D_DNA.energy, amount: 0.1 },
+      moment: { base: BERX_5D_DNA.mist, glow: BERX_5D_DNA.energy, amount: 0.55 },
       /* architecture, lit rather than lighting — until something is
          happening inside it, which is what NOW is */
-      place: { base: BERX_5D_DNA.steel, glow: BERX_5D_DNA.energy, amount: 0.07 },
-      /* gold is for what is happening — the warm end of the DNA */
-      event: { base: BERX_5D_DNA.gold, glow: BERX_5D_DNA.gold, amount: 0.08 },
-      experience: { base: BERX_5D_DNA.gold, glow: BERX_5D_DNA.gold, amount: 0.06 },
-      community: { base: BERX_5D_DNA.mist, glow: BERX_5D_DNA.energy, amount: 0.05 },
-      business: { base: BERX_5D_DNA.steel, glow: BERX_5D_DNA.gold, amount: 0.05 },
-      collection: { base: BERX_5D_DNA.graphite, glow: BERX_5D_DNA.energy, amount: 0.04 },
-      message: { base: BERX_5D_DNA.mist, glow: BERX_5D_DNA.energy, amount: 0.06 },
+      place: { base: BERX_5D_DNA.steel, glow: BERX_5D_DNA.energy, amount: 0.5 },
+      /* gold is what an event is made of; cyan is what it gives off while
+         it is actually running */
+      event: { base: BERX_5D_DNA.gold, glow: BERX_5D_DNA.energy, amount: 0.7 },
+      experience: { base: BERX_5D_DNA.gold, glow: BERX_5D_DNA.energy, amount: 0.5 },
+      community: { base: BERX_5D_DNA.mist, glow: BERX_5D_DNA.energy, amount: 0.4 },
+      business: { base: BERX_5D_DNA.steel, glow: BERX_5D_DNA.energy, amount: 0.4 },
+      collection: { base: BERX_5D_DNA.graphite, glow: BERX_5D_DNA.energy, amount: 0.35 },
+      message: { base: BERX_5D_DNA.mist, glow: BERX_5D_DNA.energy, amount: 0.45 },
       /* creating is a focus moment, and focus is where energy belongs */
-      create: { base: BERX_5D_DNA.steel, glow: BERX_5D_DNA.energy, amount: 0.18 }
+      create: { base: BERX_5D_DNA.steel, glow: BERX_5D_DNA.energy, amount: 0.8 }
     };
   }
 });
@@ -5962,20 +5999,48 @@ async function enterWorld() {
           throw new Error(`BERX: \xAB${action}\xBB \u043F\u043E\u043A\u0430 \u043D\u0435\u0442 \u043D\u0430 \u0441\u0435\u0440\u0432\u0435\u0440\u0435`);
       }
     },
+    /* Every action BERX has, named. The type requires all of them,
+       because a missing one used to be drawn in the world as its own
+       identifier — «view-event», in English, beside «Пойду». */
     actionLabels: {
       open: "\u041E\u0442\u043A\u0440\u044B\u0442\u044C",
+      focus: "\u041D\u0430\u0432\u0435\u0441\u0442\u0438",
       like: "\u041D\u0440\u0430\u0432\u0438\u0442\u0441\u044F",
-      attend: "\u041F\u043E\u0439\u0434\u0443",
-      save: "\u0421\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u044C",
-      join: "\u0412\u0441\u0442\u0443\u043F\u0438\u0442\u044C",
-      share: "\u041F\u043E\u0434\u0435\u043B\u0438\u0442\u044C\u0441\u044F",
-      message: "\u041D\u0430\u043F\u0438\u0441\u0430\u0442\u044C",
-      follow: "\u041F\u043E\u0434\u043F\u0438\u0441\u0430\u0442\u044C\u0441\u044F",
+      unlike: "\u0423\u0431\u0440\u0430\u0442\u044C \xAB\u043D\u0440\u0430\u0432\u0438\u0442\u0441\u044F\xBB",
       comment: "\u041A\u043E\u043C\u043C\u0435\u043D\u0442\u0438\u0440\u043E\u0432\u0430\u0442\u044C",
-      directions: "\u041C\u0430\u0440\u0448\u0440\u0443\u0442",
-      reserve: "\u0417\u0430\u0431\u0440\u043E\u043D\u0438\u0440\u043E\u0432\u0430\u0442\u044C",
       reply: "\u041E\u0442\u0432\u0435\u0442\u0438\u0442\u044C",
-      react: "\u0420\u0435\u0430\u043A\u0446\u0438\u044F"
+      share: "\u041F\u043E\u0434\u0435\u043B\u0438\u0442\u044C\u0441\u044F",
+      save: "\u0421\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u044C",
+      unsave: "\u0423\u0431\u0440\u0430\u0442\u044C \u0438\u0437 \u0441\u043E\u0445\u0440\u0430\u043D\u0451\u043D\u043D\u043E\u0433\u043E",
+      follow: "\u041F\u043E\u0434\u043F\u0438\u0441\u0430\u0442\u044C\u0441\u044F",
+      unfollow: "\u041E\u0442\u043F\u0438\u0441\u0430\u0442\u044C\u0441\u044F",
+      message: "\u041D\u0430\u043F\u0438\u0441\u0430\u0442\u044C",
+      "view-profile": "\u041F\u0440\u043E\u0444\u0438\u043B\u044C",
+      "view-media": "\u0421\u043C\u043E\u0442\u0440\u0435\u0442\u044C",
+      "view-place": "\u041C\u0435\u0441\u0442\u043E",
+      "view-event": "\u0421\u043E\u0431\u044B\u0442\u0438\u0435",
+      "view-experience": "\u0412\u043F\u0435\u0447\u0430\u0442\u043B\u0435\u043D\u0438\u0435",
+      "view-community": "\u0421\u043E\u043E\u0431\u0449\u0435\u0441\u0442\u0432\u043E",
+      "view-business": "\u0411\u0438\u0437\u043D\u0435\u0441",
+      join: "\u0412\u0441\u0442\u0443\u043F\u0438\u0442\u044C",
+      leave: "\u0412\u044B\u0439\u0442\u0438",
+      attend: "\u041F\u043E\u0439\u0434\u0443",
+      unattend: "\u041D\u0435 \u043F\u043E\u0439\u0434\u0443",
+      reserve: "\u0417\u0430\u0431\u0440\u043E\u043D\u0438\u0440\u043E\u0432\u0430\u0442\u044C",
+      directions: "\u041C\u0430\u0440\u0448\u0440\u0443\u0442",
+      "check-in": "\u041E\u0442\u043C\u0435\u0442\u0438\u0442\u044C\u0441\u044F",
+      "create-moment": "\u0421\u043E\u0437\u0434\u0430\u0442\u044C \u043C\u043E\u043C\u0435\u043D\u0442",
+      "create-story": "\u0421\u043E\u0437\u0434\u0430\u0442\u044C \u0438\u0441\u0442\u043E\u0440\u0438\u044E",
+      "create-post": "\u041D\u0430\u043F\u0438\u0441\u0430\u0442\u044C",
+      "create-event": "\u0421\u043E\u0437\u0434\u0430\u0442\u044C \u0441\u043E\u0431\u044B\u0442\u0438\u0435",
+      "create-community": "\u0421\u043E\u0437\u0434\u0430\u0442\u044C \u0441\u043E\u043E\u0431\u0449\u0435\u0441\u0442\u0432\u043E",
+      "send-message": "\u041E\u0442\u043F\u0440\u0430\u0432\u0438\u0442\u044C",
+      react: "\u0420\u0435\u0430\u043A\u0446\u0438\u044F",
+      report: "\u041F\u043E\u0436\u0430\u043B\u043E\u0432\u0430\u0442\u044C\u0441\u044F",
+      block: "\u0417\u0430\u0431\u043B\u043E\u043A\u0438\u0440\u043E\u0432\u0430\u0442\u044C",
+      mute: "\u0417\u0430\u0433\u043B\u0443\u0448\u0438\u0442\u044C",
+      back: "\u041D\u0430\u0437\u0430\u0434",
+      more: "\u0415\u0449\u0451"
     },
     textureBudget: 96
   });

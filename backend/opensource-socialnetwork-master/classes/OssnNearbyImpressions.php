@@ -33,7 +33,13 @@ class OssnNearbyImpressions extends OssnDatabase {
 				self::wheres('action', '=', (string) $action),
 			),
 		), true);
-		return $rows ? count($rows) : 0;
+		// select(..., true) wraps a non-empty result in a stdClass (see
+		// OssnDatabase::fetch()/arrayObject()), not a real indexed array —
+		// count() on that throws TypeError on PHP 8+. Same bug class
+		// already found and fixed this session in OssnCollections::
+		// itemCount()/OssnCircles::memberCount()/OssnCreator::
+		// recentExperiences(); (array)-cast is the established fix.
+		return $rows ? count((array) $rows) : 0;
 	}
 
 	/** Real counts for every real action, in one call — avoids 4 separate round-trips from the dashboard. */

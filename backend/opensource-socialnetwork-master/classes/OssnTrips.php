@@ -75,7 +75,16 @@ class OssnTrips extends OssnDatabase {
 						'names'  => array('owner_guid', 'title', 'description', 'visibility', 'start_date', 'end_date', 'time_created', 'time_updated'),
 						'values' => array($ownerGuid, $title, (string) $description, intval($visibility), $startDate ? intval($startDate) : null, $endDate ? intval($endDate) : null, $now, $now),
 				));
-				return $ok ? $this->getLastEntry() : false;
+				if (!$ok) {
+						return false;
+				}
+				$id = $this->getLastEntry();
+				// Real EARN wiring — reason keyed on the trip's own real id,
+				// reuses OssnPoints, never a parallel reward mechanism.
+				if (class_exists('OssnPoints')) {
+						(new OssnPoints())->award($ownerGuid, 10, "trip_created:{$id}", $id, true);
+				}
+				return $id;
 		}
 
 		public function get($id) {
@@ -101,6 +110,7 @@ class OssnTrips extends OssnDatabase {
 				return (bool) $row;
 		}
 
+		/** MAX BUILD -- real fix, same class of bug found/fixed elsewhere this session: ossn_isAdminLoggedin() reads $_SESSION, never populated for a bearer-token API request. */
 		public function canView($trip, $viewerGuid) {
 				if (!$trip) {
 						return false;
@@ -108,7 +118,7 @@ class OssnTrips extends OssnDatabase {
 				if (intval($trip->visibility) === self::VISIBILITY_PUBLIC) {
 						return true;
 				}
-				if (ossn_isAdminLoggedin()) {
+				if (ossn_api_is_admin($viewerGuid)) {
 						return true;
 				}
 				if (intval($trip->owner_guid) === intval($viewerGuid)) {
@@ -122,7 +132,7 @@ class OssnTrips extends OssnDatabase {
 				if (!$trip || !$actingGuid) {
 						return false;
 				}
-				if (ossn_isAdminLoggedin()) {
+				if (ossn_api_is_admin($actingGuid)) {
 						return true;
 				}
 				return intval($trip->owner_guid) === intval($actingGuid);
@@ -134,7 +144,7 @@ class OssnTrips extends OssnDatabase {
 						return array();
 				}
 				$wheres = array(self::wheres('owner_guid', '=', $ownerGuid));
-				if (intval($viewerGuid) !== $ownerGuid && !ossn_isAdminLoggedin()) {
+				if (intval($viewerGuid) !== $ownerGuid && !ossn_api_is_admin($viewerGuid)) {
 						$wheres[] = self::wheres('visibility', '=', self::VISIBILITY_PUBLIC);
 				}
 				$rows = $this->select(array(

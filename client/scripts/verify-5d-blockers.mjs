@@ -94,11 +94,16 @@ const BLOCKERS = [
 		claimed: () => /environmentMap|lightProbe|irradianceMap/.test(renderer),
 	},
 	{
-		what: 'Server-side authorization, ownership and privacy behaviour',
-		evidence: () =>
-			!fs.existsSync(path.join(repoRoot, 'backend/opensource-socialnetwork-master/components/OssnApi'))
-				? 'backend/opensource-socialnetwork-master/components/OssnApi is absent from this checkout; only upstream OSSN components are present, so server-side behaviour cannot be read or exercised'
-				: undefined,
+		what: 'The BERX components whose source no longer exists anywhere',
+		evidence: () => {
+			const components = path.join(repoRoot, 'backend/opensource-socialnetwork-master/components');
+			const missing = ['OssnCommunities', 'OssnDating', 'OssnStories', 'OssnReport']
+				.filter((name) => !fs.existsSync(path.join(components, name)));
+			return missing.length > 0
+				? `${missing.join(', ')} are registered active in ossn_components and their source is in no commit in this repository — lost to the same inherited .gitignore rule that hid OssnApi, and unlike OssnApi they cannot be restored from history because they were never committed. Their domain classes survive in classes/ and their schema is in the install SQL; what is gone is the component wrapper each one needs to load. POST /api/v1/posts and GET /api/v1/profiles/{username} answer 500 because of it`
+				: undefined;
+		},
+		/* claiming them present without the directories would be the lie */
 		claimed: () => false,
 	},
 	{

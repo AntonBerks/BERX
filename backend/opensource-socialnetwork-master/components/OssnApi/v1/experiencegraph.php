@@ -1,0 +1,171 @@
+<?php
+/**
+ * BERX API v1 — Experience Graph. See docs/BERX_FUTURE_LAYER_SPEC.md.
+ * The graph AROUND one Place/Event (complements Life Graph, which is
+ * the graph around one PERSON). No new class/table: real friends who
+ * saved/reviewed a place, or are going to an event — computed by
+ * intersecting the caller's real friend list (OssnUser::getFriends())
+ * with the place/event's real relation rows, same bounded personal-
+ * scale pattern as lifegraph.php's met_person. Never exposes a
+ * stranger's activity as belonging to the caller's graph — only
+ * real friends surface here.
+ *
+ * MAX BUILD -- friends_checked_in (real friends with a real
+ * geo-verified place:checkin at this place, see OssnPlaces::
+ * checkIn()) joins friends_saved/friends_reviewed on the place
+ * branch: a stronger-than-saved signal ("a friend was actually
+ * here"), same bounded-intersection pattern as the rest of this file.
+ */
+
+$segment0 = isset($segments[0]) ? $segments[0] : null; // 'place' | 'event'
+$segment1 = isset($segments[1]) ? $segments[1] : null; // guid
+
+if ($method !== 'GET' || !in_array($segment0, array('place', 'event'), true) || !$segment1 || !is_numeric($segment1)) {
+	ossn_api_error('not_found', 'Unknown experiencegraph route', 404);
+}
+
+$targetGuid = intval($segment1);
+$userGuid = intval($api_user_guid);
+
+$friendRows = (new OssnUser())->getFriends($userGuid, array('limit' => 2000, 'page_limit' => false));
+$friendIds = array();
+if ($friendRows) {
+	foreach ($friendRows as $f) {
+		$friendIds[intval($f->guid)] = $f;
+	}
+}
+
+function ossn_api_experiencegraph_friend_json($f) {
+	return array(
+		'guid'     => intval($f->guid),
+		'username' => (string) $f->username,
+		'fullname' => trim($f->first_name . ' ' . $f->last_name),
+		'icon'     => (string) $f->iconURL()->large,
+	);
+}
+
+/**
+ * BERX WORLD — real friends who included this exact place/event in a
+ * World they own (ossn_world_items.item_type/item_id, real rows, not
+ * inferred). Deliberately checked against the world's owner_guid only
+ * (already visible on the row regardless of the world's own
+ * visibility) rather than every accepted member — surfacing "friend X
+ * curated this into one of their worlds" never exposes anything about
+ * that world's other contents or its other members, same bounded,
+ * friends-only shape as every other signal in this file.
+ */
+function ossn_api_experiencegraph_friends_worlds($itemType, $itemId, $friendIds) {
+	if (!class_exists('OssnWorlds')) {
+		return array();
+	}
+	$rows = (new OssnDatabase())->select(array(
+		'from'   => 'ossn_world_items',
+		'wheres' => array(
+			OssnDatabase::wheres('item_type', '=', (string) $itemType),
+			OssnDatabase::wheres('item_id', '=', intval($itemId)),
+		),
+		'limit'  => 200,
+	), true);
+	if (!$rows) {
+		return array();
+	}
+	$worldsModel = new OssnWorlds();
+	$out = array();
+	$seen = array();
+	foreach ($rows as $row) {
+		$world = $worldsModel->getWorld($row->world_id);
+		if (!$world) {
+			continue;
+		}
+		$ownerGuid = intval($world->owner_guid);
+		if (!isset($friendIds[$ownerGuid]) || isset($seen[$ownerGuid])) {
+			continue;
+		}
+		$seen[$ownerGuid] = true;
+		$entry = ossn_api_experiencegraph_friend_json($friendIds[$ownerGuid]);
+		$entry['world_id'] = intval($world->id);
+		$entry['world_title'] = (string) $world->title;
+		$out[] = $entry;
+	}
+	return $out;
+}
+
+if ($segment0 === 'place') {
+	if (!class_exists('OssnPlaces') || !(new OssnPlaces())->getPlace($targetGuid)) {
+		ossn_api_error('not_found', 'Place not found', 404);
+	}
+
+	$friendsSaved = array();
+	$saveRows = ossn_get_relationships(array('to' => $targetGuid, 'type' => 'place:save', 'limit' => 200, 'page_limit' => false));
+	if ($saveRows) {
+		foreach ($saveRows as $r) {
+			$guid = intval($r->relation_from);
+			if (isset($friendIds[$guid])) {
+				$friendsSaved[] = ossn_api_experiencegraph_friend_json($friendIds[$guid]);
+			}
+		}
+	}
+
+	$friendsReviewed = array();
+	$reviewRows = (new OssnDatabase())->select(array(
+		'from'   => 'ossn_place_reviews',
+		'wheres' => array(OssnDatabase::wheres('place_guid', '=', $targetGuid)),
+		'limit'  => 200,
+	), true);
+	if ($reviewRows) {
+		foreach ($reviewRows as $row) {
+			$guid = intval($row->author_guid);
+			if (isset($friendIds[$guid])) {
+				$friendsReviewed[] = ossn_api_experiencegraph_friend_json($friendIds[$guid]);
+			}
+		}
+	}
+
+	$friendsCheckedIn = array();
+	if (class_exists('OssnPlaces')) {
+		$checkinRows = ossn_get_relationships(array('to' => $targetGuid, 'type' => OssnPlaces::CHECKIN_RELATION, 'limit' => 200, 'page_limit' => false));
+		if ($checkinRows) {
+			$seen = array();
+			foreach ($checkinRows as $r) {
+				$guid = intval($r->relation_from);
+				// A friend can have multiple real check-ins at the same
+				// place — dedupe to one entry per friend, same as
+				// friends_saved/friends_reviewed's implicit one-row-per-
+				// friend shape (place:save is already unique per pair;
+				// reviews are one-per-author-per-place).
+				if (isset($friendIds[$guid]) && !isset($seen[$guid])) {
+					$friendsCheckedIn[] = ossn_api_experiencegraph_friend_json($friendIds[$guid]);
+					$seen[$guid] = true;
+				}
+			}
+		}
+	}
+
+	ossn_api_json(array(
+		'target_type'        => 'place',
+		'target_guid'        => $targetGuid,
+		'friends_saved'      => $friendsSaved,
+		'friends_reviewed'   => $friendsReviewed,
+		'friends_checked_in' => $friendsCheckedIn,
+		'friends_worlds'     => ossn_api_experiencegraph_friends_worlds('place', $targetGuid, $friendIds),
+	));
+}
+
+// event
+if (!class_exists('OssnEvents') || !(new OssnEvents())->getEvent($targetGuid)) {
+	ossn_api_error('not_found', 'Event not found', 404);
+}
+$friendsGoing = array();
+$attendeeRows = (new OssnEvents())->attendees($targetGuid, 200);
+foreach ($attendeeRows as $r) {
+	$guid = intval($r->relation_from);
+	if (isset($friendIds[$guid])) {
+		$friendsGoing[] = ossn_api_experiencegraph_friend_json($friendIds[$guid]);
+	}
+}
+ossn_api_json(array(
+	'target_type'    => 'event',
+	'target_guid'    => $targetGuid,
+	'friends_going'  => $friendsGoing,
+	'friends_worlds' => ossn_api_experiencegraph_friends_worlds('event', $targetGuid, $friendIds),
+));

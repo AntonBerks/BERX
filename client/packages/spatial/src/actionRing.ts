@@ -29,6 +29,15 @@ export interface BerxActionSlot {
 /** How far out from the entity's own edge the ring sits. */
 const RING_GAP = 0.55;
 const SLOT_HEIGHT = 0.26;
+/**
+ * World units of width per character, at a slot's own height.
+ *
+ * Taken from the label rasteriser: one line of the world's font at
+ * `pixelHeight` comes back a little over half as wide per character as
+ * it is tall, plus its padding. Nothing here rasterises anything — this
+ * is only enough to keep two names from occupying the same place.
+ */
+const WIDTH_PER_CHARACTER = 0.58;
 
 /**
  * The ring, laid out beneath and around the focused entity.
@@ -42,6 +51,28 @@ const SLOT_HEIGHT = 0.26;
  * Returns nothing when there is nothing focused, and nothing for an
  * object with no affordances — an empty ring is not drawn.
  */
+/**
+ * How far the ring stands from the object it belongs to.
+ *
+ * A camera that frames only the object crops the ring off the bottom
+ * of the screen — which is what focusing a person did: the actions
+ * were placed correctly and half of them were off-frame. This is the
+ * one number that has to be shared for the camera to know better, and
+ * it is the same calculation the placement uses.
+ */
+export function berxActionRingRadius(
+	object: BerxSpatialObject | undefined,
+	affordances: readonly BerxSpatialAffordance[],
+): number {
+	if (!object || affordances.length === 0) return 0;
+	const longest = affordances.reduce((n, a) => Math.max(n, a.label.trim().length), 1);
+	const needed = longest * SLOT_HEIGHT * WIDTH_PER_CHARACTER;
+	return Math.max(
+		Math.max(object.transform.scale.x, object.transform.scale.y) * 0.5 + RING_GAP,
+		(needed * affordances.length) / (Math.PI * 1.35),
+	);
+}
+
 export function berxActionRing(
 	object: BerxSpatialObject | undefined,
 	camera: BerxSpatialCameraState,
@@ -50,10 +81,30 @@ export function berxActionRing(
 	if (!object || affordances.length === 0) return [];
 	const basis = cameraBasis(camera);
 	if (!basis) return [];
-	const radius = Math.max(object.transform.scale.x, object.transform.scale.y) * 0.5 + RING_GAP;
 	const drop = object.transform.scale.y * 0.5 + SLOT_HEIGHT * 1.4;
+
+	/**
+	 * How wide the words actually are.
+	 *
+	 * The ring used to space its slots by a fixed angle, which put
+	 * «Событие», «Пойду» and «Поделиться» on top of each other — the
+	 * spacing knew how many actions there were and nothing about how
+	 * long their names are. Nobody here can measure glyphs, but the
+	 * label is right there, and its length is a good enough proxy: the
+	 * arc is sized so the longest name fits in its own share of it.
+	 *
+	 * `WIDTH_PER_CHARACTER` is in world units at SLOT_HEIGHT, measured
+	 * from the label rasteriser's own output rather than guessed — its
+	 * glyphs average a little over half their height in width.
+	 */
+	const longest = affordances.reduce((n, a) => Math.max(n, a.label.trim().length), 1);
+	const needed = longest * SLOT_HEIGHT * WIDTH_PER_CHARACTER;
+	/* wide enough that the words do not touch, and never closer in than
+	   the object's own edge */
+	const radius = berxActionRingRadius(object, affordances);
 	/* the arc widens with the count but never wraps past the sides */
-	const spread = Math.min(Math.PI * 0.9, 0.42 * Math.max(1, affordances.length - 1));
+	const perSlot = Math.min(0.9, needed / Math.max(radius * 1.35, 0.001));
+	const spread = Math.min(Math.PI * 0.9, perSlot * Math.max(1, affordances.length - 1));
 	const start = -spread / 2;
 	const step = affordances.length > 1 ? spread / (affordances.length - 1) : 0;
 	return affordances.map((affordance, index) => {

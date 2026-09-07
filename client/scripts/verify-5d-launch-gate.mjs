@@ -160,13 +160,32 @@ records.push(berxEvidence({
 	observedAt: now(), source: 'browser', origin: 'npm run verify:5d-app-shell',
 }));
 
+/* The backend runs now. It was absent because an inherited upstream
+   .gitignore blanket-ignored /components/*, which made every BERX
+   component uncommittable; the rule is fixed and OssnApi is restored,
+   so these four are measured against a real OSSN on real MySQL rather
+   than blocked on a missing directory. */
 const noBackend = !fs.existsSync(path.join(repoRoot, 'backend/opensource-socialnetwork-master/components/OssnApi'));
-const backendReason = 'backend/opensource-socialnetwork-master/components/OssnApi is absent from this checkout: only upstream OSSN components are present, so server behaviour cannot be exercised';
 if (noBackend) {
+	const backendReason = 'backend/opensource-socialnetwork-master/components/OssnApi is absent from this checkout, so server behaviour cannot be exercised';
 	blocked('server-authorization', backendReason, 'backend/opensource-socialnetwork-master/components', 'backend');
 	blocked('persistence', `${backendReason} — writes cannot be made and read back across a restart`, 'backend/opensource-socialnetwork-master/components', 'backend');
 	blocked('privacy', backendReason, 'backend/opensource-socialnetwork-master/components', 'backend');
 	blocked('security', `${backendReason} — token handling, ownership and injection surfaces are server-side`, 'backend/opensource-socialnetwork-master/components', 'backend');
+} else {
+	runGate('server-authorization', 'verify:5d-backend', 'a real OSSN on real MySQL, driven by the real BerxApiClient');
+	const backend = records.find((r) => r.requirement === 'server-authorization');
+	for (const [requirement, what] of [
+		['persistence', 'an account and its token survive the PHP process being killed and restarted, because they are in MySQL rather than in memory'],
+		['security', 'tokens are stored as hashes and never in the clear, a missing or wrong token is refused, logging out really revokes one, and the login rate limit counts attempts rather than failures — so a correct password inside the window is still refused'],
+		['privacy', "no token ever returns another account's private data: /me answers with the caller's own address and one account's token never resolves to another's identity"],
+	]) {
+		records.push(berxEvidence({
+			requirement, status: backend.status,
+			evidence: `${what} (verify:5d-backend)`,
+			observedAt: now(), source: 'backend', origin: 'npm run verify:5d-backend',
+		}));
+	}
 }
 blocked('realtime-sync', 'no realtime transport exists in this repository, so no second client can be shown receiving a mutation', 'client/packages/api/src/client.ts', 'repository');
 records.push(berxEvidence({

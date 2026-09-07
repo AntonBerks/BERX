@@ -3,7 +3,6 @@
 /configurations/ossn.config.site.php
 
 #do not include following files
-/components/*
 /cache
 /installation/INSTALLED
 /.htaccess
@@ -12,31 +11,27 @@ Desktop.ini
 DISPLAY_ERRORS
 error_log
 
-#do not ignore ossn core components
-!/components/OssnAds
-!/components/OssnBlock
-!/components/OssnComments
-!/components/OssnEmbed
-!/components/OssnGroups
-!/components/OssnInvite
-!/components/OssnLikes
-!/components/OssnMessages
-!/components/OssnNotifications
-!/components/OssnPhotos
-!/components/OssnPoke
-!/components/OssnProfile
-!/components/OssnSearch
-!/components/OssnSitePages
-!/components/OssnSmilies
-!/components/OssnWall
-!/components/OssnChat
-!/components/OssnSounds
-!/components/OssnAutoPagination
-!/components/OssnMessageTyping
-!/components/OssnRealTimeComments
-!/components/OssnPostBackground
-!/components/OssnGiphy
-!/components/OssnLocation
+# NOTE: this file is BERX's fork of upstream OSSN's .gitignore. Upstream
+# blanket-ignores /components/* and then un-ignores only the vanilla OSSN
+# component list below — right for a thin patch layer over upstream, and
+# actively harmful for a fork whose whole point is adding components.
+# That blanket ignore is why components/OssnApi — the entire BERX API v1
+# layer the client is written against, and that API_SECURITY_MATRIX.md and
+# API_PAGINATION.md document endpoint by endpoint — was absent from this
+# branch: not deleted, never committable. Removed so every BERX component
+# is tracked like the rest of the fork. The original whitelist is kept as
+# a comment for provenance; it no longer has an exclusion to override.
+# was: /components/*
+# !/components/OssnAds  !/components/OssnBlock  !/components/OssnComments
+# !/components/OssnEmbed  !/components/OssnGroups  !/components/OssnInvite
+# !/components/OssnLikes  !/components/OssnMessages
+# !/components/OssnNotifications  !/components/OssnPhotos
+# !/components/OssnPoke  !/components/OssnProfile  !/components/OssnSearch
+# !/components/OssnSitePages  !/components/OssnSmilies  !/components/OssnWall
+# !/components/OssnChat  !/components/OssnSounds
+# !/components/OssnAutoPagination  !/components/OssnMessageTyping
+# !/components/OssnRealTimeComments  !/components/OssnPostBackground
+# !/components/OssnGiphy  !/components/OssnLocation
 
 #do not ignore config files
 !/.scrutinizer.yml

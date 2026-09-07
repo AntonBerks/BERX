@@ -80,7 +80,16 @@ class OssnExperiences extends OssnDatabase {
 						'names'  => array('owner_guid', 'title', 'description', 'place_guid', 'event_guid', 'scheduled_start', 'scheduled_end', 'visibility', 'time_created', 'time_updated'),
 						'values' => array($ownerGuid, $title, (string) $description, $anchor['place_guid'], $anchor['event_guid'], $scheduledStart, $scheduledEnd ? intval($scheduledEnd) : null, intval($visibility), $now, $now),
 				));
-				return $ok ? $this->getLastEntry() : false;
+				if (!$ok) {
+					return false;
+				}
+				$id = $this->getLastEntry();
+				// Real EARN wiring — reason keyed on the experience's own
+				// real id, reuses OssnPoints, never a parallel reward mechanism.
+				if (class_exists('OssnPoints')) {
+					(new OssnPoints())->award($ownerGuid, 10, "experience_created:{$id}", $id, true);
+				}
+				return $id;
 		}
 
 		public function get($id) {
@@ -106,6 +115,12 @@ class OssnExperiences extends OssnDatabase {
 				return $row ? $row->status : null;
 		}
 
+		/**
+		 * MAX BUILD -- real fix, same class of bug already found/fixed
+		 * across OssnBusiness/OssnPlaces/admin.php/report.php/etc. this
+		 * session: ossn_isAdminLoggedin() reads $_SESSION, which no
+		 * bearer-token API request ever populates.
+		 */
 		public function canView($experience, $viewerGuid) {
 				if (!$experience) {
 						return false;
@@ -113,7 +128,7 @@ class OssnExperiences extends OssnDatabase {
 				if (intval($experience->visibility) === self::VISIBILITY_PUBLIC) {
 						return true;
 				}
-				if (ossn_isAdminLoggedin()) {
+				if (ossn_api_is_admin($viewerGuid)) {
 						return true;
 				}
 				if (intval($experience->owner_guid) === intval($viewerGuid)) {
@@ -127,7 +142,7 @@ class OssnExperiences extends OssnDatabase {
 				if (!$experience || !$actingGuid) {
 						return false;
 				}
-				if (ossn_isAdminLoggedin()) {
+				if (ossn_api_is_admin($actingGuid)) {
 						return true;
 				}
 				return intval($experience->owner_guid) === intval($actingGuid);
@@ -139,7 +154,7 @@ class OssnExperiences extends OssnDatabase {
 						return array();
 				}
 				$wheres = array(self::wheres('owner_guid', '=', $ownerGuid));
-				if (intval($viewerGuid) !== $ownerGuid && !ossn_isAdminLoggedin()) {
+				if (intval($viewerGuid) !== $ownerGuid && !ossn_api_is_admin($viewerGuid)) {
 						$wheres[] = self::wheres('visibility', '=', self::VISIBILITY_PUBLIC);
 				}
 				$rows = $this->select(array(
@@ -277,7 +292,7 @@ class OssnExperiences extends OssnDatabase {
 				if ($status === null) {
 						return false;
 				}
-				return parent::update(array(
+				$ok = parent::update(array(
 						'table'  => self::PARTICIPANTS_TABLE,
 						'names'  => array('status'),
 						'values' => array($accept ? self::STATUS_ACCEPTED : self::STATUS_DECLINED),
@@ -286,6 +301,13 @@ class OssnExperiences extends OssnDatabase {
 								self::wheres('member_guid', '=', intval($actingGuid)),
 						),
 				));
+				// Real EARN wiring — accepting an invite is a real social
+				// connection completing, keyed per experience+member so
+				// declining then re-accepting the SAME invite never re-earns.
+				if ($ok && $accept && class_exists('OssnPoints')) {
+					(new OssnPoints())->award(intval($actingGuid), 10, 'experience_accept:' . intval($experienceId), intval($experienceId), true);
+				}
+				return $ok;
 		}
 
 		/** Owner removes an invitee, OR the invitee removes themselves — same "self or owner" rule as leaving vs. kicking. */

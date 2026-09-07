@@ -45,7 +45,15 @@ export class BerxSpatialCamera {
   const dt=clamp(deltaSeconds,0,0.05),damping=Math.pow(0.001,dt);this.state.position.x=clamp(this.state.position.x+this.velocity.x*dt,-this.limits.maxDepth,this.limits.maxDepth);this.state.position.y=clamp(this.state.position.y+this.velocity.y*dt,-this.limits.maxDepth,this.limits.maxDepth);this.state.position.z=clamp(this.state.position.z+this.velocity.z*dt,-this.limits.maxDepth,this.limits.maxDepth);this.velocity.x*=damping;this.velocity.y*=damping;this.velocity.z*=damping;
   if(reducedMotion){this.state.rotation.x=lerp(this.state.rotation.x,0,1-damping);this.state.rotation.y=lerp(this.state.rotation.y,0,1-damping);this.state.rotation.z=lerp(this.state.rotation.z,0,1-damping);this.state.target={...this.baseTarget};}
  }
- poseForObject(position:BerxVec3,scale:BerxVec3={x:1,y:1,z:1},distance?:number){const radius=Math.max(scale.x,scale.y,scale.z,0.5),d=distance??Math.max(2.4,radius*3.2);return {position:{x:position.x,y:position.y,z:position.z+d},target:copy(position)};}
+/**
+  * Where to stand to see a thing.
+  *
+  * `framingRadius` is anything that belongs to the object but is not
+  * part of it — the ring of actions, which stands outside its edge. It
+  * used to be ignored, so focusing a person put the camera close
+  * enough to crop half the ring off the bottom of the screen.
+  */
+ poseForObject(position:BerxVec3,scale:BerxVec3={x:1,y:1,z:1},distance?:number,framingRadius=0){const radius=Math.max(scale.x,scale.y,scale.z,framingRadius,0.5),d=distance??Math.max(2.4,radius*3.2);return {position:{x:position.x,y:position.y,z:position.z+d},target:copy(position)};}
  moveToPose(pose:{position:BerxVec3;target:BerxVec3},durationSeconds=0.65){return new BerxCameraTransition(this.getState(),pose,durationSeconds);}
  moveTo(target:BerxVec3,durationSeconds=0.65){return this.moveToPose(this.poseForObject(target),durationSeconds);}
 }
