@@ -815,6 +815,35 @@ try {
 		`${after.entities} entities after reload, session kept, world refetched`,
 	);
 
+	/* --- the world still has an edge ---
+	   The restore above used to be dragged several metres by the edge:
+	   a reload re-reads ten entities where fourteen stood, the bound is
+	   derived from what the world contains, and the smaller bound pulled
+	   a viewer who had not moved at all. The rule is now that the edge
+	   stops someone FLYING away rather than dragging someone standing
+	   still — which only holds up if flying away is still stopped, so
+	   that is measured here rather than assumed. */
+	const edge = await page.evaluate(async () => {
+		const w = window.__berxWorld;
+		const before = {...w.latestFrame.camera.position};
+		const edgeNow = w.worldEdge;
+		/* fly straight out, one big step per frame, the way free flight
+		   reaches the edge in the first place */
+		for (let i = 0; i < 40; i++) {
+			const c = w.latestFrame.camera;
+			w.runtime.camera.setState({...c, position: {x: c.position.x, y: c.position.y, z: c.position.z + 40}});
+			await new Promise((r) => requestAnimationFrame(r));
+		}
+		const after = {...w.latestFrame.camera.position};
+		const dist = (p) => Math.hypot(p.x - edgeNow.centre.x, p.y - edgeNow.centre.y, p.z - edgeNow.centre.z);
+		return {before: dist(before), after: dist(after), limit: edgeNow.limit, radius: edgeNow.radius};
+	});
+	gate(
+		'flying away from the world is still stopped by its edge',
+		edge.after <= edge.limit + 0.01 && edge.limit > 0,
+		`1600 units of outward flight left the camera ${edge.after.toFixed(1)} units from the world's centre, against the runtime's own limit of ${edge.limit.toFixed(1)} (a ${edge.radius.toFixed(1)}-unit world plus the margin that lets you step back and see all of it) — the camera's absolute depth clamp would have allowed 45.0, so this is the world edge and not that`,
+	);
+
 	/* --- a real process crash, and what the world remembers ---
 	   Not a reload: chrome://crash kills the renderer process outright,
 	   the way a browser tab dies for real. Nothing gets to run an unload

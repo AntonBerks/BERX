@@ -8,6 +8,18 @@
          silently ignored without it, which would look like a device
          with no motor rather than a missing permission. -->
     <uses-permission android:name="android.permission.VIBRATE" />
+    <!-- Required by BerxVoice: SpeechRecognizer returns ERROR_INSUFFICIENT_PERMISSIONS
+         without it, which is indistinguishable from a device that simply
+         did not hear anything. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <!-- Android 11+ package visibility: without this the TextToSpeech and
+         SpeechRecognizer services are invisible to the app and both
+         silently report unavailable. -->
+    <queries>
+        <intent><action android:name="android.intent.action.TTS_SERVICE" /></intent>
+        <intent><action android:name="android.speech.RecognitionService" /></intent>
+    </queries>
+
     <application
         android:label="BERX"
         android:hardwareAccelerated="true"

@@ -27,13 +27,23 @@ import {berxApplyTemporal, berxTemporalCursor, type BerxTemporalCursor} from './
 import {berxRelationalWeight} from './relational';
 import {berxComposeLayout, berxCompositionFor} from './composition';
 import {berxClampToWorld, berxNear, berxWorldBounds} from './proximity';
+
+/**
+ * How far outside the world someone may stand.
+ *
+ * Generous on purpose: far enough to step back and see all of it at
+ * once, not far enough to leave it behind and be looking at nothing.
+ * Named here because the edge is checked in `frame()` and reported by
+ * `worldEdge`, and those two must never be able to disagree.
+ */
+const BERX_WORLD_MARGIN = 12;
 import {affordancesForObject} from './spatialAffordances';
 import type {BerxSocialAction, BerxSpatialAffordance} from './socialActions';
 import {berxTransitionForTravel, BERX_FAR_TRAVEL_METRES} from './transitions';
 import {berxActionRingRadius} from './actionRing';
 import type {BerxNavigationIntent} from './platform';
 import {berxCameraFromPose, berxStereoCamerasFromPose, type BerxXrPose, type BerxXrViews} from './xrPose';
-import type {BerxSpatialObject, BerxSpatialRelation} from './world';
+import type {BerxSpatialObject, BerxSpatialRelation, BerxVec3} from './world';
 
 /**
  * A named part of the world the camera can be in.
@@ -127,6 +137,16 @@ export class Berx5DWorldApp {
 	private position: BerxWorldPosition;
 	private viewerId?: string;
 	private layoutDirty = false;
+	/**
+	 * How far the camera stood from the world's centre last frame.
+	 *
+	 * Kept so the edge can tell flying away from the world apart from
+	 * the world shrinking underneath someone standing still — see
+	 * `frame()`. Undefined until the first frame, and reset by
+	 * `restore()`, because a restored pose is a baseline rather than a
+	 * movement.
+	 */
+	private lastDistanceFromWorld?: number;
 
 	constructor(options: Berx5DWorldAppOptions = {}) {
 		this.options = options;
@@ -541,6 +561,20 @@ export class Berx5DWorldApp {
 		return true;
 	}
 
+	/**
+	 * Where the world ends.
+	 *
+	 * Real state, not a debug hook: a host that wants to tell someone
+	 * they are at the edge — or a gate that wants to check the edge is
+	 * still there — needs the same numbers `frame()` clamps against,
+	 * rather than a second copy of the arithmetic that could drift from
+	 * it.
+	 */
+	get worldEdge(): {centre: BerxVec3; radius: number; limit: number} {
+		const bounds = berxWorldBounds(this.runtime.latestFrame.world.objects);
+		return {centre: {...bounds.centre}, radius: bounds.radius, limit: bounds.radius + BERX_WORLD_MARGIN};
+	}
+
 	/* ---------------- persistence ---------------- */
 
 	/**
@@ -587,6 +621,10 @@ export class Berx5DWorldApp {
 			cursor: {...state.position.cursor},
 		};
 		this.runtime.camera.setState(state.camera);
+		/* Wherever this pose is, it is now where the viewer stands, and
+		   the edge measures movement from here rather than treating the
+		   restore itself as a flight outwards. */
+		this.lastDistanceFromWorld = undefined;
 		if (this.position.focusId) this.runtime.world.setActiveObject(this.position.focusId);
 		this.options.onPositionChange?.(this.worldPosition);
 		return true;
@@ -618,11 +656,37 @@ export class Berx5DWorldApp {
 		   it fights the transition — the camera never arrives, and a
 		   restored pose is pulled off by however far the fight got. The
 		   edge constrains free flight, which is the only way to leave. */
-		if (bounds.radius > 0 && !this.runtime.travelling) {
-			const clamped = berxClampToWorld(base.camera.position, bounds);
+		const centre = bounds.centre;
+		const dx = base.camera.position.x - centre.x;
+		const dy = base.camera.position.y - centre.y;
+		const dz = base.camera.position.z - centre.z;
+		const distanceFromWorld = Math.sqrt(dx * dx + dy * dy + dz * dz);
+		/**
+		 * The edge stops someone FLYING away. It does not drag someone
+		 * who is standing still.
+		 *
+		 * The bound is derived from what the world contains, so it moves
+		 * when the world does — and the world legitimately shrinks: a
+		 * reload re-reads ten entities where fourteen stood a moment ago,
+		 * because a conversation that had been opened is not refetched
+		 * until it is opened again. Clamping on that pulled a restored
+		 * viewer several metres out of the spot they had left, which is
+		 * the one thing coming back is supposed to guarantee. So the
+		 * clamp applies only to a frame in which the camera actually
+		 * moved further out; standing outside a world that receded is
+		 * allowed, and the limit catches up as the world fills back in.
+		 */
+		const movedOutwards =
+			this.lastDistanceFromWorld !== undefined && distanceFromWorld > this.lastDistanceFromWorld + 1e-6;
+		if (bounds.radius > 0 && !this.runtime.travelling && movedOutwards) {
+			const clamped = berxClampToWorld(base.camera.position, bounds, BERX_WORLD_MARGIN);
 			if (clamped !== base.camera.position) {
 				this.runtime.camera.setState({...base.camera, position: clamped});
 			}
+		}
+		{
+			const p = this.runtime.camera.getState().position;
+			this.lastDistanceFromWorld = Math.hypot(p.x - centre.x, p.y - centre.y, p.z - centre.z);
 		}
 		const cursor = this.position.cursor;
 		return {

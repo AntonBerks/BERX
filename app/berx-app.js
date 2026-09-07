@@ -365,6 +365,273 @@ var init_relational = __esm({
   }
 });
 
+// packages/spatial/src/composition.ts
+function berxCompositionFor(region) {
+  return BY_REGION[region] ?? "relational";
+}
+function berxComposeLayout(composition, objects, relations, options = {}) {
+  if (composition === "relational" || objects.length === 0) {
+    return berxRelationalLayout(objects, relations, { rootId: options.rootId });
+  }
+  const radius = options.radius ?? RADIUS[composition];
+  const rise = options.rise ?? 1.15;
+  const root = options.rootId ? objects.find((o) => o.id === options.rootId) : void 0;
+  const others = objects.filter((o) => o.id !== root?.id);
+  const positions = /* @__PURE__ */ new Map();
+  if (root) positions.set(root.id, { x: 0, y: 0, z: 0 });
+  switch (composition) {
+    case "ring": {
+      const ordered = [...others].sort((a, b) => a.id.localeCompare(b.id));
+      ordered.forEach((object, i) => {
+        const angle = i / Math.max(1, ordered.length) * Math.PI * 2;
+        positions.set(object.id, {
+          x: Math.cos(angle) * radius,
+          /* a slight lift so the ring is a ring and not a floor */
+          y: Math.sin(angle * 2) * rise * 0.25,
+          z: Math.sin(angle) * radius
+        });
+      });
+      break;
+    }
+    case "orbits": {
+      const ranked = [...others].sort((a, b) => {
+        const wa = berxRelationalWeight(a.id, relations);
+        const wb = berxRelationalWeight(b.id, relations);
+        if (wa !== wb) return wb - wa;
+        return a.id.localeCompare(b.id);
+      });
+      const rings = 3;
+      const perRing = Math.max(1, Math.ceil(ranked.length / rings));
+      ranked.forEach((object, i) => {
+        const ring = Math.min(rings - 1, Math.floor(i / perRing));
+        const withinRing = i % perRing;
+        const inThisRing = Math.min(perRing, ranked.length - ring * perRing);
+        const angle = withinRing / Math.max(1, inThisRing) * Math.PI * 2 + berxStableAngle(`ring:${ring}`);
+        const r = radius * (1 + ring * 0.75);
+        positions.set(object.id, {
+          x: Math.cos(angle) * r,
+          /* rings sit at different heights, so a ring behind is
+             visible over a ring in front rather than hidden by it */
+          y: (ring - 1) * rise * 0.6,
+          z: Math.sin(angle) * r
+        });
+      });
+      break;
+    }
+    case "thread": {
+      const ends = [...others].sort((a, b) => berxRelationalWeight(b.id, relations) - berxRelationalWeight(a.id, relations) || a.id.localeCompare(b.id)).slice(0, 2);
+      const when = (o) => o.time?.at ?? o.time?.startsAt ?? Number.POSITIVE_INFINITY;
+      const between = others.filter((o) => !ends.some((e) => e.id === o.id)).sort((a, b) => when(a) - when(b) || a.id.localeCompare(b.id));
+      ends.forEach((object, i) => {
+        positions.set(object.id, { x: i === 0 ? -radius : radius, y: 0, z: 0 });
+      });
+      between.forEach((object, i) => {
+        const t = (i + 1) / (between.length + 1);
+        positions.set(object.id, {
+          x: -radius + t * radius * 2,
+          /* alternating sides of the line, so a thread reads as an
+             exchange rather than as a queue */
+          y: (i % 2 === 0 ? 1 : -1) * rise * 0.45,
+          z: (i % 2 === 0 ? 1 : -1) * radius * 0.22
+        });
+      });
+      break;
+    }
+    case "stage": {
+      const ordered = [...others].sort((a, b) => {
+        const wa = berxRelationalWeight(a.id, relations);
+        const wb = berxRelationalWeight(b.id, relations);
+        if (wa !== wb) return wb - wa;
+        return a.id.localeCompare(b.id);
+      });
+      ordered.forEach((object, i) => {
+        const side = i === 0 ? 0 : (i % 2 === 0 ? 1 : -1) * Math.ceil(i / 2) * radius * 0.38;
+        positions.set(object.id, {
+          x: side,
+          y: i === 0 ? 0 : -rise * 0.2 * Math.ceil(i / 2),
+          z: -i * radius * 0.85
+        });
+      });
+      break;
+    }
+  }
+  if (positions.size < objects.length) {
+    const fallback = berxRelationalLayout(objects, relations, { rootId: options.rootId });
+    for (const object of objects) {
+      if (!positions.has(object.id)) {
+        const at = fallback.get(object.id);
+        if (at) positions.set(object.id, at);
+      }
+    }
+  }
+  return positions;
+}
+var RADIUS, BY_REGION;
+var init_composition = __esm({
+  "packages/spatial/src/composition.ts"() {
+    "use strict";
+    init_relational();
+    RADIUS = Object.freeze({
+      relational: 0,
+      /* an arm's reach plus a step: close enough to be a choice, far
+         enough that four of them do not touch */
+      ring: 4.2,
+      orbits: 3.4,
+      thread: 5.5,
+      stage: 3
+    });
+    BY_REGION = Object.freeze({
+      world: "relational",
+      now: "orbits",
+      discover: "relational",
+      person: "orbits",
+      place: "stage",
+      event: "orbits",
+      experience: "stage",
+      community: "relational",
+      collection: "stage",
+      conversation: "thread",
+      create: "ring",
+      signals: "orbits",
+      self: "orbits"
+    });
+  }
+});
+
+// packages/spatial/src/voice/BerxVoiceAssistant.ts
+var BERX_VOICE_RATE, BERX_VOICE_PITCH, BERX_VOICE_PAUSE_AFTER_QUESTION, PROSODY, ANSWER_TO_TONE;
+var init_BerxVoiceAssistant = __esm({
+  "packages/spatial/src/voice/BerxVoiceAssistant.ts"() {
+    "use strict";
+    BERX_VOICE_RATE = 0.9;
+    BERX_VOICE_PITCH = 1.1;
+    BERX_VOICE_PAUSE_AFTER_QUESTION = 3e3;
+    PROSODY = Object.freeze({
+      calm: { rate: BERX_VOICE_RATE, pitch: BERX_VOICE_PITCH, pauseMs: 900 },
+      tender: { rate: BERX_VOICE_RATE - 0.08, pitch: BERX_VOICE_PITCH - 0.06, pauseMs: 1600 },
+      warm: { rate: BERX_VOICE_RATE + 0.05, pitch: BERX_VOICE_PITCH + 0.05, pauseMs: 1100 },
+      /* the pause is the line: this is the one that waits */
+      holding: { rate: BERX_VOICE_RATE - 0.12, pitch: BERX_VOICE_PITCH - 0.04, pauseMs: BERX_VOICE_PAUSE_AFTER_QUESTION },
+      certain: { rate: BERX_VOICE_RATE, pitch: BERX_VOICE_PITCH - 0.02, pauseMs: 1200 }
+    });
+    ANSWER_TO_TONE = Object.freeze({
+      trembling: "tender",
+      uncertain: "holding",
+      confident: "warm",
+      plain: "calm"
+    });
+  }
+});
+
+// packages/spatial/src/voice/berxPhrases.ts
+function berxVoiceNameHeard(name, intent) {
+  const clean = name.trim();
+  return Object.freeze([
+    { text: `${clean}. \u041A\u0440\u0430\u0441\u0438\u0432\u043E\u0435 \u0438\u043C\u044F.`, emotion: "warm" },
+    { text: `${clean}. \u0422\u044B \u0438\u0449\u0435\u0448\u044C ${INTENT_WORD[intent]}.`, emotion: "calm" },
+    { text: `${clean}. \u0418 \u0442\u044B \u043D\u0435 \u0431\u043E\u0438\u0448\u044C\u0441\u044F.`, emotion: "certain" }
+  ]);
+}
+function berxVoiceWelcome(name) {
+  return { text: `\u0414\u043E\u0431\u0440\u043E \u043F\u043E\u0436\u0430\u043B\u043E\u0432\u0430\u0442\u044C \u0434\u043E\u043C\u043E\u0439, ${name.trim()}.`, emotion: "certain" };
+}
+var BERX_INTENT_OBJECT, BERX_VOICE_WAKING, BERX_VOICE_IDENTITY, BERX_VOICE_OFFER, BERX_VOICE_CHOSEN, BERX_VOICE_NAME_ASK, INTENT_WORD, BERX_VOICE_NOT_HEARD, BERX_VOICE_SILENT_PATH, BERX_VOICE_ALL_LINES;
+var init_berxPhrases = __esm({
+  "packages/spatial/src/voice/berxPhrases.ts"() {
+    "use strict";
+    BERX_INTENT_OBJECT = Object.freeze({
+      love: "create:intent-love",
+      friendship: "create:intent-friendship",
+      creation: "create:intent-creation",
+      search: "create:intent-search"
+    });
+    BERX_VOICE_WAKING = Object.freeze([
+      { text: "\u0422\u044B \u0441\u043B\u044B\u0448\u0438\u0448\u044C \u043C\u0435\u043D\u044F?", emotion: "holding" },
+      { text: "\u042F \u0441\u043B\u044B\u0448\u0443 \u0442\u0435\u0431\u044F.", emotion: "tender" },
+      { text: "\u0422\u044B \u0437\u0434\u0435\u0441\u044C \u043D\u0435 \u0441\u043B\u0443\u0447\u0430\u0439\u043D\u043E.", emotion: "holding" }
+    ]);
+    BERX_VOICE_IDENTITY = Object.freeze([
+      { text: "\u0420\u0430\u0441\u0441\u043A\u0430\u0436\u0438 \u043C\u043D\u0435\u2026 \u043A\u0442\u043E \u0442\u044B \u043D\u0430 \u0441\u0430\u043C\u043E\u043C \u0434\u0435\u043B\u0435.", emotion: "holding" },
+      { text: "\u041D\u0435 \u0442\u043E, \u0447\u0442\u043E \u0442\u044B \u0433\u043E\u0432\u043E\u0440\u0438\u0448\u044C \u0434\u0440\u0443\u0433\u0438\u043C. \u0410 \u0442\u043E, \u0447\u0442\u043E \u0437\u043D\u0430\u0435\u0448\u044C \u0442\u043E\u043B\u044C\u043A\u043E \u0442\u044B.", emotion: "tender" }
+    ]);
+    BERX_VOICE_OFFER = Object.freeze([
+      { text: "\u0417\u0434\u0435\u0441\u044C \u0447\u0435\u0442\u044B\u0440\u0435 \u0441\u0442\u043E\u0440\u043E\u043D\u044B. \u041F\u043E\u0434\u043E\u0439\u0434\u0438 \u043A \u0442\u043E\u0439, \u0447\u0442\u043E \u0431\u043B\u0438\u0436\u0435.", emotion: "calm" }
+    ]);
+    BERX_VOICE_CHOSEN = Object.freeze({
+      love: {
+        text: "\u041B\u044E\u0431\u043E\u0432\u044C\u2026 \u0422\u044B \u0433\u043E\u0432\u043E\u0440\u0438\u0448\u044C \u044D\u0442\u043E \u0442\u0430\u043A, \u0431\u0443\u0434\u0442\u043E \u0431\u043E\u0438\u0448\u044C\u0441\u044F. \u0417\u0434\u0435\u0441\u044C \u0431\u043E\u044F\u0442\u044C\u0441\u044F \u043D\u0435 \u043D\u0443\u0436\u043D\u043E.",
+        emotion: "tender",
+        about: BERX_INTENT_OBJECT.love
+      },
+      friendship: {
+        text: "\u0414\u0440\u0443\u0436\u0431\u0430\u2026 \u042D\u0442\u043E \u0442\u0438\u0445\u0430\u044F \u0441\u0438\u043B\u0430. \u041D\u0435 \u0433\u0440\u043E\u043C\u043A\u0430\u044F. \u041D\u043E \u043D\u0430\u0441\u0442\u043E\u044F\u0449\u0430\u044F.",
+        emotion: "warm",
+        about: BERX_INTENT_OBJECT.friendship
+      },
+      creation: {
+        text: "\u0422\u0432\u043E\u0440\u0447\u0435\u0441\u0442\u0432\u043E\u2026 \u0422\u044B \u0431\u0443\u0434\u0435\u0448\u044C \u0441\u043E\u0437\u0434\u0430\u0432\u0430\u0442\u044C \u043C\u0438\u0440\u044B. \u042F \u044D\u0442\u043E \u0447\u0443\u0432\u0441\u0442\u0432\u0443\u044E.",
+        emotion: "warm",
+        about: BERX_INTENT_OBJECT.creation
+      },
+      search: {
+        text: "\u041F\u043E\u0438\u0441\u043A\u2026 \u0417\u043D\u0430\u0447\u0438\u0442, \u0442\u044B \u0435\u0449\u0451 \u043D\u0435 \u0437\u043D\u0430\u0435\u0448\u044C. \u042D\u0442\u043E \u0447\u0435\u0441\u0442\u043D\u0435\u0435 \u0432\u0441\u0435\u0433\u043E \u043E\u0441\u0442\u0430\u043B\u044C\u043D\u043E\u0433\u043E.",
+        emotion: "tender",
+        about: BERX_INTENT_OBJECT.search
+      }
+    });
+    BERX_VOICE_NAME_ASK = Object.freeze({
+      text: "\u041A\u0430\u043A \u0442\u0435\u0431\u044F \u0437\u043E\u0432\u0443\u0442?",
+      emotion: "holding"
+    });
+    INTENT_WORD = Object.freeze({
+      love: "\u043B\u044E\u0431\u043E\u0432\u044C",
+      friendship: "\u0434\u0440\u0443\u0436\u0431\u0443",
+      creation: "\u0442\u0432\u043E\u0440\u0447\u0435\u0441\u0442\u0432\u043E",
+      search: "\u043E\u0442\u0432\u0435\u0442"
+    });
+    BERX_VOICE_NOT_HEARD = Object.freeze([
+      { text: "\u042F \u0442\u0435\u0431\u044F \u043D\u0435 \u0441\u043B\u044B\u0448\u0443. \u041D\u0438\u0447\u0435\u0433\u043E \u0441\u0442\u0440\u0430\u0448\u043D\u043E\u0433\u043E.", emotion: "tender" },
+      { text: "\u041C\u043E\u0436\u0435\u0448\u044C \u043F\u0440\u043E\u0441\u0442\u043E \u0432\u044B\u0431\u0440\u0430\u0442\u044C \u2014 \u0440\u0443\u043A\u043E\u0439. \u042F \u043D\u0438\u043A\u0443\u0434\u0430 \u043D\u0435 \u0434\u0435\u043D\u0443\u0441\u044C.", emotion: "calm" }
+    ]);
+    BERX_VOICE_SILENT_PATH = Object.freeze([
+      { text: "\u0417\u0434\u0435\u0441\u044C \u043C\u043E\u0436\u043D\u043E \u0438 \u043C\u043E\u043B\u0447\u0430.", emotion: "calm" },
+      { text: "\u041F\u043E\u0434\u043E\u0439\u0434\u0438 \u043A \u0442\u043E\u0439 \u0441\u0442\u043E\u0440\u043E\u043D\u0435, \u0447\u0442\u043E \u0431\u043B\u0438\u0436\u0435.", emotion: "calm" }
+    ]);
+    BERX_VOICE_ALL_LINES = Object.freeze([
+      ...BERX_VOICE_WAKING,
+      ...BERX_VOICE_IDENTITY,
+      ...BERX_VOICE_OFFER,
+      ...Object.values(BERX_VOICE_CHOSEN),
+      BERX_VOICE_NAME_ASK,
+      ...berxVoiceNameHeard("\u0418\u043C\u044F", "love"),
+      berxVoiceWelcome("\u0418\u043C\u044F"),
+      ...BERX_VOICE_NOT_HEARD,
+      ...BERX_VOICE_SILENT_PATH
+    ]);
+  }
+});
+
+// packages/spatial/src/voice/berxVoiceWorld.ts
+var init_berxVoiceWorld = __esm({
+  "packages/spatial/src/voice/berxVoiceWorld.ts"() {
+    "use strict";
+  }
+});
+
+// packages/spatial/src/voice/berxRegistrationVoice.ts
+var INTENT_WORDS;
+var init_berxRegistrationVoice = __esm({
+  "packages/spatial/src/voice/berxRegistrationVoice.ts"() {
+    "use strict";
+    INTENT_WORDS = Object.freeze({
+      love: ["\u043B\u044E\u0431\u043E\u0432", "\u043B\u044E\u0431\u0438\u0442\u044C", "\u043E\u0442\u043D\u043E\u0448\u0435\u043D\u0438"],
+      friendship: ["\u0434\u0440\u0443\u0436", "\u0434\u0440\u0443\u0437", "\u0434\u0440\u0443\u0433"],
+      creation: ["\u0442\u0432\u043E\u0440\u0447", "\u0441\u043E\u0437\u0434\u0430\u0432", "\u0442\u0432\u043E\u0440\u0438\u0442", "\u0438\u0441\u043A\u0443\u0441\u0441\u0442\u0432"],
+      search: ["\u043F\u043E\u0438\u0441\u043A", "\u0438\u0449\u0443", "\u0438\u0441\u043A\u0430\u0442\u044C", "\u043D\u0435 \u0437\u043D\u0430\u044E"]
+    });
+  }
+});
+
 // packages/spatial/src/lighting/berxEnvironment.ts
 function berxEnvironment(sunDirection) {
   return {
@@ -1432,18 +1699,20 @@ function regionForKind(kind) {
       return "now";
   }
 }
-var BERX_PERSISTENCE_VERSION, Berx5DWorldApp;
+var BERX_WORLD_MARGIN, BERX_PERSISTENCE_VERSION, Berx5DWorldApp;
 var init_worldApp = __esm({
   "packages/spatial/src/worldApp.ts"() {
     "use strict";
     init_runtime5d();
     init_temporal();
     init_relational();
+    init_composition();
     init_proximity();
     init_spatialAffordances();
     init_transitions();
     init_actionRing();
     init_xrPose();
+    BERX_WORLD_MARGIN = 12;
     BERX_PERSISTENCE_VERSION = 1;
     Berx5DWorldApp = class {
       constructor(options = {}) {
@@ -1514,7 +1783,8 @@ var init_worldApp = __esm({
         const snapshot = this.runtime.world.snapshot();
         const present = new Set(snapshot.objects.map((o) => o.id));
         const usable = [...this.relations.values()].filter((r) => present.has(r.from) && present.has(r.to));
-        this.layout = berxRelationalLayout(snapshot.objects, usable, { rootId: this.viewerId });
+        const composition = berxCompositionFor(this.position.region);
+        this.layout = berxComposeLayout(composition, snapshot.objects, usable, { rootId: this.viewerId });
         for (const object of snapshot.objects) {
           const at = this.layout.get(object.id);
           if (!at) continue;
@@ -1784,6 +2054,19 @@ var init_worldApp = __esm({
         if (updated) this.ingest([updated]);
         return true;
       }
+      /**
+       * Where the world ends.
+       *
+       * Real state, not a debug hook: a host that wants to tell someone
+       * they are at the edge — or a gate that wants to check the edge is
+       * still there — needs the same numbers `frame()` clamps against,
+       * rather than a second copy of the arithmetic that could drift from
+       * it.
+       */
+      get worldEdge() {
+        const bounds = berxWorldBounds(this.runtime.latestFrame.world.objects);
+        return { centre: { ...bounds.centre }, radius: bounds.radius, limit: bounds.radius + BERX_WORLD_MARGIN };
+      }
       /* ---------------- persistence ---------------- */
       /**
        * Everything about where the viewer is, so they can come back to it.
@@ -1828,6 +2111,7 @@ var init_worldApp = __esm({
           cursor: { ...state.position.cursor }
         };
         this.runtime.camera.setState(state.camera);
+        this.lastDistanceFromWorld = void 0;
         if (this.position.focusId) this.runtime.world.setActiveObject(this.position.focusId);
         this.options.onPositionChange?.(this.worldPosition);
         return true;
@@ -1842,11 +2126,21 @@ var init_worldApp = __esm({
         if (this.layoutDirty) this.relayout();
         const base = this.runtime.frame(deltaSeconds);
         const bounds = berxWorldBounds(base.world.objects);
-        if (bounds.radius > 0 && !this.runtime.travelling) {
-          const clamped = berxClampToWorld(base.camera.position, bounds);
+        const centre = bounds.centre;
+        const dx = base.camera.position.x - centre.x;
+        const dy = base.camera.position.y - centre.y;
+        const dz = base.camera.position.z - centre.z;
+        const distanceFromWorld = Math.sqrt(dx * dx + dy * dy + dz * dz);
+        const movedOutwards = this.lastDistanceFromWorld !== void 0 && distanceFromWorld > this.lastDistanceFromWorld + 1e-6;
+        if (bounds.radius > 0 && !this.runtime.travelling && movedOutwards) {
+          const clamped = berxClampToWorld(base.camera.position, bounds, BERX_WORLD_MARGIN);
           if (clamped !== base.camera.position) {
             this.runtime.camera.setState({ ...base.camera, position: clamped });
           }
+        }
+        {
+          const p = this.runtime.camera.getState().position;
+          this.lastDistanceFromWorld = Math.hypot(p.x - centre.x, p.y - centre.y, p.z - centre.z);
         }
         const cursor = this.position.cursor;
         return {
@@ -2542,6 +2836,11 @@ var init_src = __esm({
     init_scene();
     init_temporal();
     init_relational();
+    init_composition();
+    init_BerxVoiceAssistant();
+    init_berxPhrases();
+    init_berxVoiceWorld();
+    init_berxRegistrationVoice();
     init_worldLighting();
     init_berxEnvironment();
     init_berxSSAO();
