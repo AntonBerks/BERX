@@ -24,10 +24,11 @@
  * stayed black until reload. It is caught, the frame loop pauses, and
  * the meshes rebuild on restore.
  */
-import { Berx5DRuntime, Berx5DWorldApp, cameraBasis, pickActionSlot, rayFromNdc, type BerxSpatialObject, type BerxWorldIngest } from '@berx/spatial';
+import { Berx5DRuntime, Berx5DWorldApp, BerxHaptics, cameraBasis, pickActionSlot, rayFromNdc, type BerxHapticBackend, type BerxSpatialObject, type BerxWorldIngest } from '@berx/spatial';
 import { BerxThreeRuntimeRenderer } from './threeRuntime';
 import type { BerxWebRendererBackend } from './webRenderer';
 import { resolveSpatialQuality, type BerxSpatialQualityResult } from './runtimeQuality';
+import { BerxWebHaptics } from './hapticsWeb';
 
 export interface Berx5DWebHostOptions {
 	/**
@@ -55,6 +56,17 @@ export interface Berx5DWebHostOptions {
 	textureBudget?: number;
 	/** A real media URL that would not load. Reported, never substituted. */
 	onMediaError?: (uri: string, error: unknown) => void;
+	/**
+	 * Haptics for what the world does — selecting, focusing, travelling,
+	 * an action taken or refused.
+	 *
+	 * On by default where the browser has a vibration motor, off where
+	 * it has none: `navigator.vibrate` is absent in Safari and on every
+	 * desktop, and BerxWebHaptics reports that rather than pretending.
+	 * Pass a backend to drive different hardware, or false to silence
+	 * it entirely.
+	 */
+	haptics?: BerxHapticBackend | false;
 	/**
 	 * The GPU backend to draw with.
 	 *
@@ -192,6 +204,13 @@ export function createBerx5DWebHost(options: Berx5DWebHostOptions = {}): Berx5DW
 	   renderer: a rebuilt renderer starts with nothing, and the pictures
 	   have to come back without re-reading the server */
 	const mediaByObject = new Map<string, readonly {uri: string}[]>();
+	/* One vocabulary for the whole world: WHAT is played lives in
+	   @berx/spatial's BERX_HAPTICS, so focusing feels the same here as
+	   it does on a phone; this only chooses the hardware. Reduced
+	   motion silences it, because a device asking for less motion is
+	   asking for less buzzing too. */
+	const haptics = new BerxHaptics(options.haptics === false ? undefined : (options.haptics ?? new BerxWebHaptics()));
+	haptics.setReducedMotion(reducedMotion);
 	const pixelRatioCap = Math.max(1, options.pixelRatioCap ?? 2);
 
 	let quality: BerxSpatialQualityResult = {quality: 'balanced', pixelRatio: 1, maxObjects: 80, ambientMotion: true};
@@ -248,7 +267,12 @@ export function createBerx5DWebHost(options: Berx5DWebHostOptions = {}): Berx5DW
 		if (object?.id === lastAnnouncedId) return;
 		lastAnnouncedId = object?.id;
 		options.onFocusChange?.(object);
-		if (object) announce(`${nameOf(object)} в фокусе`);
+		if (object) {
+			announce(`${nameOf(object)} в фокусе`);
+			/* the same moment, said three ways: to the screen reader, to
+			   the eye, and to the hand */
+			haptics.moment('focus');
+		}
 	};
 
 	const frame = (now: number) => {
@@ -307,9 +331,12 @@ export function createBerx5DWebHost(options: Berx5DWebHostOptions = {}): Berx5DW
 		const slot = ray && world ? pickActionSlot(renderer.actionSlots, frameState.camera, ray.direction, canvas.width / canvas.height) : undefined;
 		if (slot && world) {
 			announce(`${slot.affordance.label}…`);
+			haptics.moment('select');
 			void world.act(slot.affordance.id).then((done) => {
 				announce(done ? `${slot.affordance.label}: готово` : `${slot.affordance.label}: не удалось`);
+				haptics.moment(done ? 'action-ok' : 'action-refused');
 			}).catch((error) => {
+				haptics.moment('action-refused');
 				/* the server's own reason, out loud */
 				announce(error instanceof Error ? error.message : `${slot.affordance.label}: не удалось`);
 			});
@@ -395,13 +422,17 @@ export function createBerx5DWebHost(options: Berx5DWebHostOptions = {}): Berx5DW
 					if (world) world.travelTo(object.id);
 					else runtime.enterWorld({id: `${object.kind}:${object.id}`, focusObjectId: object.id, enteredAt: Date.now()});
 					announce(`${nameOf(object)} — камера перемещается`);
+					haptics.moment('travel');
 				} else handled = false;
 				break;
 			}
 			case 'Escape':
 			case 'Backspace':
 				handled = world ? world.back() : runtime.back();
-				if (handled) announce('Назад');
+				if (handled) {
+					announce('Назад');
+					haptics.moment('back');
+				}
 				break;
 			/* what is happening, from anywhere in the world */
 			case 'l':

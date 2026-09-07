@@ -36,3 +36,4 @@ export * from './launch/fullMax5DLaunchGate';
 export * from './geometry';
 export * from './spatialPresentation';
 export * from './mediaSurface';
+export * from './haptics';

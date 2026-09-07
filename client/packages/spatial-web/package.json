@@ -15,7 +15,8 @@
     "./webgpuRuntime": "./src/webgpuRuntime.ts",
     "./webgpuMediaTextures": "./src/webgpuMediaTextures.ts",
     "./webgpuText": "./src/webgpuText.ts",
-    "./webRenderer": "./src/webRenderer.ts"
+    "./webRenderer": "./src/webRenderer.ts",
+    "./hapticsWeb": "./src/hapticsWeb.ts"
   },
   "sideEffects": false,
   "main": "./src/index.ts",

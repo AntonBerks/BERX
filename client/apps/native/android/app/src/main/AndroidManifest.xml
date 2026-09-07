@@ -4,6 +4,10 @@
          run BERX, and saying so here is better than failing at runtime. -->
     <uses-feature android:name="android.hardware.vulkan.version" android:version="0x00401000" android:required="true" />
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Required for BerxHaptics: VibrationEffect.createWaveform() is
+         silently ignored without it, which would look like a device
+         with no motor rather than a missing permission. -->
+    <uses-permission android:name="android.permission.VIBRATE" />
     <application
         android:label="BERX"
         android:hardwareAccelerated="true"
