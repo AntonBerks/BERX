@@ -203,10 +203,10 @@ if (native) {
 		native.readback.nonGroundPixels > 0 && native.readback.nonGroundPixels < native.readback.totalPixels,
 		`${native.readback.nonGroundPixels} of ${native.readback.totalPixels} pixels are not the ground; brightest luma ${native.readback.brightestLuma}`);
 	gate('the native backend reports only what it implements',
-		native.capabilities.shadows === false && native.capabilities.postProcessing === false &&
+		native.capabilities.shadows === true && native.capabilities.postProcessing === false &&
 		native.capabilities.mediaSurfaces === false && native.capabilities.worldSpaceLabels === false &&
 		native.capabilities.physicallyLitMaterials === true && native.capabilities.depthBuffer === true,
-		'perspective, depth and physically lit materials true; shadows, post, media and labels false');
+		'perspective, depth, physically lit materials and shadows true; post, media and labels false — the shadow claim is not taken on trust here, it is what npm run verify:5d-shadows measures on a real readback, and what the three-way pixel agreement below would break if this backend cast differently from the other two');
 } else {
 	failures.push('a native GPU backend rendered the world');
 }
@@ -316,11 +316,11 @@ if (webgpuRgba) {
 		web.webgpu.kind === 'webgpu' && web.webgpu.stats.drawCalls === list.items.length && web.webgpu.stats.triangles > 0,
 		`${web.webgpu.stats.drawCalls} draw calls · ${web.webgpu.stats.triangles} triangles · ${web.webgpu.stats.meshVariants} mesh variants`);
 	gate('the WebGPU backend reports only what it implements',
-		web.webgpu.capabilities.shadows === false && web.webgpu.capabilities.postProcessing === false &&
+		web.webgpu.capabilities.shadows === true && web.webgpu.capabilities.postProcessing === false &&
 		web.webgpu.capabilities.mediaMipmaps === true && web.webgpu.capabilities.labelMipmaps === true &&
 		web.webgpu.capabilities.worldSpaceLabels === true &&
 		web.webgpu.capabilities.mediaSurfaces === true && web.webgpu.capabilities.physicallyLitMaterials === true,
-		'perspective, depth, physically lit materials, media surfaces, world-space labels and mipmapped textures true; shadows and post false');
+		'perspective, depth, physically lit materials, shadows, media surfaces, world-space labels and mipmapped textures true; post false');
 	agree('the WebGPU and WebGL2 renderers draw the same world', webgpuRgba, webglRgba, 'WebGPU vs WebGL2');
 	agree('the WebGPU and native renderers draw the same world', webgpuRgba, nativeRgba, 'WebGPU vs Vulkan — the same WGSL, two implementations');
 } else {

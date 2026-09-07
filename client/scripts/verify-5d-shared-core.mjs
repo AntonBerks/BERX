@@ -117,7 +117,10 @@ if (fs.existsSync(nativeDir)) {
 	   drawlist.rs is checked: it is the boundary, and the rest of the
 	   crate is renderer internals that have no counterpart in the core. */
 	const mirror = rust.find(([f]) => f === 'drawlist.rs')?.[1] ?? '';
-	const shared = ['packages/spatial/src/drawList.ts', 'packages/spatial/src/worldLighting.ts']
+	/* shadowMap.ts joined the boundary when the key light started
+	   casting: BerxShadowCamera is part of the wire shape now, so a
+	   field added there has to appear in the native mirror too. */
+	const shared = ['packages/spatial/src/drawList.ts', 'packages/spatial/src/worldLighting.ts', 'packages/spatial/src/shadowMap.ts']
 		.map((f) => fs.readFileSync(path.join(clientRoot, f), 'utf8')).join('\n');
 	const snake = [...mirror.matchAll(/^\s{4}pub ([a-z_0-9]+):/gm)].map((m) => m[1]);
 	const camel = (n) => n.replace(/_([a-z])/g, (_, c) => c.toUpperCase());

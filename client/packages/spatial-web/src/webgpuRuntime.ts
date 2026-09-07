@@ -42,7 +42,12 @@ import type {BerxFrameStats, BerxSpatialRenderOptions} from './threeRuntime';
 
 /** Bytes per draw item. The struct is exactly this, and it is also the alignment. */
 const DRAW_STRIDE = 256;
-const GLOBALS_BYTES = 192;
+/* proj(64) + view(64) + camera(16) + ambient(16) + key_dir(16) +
+   key_col(16) + light_vp(64) + shadow(16) — the Globals struct in
+   world.wgsl, in the order it declares them. */
+const GLOBALS_BYTES = 272;
+/** The square depth map the key light writes. Matches the shared core's. */
+const SHADOW_FORMAT: GPUTextureFormat = 'depth32float';
 /** Bytes per label. One dynamic offset each, at the alignment the API wants. */
 const LABEL_STRIDE = 256;
 const LABEL_GLOBALS_BYTES = 160;
@@ -166,7 +171,7 @@ export class BerxWebGPURuntimeRenderer implements BerxSpatialRenderer {
 		perspective: true,
 		depthBuffer: true,
 		physicallyLitMaterials: true,
-		shadows: false,
+		shadows: true,
 		postProcessing: false,
 	} as const;
 	/** What this backend has, beyond the renderer interface's own list. */
@@ -181,7 +186,11 @@ export class BerxWebGPURuntimeRenderer implements BerxSpatialRenderer {
 
 	private readonly meshes = new Map<string, GpuMesh>();
 	private readonly globals: GPUBuffer;
-	private readonly globalsBind: GPUBindGroup;
+	private globalsBind: GPUBindGroup;
+	private readonly shadowSampler: GPUSampler;
+	private shadowMap: GPUTexture;
+	private shadowSize: number;
+	private readonly shadowGlobalsBind: GPUBindGroup;
 	private drawBuffer?: GPUBuffer;
 	private drawBind?: GPUBindGroup;
 	private drawCapacity = 0;
@@ -246,6 +255,7 @@ export class BerxWebGPURuntimeRenderer implements BerxSpatialRenderer {
 		mediaLayout: GPUBindGroupLayout,
 		private readonly labelPipeline: GPURenderPipeline,
 		private readonly labelLayout: GPUBindGroupLayout,
+		private readonly shadowPipeline: GPURenderPipeline,
 		options: {textureBudget?: number; labelBudget?: number; onMediaError?: (uri: string, error: unknown) => void},
 	) {
 		this.labels = new BerxWebGPUTextAtlas(device, {budget: options.labelBudget});
@@ -273,8 +283,27 @@ export class BerxWebGPURuntimeRenderer implements BerxSpatialRenderer {
 			],
 		});
 		this.globals = device.createBuffer({size: GLOBALS_BYTES, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST});
-		this.globalsBind = device.createBindGroup({
-			layout: pipeline.getBindGroupLayout(0),
+		/* `compare: 'less'` is what makes this a comparison sampler: the
+		   hardware runs the depth test per tap and averages the RESULTS.
+		   Averaging depths instead would produce a surface that exists
+		   nowhere. */
+		this.shadowSampler = device.createSampler({
+			compare: 'less', magFilter: 'linear', minFilter: 'linear',
+			addressModeU: 'clamp-to-edge', addressModeV: 'clamp-to-edge',
+		});
+		/* A 1x1 stand-in, bound whenever there is nothing to cast. The
+		   bind group must always be complete; the shadow strength in the
+		   uniform is what actually turns the sampling off. */
+		this.shadowMap = device.createTexture({
+			size: {width: 1, height: 1}, format: SHADOW_FORMAT,
+			usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING,
+		});
+		this.shadowSize = 0;
+		this.globalsBind = this.buildGlobalsBind();
+		/* the same uniform buffer, without the depth texture — see the
+		   shadow pipeline's own layout for why */
+		this.shadowGlobalsBind = device.createBindGroup({
+			layout: shadowPipeline.getBindGroupLayout(0),
 			entries: [{binding: 0, resource: {buffer: this.globals}}],
 		});
 		this.resize(canvas.width || 1, canvas.height || 1);
@@ -334,11 +363,18 @@ export class BerxWebGPURuntimeRenderer implements BerxSpatialRenderer {
 			],
 		});
 		const globalsLayout = device.createBindGroupLayout({
-			entries: [{
-				binding: 0,
-				visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
-				buffer: {type: 'uniform', minBindingSize: GLOBALS_BYTES},
-			}],
+			entries: [
+				{
+					binding: 0,
+					visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
+					buffer: {type: 'uniform', minBindingSize: GLOBALS_BYTES},
+				},
+				/* A comparison sampler, not a filtering one: the hardware
+				   does the depth test per sample and averages the results,
+				   which is what makes the 3x3 tap a soft edge. */
+				{binding: 1, visibility: GPUShaderStage.FRAGMENT, sampler: {type: 'comparison'}},
+				{binding: 2, visibility: GPUShaderStage.FRAGMENT, texture: {sampleType: 'depth', viewDimension: '2d'}},
+			],
 		});
 		const pipeline = device.createRenderPipeline({
 			layout: device.createPipelineLayout({bindGroupLayouts: [globalsLayout, drawLayout, mediaLayout]}),
@@ -366,6 +402,52 @@ export class BerxWebGPURuntimeRenderer implements BerxSpatialRenderer {
 			primitive: {topology: 'triangle-list', frontFace: 'ccw', cullMode: 'back'},
 			depthStencil: {format: 'depth32float', depthWriteEnabled: true, depthCompare: 'less'},
 			multisample: {count: SAMPLE_COUNT},
+		});
+		/**
+		 * The depth-only pass, from the light.
+		 *
+		 * Same module, same vertex layout, same Draw bind group — a
+		 * shadow cast by a different shape from the one drawn is worse
+		 * than no shadow, because it is a shape that is not there. Front
+		 * faces are culled rather than back faces: recording the FAR side
+		 * of each caster moves the recorded depth away from the surface
+		 * being tested, which removes self-shadowing acne without a bias
+		 * large enough to detach a shadow from its object's foot.
+		 *
+		 * No fragment stage at all — the depth buffer is the whole output.
+		 */
+		/**
+		 * Its own group-0 layout, holding the uniform buffer ONLY.
+		 *
+		 * Reusing the world pass's layout put the depth texture in the
+		 * shadow pass's bind group while that same texture was the pass's
+		 * render attachment — WebGPU rejected it outright: "usage
+		 * includes writable usage and another usage in the same
+		 * synchronization scope". A validation error, caught by the
+		 * device rather than by reading, and exactly the kind a
+		 * hand-written binding is prone to.
+		 */
+		const shadowGlobalsLayout = device.createBindGroupLayout({
+			entries: [{
+				binding: 0,
+				visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
+				buffer: {type: 'uniform', minBindingSize: GLOBALS_BYTES},
+			}],
+		});
+		const shadowPipeline = device.createRenderPipeline({
+			layout: device.createPipelineLayout({bindGroupLayouts: [shadowGlobalsLayout, drawLayout]}),
+			vertex: {
+				module, entryPoint: 'vs_shadow',
+				buffers: [{
+					arrayStride: 24,
+					attributes: [
+						{shaderLocation: 0, offset: 0, format: 'float32x3'},
+						{shaderLocation: 1, offset: 12, format: 'float32x3'},
+					],
+				}],
+			},
+			primitive: {topology: 'triangle-list', frontFace: 'ccw', cullMode: 'front'},
+			depthStencil: {format: SHADOW_FORMAT, depthWriteEnabled: true, depthCompare: 'less'},
 		});
 		/* the label pass: its own pipeline, its own quad, its own atlas.
 		   Depth-tested against the world so a name behind a place is
@@ -402,7 +484,7 @@ export class BerxWebGPURuntimeRenderer implements BerxSpatialRenderer {
 			multisample: {count: SAMPLE_COUNT},
 		});
 
-		const renderer = new BerxWebGPURuntimeRenderer(canvas, device, context, format, pipeline, drawLayout, mediaLayout, labelPipeline, labelLayout, options);
+		const renderer = new BerxWebGPURuntimeRenderer(canvas, device, context, format, pipeline, drawLayout, mediaLayout, labelPipeline, labelLayout, shadowPipeline, options);
 		renderer.errors = errors;
 		renderer.adapter = adapter;
 		renderer.lostPromise = device.lost.then((info) => {
@@ -524,6 +606,7 @@ export class BerxWebGPURuntimeRenderer implements BerxSpatialRenderer {
 			width, height,
 			maxObjects: options.maxObjects,
 			ambientMotion: options.ambientMotion,
+			shadows: options.shadows,
 			lighting: this.lighting,
 			mediaFor: (id) => this.media.get(id),
 			affordances: this.affordances,
@@ -558,6 +641,35 @@ export class BerxWebGPURuntimeRenderer implements BerxSpatialRenderer {
 	 * shader and the same draw list; the cross-renderer gate uses it
 	 * because this driver cannot copy out of a canvas texture.
 	 */
+	/** The bind group the world pass uses: globals plus the depth map. */
+	private buildGlobalsBind(): GPUBindGroup {
+		return this.device.createBindGroup({
+			layout: this.pipeline.getBindGroupLayout(0),
+			entries: [
+				{binding: 0, resource: {buffer: this.globals}},
+				{binding: 1, resource: this.shadowSampler},
+				{binding: 2, resource: this.shadowMap.createView()},
+			],
+		});
+	}
+
+	/**
+	 * The depth target the light writes, rebuilt only when the size
+	 * changes. Rebuilding the bind group with it is not optional: a bind
+	 * group holds the VIEW, so a new texture with the old group bound
+	 * would sample the destroyed one.
+	 */
+	private ensureShadowMap(size: number): void {
+		if (this.shadowSize === size) return;
+		this.shadowMap.destroy();
+		this.shadowMap = this.device.createTexture({
+			size: {width: size, height: size}, format: SHADOW_FORMAT,
+			usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING,
+		});
+		this.shadowSize = size;
+		this.globalsBind = this.buildGlobalsBind();
+	}
+
 	draw(
 		list: BerxDrawList,
 		offscreen = false,
@@ -574,6 +686,25 @@ export class BerxWebGPURuntimeRenderer implements BerxSpatialRenderer {
 		globals.set([list.ambient[0], list.ambient[1], list.ambient[2], 0], 36);
 		globals.set([list.key.direction.x, list.key.direction.y, list.key.direction.z, 0], 40);
 		globals.set([list.key.colour[0], list.key.colour[1], list.key.colour[2], list.key.intensity], 44);
+		/* The light's own matrix goes through the SAME depth remap every
+		   other projection does: the shared core produces GL clip space
+		   (z from -1 to 1) and this API wants 0 to 1. The convention
+		   difference lives here, in the backend, never in the core. */
+		if (list.shadow) {
+			this.ensureShadowMap(list.shadow.mapSize);
+			globals.set(glToWgpuDepth(list.shadow.viewProjection), 48);
+			globals.set([
+				1 / list.shadow.mapSize,
+				list.shadow.depthBias,
+				list.shadow.normalBias,
+				list.shadow.strength,
+			], 64);
+		} else {
+			/* strength 0 is what turns the sampling off in the shader; the
+			   bind group still has to be complete, so the 1x1 stand-in
+			   stays bound */
+			globals.set([0, 0, 0, 0], 64);
+		}
 		device.queue.writeBuffer(this.globals, 0, globals);
 
 		const count = Math.max(1, list.items.length);
@@ -625,6 +756,30 @@ export class BerxWebGPURuntimeRenderer implements BerxSpatialRenderer {
 		device.queue.writeBuffer(this.drawBuffer!, 0, draws);
 
 		const encoder = device.createCommandEncoder();
+		/* The light's pass first: the world pass samples the depth it
+		   writes, in the same submission. */
+		if (list.shadow) {
+			const shadowPass = encoder.beginRenderPass({
+				colorAttachments: [],
+				depthStencilAttachment: {
+					view: this.shadowMap.createView(),
+					depthClearValue: 1, depthLoadOp: 'clear', depthStoreOp: 'store',
+				},
+			});
+			shadowPass.setPipeline(this.shadowPipeline);
+			shadowPass.setBindGroup(0, this.shadowGlobalsBind);
+			resolved.forEach(({item, mesh}, i) => {
+				/* A surface you can see through does not stop light.
+				   Casting from glass would put a solid shadow under
+				   something transparent. */
+				if (item.opacity < 0.95) return;
+				shadowPass.setBindGroup(1, this.drawBind!, [i * DRAW_STRIDE]);
+				shadowPass.setVertexBuffer(0, mesh.vertices);
+				shadowPass.setIndexBuffer(mesh.indices, 'uint16');
+				shadowPass.drawIndexed(mesh.count);
+			});
+			shadowPass.end();
+		}
 		const pass = encoder.beginRenderPass({
 			colorAttachments: [{
 				view: this.msaa!.createView(),

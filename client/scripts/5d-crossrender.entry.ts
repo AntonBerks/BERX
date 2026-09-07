@@ -9,7 +9,7 @@
 import {BerxThreeRuntimeRenderer} from '@berx/spatial-web/threeRuntime';
 import {BerxWebGPURuntimeRenderer} from '@berx/spatial-web/webgpuRuntime';
 import {berxBuildDrawList, type BerxTransitionKind} from '@berx/spatial';
-import {BERX_CROSS_RENDERER_VIEWPORT, berxCrossRendererFrame} from '@berx/scenes';
+import {BERX_CROSS_RENDERER_VIEWPORT, berxCrossRendererFrame, berxShadowFixtureFrame, berxShadowFixtureLighting} from '@berx/scenes';
 
 declare global {
 	interface Window {
@@ -49,6 +49,85 @@ const api = {
 			width: canvas.width,
 			height: canvas.height,
 			rgba: Array.from(flipRows(px, canvas.width, canvas.height)),
+		};
+	},
+	/**
+	 * The shadow question, asked twice on one scene.
+	 *
+	 * The same world, the same camera and the same light, rendered with
+	 * the key casting and with it not casting. Anything that differs
+	 * between the two images is the shadow — there is nothing else it
+	 * could be.
+	 */
+	renderShadowPair() {
+		const frame = berxShadowFixtureFrame();
+		const lighting = berxShadowFixtureLighting();
+		const list = berxBuildDrawList(frame, {
+			width: BERX_CROSS_RENDERER_VIEWPORT.width,
+			height: BERX_CROSS_RENDERER_VIEWPORT.height,
+			lighting,
+		});
+		const shoot = (shadows: boolean) => {
+			const canvas = freshCanvas(BERX_CROSS_RENDERER_VIEWPORT.width, BERX_CROSS_RENDERER_VIEWPORT.height);
+			const renderer = new BerxThreeRuntimeRenderer(canvas);
+			renderer.setLighting(lighting);
+			renderer.resize(canvas.width, canvas.height);
+			renderer.render(frame, {shadows});
+			const gl = canvas.getContext('webgl2');
+			if (!gl) throw new Error('no WebGL2 context');
+			const px = new Uint8Array(canvas.width * canvas.height * 4);
+			gl.readPixels(0, 0, canvas.width, canvas.height, gl.RGBA, gl.UNSIGNED_BYTE, px);
+			return Array.from(flipRows(px, canvas.width, canvas.height));
+		};
+		return {
+			width: BERX_CROSS_RENDERER_VIEWPORT.width,
+			height: BERX_CROSS_RENDERER_VIEWPORT.height,
+			withShadows: shoot(true),
+			withoutShadows: shoot(false),
+			/* the light camera the shared core fitted, and the view the
+			   frame was drawn with, so the gate can predict where the
+			   shadow must land instead of guessing at a screen box */
+			shadowCamera: list.shadow,
+			projection: list.projection,
+			view: list.view,
+		};
+	},
+	/**
+	 * The same question, asked of WebGPU.
+	 *
+	 * Agreement with WebGL2 is strong evidence, but it is evidence about
+	 * two backends being the same — not about either one casting a
+	 * shadow. This asks WebGPU directly: the same world, with the key
+	 * casting and with it not.
+	 */
+	async renderShadowPairWebGPU() {
+		const frame = berxShadowFixtureFrame();
+		const lighting = berxShadowFixtureLighting();
+		const shoot = async (shadows: boolean) => {
+			const canvas = freshCanvas(BERX_CROSS_RENDERER_VIEWPORT.width, BERX_CROSS_RENDERER_VIEWPORT.height);
+			const renderer = await BerxWebGPURuntimeRenderer.create(canvas);
+			if (!renderer) return undefined;
+			renderer.setLighting(lighting);
+			renderer.resize(canvas.width, canvas.height);
+			/* the offscreen path: the same pipeline, the same shader and
+			   the same draw list as the canvas one, resolving somewhere
+			   that can actually be read back */
+			renderer.draw(berxBuildDrawList(frame, {
+				width: canvas.width, height: canvas.height, lighting, shadows,
+			}), true);
+			const rgba = Array.from(await renderer.readback());
+			renderer.dispose();
+			return rgba;
+		};
+		const withShadows = await shoot(true);
+		if (!withShadows) return {available: false as const, reason: 'this browser granted no WebGPU device'};
+		const withoutShadows = await shoot(false);
+		return {
+			available: true as const,
+			width: BERX_CROSS_RENDERER_VIEWPORT.width,
+			height: BERX_CROSS_RENDERER_VIEWPORT.height,
+			withShadows,
+			withoutShadows,
 		};
 	},
 	/** The same frame, rendered by the real WebGL2 backend, read back as RGBA8. */

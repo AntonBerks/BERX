@@ -85,11 +85,15 @@ const BLOCKERS = [
 				: undefined,
 		claimed: () => /getCurrentTexture\(\)[\s\S]{0,80}copyTextureToBuffer/.test(webgpuRenderer),
 	},
-	{
-		what: 'Shadow maps',
-		evidence: () => 'the forward pass has no depth-from-light pass and no shadow sampler',
-		claimed: () => /shadows\s*:\s*true/.test(renderer),
-	},
+	/* Shadow maps were a row here, and are not any more: the key light
+	   casts in all three backends, from one shared light camera
+	   (@berx/spatial's berxShadowCamera) and one shared shader source,
+	   and npm run verify:5d-shadows measures it on a real GPU readback —
+	   the floor under an occluder darkens by 72%, the floor beside it
+	   does not, and WebGPU darkens it by the same amount as WebGL2.
+	   Removed rather than softened to "partially done": a blocker that
+	   no longer blocks anything is noise in a list whose whole value is
+	   that every row is real. */
 	{
 		what: 'Ambient occlusion and post-processing',
 		evidence: () => 'there is no G-buffer and no post chain: the pass writes straight to the default framebuffer',

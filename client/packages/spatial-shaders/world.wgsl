@@ -9,8 +9,16 @@
 // Smith visibility, Schlick Fresnel, metalness splitting the diffuse and
 // specular lobes, one directional key, up to four windowed point lights, and
 // an ambient term that stands in for the bounced room without pretending to
-// be image-based lighting. There is no shadow map and no post chain here,
-// and both backends' reported capabilities say so.
+// be image-based lighting. There is no post chain here, and both backends'
+// reported capabilities say so.
+//
+// The key light casts. Its camera is fitted in the shared core
+// (@berx/spatial's berxShadowCamera) so every backend puts the light in
+// exactly the same place, and this file only reads the depth it captured:
+// 3x3 PCF, a normal-offset sample, and a shadow that removes the KEY term
+// only. Ambient and the point lights are untouched, because a surface in
+// shadow still receives the bounced room — zeroing the pixel is what makes
+// a render look like a cutout rather than a place.
 //
 // One thing differs from the GLSL source, and it is a clip-space convention
 // rather than shading: WGSL depth runs 0..1 where GL runs -1..1, so the host
@@ -30,6 +38,10 @@ struct Globals {
   ambient: vec4<f32>,
   key_dir: vec4<f32>,
   key_col: vec4<f32>,   // rgb, intensity in w
+  // The light's own view-projection, already in this API's depth range.
+  light_vp: mat4x4<f32>,
+  // x = 1/mapSize, y = depth bias, z = normal bias, w = strength (0 = off)
+  shadow: vec4<f32>,
 };
 
 struct Draw {
@@ -44,6 +56,13 @@ struct Draw {
 };
 
 @group(0) @binding(0) var<uniform> g: Globals;
+// A comparison sampler, not a plain one: the hardware does the depth test
+// per sample and averages the RESULTS, which is what makes a 3x3 tap a soft
+// edge instead of four hard ones. Sampling depth and comparing afterwards
+// would average DEPTHS, and an averaged depth is a surface that exists
+// nowhere.
+@group(0) @binding(1) var shadow_sampler: sampler_comparison;
+@group(0) @binding(2) var shadow_texture: texture_depth_2d;
 @group(1) @binding(0) var<uniform> d: Draw;
 @group(2) @binding(0) var media_sampler: sampler;
 @group(2) @binding(1) var media_texture: texture_2d<f32>;
@@ -56,6 +75,18 @@ struct VsOut {
   @location(2) local: vec3<f32>,
   @location(3) local_n: vec3<f32>,
 };
+
+/**
+ * The depth-only pass, from the light.
+ *
+ * The same vertex data and the same model matrix as the main pass — a
+ * shadow cast by a different shape from the one drawn is worse than no
+ * shadow, because it is a shape that is not there.
+ */
+@vertex
+fn vs_shadow(@location(0) p: vec3<f32>, @location(1) n: vec3<f32>) -> @builtin(position) vec4<f32> {
+  return g.light_vp * d.model * vec4<f32>(p, 1.0);
+}
 
 @vertex
 fn vs(@location(0) p: vec3<f32>, @location(1) n: vec3<f32>) -> VsOut {
@@ -108,6 +139,37 @@ fn shade(n: vec3<f32>, v: vec3<f32>, l: vec3<f32>, radiance: vec3<f32>,
   return (diff + spec) * radiance * nol;
 }
 
+/**
+ * How much of the key light reaches this point. 1 is full light.
+ *
+ * The sample is pushed along the surface normal before projecting, which
+ * is what stops a lit surface shadowing itself at grazing angles without
+ * the constant depth bias that would detach a shadow from the foot of
+ * the thing casting it.
+ */
+fn key_visibility(world: vec3<f32>, n: vec3<f32>, nol: f32) -> f32 {
+  if (g.shadow.w <= 0.0) { return 1.0; }
+  // more offset where the light grazes, none where it is head-on
+  let slope = clamp(1.0 - nol, 0.0, 1.0);
+  let offset = world + n * (g.shadow.z * (1.0 + slope * 2.0));
+  let light_clip = g.light_vp * vec4<f32>(offset, 1.0);
+  let ndc = light_clip.xyz / max(light_clip.w, 1e-6);
+  // outside the light's own box: lit, not shadowed. A world larger than
+  // the map must not grow a hard black edge where the map ends.
+  if (ndc.x < -1.0 || ndc.x > 1.0 || ndc.y < -1.0 || ndc.y > 1.0 || ndc.z > 1.0) { return 1.0; }
+  let uv = vec2<f32>(ndc.x * 0.5 + 0.5, 0.5 - ndc.y * 0.5);
+  let depth = ndc.z - g.shadow.y;
+  var sum = 0.0;
+  for (var y: i32 = -1; y <= 1; y = y + 1) {
+    for (var x: i32 = -1; x <= 1; x = x + 1) {
+      let tap = uv + vec2<f32>(f32(x), f32(y)) * g.shadow.x;
+      sum = sum + textureSampleCompareLevel(shadow_texture, shadow_sampler, tap, depth);
+    }
+  }
+  let lit = sum / 9.0;
+  return mix(1.0, lit, g.shadow.w);
+}
+
 @fragment
 fn fs(i: VsOut) -> @location(0) vec4<f32> {
   // Media is a planar projection onto the face that points at you.
@@ -131,7 +193,11 @@ fn fs(i: VsOut) -> @location(0) vec4<f32> {
   let diffuse_color = base * (1.0 - d.surface.x);
   let f0 = mix(vec3<f32>(0.04), base, vec3<f32>(d.surface.x));
 
-  var lit = shade(n, v, normalize(g.key_dir.xyz), g.key_col.rgb * g.key_col.w, diffuse_color, f0, a);
+  let key_l = normalize(g.key_dir.xyz);
+  // The key alone is shadowed. Ambient and the point lights are not: a
+  // surface out of the sun still receives the room.
+  let visibility = key_visibility(i.w, n, max(dot(n, key_l), 0.0));
+  var lit = shade(n, v, key_l, g.key_col.rgb * g.key_col.w, diffuse_color, f0, a) * visibility;
 
   let count = i32(d.counts.x);
   for (var k: i32 = 0; k < 4; k = k + 1) {

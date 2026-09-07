@@ -8,10 +8,12 @@
  * gradient stop.
  *
  * What is here is what is implemented: ambient, one directional key,
- * and point lights that a region can place. There is no shadow map, no
- * ambient-occlusion pass and no image-based lighting, so none of those
- * appears in this file and the renderer's capabilities say so. When a
- * shadow pass is genuinely written, its light gains a shadow field
+ * and point lights that a region can place. The key now casts — its
+ * camera is fitted in shadowMap.ts and its depth is read by both
+ * shader sources — so `shadows` is true in the renderers' reported
+ * capabilities. There is still no ambient-occlusion pass and no
+ * image-based lighting, so neither appears in this file. When one is
+ * genuinely written, its light gains a field
  * here and the capability flips — not before.
  */
 import {parseColor} from './color';

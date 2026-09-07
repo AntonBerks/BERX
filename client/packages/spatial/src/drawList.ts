@@ -36,6 +36,7 @@ import {
 import type {Berx5DFrame} from './runtime5d';
 import type {BerxSpatialCameraState} from './spatialCamera';
 import {berxTransitionModulation} from './transitions';
+import {berxShadowCamera, type BerxShadowCamera} from './shadowMap';
 import type {BerxSpatialAffordance} from './socialActions';
 import type {BerxSpatialEntityKind, BerxSpatialObject, BerxVec3} from './world';
 
@@ -149,6 +150,16 @@ export interface BerxDrawList {
 	 * belongs to. Empty when nothing is focused or nothing is offered.
 	 */
 	actionSlots: BerxActionSlot[];
+	/**
+	 * The key light's own camera, fitted to what is being drawn.
+	 *
+	 * Decided here so all three backends put the light in exactly the
+	 * same place: three renderers that agree on the world would
+	 * otherwise disagree on where its shadows fall, and the pixel
+	 * comparison between them would report a maths disagreement as a
+	 * rendering one. Absent when there is nothing to cast.
+	 */
+	shadow?: BerxShadowCamera;
 	/** The camera's right and up, for the quads that face it. */
 	basis?: {right: BerxVec3; up: BerxVec3};
 	stats: BerxDrawStats;
@@ -167,6 +178,15 @@ export interface BerxDrawListOptions {
 	mediaFor?: (objectId: string) => string | undefined;
 	/** What can be done to the focused entity, from the world application. */
 	affordances?: readonly BerxSpatialAffordance[];
+	/**
+	 * Whether the key light casts.
+	 *
+	 * A real switch, in the core, so every backend turns shadows off the
+	 * same way and a low-tier device drops a whole pass rather than a
+	 * backend inventing its own cheaper approximation. Off means the
+	 * light casts nothing — never a fake darkening under objects.
+	 */
+	shadows?: boolean;
 }
 
 const modelMatrix = (p: BerxVec3, s: BerxVec3, r: {x: number; y: number; z: number}): number[] => {
@@ -398,6 +418,19 @@ export function berxBuildDrawList(frame: Berx5DFrame, options: BerxDrawListOptio
 			c,
 			options.affordances ?? [],
 		),
+		/**
+		 * Everything drawn casts and receives. Not a per-object flag:
+		 * a world where some things cast shadows and others do not is a
+		 * world where a viewer learns the rendering rather than the
+		 * place. The cost is bounded by the same budget the main pass
+		 * already has, since it is the same list.
+		 */
+		shadow: options.shadows === false
+			? undefined
+			: berxShadowCamera(
+				drawn.map((o) => ({position: o.transform.position, radius: radiusOf(o)})),
+				lighting.key.direction,
+			),
 		basis: basis ? {right: {...basis.right}, up: {...basis.up}} : undefined,
 		stats: {
 			visible: all.length,

@@ -93,7 +93,7 @@ try {
 		context.capabilities.perspective === true &&
 			context.capabilities.depthBuffer === true &&
 			context.capabilities.physicallyLitMaterials === true &&
-			context.capabilities.shadows === false &&
+			context.capabilities.shadows === true &&
 			context.capabilities.postProcessing === false,
 		JSON.stringify(context.capabilities),
 	);

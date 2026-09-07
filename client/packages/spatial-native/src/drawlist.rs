@@ -65,6 +65,26 @@ pub struct DrawStats {
     pub lod_reduced: u32,
 }
 
+/// The key light's own camera, fitted by the shared core.
+///
+/// Deserialised rather than recomputed here on purpose: three backends
+/// that each fit their own light camera would disagree about where a
+/// shadow falls even while agreeing about the world, and the pixel
+/// comparison between them would report a maths difference as a
+/// rendering one.
+#[derive(Debug, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ShadowCamera {
+    pub view: [f32; 16],
+    pub projection: [f32; 16],
+    pub view_projection: [f32; 16],
+    pub texel_world_size: f32,
+    pub depth_bias: f32,
+    pub normal_bias: f32,
+    pub map_size: u32,
+    pub strength: f32,
+}
+
 #[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct DrawList {
@@ -77,5 +97,9 @@ pub struct DrawList {
     pub ambient: [f32; 3],
     pub key: KeyLight,
     pub items: Vec<DrawItem>,
+    /// Absent when there is nothing to cast, or when the core was asked
+    /// for no shadows at all.
+    #[serde(default)]
+    pub shadow: Option<ShadowCamera>,
     pub stats: DrawStats,
 }

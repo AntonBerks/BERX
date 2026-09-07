@@ -27,7 +27,7 @@
  * a reason that has nothing to do with whether they agree about the
  * world.
  */
-import {Berx5DWorldApp, berxTemporalCursor, berxTransitionSpec, type Berx5DFrame, type BerxTransitionKind} from '@berx/spatial';
+import {Berx5DWorldApp, berxTemporalCursor, berxTransitionSpec, berxWorldLighting, type Berx5DFrame, type BerxTransitionKind, type BerxWorldLighting} from '@berx/spatial';
 import {
 	berxSpatialId,
 	mapCommunityToSpatial,
@@ -144,3 +144,92 @@ export function berxCrossRendererFrame(options: {labels?: boolean; transition?: 
 
 /** The viewport both renderers use. Small enough to compare quickly, large enough to hold form. */
 export const BERX_CROSS_RENDERER_VIEWPORT = {width: 480, height: 360} as const;
+
+/**
+ * A world built so a shadow either happens or visibly does not.
+ *
+ * The cross-renderer fixture is a real BERX world and is exactly the
+ * wrong shape for this question: its entities stand in a relational
+ * ring, so nothing is reliably above anything else and a shadow could
+ * land anywhere. This one answers one question — does an occluder
+ * darken what is under it — and answers it where the answer is
+ * unambiguous: a wide flat surface, one orb directly above its centre,
+ * and a key light straight down.
+ *
+ * Still a real world: real BerxSpatialObjects, the real material and
+ * palette resolution, the real camera, the real draw list. The only
+ * thing arranged by hand is the geometry, because a question about
+ * where light falls needs known geometry to have an answer at all.
+ */
+export function berxShadowFixtureFrame(): Berx5DFrame {
+	const app = new Berx5DWorldApp({
+		viewerId: berxSpatialId('person', PERSON),
+		cursor: berxTemporalCursor(NOW_SECONDS),
+		transitionDuration: 0.01,
+	});
+	/* A moment, not a place: `place` resolves to the `portal` primitive,
+	   which is a FRAME — hollow in the middle, so a "floor" made from one
+	   has a hole exactly where the shadow would land. Found by rendering
+	   it, not by reading the geometry table. `moment` resolves to
+	   `surface`, a solid slab, which is what a floor is. */
+	const ground = mapFeedItemToSpatial(moment);
+	const caster = mapUserToSpatial(user);
+	app.ingest([
+		{object: ground.object, relations: [], media: []},
+		{object: caster.object, relations: [], media: []},
+	]);
+
+	const frame = app.latestFrame;
+	const objects = frame.world.objects.map((o) => {
+		if (o.id === ground.object.id) {
+			/* the floor: wide, thin, flat, at the origin */
+			return {
+				...o,
+				label: undefined,
+				transform: {position: {x: 0, y: -1.2, z: 0}, rotation: {x: -Math.PI / 2, y: 0, z: 0}, scale: {x: 9, y: 9, z: 0.2}},
+			};
+		}
+		if (o.id === caster.object.id) {
+			/* the occluder: directly above the floor's centre */
+			return {
+				...o,
+				label: undefined,
+				transform: {position: {x: 0, y: 1.4, z: 0}, rotation: {x: 0, y: 0, z: 0}, scale: {x: 1.6, y: 1.6, z: 1.6}},
+			};
+		}
+		return {...o, label: undefined};
+	});
+
+	return {
+		...frame,
+		world: {...frame.world, objects, activeObjectId: undefined},
+		/* looking down the floor at a shallow angle, so both the orb and
+		   the ground under it are in frame */
+		camera: {
+			position: {x: 0, y: 3.4, z: 7.2},
+			target: {x: 0, y: -0.4, z: 0},
+			rotation: {x: 0, y: 0, z: 0},
+			fov: 55,
+			near: 0.1,
+			far: 100,
+		},
+		transition: undefined,
+		reducedMotion: true,
+	};
+}
+
+/**
+ * A key light pointing straight down, so the orb's shadow lands under
+ * the orb and nowhere else. Everything else is the world's own
+ * standing light.
+ */
+export function berxShadowFixtureLighting(): BerxWorldLighting {
+	const lighting = berxWorldLighting();
+	return {
+		...lighting,
+		/* (0, 1, 0) means the light is straight overhead: the field points
+		   TOWARD the light, which is what the BRDF and the shadow camera
+		   both read it as. */
+		key: {...lighting.key, direction: {x: 0, y: 1, z: 0}, intensity: Math.max(lighting.key.intensity, 1.6)},
+	};
+}

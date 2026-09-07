@@ -36,6 +36,16 @@ import { BerxSpatialTextAtlas } from './spatialText';
 type Loc = WebGLUniformLocation | null;
 const V = `#version 300 es\nprecision highp float;layout(location=0)in vec3 p;layout(location=1)in vec3 n;uniform mat4 P,V,M;out vec3 N,W,L,LN;void main(){vec4 w=M*vec4(p,1.);W=w.xyz;N=mat3(M)*n;L=p;LN=n;gl_Position=P*V*w;}`;
 /**
+ * The depth-only pass, from the light.
+ *
+ * Same vertex data and same model matrix as the main pass: a shadow cast
+ * by a different shape from the one drawn is worse than no shadow,
+ * because it is a shape that is not there. No fragment work at all —
+ * the depth buffer is the entire output.
+ */
+const SV = `#version 300 es\nprecision highp float;layout(location=0)in vec3 p;uniform mat4 LVP,M;void main(){gl_Position=LVP*M*vec4(p,1.);}`;
+const SF = `#version 300 es\nprecision highp float;void main(){}`;
+/**
  * One forward pass with a real microfacet BRDF: GGX, height-correlated
  * Smith visibility, Schlick Fresnel, and metalness splitting the
  * diffuse and specular lobes. There is still no shadow term and no
@@ -66,6 +76,18 @@ uniform vec3 BASE, EMIT;
 uniform float MET, ROUGH, OPAC, TRANS, HT;
 uniform vec4 TS;
 uniform sampler2D TEX;
+// The light's own view-projection, from the shared core.
+uniform mat4 LVP;
+// x = 1/mapSize, y = depth bias, z = normal bias, w = strength (0 = off)
+uniform vec4 SHADOW;
+/**
+ * A shadow sampler, not a plain sampler2D: the hardware does the depth
+ * test per sample and averages the RESULTS, which is what makes a 3x3
+ * tap a soft edge instead of four hard ones. Sampling depth and
+ * comparing afterwards would average DEPTHS, and an averaged depth is a
+ * surface that exists nowhere.
+ */
+uniform highp sampler2DShadow SHADOW_MAP;
 out vec4 C;
 
 const float PI = 3.14159265359;
@@ -98,6 +120,36 @@ vec3 shade(vec3 n, vec3 v, vec3 l, vec3 radiance, vec3 diffuseColor, vec3 f0, fl
   return (diff+spec)*radiance*NoL;
 }
 
+/**
+ * How much of the key light reaches this point. 1 is full light.
+ *
+ * The same maths as the WGSL source, with the two conventions that
+ * genuinely differ between the APIs written out rather than hidden:
+ * GL clip space runs z from -1 to 1 (WGSL runs 0 to 1), and GL texture
+ * space has its origin at the bottom (WGSL at the top). Everything else
+ * — the normal offset, the slope scale, the 3x3 kernel and the fact
+ * that only the KEY is shadowed — is identical.
+ */
+float keyVisibility(vec3 world, vec3 n, float NoL){
+  if(SHADOW.w<=0.) return 1.;
+  float slope=clamp(1.-NoL,0.,1.);
+  vec3 offset=world+n*(SHADOW.z*(1.+slope*2.));
+  vec4 lc=LVP*vec4(offset,1.);
+  vec3 ndc=lc.xyz/max(lc.w,1e-6);
+  if(ndc.x<-1.||ndc.x>1.||ndc.y<-1.||ndc.y>1.||ndc.z>1.) return 1.;
+  // GL: -1..1 to 0..1 for both the texture coordinate and the depth
+  vec2 uv=ndc.xy*.5+.5;
+  float depth=ndc.z*.5+.5-SHADOW.y;
+  float sum=0.;
+  for(int y=-1;y<=1;y++){
+    for(int x=-1;x<=1;x++){
+      vec2 tap=uv+vec2(float(x),float(y))*SHADOW.x;
+      sum+=texture(SHADOW_MAP,vec3(tap,depth));
+    }
+  }
+  return mix(1.,sum/9.,SHADOW.w);
+}
+
 void main(){
   vec3 base=BASE;
   // media is a planar projection onto the face that points at you
@@ -113,7 +165,11 @@ void main(){
   vec3 diffuseColor=base*(1.-MET);
   vec3 f0=mix(vec3(.04),base,MET);
 
-  vec3 lit=shade(n,v,normalize(KEY_DIR),KEY_COL*KEY_I,diffuseColor,f0,a);
+  vec3 keyL=normalize(KEY_DIR);
+  // The key alone is shadowed. Ambient and the point lights are not: a
+  // surface out of the sun still receives the room.
+  float visibility=keyVisibility(W,n,max(dot(n,keyL),0.));
+  vec3 lit=shade(n,v,keyL,KEY_COL*KEY_I,diffuseColor,f0,a)*visibility;
   for(int i=0;i<4;i++){
     if(i>=PL_N) break;
     vec3 d=PL_POS[i]-W;
@@ -189,6 +245,8 @@ function meshFor(kind:ReturnType<typeof geometryForEntity>['kind'],lod:0|1):Berx
 export interface BerxSpatialRenderOptions {
 	maxObjects?:number;
 	ambientMotion?:boolean;
+	/** Whether the key light casts. Passed straight to the shared core. */
+	shadows?:boolean;
 	/**
 	 * Two eyes, drawn side by side into one backing store.
 	 *
@@ -203,8 +261,12 @@ export interface BerxSpatialRenderOptions {
 export class BerxThreeRuntimeRenderer implements BerxSpatialRenderer {
  readonly kind='webgl2' as const;
  /* what this backend really does, and nothing it does not */
- readonly capabilities={perspective:true,depthBuffer:true,physicallyLitMaterials:true,shadows:false,postProcessing:false} as const;
- private readonly gl:WebGL2RenderingContext;private readonly program:WebGLProgram;private readonly meshes=new Map<string,GpuMesh>();private readonly P:Loc;private readonly V:Loc;private readonly M:Loc;private readonly BASE:Loc;private readonly EMIT:Loc;private readonly CAM:Loc;private readonly AMB:Loc;private readonly KEY_DIR:Loc;private readonly KEY_COL:Loc;private readonly KEY_I:Loc;private readonly PL_POS:Loc;private readonly PL_COL:Loc;private readonly PL_I:Loc;private readonly PL_R:Loc;private readonly PL_N:Loc;private readonly MET:Loc;private readonly ROUGH:Loc;private readonly OPAC:Loc;private readonly TRANS:Loc;private readonly HT:Loc;private readonly TS:Loc;private readonly TEX:Loc;private readonly textures:BerxMediaTextureCache;/** objectId -> the one media URI drawn on its face */private readonly media=new Map<string,string>();private width=1;private height=1;
+ readonly capabilities={perspective:true,depthBuffer:true,physicallyLitMaterials:true,shadows:true,postProcessing:false} as const;
+ private readonly gl:WebGL2RenderingContext;private readonly program:WebGLProgram;private readonly meshes=new Map<string,GpuMesh>();private readonly P:Loc;private readonly V:Loc;private readonly M:Loc;private readonly BASE:Loc;private readonly EMIT:Loc;private readonly CAM:Loc;private readonly AMB:Loc;private readonly KEY_DIR:Loc;private readonly KEY_COL:Loc;private readonly KEY_I:Loc;private readonly PL_POS:Loc;private readonly PL_COL:Loc;private readonly PL_I:Loc;private readonly PL_R:Loc;private readonly PL_N:Loc;private readonly MET:Loc;private readonly ROUGH:Loc;private readonly OPAC:Loc;private readonly TRANS:Loc;private readonly HT:Loc;private readonly TS:Loc;private readonly TEX:Loc;private readonly LVP:Loc;private readonly SHADOW:Loc;private readonly SHADOW_MAP:Loc;
+ /* the depth-only pass from the light: its own program, its own target */
+ private readonly shadowProgram:WebGLProgram;private readonly SLVP:Loc;private readonly SM:Loc;
+ private shadowFbo?:WebGLFramebuffer;private shadowTexture?:WebGLTexture;private shadowSize=0;
+ private readonly textures:BerxMediaTextureCache;/** objectId -> the one media URI drawn on its face */private readonly media=new Map<string,string>();private width=1;private height=1;
  /* the label pass: its own program, its own quad, its own atlas */
  private readonly labels:BerxSpatialTextAtlas;
  private readonly labelProgram:WebGLProgram;
@@ -225,7 +287,9 @@ export class BerxThreeRuntimeRenderer implements BerxSpatialRenderer {
  private slots:BerxActionSlot[]=[];
  /** What the last frame actually cost. Measured during the draw. */
  private stats:BerxFrameStats={visible:0,inFrustum:0,drawCalls:0,triangles:0,lodReduced:0,budgetCut:0,residentTextures:0,residentLabels:0,meshVariants:0};
- constructor(canvas:HTMLCanvasElement,options:{textureBudget?:number;labelBudget?:number;onMediaError?:(uri:string,error:unknown)=>void}={}){const gl=canvas.getContext('webgl2',{antialias:true,alpha:false,depth:true,powerPreference:'high-performance'});if(!gl)throw Error('BERX 5D requires WebGL2');this.gl=gl;this.program=program(gl);this.P=gl.getUniformLocation(this.program,'P');this.V=gl.getUniformLocation(this.program,'V');this.M=gl.getUniformLocation(this.program,'M');this.BASE=gl.getUniformLocation(this.program,'BASE');this.EMIT=gl.getUniformLocation(this.program,'EMIT');this.CAM=gl.getUniformLocation(this.program,'CAM');this.AMB=gl.getUniformLocation(this.program,'AMB');this.KEY_DIR=gl.getUniformLocation(this.program,'KEY_DIR');this.KEY_COL=gl.getUniformLocation(this.program,'KEY_COL');this.KEY_I=gl.getUniformLocation(this.program,'KEY_I');this.PL_POS=gl.getUniformLocation(this.program,'PL_POS');this.PL_COL=gl.getUniformLocation(this.program,'PL_COL');this.PL_I=gl.getUniformLocation(this.program,'PL_I');this.PL_R=gl.getUniformLocation(this.program,'PL_R');this.PL_N=gl.getUniformLocation(this.program,'PL_N');this.MET=gl.getUniformLocation(this.program,'MET');this.ROUGH=gl.getUniformLocation(this.program,'ROUGH');this.OPAC=gl.getUniformLocation(this.program,'OPAC');this.TRANS=gl.getUniformLocation(this.program,'TRANS');this.HT=gl.getUniformLocation(this.program,'HT');this.TS=gl.getUniformLocation(this.program,'TS');this.TEX=gl.getUniformLocation(this.program,'TEX');this.textures=new BerxMediaTextureCache(gl,{budget:options.textureBudget,onError:options.onMediaError});
+ constructor(canvas:HTMLCanvasElement,options:{textureBudget?:number;labelBudget?:number;onMediaError?:(uri:string,error:unknown)=>void}={}){const gl=canvas.getContext('webgl2',{antialias:true,alpha:false,depth:true,powerPreference:'high-performance'});if(!gl)throw Error('BERX 5D requires WebGL2');this.gl=gl;this.program=program(gl);this.P=gl.getUniformLocation(this.program,'P');this.V=gl.getUniformLocation(this.program,'V');this.M=gl.getUniformLocation(this.program,'M');this.BASE=gl.getUniformLocation(this.program,'BASE');this.EMIT=gl.getUniformLocation(this.program,'EMIT');this.CAM=gl.getUniformLocation(this.program,'CAM');this.AMB=gl.getUniformLocation(this.program,'AMB');this.KEY_DIR=gl.getUniformLocation(this.program,'KEY_DIR');this.KEY_COL=gl.getUniformLocation(this.program,'KEY_COL');this.KEY_I=gl.getUniformLocation(this.program,'KEY_I');this.PL_POS=gl.getUniformLocation(this.program,'PL_POS');this.PL_COL=gl.getUniformLocation(this.program,'PL_COL');this.PL_I=gl.getUniformLocation(this.program,'PL_I');this.PL_R=gl.getUniformLocation(this.program,'PL_R');this.PL_N=gl.getUniformLocation(this.program,'PL_N');this.MET=gl.getUniformLocation(this.program,'MET');this.ROUGH=gl.getUniformLocation(this.program,'ROUGH');this.OPAC=gl.getUniformLocation(this.program,'OPAC');this.TRANS=gl.getUniformLocation(this.program,'TRANS');this.HT=gl.getUniformLocation(this.program,'HT');this.TS=gl.getUniformLocation(this.program,'TS');this.TEX=gl.getUniformLocation(this.program,'TEX');this.LVP=gl.getUniformLocation(this.program,'LVP');this.SHADOW=gl.getUniformLocation(this.program,'SHADOW');this.SHADOW_MAP=gl.getUniformLocation(this.program,'SHADOW_MAP');
+  this.shadowProgram=program(gl,SV,SF);this.SLVP=gl.getUniformLocation(this.shadowProgram,'LVP');this.SM=gl.getUniformLocation(this.shadowProgram,'M');
+  this.textures=new BerxMediaTextureCache(gl,{budget:options.textureBudget,onError:options.onMediaError});
   this.labels=new BerxSpatialTextAtlas(gl,{budget:options.labelBudget});
   this.labelProgram=program(gl,TV,TF);
   this.LP=gl.getUniformLocation(this.labelProgram,'P');this.LV=gl.getUniformLocation(this.labelProgram,'V');this.LC=gl.getUniformLocation(this.labelProgram,'C');this.LR=gl.getUniformLocation(this.labelProgram,'R');this.LU=gl.getUniformLocation(this.labelProgram,'U');this.LS=gl.getUniformLocation(this.labelProgram,'S');this.LA=gl.getUniformLocation(this.labelProgram,'A');this.LT=gl.getUniformLocation(this.labelProgram,'TEX');
@@ -278,11 +342,30 @@ export class BerxThreeRuntimeRenderer implements BerxSpatialRenderer {
    width,height,
    maxObjects:options.maxObjects,
    ambientMotion:options.ambientMotion,
+   shadows:options.shadows,
    lighting:this.lighting,
    mediaFor:(id)=>this.media.get(id),
    affordances:this.affordances,
   });
+  /* The light's own pass comes first: the main pass reads the depth it
+     writes. Its camera is the shared core's (list.shadow), so this
+     backend and the others put the light in exactly the same place. */
+  this.renderShadowMap(list);
+  gl.useProgram(this.program);
+  gl.viewport(0,0,width,height);
   if(clear){gl.clearColor(list.clearColor[0],list.clearColor[1],list.clearColor[2],1);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);}
+  if(list.shadow&&this.shadowTexture){
+   gl.uniformMatrix4fv(this.LVP,false,new Float32Array(list.shadow.viewProjection));
+   gl.uniform4f(this.SHADOW,1/list.shadow.mapSize,list.shadow.depthBias,list.shadow.normalBias,list.shadow.strength);
+   /* unit 1: unit 0 is the media texture, rebound per item */
+   gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,this.shadowTexture);gl.uniform1i(this.SHADOW_MAP,1);
+  } else {
+   /* strength 0 turns the whole thing off in the shader — a world with
+      nothing to cast is lit, not black */
+   gl.uniform4f(this.SHADOW,0,0,0,0);
+   gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,this.ensureShadowTarget(1).texture);gl.uniform1i(this.SHADOW_MAP,1);
+  }
+  gl.activeTexture(gl.TEXTURE0);
   gl.uniformMatrix4fv(this.P,false,new Float32Array(list.projection));
   gl.uniformMatrix4fv(this.V,false,new Float32Array(list.view));
   this.textures.beginFrame();
@@ -329,6 +412,73 @@ export class BerxThreeRuntimeRenderer implements BerxSpatialRenderer {
    residentLabels:this.labels.residentCount,
    meshVariants:this.meshes.size,
   };}
+
+ /**
+  * The depth-only pass, from the light.
+  *
+  * Front faces are culled rather than back faces — the standard trick,
+  * and worth stating because it looks wrong: recording the BACK of each
+  * caster puts the recorded depth on the far side of the object, which
+  * moves the whole surface away from the comparison and removes
+  * self-shadowing acne without a bias large enough to detach the
+  * shadow from the object's foot.
+  *
+  * Nothing is decided here. Which objects cast, where the light stands
+  * and how big its box is all come from list.shadow, which the shared
+  * core computed — so this backend cannot disagree with the others
+  * about where a shadow falls.
+  */
+ private renderShadowMap(list:BerxDrawList){
+  const gl=this.gl;
+  if(!list.shadow){return;}
+  const target=this.ensureShadowTarget(list.shadow.mapSize);
+  gl.bindFramebuffer(gl.FRAMEBUFFER,target.fbo);
+  gl.viewport(0,0,list.shadow.mapSize,list.shadow.mapSize);
+  gl.clear(gl.DEPTH_BUFFER_BIT);
+  gl.useProgram(this.shadowProgram);
+  gl.enable(gl.CULL_FACE);gl.cullFace(gl.FRONT);
+  gl.uniformMatrix4fv(this.SLVP,false,new Float32Array(list.shadow.viewProjection));
+  for(const item of list.items){
+   /* A surface you can see through does not stop light. Casting from
+      glass would put a solid shadow under something transparent. */
+   if(item.opacity<0.95){continue;}
+   const mesh=this.getMesh(item.primitive,item.lod);
+   gl.bindVertexArray(mesh.vao);
+   gl.uniformMatrix4fv(this.SM,false,new Float32Array(item.model));
+   gl.drawElements(gl.TRIANGLES,mesh.count,gl.UNSIGNED_SHORT,0);
+  }
+  gl.bindVertexArray(null);
+  gl.cullFace(gl.BACK);gl.disable(gl.CULL_FACE);
+  gl.bindFramebuffer(gl.FRAMEBUFFER,null);
+ }
+
+ /** The depth target, built once and rebuilt only if the size changes. */
+ private ensureShadowTarget(size:number):{fbo:WebGLFramebuffer;texture:WebGLTexture}{
+  const gl=this.gl;
+  if(this.shadowFbo&&this.shadowTexture&&this.shadowSize===size){return {fbo:this.shadowFbo,texture:this.shadowTexture};}
+  if(this.shadowFbo)gl.deleteFramebuffer(this.shadowFbo);
+  if(this.shadowTexture)gl.deleteTexture(this.shadowTexture);
+  const texture=gl.createTexture();const fbo=gl.createFramebuffer();
+  if(!texture||!fbo)throw Error('BERX 5D shadow target allocation failed');
+  gl.bindTexture(gl.TEXTURE_2D,texture);
+  gl.texImage2D(gl.TEXTURE_2D,0,gl.DEPTH_COMPONENT24,size,size,0,gl.DEPTH_COMPONENT,gl.UNSIGNED_INT,null);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+  /* comparison mode is what makes sampler2DShadow average RESULTS
+     rather than depths — without it the 3x3 tap is meaningless */
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_COMPARE_MODE,gl.COMPARE_REF_TO_TEXTURE);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_COMPARE_FUNC,gl.LEQUAL);
+  gl.bindFramebuffer(gl.FRAMEBUFFER,fbo);
+  gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.DEPTH_ATTACHMENT,gl.TEXTURE_2D,texture,0);
+  const status=gl.checkFramebufferStatus(gl.FRAMEBUFFER);
+  gl.bindFramebuffer(gl.FRAMEBUFFER,null);
+  gl.bindTexture(gl.TEXTURE_2D,null);
+  if(status!==gl.FRAMEBUFFER_COMPLETE)throw Error(`BERX 5D shadow framebuffer incomplete: 0x${status.toString(16)}`);
+  this.shadowFbo=fbo;this.shadowTexture=texture;this.shadowSize=size;
+  return {fbo,texture};
+ }
 
  /**
   * The names, standing where their entities stand.
@@ -430,7 +580,7 @@ export class BerxThreeRuntimeRenderer implements BerxSpatialRenderer {
   * optional — where the extension is absent the deletes above are all
   * there is, which is honest rather than silent.
   */
- dispose(){const gl=this.gl;this.releaseMeshes();this.textures.dispose();this.labels.dispose();this.media.clear();gl.deleteProgram(this.program);gl.getExtension('WEBGL_lose_context')?.loseContext();}
+ dispose(){const gl=this.gl;this.releaseMeshes();this.textures.dispose();this.labels.dispose();this.media.clear();if(this.shadowFbo)gl.deleteFramebuffer(this.shadowFbo);if(this.shadowTexture)gl.deleteTexture(this.shadowTexture);this.shadowFbo=undefined;this.shadowTexture=undefined;this.shadowSize=0;gl.deleteProgram(this.shadowProgram);gl.deleteProgram(this.program);gl.getExtension('WEBGL_lose_context')?.loseContext();}
  private releaseMeshes(){const gl=this.gl;for(const m of this.meshes.values()){gl.deleteBuffer(m.vbo);gl.deleteBuffer(m.ibo);gl.deleteVertexArray(m.vao);}this.meshes.clear();}
  /**
   * A lost context invalidates every name this renderer holds. The map
@@ -438,5 +588,9 @@ export class BerxThreeRuntimeRenderer implements BerxSpatialRenderer {
   * handles the driver no longer knows; deleting them here would be
   * calling into a dead context.
   */
- handleContextLost(){this.meshes.clear();this.textures.handleContextLost();this.labels.handleContextLost();}
+ handleContextLost(){this.meshes.clear();this.textures.handleContextLost();this.labels.handleContextLost();
+  /* the depth target belonged to the dead context; forgetting the
+     handles makes the next frame build a new one rather than bind
+     something the driver no longer knows */
+  this.shadowFbo=undefined;this.shadowTexture=undefined;this.shadowSize=0;}
 }

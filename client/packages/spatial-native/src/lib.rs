@@ -50,7 +50,10 @@ pub const CAPABILITIES: Capabilities = Capabilities {
     perspective: true,
     depth_buffer: true,
     physically_lit_materials: true,
-    shadows: false,
+    /// The key light casts: a depth-only pass from the light's own
+    /// camera (fitted by the shared core), sampled with a comparison
+    /// sampler and a 3x3 kernel in the shared WGSL.
+    shadows: true,
     post_processing: false,
     media_surfaces: false,
     world_space_labels: false,
@@ -65,6 +68,10 @@ struct Globals {
     ambient: [f32; 4],
     key_dir: [f32; 4],
     key_col: [f32; 4],
+    /// The key light's own view-projection, already depth-remapped.
+    light_vp: [f32; 16],
+    /// x = 1/mapSize, y = depth bias, z = normal bias, w = strength.
+    shadow: [f32; 4],
 }
 
 #[repr(C)]
@@ -104,10 +111,20 @@ pub struct FrameStats {
 pub struct Prepared {
     globals_bind: wgpu::BindGroup,
     draw_bind: wgpu::BindGroup,
+    /// The depth map the key light writes, and the group the shadow pass
+    /// binds. Absent when there is nothing to cast.
+    shadow: Option<PreparedShadow>,
     plan: Vec<(String, u32)>,
     mesh_variants: u32,
     clear: [f32; 3],
     skipped: u32,
+}
+
+pub struct PreparedShadow {
+    view: wgpu::TextureView,
+    globals_bind: wgpu::BindGroup,
+    /// Which planned draws are opaque enough to stop light.
+    casters: Vec<usize>,
 }
 
 /// The rendered frame, read back off the GPU.
@@ -160,6 +177,9 @@ pub struct NativeRenderer {
     queue: wgpu::Queue,
     pipeline: wgpu::RenderPipeline,
     globals_layout: wgpu::BindGroupLayout,
+    shadow_pipeline: wgpu::RenderPipeline,
+    shadow_globals_layout: wgpu::BindGroupLayout,
+    shadow_sampler: wgpu::Sampler,
     draw_layout: wgpu::BindGroupLayout,
     /* a 1x1 texture and a sampler, bound for every draw. The shader's
        media path is shared with the WebGPU backend; this crate has no
@@ -218,6 +238,45 @@ impl NativeRenderer {
 
         let globals_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("berx-globals"),
+            entries: &[
+                wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: NonZeroU64::new(std::mem::size_of::<Globals>() as u64),
+                    },
+                    count: None,
+                },
+                /* A comparison sampler: the hardware runs the depth test
+                   per tap and averages the RESULTS, which is what makes a
+                   3x3 kernel a soft edge. Averaging depths would produce a
+                   surface that exists nowhere. */
+                wgpu::BindGroupLayoutEntry {
+                    binding: 1,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Comparison),
+                    count: None,
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 2,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Texture {
+                        sample_type: wgpu::TextureSampleType::Depth,
+                        view_dimension: wgpu::TextureViewDimension::D2,
+                        multisampled: false,
+                    },
+                    count: None,
+                },
+            ],
+        });
+        /* The shadow pass's own group-0 layout, with the uniform buffer
+           only: binding the depth texture while it is the pass's own
+           render attachment is a synchronisation-scope violation, and
+           wgpu rejects it outright. */
+        let shadow_globals_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: Some("berx-shadow-globals"),
             entries: &[wgpu::BindGroupLayoutEntry {
                 binding: 0,
                 visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
@@ -356,10 +415,68 @@ impl NativeRenderer {
             multiview: None,
         });
 
+        /* The depth-only pass, from the light.
+           Same module, same vertex layout, same Draw group — a shadow
+           cast by a different shape from the one drawn is worse than no
+           shadow, because it is a shape that is not there. Front faces
+           are culled rather than back faces: recording the FAR side of
+           each caster moves the recorded depth away from the surface
+           being tested, which removes self-shadowing acne without a bias
+           large enough to detach a shadow from its object's foot. */
+        let shadow_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+            label: Some("berx-shadow-pipeline"),
+            bind_group_layouts: &[&shadow_globals_layout, &draw_layout],
+            push_constant_ranges: &[],
+        });
+        let shadow_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some("berx-shadow"),
+            layout: Some(&shadow_layout),
+            vertex: wgpu::VertexState {
+                module: &shader,
+                entry_point: "vs_shadow",
+                buffers: &[wgpu::VertexBufferLayout {
+                    array_stride: 24,
+                    step_mode: wgpu::VertexStepMode::Vertex,
+                    attributes: &[
+                        wgpu::VertexAttribute { offset: 0, shader_location: 0, format: wgpu::VertexFormat::Float32x3 },
+                        wgpu::VertexAttribute { offset: 12, shader_location: 1, format: wgpu::VertexFormat::Float32x3 },
+                    ],
+                }],
+            },
+            fragment: None,
+            primitive: wgpu::PrimitiveState {
+                topology: wgpu::PrimitiveTopology::TriangleList,
+                front_face: wgpu::FrontFace::Ccw,
+                cull_mode: Some(wgpu::Face::Front),
+                ..Default::default()
+            },
+            depth_stencil: Some(wgpu::DepthStencilState {
+                format: wgpu::TextureFormat::Depth32Float,
+                depth_write_enabled: true,
+                depth_compare: wgpu::CompareFunction::Less,
+                stencil: Default::default(),
+                bias: Default::default(),
+            }),
+            multisample: wgpu::MultisampleState::default(),
+            multiview: None,
+        });
+        let shadow_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+            label: Some("berx-shadow-sampler"),
+            compare: Some(wgpu::CompareFunction::Less),
+            mag_filter: wgpu::FilterMode::Linear,
+            min_filter: wgpu::FilterMode::Linear,
+            address_mode_u: wgpu::AddressMode::ClampToEdge,
+            address_mode_v: wgpu::AddressMode::ClampToEdge,
+            ..Default::default()
+        });
+
         Ok(Self {
             device,
             queue,
             pipeline,
+            shadow_pipeline,
+            shadow_globals_layout,
+            shadow_sampler,
             globals_layout,
             draw_layout,
             media_bind,
@@ -426,6 +543,23 @@ impl NativeRenderer {
             plan.push((key, count));
         }
 
+        /* The light's matrix goes through the SAME depth remap every
+           other projection does. Without a shadow camera the strength is
+           zero, which is what turns the sampling off in the shader — the
+           bind group still has to be complete, so a 1x1 stand-in map
+           stays bound. */
+        let (light_vp, shadow_params) = match &list.shadow {
+            Some(shadow) => (
+                gl_to_wgpu_depth(&shadow.view_projection),
+                [
+                    1.0 / shadow.map_size as f32,
+                    shadow.depth_bias,
+                    shadow.normal_bias,
+                    shadow.strength,
+                ],
+            ),
+            None => ([0.0f32; 16], [0.0f32; 4]),
+        };
         let globals = Globals {
             proj: gl_to_wgpu_depth(&list.projection),
             view: list.view,
@@ -433,15 +567,41 @@ impl NativeRenderer {
             ambient: [list.ambient[0], list.ambient[1], list.ambient[2], 0.0],
             key_dir: [list.key.direction.x, list.key.direction.y, list.key.direction.z, 0.0],
             key_col: [list.key.colour[0], list.key.colour[1], list.key.colour[2], list.key.intensity],
+            light_vp,
+            shadow: shadow_params,
         };
         let globals_buffer = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("berx-globals"),
             contents: bytemuck::bytes_of(&globals),
             usage: wgpu::BufferUsages::UNIFORM,
         });
+        /* The depth map itself. A 1x1 stand-in when nothing casts: the
+           bind group must always be complete, and the strength in the
+           uniform is what actually turns the sampling off. */
+        let shadow_size = list.shadow.as_ref().map(|s| s.map_size).unwrap_or(1).max(1);
+        let shadow_texture = self.device.create_texture(&wgpu::TextureDescriptor {
+            label: Some("berx-shadow-map"),
+            size: wgpu::Extent3d { width: shadow_size, height: shadow_size, depth_or_array_layers: 1 },
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Depth32Float,
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
+            view_formats: &[],
+        });
+        let shadow_view = shadow_texture.create_view(&wgpu::TextureViewDescriptor::default());
         let globals_bind = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("berx-globals"),
             layout: &self.globals_layout,
+            entries: &[
+                wgpu::BindGroupEntry { binding: 0, resource: globals_buffer.as_entire_binding() },
+                wgpu::BindGroupEntry { binding: 1, resource: wgpu::BindingResource::Sampler(&self.shadow_sampler) },
+                wgpu::BindGroupEntry { binding: 2, resource: wgpu::BindingResource::TextureView(&shadow_view) },
+            ],
+        });
+        let shadow_globals_bind = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("berx-shadow-globals"),
+            layout: &self.shadow_globals_layout,
             entries: &[wgpu::BindGroupEntry { binding: 0, resource: globals_buffer.as_entire_binding() }],
         });
 
@@ -495,9 +655,25 @@ impl NativeRenderer {
             }],
         });
 
+        /* A surface you can see through does not stop light: casting from
+           glass would put a solid shadow under something transparent. */
+        let casters: Vec<usize> = list
+            .items
+            .iter()
+            .enumerate()
+            .filter(|(_, item)| item.opacity >= 0.95)
+            .map(|(i, _)| i)
+            .collect();
+        let shadow = list.shadow.as_ref().map(|_| PreparedShadow {
+            view: shadow_view,
+            globals_bind: shadow_globals_bind,
+            casters,
+        });
+
         Ok(Prepared {
             globals_bind,
             draw_bind,
+            shadow,
             plan,
             mesh_variants: variants.len() as u32,
             clear: [list.clear_color[0], list.clear_color[1], list.clear_color[2]],
@@ -572,6 +748,33 @@ impl NativeRenderer {
         depth_view: &wgpu::TextureView,
     ) -> FrameStats {
         let mut stats = FrameStats { mesh_variants: prepared.mesh_variants, skipped: prepared.skipped, ..Default::default() };
+        /* The light's pass first, into its own depth target: the world
+           pass below samples what it writes, in the same encoder. */
+        if let Some(shadow) = &prepared.shadow {
+            let mut shadow_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("berx-shadow"),
+                color_attachments: &[],
+                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                    view: &shadow.view,
+                    depth_ops: Some(wgpu::Operations { load: wgpu::LoadOp::Clear(1.0), store: wgpu::StoreOp::Store }),
+                    stencil_ops: None,
+                }),
+                timestamp_writes: None,
+                occlusion_query_set: None,
+            });
+            shadow_pass.set_pipeline(&self.shadow_pipeline);
+            shadow_pass.set_bind_group(0, &shadow.globals_bind, &[]);
+            for (i, (key, count)) in prepared.plan.iter().enumerate() {
+                if !shadow.casters.contains(&i) {
+                    continue;
+                }
+                let m = self.meshes.get(key).expect("planned");
+                shadow_pass.set_bind_group(1, &prepared.draw_bind, &[(i as u64 * DRAW_STRIDE) as u32]);
+                shadow_pass.set_vertex_buffer(0, m.vertices.slice(..));
+                shadow_pass.set_index_buffer(m.indices.slice(..), wgpu::IndexFormat::Uint16);
+                shadow_pass.draw_indexed(0..*count, 0, 0..1);
+            }
+        }
         let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("berx-world"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
