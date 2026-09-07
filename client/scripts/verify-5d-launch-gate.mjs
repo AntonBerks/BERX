@@ -90,7 +90,7 @@ records.push(berxEvidence({
 runGate('webgl2', 'verify:5d-gpu', 'real WebGL2 context, depth buffer, picking and budgets in Chromium');
 runGate('design-integration', 'verify:5d-lighting', 'the BRDF and the DNA palette, measured in pixels');
 runGate('world-navigation', 'verify:5d-app-shell', 'the world is the application');
-runGate('desktop', 'verify:5d-crossrender', 'a native wgpu backend renders the shared frame and agrees with the WebGL2 one, pixel for pixel');
+runGate('desktop', 'verify:5d-crossrender', 'a native wgpu backend opens a real window, presents the shared frame to its swapchain, resizes with it, and matches both the offscreen render byte for byte and the WebGL2 one pixel for pixel');
 runGate('accessibility', 'verify:v9:web', 'keyboard focus, reduced motion, contrast and high contrast, measured');
 runGate('performance', 'verify:v9', 'frame budgets and contract gates');
 
@@ -132,7 +132,7 @@ if (noNative) {
 	blocked('arkit', `${nativeReason}; ARKit additionally needs a real device for pose, depth and anchors`, 'client/apps/mobile', 'repository');
 	blocked('arcore', `${nativeReason}; ARCore additionally needs a real device for pose, depth and anchors`, 'client/apps/mobile', 'repository');
 	blocked('openxr', `${nativeReason}; OpenXR additionally needs a headset for a real stereo frame loop`, 'client/apps/mobile', 'repository');
-	blocked('packaging', 'client/packages/spatial-native builds and renders, but it is a renderer library with no windowing, no installer and no signing target, so there is nothing to package for a user yet', 'client/packages/spatial-native', 'repository');
+	blocked('packaging', 'client/packages/spatial-native now opens a real window and presents to its swapchain, but there is no installer, no application bundle and no signing target, so there is still nothing a person could install', 'client/packages/spatial-native', 'repository');
 	blocked('real-device-verification', 'no physical iPhone, Android device, Apple Watch or headset is reachable from this environment', 'environment', 'device');
 }
 /* WebGPU is only verified where a product session really ran on it.
@@ -160,7 +160,11 @@ if (noBackend) {
 	blocked('security', `${backendReason} — token handling, ownership and injection surfaces are server-side`, 'backend/opensource-socialnetwork-master/components', 'backend');
 }
 blocked('realtime-sync', 'no realtime transport exists in this repository, so no second client can be shown receiving a mutation', 'client/packages/api/src/client.ts', 'repository');
-blocked('crash-recovery', 'the world restores its place across a reload, but a real process crash cannot be induced and observed here', 'packages/spatial-web/src/appShell.ts', 'browser');
+records.push(berxEvidence({
+	requirement: 'crash-recovery', status: shell.status,
+	evidence: 'the renderer process holding the world is killed outright with chrome://crash — no unload handler runs and nothing is written on the way out — and a new page in the same browser context comes back to the same region, the same focused entity, the same temporal cursor and a camera pose restored bit-for-bit, with the entities re-read from the server rather than from disk (verify:5d-app-shell)',
+	observedAt: now(), source: 'browser', origin: 'npm run verify:5d-app-shell',
+}));
 
 /* ---------------- the report ---------------- */
 const report = berxEvaluateLaunch(records);

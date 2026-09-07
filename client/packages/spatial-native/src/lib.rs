@@ -17,6 +17,9 @@
 
 pub mod drawlist;
 pub mod mesh;
+mod window;
+
+pub use window::WindowRenderer;
 
 use std::collections::HashMap;
 use std::num::NonZeroU64;
@@ -90,6 +93,19 @@ pub struct FrameStats {
     pub skipped: u32,
 }
 
+/// One frame's uniforms, bind groups and draw plan.
+///
+/// Built by `prepare` and consumed by `record`, so the offscreen path
+/// and the window path share the frame rather than each building one.
+pub struct Prepared {
+    globals_bind: wgpu::BindGroup,
+    draw_bind: wgpu::BindGroup,
+    plan: Vec<(String, u32)>,
+    mesh_variants: u32,
+    clear: [f32; 3],
+    skipped: u32,
+}
+
 /// The rendered frame, read back off the GPU.
 pub struct Readback {
     pub width: u32,
@@ -128,6 +144,13 @@ struct GpuMesh {
     count: u32,
 }
 
+/// The uniform layouts and the shading pipeline, shared by both targets.
+///
+/// The offscreen renderer and the window renderer are the same renderer
+/// pointed at different attachments: the same draw list, the same
+/// shader, the same blend and cull state, the same multisampling. What
+/// differs is where the frame ends up, which is the only thing a window
+/// actually changes.
 pub struct NativeRenderer {
     device: wgpu::Device,
     queue: wgpu::Queue,
@@ -142,6 +165,7 @@ pub struct NativeRenderer {
     meshes: HashMap<String, GpuMesh>,
     adapter_name: String,
     backend: String,
+    format: wgpu::TextureFormat,
 }
 
 impl NativeRenderer {
@@ -159,6 +183,19 @@ impl NativeRenderer {
             force_fallback_adapter: false,
         }))
         .ok_or_else(|| "BERX 5D native: no GPU adapter available".to_string())?;
+        Self::on(&adapter, wgpu::TextureFormat::Rgba8Unorm)
+    }
+
+    /// The same renderer, on an adapter a caller already chose and
+    /// against the format its target actually wants.
+    ///
+    /// A window's swapchain picks its own format, and a pipeline whose
+    /// colour target disagrees with it is rejected outright. This is the
+    /// one thing a window changes about the renderer; everything else —
+    /// the shader, the blend, the culling, the multisampling — is the
+    /// same code as the offscreen path, which is what lets the two be
+    /// compared pixel for pixel.
+    pub fn on(adapter: &wgpu::Adapter, format: wgpu::TextureFormat) -> Result<Self, String> {
         let info = adapter.get_info();
         let (device, queue) = pollster::block_on(adapter.request_device(
             &wgpu::DeviceDescriptor {
@@ -285,7 +322,7 @@ impl NativeRenderer {
                 module: &shader,
                 entry_point: "fs",
                 targets: &[Some(wgpu::ColorTargetState {
-                    format: wgpu::TextureFormat::Rgba8Unorm,
+                    format,
                     /* the same blend the WebGL2 backend runs: source alpha
                        over one minus source alpha */
                     blend: Some(wgpu::BlendState::ALPHA_BLENDING),
@@ -325,11 +362,25 @@ impl NativeRenderer {
             meshes: HashMap::new(),
             adapter_name: info.name,
             backend: format!("{:?}", info.backend),
+            format,
         })
     }
 
     pub fn adapter(&self) -> (&str, &str) {
         (&self.adapter_name, &self.backend)
+    }
+
+    /// The colour format this renderer's pipeline writes.
+    pub fn format(&self) -> wgpu::TextureFormat {
+        self.format
+    }
+
+    pub fn device(&self) -> &wgpu::Device {
+        &self.device
+    }
+
+    pub fn queue(&self) -> &wgpu::Queue {
+        &self.queue
     }
 
     fn mesh(&mut self, primitive: &str, lod: u8) -> Result<&GpuMesh, String> {
@@ -352,16 +403,12 @@ impl NativeRenderer {
         Ok(self.meshes.get(&key).expect("just inserted"))
     }
 
-    /// Draw the list into an offscreen target and read the pixels back.
+    /// Everything a frame needs before a pass can be recorded.
     ///
-    /// The readback is the point: a native backend that renders and is
-    /// never observed proves nothing, so every frame this function
-    /// produces comes back off the GPU as real bytes the caller can
-    /// compare against the web backend's own.
-    pub fn render(&mut self, list: &DrawList) -> Result<Readback, String> {
-        let width = list.width.max(1);
-        let height = list.height.max(1);
-
+    /// Split out of `render` so the window path records the identical
+    /// pass into a swapchain image instead of an offscreen texture. Two
+    /// copies of this would be two renderers that only look alike.
+    pub fn prepare(&mut self, list: &DrawList) -> Result<Prepared, String> {
         /* build every mesh first, so the borrow of self ends before the
            encoder needs it */
         let mut plan: Vec<(String, u32)> = Vec::new();
@@ -444,30 +491,35 @@ impl NativeRenderer {
             }],
         });
 
-        /* the multisampled target the pass draws into, and the single-sampled
-           one it resolves to and that is copied back */
+        Ok(Prepared {
+            globals_bind,
+            draw_bind,
+            plan,
+            mesh_variants: variants.len() as u32,
+            clear: [list.clear_color[0], list.clear_color[1], list.clear_color[2]],
+            skipped: list
+                .items
+                .iter()
+                .filter(|i| i.media.is_some() || i.label.as_deref().map(|l| !l.trim().is_empty()).unwrap_or(false))
+                .count() as u32,
+        })
+    }
+
+    /// The multisampled colour and depth a pass of this size needs.
+    ///
+    /// A window supplies its own resolve target — the swapchain image —
+    /// so only these two are its to make.
+    pub fn pass_targets(&self, width: u32, height: u32) -> (wgpu::Texture, wgpu::Texture) {
         let msaa = self.device.create_texture(&wgpu::TextureDescriptor {
             label: Some("berx-colour-msaa"),
             size: wgpu::Extent3d { width, height, depth_or_array_layers: 1 },
             mip_level_count: 1,
             sample_count: SAMPLE_COUNT,
             dimension: wgpu::TextureDimension::D2,
-            format: wgpu::TextureFormat::Rgba8Unorm,
+            format: self.format,
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
             view_formats: &[],
         });
-        let msaa_view = msaa.create_view(&Default::default());
-        let colour = self.device.create_texture(&wgpu::TextureDescriptor {
-            label: Some("berx-colour"),
-            size: wgpu::Extent3d { width, height, depth_or_array_layers: 1 },
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: wgpu::TextureDimension::D2,
-            format: wgpu::TextureFormat::Rgba8Unorm,
-            usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::COPY_SRC,
-            view_formats: &[],
-        });
-        let colour_view = colour.create_view(&Default::default());
         let depth = self.device.create_texture(&wgpu::TextureDescriptor {
             label: Some("berx-depth"),
             size: wgpu::Extent3d { width, height, depth_or_array_layers: 1 },
@@ -478,7 +530,93 @@ impl NativeRenderer {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
             view_formats: &[],
         });
-        let depth_view = depth.create_view(&Default::default());
+        (msaa, depth)
+    }
+
+    /// The offscreen set: multisampled colour, the image it resolves to,
+    /// and depth. The resolve target is copyable, because the whole
+    /// point of the offscreen path is reading it back.
+    fn offscreen_targets(&self, width: u32, height: u32) -> (wgpu::TextureView, wgpu::Texture, wgpu::TextureView, wgpu::TextureView) {
+        let (msaa, depth) = self.pass_targets(width, height);
+        let colour = self.device.create_texture(&wgpu::TextureDescriptor {
+            label: Some("berx-colour"),
+            size: wgpu::Extent3d { width, height, depth_or_array_layers: 1 },
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: self.format,
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::COPY_SRC,
+            view_formats: &[],
+        });
+        let colour_view = colour.create_view(&Default::default());
+        (msaa.create_view(&Default::default()), colour, colour_view, depth.create_view(&Default::default()))
+    }
+
+    /// Everything a recorded pass needs, built once per frame.
+    ///
+    /// Record the world pass into whatever the caller is drawing into.
+    ///
+    /// `resolve` is where the multisampled colour lands: an offscreen
+    /// texture for verification, a swapchain image for a window. The
+    /// pass itself does not know or care which.
+    pub fn record(
+        &self,
+        prepared: &Prepared,
+        encoder: &mut wgpu::CommandEncoder,
+        msaa_view: &wgpu::TextureView,
+        resolve_view: &wgpu::TextureView,
+        depth_view: &wgpu::TextureView,
+    ) -> FrameStats {
+        let mut stats = FrameStats { mesh_variants: prepared.mesh_variants, skipped: prepared.skipped, ..Default::default() };
+        let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            label: Some("berx-world"),
+            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                view: msaa_view,
+                resolve_target: Some(resolve_view),
+                ops: wgpu::Operations {
+                    load: wgpu::LoadOp::Clear(wgpu::Color {
+                        r: prepared.clear[0] as f64,
+                        g: prepared.clear[1] as f64,
+                        b: prepared.clear[2] as f64,
+                        a: 1.0,
+                    }),
+                    store: wgpu::StoreOp::Store,
+                },
+            })],
+            depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                view: depth_view,
+                depth_ops: Some(wgpu::Operations { load: wgpu::LoadOp::Clear(1.0), store: wgpu::StoreOp::Store }),
+                stencil_ops: None,
+            }),
+            timestamp_writes: None,
+            occlusion_query_set: None,
+        });
+        pass.set_pipeline(&self.pipeline);
+        pass.set_bind_group(0, &prepared.globals_bind, &[]);
+        pass.set_bind_group(2, &self.media_bind, &[]);
+        for (i, (key, count)) in prepared.plan.iter().enumerate() {
+            let m = self.meshes.get(key).expect("planned");
+            pass.set_bind_group(1, &prepared.draw_bind, &[(i as u64 * DRAW_STRIDE) as u32]);
+            pass.set_vertex_buffer(0, m.vertices.slice(..));
+            pass.set_index_buffer(m.indices.slice(..), wgpu::IndexFormat::Uint16);
+            pass.draw_indexed(0..*count, 0, 0..1);
+            stats.draw_calls += 1;
+            stats.triangles += count / 3;
+        }
+        stats
+    }
+
+    /// Draw the list into an offscreen target and read the pixels back.
+    ///
+    /// The readback is the point: a native backend that renders and is
+    /// never observed proves nothing, so every frame this function
+    /// produces comes back off the GPU as real bytes the caller can
+    /// compare against the web backend's own.
+    pub fn render(&mut self, list: &DrawList) -> Result<Readback, String> {
+        let width = list.width.max(1);
+        let height = list.height.max(1);
+        let prepared = self.prepare(list)?;
+        let (msaa_view, colour, colour_view, depth_view) = self.offscreen_targets(width, height);
 
         /* readback rows are padded to 256 bytes, as the API requires */
         let unpadded = width * 4;
@@ -490,45 +628,8 @@ impl NativeRenderer {
             mapped_at_creation: false,
         });
 
-        let mut stats = FrameStats { mesh_variants: variants.len() as u32, ..Default::default() };
         let mut encoder = self.device.create_command_encoder(&Default::default());
-        {
-            let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: Some("berx-world"),
-                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view: &msaa_view,
-                    resolve_target: Some(&colour_view),
-                    ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color {
-                            r: list.clear_color[0] as f64,
-                            g: list.clear_color[1] as f64,
-                            b: list.clear_color[2] as f64,
-                            a: 1.0,
-                        }),
-                        store: wgpu::StoreOp::Store,
-                    },
-                })],
-                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
-                    view: &depth_view,
-                    depth_ops: Some(wgpu::Operations { load: wgpu::LoadOp::Clear(1.0), store: wgpu::StoreOp::Store }),
-                    stencil_ops: None,
-                }),
-                timestamp_writes: None,
-                occlusion_query_set: None,
-            });
-            pass.set_pipeline(&self.pipeline);
-            pass.set_bind_group(0, &globals_bind, &[]);
-            pass.set_bind_group(2, &self.media_bind, &[]);
-            for (i, (key, count)) in plan.iter().enumerate() {
-                let m = self.meshes.get(key).expect("planned");
-                pass.set_bind_group(1, &draw_bind, &[(i as u64 * DRAW_STRIDE) as u32]);
-                pass.set_vertex_buffer(0, m.vertices.slice(..));
-                pass.set_index_buffer(m.indices.slice(..), wgpu::IndexFormat::Uint16);
-                pass.draw_indexed(0..*count, 0, 0..1);
-                stats.draw_calls += 1;
-                stats.triangles += count / 3;
-            }
-        }
+        let stats = self.record(&prepared, &mut encoder, &msaa_view, &colour_view, &depth_view);
         encoder.copy_texture_to_buffer(
             wgpu::ImageCopyTexture {
                 texture: &colour,
@@ -567,13 +668,8 @@ impl NativeRenderer {
         drop(data);
         staging.unmap();
 
-        /* items this backend has no path for are counted, never faked */
-        stats.skipped = list
-            .items
-            .iter()
-            .filter(|i| i.media.is_some() || i.label.as_deref().map(|l| !l.trim().is_empty()).unwrap_or(false))
-            .count() as u32;
-
+        /* items this backend has no path for were counted in prepare,
+           never faked */
         Ok(Readback { width, height, rgba, stats })
     }
 }

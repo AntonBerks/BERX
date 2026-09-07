@@ -52,12 +52,13 @@ const BLOCKERS = [
 		claimed: () => /world_space_labels:\s*true/.test(nativeRenderer),
 	},
 	{
-		what: 'A desktop window, input loop and installable package',
+		what: 'An installable desktop application',
 		evidence: () =>
 			nativeRenderer
-				? 'packages/spatial-native renders offscreen and reads pixels back; there is no windowing or input layer, no installer and no signing target, and no display is reachable from this environment to verify one'
+				? 'packages/spatial-native opens a real window, presents to its swapchain and resizes with it, but there is no installer, no application bundle and no signing target, so there is nothing a person could install; and the window shell reports input rather than acting on it, because navigation belongs to @berx/spatial'
 				: undefined,
-		claimed: () => /winit|raw_window_handle::HasWindowHandle|create_surface\(/.test(nativeRenderer),
+		/* a shell that started navigating would be a second BERX */
+		claimed: () => /worldNavigation":\s*true|Berx5DWorldApp|berxRelationalLayout/.test(read(path.join(clientRoot, 'packages/spatial-native/src/bin/berx_window.rs'))),
 	},
 
 	{

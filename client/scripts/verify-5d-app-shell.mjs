@@ -140,12 +140,24 @@ const gate = (name, ok, detail) => {
 
 const browser = await launchChromium();
 try {
-	const page = await browser.newPage({viewport: {width: 1000, height: 700}, deviceScaleFactor: 1});
+	/* An explicit context, not a bare page: a crashed renderer takes its
+	   page with it, and only a context outlives one — which is also what
+	   keeps localStorage across the crash, exactly as a real browser
+	   would. */
+	const context = await browser.newContext({viewport: {width: 1000, height: 700}, deviceScaleFactor: 1});
 	const pageErrors = [];
-	page.on('pageerror', (e) => pageErrors.push(e.message));
-	page.on('console', (m) => {
-		if (m.type() === 'error') pageErrors.push(m.text());
-	});
+	let crashedOnce = false;
+	const watch = (target) => {
+		target.on('pageerror', (e) => pageErrors.push(e.message));
+		target.on('console', (m) => {
+			if (m.type() === 'error') pageErrors.push(m.text());
+		});
+		target.on('crash', () => {
+			crashedOnce = true;
+		});
+		return target;
+	};
+	let page = watch(await context.newPage());
 
 	await page.goto(base, {waitUntil: 'load'});
 
@@ -731,6 +743,59 @@ try {
 		after.entities > 0 && after.signedIn,
 		`${after.entities} entities after reload, session kept, world refetched`,
 	);
+
+	/* --- a real process crash, and what the world remembers ---
+	   Not a reload: chrome://crash kills the renderer process outright,
+	   the way a browser tab dies for real. Nothing gets to run an unload
+	   handler or write anything down on the way out, so what comes back
+	   is whatever was already durable. The context outlives the process,
+	   which is what makes this the real test rather than a new browser. */
+	const beforeCrash = await page.evaluate(() => {
+		const w = window.__berxWorld;
+		return {
+			region: w.worldPosition.region,
+			focus: w.worldPosition.focusId,
+			cursor: w.worldPosition.cursor.at,
+			entities: w.latestFrame.world.objects.length,
+			stored: JSON.parse(localStorage.getItem('berx.place') ?? 'null'),
+		};
+	});
+	crashedOnce = false;
+	try {
+		await page.goto('chrome://crash', {timeout: 5000});
+	} catch (error) {
+		crashedOnce = crashedOnce || /crash|Target closed|Page closed/i.test(String(error.message));
+	}
+	gate('the renderer process can really be killed', crashedOnce, 'chrome://crash ended the process holding the world');
+
+	page = watch(await context.newPage());
+	await page.goto(base, {waitUntil: 'load'});
+	await page.waitForFunction(() => typeof window.__berxWorld !== 'undefined' && window.__berxWorld.latestFrame.world.objects.length > 0, undefined, {timeout: 20000});
+	const afterCrash = await page.evaluate(async () => {
+		const w = window.__berxWorld;
+		for (let i = 0; i < 30; i++) await new Promise((r) => requestAnimationFrame(r));
+		return {
+			region: w.worldPosition.region,
+			focus: w.worldPosition.focusId,
+			cursor: w.worldPosition.cursor.at,
+			entities: w.latestFrame.world.objects.length,
+			restored: JSON.parse(localStorage.getItem('berx.place') ?? 'null'),
+			signedIn: document.querySelector('#berx-entry') === null,
+			backend: window.__berxHost.renderer.kind,
+		};
+	});
+	const poseSurvived = beforeCrash.stored && afterCrash.restored
+		&& Math.abs(afterCrash.restored.camera.position.x - beforeCrash.stored.camera.position.x) < 1e-9
+		&& Math.abs(afterCrash.restored.camera.position.y - beforeCrash.stored.camera.position.y) < 1e-9
+		&& Math.abs(afterCrash.restored.camera.position.z - beforeCrash.stored.camera.position.z) < 1e-9;
+	gate('the world comes back from a killed process, in the same place',
+		poseSurvived
+		&& afterCrash.region === beforeCrash.region
+		&& afterCrash.focus === beforeCrash.focus
+		&& afterCrash.cursor === beforeCrash.cursor
+		&& afterCrash.entities > 0
+		&& afterCrash.signedIn,
+		`pose bit-for-bit, region ${afterCrash.region}, focus ${afterCrash.focus}, cursor ${afterCrash.cursor}, ${afterCrash.entities} entities re-read from the server, session kept, on ${afterCrash.backend}`);
 
 	/* --- the real product frame, measured while it runs --- */
 	const perf = await page.evaluate(async () => {

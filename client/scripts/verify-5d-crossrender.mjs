@@ -12,6 +12,8 @@
  * the shared resolver, and then renders that one list three ways:
  *
  *   - natively through wgpu (Vulkan here), read back off the GPU
+ *   - natively again, this time presented to a real desktop window and
+ *     copied off its swapchain
  *   - through the WebGL2 backend in headless Chromium, read back with
  *     readPixels
  *   - through the WebGPU backend in the same browser, read back with
@@ -82,6 +84,40 @@ if (cargoOk) {
 		native = JSON.parse(out.trim().split('\n').pop());
 	} catch (error) {
 		blocked('desktop-native-render', `${bin} could not render: no GPU adapter reachable, or the draw list no longer matches the shared core's shape (${String(error.stderr ?? error.message).trim().split('\n').pop()})`);
+	}
+}
+
+/* ---- and the same list, presented to a real desktop window ---- */
+let windowed;
+if (cargoOk) {
+	/* A window needs a window system. Under Xvfb there is one, so the
+	   swapchain, the present and the resize are all real; without one
+	   this is honestly blocked rather than skipped quietly. */
+	const display = process.env.DISPLAY;
+	const runner = display ? null : (fs.existsSync('/usr/bin/xvfb-run') ? '/usr/bin/xvfb-run' : null);
+	if (!display && !runner) {
+		blocked('desktop-window', 'no display and no Xvfb: a window cannot be opened here, so the swapchain and present path cannot be exercised');
+	} else {
+		const bin = path.join(crate, 'target/release/berx-window');
+		const run = (argv) => {
+			const out = runner
+				? execFileSync(runner, ['-a', bin, ...argv], {cwd: crate, encoding: 'utf8'})
+				: execFileSync(bin, argv, {cwd: crate, encoding: 'utf8'});
+			return JSON.parse(out.trim().split('\n').pop());
+		};
+		const rgba = path.join(dir, 'window.rgba');
+		try {
+			/* two runs, because they answer different questions: one at the
+			   draw list's own size, whose captured frame can be compared
+			   byte for byte against the offscreen render of the same list;
+			   and one that really resizes, which necessarily ends at a
+			   different size and so cannot be. */
+			const steady = run([listFile, '--frames', '8', '--rgba', rgba]);
+			const resized = run([listFile, '--frames', '12', '--resize', '320x240']);
+			windowed = {...steady, rgbaPath: rgba, resized};
+		} catch (error) {
+			blocked('desktop-window', `berx-window could not open or present: ${String(error.stderr ?? error.message).trim().split('\n').pop()}`);
+		}
 	}
 }
 
@@ -374,10 +410,48 @@ if (nativeVsWebgl) {
 		`${nativeVsWebgl.both} pixels carry the world in both GPU images, of ${width * height}`);
 }
 
+/* ---- 3e. a real window, a real swapchain ---- */
+if (windowed) {
+	gate('a real desktop window presents the world',
+		windowed.framesPresented >= 8 && windowed.drawCalls === list.items.length && windowed.capabilities.swapchain === true,
+		`${windowed.backend} · ${windowed.adapter} · ${windowed.framesPresented} frames presented to a ${windowed.surfaceFormat} swapchain`);
+	gate('the window really resizes, and keeps drawing',
+		windowed.resized.resizedTo === windowed.resized.resizeRequested &&
+		windowed.resized.window.width === 320 && windowed.resized.window.height === 240 &&
+		windowed.resized.framesPresented >= 12,
+		`the window system granted ${windowed.resized.resizedTo} mid-run, the swapchain was rebuilt for it, and ${windowed.resized.framesPresented} frames were presented across the change`);
+	gate('the window shell reports input rather than acting on it',
+		windowed.capabilities.worldNavigation === false && Array.isArray(windowed.resized.intents) && windowed.resized.intents.length > 0,
+		`intents observed: ${windowed.resized.intents.join(', ')} — navigation stays in @berx/spatial`);
+
+	/* The swapchain chose BGRA and the offscreen path is RGBA, so the
+	   comparison swaps the channels. That is the only difference the
+	   window is allowed to make: same list, same shader, same pass. */
+	const windowRgba = fs.existsSync(windowed.rgbaPath) ? new Uint8Array(fs.readFileSync(windowed.rgbaPath)) : undefined;
+	if (windowRgba && nativeRgba && windowRgba.length === nativeRgba.length) {
+		const bgra = /Bgra/i.test(windowed.surfaceFormat);
+		let differing = 0, worst = 0;
+		for (let i = 0; i < nativeRgba.length; i += 4) {
+			const r = bgra ? windowRgba[i + 2] : windowRgba[i];
+			const g = windowRgba[i + 1];
+			const b = bgra ? windowRgba[i] : windowRgba[i + 2];
+			const d = Math.max(Math.abs(r - nativeRgba[i]), Math.abs(g - nativeRgba[i + 1]), Math.abs(b - nativeRgba[i + 2]));
+			if (d > 0) differing++;
+			if (d > worst) worst = d;
+		}
+		gate('what the window showed is what the offscreen path rendered, byte for byte',
+			differing === 0,
+			`${nativeRgba.length / 4} pixels compared through the ${windowed.surfaceFormat} swizzle, ${differing} differ, worst ${worst}`);
+	} else {
+		gate('what the window showed is what the offscreen path rendered, byte for byte', false,
+			`captured ${windowRgba?.length ?? 0} bytes against ${nativeRgba?.length ?? 0} offscreen`);
+	}
+}
+
 /* ---- 4. what these backends still cannot do ---- */
 blocked('native-media', 'packages/spatial-native has no image decoder: a draw item carrying a media surface is counted and left undrawn rather than substituted. The shader has the path; this backend has nothing to put in it');
 blocked('native-labels', 'packages/spatial-native has no text rasteriser: the shared core places names for it, and it draws none. The three-way comparison therefore runs on a world with no names, and the WebGPU name pass is compared against WebGL2 separately');
-blocked('desktop-window', 'packages/spatial-native renders offscreen and reads back; there is no windowing/input layer, no installer, and no display is reachable from this environment to verify one');
+blocked('desktop-packaging', 'packages/spatial-native opens a window and presents to it, but there is no installer, no bundle and no signing target, so there is nothing a person could install');
 
 console.log('');
 if (failures.length > 0) {

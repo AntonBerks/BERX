@@ -32,8 +32,13 @@ jobs:
       # reports blocked — honest, but it proves nothing. lavapipe makes
       # submission, execution and pixel readback real so the gates can
       # measure them. It is slow and is not a performance claim.
-      - name: Install a software Vulkan driver so the GPU gates can run
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq mesa-vulkan-drivers
+      # lavapipe makes GPU submission, execution and pixel readback real
+      # on a runner with no graphics hardware. Xvfb and libxkbcommon-x11
+      # are what let the native desktop shell open an actual window, so
+      # its swapchain, present and resize paths are exercised rather than
+      # asserted. Neither is a performance claim.
+      - name: Install a software Vulkan driver and a display for the desktop shell
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq mesa-vulkan-drivers xvfb libxkbcommon-x11-0
       # The desktop backend is a Rust crate rendering through wgpu. The
       # runner has the toolchain preinstalled; the cache keeps the wgpu
       # dependency tree from being rebuilt on every run.
