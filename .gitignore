@@ -22,3 +22,25 @@ client/.max/
 docs/final-ultimate/
 docs/max-archive/
 docs/v9max/
+
+# Runtime-validation harness and its disposable probe scripts.
+#
+# These are browser-based local tooling, not part of the app, and they
+# are already ignored on the branch that created them. They are ignored
+# HERE too because one working tree is shared across branch switches:
+# without these rules the harness reappears as untracked the moment you
+# check this branch out, which invites committing it to a branch that
+# has its own verification (client/scripts/verify-5d-*) and no use for it.
+client/harness/
+client/entry.tsx
+client/entry-logo.tsx
+client/build-harness.mjs
+client/build-logo.mjs
+client/mock-api.mjs
+client/harness-core.ts
+client/harness-token-storage.ts
+client/harness-rn.js
+client/stub-native.js
+client/stub-three.js
+client/stub-codegen.js
+client/shot*.mjs
