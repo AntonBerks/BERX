@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Vulkan 1.1 is what the renderer needs; a device without it cannot
+         run BERX, and saying so here is better than failing at runtime. -->
+    <uses-feature android:name="android.hardware.vulkan.version" android:version="0x00401000" android:required="true" />
+    <uses-permission android:name="android.permission.INTERNET" />
+    <application
+        android:label="BERX"
+        android:hardwareAccelerated="true"
+        android:supportsRtl="true">
+        <activity
+            android:name=".BerxActivity"
+            android:exported="true"
+            android:configChanges="orientation|screenSize|keyboardHidden">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>

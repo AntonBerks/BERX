@@ -52,10 +52,10 @@ const BLOCKERS = [
 		claimed: () => /world_space_labels:\s*true/.test(nativeRenderer),
 	},
 	{
-		what: 'An installable desktop application',
+		what: 'A signed application for macOS and Windows',
 		evidence: () =>
 			nativeRenderer
-				? 'packages/spatial-native opens a real window, presents to its swapchain and resizes with it, but there is no installer, no application bundle and no signing target, so there is nothing a person could install; and the window shell reports input rather than acting on it, because navigation belongs to @berx/spatial'
+				? 'the desktop shell packages into a .deb and a tarball that install and run, but there is no macOS .app bundle or notarisation, no Windows installer and no code signing — none of which can be produced or verified from this environment'
 				: undefined,
 		/* a shell that started navigating would be a second BERX */
 		claimed: () => /worldNavigation":\s*true|Berx5DWorldApp|berxRelationalLayout/.test(read(path.join(clientRoot, 'packages/spatial-native/src/bin/berx_window.rs'))),

@@ -123,6 +123,8 @@ name = "berx-spatial-native"
 version = "0.1.0"
 dependencies = [
  "bytemuck",
+ "jni",
+ "ndk",
  "png",
  "pollster",
  "raw-window-handle",

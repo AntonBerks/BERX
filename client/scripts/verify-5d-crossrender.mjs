@@ -448,10 +448,57 @@ if (windowed) {
 	}
 }
 
+/* ---- 3f. something a person could actually install ---- */
+let packaged;
+try {
+	const out = execFileSync(process.execPath, [path.join(here, 'package-desktop.mjs'), path.join(dir, 'package')], {
+		cwd: clientRoot, encoding: 'utf8',
+	});
+	packaged = JSON.parse(out.trim().split('\n').pop());
+} catch (error) {
+	blocked('desktop-packaging', `the desktop package could not be built: ${String(error.stderr ?? error.message).trim().split('\n').pop()}`);
+}
+if (packaged) {
+	gate('the desktop shell builds into an installable package',
+		fs.existsSync(packaged.deb) && packaged.debBytes > 100_000 && fs.existsSync(packaged.tarball),
+		`berx-desktop ${packaged.version} ${packaged.arch}: ${(packaged.debBytes / 1e6).toFixed(1)}MB .deb and ${(packaged.tarballBytes / 1e6).toFixed(1)}MB tarball`);
+
+	/* installed into a root of its own, so what the package actually
+	   contains is what is checked rather than what it meant to */
+	const root = path.join(dir, 'installed');
+	fs.mkdirSync(root, {recursive: true});
+	execFileSync('dpkg-deb', ['-x', packaged.deb, root], {stdio: 'inherit'});
+	const installed = ['usr/bin/berx', 'usr/share/applications/berx.desktop', 'usr/share/icons/hicolor/scalable/apps/berx.svg'];
+	const present = installed.filter((f) => fs.existsSync(path.join(root, f)));
+	gate('the package installs a launchable application, not just a binary',
+		present.length === installed.length,
+		`${present.join(', ')} — a launcher entry and the real BERX symbol, not a generated placeholder`);
+
+	/* and the installed binary is the one that renders */
+	const installedBin = path.join(root, 'usr/bin/berx');
+	let ran;
+	try {
+		const display = process.env.DISPLAY;
+		const runner = display ? null : (fs.existsSync('/usr/bin/xvfb-run') ? '/usr/bin/xvfb-run' : null);
+		const argv = [listFile, '--frames', '4'];
+		const out = runner
+			? execFileSync(runner, ['-a', installedBin, ...argv], {encoding: 'utf8'})
+			: execFileSync(installedBin, argv, {encoding: 'utf8'});
+		ran = JSON.parse(out.trim().split('\n').pop());
+	} catch (error) {
+		ran = undefined;
+	}
+	gate('the installed application opens a window and draws the world',
+		ran !== undefined && ran.framesPresented >= 4 && ran.drawCalls === list.items.length,
+		ran ? `${ran.framesPresented} frames presented by /usr/bin/berx from the unpacked package` : 'the installed binary did not present a frame');
+
+	console.log('BLOCKED  desktop-signing');
+	console.log(`         ${packaged.missing.join('; ')} — none of those can be produced or verified from here`);
+}
+
 /* ---- 4. what these backends still cannot do ---- */
 blocked('native-media', 'packages/spatial-native has no image decoder: a draw item carrying a media surface is counted and left undrawn rather than substituted. The shader has the path; this backend has nothing to put in it');
 blocked('native-labels', 'packages/spatial-native has no text rasteriser: the shared core places names for it, and it draws none. The three-way comparison therefore runs on a world with no names, and the WebGPU name pass is compared against WebGL2 separately');
-blocked('desktop-packaging', 'packages/spatial-native opens a window and presents to it, but there is no installer, no bundle and no signing target, so there is nothing a person could install');
 
 console.log('');
 if (failures.length > 0) {

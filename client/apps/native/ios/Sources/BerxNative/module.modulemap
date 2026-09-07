@@ -1,0 +1,5 @@
+module BerxNative {
+    header "berx_native.h"
+    link "berx_spatial_native"
+    export *
+}

@@ -123,16 +123,21 @@ records.push(berxEvidence({
 }));
 
 /* ---------------- what cannot run here, and why ---------------- */
-const noNative = !fs.existsSync(path.join(clientRoot, 'apps/mobile/ios')) && !fs.existsSync(path.join(clientRoot, 'apps/mobile/android'));
-const nativeReason = 'client/apps/mobile has no ios/ or android/ project: nothing to compile, link, launch, render or verify';
+const noNative = true;
+const nativeReason = 'there is no watchOS, ARKit, ARCore or OpenXR target in this repository: nothing to compile, link, launch, render or verify';
 if (noNative) {
-	blocked('ios-metal', nativeReason, 'client/apps/mobile', 'repository');
-	blocked('android-vulkan', nativeReason, 'client/apps/mobile', 'repository');
+	blocked('ios-metal', "the Metal surface path is written in packages/spatial-native/src/platform.rs and the Swift app that drives it is in client/apps/native/ios, but nothing about it can be built here: several of wgpu's dependencies run build scripts needing xcrun, which is part of Xcode's toolchain, so even cargo check fails before reaching this crate", 'client/apps/native/ios', 'repository');
+	blocked('android-vulkan', 'the crate type-checks for aarch64-linux-android with its ANativeWindow surface path and JNI bridge active (verify:5d-native-targets), and the Gradle project that loads it is in client/apps/native/android, but linking the shared library needs the Android NDK and assembling an APK needs the SDK, neither of which is present — and a compiled backend is not a running one', 'client/apps/native/android', 'repository');
 	blocked('watchos', nativeReason, 'client/apps/mobile', 'repository');
 	blocked('arkit', `${nativeReason}; ARKit additionally needs a real device for pose, depth and anchors`, 'client/apps/mobile', 'repository');
 	blocked('arcore', `${nativeReason}; ARCore additionally needs a real device for pose, depth and anchors`, 'client/apps/mobile', 'repository');
 	blocked('openxr', `${nativeReason}; OpenXR additionally needs a headset for a real stereo frame loop`, 'client/apps/mobile', 'repository');
-	blocked('packaging', 'client/packages/spatial-native now opens a real window and presents to its swapchain, but there is no installer, no application bundle and no signing target, so there is still nothing a person could install', 'client/packages/spatial-native', 'repository');
+	records.push(berxEvidence({
+		requirement: 'packaging',
+		status: records.find((r) => r.requirement === 'desktop')?.status ?? 'blocked',
+		evidence: 'the desktop shell builds into a real installable package — a .deb and a tarball carrying /usr/bin/berx, a freedesktop launcher entry and the BERX symbol — which is unpacked into a root of its own and run from there, where it opens a window and presents the world (verify:5d-crossrender). Not covered: a macOS .app bundle and notarisation, a Windows installer, and code signing, none of which can be produced or verified from this environment',
+		observedAt: now(), source: 'runtime', origin: 'npm run verify:5d-crossrender',
+	}));
 	blocked('real-device-verification', 'no physical iPhone, Android device, Apple Watch or headset is reachable from this environment', 'environment', 'device');
 }
 /* WebGPU is only verified where a product session really ran on it.

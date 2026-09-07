@@ -5,6 +5,13 @@ edition = "2021"
 description = "BERX 5D native renderer backend. Consumes the shared core's draw list; owns no world."
 publish = false
 
+# A C ABI as well as a Rust one. Android drives this through JNI and iOS
+# through Swift, and both need a library rather than a binary: the same
+# renderer, reached across a language boundary instead of a call.
+[lib]
+name = "berx_spatial_native"
+crate-type = ["lib", "cdylib", "staticlib"]
+
 [dependencies]
 wgpu = "0.19"
 pollster = "0.3"
@@ -12,8 +19,25 @@ bytemuck = { version = "1", features = ["derive"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 png = "0.17"
-winit = "0.29"
+# Only the window shell needs a window system. Keeping it optional is
+# what lets the renderer itself be checked for Android and iOS, where
+# winit pulls in an activity implementation that a library has no
+# business requiring.
+winit = { version = "0.29", optional = true }
+# Not optional: the mobile entry points hand wgpu a surface from a
+# platform handle, which is the same type winit produces.
 raw-window-handle = "0.6"
+
+# JNI, on Android only. Hand-rolling the function table is possible and
+# is a bad idea: the indices are unstable to get right, untestable from
+# here, and wrong ones fail as memory corruption rather than as an error.
+[target.'cfg(target_os = "android")'.dependencies]
+jni = "0.21"
+ndk = "0.8"
+
+[features]
+default = ["window"]
+window = ["dep:winit"]
 
 [[bin]]
 name = "berx-render"
@@ -22,3 +46,4 @@ path = "src/bin/berx_render.rs"
 [[bin]]
 name = "berx-window"
 path = "src/bin/berx_window.rs"
+required-features = ["window"]

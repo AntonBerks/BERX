@@ -16,9 +16,13 @@
 //! is what the verification reads.
 
 pub mod drawlist;
+pub mod ffi;
+pub mod platform;
 pub mod mesh;
+#[cfg(feature = "window")]
 mod window;
 
+#[cfg(feature = "window")]
 pub use window::WindowRenderer;
 
 use std::collections::HashMap;

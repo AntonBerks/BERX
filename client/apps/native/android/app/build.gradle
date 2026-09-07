@@ -1,0 +1,26 @@
+plugins { id 'com.android.application' }
+
+android {
+    namespace 'com.berx.native'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId 'com.berx.native'
+        minSdk 26
+        targetSdk 34
+        versionCode 1
+        versionName '0.1.0'
+        /* arm64 only: the renderer is Vulkan, and every device that has
+           Vulkan 1.1 has an arm64 ABI. Shipping a 32-bit slice that
+           cannot run the renderer would be shipping a broken install. */
+        ndk { abiFilters 'arm64-v8a' }
+    }
+
+    /* the Rust cdylib, built by cargo-ndk into jniLibs before this runs */
+    sourceSets { main { jniLibs.srcDirs = ['src/main/jniLibs'] } }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
