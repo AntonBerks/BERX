@@ -13,6 +13,7 @@ export * from './typography';
 export * from './scene';
 export * from './temporal';
 export * from './relational';
+export * from './composition';
 export * from './worldLighting';
 export * from './lighting/berxEnvironment';
 export * from './lighting/berxSSAO';

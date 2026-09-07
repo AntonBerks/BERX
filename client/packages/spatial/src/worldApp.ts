@@ -24,7 +24,8 @@
 import {Berx5DRuntime, type Berx5DFrame} from './runtime5d';
 import type {BerxSpatialCameraState} from './spatialCamera';
 import {berxApplyTemporal, berxTemporalCursor, type BerxTemporalCursor} from './temporal';
-import {berxRelationalLayout, berxRelationalWeight} from './relational';
+import {berxRelationalWeight} from './relational';
+import {berxComposeLayout, berxCompositionFor} from './composition';
 import {berxClampToWorld, berxNear, berxWorldBounds} from './proximity';
 import {affordancesForObject} from './spatialAffordances';
 import type {BerxSocialAction, BerxSpatialAffordance} from './socialActions';
@@ -197,7 +198,19 @@ export class Berx5DWorldApp {
 		const snapshot = this.runtime.world.snapshot();
 		const present = new Set(snapshot.objects.map((o) => o.id));
 		const usable = [...this.relations.values()].filter((r) => present.has(r.from) && present.has(r.to));
-		this.layout = berxRelationalLayout(snapshot.objects, usable, {rootId: this.viewerId});
+		/**
+		 * The arrangement this region calls for.
+		 *
+		 * `relational` — position from the relations themselves — is the
+		 * default and is what most of the world uses. Some regions have a
+		 * shape that is part of what they mean: a first choice is a ring
+		 * you stand in the middle of, a life is a core with orbits, a
+		 * conversation is a line between two people. Those are
+		 * arrangements of THE SAME WORLD, decided here, so they reach
+		 * every renderer through the same draw list.
+		 */
+		const composition = berxCompositionFor(this.position.region);
+		this.layout = berxComposeLayout(composition, snapshot.objects, usable, {rootId: this.viewerId});
 		for (const object of snapshot.objects) {
 			const at = this.layout.get(object.id);
 			if (!at) continue;
