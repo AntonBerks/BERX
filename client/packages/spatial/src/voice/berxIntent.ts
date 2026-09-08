@@ -137,8 +137,17 @@ const REFINE_WORDS = ['нет,', 'не так', 'слишком', 'другое'
 const BACK_WORDS = ['назад', 'обратно', 'верни', 'back', 'go back'];
 const OPEN_NOW_WORDS = ['открыт', 'сейчас работа', 'где жизнь', 'где люди', 'open now', 'still open', 'lively'];
 
-/** "здесь", "тут", "это", "этот" — a pointer at whatever is in focus. */
-const HERE_WORDS = ['здесь', 'тут', 'это ', 'этот', 'эта', 'сюда', 'here', 'this one', 'this place'];
+/**
+ * "здесь", "тут", "это", "этот" — a pointer at whatever is in focus.
+ *
+ * WHOLE WORDS, matched as such. The first version wrote "это " with a
+ * trailing space to stop it matching inside "этот", and the space made
+ * it fail at the END of a sentence: "убери это" contains no "это " and
+ * the reference silently vanished, so a dismissal executed against
+ * nothing. Found by driving a real conversation through the loop rather
+ * than by reading the list.
+ */
+const HERE_WORDS = ['здесь', 'тут', 'это', 'этот', 'эта', 'сюда', 'here', 'this one', 'this place'];
 /** "туда", "там" — a pointer at whatever was just selected or opened. */
 const THERE_WORDS = ['туда', 'там', 'there'];
 
@@ -153,6 +162,20 @@ const ORDINALS: Record<string, number> = {
 
 const has = (text: string, words: readonly string[]): string | undefined =>
 	words.find((w) => text.includes(w));
+
+/**
+ * The same, for entries that are whole words rather than stems.
+ *
+ * Padding both sides is what makes a word match at the start and the end
+ * of a sentence as well as the middle — and \b cannot be used here,
+ * because JavaScript's word boundary is defined over [A-Za-z0-9_] and
+ * treats every Cyrillic letter as a boundary, which would match "это"
+ * inside "этот" and defeat the point.
+ */
+const hasWord = (text: string, words: readonly string[]): string | undefined => {
+	const padded = ` ${text.replace(/[.,!?;:]/g, ' ')} `;
+	return words.find((w) => padded.includes(` ${w} `));
+};
 
 /**
  * Read one utterance, against the world it was said in.
@@ -188,14 +211,14 @@ export function berxReadIntent(
 		objectId = nth?.id;
 	}
 
-	const hereWord = !objectId ? has(text, HERE_WORDS) : undefined;
+	const hereWord = !objectId ? hasWord(text, HERE_WORDS) : undefined;
 	if (hereWord) {
 		referenced = true;
 		matched.push(hereWord);
 		objectId = berxHere(state)?.id;
 	}
 
-	const thereWord = !objectId ? has(text, THERE_WORDS) : undefined;
+	const thereWord = !objectId ? hasWord(text, THERE_WORDS) : undefined;
 	if (thereWord) {
 		referenced = true;
 		matched.push(thereWord);

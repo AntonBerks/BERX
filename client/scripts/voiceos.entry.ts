@@ -10,6 +10,9 @@ export {
    methods that actually exist rather than against a list of names. */
 export {BerxVoiceAssistant} from '@berx/spatial';
 export {
+	berxLivingWorld, berxSpeakToWorld, berxTurnCoherent, berxImpliesSpatialChange,
+} from '@berx/spatial';
+export {
 	BERX_BIRTH_STAGES, BERX_BIRTH_PLAN, berxBirthReady, berxBirthFields, berxBirthProgress,
 } from '@berx/spatial';
 export {BerxApiClient} from '@berx/api/client';

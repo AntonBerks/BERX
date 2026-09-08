@@ -393,6 +393,115 @@ gate('the whole arc is present, in the order the API permits',
 	core.BERX_BIRTH_PLAN.map((s) => s.stage).join(' → ')
 	+ ' — arrival and presence come before anything is asked, which is most of what makes this not a form: the first thing that happens is a world opening and someone being noticed, not a field gaining focus');
 
+/* ---------------- 7. ONE SYSTEM, not three that agree ----------------
+
+   Voice, Core and world were three correct subsystems that met only in
+   a gate — and a person does not experience three things that agree,
+   they experience one thing or they experience seams. These checks
+   drive the single loop and hold every turn to two properties. */
+
+/** A bridge that answers, and one that does not. Same loop through both. */
+const bridgeThatAnswers = (entities) => ({
+	async execute(plan) {
+		return {results: plan.steps.map((step) => ({step, state: 'done'})), entities};
+	},
+	travel: (id) => id.startsWith('place:') || id.startsWith('event:'),
+	back: () => true,
+});
+const bridgeThatFails = {
+	async execute(plan) {
+		return {
+			results: plan.steps.map((step, i) => ({
+				step, state: i === 0 ? 'done' : 'failed',
+				reason: i === 0 ? undefined : 'сеть не ответила',
+			})),
+			/* A failing server still returning entities: the loop must
+			   ignore them, and this is how that is proved rather than
+			   assumed. */
+			entities: [{id: 'place:99', label: 'Не должно появиться'}],
+		};
+	},
+	travel: () => false,
+	back: () => false,
+};
+
+const found = [
+	{id: 'place:11', label: 'Дом Культуры'},
+	{id: 'place:12', label: 'Веранда'},
+	{id: 'place:13', label: 'Подвал'},
+];
+
+{
+	/* A whole conversation, in one loop, with the state carried forward
+	   exactly as a runtime would carry it. */
+	let world = core.berxLivingWorld();
+	const said = [];
+
+	const turn1 = await core.berxSpeakToWorld(world, 'что происходит рядом?', situation(), bridgeThatAnswers(found));
+	world = {core: turn1.core, memory: turn1.memory};
+	said.push(turn1);
+
+	gate('asking what is happening fills the room, not a sentence',
+		turn1.change === 'composed' && turn1.shown.length === 3 && turn1.core.state === 'discovering',
+		`change=${turn1.change}, ${turn1.shown.length} entities now in front of the person, Core in ${turn1.core.state}, and the voice said "${turn1.say.text}" — a question answered with a sentence while the room stays as it was is a chatbot`);
+
+	const turn2 = await core.berxSpeakToWorld(world, 'а второй?', situation(), bridgeThatAnswers(found));
+	world = {core: turn2.core, memory: turn2.memory};
+	said.push(turn2);
+	gate('a reference into the set travels there, silently',
+		turn2.change === 'travelled' && turn2.intent.objectId === 'place:12' && turn2.say.text === '',
+		`"а второй?" → ${turn2.change} to ${turn2.intent.objectId}, Core ${turn2.core.state}, nothing said — the camera is visibly moving and narrating it would be the assistant reading its own screen`);
+
+	const turn3 = await core.berxSpeakToWorld(world, 'убери это', situation({focusId: 'place:12'}), bridgeThatAnswers(found));
+	world = {core: turn3.core, memory: turn3.memory};
+	said.push(turn3);
+	gate('a dismissal really removes it, and the set renumbers',
+		turn3.change === 'removed' && turn3.shown.length === 2
+			&& !turn3.shown.some((s) => s.id === 'place:12'),
+		`${turn3.shown.length} left: ${turn3.shown.map((s) => s.label).join(', ')} — the same spatial memory the intent layer counts in, so the next "второй" means the second of what is there NOW`);
+
+	const coherent = said.map((t) => core.berxTurnCoherent(t));
+	gate('every turn in the conversation is one system rather than three',
+		coherent.every((c) => c.ok),
+		coherent.map((c, i) => c.ok ? `turn ${i + 1} ok` : `turn ${i + 1}: ${c.why}`).join(' · ')
+		+ ' — an intent that promised the space would change must have changed it, and where the world answered the voice adds a count at most');
+}
+
+{
+	/* THE ONE THAT MATTERS MOST: a failed execution leaves the room
+	   exactly as it was. */
+	let world = core.berxLivingWorld();
+	const turn = await core.berxSpeakToWorld(world, 'что происходит рядом?', situation(), bridgeThatFails);
+	gate('a search the server did not finish changes nothing in the world',
+		turn.outcome.ok === false && turn.change === 'none' && turn.shown.length === 0
+			&& turn.core.state === 'error',
+		`the bridge returned entities anyway and the loop ignored them: ${turn.shown.length} shown, change=${turn.change}, Core in ${turn.core.state}, "${turn.say.text}". Composing a set the server did not give is the same lie as a spoken "готово" and harder to notice`);
+
+	gate('and the person is told, because the world could not tell them',
+		turn.say.text.length > 0 && core.berxTurnCoherent(turn).ok,
+		`"${turn.say.text}" — where the world speaks the voice is quiet, and where it cannot the voice carries the turn. Nothing happening AND nothing being said is a person left waiting`);
+}
+
+{
+	/* An unresolvable reference asks, and moves nothing. */
+	const world = core.berxLivingWorld();
+	const turn = await core.berxSpeakToWorld(world, 'что здесь сегодня?', situation({focusId: undefined}), bridgeThatAnswers(found));
+	gate('a question about nothing asks which, and the room stays still',
+		turn.change === 'none' && turn.say.text === 'Какое именно?' && turn.plan.blocked.length > 0,
+		`blocked: ${turn.plan.blocked.join('; ')} → "${turn.say.text}". Nothing was attempted, so nothing can half-happen`);
+}
+
+{
+	/* The contract itself: which intents promise a spatial consequence. */
+	const promises = ['now-nearby', 'find-places', 'find-events', 'find-people', 'discover', 'open', 'dismiss', 'back'];
+	const checked = promises.map((kind) => core.berxImpliesSpatialChange({kind, needs: [], confidence: 1, matched: []}));
+	const noPromise = core.berxImpliesSpatialChange({kind: 'unknown', needs: [], confidence: 0, matched: []});
+	const blockedPromise = core.berxImpliesSpatialChange({kind: 'now-nearby', needs: ['location'], confidence: 1, matched: []});
+	gate('every intent that can change the space is held to changing it',
+		checked.every(Boolean) && !noPromise && !blockedPromise,
+		`${promises.length} intents promise a spatial consequence; "unknown" does not, and neither does one that is missing something it needs — a promise that cannot be kept is not held against the loop`);
+}
+
 fs.rmSync(dir, {recursive: true, force: true});
 if (failures.length) {
 	console.error(`\nBERX VOICE OS: ${failures.length} FAILED — ${failures.join('; ')}`);
