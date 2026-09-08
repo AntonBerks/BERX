@@ -25,6 +25,7 @@ export * from './lighting/berxVolumetric';
 export * from './lighting/berxParticles';
 export * from './lighting/berxRenderQuality';
 export * from './lighting/berxExposure';
+export * from './berxFraming';
 export * from './renderPipeline';
 export * from './stability';
 export * from './voice/berxWorldState';

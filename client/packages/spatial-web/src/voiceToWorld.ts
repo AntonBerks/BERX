@@ -510,5 +510,22 @@ export function berxVoiceToWorld(options: BerxVoiceToWorldOptions): BerxVoiceToW
 				media: mapping.media,
 			}]);
 		}
+
+		/**
+		 * AND THEN FRAME IT.
+		 *
+		 * Composing a set and leaving the camera where it was is half a
+		 * composition: BERX stood 8 metres back from the origin whatever
+		 * was in front of it, and a real spoken search came to 6.5% of a
+		 * desktop frame with two of five entities off it. A person who
+		 * asks what is nearby should be looking AT what is nearby.
+		 *
+		 * The size comes from the canvas the session is actually drawing
+		 * into, because framing is a question about a frame — the same
+		 * world composes differently on a phone and a desktop, and using
+		 * a fixed aspect here would frame for a screen nobody has.
+		 */
+		const canvas = options.host.canvas;
+		world.frameWorld(canvas.width, canvas.height);
 	}
 }

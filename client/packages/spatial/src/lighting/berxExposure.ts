@@ -79,7 +79,17 @@ const ACES_C = 2.43;
 const ACES_D = 0.59;
 const ACES_E = 0.14;
 
-/** One channel through the shoulder. Exported so a gate can plot it. */
+/**
+ * One channel through the shoulder. Exported so a gate can plot it.
+ *
+ * `berxShoulderInverse` undoes it, and a gate that wants to ask a
+ * question about LIGHT rather than about the picture needs that: the
+ * curve compresses relative contrast at high values on purpose, so a
+ * ratio of two tone-mapped means is not a ratio of two radiances. A
+ * point light that adds 6% of the light in a room shows up as 4.8% of
+ * the pixels, and a check written on the pixels calls that a regression
+ * when nothing has regressed.
+ */
 export function berxShoulder(x: number): number {
 	const v = Math.max(0, x);
 	const mapped = (v * (ACES_A * v + ACES_B)) / (v * (ACES_C * v + ACES_D) + ACES_E);
@@ -118,7 +128,7 @@ export function berxShoulder(x: number): number {
  * environment is built, once, rather than special-cased in three
  * shaders.
  */
-export function berxRadianceFor(appearance: number): number {
+export function berxShoulderInverse(appearance: number): number {
 	const y = Math.min(1 - 1e-6, Math.max(0, appearance));
 	/* Solving (a x^2 + b x) = y (c x^2 + d x + e) for x: a quadratic,
 	   and the positive root is the only one on the curve. */
@@ -126,9 +136,12 @@ export function berxRadianceFor(appearance: number): number {
 	const qb = ACES_B - y * ACES_D;
 	const qc = -y * ACES_E;
 	const disc = qb * qb - 4 * qa * qc;
-	if (disc <= 0 || qa === 0) return appearance / BERX_EXPOSURE;
-	const x = (-qb + Math.sqrt(disc)) / (2 * qa);
-	return Math.max(0, x) / BERX_EXPOSURE;
+	if (disc <= 0 || qa === 0) return y;
+	return Math.max(0, (-qb + Math.sqrt(disc)) / (2 * qa));
+}
+
+export function berxRadianceFor(appearance: number): number {
+	return berxShoulderInverse(appearance) / BERX_EXPOSURE;
 }
 
 export interface BerxLinearRgb {

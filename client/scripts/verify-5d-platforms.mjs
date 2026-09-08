@@ -132,8 +132,81 @@ try {
 		host.addObject({...person, label: undefined});
 		await new Promise((r) => requestAnimationFrame(r));
 
+		/**
+		 * THE ROOM WITH NOTHING IN IT, so "lit" can mean "an entity".
+		 *
+		 * This counted a pixel as world when its channels summed past 60,
+		 * and the day the exposure landed the empty room passed that on
+		 * its own — the void with lit air in it sums to about 127. Each
+		 * eye then scored 50% of the mono frame's count purely because it
+		 * is half as wide, and a gate that had been true for a year went
+		 * red without anything about stereo changing.
+		 *
+		 * A brighter constant would only postpone that. The background is
+		 * something that can be RENDERED, so it is: the same scene with
+		 * the entity removed, once, and every count below is of pixels
+		 * that differ from it. The threshold stops being a guess about
+		 * the lighting.
+		 */
+		const readPixels = () => {
+			const canvas = host.canvas;
+			const gl = canvas.getContext('webgl2');
+			const px = new Uint8Array(canvas.width * canvas.height * 4);
+			gl.readPixels(0, 0, canvas.width, canvas.height, gl.RGBA, gl.UNSIGNED_BYTE, px);
+			return px;
+		};
+		/**
+		 * THE AIR OFF, because this question is about geometry.
+		 *
+		 * Measured rather than assumed: rendered twice with the motes and
+		 * the march running, the EMPTY room disagreed with itself by up
+		 * to 556 of 765 — the particle field is animated, so no
+		 * difference threshold can separate an entity from the air while
+		 * it moves. Whether each eye draws the whole world is a question
+		 * about what geometry was submitted, and answering it through a
+		 * moving atmosphere is answering a different one.
+		 */
+		const STILL = {particles: false, volumetric: false};
+		host.removeObject(person.id);
+		await new Promise((r) => requestAnimationFrame(r));
+		host.renderer.render(host.runtime.latestFrame, STILL);
+		const emptyRoom = readPixels();
+		/* A reference that came back all zeros is not a reference — it
+		   would make every comparison below a comparison against black,
+		   which is exactly the absolute threshold this replaces. Carried
+		   out so the gate can refuse to trust itself. */
+		let emptyRoomSum = 0;
+		for (let i = 0; i < emptyRoom.length; i += 4) emptyRoomSum += emptyRoom[i] + emptyRoom[i + 1] + emptyRoom[i + 2];
+		/**
+		 * AND HOW MUCH THE EMPTY ROOM DIFFERS FROM ITSELF.
+		 *
+		 * The air moves. Two renders of the same empty room are not the
+		 * same bytes, and a fixed difference threshold picked without
+		 * knowing by how much is the same guess as the fixed brightness
+		 * threshold this replaced — the first attempt used 6 and counted
+		 * 319825 of 320000 pixels as entity, which is the whole frame.
+		 *
+		 * So the floor is measured: render the empty room again, take the
+		 * largest disagreement between the two, and require an entity to
+		 * clear it. Nothing here decides what the number should be.
+		 */
+		host.renderer.render(host.runtime.latestFrame, STILL);
+		const emptyAgain = readPixels();
+		let noiseFloor = 0;
+		for (let i = 0; i < emptyRoom.length; i += 4) {
+			const d = Math.abs(emptyRoom[i] - emptyAgain[i])
+				+ Math.abs(emptyRoom[i + 1] - emptyAgain[i + 1])
+				+ Math.abs(emptyRoom[i + 2] - emptyAgain[i + 2]);
+			if (d > noiseFloor) noiseFloor = d;
+		}
+		/* Twice the worst the room does on its own, and never below a
+		   code value per channel. */
+		const entityThreshold = Math.max(3, noiseFloor * 2);
+		host.addObject({...person, label: undefined});
+		await new Promise((r) => requestAnimationFrame(r));
+
 		const centroid = (options) => {
-			host.renderer.render(host.runtime.latestFrame, options);
+			host.renderer.render(host.runtime.latestFrame, {...STILL, ...options});
 			const canvas = host.canvas;
 			const gl = canvas.getContext('webgl2');
 			const px = new Uint8Array(canvas.width * canvas.height * 4);
@@ -145,7 +218,12 @@ try {
 				for (let y = 0; y < canvas.height; y++) {
 					for (let x = from; x < to; x++) {
 						const o = (y * canvas.width + x) * 4;
-						if (px[o] + px[o + 1] + px[o + 2] > 60) {
+						/* differs from the empty room by more than a code
+						   value per channel: an entity, not the air */
+						const d = Math.abs(px[o] - emptyRoom[o])
+							+ Math.abs(px[o + 1] - emptyRoom[o + 1])
+							+ Math.abs(px[o + 2] - emptyRoom[o + 2]);
+						if (d > entityThreshold) {
 							sx += x;
 							n++;
 						}
@@ -159,7 +237,7 @@ try {
 		const mono = centroid({});
 		const two = centroid({stereo: {ipd: 0.063}});
 		host.destroy();
-		return {mono, two};
+		return {mono, two, emptyRoomSum, noiseFloor, entityThreshold};
 	});
 
 	/* Each eye draws the whole world, not half of it. A centred object
@@ -167,6 +245,10 @@ try {
 	   its own — what does is that each stereo half holds about as many
 	   lit pixels as the entire mono frame, which only happens if the
 	   object was drawn twice, complete, once per eye. */
+	gate('the empty room really rendered, so "an entity" means something',
+		stereo.emptyRoomSum > 0,
+		`the reference frame with nothing in it sums to ${stereo.emptyRoomSum}; rendered twice it disagrees with itself by at most ${stereo.noiseFloor}/765, so an entity has to clear ${stereo.entityThreshold}. A reference that came back black, or a threshold under the room's own movement, would turn every count below into the absolute brightness test this replaced — and would do it silently`);
+
 	const monoTotal = stereo.mono.left.lit + stereo.mono.right.lit;
 	const ratio = (n) => n / monoTotal;
 	gate(

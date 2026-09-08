@@ -26,6 +26,7 @@ import type {BerxSpatialCameraState} from './spatialCamera';
 import {berxApplyTemporal, berxTemporalCursor, type BerxTemporalCursor} from './temporal';
 import {berxRelationalWeight} from './relational';
 import {berxComposeLayout, berxCompositionFor} from './composition';
+import {berxFraming, berxFrameTheWorld, type BerxFraming} from './berxFraming';
 import {berxClampToWorld, berxNear, berxWorldBounds} from './proximity';
 
 /**
@@ -290,6 +291,39 @@ export class Berx5DWorldApp {
 	 * false when the entity is not in the world — which is a real
 	 * answer, not a reason to invent it.
 	 */
+	/**
+	 * Frame what is in the world, so a composed set is a composition.
+	 *
+	 * BERX's camera stood 8 metres back from the origin no matter what
+	 * was in front of it, which is not a camera choosing a shot — it is
+	 * a fixed vantage that frames whatever happens to be at the origin
+	 * and lets the rest fall where it falls. Measured on a real world
+	 * composed from a real search: 6.5% of a desktop frame, with two of
+	 * five entities off it entirely.
+	 *
+	 * The pose comes from berxFrameTheWorld, which fits the whole world
+	 * — everything WHOLLY inside the frame, not merely overlapping it —
+	 * and it arrives through the same camera transition every travel
+	 * uses, because a second way of moving the camera is a second
+	 * camera. Returns false when there is nothing to frame.
+	 *
+	 * It is called, never automatic: a camera that re-framed itself
+	 * while someone was moving through the world would be taking the
+	 * world away from them.
+	 */
+	frameWorld(width: number, height: number): boolean {
+		const frame = this.latestFrame;
+		if (frame.world.objects.filter((o) => o.visible).length === 0) return false;
+		const fitted = berxFrameTheWorld(frame, width, height);
+		this.runtime.moveCamera(fitted.position, fitted.target, berxTransitionForTravel('travel'));
+		return true;
+	}
+
+	/** How the world is framed right now, for a caller that wants to check. */
+	framing(width: number, height: number): BerxFraming {
+		return berxFraming(this.latestFrame, width, height);
+	}
+
 	travelTo(objectId: string, region?: BerxWorldRegion): boolean {
 		const object = this.runtime.world.getObject(objectId);
 		if (!object) return false;

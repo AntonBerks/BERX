@@ -27,6 +27,7 @@ import {presentationForKind} from './spatialPresentation';
 import {berxWorldMaterial} from './worldMaterials';
 import {berxEnvironmentUniform} from './lighting/berxEnvironment';
 import {berxRadianceFor} from './lighting/berxExposure';
+import {berxBoundingRadius} from './berxFraming';
 import {
 	berxEnergyLight,
 	berxResolvePointLights,
@@ -342,8 +343,10 @@ const modelMatrix = (p: BerxVec3, s: BerxVec3, r: {x: number; y: number; z: numb
 };
 
 /** The bounding radius an object's geometry actually occupies. */
-const radiusOf = (o: BerxSpatialObject): number =>
-	Math.max(o.transform.scale.x, o.transform.scale.y, o.transform.scale.z) * 0.75;
+/* The bounding radius lives in berxFraming now, because the framing
+   measurement has to agree with the cull about what is on screen — two
+   copies of this number would be two different worlds. */
+const radiusOf = berxBoundingRadius;
 
 const distanceTo = (eye: BerxVec3, o: BerxSpatialObject): number =>
 	Math.hypot(o.transform.position.x - eye.x, o.transform.position.y - eye.y, o.transform.position.z - eye.z);

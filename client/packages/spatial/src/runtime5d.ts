@@ -57,6 +57,19 @@ export class Berx5DRuntime{
     const object=this.world.getObject(objectId);if(!object)return false;this.world.setActiveObject(objectId);this.currentWorld.focusObjectId=objectId;
     const pose=this.camera.poseForObject(object.transform.position,object.transform.scale,undefined,framingRadius);this.beginCameraTransition(pose,this.durationFor(kind),this.currentWorld,this.reducedMotion?undefined:kind);return true;
   }
+  /**
+   * Move the camera to an explicit pose, through the one transition.
+   *
+   * `focus` and `enterWorld` both derive their pose from an OBJECT;
+   * framing derives it from the whole world, so it needs a way in that
+   * takes a pose directly. It goes through beginCameraTransition like
+   * everything else — a second way of moving the camera would be a
+   * second camera, and the whole point of this class is that there is
+   * one.
+   */
+  moveCamera(position:BerxVec3,target:BerxVec3,kind?:BerxTransitionKind){
+    this.beginCameraTransition({position,target},this.durationFor(kind),this.currentWorld,this.reducedMotion?undefined:kind);
+  }
   private beginCameraTransition(pose:{position:BerxVec3;target:BerxVec3},duration:number,toWorld=this.currentWorld,kind?:BerxTransitionKind){
     const fromCamera=this.camera.getState();this.cameraTransition=this.camera.moveToPose(pose,duration,kind);
     this.transition={fromWorld:cloneWorld(this.currentWorld),toWorld:cloneWorld(toWorld),fromCamera,destination:{...pose.position},progress:0,duration:Math.max(.001,duration),kind};

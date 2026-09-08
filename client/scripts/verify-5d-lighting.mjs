@@ -80,14 +80,23 @@ try {
 			const gl = canvas.getContext('webgl2');
 			const px = new Uint8Array(canvas.width * canvas.height * 4);
 			gl.readPixels(0, 0, canvas.width, canvas.height, gl.RGBA, gl.UNSIGNED_BYTE, px);
-			let total = 0, lit = 0, peak = 0;
+			let total = 0, lit = 0, peak = 0, radiance = 0;
 			const brightness = [];
+			/* The tone curve's own inverse, from the shared core. */
+			const inv = window.BERX_5D.shoulderInverse;
 			for (let i = 0; i < px.length; i += 4) {
 				const b = px[i] + px[i + 1] + px[i + 2];
 				/* anything above the ground colour is the sphere */
 				if (b > 30) {
 					lit++;
 					total += b;
+					/* AND the same pixel as LIGHT. The frame is tone-mapped,
+					   and the shoulder compresses relative contrast at high
+					   values on purpose — so a question about how much a
+					   light adds has to be asked of radiance, not of the
+					   picture. Per channel and then summed, because the
+					   curve is applied per channel. */
+					radiance += inv(px[i] / 255) + inv(px[i + 1] / 255) + inv(px[i + 2] / 255);
 					brightness.push(b);
 					if (b > peak) peak = b;
 				}
@@ -98,7 +107,10 @@ try {
 			   peak, so this measures the shape of the highlight rather than
 			   how bright the material happens to be. */
 			const near = brightness.filter((b) => b >= peak * 0.6).length;
-			return {lit, mean: lit ? total / lit : 0, peak, spread: lit ? near / lit : 0};
+			return {
+				lit, mean: lit ? total / lit : 0, peak, spread: lit ? near / lit : 0,
+				radiance: lit ? radiance / lit : 0,
+			};
 		};
 		const show = async (object) => {
 			for (const o of host.runtime.latestFrame.world.objects) host.removeObject(o.id);
@@ -156,10 +168,26 @@ try {
 
 	/* A point light is a light: it brightens what is near it, and does
 	   nothing at all beyond the range it declares. */
+	/**
+	 * MEASURED IN LIGHT, NOT IN PIXELS.
+	 *
+	 * This compared tone-mapped means and went red the day the exposure
+	 * landed: 74.04 → 77.6, a ratio of 1.048 against a bound of 1.05.
+	 * Nothing about the point light had changed. The shoulder compresses
+	 * relative contrast at high display values — that is what a shoulder
+	 * IS — so a light adding 6% of the radiance in a room shows up as
+	 * 4.8% of the pixels.
+	 *
+	 * The bound is NOT loosened to 1.04; that would be tuning the check
+	 * to the answer, and it would keep measuring the wrong quantity. The
+	 * claim is about light, so the pixels are brought back through the
+	 * curve's own inverse first, and the check then holds regardless of
+	 * what the tone-map is doing.
+	 */
 	gate(
 		'point lights light what is near them',
-		measured.nearLight.mean > measured.unlit.mean * 1.05,
-		`unlit mean ${measured.unlit.mean.toFixed(0)} → lit mean ${measured.nearLight.mean.toFixed(0)}`,
+		measured.nearLight.radiance > measured.unlit.radiance * 1.05,
+		`radiance ${measured.unlit.radiance.toFixed(4)} → ${measured.nearLight.radiance.toFixed(4)} (${((measured.nearLight.radiance / measured.unlit.radiance - 1) * 100).toFixed(1)}% more light), which the tone-map shows as ${measured.unlit.mean.toFixed(1)} → ${measured.nearLight.mean.toFixed(1)} (${((measured.nearLight.mean / measured.unlit.mean - 1) * 100).toFixed(1)}% more pixel). Both are true; only the first is a statement about the light`,
 	);
 	gate(
 		'a light stops where its range says it stops',
