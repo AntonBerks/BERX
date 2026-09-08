@@ -2496,11 +2496,24 @@ var BERX_ACTIVATABLE_STATES;
 var init_socialActions = __esm({
   "packages/spatial/src/socialActions.ts"() {
     "use strict";
-    BERX_ACTIVATABLE_STATES = ["available", "focus"];
+    BERX_ACTIVATABLE_STATES = [
+      "available",
+      "focus",
+      "hover",
+      "proximity",
+      /* A PRESS IS HOW A POINTER ACTIVATES. Leaving it out made a finger
+         set `press` on the way down and then be refused on the way up,
+         which is a state machine forbidding the gesture it exists to
+         describe. */
+      "press"
+    ];
   }
 });
 
 // packages/spatial/src/actionRing.ts
+function berxSlotPresentation(state) {
+  return PRESENTATION[state];
+}
 function berxActionRingRadius(object, affordances) {
   if (!object || affordances.length === 0) return 0;
   const longest = affordances.reduce((n, a) => Math.max(n, a.label.trim().length), 1);
@@ -2522,22 +2535,24 @@ function berxActionRing(object, camera, affordances) {
   const spread = Math.min(Math.PI * 0.9, perSlot * Math.max(1, affordances.length - 1));
   const start = -spread / 2;
   const step = affordances.length > 1 ? spread / (affordances.length - 1) : 0;
-  return affordances.map((affordance, index) => {
+  return affordances.filter((a) => a.state !== "hidden").map((affordance, index) => {
     const angle = start + step * index;
     const across = Math.sin(angle) * radius * 1.35;
     const under = Math.cos(angle) * radius * 0.35;
+    const look = berxSlotPresentation(affordance.state);
     return {
       affordance,
       position: {
-        x: object.transform.position.x + basis.right.x * across - basis.up.x * (drop + under),
-        y: object.transform.position.y + basis.right.y * across - basis.up.y * (drop + under),
-        z: object.transform.position.z + basis.right.z * across - basis.up.z * (drop + under)
+        x: object.transform.position.x + basis.right.x * across - basis.up.x * (drop + under) + basis.up.x * look.lift,
+        y: object.transform.position.y + basis.right.y * across - basis.up.y * (drop + under) + basis.up.y * look.lift,
+        z: object.transform.position.z + basis.right.z * across - basis.up.z * (drop + under) + basis.up.z * look.lift
       },
-      /* The focused slot stands larger, in world units — geometry, so
-         every renderer already honours it without a shader knowing
-         what focus is. */
-      halfHeight: SLOT_HEIGHT * 0.5 * (affordance.state === "focus" ? BERX_SLOT_FOCUS_SCALE : 1),
-      focused: affordance.state === "focus"
+      /* State as GEOMETRY, so every renderer honours it without a
+         shader knowing what a state is. */
+      halfHeight: SLOT_HEIGHT * 0.5 * look.scale,
+      focused: affordance.state === "focus",
+      state: affordance.state,
+      alpha: look.alpha
     };
   });
 }
@@ -2547,6 +2562,7 @@ function pickActionSlot(slots, camera, rayDirection, aspect) {
   let best;
   let bestDistance = Infinity;
   for (const slot of slots) {
+    if (!berxCanActivate(slot.affordance.state)) continue;
     const d = {
       x: slot.position.x - camera.position.x,
       y: slot.position.y - camera.position.y,
@@ -2565,12 +2581,59 @@ function pickActionSlot(slots, camera, rayDirection, aspect) {
   }
   return best;
 }
-var BERX_SLOT_FOCUS_SCALE, RING_GAP, SLOT_HEIGHT, WIDTH_PER_CHARACTER;
+function berxNearActionSlots(slots, camera, rayDirection, aspect, widen = 2.6) {
+  const basis = cameraBasis(camera);
+  if (!basis) return [];
+  const near = [];
+  for (const slot of slots) {
+    const d = {
+      x: slot.position.x - camera.position.x,
+      y: slot.position.y - camera.position.y,
+      z: slot.position.z - camera.position.z
+    };
+    const along = d.x * basis.forward.x + d.y * basis.forward.y + d.z * basis.forward.z;
+    if (along <= 0) continue;
+    const scale = along / Math.max(1e-4, rayDirection.x * basis.forward.x + rayDirection.y * basis.forward.y + rayDirection.z * basis.forward.z);
+    const hit = { x: rayDirection.x * scale, y: rayDirection.y * scale, z: rayDirection.z * scale };
+    const dx = (hit.x - d.x) * basis.right.x + (hit.y - d.y) * basis.right.y + (hit.z - d.z) * basis.right.z;
+    const dy = (hit.x - d.x) * basis.up.x + (hit.y - d.y) * basis.up.y + (hit.z - d.z) * basis.up.z;
+    if (Math.abs(dx) <= slot.halfHeight * 4 * aspect * widen && Math.abs(dy) <= slot.halfHeight * 1.6 * widen) {
+      near.push(slot.affordance.id);
+    }
+  }
+  return near;
+}
+var PRESENTATION, BERX_SLOT_FOCUS_SCALE, RING_GAP, SLOT_HEIGHT, WIDTH_PER_CHARACTER;
 var init_actionRing = __esm({
   "packages/spatial/src/actionRing.ts"() {
     "use strict";
+    init_socialActions();
     init_spatialInteraction();
-    BERX_SLOT_FOCUS_SCALE = 1.35;
+    PRESENTATION = Object.freeze({
+      /* at rest: present, legible, not competing with the entity */
+      available: { scale: 1, alpha: 0.72, lift: 0 },
+      /* the keyboard is on it: the largest and brightest thing in the ring */
+      focus: { scale: 1.35, alpha: 1, lift: 0 },
+      /* a pointer is over it */
+      hover: { scale: 1.2, alpha: 0.92, lift: 0 },
+      /* a pointer is near it but not on it: it leans out to meet the hand */
+      proximity: { scale: 1.08, alpha: 0.82, lift: 0.02 },
+      /* held down: pressed IN, which is what a finger does to a thing */
+      press: { scale: 0.92, alpha: 1, lift: -0.03 },
+      /* the server has not answered. Dimmer and still — a thing waiting,
+         not a thing spinning */
+      pending: { scale: 1, alpha: 0.5, lift: 0 },
+      /* it happened: it rises */
+      success: { scale: 1.15, alpha: 1, lift: 0.06 },
+      /* it did not: it settles back down */
+      failure: { scale: 1.15, alpha: 1, lift: -0.06 },
+      /* offered by the domain, not available here: small and faint, and
+         berxCanActivate refuses it */
+      disabled: { scale: 0.88, alpha: 0.3, lift: 0 },
+      /* never reaches a slot; present so the table is total */
+      hidden: { scale: 0, alpha: 0, lift: 0 }
+    });
+    BERX_SLOT_FOCUS_SCALE = PRESENTATION.focus.scale;
     RING_GAP = 0.55;
     SLOT_HEIGHT = 0.26;
     WIDTH_PER_CHARACTER = 0.58;
@@ -2663,7 +2726,7 @@ function regionForKind(kind) {
       return "now";
   }
 }
-var BERX_WORLD_MARGIN, BERX_PERSISTENCE_VERSION, Berx5DWorldApp;
+var BERX_WORLD_MARGIN, BERX_PERSISTENCE_VERSION, _Berx5DWorldApp, Berx5DWorldApp;
 var init_worldApp = __esm({
   "packages/spatial/src/worldApp.ts"() {
     "use strict";
@@ -2680,7 +2743,7 @@ var init_worldApp = __esm({
     init_xrPose();
     BERX_WORLD_MARGIN = 12;
     BERX_PERSISTENCE_VERSION = 1;
-    Berx5DWorldApp = class {
+    _Berx5DWorldApp = class _Berx5DWorldApp {
       constructor(options = {}) {
         this.relations = /* @__PURE__ */ new Map();
         this.mediaByObject = /* @__PURE__ */ new Map();
@@ -2688,6 +2751,9 @@ var init_worldApp = __esm({
         this.layout = /* @__PURE__ */ new Map();
         this.layoutDirty = false;
         this.history = [];
+        this.nearAffordanceIds = [];
+        /** The world's own seconds, for anything that has to stop by itself. */
+        this.elapsed = 0;
         this.options = options;
         this.viewerId = options.viewerId;
         this.runtime = new Berx5DRuntime({
@@ -3030,7 +3096,12 @@ var init_worldApp = __esm({
         if (this.focusedAffordanceId && !offered.some((a) => a.id === this.focusedAffordanceId)) {
           this.focusedAffordanceId = void 0;
         }
-        return offered.map((a) => a.id === this.focusedAffordanceId ? { ...a, state: "focus" } : a);
+        return offered.map((a) => {
+          if (a.state === "disabled" || a.state === "hidden") return a;
+          const life = this.lifecycle?.id === a.id ? this.lifecycle.state : void 0;
+          const state = life ?? (this.pressedAffordanceId === a.id ? "press" : this.focusedAffordanceId === a.id ? "focus" : this.hoveredAffordanceId === a.id ? "hover" : this.nearAffordanceIds.includes(a.id) ? "proximity" : "available");
+          return state === a.state ? a : { ...a, state };
+        });
       }
       /**
        * Move the keyboard's focus around the ring.
@@ -3057,10 +3128,26 @@ var init_worldApp = __esm({
       blurAffordance() {
         this.focusedAffordanceId = void 0;
       }
+      /**
+       * Where a pointer is, reported as a fact rather than as a state.
+       *
+       * The caller says which slot is under the pointer and which are
+       * near it; what that MEANS is decided in `affordances()` with
+       * everything else. A host that set states directly would be a
+       * second store with its own opinion about what beats what.
+       */
+      pointAt(overId, nearIds = []) {
+        this.hoveredAffordanceId = overId;
+        this.nearAffordanceIds = nearIds.filter((id) => id !== overId);
+      }
+      /** Held down, or let go. */
+      pressAffordance(id) {
+        this.pressedAffordanceId = id;
+      }
       /** What an entity affords, whether or not it is the focused one. */
       affordancesFor(object) {
         if (!object) return [];
-        return affordancesForObject(object, this.options.actionLabels).affordances.filter((a) => a.state !== "disabled");
+        return affordancesForObject(object, this.options.actionLabels).affordances;
       }
       /**
        * Do it, and let the server decide what happened.
@@ -3077,9 +3164,16 @@ var init_worldApp = __esm({
         if (!affordance) return false;
         if (!berxCanActivate(affordance.state)) return false;
         if (affordance.action === "open") return this.travelTo(object.id);
-        const updated = await this.options.onAction(affordance.action, object);
-        if (updated) this.ingest([updated]);
-        return true;
+        this.lifecycle = { id: affordance.id, state: "pending", until: Number.POSITIVE_INFINITY };
+        try {
+          const updated = await this.options.onAction(affordance.action, object);
+          if (updated) this.ingest([updated]);
+          this.lifecycle = { id: affordance.id, state: "success", until: this.elapsed + _Berx5DWorldApp.OUTCOME_SECONDS };
+          return true;
+        } catch (error) {
+          this.lifecycle = { id: affordance.id, state: "failure", until: this.elapsed + _Berx5DWorldApp.OUTCOME_SECONDS };
+          throw error;
+        }
       }
       /**
        * Where the world ends.
@@ -3158,6 +3252,8 @@ var init_worldApp = __esm({
         const dy = base.camera.position.y - centre.y;
         const dz = base.camera.position.z - centre.z;
         const distanceFromWorld = Math.sqrt(dx * dx + dy * dy + dz * dz);
+        this.elapsed += Math.max(0, deltaSeconds);
+        if (this.lifecycle && this.elapsed >= this.lifecycle.until) this.lifecycle = void 0;
         const movedOutwards = this.lastDistanceFromWorld !== void 0 && distanceFromWorld > this.lastDistanceFromWorld + 1e-6;
         if (bounds.radius > 0 && !this.runtime.travelling && movedOutwards) {
           const clamped = berxClampToWorld(base.camera.position, bounds, BERX_WORLD_MARGIN);
@@ -3189,6 +3285,15 @@ var init_worldApp = __esm({
         };
       }
     };
+    /**
+     * How long a finished action keeps saying so, in seconds.
+     *
+     * Long enough to be seen by someone who was looking at their hand
+     * rather than the ring; short enough that a world does not
+     * accumulate the history of everything ever pressed.
+     */
+    _Berx5DWorldApp.OUTCOME_SECONDS = 1.6;
+    Berx5DWorldApp = _Berx5DWorldApp;
   }
 });
 
@@ -5653,7 +5758,7 @@ void main(){
           gl.bindTexture(gl.TEXTURE_2D, entry.texture);
           gl.uniform3f(this.LC, slot.position.x, slot.position.y, slot.position.z);
           gl.uniform2f(this.LS, slot.halfHeight * entry.aspect, slot.halfHeight);
-          gl.uniform1f(this.LA, slot.focused ? 1 : 0.72);
+          gl.uniform1f(this.LA, slot.alpha);
           gl.drawArrays(gl.TRIANGLES, 0, 6);
           calls++;
         }
@@ -7122,10 +7227,10 @@ var init_webgpuRuntime = __esm({
         const ring = list.actionSlots.map((slot) => ({
           position: slot.position,
           halfHeight: slot.halfHeight,
-          /* the focused action is brighter as well as larger: two
-             signals, so it still reads where a size difference is
-             hard to judge against nothing */
-          alpha: slot.focused ? 1 : 0.72,
+          /* the state's own brightness, decided once in the core's
+             presentation table so three renderers cannot disagree
+             about what a pressed action looks like */
+          alpha: slot.alpha,
           text: slot.affordance.label,
           glyphs: this.labels.get(slot.affordance.label)
         })).filter((entry) => entry.glyphs !== void 0);
@@ -8977,6 +9082,7 @@ function createBerx5DWebHost(options = {}) {
   const onPointerDown = (e) => {
     if (e.pointerType === "mouse" && e.button !== 0) return;
     coreCause({ kind: "presence", near: true });
+    if (world) world.pressAffordance(slotsUnder(e).over?.affordance.id);
     dragging = true;
     lastX = downX = e.clientX;
     lastY = downY = e.clientY;
@@ -8986,7 +9092,14 @@ function createBerx5DWebHost(options = {}) {
     }
   };
   const onPointerMove = (e) => {
-    if (!dragging) return;
+    if (!dragging) {
+      if (world) {
+        const { over, near } = slotsUnder(e);
+        world.pointAt(over?.affordance.id, near);
+      }
+      return;
+    }
+    if (world) world.pointAt(void 0);
     const dx = e.clientX - lastX, dy = e.clientY - lastY;
     lastX = e.clientX;
     lastY = e.clientY;
@@ -9004,9 +9117,27 @@ function createBerx5DWebHost(options = {}) {
       announce(error instanceof Error ? error.message : `${label}: \u043D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C`);
     });
   };
+  const slotsUnder = (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const dpr = canvas.width / Math.max(1, rect.width);
+    const x = (e.clientX - rect.left) * dpr;
+    const y = (e.clientY - rect.top) * dpr;
+    const frameState = world ? world.latestFrame : runtime.latestFrame;
+    const aspect = canvas.width / canvas.height;
+    const ray = rayFromNdc(frameState.camera, x / canvas.width * 2 - 1, 1 - y / canvas.height * 2, aspect);
+    if (!ray || !world) return { x, y, frameState, over: void 0, near: [] };
+    return {
+      x,
+      y,
+      frameState,
+      over: pickActionSlot(renderer.actionSlots, frameState.camera, ray.direction, aspect),
+      near: berxNearActionSlots(renderer.actionSlots, frameState.camera, ray.direction, aspect)
+    };
+  };
   const onPointerUp = (e) => {
     if (!dragging) return;
     dragging = false;
+    if (world) world.pressAffordance(void 0);
     try {
       canvas.releasePointerCapture?.(e.pointerId);
     } catch {

@@ -667,7 +667,7 @@ try {
 
 		/* The slot to reach for, and the exact pixel it is drawn at. */
 		const target = slots.find((s) => s.action === 'like' && s.projected && s.projected.onScreen);
-		let picked, activation, sawPending;
+		let picked, activation, sawPending, statesAtPress, statesAtUp;
 		/* ALL the live regions, not the first: the shell has three and the
 		   first is the loader, which still said "BERX собирает мир" long
 		   after the world had arrived. Reading one of three and calling it
@@ -686,7 +686,9 @@ try {
 			const at = target.projected;
 			const opts = {pointerType: 'mouse', clientX: at.clientX, clientY: at.clientY, bubbles: true, isPrimary: true, pointerId: 1};
 			canvas.dispatchEvent(new PointerEvent('pointerdown', opts));
+			statesAtPress = w.affordances().map((a) => `${a.action}:${a.state}`).join(' ');
 			canvas.dispatchEvent(new PointerEvent('pointerup', opts));
+			statesAtUp = w.affordances().map((a) => `${a.action}:${a.state}`).join(' ');
 			/* the announcement names the affordance the production path
 			   selected — read before it is replaced by the outcome */
 			sawPending = liveText();
@@ -716,7 +718,7 @@ try {
 		const afterKeys = w.latestFrame.world.objects.map((o) => `${o.id}@${o.updatedAt}`).sort().join('|');
 
 		return {
-			slots, target, picked, activation, before, after,
+			slots, target, picked, activation, before, after, statesAtPress, statesAtUp,
 			worldChanged: before !== after,
 			missChangedWorld: beforeMiss !== afterMiss,
 			keyboardChangedWorld: beforeKeys !== afterKeys,
@@ -738,7 +740,7 @@ try {
 
 	gate('activating it changes the canonical world, from what the server confirmed',
 		reach.worldChanged === true && typeof reach.activation === 'string' && reach.activation.includes('готово'),
-		`moment:5150 ${reach.before} → ${reach.after}; the shell announced "${reach.activation}". Pinned to the entity the action is ABOUT: "something in the world changed" would be satisfied by a focus change`);
+		`moment:5150 ${reach.before} → ${reach.after}; states at press [${reach.statesAtPress}] and at release [${reach.statesAtUp}]; the shell announced "${reach.activation}". Pinned to the entity the action is ABOUT: "something in the world changed" would be satisfied by a focus change`);
 
 	gate('a pointer that hits no slot leaves the canonical world alone',
 		reach.missChangedWorld === false,
@@ -1128,6 +1130,211 @@ try {
 		perf.inFrustum <= perf.visible && perf.drawCalls <= perf.inFrustum * 2,
 		`${perf.inFrustum} of ${perf.visible} entities inside the frustum; ${perf.drawCalls} draw calls including labels`,
 	);
+
+	/* --- W4 item 7: every state, produced and rendered --- */
+	const states = await page.evaluate(async () => {
+		const w = window.__berxWorld;
+		const host = window.__berxHost;
+		const canvas = document.querySelector('canvas');
+		const settle = async () => { for (let i = 0; i < 40; i++) await new Promise((r) => requestAnimationFrame(r)); };
+		const entered = {focus: w.worldPosition.focusId};
+		w.focus('moment:5150');
+		await settle();
+
+		/**
+		 * Push the world's affordances at the renderer and draw, exactly
+		 * as the host's frame loop does.
+		 *
+		 * Rendering without this reads slots from whenever
+		 * setAffordances last ran, which is how a `pending` sample came
+		 * back saying `focus`: the state was right and the picture was
+		 * stale. Two lines, in the same order the production loop uses.
+		 */
+		const renderNow = () => {
+			host.renderer.setAffordances(w.affordances());
+			host.renderer.render(w.latestFrame, {});
+		};
+
+		/** What the world says, and what the renderer got, for one state. */
+		const snap = (label) => {
+			const affs = w.affordances().map((a) => ({id: a.id, action: a.action, state: a.state}));
+			const slots = host.renderer.actionSlots.map((s) => ({
+				id: s.affordance.id, state: s.state, halfHeight: s.halfHeight, alpha: s.alpha,
+				y: Math.round(s.position.y * 1000) / 1000,
+			}));
+			return {label, affs, slots};
+		};
+
+		const seen = {};
+		const record = async (name) => { await settle(); renderNow(); seen[name] = snap(name); };
+
+		/* available: nothing touching it */
+		w.blurAffordance(); w.pointAt(undefined); w.pressAffordance(undefined);
+		await record('available');
+
+		const likeId = 'moment:5150:like';
+		/* proximity: the hand is near, not on */
+		w.pointAt(undefined, [likeId]);
+		await record('proximity');
+		/* hover: the hand is on it */
+		w.pointAt(likeId, [likeId]);
+		await record('hover');
+		/* press: held */
+		w.pressAffordance(likeId);
+		await record('press');
+		w.pressAffordance(undefined); w.pointAt(undefined);
+		/* focus: the keyboard is on it */
+		while (w.focusedAffordance?.id !== likeId) {
+			canvas.dispatchEvent(new KeyboardEvent('keydown', {key: 'Tab', bubbles: true, cancelable: true}));
+			await settle();
+			if (!w.focusedAffordance) break;
+		}
+		await record('focus');
+		w.blurAffordance();
+
+		/* pending / success: from the REAL request, not a timer. The
+		   pending sample is taken while the promise is in flight. */
+		/**
+		 * NO AWAITS AT ALL between the call and the sample.
+		 *
+		 * `act` sets pending before its first await, so the state is
+		 * true the instant the promise exists. This fixture's server
+		 * answers so fast that even two animation frames let it finish
+		 * first — the probe then sampled `success` and reported a
+		 * missing `pending`, which was the probe being slow rather than
+		 * the state being absent.
+		 *
+		 * The render is called explicitly and synchronously, so the slot
+		 * really does carry the state: this is not the world's own copy
+		 * being read back, it is what the renderer received.
+		 */
+		const flight = w.act(likeId);
+		const pendingAffordance = w.affordances().find((a) => a.id === likeId)?.state;
+		renderNow();
+		const pending = snap('pending');
+		const ok = await flight.catch(() => false);
+		/* Sampled at once: an outcome says so for 1.6 seconds, and this
+		   renderer's frames are slow enough that settling forty of them
+		   outlives it. */
+		renderNow();
+		const success = snap('success');
+
+		/* failure: the real refusal, and the world it must not touch */
+		w.focus('person:78');
+		await settle();
+		const follow = w.affordances().find((a) => a.action === 'follow');
+		let failure, worldBefore, worldAfter;
+		if (follow) {
+			worldBefore = w.latestFrame.world.objects.map((o) => `${o.id}@${o.updatedAt}`).sort().join('|');
+			await w.act(follow.id).catch(() => undefined);
+			renderNow();
+			failure = snap('failure');
+			worldAfter = w.latestFrame.world.objects.map((o) => `${o.id}@${o.updatedAt}`).sort().join('|');
+		}
+
+		/**
+		 * disabled: an entity this viewer cannot act on.
+		 *
+		 * `interactive: false` is a real domain value with real
+		 * producers — berxVoiceWorld sets it on two kinds of thing — but
+		 * nothing in the world this shell loads carries it, so one is
+		 * put in through the SAME `ingest` the server's own entities
+		 * arrive by. The affordance generation, the ring, the render and
+		 * the picker are all the production ones; only the flag is set
+		 * here, and it is set to a value production sets.
+		 */
+		w.ingest([{
+			object: {
+				id: 'place:9001', kind: 'place', label: 'Закрытое место',
+				transform: {position: {x: 0, y: 0, z: 0}, rotation: {x: 0, y: 0, z: 0}, scale: {x: 1, y: 1.6, z: 0.2}},
+				material: {opacity: 1}, energy: 0, visible: true,
+				interactive: false, focusable: true,
+				depth: 0, createdAt: Date.now(), updatedAt: Date.now(),
+			},
+			relations: [{id: 'person:77->place:9001:asked', from: 'person:77', to: 'place:9001', type: 'related', strength: 0.5}],
+			media: [],
+		}]);
+		await settle();
+		w.focus('place:9001');
+		await settle();
+		renderNow();
+		const disabled = snap('disabled');
+		/* And it must not be activatable: the SAME check pickActionSlot
+		   consults, asked of the real affordance through the real act. */
+		const disabledAct = await w.act('place:9001:save').then((r) => r).catch(() => 'threw');
+		w.remove('place:9001');
+		await settle();
+
+		/* hidden: never becomes a slot at all */
+		const beforeHidden = host.renderer.actionSlots.length;
+		w.focus('moment:5150');
+		await settle();
+		const visibleRing = w.affordances().map((a) => a.id);
+		host.renderer.setAffordances(w.affordances().map((a) => ({...a, state: 'hidden'})));
+		host.renderer.render(w.latestFrame, {});
+		const hiddenSlots = host.renderer.actionSlots.length;
+
+		if (entered.focus) w.focus(entered.focus);
+		await settle();
+		await new Promise((r) => setTimeout(r, 1500));
+		await settle();
+
+		return {
+			seen, pending, pendingAffordance, success, failure, disabled, ok, disabledAct,
+			worldUnchangedOnFailure: worldBefore !== undefined && worldBefore === worldAfter,
+			hidden: {before: beforeHidden, after: hiddenSlots, ring: visibleRing.length},
+			settled: w.latestFrame.transition === undefined && !w.runtime.travelling,
+		};
+	});
+
+	const stateOf = (snapshot, id) => snapshot?.slots.find((s) => s.id === id);
+	const LIKE = 'moment:5150:like';
+	const required = ['available', 'proximity', 'hover', 'press', 'focus'];
+	const reached = required.map((n) => [n, stateOf(states.seen[n], LIKE)?.state]);
+
+	gate('every input state is produced by runtime logic and reaches the SLOT',
+		reached.every(([want, got]) => want === got),
+		reached.map(([want, got]) => `${want}→${got ?? 'missing'}`).join(', ')
+		+ ' — read off renderer.actionSlots, which is what the picker and the draw both use. The world decides which state wins when several are true at once; input only reports where a hand is');
+
+	const presentations = required.map((n) => {
+		const s = stateOf(states.seen[n], LIKE);
+		return `${n}: h=${s ? s.halfHeight.toFixed(3) : '?'} a=${s ? s.alpha.toFixed(2) : '?'} y=${s ? s.y : '?'}`;
+	});
+	const distinct = new Set(required.map((n) => {
+		const s = stateOf(states.seen[n], LIKE);
+		return s ? `${s.halfHeight.toFixed(3)}/${s.alpha.toFixed(2)}/${s.y}` : n;
+	}));
+	gate('and each one changes the slot\'s spatial presentation, not just its name',
+		distinct.size === required.length,
+		presentations.join('  ') + ` — ${distinct.size} distinct geometries for ${required.length} states. Size, brightness and height off the ring, from one table in the core: press goes IN, and an outcome rises or settles`);
+
+	gate('pending is the state while the request is in flight, and success only after the server confirmed',
+		states.pendingAffordance === 'pending' && stateOf(states.pending, LIKE)?.state === 'pending'
+			&& stateOf(states.success, LIKE)?.state === 'success' && states.ok === true,
+		`in flight the affordance says ${states.pendingAffordance} and the SLOT the renderer received says ${stateOf(states.pending, LIKE)?.state} (alpha ${stateOf(states.pending, LIKE)?.alpha}); after the server answered: ${stateOf(states.success, LIKE)?.state} at y=${stateOf(states.success, LIKE)?.y} against ${stateOf(states.seen.available, LIKE)?.y} at rest. Set before the call and cleared by its answer — not an animation hoping to finish when the server does`);
+
+	const followSlot = states.failure?.slots.find((s) => s.state === 'failure');
+	gate('failure is a state of the world, and the world it failed on is unchanged',
+		followSlot !== undefined && states.worldUnchangedOnFailure === true,
+		followSlot
+			? `the refused action settled to y=${followSlot.y} at alpha ${followSlot.alpha}, and every entity id/updatedAt is identical across the refusal. Success rises, failure settles — opposite directions in a world, which read as opposite without anyone being told which is which`
+			: 'no failure state reached a slot');
+
+	const disabledSlot = states.disabled?.slots.find((s) => s.state === 'disabled');
+	gate('disabled stands in the world and cannot be acted on',
+		disabledSlot !== undefined && disabledSlot.alpha < 0.4 && states.disabledAct === false,
+		disabledSlot
+			? `a non-interactive entity's actions stand at alpha ${disabledSlot.alpha} and half-height ${disabledSlot.halfHeight.toFixed(3)}, and act() returned ${JSON.stringify(states.disabledAct)} — refused by the same berxCanActivate list pickActionSlot consults, so drawn and touchable cannot drift apart. It used to be FILTERED OUT before the renderer: the one state the domain really produced was the one nothing could show`
+			: 'no disabled affordance reached a slot');
+
+	gate('hidden never becomes a slot, so it can be neither seen nor touched',
+		states.hidden.after === 0 && states.hidden.ring > 0,
+		`${states.hidden.ring} affordances made ${states.hidden.before} slots; marked hidden they made ${states.hidden.after}. Dropped in berxActionRing, before there is anything to draw OR to pick — nothing downstream has to remember the rule`);
+
+	gate('the state probe leaves the world as it found it',
+		states.settled === true,
+		'no camera transition in flight when this probe ends');
 
 	/**
 	 * LAST ON PURPOSE.

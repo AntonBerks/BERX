@@ -25,7 +25,7 @@
  * the meshes rebuild on restore.
  */
 import {
-	Berx5DRuntime, Berx5DWorldApp, BerxHaptics, cameraBasis, pickActionSlot, rayFromNdc,
+	Berx5DRuntime, Berx5DWorldApp, BerxHaptics, cameraBasis, pickActionSlot, berxNearActionSlots, rayFromNdc,
 	berxRenderQuality, berxResolveRenderTier, berxCoreAt, berxCoreStep, berxCoreEnter, berxCoreCause,
 	type BerxHapticBackend, type BerxSpatialObject, type BerxWorldIngest,
 	type BerxRenderQuality, type BerxCoreMotion, type BerxCoreCause,
@@ -402,6 +402,9 @@ export function createBerx5DWebHost(options: Berx5DWebHostOptions = {}): Berx5DW
 		/* Someone is here and reaching for something. Not a hover — a
 		   hand actually landing on the world. */
 		coreCause({kind: 'presence', near: true});
+		/* Held down IS a state: the slot presses in while a finger is on
+		   it, and lets go when the finger does. */
+		if (world) world.pressAffordance(slotsUnder(e).over?.affordance.id);
 		dragging = true;
 		lastX = downX = e.clientX;
 		lastY = downY = e.clientY;
@@ -419,7 +422,20 @@ export function createBerx5DWebHost(options: Berx5DWebHostOptions = {}): Berx5DW
 		}
 	};
 	const onPointerMove = (e: PointerEvent) => {
-		if (!dragging) return;
+		if (!dragging) {
+			/* Not dragging: the hand is looking. Hover and proximity are
+			   reported as FACTS about where it is — what they mean is
+			   decided in the world, with everything else that could be
+			   true of the same affordance at the same moment. */
+			if (world) {
+				const {over, near} = slotsUnder(e);
+				world.pointAt(over?.affordance.id, near);
+			}
+			return;
+		}
+		/* Dragging: the hand is moving the world, not choosing in it, so
+		   nothing is hovered. */
+		if (world) world.pointAt(undefined);
 		const dx = e.clientX - lastX, dy = e.clientY - lastY;
 		lastX = e.clientX;
 		lastY = e.clientY;
@@ -449,9 +465,36 @@ export function createBerx5DWebHost(options: Berx5DWebHostOptions = {}): Berx5DW
 		});
 	};
 
+	/**
+	 * Where a pointer is, in the world's own terms.
+	 *
+	 * One conversion, used by move, down and up, so the slot a hover
+	 * highlights is the slot a press activates. Two copies of this is
+	 * how a highlight and a hit-test end up one pixel apart.
+	 */
+	const slotsUnder = (e: {clientX: number; clientY: number}) => {
+		const rect = canvas.getBoundingClientRect();
+		const dpr = canvas.width / Math.max(1, rect.width);
+		const x = (e.clientX - rect.left) * dpr;
+		const y = (e.clientY - rect.top) * dpr;
+		const frameState = world ? world.latestFrame : runtime.latestFrame;
+		const aspect = canvas.width / canvas.height;
+		const ray = rayFromNdc(frameState.camera, (x / canvas.width) * 2 - 1, 1 - (y / canvas.height) * 2, aspect);
+		if (!ray || !world) return {x, y, frameState, over: undefined, near: [] as string[]};
+		return {
+			x, y, frameState,
+			over: pickActionSlot(renderer.actionSlots, frameState.camera, ray.direction, aspect),
+			near: berxNearActionSlots(renderer.actionSlots, frameState.camera, ray.direction, aspect),
+		};
+	};
+
 	const onPointerUp = (e: PointerEvent) => {
 		if (!dragging) return;
 		dragging = false;
+		/* The finger is off it: `press` ends here, whatever happens next.
+		   The pick below reads the slots the last frame produced, so
+		   clearing it now cannot cost the activation. */
+		if (world) world.pressAffordance(undefined);
 		/**
 		 * RELEASING A CAPTURE THAT WAS NEVER TAKEN THROWS, and this line
 		 * runs BEFORE the pick.

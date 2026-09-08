@@ -13,7 +13,7 @@
  * BERX contains. So the ring is computed per frame from the focused
  * object and the affordances the domain says it has.
  */
-import type {BerxSpatialAffordance} from './socialActions';
+import {berxCanActivate, type BerxSpatialAffordance, type BerxSocialActionState} from './socialActions';
 import type {BerxSpatialCameraState} from './spatialCamera';
 import {cameraBasis} from './spatialInteraction';
 import type {BerxSpatialObject, BerxVec3} from './world';
@@ -33,10 +33,71 @@ export interface BerxActionSlot {
 	 * everything equally.
 	 */
 	focused: boolean;
+	/** The affordance's state, so a renderer never re-derives it. */
+	state: BerxSocialActionState;
+	/** What the state does to this slot's brightness. */
+	alpha: number;
 }
 
-/** How much larger the focused slot stands. Enough to read at a glance. */
-export const BERX_SLOT_FOCUS_SCALE = 1.35;
+/**
+ * HOW EACH STATE STANDS IN THE WORLD.
+ *
+ * One table, in the core, so the three renderers cannot disagree about
+ * what a pressed action looks like. Every state is a real difference in
+ * GEOMETRY and brightness — size, height off the ring, alpha — because
+ * an affordance is a thing in a space, and a state that existed only as
+ * a colour swap would be a badge on a button.
+ *
+ * `lift` is what separates success from failure without a second
+ * colour channel: what worked rises, what failed settles. Those are
+ * opposite directions in a world, and they read as opposite without
+ * anyone being told which is which.
+ *
+ * `hidden` has no entry because it never becomes a slot at all — see
+ * berxActionRing. An affordance a person must not see must also be one
+ * they cannot touch, and the only way to guarantee that is for it not
+ * to be there.
+ */
+export interface BerxSlotPresentation {
+	/** Multiplier on the slot's half-height. */
+	readonly scale: number;
+	/** 0..1, handed to the label quad. */
+	readonly alpha: number;
+	/** World units up (+) or down (-) from where the ring puts it. */
+	readonly lift: number;
+}
+
+const PRESENTATION: Readonly<Record<BerxSocialActionState, BerxSlotPresentation>> = Object.freeze({
+	/* at rest: present, legible, not competing with the entity */
+	available: {scale: 1, alpha: 0.72, lift: 0},
+	/* the keyboard is on it: the largest and brightest thing in the ring */
+	focus: {scale: 1.35, alpha: 1, lift: 0},
+	/* a pointer is over it */
+	hover: {scale: 1.2, alpha: 0.92, lift: 0},
+	/* a pointer is near it but not on it: it leans out to meet the hand */
+	proximity: {scale: 1.08, alpha: 0.82, lift: 0.02},
+	/* held down: pressed IN, which is what a finger does to a thing */
+	press: {scale: 0.92, alpha: 1, lift: -0.03},
+	/* the server has not answered. Dimmer and still — a thing waiting,
+	   not a thing spinning */
+	pending: {scale: 1, alpha: 0.5, lift: 0},
+	/* it happened: it rises */
+	success: {scale: 1.15, alpha: 1, lift: 0.06},
+	/* it did not: it settles back down */
+	failure: {scale: 1.15, alpha: 1, lift: -0.06},
+	/* offered by the domain, not available here: small and faint, and
+	   berxCanActivate refuses it */
+	disabled: {scale: 0.88, alpha: 0.3, lift: 0},
+	/* never reaches a slot; present so the table is total */
+	hidden: {scale: 0, alpha: 0, lift: 0},
+});
+
+export function berxSlotPresentation(state: BerxSocialActionState): BerxSlotPresentation {
+	return PRESENTATION[state];
+}
+
+/** How much larger the focused slot stands. Kept for the framing gate. */
+export const BERX_SLOT_FOCUS_SCALE = PRESENTATION.focus.scale;
 
 /** How far out from the entity's own edge the ring sits. */
 const RING_GAP = 0.55;
@@ -119,22 +180,27 @@ export function berxActionRing(
 	const spread = Math.min(Math.PI * 0.9, perSlot * Math.max(1, affordances.length - 1));
 	const start = -spread / 2;
 	const step = affordances.length > 1 ? spread / (affordances.length - 1) : 0;
-	return affordances.map((affordance, index) => {
+	/* An affordance nobody may see is an affordance nobody may touch, so
+	   `hidden` is dropped here — before there is a slot to draw OR to
+	   pick. Nothing downstream has to remember the rule. */
+	return affordances.filter((a) => a.state !== 'hidden').map((affordance, index) => {
 		const angle = start + step * index;
 		const across = Math.sin(angle) * radius * 1.35;
 		const under = Math.cos(angle) * radius * 0.35;
+		const look = berxSlotPresentation(affordance.state);
 		return {
 			affordance,
 			position: {
-				x: object.transform.position.x + basis.right.x * across - basis.up.x * (drop + under),
-				y: object.transform.position.y + basis.right.y * across - basis.up.y * (drop + under),
-				z: object.transform.position.z + basis.right.z * across - basis.up.z * (drop + under),
+				x: object.transform.position.x + basis.right.x * across - basis.up.x * (drop + under) + basis.up.x * look.lift,
+				y: object.transform.position.y + basis.right.y * across - basis.up.y * (drop + under) + basis.up.y * look.lift,
+				z: object.transform.position.z + basis.right.z * across - basis.up.z * (drop + under) + basis.up.z * look.lift,
 			},
-			/* The focused slot stands larger, in world units — geometry, so
-			   every renderer already honours it without a shader knowing
-			   what focus is. */
-			halfHeight: SLOT_HEIGHT * 0.5 * (affordance.state === 'focus' ? BERX_SLOT_FOCUS_SCALE : 1),
+			/* State as GEOMETRY, so every renderer honours it without a
+			   shader knowing what a state is. */
+			halfHeight: SLOT_HEIGHT * 0.5 * look.scale,
 			focused: affordance.state === 'focus',
+			state: affordance.state,
+			alpha: look.alpha,
 		};
 	});
 }
@@ -157,6 +223,16 @@ export function pickActionSlot(
 	let best: BerxActionSlot | undefined;
 	let bestDistance = Infinity;
 	for (const slot of slots) {
+		/**
+		 * DRAWN IS NOT THE SAME AS TOUCHABLE.
+		 *
+		 * A disabled action stands in the ring so a person can see that
+		 * it exists and is not theirs to use. Picking it would make the
+		 * ring lie: the same positive list `act` consults decides here,
+		 * so the two cannot drift into disagreeing about what is
+		 * actionable.
+		 */
+		if (!berxCanActivate(slot.affordance.state)) continue;
 		const d = {
 			x: slot.position.x - camera.position.x,
 			y: slot.position.y - camera.position.y,
@@ -177,4 +253,43 @@ export function pickActionSlot(
 		}
 	}
 	return best;
+}
+
+/**
+ * The slots a ray comes NEAR without hitting.
+ *
+ * Proximity is the same geometry as picking with a wider box — the
+ * SAME box, widened — rather than a second notion of nearness that
+ * could disagree about where a slot is. `pickActionSlot` answers "which
+ * one is under the hand"; this answers "which ones is the hand
+ * approaching", and a world that leans toward a hand before it arrives
+ * is the difference between a place and a diagram.
+ */
+export function berxNearActionSlots(
+	slots: readonly BerxActionSlot[],
+	camera: BerxSpatialCameraState,
+	rayDirection: BerxVec3,
+	aspect: number,
+	widen = 2.6,
+): string[] {
+	const basis = cameraBasis(camera);
+	if (!basis) return [];
+	const near: string[] = [];
+	for (const slot of slots) {
+		const d = {
+			x: slot.position.x - camera.position.x,
+			y: slot.position.y - camera.position.y,
+			z: slot.position.z - camera.position.z,
+		};
+		const along = d.x * basis.forward.x + d.y * basis.forward.y + d.z * basis.forward.z;
+		if (along <= 0) continue;
+		const scale = along / Math.max(1e-4, rayDirection.x * basis.forward.x + rayDirection.y * basis.forward.y + rayDirection.z * basis.forward.z);
+		const hit = {x: rayDirection.x * scale, y: rayDirection.y * scale, z: rayDirection.z * scale};
+		const dx = (hit.x - d.x) * basis.right.x + (hit.y - d.y) * basis.right.y + (hit.z - d.z) * basis.right.z;
+		const dy = (hit.x - d.x) * basis.up.x + (hit.y - d.y) * basis.up.y + (hit.z - d.z) * basis.up.z;
+		if (Math.abs(dx) <= slot.halfHeight * 4 * aspect * widen && Math.abs(dy) <= slot.halfHeight * 1.6 * widen) {
+			near.push(slot.affordance.id);
+		}
+	}
+	return near;
 }

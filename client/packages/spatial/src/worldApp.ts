@@ -39,7 +39,7 @@ import {berxClampToWorld, berxNear, berxWorldBounds} from './proximity';
  */
 const BERX_WORLD_MARGIN = 12;
 import {affordancesForObject} from './spatialAffordances';
-import {berxCanActivate} from './socialActions';
+import {berxCanActivate, type BerxSocialActionState} from './socialActions';
 import type {BerxSocialAction, BerxSpatialAffordance} from './socialActions';
 import {berxTransitionForTravel, BERX_FAR_TRAVEL_METRES} from './transitions';
 import {berxActionRingRadius} from './actionRing';
@@ -555,8 +555,32 @@ export class Berx5DWorldApp {
 		return berxWorldBounds(this.latestFrame.world.objects);
 	}
 
-	/** Which affordance the keyboard is on. Undefined = the ring is not entered. */
+	/**
+	 * THE ONE PLACE AN AFFORDANCE'S STATE LIVES.
+	 *
+	 * Input reports facts — the pointer is over this one, this one is
+	 * held — and the lifecycle is owned here, because only this class
+	 * knows whether a server has answered. Nothing downstream keeps a
+	 * copy: `affordances()` composes these into the single list the
+	 * renderer, the picker and the keyboard all read.
+	 */
 	private focusedAffordanceId?: string;
+	private hoveredAffordanceId?: string;
+	private nearAffordanceIds: readonly string[] = [];
+	private pressedAffordanceId?: string;
+	/** What an in-flight or just-finished action did, and when. */
+	private lifecycle?: {id: string; state: 'pending' | 'success' | 'failure'; until: number};
+
+	/**
+	 * How long a finished action keeps saying so, in seconds.
+	 *
+	 * Long enough to be seen by someone who was looking at their hand
+	 * rather than the ring; short enough that a world does not
+	 * accumulate the history of everything ever pressed.
+	 */
+	private static readonly OUTCOME_SECONDS = 1.6;
+	/** The world's own seconds, for anything that has to stop by itself. */
+	private elapsed = 0;
 
 	/* ---------------- doing things ---------------- */
 
@@ -577,7 +601,26 @@ export class Berx5DWorldApp {
 		if (this.focusedAffordanceId && !offered.some((a) => a.id === this.focusedAffordanceId)) {
 			this.focusedAffordanceId = undefined;
 		}
-		return offered.map((a) => a.id === this.focusedAffordanceId ? {...a, state: 'focus' as const} : a);
+		/**
+		 * ONE STATE PER AFFORDANCE, decided in one order.
+		 *
+		 * They genuinely overlap — a pressed action is also hovered, a
+		 * pending one is usually focused — so the order IS the meaning:
+		 * what the server is doing outranks what a hand is doing, which
+		 * outranks where a hand is. Written once here rather than
+		 * resolved differently by whoever asks.
+		 */
+		return offered.map((a) => {
+			if (a.state === 'disabled' || a.state === 'hidden') return a;
+			const life = this.lifecycle?.id === a.id ? this.lifecycle.state : undefined;
+			const state: BerxSocialActionState = life
+				?? (this.pressedAffordanceId === a.id ? 'press'
+					: this.focusedAffordanceId === a.id ? 'focus'
+						: this.hoveredAffordanceId === a.id ? 'hover'
+							: this.nearAffordanceIds.includes(a.id) ? 'proximity'
+								: 'available');
+			return state === a.state ? a : {...a, state};
+		});
 	}
 
 	/**
@@ -611,10 +654,41 @@ export class Berx5DWorldApp {
 		this.focusedAffordanceId = undefined;
 	}
 
+	/**
+	 * Where a pointer is, reported as a fact rather than as a state.
+	 *
+	 * The caller says which slot is under the pointer and which are
+	 * near it; what that MEANS is decided in `affordances()` with
+	 * everything else. A host that set states directly would be a
+	 * second store with its own opinion about what beats what.
+	 */
+	pointAt(overId: string | undefined, nearIds: readonly string[] = []): void {
+		this.hoveredAffordanceId = overId;
+		this.nearAffordanceIds = nearIds.filter((id) => id !== overId);
+	}
+
+	/** Held down, or let go. */
+	pressAffordance(id: string | undefined): void {
+		this.pressedAffordanceId = id;
+	}
+
 	/** What an entity affords, whether or not it is the focused one. */
 	private affordancesFor(object: BerxSpatialObject | undefined): BerxSpatialAffordance[] {
 		if (!object) return [];
-		return affordancesForObject(object, this.options.actionLabels).affordances.filter((a) => a.state !== 'disabled');
+		/**
+		 * DISABLED IS SHOWN, NOT DROPPED.
+		 *
+		 * It used to be filtered out here, so the one state the domain
+		 * really produced never reached a renderer: an action a viewer
+		 * cannot use simply was not there, which reads as the world not
+		 * offering it rather than as this viewer not being allowed it.
+		 * It now stands in the ring, small and faint, and `pickActionSlot`
+		 * refuses it — visible, and not touchable.
+		 *
+		 * `hidden` is different and is dropped in berxActionRing: a thing
+		 * nobody may see must be a thing nobody may touch.
+		 */
+		return affordancesForObject(object, this.options.actionLabels).affordances;
 	}
 
 	/**
@@ -641,9 +715,28 @@ export class Berx5DWorldApp {
 		if (!berxCanActivate(affordance.state)) return false;
 		/* `open` is travel, and travel is not a server action */
 		if (affordance.action === 'open') return this.travelTo(object.id);
-		const updated = await this.options.onAction(affordance.action, object);
-		if (updated) this.ingest([updated]);
-		return true;
+		/**
+		 * PENDING IS THE TRUTH WHILE IT IS TRUE.
+		 *
+		 * Set before the call and cleared by its answer, so the state a
+		 * person sees is the state the request is actually in. It is not
+		 * a timed animation that hopes to end when the server does.
+		 */
+		this.lifecycle = {id: affordance.id, state: 'pending', until: Number.POSITIVE_INFINITY};
+		try {
+			const updated = await this.options.onAction(affordance.action, object);
+			/* SUCCESS FOLLOWS CONFIRMED SERVER SUCCESS, and the world is
+			   ingested from what came back — never from what was asked. */
+			if (updated) this.ingest([updated]);
+			this.lifecycle = {id: affordance.id, state: 'success', until: this.elapsed + Berx5DWorldApp.OUTCOME_SECONDS};
+			return true;
+		} catch (error) {
+			/* FAILURE LEAVES THE WORLD ALONE. Nothing is ingested on this
+			   path, which is the whole of the guarantee — the state is
+			   only how the world SAYS so. */
+			this.lifecycle = {id: affordance.id, state: 'failure', until: this.elapsed + Berx5DWorldApp.OUTCOME_SECONDS};
+			throw error;
+		}
 	}
 
 	/**
@@ -761,6 +854,12 @@ export class Berx5DWorldApp {
 		 * moved further out; standing outside a world that receded is
 		 * allowed, and the limit catches up as the world fills back in.
 		 */
+		/* An outcome says so for a while and then stops. Advanced by the
+		   world's own frame, so it is the same clock everything else in
+		   here runs on rather than a timer nobody can see. */
+		this.elapsed += Math.max(0, deltaSeconds);
+		if (this.lifecycle && this.elapsed >= this.lifecycle.until) this.lifecycle = undefined;
+
 		const movedOutwards =
 			this.lastDistanceFromWorld !== undefined && distanceFromWorld > this.lastDistanceFromWorld + 1e-6;
 		if (bounds.radius > 0 && !this.runtime.travelling && movedOutwards) {

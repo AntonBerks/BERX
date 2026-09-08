@@ -1602,10 +1602,9 @@ export class BerxThreeRuntimeRenderer implements BerxSpatialRenderer {
    gl.bindTexture(gl.TEXTURE_2D,entry.texture);
    gl.uniform3f(this.LC,slot.position.x,slot.position.y,slot.position.z);
    gl.uniform2f(this.LS,slot.halfHeight*entry.aspect,slot.halfHeight);
-   /* the focused action is brighter as well as larger: two signals, so
-      it still reads where a size difference is hard to judge against
-      nothing. The same two numbers as the WebGPU backend. */
-   gl.uniform1f(this.LA,slot.focused?1:0.72);
+   /* the state's own brightness, from the core's presentation table —
+      the same number the WebGPU backend reads */
+   gl.uniform1f(this.LA,slot.alpha);
    gl.drawArrays(gl.TRIANGLES,0,6);calls++;
   }
   gl.depthMask(true);

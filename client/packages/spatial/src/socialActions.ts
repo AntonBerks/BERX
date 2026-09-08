@@ -59,7 +59,27 @@ export type BerxSocialAction =
  * are listed. An enum value nothing assigns is a promise the product
  * does not keep.
  */
-export type BerxSocialActionState = 'available' | 'focus' | 'disabled' | 'pending' | 'unavailable' | 'hidden';
+export type BerxSocialActionState =
+	/* offered and at rest */
+	| 'available'
+	/* the keyboard is on it */
+	| 'focus'
+	/* a pointer is over it */
+	| 'hover'
+	/* a pointer is near it, but not on it */
+	| 'proximity'
+	/* held down */
+	| 'press'
+	/* asked for; the server has not answered */
+	| 'pending'
+	/* the server confirmed it */
+	| 'success'
+	/* the server refused it, and the world is unchanged */
+	| 'failure'
+	/* the domain offers it here; this viewer cannot use it */
+	| 'disabled'
+	/* not to be seen, and therefore not to be touched */
+	| 'hidden';
 
 /**
  * The states a person can act on. Everything else is refused.
@@ -68,7 +88,14 @@ export type BerxSocialActionState = 'available' | 'focus' | 'disabled' | 'pendin
  * state cannot silently make it activatable — a new state is refused
  * until someone decides otherwise here.
  */
-export const BERX_ACTIVATABLE_STATES: readonly BerxSocialActionState[] = ['available', 'focus'];
+export const BERX_ACTIVATABLE_STATES: readonly BerxSocialActionState[] = [
+	'available', 'focus', 'hover', 'proximity',
+	/* A PRESS IS HOW A POINTER ACTIVATES. Leaving it out made a finger
+	   set `press` on the way down and then be refused on the way up,
+	   which is a state machine forbidding the gesture it exists to
+	   describe. */
+	'press',
+];
 
 export function berxCanActivate(state: BerxSocialActionState): boolean {
 	return BERX_ACTIVATABLE_STATES.includes(state);
