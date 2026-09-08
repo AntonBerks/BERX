@@ -31,6 +31,8 @@ export * from './voice/berxSpatialMemory';
 export * from './voice/berxIntent';
 export * from './voice/berxActionGraph';
 export * from './voice/berxSay';
+export * from './core/berxCore';
+export * from './core/berxCoreWorld';
 export * from './worldMaterials';
 export * from './spatialAudio';
 export * from './platform';
