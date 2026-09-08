@@ -39,6 +39,44 @@ fn push(v: &mut Vec<f32>, x: f32, y: f32, z: f32, nx: f32, ny: f32, nz: f32) {
 ///
 /// The bevel was in the shared geometry spec all along and no mesh
 /// builder in any of the three backends ever read it.
+/// A ring with a real cross-section — a torus, not a disc. Vertex for
+/// vertex the same as createTorus in @berx/spatial-web.
+///
+/// The annulus this replaces had every normal at (0, 0, 1): a flat
+/// washer facing the camera. On the real product that made an event
+/// read as a uniform patch of #4FD6E8 with no shading and no depth in
+/// it — the most "cheap UI" object in a frame where everything else has
+/// material response, and for exactly the reason the flat slabs read as
+/// holes. A face-on flat surface presents NO GRAZING ANGLE, so the
+/// environment never lifts a rim off it and only a fill remains.
+///
+/// A swept circle has grazing angles all the way around, which is why
+/// the orbs never had the problem.
+pub fn torus_mesh(outer: f32, inner: f32, segments: u16, tube: u16) -> Mesh {
+    let centre = (outer + inner) / 2.0;
+    let r = ((outer - inner) / 2.0).max(1e-4);
+    let mut v: Vec<f32> = Vec::new();
+    let mut q: Vec<u16> = Vec::new();
+    for i in 0..=segments {
+        let a = i as f32 / segments as f32 * std::f32::consts::TAU;
+        let (sa, ca) = a.sin_cos();
+        for j in 0..=tube {
+            let b = j as f32 / tube as f32 * std::f32::consts::TAU;
+            let (sb, cb) = b.sin_cos();
+            push(&mut v, (centre + r * cb) * ca, (centre + r * cb) * sa, r * sb, ca * cb, sa * cb, sb);
+        }
+    }
+    let row = tube + 1;
+    for i in 0..segments {
+        for j in 0..tube {
+            let a = i * row + j;
+            let (b, c, d) = (a + 1, a + row, a + row + 1);
+            q.extend_from_slice(&[a, c, b, b, c, d]);
+        }
+    }
+    Mesh { vertices: v, indices: q }
+}
+
 pub fn bevel_box_mesh(width: f32, height: f32, depth: f32, bevel: f32) -> Mesh {
     let b = bevel
         .max(0.0)
@@ -203,7 +241,7 @@ pub fn mesh_for(primitive: &str, lod: u8) -> Result<Mesh, String> {
     let far = lod == 1;
     Ok(match primitive {
         "orb" => sphere_mesh(0.5, if far { 10 } else { 24 }, if far { 7 } else { 16 }),
-        "ring" => ring_mesh(0.62, 0.42, if far { 16 } else { 48 }),
+        "ring" => torus_mesh(0.62, 0.42, if far { 18 } else { 48 }, if far { 6 } else { 12 }),
         "frame" => frame_mesh(1.0, 1.0, 0.12),
         "surface" => bevel_box_mesh(1.0, 1.0, 0.06, 0.02),
         "portal" => frame_mesh(1.0, 1.2, 0.16),

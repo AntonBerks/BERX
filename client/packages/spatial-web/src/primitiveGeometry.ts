@@ -111,6 +111,51 @@ export function createRing(outer=1,inner=.72,segments=48):BerxPrimitiveMesh{
   return{vertices:new Float32Array(v),indices:new Uint16Array(q)};
 }
 
+/**
+ * A ring with a real cross-section — a torus, not a disc.
+ *
+ * `createRing` above builds an annulus in XY with every normal at
+ * (0, 0, 1): a flat washer facing the camera. On the real product that
+ * made an event read as a uniform patch of #4FD6E8 with no shading, no
+ * specular and no depth anywhere in it — the single most "cheap UI"
+ * object in a frame where everything else has material response. It
+ * looked like a loading spinner, and it looked like one for exactly the
+ * reason the flat slabs looked like holes: a face-on flat surface
+ * presents NO GRAZING ANGLE, so the environment never lifts a rim off
+ * it and the only thing left is a fill.
+ *
+ * A swept circle has grazing angles all the way around by construction,
+ * which is why the orbs never had this problem. So the event's ring is a
+ * torus: the light travels around its tube, the accent picks up the room
+ * on its inner curve, and it reads as a thing standing in the world
+ * rather than a shape pasted on the front of it.
+ *
+ * `outer` and `inner` keep the annulus's own vocabulary so callers do
+ * not change: the tube radius is half their difference, and the sweep
+ * runs through the middle of them.
+ */
+export function createTorus(outer=1,inner=.72,segments=48,tube=12):BerxPrimitiveMesh{
+  const centre=(outer+inner)/2, r=Math.max(1e-4,(outer-inner)/2);
+  const v:number[]=[];const q:number[]=[];
+  for(let i=0;i<=segments;i++){
+    const a=i/segments*Math.PI*2, ca=Math.cos(a), sa=Math.sin(a);
+    for(let j=0;j<=tube;j++){
+      const b=j/tube*Math.PI*2, cb=Math.cos(b), sb=Math.sin(b);
+      /* the tube's own normal, in the plane spanned by the radial
+         direction and Z — which is what gives every point on the surface
+         a different angle to the eye */
+      const nx=ca*cb, ny=sa*cb, nz=sb;
+      push(v,(centre+r*cb)*ca,(centre+r*cb)*sa,r*sb,nx,ny,nz);
+    }
+  }
+  const row=tube+1;
+  for(let i=0;i<segments;i++)for(let j=0;j<tube;j++){
+    const a=i*row+j,b=a+1,c=a+row,d=c+1;
+    q.push(a,c,b,b,c,d);
+  }
+  return{vertices:new Float32Array(v),indices:new Uint16Array(q)};
+}
+
 export function createFrame(width=1,height=1,bar=.12):BerxPrimitiveMesh{
   const parts=[createBox(width,bar,.12),createBox(width,bar,.12),createBox(bar,height,.12),createBox(bar,height,.12)];
   const v:number[]=[];const q:number[]=[];const poses=[[0,height/2,0],[0,-height/2,0],[-width/2,0,0],[width/2,0,0]];

@@ -33,7 +33,7 @@ import {
   type BerxSpatialAffordance,
   type BerxWorldLighting,
 } from '@berx/spatial';
-import { createBox, createBevelBox, createSphere, createRing, createFrame, type BerxPrimitiveMesh } from './primitiveGeometry';
+import { createBevelBox, createSphere, createTorus, createFrame, type BerxPrimitiveMesh } from './primitiveGeometry';
 import { BerxMediaTextureCache } from './mediaTextures';
 import { BerxSpatialTextAtlas } from './spatialText';
 
@@ -367,7 +367,7 @@ function gpuMesh(gl:WebGL2RenderingContext,mesh:BerxPrimitiveMesh):GpuMesh { con
  * whole distinction between level of detail and dropping things.
  * Boxes are already minimal and are shared across both levels.
  */
-function meshFor(kind:ReturnType<typeof geometryForEntity>['kind'],lod:0|1):BerxPrimitiveMesh { const far=lod===1; switch(kind){case'orb':return createSphere(.5,far?10:24,far?7:16);case'ring':return createRing(.62,.42,far?16:48);case'frame':return createFrame(1,1,.12);case'surface':return createBevelBox(1,1,.06,.02);case'portal':return createFrame(1,1.2,.16);case'node':return createSphere(.58,far?9:20,far?6:12);case'stack':return createBevelBox(1,1,.32,.1);case'message':return createBevelBox(1,.46,.12,.05);case'create':return createSphere(.58,far?11:28,far?7:18);} }
+function meshFor(kind:ReturnType<typeof geometryForEntity>['kind'],lod:0|1):BerxPrimitiveMesh { const far=lod===1; switch(kind){case'orb':return createSphere(.5,far?10:24,far?7:16);case'ring':return createTorus(.62,.42,far?18:48,far?6:12);case'frame':return createFrame(1,1,.12);case'surface':return createBevelBox(1,1,.06,.02);case'portal':return createFrame(1,1.2,.16);case'node':return createSphere(.58,far?9:20,far?6:12);case'stack':return createBevelBox(1,1,.32,.1);case'message':return createBevelBox(1,.46,.12,.05);case'create':return createSphere(.58,far?11:28,far?7:18);} }
 
 
 /**

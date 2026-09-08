@@ -40,7 +40,7 @@ import {
 	type BerxWorldLighting,
 } from '@berx/spatial';
 import {BERX_LABEL_WGSL, BERX_PARTICLES_WGSL, BERX_SSAO_WGSL, BERX_VOLUMETRIC_WGSL, BERX_WORLD_WGSL} from '@berx/spatial-shaders';
-import {createBox, createBevelBox, createSphere, createRing, createFrame, type BerxPrimitiveMesh} from './primitiveGeometry';
+import {createBevelBox, createSphere, createTorus, createFrame, type BerxPrimitiveMesh} from './primitiveGeometry';
 import {BerxWebGPUMediaTextures} from './webgpuMediaTextures';
 import {BerxWebGPUTextAtlas} from './webgpuText';
 import type {BerxFrameStats, BerxSpatialRenderOptions} from './threeRuntime';
@@ -73,7 +73,7 @@ function meshFor(primitive: string, lod: 0 | 1): BerxPrimitiveMesh {
 	const far = lod === 1;
 	switch (primitive) {
 		case 'orb': return createSphere(.5, far ? 10 : 24, far ? 7 : 16);
-		case 'ring': return createRing(.62, .42, far ? 16 : 48);
+		case 'ring': return createTorus(.62, .42, far ? 18 : 48, far ? 6 : 12);
 		case 'frame': return createFrame(1, 1, .12);
 		case 'surface': return createBevelBox(1, 1, .06, .02);
 		case 'portal': return createFrame(1, 1.2, .16);
