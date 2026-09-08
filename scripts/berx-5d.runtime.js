@@ -696,10 +696,10 @@ function berxIlluminationAt(atmosphere, x, y) {
   for (const p of atmosphere.pools) {
     const dx = px - p.x;
     const dy = py - p.y;
-    const distance2 = Math.sqrt(dx * dx + dy * dy);
+    const distance3 = Math.sqrt(dx * dx + dy * dy);
     const reach = Math.max(1e-3, p.radius);
-    if (distance2 >= reach) continue;
-    const t = 1 - distance2 / reach;
+    if (distance3 >= reach) continue;
+    const t = 1 - distance3 / reach;
     light += t * t * clamp(p.depth, 0.2, 1);
   }
   const cx = px - 0.5;
@@ -729,9 +729,9 @@ function berxRoomColorAt(atmosphere, background, x, y) {
     const dx = px - p.x;
     const dy = py - p.y;
     const reach = Math.max(1e-3, p.radius);
-    const distance2 = Math.sqrt(dx * dx + dy * dy);
-    if (distance2 >= reach) continue;
-    const t = 1 - distance2 / reach;
+    const distance3 = Math.sqrt(dx * dx + dy * dy);
+    if (distance3 >= reach) continue;
+    const t = 1 - distance3 / reach;
     color = flatten(scaleAlpha(p.color, t * t * clamp(p.depth, 0.2, 1)), color);
   }
   if (atmosphere.ground && py > atmosphere.ground.horizon) {
@@ -1784,6 +1784,9 @@ var init_composition = __esm({
 });
 
 // packages/spatial/src/voice/BerxVoiceAssistant.ts
+function berxVoiceProsody(emotion) {
+  return PROSODY[emotion];
+}
 var BERX_VOICE_RATE, BERX_VOICE_PITCH, BERX_VOICE_PAUSE_AFTER_QUESTION, PROSODY, ANSWER_TO_TONE;
 var init_BerxVoiceAssistant = __esm({
   "packages/spatial/src/voice/BerxVoiceAssistant.ts"() {
@@ -1917,13 +1920,45 @@ var init_berxRegistrationVoice = __esm({
   }
 });
 
+// packages/spatial/src/lighting/berxExposure.ts
+function berxShoulderInverse(appearance) {
+  const y = Math.min(1 - 1e-6, Math.max(0, appearance));
+  const qa = ACES_A - y * ACES_C;
+  const qb = ACES_B - y * ACES_D;
+  const qc = -y * ACES_E;
+  const disc = qb * qb - 4 * qa * qc;
+  if (disc <= 0 || qa === 0) return y;
+  return Math.max(0, (-qb + Math.sqrt(disc)) / (2 * qa));
+}
+function berxRadianceFor(appearance) {
+  return berxShoulderInverse(appearance) / BERX_EXPOSURE;
+}
+var BERX_SCENE_TRANSPORT, BERX_EXPOSURE, ACES_A, ACES_B, ACES_C, ACES_D, ACES_E, BERX_VISIBLE_STEP;
+var init_berxExposure = __esm({
+  "packages/spatial/src/lighting/berxExposure.ts"() {
+    "use strict";
+    BERX_SCENE_TRANSPORT = 0.339;
+    BERX_EXPOSURE = 1 / BERX_SCENE_TRANSPORT;
+    ACES_A = 2.51;
+    ACES_B = 0.03;
+    ACES_C = 2.43;
+    ACES_D = 0.59;
+    ACES_E = 0.14;
+    BERX_VISIBLE_STEP = 2 / 255;
+  }
+});
+
 // packages/spatial/src/lighting/berxEnvironment.ts
 function berxEnvironment(sunDirection) {
+  const appearance = (hex) => {
+    const c = rgb(hex);
+    return [berxRadianceFor(c[0]), berxRadianceFor(c[1]), berxRadianceFor(c[2])];
+  };
   return {
-    zenith: rgb("#15191E"),
-    horizon: rgb("#07080A"),
-    ground: rgb("#0D1014"),
-    sun: rgb("#4FD6E8"),
+    zenith: appearance("#15191E"),
+    horizon: appearance("#07080A"),
+    ground: appearance("#0D1014"),
+    sun: appearance("#4FD6E8"),
     /* The sun is the only part of the room brighter than the room. It
        is deliberately modest: a glow that out-runs the key light stops
        reading as a reflection of it and starts reading as a second
@@ -1968,6 +2003,7 @@ var init_berxEnvironment = __esm({
   "packages/spatial/src/lighting/berxEnvironment.ts"() {
     "use strict";
     init_color();
+    init_berxExposure();
     rgb = (hex) => {
       const c = parseColor(hex);
       if (!c) throw new Error(`BERX 5D environment: ${hex} is not a colour`);
@@ -2176,6 +2212,36 @@ function berxSSAOKernelFor(quality) {
 function berxParticleCountFor(kind, quality) {
   return Math.max(1, Math.round(berxParticleSpec(kind).count * quality.particleScale));
 }
+function berxResolveRenderTier(signals) {
+  if (signals.saveData) {
+    return { tier: "low", reason: "the device asked for less data and less work; that request is honoured" };
+  }
+  if (signals.platform === "arvr") {
+    return { tier: "medium", reason: "two eyes at 72Hz or more: half the frame budget of anything else, whatever the GPU" };
+  }
+  if (signals.platform === "watch") {
+    return { tier: "low", reason: "a watch draws the world at all, which is already the ambitious choice" };
+  }
+  if (typeof signals.measuredFps === "number") {
+    if (signals.measuredFps < 24) return { tier: "low", reason: `measured ${Math.round(signals.measuredFps)}fps \u2014 the machine is already behind` };
+    if (signals.measuredFps < 50) return { tier: "medium", reason: `measured ${Math.round(signals.measuredFps)}fps \u2014 room for the picture, not for all of it` };
+    if (signals.platform === "desktop" && (signals.logicalCores ?? 0) >= 8) {
+      return { tier: "ultra", reason: `measured ${Math.round(signals.measuredFps)}fps on ${signals.logicalCores} cores` };
+    }
+    return { tier: "high", reason: `measured ${Math.round(signals.measuredFps)}fps` };
+  }
+  const memory = signals.deviceMemoryGb ?? 0;
+  const cores = signals.logicalCores ?? 0;
+  const dense = (signals.pixelRatio ?? 1) >= 3;
+  if (signals.platform === "desktop" && memory >= 16 && cores >= 8) {
+    return { tier: "ultra", reason: `desktop, ${memory}GB and ${cores} cores` };
+  }
+  if (memory >= 8 && cores >= 8 && !dense) return { tier: "high", reason: `${memory}GB and ${cores} cores` };
+  if (memory > 0 && memory <= 2) return { tier: "low", reason: `${memory}GB of memory` };
+  if (cores > 0 && cores <= 4) return { tier: "low", reason: `${cores} logical cores` };
+  if (memory >= 6 && cores >= 6) return { tier: "medium", reason: `${memory}GB and ${cores} cores${dense ? " at 3x or denser" : ""}` };
+  return { tier: "medium", reason: "the device said little about itself, and medium is the tier that cannot embarrass it" };
+}
 var QUALITIES, REASONS;
 var init_berxRenderQuality = __esm({
   "packages/spatial/src/lighting/berxRenderQuality.ts"() {
@@ -2227,6 +2293,290 @@ var init_berxRenderQuality = __esm({
       medium: "a half-resolution march at 20 steps, which is a sixth of the cost and the same shaft",
       low: "a half-resolution march at 12 steps and a 512 map: every pass still runs, none of them at full price"
     });
+  }
+});
+
+// packages/spatial/src/frustum.ts
+function berxFrustumPlanes(viewProjection) {
+  const p = new Float32Array(24);
+  const m = (r, c) => viewProjection[c * 4 + r];
+  const set = (i, a, b, c, d) => {
+    const l = Math.hypot(a, b, c) || 1;
+    p[i * 4] = a / l;
+    p[i * 4 + 1] = b / l;
+    p[i * 4 + 2] = c / l;
+    p[i * 4 + 3] = d / l;
+  };
+  set(0, m(3, 0) + m(0, 0), m(3, 1) + m(0, 1), m(3, 2) + m(0, 2), m(3, 3) + m(0, 3));
+  set(1, m(3, 0) - m(0, 0), m(3, 1) - m(0, 1), m(3, 2) - m(0, 2), m(3, 3) - m(0, 3));
+  set(2, m(3, 0) + m(1, 0), m(3, 1) + m(1, 1), m(3, 2) + m(1, 2), m(3, 3) + m(1, 3));
+  set(3, m(3, 0) - m(1, 0), m(3, 1) - m(1, 1), m(3, 2) - m(1, 2), m(3, 3) - m(1, 3));
+  set(4, m(3, 0) + m(2, 0), m(3, 1) + m(2, 1), m(3, 2) + m(2, 2), m(3, 3) + m(2, 3));
+  set(5, m(3, 0) - m(2, 0), m(3, 1) - m(2, 1), m(3, 2) - m(2, 2), m(3, 3) - m(2, 3));
+  return p;
+}
+function berxSphereInFrustum(planes, centre, radius) {
+  for (let i = 0; i < 6; i++) {
+    if (planes[i * 4] * centre.x + planes[i * 4 + 1] * centre.y + planes[i * 4 + 2] * centre.z + planes[i * 4 + 3] < -radius) {
+      return false;
+    }
+  }
+  return true;
+}
+function berxMultiplyMat4(a, b) {
+  const o = new Float32Array(16);
+  for (let c = 0; c < 4; c++) {
+    for (let r = 0; r < 4; r++) {
+      let v = 0;
+      for (let k = 0; k < 4; k++) v += a[k * 4 + r] * b[c * 4 + k];
+      o[c * 4 + r] = v;
+    }
+  }
+  return o;
+}
+function berxPerspective(fovDegrees, aspect, near, far) {
+  const q = 1 / Math.tan(fovDegrees * Math.PI / 360);
+  const nf = 1 / (near - far);
+  const m = new Float32Array(16);
+  m[0] = q / aspect;
+  m[5] = q;
+  m[10] = (far + near) * nf;
+  m[11] = -1;
+  m[14] = 2 * far * near * nf;
+  return m;
+}
+function berxLookAt(position, target) {
+  const sub2 = (a, b) => ({ x: a.x - b.x, y: a.y - b.y, z: a.z - b.z });
+  const norm2 = (v) => {
+    const l = Math.hypot(v.x, v.y, v.z) || 1;
+    return { x: v.x / l, y: v.y / l, z: v.z / l };
+  };
+  const cross2 = (a, b) => ({
+    x: a.y * b.z - a.z * b.y,
+    y: a.z * b.x - a.x * b.z,
+    z: a.x * b.y - a.y * b.x
+  });
+  const z = norm2(sub2(position, target));
+  const up = Math.abs(z.y) > 0.98 ? { x: 1, y: 0, z: 0 } : { x: 0, y: 1, z: 0 };
+  const x = norm2(cross2(up, z));
+  const y = cross2(z, x);
+  const m = new Float32Array(16);
+  m[0] = x.x;
+  m[1] = y.x;
+  m[2] = z.x;
+  m[4] = x.y;
+  m[5] = y.y;
+  m[6] = z.y;
+  m[8] = x.z;
+  m[9] = y.z;
+  m[10] = z.z;
+  m[12] = -x.x * position.x - x.y * position.y - x.z * position.z;
+  m[13] = -y.x * position.x - y.y * position.y - y.z * position.z;
+  m[14] = -z.x * position.x - z.y * position.y - z.z * position.z;
+  m[15] = 1;
+  return m;
+}
+function berxInvertMat4(m) {
+  const a00 = m[0], a01 = m[1], a02 = m[2], a03 = m[3];
+  const a10 = m[4], a11 = m[5], a12 = m[6], a13 = m[7];
+  const a20 = m[8], a21 = m[9], a22 = m[10], a23 = m[11];
+  const a30 = m[12], a31 = m[13], a32 = m[14], a33 = m[15];
+  const b00 = a00 * a11 - a01 * a10;
+  const b01 = a00 * a12 - a02 * a10;
+  const b02 = a00 * a13 - a03 * a10;
+  const b03 = a01 * a12 - a02 * a11;
+  const b04 = a01 * a13 - a03 * a11;
+  const b05 = a02 * a13 - a03 * a12;
+  const b06 = a20 * a31 - a21 * a30;
+  const b07 = a20 * a32 - a22 * a30;
+  const b08 = a20 * a33 - a23 * a30;
+  const b09 = a21 * a32 - a22 * a31;
+  const b10 = a21 * a33 - a23 * a31;
+  const b11 = a22 * a33 - a23 * a32;
+  const det = b00 * b11 - b01 * b10 + b02 * b09 + b03 * b08 - b04 * b07 + b05 * b06;
+  const out = new Float32Array(16);
+  if (!det) {
+    out[0] = 1;
+    out[5] = 1;
+    out[10] = 1;
+    out[15] = 1;
+    return out;
+  }
+  const d = 1 / det;
+  out[0] = (a11 * b11 - a12 * b10 + a13 * b09) * d;
+  out[1] = (a02 * b10 - a01 * b11 - a03 * b09) * d;
+  out[2] = (a31 * b05 - a32 * b04 + a33 * b03) * d;
+  out[3] = (a22 * b04 - a21 * b05 - a23 * b03) * d;
+  out[4] = (a12 * b08 - a10 * b11 - a13 * b07) * d;
+  out[5] = (a00 * b11 - a02 * b08 + a03 * b07) * d;
+  out[6] = (a32 * b02 - a30 * b05 - a33 * b01) * d;
+  out[7] = (a20 * b05 - a22 * b02 + a23 * b01) * d;
+  out[8] = (a10 * b10 - a11 * b08 + a13 * b06) * d;
+  out[9] = (a01 * b08 - a00 * b10 - a03 * b06) * d;
+  out[10] = (a30 * b04 - a31 * b02 + a33 * b00) * d;
+  out[11] = (a21 * b02 - a20 * b04 - a23 * b00) * d;
+  out[12] = (a11 * b07 - a10 * b09 - a12 * b06) * d;
+  out[13] = (a00 * b09 - a01 * b07 + a02 * b06) * d;
+  out[14] = (a31 * b01 - a30 * b03 - a32 * b00) * d;
+  out[15] = (a20 * b03 - a21 * b01 + a22 * b00) * d;
+  return out;
+}
+var init_frustum = __esm({
+  "packages/spatial/src/frustum.ts"() {
+    "use strict";
+  }
+});
+
+// packages/spatial/src/berxFraming.ts
+function berxBoundingRadius(o) {
+  return Math.max(o.transform.scale.x, o.transform.scale.y, o.transform.scale.z) * 0.75;
+}
+function berxFraming(frame, width, height, grid = 96) {
+  const c = frame.camera;
+  const projection = berxPerspective(c.fov, Math.max(1e-6, width / height), c.near, c.far);
+  const view = berxLookAt(c.position, c.target);
+  const viewProjection = berxMultiplyMat4(projection, view);
+  const cells = new Uint8Array(grid * grid);
+  let onScreen = 0, whole = 0, sumX = 0, sumY = 0, weight = 0;
+  let minX = 1, minY = 1, maxX = 0, maxY = 0;
+  for (const o of frame.world.objects) {
+    if (!o.visible) continue;
+    const p = project(viewProjection, o.transform.position);
+    if (p.w <= 1e-6) continue;
+    const ndcX = p.x / p.w, ndcY = p.y / p.w;
+    const r = berxBoundingRadius(o);
+    const radiusY = r * projection[5] / p.w;
+    const radiusX = r * projection[0] / p.w;
+    if (radiusX <= 0 || radiusY <= 0) continue;
+    const fx = ndcX * 0.5 + 0.5, fy = 0.5 - ndcY * 0.5;
+    const rx = radiusX * 0.5, ry = radiusY * 0.5;
+    let touched = false;
+    const x0 = Math.max(0, Math.floor((fx - rx) * grid));
+    const x1 = Math.min(grid - 1, Math.ceil((fx + rx) * grid));
+    const y0 = Math.max(0, Math.floor((fy - ry) * grid));
+    const y1 = Math.min(grid - 1, Math.ceil((fy + ry) * grid));
+    for (let gy = y0; gy <= y1; gy++) {
+      for (let gx = x0; gx <= x1; gx++) {
+        const cx = (gx + 0.5) / grid, cy = (gy + 0.5) / grid;
+        const dx = (cx - fx) / rx, dy = (cy - fy) / ry;
+        if (dx * dx + dy * dy <= 1) {
+          cells[gy * grid + gx] = 1;
+          touched = true;
+        }
+      }
+    }
+    if (!touched) continue;
+    onScreen++;
+    if (fx - rx >= 0 && fx + rx <= 1 && fy - ry >= 0 && fy + ry <= 1) whole++;
+    const w = rx * ry;
+    sumX += fx * w;
+    sumY += fy * w;
+    weight += w;
+    minX = Math.min(minX, fx - rx);
+    maxX = Math.max(maxX, fx + rx);
+    minY = Math.min(minY, fy - ry);
+    maxY = Math.max(maxY, fy + ry);
+  }
+  let covered = 0;
+  for (let i = 0; i < cells.length; i++) covered += cells[i];
+  const centreX = weight > 0 ? sumX / weight : 0.5;
+  const centreY = weight > 0 ? sumY / weight : 0.5;
+  const offCentre = weight > 0 ? Math.min(1, Math.hypot(centreX - 0.5, centreY - 0.5) * 2) : 0;
+  return {
+    covered: covered / cells.length,
+    onScreen,
+    whole,
+    offCentre,
+    bounds: onScreen > 0 ? { minX, minY, maxX, maxY } : void 0
+  };
+}
+function berxFrameTheWorld(frame, width, height, target = (BERX_FRAMING_MIN + BERX_FRAMING_MAX) / 2) {
+  const visible = frame.world.objects.filter((o) => o.visible);
+  const camera = frame.camera;
+  if (visible.length === 0) {
+    return { position: camera.position, target: camera.target, framing: berxFraming(frame, width, height) };
+  }
+  let cx = 0, cy = 0, cz = 0;
+  for (const o of visible) {
+    cx += o.transform.position.x;
+    cy += o.transform.position.y;
+    cz += o.transform.position.z;
+  }
+  const centre = { x: cx / visible.length, y: cy / visible.length, z: cz / visible.length };
+  let dx = camera.position.x - centre.x;
+  let dy = camera.position.y - centre.y;
+  let dz = camera.position.z - centre.z;
+  const len2 = Math.hypot(dx, dy, dz) || 1;
+  if (len2 <= 1e-6) {
+    dx = 0;
+    dy = 0;
+    dz = 1;
+  }
+  dx /= len2;
+  dy /= len2;
+  dz /= len2;
+  let reach = 0;
+  for (const o of visible) {
+    reach = Math.max(reach, Math.hypot(
+      o.transform.position.x - centre.x,
+      o.transform.position.y - centre.y,
+      o.transform.position.z - centre.z
+    ) + berxBoundingRadius(o));
+  }
+  const at = (distance3) => {
+    const position = {
+      x: centre.x + dx * distance3,
+      y: centre.y + dy * distance3,
+      z: centre.z + dz * distance3
+    };
+    return {
+      position,
+      framing: berxFraming({ ...frame, camera: { ...camera, position, target: centre } }, width, height)
+    };
+  };
+  const wanted = visible.length;
+  const fits = (f) => f.whole >= wanted;
+  let near = Math.max(camera.near * 2, reach * 0.05);
+  let far = Math.max(near * 2, reach * 12 + 1);
+  let best = at(far);
+  if (!fits(best.framing)) return { position: best.position, target: centre, framing: best.framing };
+  for (let i = 0; i < 24; i++) {
+    const mid = (near + far) / 2;
+    const probe = at(mid);
+    if (fits(probe.framing)) {
+      best = probe;
+      far = mid;
+    } else {
+      near = mid;
+    }
+  }
+  if (best.framing.covered > target) {
+    let lo = far, hi = Math.max(far * 2, reach * 12 + 1);
+    for (let i = 0; i < 16; i++) {
+      const mid = (lo + hi) / 2;
+      const probe = at(mid);
+      if (probe.framing.covered > target) lo = mid;
+      else {
+        best = probe;
+        hi = mid;
+      }
+    }
+  }
+  return { position: best.position, target: centre, framing: best.framing };
+}
+var BERX_FRAMING_MIN, BERX_FRAMING_MAX, project;
+var init_berxFraming = __esm({
+  "packages/spatial/src/berxFraming.ts"() {
+    "use strict";
+    init_frustum();
+    BERX_FRAMING_MIN = 0.4;
+    BERX_FRAMING_MAX = 0.6;
+    project = (m, p) => {
+      const x = m[0] * p.x + m[4] * p.y + m[8] * p.z + m[12];
+      const y = m[1] * p.x + m[5] * p.y + m[9] * p.z + m[13];
+      const w = m[3] * p.x + m[7] * p.y + m[11] * p.z + m[15];
+      return { x, y, w };
+    };
   }
 });
 
@@ -2314,23 +2664,23 @@ var init_renderPipeline = __esm({
       },
       {
         id: "post",
-        kind: "absent",
+        kind: "pass",
         needs: ["frame"],
-        produces: [],
-        why: "NOT BUILT. Named in the design and honestly absent: there is no tone-map, no bloom and no grade. The render target is linear rgba8 and the frame is what the world pass wrote. Listed so its absence is a statement rather than an omission"
+        produces: ["exposed-frame"],
+        why: "exposure and the shoulder, the only stage that writes to the screen. It is LAST because in-scatter is light: tone-mapping the surfaces and then adding the air would put unmapped values on top of mapped ones. Everything before it draws into a linear half-float frame, so values above 1.0 reach the curve and the shoulder has something to roll off \u2014 an 8-bit working target clamps them first and a highlight and a much brighter highlight arrive identical. There is still no bloom and no grade; this is exposure alone"
       }
     ]);
   }
 });
 
 // packages/spatial/src/stability.ts
-function berxStableLod(distance2, threshold, previous) {
-  if (previous === void 0) return distance2 > threshold ? 1 : 0;
-  if (previous === 1) return distance2 > threshold - BERX_LOD_HYSTERESIS ? 1 : 0;
-  return distance2 > threshold + BERX_LOD_HYSTERESIS ? 1 : 0;
+function berxStableLod(distance3, threshold, previous) {
+  if (previous === void 0) return distance3 > threshold ? 1 : 0;
+  if (previous === 1) return distance3 > threshold - BERX_LOD_HYSTERESIS ? 1 : 0;
+  return distance3 > threshold + BERX_LOD_HYSTERESIS ? 1 : 0;
 }
-function berxBudgetDistance(distance2, wasDrawn) {
-  return wasDrawn ? distance2 - BERX_BUDGET_HYSTERESIS : distance2;
+function berxBudgetDistance(distance3, wasDrawn) {
+  return wasDrawn ? distance3 - BERX_BUDGET_HYSTERESIS : distance3;
 }
 function berxRememberFrame(items) {
   const lod = {};
@@ -2348,10 +2698,44 @@ var init_stability = __esm({
 });
 
 // packages/spatial/src/voice/berxWorldState.ts
-var BERX_NO_PERMISSIONS;
+function distance(a, b) {
+  return Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z);
+}
+function berxSituation(input) {
+  const visible = input.objects.filter((o) => o.visible).map((o) => ({
+    id: o.id,
+    kind: o.kind,
+    label: o.label,
+    energy: o.energy,
+    distanceM: distance(input.eye, o.transform.position)
+  })).sort((a, b) => a.distanceM - b.distanceM);
+  const fresh = input.location && input.nowMs - input.location.atMs <= 10 * 6e4 ? input.location : void 0;
+  return {
+    nowMs: input.nowMs,
+    cursor: { ...input.cursor },
+    location: fresh,
+    region: input.region,
+    focusId: input.focusId,
+    visible,
+    conversationId: input.conversationId,
+    viewerId: input.viewerId,
+    recent: (input.recent ?? []).slice(-BERX_RECENT_ACTIONS),
+    allowed: input.allowed ?? BERX_NO_PERMISSIONS
+  };
+}
+function berxHere(state) {
+  if (!state.focusId) return void 0;
+  return state.visible.find((v) => v.id === state.focusId);
+}
+function berxNth(state, n) {
+  if (!Number.isInteger(n) || n < 1) return void 0;
+  return state.visible[n - 1];
+}
+var BERX_RECENT_ACTIONS, BERX_NO_PERMISSIONS;
 var init_berxWorldState = __esm({
   "packages/spatial/src/voice/berxWorldState.ts"() {
     "use strict";
+    BERX_RECENT_ACTIONS = 12;
     BERX_NO_PERMISSIONS = Object.freeze({
       microphone: false,
       location: false,
@@ -2362,7 +2746,46 @@ var init_berxWorldState = __esm({
 });
 
 // packages/spatial/src/voice/berxSpatialMemory.ts
-var BERX_EMPTY_MEMORY;
+function berxShow(memory, entities) {
+  const turn = memory.turn + 1;
+  return {
+    ...memory,
+    turn,
+    shown: entities.map((e) => ({ id: e.id, label: e.label, turn })),
+    /* A dismissal was about the last set. Carrying it into a new one
+       would mean a place refused for tonight is refused forever, which
+       is a memory nobody asked for. */
+    dismissed: [],
+    selected: void 0
+  };
+}
+function berxDismiss(memory, id) {
+  if (!memory.shown.some((s) => s.id === id)) return memory;
+  return {
+    ...memory,
+    shown: memory.shown.filter((s) => s.id !== id),
+    dismissed: [...memory.dismissed, id],
+    selected: memory.selected === id ? void 0 : memory.selected
+  };
+}
+function berxSelect(memory, id) {
+  if (!memory.shown.some((s) => s.id === id)) return memory;
+  return { ...memory, selected: id };
+}
+function berxAsked(memory, text) {
+  return { ...memory, asked: [...memory.asked, text].slice(-BERX_ASKED_KEPT) };
+}
+function berxRequested(memory, kind) {
+  if (kind === "refine" || kind === "unknown" || kind === "dismiss" || kind === "open" || kind === "back") {
+    return memory;
+  }
+  return { ...memory, requested: kind };
+}
+function berxNthShown(memory, n) {
+  if (!Number.isInteger(n) || n < 1) return void 0;
+  return memory.shown[n - 1];
+}
+var BERX_EMPTY_MEMORY, BERX_ASKED_KEPT;
 var init_berxSpatialMemory = __esm({
   "packages/spatial/src/voice/berxSpatialMemory.ts"() {
     "use strict";
@@ -2372,15 +2795,398 @@ var init_berxSpatialMemory = __esm({
       asked: [],
       turn: 0
     });
+    BERX_ASKED_KEPT = 6;
+  }
+});
+
+// packages/spatial/src/voice/berxUtterance.ts
+function berxUtteranceFeatures(utterance) {
+  const text = utterance.trim().toLowerCase();
+  const matched = [];
+  const take = (kind, hit) => {
+    if (hit === void 0) return void 0;
+    matched.push(`${kind}:${hit}`);
+    return kind;
+  };
+  let act;
+  const identify = stem(text, ACT.identify);
+  if (identify) act = take("identify", identify);
+  else {
+    for (const kind of ["remove", "back", "refine", "go", "show", "find"]) {
+      const hit = kind === "back" || kind === "go" ? word(text, ACT[kind]) : stem(text, ACT[kind]);
+      if (hit) {
+        act = take(kind, hit);
+        break;
+      }
+    }
+  }
+  let subject;
+  for (const kind of ["events", "places", "content", "people"]) {
+    const hit = stem(text, SUBJECT[kind]);
+    if (hit) {
+      subject = take(kind, hit);
+      break;
+    }
+  }
+  let time;
+  for (const kind of ["now", "tonight", "tomorrow", "past", "today"]) {
+    const hit = word(text, TIME[kind]) ?? TIME[kind].find((w) => w.endsWith(" ") && text.includes(w));
+    if (hit) {
+      time = take(kind, hit);
+      break;
+    }
+  }
+  const pointingWord = word(text, POINTING);
+  if (pointingWord) matched.push(`pointing:${pointingWord}`);
+  const restlessWord = stem(text, RESTLESS);
+  if (restlessWord) matched.push(`restless:${restlessWord}`);
+  const openWord = stem(text, OPEN_NOW);
+  if (openWord) matched.push(`open-now:${openWord}`);
+  return {
+    subject,
+    time,
+    act,
+    pointing: pointingWord !== void 0,
+    restless: restlessWord !== void 0,
+    openNow: openWord !== void 0,
+    matched
+  };
+}
+function berxFeatureConfidence(f) {
+  const signals = [f.subject, f.time, f.act].filter(Boolean).length + (f.pointing ? 1 : 0) + (f.restless ? 1 : 0);
+  if (signals === 0) return 0;
+  if (signals === 1) return 0.5;
+  if (signals === 2) return 0.75;
+  return 0.9;
+}
+function berxUtteranceAlternatives(f) {
+  const readings = [];
+  if (f.subject === "places") readings.push({ kind: "find-places", from: "subject" });
+  if (f.subject === "events") readings.push({ kind: "find-events", from: "subject" });
+  if (f.subject === "people") readings.push({ kind: "find-people", from: "subject" });
+  if (f.subject === "content") readings.push({ kind: "discover", from: "subject" });
+  if (f.time === "today" || f.time === "tonight" || f.time === "tomorrow") {
+    readings.push({ kind: "find-events", from: "time" });
+  }
+  if (f.time === "now") readings.push({ kind: "now-nearby", from: "time" });
+  if (f.restless) readings.push({ kind: "discover", from: "mood" });
+  const seen = /* @__PURE__ */ new Set();
+  return readings.filter((r) => seen.has(r.kind) ? false : (seen.add(r.kind), true));
+}
+var SUBJECT, TIME, ACT, POINTING, RESTLESS, OPEN_NOW, stem, word;
+var init_berxUtterance = __esm({
+  "packages/spatial/src/voice/berxUtterance.ts"() {
+    "use strict";
+    SUBJECT = Object.freeze({
+      people: [
+        "\u043B\u044E\u0434",
+        "\u0447\u0435\u043B\u043E\u0432\u0435\u043A",
+        "\u043F\u043E\u0437\u043D\u0430\u043A\u043E\u043C",
+        "\u0434\u0440\u0443\u0437",
+        "\u043F\u043E\u0434\u0440\u0443\u0433",
+        "\u0437\u043D\u0430\u043A\u043E\u043C",
+        "\u043F\u043E\u0431\u043E\u043B\u0442\u0430",
+        "\u043F\u043E\u043E\u0431\u0449\u0430",
+        /* Russian pronouns decline in ways no stem covers: кто, кого,
+           кому, кем, ком. Listed rather than stemmed, because "к" is not
+           a stem and "ко" appears in half the language. */
+        "\u043A\u0442\u043E",
+        "\u043A\u043E\u0433\u043E",
+        "\u043A\u043E\u043C\u0443",
+        "\u043A\u0435\u043C",
+        "\u043E \u043A\u043E\u043C",
+        "people",
+        "someone",
+        "who",
+        "meet",
+        "talk to"
+      ],
+      places: [
+        "\u043C\u0435\u0441\u0442",
+        "\u0437\u0430\u0432\u0435\u0434\u0435\u043D\u0438",
+        "\u0440\u0435\u0441\u0442\u043E\u0440\u0430\u043D",
+        "\u0431\u0430\u0440",
+        "\u043A\u0430\u0444\u0435",
+        "\u043A\u043E\u0444\u0435\u0439\u043D",
+        "\u043F\u043E\u0435\u0441\u0442\u044C",
+        "\u043F\u043E\u0443\u0436\u0438\u043D\u0430",
+        "\u0432\u044B\u043F\u0438\u0442\u044C",
+        "\u043F\u0435\u0440\u0435\u043A\u0443\u0441",
+        "\u0443\u0436\u0438\u043D",
+        "\u043E\u0431\u0435\u0434",
+        "\u0437\u0430\u0432\u0442\u0440\u0430\u043A",
+        "place",
+        "restaurant",
+        "bar",
+        "cafe",
+        "eat",
+        "dinner",
+        "lunch",
+        "coffee"
+      ],
+      events: [
+        "\u0441\u043E\u0431\u044B\u0442\u0438",
+        "\u043C\u0435\u0440\u043E\u043F\u0440\u0438\u044F\u0442\u0438",
+        "\u043A\u043E\u043D\u0446\u0435\u0440\u0442",
+        "\u0432\u044B\u0441\u0442\u0430\u0432\u043A",
+        "\u0432\u0435\u0447\u0435\u0440\u0438\u043D\u043A",
+        "\u043B\u0435\u043A\u0446\u0438",
+        "\u0441\u043F\u0435\u043A\u0442\u0430\u043A\u043B",
+        "\u043D\u0430\u0447\u0438\u043D\u0430",
+        "\u0438\u0434\u0443\u0442",
+        "\u0438\u0434\u0442\u0438",
+        "\u0430\u0444\u0438\u0448",
+        /* NOT "происходит": "что происходит рядом" is the live question,
+           which nearby answers, and listing it here made the very word
+           that chose that reading count as a competing one. */
+        "event",
+        "concert",
+        "gig",
+        "show",
+        "party",
+        "happening"
+      ],
+      content: ["\u043F\u043E\u0441\u0442", "\u0437\u0430\u043F\u0438\u0441", "\u0444\u043E\u0442\u043E", "\u043C\u043E\u043C\u0435\u043D\u0442", "\u043B\u0435\u043D\u0442", "post", "photo", "feed"]
+    });
+    TIME = Object.freeze({
+      now: ["\u0441\u0435\u0439\u0447\u0430\u0441", "\u043F\u0440\u044F\u043C\u043E \u0441\u0435\u0439\u0447\u0430\u0441", "\u0432 \u0434\u0430\u043D\u043D\u044B\u0439 \u043C\u043E\u043C\u0435\u043D\u0442", "now", "right now"],
+      today: ["\u0441\u0435\u0433\u043E\u0434\u043D\u044F", "today"],
+      tonight: ["\u0432\u0435\u0447\u0435\u0440", "\u0432\u0435\u0447\u0435\u0440\u043E\u043C", "\u0432\u0435\u0447\u0435\u0440\u0430\u043C", "\u043D\u043E\u0447\u044C\u044E", "tonight", "this evening"],
+      tomorrow: ["\u0437\u0430\u0432\u0442\u0440\u0430", "\u043D\u0430 \u0432\u044B\u0445\u043E\u0434\u043D\u044B\u0445", "tomorrow", "this weekend"],
+      past: ["\u0432\u0447\u0435\u0440\u0430", "\u043D\u0430 \u043F\u0440\u043E\u0448\u043B\u043E\u0439", "\u0440\u0430\u043D\u044C\u0448\u0435", "yesterday", "last "]
+    });
+    ACT = Object.freeze({
+      show: ["\u043F\u043E\u043A\u0430\u0436\u0438", "\u043F\u043E\u043A\u0430\u0437\u0430\u0442\u044C", "\u0447\u0442\u043E \u0442\u0443\u0442", "\u0447\u0442\u043E \u0437\u0434\u0435\u0441\u044C", "\u0447\u0442\u043E \u0432\u043E\u043A\u0440\u0443\u0433", "\u0447\u0442\u043E \u0440\u044F\u0434\u043E\u043C", "show", "what is"],
+      find: ["\u043D\u0430\u0439\u0434\u0438", "\u043D\u0430\u0439\u0442\u0438", "\u0438\u0449\u0438", "\u043F\u043E\u0438\u0449\u0438", "\u043A\u0443\u0434\u0430", "\u0433\u0434\u0435", "find", "look for", "where"],
+      go: ["\u043E\u0442\u043A\u0440\u043E\u0439", "\u0437\u0430\u0439\u0434\u0438", "\u043F\u0435\u0440\u0435\u0439\u0434\u0438", "\u0432\u0435\u0434\u0438", "\u043F\u043E\u0439\u0434\u0451\u043C", "open", "go", "take me"],
+      remove: ["\u0443\u0431\u0435\u0440\u0438", "\u0443\u0431\u0440\u0430\u0442\u044C", "\u0441\u043A\u0440\u043E\u0439", "\u0441\u043F\u0440\u044F\u0447\u044C", "\u043D\u0435 \u0445\u043E\u0447\u0443", "remove", "hide"],
+      back: ["\u043D\u0430\u0437\u0430\u0434", "\u043E\u0431\u0440\u0430\u0442\u043D\u043E", "\u0432\u0435\u0440\u043D\u0438", "back"],
+      identify: ["\u0447\u0442\u043E \u044D\u0442\u043E", "\u043A\u0442\u043E \u044D\u0442\u043E", "\u0447\u0442\u043E \u0437\u0430", "\u043A\u0442\u043E \u0442\u0430\u043A\u043E\u0439", "\u0440\u0430\u0441\u0441\u043A\u0430\u0436\u0438 \u043F\u0440\u043E", "what is this", "who is this"],
+      refine: ["\u043D\u0435 \u0442\u0430\u043A", "\u0441\u043B\u0438\u0448\u043A\u043E\u043C", "\u0434\u0440\u0443\u0433\u043E\u0435", "\u0434\u0440\u0443\u0433\u0438\u0435", "\u0435\u0449\u0451 \u0432\u0430\u0440\u0438\u0430\u043D\u0442", "something else", "too "]
+    });
+    POINTING = [
+      "\u044D\u0442\u043E",
+      "\u044D\u0442\u043E\u0442",
+      "\u044D\u0442\u0430",
+      "\u044D\u0442\u0438",
+      "\u0442\u043E\u0442",
+      "\u0442\u0430",
+      "\u0442\u0435",
+      "\u0437\u0434\u0435\u0441\u044C",
+      "\u0442\u0443\u0442",
+      "\u0442\u0430\u043C",
+      "\u0442\u0443\u0434\u0430",
+      "\u0441\u044E\u0434\u0430",
+      "this",
+      "that",
+      "these",
+      "here",
+      "there"
+    ];
+    RESTLESS = [
+      "\u0441\u043A\u0443\u0447\u043D\u043E",
+      "\u043D\u0435\u0447\u0435\u0433\u043E \u0434\u0435\u043B\u0430\u0442\u044C",
+      "\u0445\u043E\u0447\u0443 \u043A\u0443\u0434\u0430-\u043D\u0438\u0431\u0443\u0434\u044C",
+      "\u0445\u043E\u0447\u0443 \u0432\u044B\u0431\u0440\u0430\u0442\u044C\u0441\u044F",
+      "\u0447\u0435\u043C \u0437\u0430\u043D\u044F\u0442\u044C\u0441\u044F",
+      "bored",
+      "nothing to do"
+    ];
+    OPEN_NOW = ["\u043E\u0442\u043A\u0440\u044B\u0442", "\u0440\u0430\u0431\u043E\u0442\u0430", "\u0433\u0434\u0435 \u0436\u0438\u0437\u043D\u044C", "\u0433\u0434\u0435 \u043B\u044E\u0434\u0438", "\u043E\u0436\u0438\u0432\u043B", "open now", "lively"];
+    stem = (text, list) => list.find((w) => text.includes(w));
+    word = (text, list) => {
+      const padded = ` ${text.replace(/[.,!?;:]/g, " ")} `;
+      return list.find((w) => padded.includes(` ${w} `));
+    };
   }
 });
 
 // packages/spatial/src/voice/berxIntent.ts
-var UNKNOWN, BERX_VOICE_CAPABILITY;
+function berxReadIntent(utterance, state, memory) {
+  const text = utterance.trim().toLowerCase();
+  if (text === "") return UNKNOWN;
+  const matched = [];
+  const needs = [];
+  let objectId;
+  let referenced = false;
+  const ordinalWord = Object.keys(ORDINALS).find((w) => text.includes(w));
+  if (ordinalWord) {
+    referenced = true;
+    matched.push(ordinalWord);
+    const nth = berxNthShown(memory, ORDINALS[ordinalWord]) ?? berxNth(state, ORDINALS[ordinalWord]);
+    objectId = nth?.id;
+  }
+  const hereWord = !objectId ? hasWord(text, HERE_WORDS) : void 0;
+  if (hereWord) {
+    referenced = true;
+    matched.push(hereWord);
+    objectId = berxHere(state)?.id;
+  }
+  const thereWord = !objectId ? hasWord(text, THERE_WORDS) : void 0;
+  if (thereWord) {
+    referenced = true;
+    matched.push(thereWord);
+    objectId = memory.selected ?? state.focusId;
+  }
+  if (referenced && !objectId) needs.push("referent");
+  const openNowWord = has(text, OPEN_NOW_WORDS);
+  if (openNowWord) matched.push(openNowWord);
+  const decide = (kind, word2, confidence) => {
+    matched.push(word2);
+    if (kind === "now-nearby" || kind === "find-places" && Boolean(openNowWord)) {
+      if (!state.allowed.location) needs.push("permission");
+      else if (!state.location) needs.push("location");
+    }
+    const askable = kind === "find-places" || kind === "find-events" || kind === "find-people" || kind === "discover" || kind === "now-nearby";
+    const also = askable ? berxUtteranceAlternatives(berxUtteranceFeatures(text)).filter((r) => r.from === "time" && r.kind !== kind).map((r) => r.kind) : [];
+    return {
+      kind,
+      objectId,
+      query: kind === "find-places" || kind === "find-events" || kind === "find-people" ? text : void 0,
+      openNow: Boolean(openNowWord) || void 0,
+      needs,
+      confidence,
+      matched,
+      ...also.length > 0 ? { alternatives: also } : {}
+    };
+  };
+  const dismiss = has(text, DISMISS_WORDS);
+  if (dismiss) return decide("dismiss", dismiss, objectId ? 0.9 : 0.5);
+  const back = has(text, BACK_WORDS);
+  if (back) return decide("back", back, 0.85);
+  const open = has(text, OPEN_WORDS);
+  if (open) return decide("open", open, objectId ? 0.9 : 0.5);
+  const now = has(text, NOW_WORDS);
+  if (now) return decide("now-nearby", now, 0.9);
+  const pointingFeatures = berxUtteranceFeatures(text);
+  if (referenced && objectId && text.split(/\s+/).length <= 4 && !(pointingFeatures.subject !== void 0 && pointingFeatures.act !== "identify")) {
+    return { kind: "open", objectId, needs, confidence: 0.7, matched };
+  }
+  const restless = has(text, RESTLESS_WORDS);
+  if (restless) {
+    const restlessWhen = berxUtteranceFeatures(text).time;
+    if (restlessWhen === "today" || restlessWhen === "tonight" || restlessWhen === "tomorrow") {
+      return decide("find-events", `${restless}+${restlessWhen}`, 0.75);
+    }
+    return decide("discover", restless, 0.6);
+  }
+  const refine = has(text, REFINE_WORDS);
+  if (refine && (memory.shown.length > 0 || memory.requested !== void 0)) {
+    const read = decide("refine", refine, 0.75);
+    return memory.requested ? { ...read, refining: memory.requested } : read;
+  }
+  const place = has(text, PLACE_WORDS);
+  if (place) return decide("find-places", place, 0.85);
+  const event = has(text, EVENT_WORDS);
+  if (event) return decide("find-events", event, 0.85);
+  const people = has(text, PEOPLE_WORDS);
+  if (people) return decide("find-people", people, 0.8);
+  const discover = has(text, DISCOVER_WORDS);
+  if (discover) {
+    const timed = berxUtteranceFeatures(text).time;
+    if (timed === "today" || timed === "tonight" || timed === "tomorrow") {
+      return decide("find-events", `${discover}+${timed}`, 0.8);
+    }
+    return decide("discover", discover, 0.6);
+  }
+  const f = berxUtteranceFeatures(text);
+  const fromFeatures = berxIntentFromFeatures(f, objectId !== void 0);
+  if (fromFeatures) {
+    const read = decide(fromFeatures, f.matched.join(" "), berxFeatureConfidence(f));
+    const also = berxUtteranceAlternatives(f).map((r) => r.kind).filter((k) => k !== read.kind);
+    return also.length > 0 ? { ...read, alternatives: also } : read;
+  }
+  if (needs.length > 0 || matched.length > 0) {
+    return { kind: "unknown", objectId, needs, confidence: 0, matched };
+  }
+  return UNKNOWN;
+}
+function berxIntentFromFeatures(f, hasReferent) {
+  if (f.act === "identify") return hasReferent || f.pointing ? "open" : void 0;
+  if (f.act === "remove") return "dismiss";
+  if (f.act === "back") return "back";
+  if (f.act === "refine") return "refine";
+  if (f.act === "go" && (hasReferent || f.pointing)) return "open";
+  if (f.subject === "people") return "find-people";
+  if (f.subject === "places") return "find-places";
+  if (f.subject === "events") return "find-events";
+  if (f.subject === "content") return "discover";
+  if (f.time === "tonight" || f.time === "today" || f.time === "tomorrow") return "find-events";
+  if (f.time === "now") return "now-nearby";
+  if (f.restless) return "discover";
+  if (f.act === "show" || f.act === "find") return "discover";
+  return void 0;
+}
+var UNKNOWN, NOW_WORDS, RESTLESS_WORDS, PLACE_WORDS, EVENT_WORDS, PEOPLE_WORDS, DISCOVER_WORDS, OPEN_WORDS, DISMISS_WORDS, REFINE_WORDS, BACK_WORDS, OPEN_NOW_WORDS, HERE_WORDS, THERE_WORDS, ORDINALS, has, hasWord, BERX_VOICE_CAPABILITY;
 var init_berxIntent = __esm({
   "packages/spatial/src/voice/berxIntent.ts"() {
     "use strict";
+    init_berxUtterance();
+    init_berxWorldState();
+    init_berxSpatialMemory();
     UNKNOWN = Object.freeze({ kind: "unknown", needs: [], confidence: 0, matched: [] });
+    NOW_WORDS = [
+      "\u0447\u0442\u043E \u043F\u0440\u043E\u0438\u0441\u0445\u043E\u0434\u0438\u0442",
+      "\u0447\u0442\u043E \u0441\u0435\u0439\u0447\u0430\u0441",
+      "\u0447\u0442\u043E \u0440\u044F\u0434\u043E\u043C",
+      "\u0447\u0442\u043E \u0432\u043E\u043A\u0440\u0443\u0433",
+      "\u043A\u0442\u043E \u0440\u044F\u0434\u043E\u043C",
+      "\u0447\u0442\u043E \u0442\u0443\u0442 \u043F\u0440\u043E\u0438\u0441\u0445\u043E\u0434\u0438\u0442",
+      "\u0447\u0442\u043E \u0437\u0434\u0435\u0441\u044C \u043F\u0440\u043E\u0438\u0441\u0445\u043E\u0434\u0438\u0442",
+      "what's happening",
+      "what is happening",
+      "around me",
+      "near me",
+      "right now"
+    ];
+    RESTLESS_WORDS = [
+      "\u0441\u043A\u0443\u0447\u043D\u043E",
+      "\u043C\u043D\u0435 \u0441\u043A\u0443\u0447\u043D\u043E",
+      "\u043D\u0435\u0447\u0435\u0433\u043E \u0434\u0435\u043B\u0430\u0442\u044C",
+      "\u0445\u043E\u0447\u0443 \u043A\u0443\u0434\u0430-\u043D\u0438\u0431\u0443\u0434\u044C",
+      "\u0445\u043E\u0447\u0443 \u0432\u044B\u0431\u0440\u0430\u0442\u044C\u0441\u044F",
+      "\u043A\u0443\u0434\u0430 \u0431\u044B \u0441\u0445\u043E\u0434\u0438\u0442\u044C",
+      "\u043A\u0443\u0434\u0430 \u043F\u043E\u0439\u0442\u0438",
+      "\u0447\u0435\u043C \u0437\u0430\u043D\u044F\u0442\u044C\u0441\u044F",
+      "bored",
+      "nothing to do",
+      "somewhere to go"
+    ];
+    PLACE_WORDS = ["\u043C\u0435\u0441\u0442", "\u043C\u0435\u0441\u0442\u043E", "\u0437\u0430\u0432\u0435\u0434\u0435\u043D\u0438", "\u0440\u0435\u0441\u0442\u043E\u0440\u0430\u043D", "\u0431\u0430\u0440", "\u043A\u0430\u0444\u0435", "\u043F\u043E\u0443\u0436\u0438\u043D\u0430\u0442\u044C", "\u043F\u043E\u0435\u0441\u0442\u044C", "\u0432\u044B\u043F\u0438\u0442\u044C", "place", "restaurant", "bar", "cafe", "eat", "dinner"];
+    EVENT_WORDS = ["\u0441\u043E\u0431\u044B\u0442\u0438", "\u043C\u0435\u0440\u043E\u043F\u0440\u0438\u044F\u0442\u0438", "\u043A\u043E\u043D\u0446\u0435\u0440\u0442", "\u0432\u044B\u0441\u0442\u0430\u0432\u043A", "\u0447\u0442\u043E \u043D\u0430\u0447\u0438\u043D\u0430\u0435\u0442\u0441\u044F", "event", "concert", "gig"];
+    PEOPLE_WORDS = ["\u043B\u044E\u0434", "\u043F\u043E\u0437\u043D\u0430\u043A\u043E\u043C\u0438\u0442", "\u043A\u0442\u043E-\u043D\u0438\u0431\u0443\u0434\u044C", "\u043A\u043E\u0433\u043E-\u043D\u0438\u0431\u0443\u0434\u044C", "people", "meet someone"];
+    DISCOVER_WORDS = ["\u043D\u0435\u043E\u0436\u0438\u0434\u0430\u043D\u043D", "\u0438\u043D\u0442\u0435\u0440\u0435\u0441\u043D", "\u0443\u0434\u0438\u0432\u0438", "\u0447\u0442\u043E-\u043D\u0438\u0431\u0443\u0434\u044C", "surprise", "something interesting", "anything"];
+    OPEN_WORDS = ["\u043E\u0442\u043A\u0440\u043E\u0439", "\u043F\u043E\u043A\u0430\u0436\u0438 \u044D\u0442\u043E", "\u0437\u0430\u0439\u0434\u0438", "\u043F\u0435\u0440\u0435\u0439\u0434\u0438", "open", "go there", "take me"];
+    DISMISS_WORDS = ["\u0443\u0431\u0435\u0440\u0438", "\u043D\u0435 \u044D\u0442\u043E", "\u043D\u0435 \u0445\u043E\u0447\u0443 \u044D\u0442\u043E", "\u0441\u043A\u0440\u043E\u0439", "remove", "hide", "not this"];
+    REFINE_WORDS = ["\u043D\u0435\u0442,", "\u043D\u0435 \u0442\u0430\u043A", "\u0441\u043B\u0438\u0448\u043A\u043E\u043C", "\u0434\u0440\u0443\u0433\u043E\u0435", "\u0447\u0442\u043E-\u043D\u0438\u0431\u0443\u0434\u044C \u0435\u0449\u0451", "\u0435\u0449\u0451 \u0432\u0430\u0440\u0438\u0430\u043D\u0442", "no,", "too ", "something else"];
+    BACK_WORDS = ["\u043D\u0430\u0437\u0430\u0434", "\u043E\u0431\u0440\u0430\u0442\u043D\u043E", "\u0432\u0435\u0440\u043D\u0438", "back", "go back"];
+    OPEN_NOW_WORDS = ["\u043E\u0442\u043A\u0440\u044B\u0442", "\u0441\u0435\u0439\u0447\u0430\u0441 \u0440\u0430\u0431\u043E\u0442\u0430", "\u0433\u0434\u0435 \u0436\u0438\u0437\u043D\u044C", "\u0433\u0434\u0435 \u043B\u044E\u0434\u0438", "open now", "still open", "lively"];
+    HERE_WORDS = ["\u0437\u0434\u0435\u0441\u044C", "\u0442\u0443\u0442", "\u044D\u0442\u043E", "\u044D\u0442\u043E\u0442", "\u044D\u0442\u0430", "\u0441\u044E\u0434\u0430", "here", "this one", "this place"];
+    THERE_WORDS = ["\u0442\u0443\u0434\u0430", "\u0442\u0430\u043C", "there"];
+    ORDINALS = {
+      "\u043F\u0435\u0440\u0432\u044B\u0439": 1,
+      "\u043F\u0435\u0440\u0432\u043E\u0435": 1,
+      "\u043F\u0435\u0440\u0432\u0430\u044F": 1,
+      "first": 1,
+      "\u0432\u0442\u043E\u0440\u043E\u0439": 2,
+      "\u0432\u0442\u043E\u0440\u043E\u0435": 2,
+      "\u0432\u0442\u043E\u0440\u0430\u044F": 2,
+      "second": 2,
+      "\u0442\u0440\u0435\u0442\u0438\u0439": 3,
+      "\u0442\u0440\u0435\u0442\u044C\u0435": 3,
+      "\u0442\u0440\u0435\u0442\u044C\u044F": 3,
+      "third": 3,
+      "\u0447\u0435\u0442\u0432\u0451\u0440\u0442\u044B\u0439": 4,
+      "\u0447\u0435\u0442\u0432\u0435\u0440\u0442\u044B\u0439": 4,
+      "fourth": 4,
+      "\u043F\u044F\u0442\u044B\u0439": 5,
+      "fifth": 5
+    };
+    has = (text, words) => words.find((w) => text.includes(w));
+    hasWord = (text, words) => {
+      const padded = ` ${text.replace(/[.,!?;:]/g, " ")} `;
+      return words.find((w) => padded.includes(` ${w} `));
+    };
     BERX_VOICE_CAPABILITY = Object.freeze({
       "now-nearby": "nearbyNow",
       "find-places": "nearbyPlaces",
@@ -2392,16 +3198,131 @@ var init_berxIntent = __esm({
 });
 
 // packages/spatial/src/voice/berxActionGraph.ts
+function berxPlan(intent, state) {
+  const blocked = [];
+  if (intent.kind === "unknown") blocked.push("nothing was understood");
+  for (const need of intent.needs) {
+    if (need === "referent") blocked.push("that referred to something not in view");
+    if (need === "location") blocked.push("where you are is not known yet");
+    if (need === "permission") blocked.push("location has not been allowed");
+  }
+  const capability = BERX_VOICE_CAPABILITY[intent.kind];
+  const steps = [];
+  switch (intent.kind) {
+    case "now-nearby":
+      steps.push({
+        id: "nearby",
+        effect: "read",
+        capability,
+        says: "\u0421\u043C\u043E\u0442\u0440\u044E, \u0447\u0442\u043E \u0440\u044F\u0434\u043E\u043C."
+      });
+      steps.push({ id: "compose", effect: "move", says: "\u041F\u043E\u043A\u0430\u0437\u044B\u0432\u0430\u044E." });
+      break;
+    case "find-places":
+    case "find-events":
+    case "find-people":
+    case "discover":
+      steps.push({ id: "search", effect: "read", capability, says: "\u0421\u0435\u0439\u0447\u0430\u0441 \u043F\u043E\u0441\u043C\u043E\u0442\u0440\u044E." });
+      steps.push({ id: "compose", effect: "move", says: "\u0412\u043E\u0442 \u0447\u0442\u043E \u043D\u0430\u0448\u0451\u043B." });
+      break;
+    case "open":
+      steps.push({ id: "travel", effect: "move", says: "\u0418\u0434\u0443 \u0442\u0443\u0434\u0430." });
+      break;
+    case "dismiss":
+      steps.push({ id: "dismiss", effect: "move", says: "\u0423\u0431\u0440\u0430\u043B." });
+      break;
+    case "refine": {
+      const original = intent.refining ?? "discover";
+      const capability2 = BERX_VOICE_CAPABILITY[original] ?? BERX_VOICE_CAPABILITY.discover;
+      steps.push({ id: "search", effect: "read", capability: capability2, says: "\u041F\u043E\u043F\u0440\u043E\u0431\u0443\u044E \u0438\u043D\u0430\u0447\u0435." });
+      steps.push({ id: "compose", effect: "move", says: "\u0412\u043E\u0442 \u0434\u0440\u0443\u0433\u043E\u0435." });
+      break;
+    }
+    case "back":
+      steps.push({ id: "back", effect: "move", says: "\u0412\u043E\u0437\u0432\u0440\u0430\u0449\u0430\u044E." });
+      break;
+    default:
+      break;
+  }
+  if (steps.some((s) => s.effect === "write" || s.effect === "sensitive") && !state.viewerId) {
+    blocked.push("nobody is signed in");
+  }
+  return { intent, steps, blocked };
+}
+function berxOutcome(results) {
+  const stoppedAt = results.find((r) => r.state !== "done");
+  return {
+    ok: results.length > 0 && stoppedAt === void 0,
+    stoppedAt,
+    results,
+    awaiting: results.some((r) => r.state === "awaiting-confirmation")
+  };
+}
+function berxChangesTheWorld(kind) {
+  return kind === "now-nearby" || kind === "find-places" || kind === "find-events" || kind === "find-people" || kind === "discover" || kind === "refine";
+}
 var init_berxActionGraph = __esm({
   "packages/spatial/src/voice/berxActionGraph.ts"() {
     "use strict";
+    init_berxIntent();
   }
 });
 
 // packages/spatial/src/voice/berxSay.ts
+function berxAcknowledge(plan) {
+  if (plan.blocked.length > 0) {
+    return { text: `${plan.blocked[0][0].toUpperCase()}${plan.blocked[0].slice(1)}.`, because: "the plan cannot run and the person needs to know which part" };
+  }
+  const first = plan.steps[0];
+  if (!first) return SILENT("there is nothing to do");
+  if (first.effect === "move") return SILENT("the world is about to move, which the person can see");
+  return { text: first.says, because: "work is starting that takes long enough to be worth covering" };
+}
+function berxReport(intent, outcome, found) {
+  if (outcome.awaiting) {
+    return { text: "\u041D\u0443\u0436\u043D\u043E \u043F\u043E\u0434\u0442\u0432\u0435\u0440\u0434\u0438\u0442\u044C.", because: "a person must agree some way other than out loud" };
+  }
+  if (!outcome.ok) {
+    const stopped = outcome.stoppedAt;
+    const why = stopped?.reason ? ` ${stopped.reason}` : "";
+    return { text: `\u041D\u0435 \u043F\u043E\u043B\u0443\u0447\u0438\u043B\u043E\u0441\u044C.${why}`, because: "a step did not finish, and saying otherwise would be a lie the person would catch" };
+  }
+  if (!berxChangesTheWorld(intent.kind)) {
+    return SILENT("the camera moved and the person watched it happen");
+  }
+  if (found === 0) {
+    return { text: "\u041D\u0438\u0447\u0435\u0433\u043E \u043D\u0435 \u043D\u0430\u0448\u0451\u043B. \u041F\u043E\u043F\u0440\u043E\u0431\u0443\u0435\u043C \u0438\u043D\u0430\u0447\u0435?", because: "an empty result is a real answer and inventing one would be worse than silence" };
+  }
+  if (found === 1) {
+    return { text: "\u041E\u0434\u043D\u043E \u043C\u0435\u0441\u0442\u043E.", because: "the count is the one thing not visible at a glance" };
+  }
+  return { text: `${found}. \u0412\u043E\u0442 \u0447\u0442\u043E \u043F\u0440\u043E\u0438\u0441\u0445\u043E\u0434\u0438\u0442.`, because: "the count, and then the world speaks for itself" };
+}
+function berxAskWhich(count) {
+  if (count === 0) return { text: "\u041D\u0435 \u0432\u0438\u0436\u0443, \u043E \u0447\u0451\u043C \u0440\u0435\u0447\u044C.", because: "nothing is in view to refer to" };
+  return { text: "\u041A\u0430\u043A\u043E\u0435 \u0438\u043C\u0435\u043D\u043D\u043E?", because: "the reference is real but ambiguous, and asking costs one exchange where guessing costs trust" };
+}
+function berxAskBetween(readings) {
+  const named = readings.map((r) => CHOICE[r.kind]).filter(Boolean);
+  if (named.length < 2) return void 0;
+  return {
+    text: `${named[0][0].toUpperCase()}${named[0].slice(1)} \u0438\u043B\u0438 ${named[1]}?`,
+    because: "the sentence fits both readings, and asking costs one exchange where guessing wrong costs trust in every answer after it"
+  };
+}
+var SILENT, CHOICE;
 var init_berxSay = __esm({
   "packages/spatial/src/voice/berxSay.ts"() {
     "use strict";
+    init_berxActionGraph();
+    SILENT = (because) => ({ text: "", because });
+    CHOICE = Object.freeze({
+      "now-nearby": "\u0447\u0442\u043E \u0440\u044F\u0434\u043E\u043C",
+      "find-places": "\u043C\u0435\u0441\u0442\u0430",
+      "find-events": "\u0441\u043E\u0431\u044B\u0442\u0438\u044F",
+      "find-people": "\u043B\u044E\u0434\u0438",
+      discover: "\u0447\u0442\u043E-\u043D\u0438\u0431\u0443\u0434\u044C \u0438\u043D\u0442\u0435\u0440\u0435\u0441\u043D\u043E\u0435"
+    });
   }
 });
 
@@ -2435,7 +3356,53 @@ var init_berxBirth = __esm({
 });
 
 // packages/spatial/src/core/berxCore.ts
-var BERX_CORE_REST, TARGETS, TRANSITION_STIFFNESS;
+function berxCoreStiffness(from, to) {
+  return TRANSITION_STIFFNESS[`${from}>${to}`] ?? DEFAULT_STIFFNESS;
+}
+function follow(current, target, stiffness, dt) {
+  const a = 1 - Math.exp(-stiffness * Math.max(0, dt));
+  return current + (target - current) * a;
+}
+function berxCoreAt(state = "idle") {
+  return {
+    state,
+    previous: state,
+    field: { ...BERX_CORE_REST, offset: { ...BERX_CORE_REST.offset } },
+    unresolved: state === "error"
+  };
+}
+function berxCoreStep(motion, dt) {
+  const target = TARGETS[motion.state];
+  const k = berxCoreStiffness(motion.previous, motion.state);
+  const f = motion.field;
+  return {
+    ...motion,
+    field: {
+      energy: follow(f.energy, target.energy, k, dt),
+      coherence: follow(f.coherence, target.coherence, k, dt),
+      reach: follow(f.reach, target.reach, k, dt),
+      luminance: follow(f.luminance, target.luminance, k, dt),
+      grain: follow(f.grain, target.grain, k, dt),
+      haze: follow(f.haze, target.haze, k, dt),
+      deform: follow(f.deform, target.deform, k, dt),
+      offset: {
+        x: follow(f.offset.x, target.offset.x, k, dt),
+        y: follow(f.offset.y, target.offset.y, k, dt),
+        z: follow(f.offset.z, target.offset.z, k, dt)
+      }
+    }
+  };
+}
+function berxCoreEnter(motion, state) {
+  if (state === motion.state) return motion;
+  return {
+    state,
+    previous: motion.state,
+    field: motion.field,
+    unresolved: state === "error" ? true : RESOLVES.includes(state) ? false : motion.unresolved
+  };
+}
+var BERX_CORE_REST, TARGETS, DEFAULT_STIFFNESS, TRANSITION_STIFFNESS, RESOLVES;
 var init_berxCore = __esm({
   "packages/spatial/src/core/berxCore.ts"() {
     "use strict";
@@ -2489,6 +3456,7 @@ var init_berxCore = __esm({
          back last. Looking for another way rather than starting again. */
       recovering: { energy: 0.44, coherence: 0.72, reach: 1.5, luminance: 0.3, grain: 0.26, haze: 0.34, deform: 0.1, offset: { x: 0, y: 0.2, z: -1.35 } }
     });
+    DEFAULT_STIFFNESS = 4.2;
     TRANSITION_STIFFNESS = Object.freeze({
       /* Instant attention. Being noticed cannot lag, or it reads as the
          system catching up rather than as it having been there. */
@@ -2517,10 +3485,42 @@ var init_berxCore = __esm({
       "recovering>searching": 5,
       "recovering>listening": 5
     });
+    RESOLVES = ["success", "discovering"];
   }
 });
 
 // packages/spatial/src/core/berxCoreWorld.ts
+function berxCoreCause(current, cause, unresolved = false) {
+  const recovering = current === "error" || current === "recovering" || unresolved;
+  switch (cause.kind) {
+    case "presence":
+      if (!cause.near) return "idle";
+      return recovering ? "recovering" : "aware";
+    case "voice":
+      return cause.speaking ? "listening" : recovering ? "recovering" : "aware";
+    case "utterance":
+      if (cause.intent.kind === "unknown") {
+        return "recovering";
+      }
+      return "understanding";
+    case "plan": {
+      if (cause.plan.blocked.length > 0) return "recovering";
+      const writes = cause.plan.steps.some((s) => s.effect === "write" || s.effect === "sensitive");
+      return writes ? "acting" : "searching";
+    }
+    case "results":
+      return cause.found > 0 ? "discovering" : "success";
+    case "outcome":
+      if (cause.outcome.awaiting) return "acting";
+      return cause.outcome.ok ? "success" : "error";
+    case "speech":
+      return cause.speaking ? "speaking" : recovering ? "recovering" : "aware";
+    case "arrived":
+      return "success";
+    default:
+      return current;
+  }
+}
 var init_berxCoreWorld = __esm({
   "packages/spatial/src/core/berxCoreWorld.ts"() {
     "use strict";
@@ -2535,9 +3535,128 @@ var init_berxTouch = __esm({
 });
 
 // packages/spatial/src/berxLivingWorld.ts
+function berxLivingWorld() {
+  return { core: berxCoreAt("idle"), memory: BERX_EMPTY_MEMORY };
+}
+async function berxSpeakToWorld(state, utterance, situation, bridge, onIntent, onCore) {
+  let memory = berxAsked(state.memory, utterance);
+  const intent = berxReadIntent(utterance, situation, memory);
+  memory = berxRequested(memory, intent.kind);
+  onIntent?.(intent);
+  let core = state.core;
+  const move = (cause) => {
+    core = berxCoreEnter(core, berxCoreCause(core.state, cause, core.unresolved));
+    onCore?.(cause);
+  };
+  move({ kind: "utterance", intent });
+  const ask = intent.alternatives && intent.alternatives.length > 0 ? berxAskBetween([{ kind: intent.kind }, ...intent.alternatives.map((kind) => ({ kind }))]) : void 0;
+  if (ask) {
+    return {
+      intent,
+      plan: berxPlan(intent, situation),
+      outcome: berxOutcome([]),
+      change: "none",
+      shown: memory.shown,
+      say: ask,
+      core,
+      memory
+    };
+  }
+  const plan = berxPlan(intent, situation);
+  move({ kind: "plan", plan });
+  if (plan.blocked.length > 0 || plan.steps.length === 0) {
+    const say = intent.needs.includes("referent") ? berxAskWhich(situation.visible.length) : berxAcknowledge(plan);
+    return {
+      intent,
+      plan,
+      outcome: berxOutcome([]),
+      change: "none",
+      shown: memory.shown,
+      say,
+      core,
+      memory
+    };
+  }
+  if (intent.kind === "open" && intent.objectId) {
+    const moved = bridge.travel?.(intent.objectId) ?? false;
+    const results = [{
+      step: plan.steps[0],
+      state: moved ? "done" : "failed",
+      reason: moved ? void 0 : "\u044D\u0442\u043E\u0433\u043E \u043D\u0435\u0442 \u0432 \u043C\u0438\u0440\u0435"
+    }];
+    const outcome2 = berxOutcome(results);
+    if (moved) memory = berxSelect(memory, intent.objectId);
+    move(moved ? { kind: "arrived", region: situation.region } : { kind: "outcome", outcome: outcome2 });
+    return {
+      intent,
+      plan,
+      outcome: outcome2,
+      change: moved ? "travelled" : "none",
+      shown: memory.shown,
+      /* Silent on success: the camera is visibly moving, and saying
+         "иду туда" over it is narration. */
+      say: berxReport(intent, outcome2, memory.shown.length),
+      core,
+      memory
+    };
+  }
+  if (intent.kind === "dismiss" && intent.objectId) {
+    const before = memory.shown.length;
+    memory = berxDismiss(memory, intent.objectId);
+    const removed = memory.shown.length < before;
+    const outcome2 = berxOutcome([{ step: plan.steps[0], state: removed ? "done" : "failed", reason: removed ? void 0 : "\u044D\u0442\u043E\u0433\u043E \u043D\u0435\u0442 \u0432 \u043D\u0430\u0431\u043E\u0440\u0435" }]);
+    move({ kind: "outcome", outcome: outcome2 });
+    return {
+      intent,
+      plan,
+      outcome: outcome2,
+      change: removed ? "removed" : "none",
+      shown: memory.shown,
+      say: berxReport(intent, outcome2, memory.shown.length),
+      core,
+      memory
+    };
+  }
+  if (intent.kind === "back") {
+    const went = bridge.back?.() ?? false;
+    const outcome2 = berxOutcome([{ step: plan.steps[0], state: went ? "done" : "failed", reason: went ? void 0 : "\u043D\u0435\u043A\u0443\u0434\u0430 \u0432\u043E\u0437\u0432\u0440\u0430\u0449\u0430\u0442\u044C\u0441\u044F" }]);
+    move({ kind: "outcome", outcome: outcome2 });
+    return {
+      intent,
+      plan,
+      outcome: outcome2,
+      change: went ? "returned" : "none",
+      shown: memory.shown,
+      say: berxReport(intent, outcome2, memory.shown.length),
+      core,
+      memory
+    };
+  }
+  const ran = await bridge.execute(plan, situation);
+  const outcome = berxOutcome(ran.results);
+  const entities = outcome.ok ? ran.entities ?? [] : [];
+  if (outcome.ok) memory = berxShow(memory, entities);
+  move(outcome.ok ? { kind: "results", found: entities.length } : { kind: "outcome", outcome });
+  return {
+    intent,
+    plan,
+    outcome,
+    change: outcome.ok && entities.length > 0 ? "composed" : "none",
+    shown: memory.shown,
+    say: berxReport(intent, outcome, entities.length),
+    core,
+    memory
+  };
+}
 var init_berxLivingWorld = __esm({
   "packages/spatial/src/berxLivingWorld.ts"() {
     "use strict";
+    init_berxIntent();
+    init_berxActionGraph();
+    init_berxSay();
+    init_berxSpatialMemory();
+    init_berxCore();
+    init_berxCoreWorld();
   }
 });
 
@@ -2859,8 +3978,8 @@ var init_spatialCamera = __esm({
         * used to be ignored, so focusing a person put the camera close
         * enough to crop half the ring off the bottom of the screen.
         */
-      poseForObject(position, scale = { x: 1, y: 1, z: 1 }, distance2, framingRadius = 0) {
-        const radius = Math.max(scale.x, scale.y, scale.z, framingRadius, 0.5), d = distance2 ?? Math.max(2.4, radius * 3.2);
+      poseForObject(position, scale = { x: 1, y: 1, z: 1 }, distance3, framingRadius = 0) {
+        const radius = Math.max(scale.x, scale.y, scale.z, framingRadius, 0.5), d = distance3 ?? Math.max(2.4, radius * 3.2);
         return { position: { x: position.x, y: position.y, z: position.z + d }, target: copy(position) };
       }
       moveToPose(pose, durationSeconds = 0.65, kind) {
@@ -3061,6 +4180,19 @@ var init_runtime5d = __esm({
         this.beginCameraTransition(pose, this.durationFor(kind), this.currentWorld, this.reducedMotion ? void 0 : kind);
         return true;
       }
+      /**
+       * Move the camera to an explicit pose, through the one transition.
+       *
+       * `focus` and `enterWorld` both derive their pose from an OBJECT;
+       * framing derives it from the whole world, so it needs a way in that
+       * takes a pose directly. It goes through beginCameraTransition like
+       * everything else — a second way of moving the camera would be a
+       * second camera, and the whole point of this class is that there is
+       * one.
+       */
+      moveCamera(position, target, kind) {
+        this.beginCameraTransition({ position, target }, this.durationFor(kind), this.currentWorld, this.reducedMotion ? void 0 : kind);
+      }
       beginCameraTransition(pose, duration, toWorld = this.currentWorld, kind) {
         const fromCamera = this.camera.getState();
         this.cameraTransition = this.camera.moveToPose(pose, duration, kind);
@@ -3169,7 +4301,7 @@ var init_spatialInteraction = __esm({
 
 // packages/spatial/src/proximity.ts
 function berxNear(at, objects, radius, options = {}) {
-  return objects.filter((o) => o.visible && o.id !== options.exclude && distance(at, o.transform.position) <= radius).sort((a, b) => distance(at, a.transform.position) - distance(at, b.transform.position));
+  return objects.filter((o) => o.visible && o.id !== options.exclude && distance2(at, o.transform.position) <= radius).sort((a, b) => distance2(at, a.transform.position) - distance2(at, b.transform.position));
 }
 function berxWorldBounds(objects) {
   const visible = objects.filter((o) => o.visible);
@@ -3191,13 +4323,13 @@ function berxWorldBounds(objects) {
   const centre = { x: (min.x + max.x) / 2, y: (min.y + max.y) / 2, z: (min.z + max.z) / 2 };
   let radius = 0;
   for (const o of visible) {
-    radius = Math.max(radius, distance(centre, o.transform.position) + interactionRadius(o));
+    radius = Math.max(radius, distance2(centre, o.transform.position) + interactionRadius(o));
   }
   return { min, max, centre, radius };
 }
 function berxClampToWorld(position, bounds, margin = 12) {
   const limit = bounds.radius + margin;
-  const d = distance(position, bounds.centre);
+  const d = distance2(position, bounds.centre);
   if (d <= limit || d === 0) return position;
   const scale = limit / d;
   return {
@@ -3206,12 +4338,12 @@ function berxClampToWorld(position, bounds, margin = 12) {
     z: bounds.centre.z + (position.z - bounds.centre.z) * scale
   };
 }
-var distance;
+var distance2;
 var init_proximity = __esm({
   "packages/spatial/src/proximity.ts"() {
     "use strict";
     init_spatialInteraction();
-    distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z);
+    distance2 = (a, b) => Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z);
   }
 });
 
@@ -3405,6 +4537,7 @@ var init_worldApp = __esm({
     init_temporal();
     init_relational();
     init_composition();
+    init_berxFraming();
     init_proximity();
     init_spatialAffordances();
     init_transitions();
@@ -3532,6 +4665,37 @@ var init_worldApp = __esm({
        * false when the entity is not in the world — which is a real
        * answer, not a reason to invent it.
        */
+      /**
+       * Frame what is in the world, so a composed set is a composition.
+       *
+       * BERX's camera stood 8 metres back from the origin no matter what
+       * was in front of it, which is not a camera choosing a shot — it is
+       * a fixed vantage that frames whatever happens to be at the origin
+       * and lets the rest fall where it falls. Measured on a real world
+       * composed from a real search: 6.5% of a desktop frame, with two of
+       * five entities off it entirely.
+       *
+       * The pose comes from berxFrameTheWorld, which fits the whole world
+       * — everything WHOLLY inside the frame, not merely overlapping it —
+       * and it arrives through the same camera transition every travel
+       * uses, because a second way of moving the camera is a second
+       * camera. Returns false when there is nothing to frame.
+       *
+       * It is called, never automatic: a camera that re-framed itself
+       * while someone was moving through the world would be taking the
+       * world away from them.
+       */
+      frameWorld(width, height) {
+        const frame = this.latestFrame;
+        if (frame.world.objects.filter((o) => o.visible).length === 0) return false;
+        const fitted = berxFrameTheWorld(frame, width, height);
+        this.runtime.moveCamera(fitted.position, fitted.target, berxTransitionForTravel("travel"));
+        return true;
+      }
+      /** How the world is framed right now, for a caller that wants to check. */
+      framing(width, height) {
+        return berxFraming(this.latestFrame, width, height);
+      }
       travelTo(objectId, region) {
         const object = this.runtime.world.getObject(objectId);
         if (!object) return false;
@@ -3884,137 +5048,6 @@ var init_socialActions = __esm({
   }
 });
 
-// packages/spatial/src/frustum.ts
-function berxFrustumPlanes(viewProjection) {
-  const p = new Float32Array(24);
-  const m = (r, c) => viewProjection[c * 4 + r];
-  const set = (i, a, b, c, d) => {
-    const l = Math.hypot(a, b, c) || 1;
-    p[i * 4] = a / l;
-    p[i * 4 + 1] = b / l;
-    p[i * 4 + 2] = c / l;
-    p[i * 4 + 3] = d / l;
-  };
-  set(0, m(3, 0) + m(0, 0), m(3, 1) + m(0, 1), m(3, 2) + m(0, 2), m(3, 3) + m(0, 3));
-  set(1, m(3, 0) - m(0, 0), m(3, 1) - m(0, 1), m(3, 2) - m(0, 2), m(3, 3) - m(0, 3));
-  set(2, m(3, 0) + m(1, 0), m(3, 1) + m(1, 1), m(3, 2) + m(1, 2), m(3, 3) + m(1, 3));
-  set(3, m(3, 0) - m(1, 0), m(3, 1) - m(1, 1), m(3, 2) - m(1, 2), m(3, 3) - m(1, 3));
-  set(4, m(3, 0) + m(2, 0), m(3, 1) + m(2, 1), m(3, 2) + m(2, 2), m(3, 3) + m(2, 3));
-  set(5, m(3, 0) - m(2, 0), m(3, 1) - m(2, 1), m(3, 2) - m(2, 2), m(3, 3) - m(2, 3));
-  return p;
-}
-function berxSphereInFrustum(planes, centre, radius) {
-  for (let i = 0; i < 6; i++) {
-    if (planes[i * 4] * centre.x + planes[i * 4 + 1] * centre.y + planes[i * 4 + 2] * centre.z + planes[i * 4 + 3] < -radius) {
-      return false;
-    }
-  }
-  return true;
-}
-function berxMultiplyMat4(a, b) {
-  const o = new Float32Array(16);
-  for (let c = 0; c < 4; c++) {
-    for (let r = 0; r < 4; r++) {
-      let v = 0;
-      for (let k = 0; k < 4; k++) v += a[k * 4 + r] * b[c * 4 + k];
-      o[c * 4 + r] = v;
-    }
-  }
-  return o;
-}
-function berxPerspective(fovDegrees, aspect, near, far) {
-  const q = 1 / Math.tan(fovDegrees * Math.PI / 360);
-  const nf = 1 / (near - far);
-  const m = new Float32Array(16);
-  m[0] = q / aspect;
-  m[5] = q;
-  m[10] = (far + near) * nf;
-  m[11] = -1;
-  m[14] = 2 * far * near * nf;
-  return m;
-}
-function berxLookAt(position, target) {
-  const sub2 = (a, b) => ({ x: a.x - b.x, y: a.y - b.y, z: a.z - b.z });
-  const norm2 = (v) => {
-    const l = Math.hypot(v.x, v.y, v.z) || 1;
-    return { x: v.x / l, y: v.y / l, z: v.z / l };
-  };
-  const cross2 = (a, b) => ({
-    x: a.y * b.z - a.z * b.y,
-    y: a.z * b.x - a.x * b.z,
-    z: a.x * b.y - a.y * b.x
-  });
-  const z = norm2(sub2(position, target));
-  const up = Math.abs(z.y) > 0.98 ? { x: 1, y: 0, z: 0 } : { x: 0, y: 1, z: 0 };
-  const x = norm2(cross2(up, z));
-  const y = cross2(z, x);
-  const m = new Float32Array(16);
-  m[0] = x.x;
-  m[1] = y.x;
-  m[2] = z.x;
-  m[4] = x.y;
-  m[5] = y.y;
-  m[6] = z.y;
-  m[8] = x.z;
-  m[9] = y.z;
-  m[10] = z.z;
-  m[12] = -x.x * position.x - x.y * position.y - x.z * position.z;
-  m[13] = -y.x * position.x - y.y * position.y - y.z * position.z;
-  m[14] = -z.x * position.x - z.y * position.y - z.z * position.z;
-  m[15] = 1;
-  return m;
-}
-function berxInvertMat4(m) {
-  const a00 = m[0], a01 = m[1], a02 = m[2], a03 = m[3];
-  const a10 = m[4], a11 = m[5], a12 = m[6], a13 = m[7];
-  const a20 = m[8], a21 = m[9], a22 = m[10], a23 = m[11];
-  const a30 = m[12], a31 = m[13], a32 = m[14], a33 = m[15];
-  const b00 = a00 * a11 - a01 * a10;
-  const b01 = a00 * a12 - a02 * a10;
-  const b02 = a00 * a13 - a03 * a10;
-  const b03 = a01 * a12 - a02 * a11;
-  const b04 = a01 * a13 - a03 * a11;
-  const b05 = a02 * a13 - a03 * a12;
-  const b06 = a20 * a31 - a21 * a30;
-  const b07 = a20 * a32 - a22 * a30;
-  const b08 = a20 * a33 - a23 * a30;
-  const b09 = a21 * a32 - a22 * a31;
-  const b10 = a21 * a33 - a23 * a31;
-  const b11 = a22 * a33 - a23 * a32;
-  const det = b00 * b11 - b01 * b10 + b02 * b09 + b03 * b08 - b04 * b07 + b05 * b06;
-  const out = new Float32Array(16);
-  if (!det) {
-    out[0] = 1;
-    out[5] = 1;
-    out[10] = 1;
-    out[15] = 1;
-    return out;
-  }
-  const d = 1 / det;
-  out[0] = (a11 * b11 - a12 * b10 + a13 * b09) * d;
-  out[1] = (a02 * b10 - a01 * b11 - a03 * b09) * d;
-  out[2] = (a31 * b05 - a32 * b04 + a33 * b03) * d;
-  out[3] = (a22 * b04 - a21 * b05 - a23 * b03) * d;
-  out[4] = (a12 * b08 - a10 * b11 - a13 * b07) * d;
-  out[5] = (a00 * b11 - a02 * b08 + a03 * b07) * d;
-  out[6] = (a32 * b02 - a30 * b05 - a33 * b01) * d;
-  out[7] = (a20 * b05 - a22 * b02 + a23 * b01) * d;
-  out[8] = (a10 * b10 - a11 * b08 + a13 * b06) * d;
-  out[9] = (a01 * b08 - a00 * b10 - a03 * b06) * d;
-  out[10] = (a30 * b04 - a31 * b02 + a33 * b00) * d;
-  out[11] = (a21 * b02 - a20 * b04 - a23 * b00) * d;
-  out[12] = (a11 * b07 - a10 * b09 - a12 * b06) * d;
-  out[13] = (a00 * b09 - a01 * b07 + a02 * b06) * d;
-  out[14] = (a31 * b01 - a30 * b03 - a32 * b00) * d;
-  out[15] = (a20 * b03 - a21 * b01 + a22 * b00) * d;
-  return out;
-}
-var init_frustum = __esm({
-  "packages/spatial/src/frustum.ts"() {
-    "use strict";
-  }
-});
-
 // packages/spatial/src/geometry.ts
 function geometryForEntity(kind) {
   return { ...specs[kind] };
@@ -4244,10 +5277,10 @@ function berxBuildDrawList(frame, options) {
     const spec = geometryForEntity(o.kind);
     const presentation = presentationForKind(o.kind, o);
     const material = berxWorldMaterial(o.material.material);
-    const distance2 = distanceTo(eye, o);
+    const distance3 = distanceTo(eye, o);
     const geo = geometryScale(spec);
     const radius = Math.max(geo.x, geo.y, geo.z) * Math.max(o.transform.scale.x, o.transform.scale.y, o.transform.scale.z);
-    const lod = berxStableLod(distance2, BERX_LOD_DISTANCE, memory.lod[o.id]);
+    const lod = berxStableLod(distance3, BERX_LOD_DISTANCE, memory.lod[o.id]);
     if (lod === 1) lodReduced++;
     return {
       id: o.id,
@@ -4281,7 +5314,7 @@ function berxBuildDrawList(frame, options) {
       pointLights: berxResolvePointLights(litWorld, o.transform.position),
       media: options.mediaFor?.(o.id),
       label: o.label,
-      distance: distance2
+      distance: distance3
     };
   });
   const basis = cameraBasis(c);
@@ -4300,11 +5333,11 @@ function berxBuildDrawList(frame, options) {
   if (basis) {
     const named = drawn.filter((o) => o.label !== void 0 && o.label.trim().length > 0);
     for (const o of named.sort((a, b) => distanceTo(eye, a) - distanceTo(eye, b))) {
-      const distance2 = distanceTo(eye, o);
-      if (distance2 > BERX_LABEL_FADE_END) continue;
+      const distance3 = distanceTo(eye, o);
+      if (distance3 > BERX_LABEL_FADE_END) continue;
       const halfHeight = BERX_LABEL_HEIGHT * 0.5;
       const above = o.transform.scale.y * 0.5 + halfHeight * 1.6;
-      const fade2 = distance2 <= BERX_LABEL_FADE_START ? 1 : 1 - (distance2 - BERX_LABEL_FADE_START) / (BERX_LABEL_FADE_END - BERX_LABEL_FADE_START);
+      const fade2 = distance3 <= BERX_LABEL_FADE_START ? 1 : 1 - (distance3 - BERX_LABEL_FADE_START) / (BERX_LABEL_FADE_END - BERX_LABEL_FADE_START);
       const position = {
         x: o.transform.position.x + basis.up.x * above,
         y: o.transform.position.y + basis.up.y * above,
@@ -4326,7 +5359,7 @@ function berxBuildDrawList(frame, options) {
         /* names thin out with the world they belong to, or a
            dissolve would leave a field of floating text */
         alpha: fade2 * o.material.opacity * modulation.opacity,
-        distance: distance2
+        distance: distance3
       });
     }
     labels.reverse();
@@ -4432,6 +5465,8 @@ var init_drawList = __esm({
     init_spatialPresentation();
     init_worldMaterials();
     init_berxEnvironment();
+    init_berxExposure();
+    init_berxFraming();
     init_worldLighting();
     init_transitions();
     init_shadowMap();
@@ -4441,7 +5476,11 @@ var init_drawList = __esm({
     init_stability();
     init_berxCore();
     BERX_LOD_DISTANCE = 18;
-    BERX_WORLD_CLEAR = [7 / 255, 8 / 255, 10 / 255];
+    BERX_WORLD_CLEAR = [
+      berxRadianceFor(7 / 255),
+      berxRadianceFor(8 / 255),
+      berxRadianceFor(10 / 255)
+    ];
     BERX_LABEL_HEIGHT = 0.34;
     BERX_LABEL_FADE_START = 14;
     BERX_LABEL_FADE_END = 26;
@@ -4468,7 +5507,7 @@ var init_drawList = __esm({
       m[15] = 1;
       return m;
     };
-    radiusOf = (o) => Math.max(o.transform.scale.x, o.transform.scale.y, o.transform.scale.z) * 0.75;
+    radiusOf = berxBoundingRadius;
     distanceTo = (eye, o) => Math.hypot(o.transform.position.x - eye.x, o.transform.position.y - eye.y, o.transform.position.z - eye.z);
   }
 });
@@ -4481,6 +5520,14 @@ var init_fullMax5DLaunchGate = __esm({
 });
 
 // packages/spatial/src/mediaSurface.ts
+function createMediaSurface(object, media) {
+  return {
+    ...media,
+    objectId: object.id,
+    aspectRatio: media.aspectRatio > 0 ? media.aspectRatio : 1,
+    opacity: Math.max(0, Math.min(1, media.opacity))
+  };
+}
 var init_mediaSurface = __esm({
   "packages/spatial/src/mediaSurface.ts"() {
     "use strict";
@@ -4591,11 +5638,14 @@ var init_src = __esm({
     init_berxVolumetric();
     init_berxParticles();
     init_berxRenderQuality();
+    init_berxExposure();
+    init_berxFraming();
     init_renderPipeline();
     init_stability();
     init_berxWorldState();
     init_berxSpatialMemory();
     init_berxIntent();
+    init_berxUtterance();
     init_berxActionGraph();
     init_berxSay();
     init_berxBirth();
@@ -5094,7 +6144,7 @@ function meshFor(kind, lod) {
       return createSphere(0.58, far ? 11 : 28, far ? 7 : 18);
   }
 }
-var V, SV, SF, F, TV, TF, GV, GF, AV, AF, VV, VF, CV, CF, DF, PV, PF, BerxThreeRuntimeRenderer;
+var V, SV, SF, F, TV, TF, GV, GF, AV, AF, VV, VF, CV, CF, DF, POSTF, PV, PF, BerxThreeRuntimeRenderer;
 var init_threeRuntime = __esm({
   "packages/spatial-web/src/threeRuntime.ts"() {
     "use strict";
@@ -5470,6 +6520,23 @@ void main(){
 }`;
     DF = `#version 300 es
 precision highp float;in vec2 UV;uniform highp sampler2D SRC;out vec4 C;void main(){C=vec4(texture(SRC,UV).r,0.,0.,1.);}`;
+    POSTF = `#version 300 es
+precision highp float;
+in vec2 UV;
+uniform sampler2D SRC;
+uniform float EXPOSURE;
+out vec4 C;
+float shoulder(float x){
+  float v=max(x,0.);
+  return clamp((v*(2.51*v+.03))/(v*(2.43*v+.59)+.14),0.,1.);
+}
+void main(){
+  /* A fetch, not a sample: one output pixel per input pixel, so a
+     bilinear tap only adds a half-texel question each API answers its
+     own way. It was worth three disagreeing pixels along the top edge. */
+  vec3 e=texelFetch(SRC,ivec2(gl_FragCoord.xy),0).rgb*EXPOSURE;
+  C=vec4(shoulder(e.r),shoulder(e.g),shoulder(e.b),1.);
+}`;
     PV = `#version 300 es
 precision highp float;
 uniform mat4 PP, PVIEW;
@@ -5555,6 +6622,19 @@ void main(){
         this.capabilities = { perspective: true, depthBuffer: true, physicallyLitMaterials: true, shadows: true, postProcessing: false };
         this.meshes = /* @__PURE__ */ new Map();
         this.ssaoSize = { w: 0, h: 0 };
+        /**
+         * The linear frame, and the target everything before post draws into.
+         *
+         * `sceneFbo` is what the world, label, particle and composite passes
+         * are bound to. It is null only when a half-float colour attachment is
+         * not renderable here — see ensureHdr.
+         */
+        this.sceneFbo = null;
+        this.hdrW = 0;
+        this.hdrH = 0;
+        this.hdrSamples = 0;
+        this.PSRC = null;
+        this.PEXP = null;
         this.volSize = { w: 0, h: 0 };
         this.shadowSize = 0;
         /** objectId -> the one media URI drawn on its face */
@@ -5818,7 +6898,7 @@ void main(){
         gl.bindVertexArray(this.aoVao);
         gl.drawArrays(gl.TRIANGLES, 0, 3);
         gl.bindVertexArray(null);
-        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, this.sceneFbo);
         gl.enable(gl.DEPTH_TEST);
         gl.depthMask(true);
         gl.enable(gl.BLEND);
@@ -5933,7 +7013,7 @@ void main(){
         gl.bindVertexArray(this.aoVao);
         gl.drawArrays(gl.TRIANGLES, 0, 3);
         gl.bindVertexArray(null);
-        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, this.sceneFbo);
         gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
         gl.enable(gl.BLEND);
         gl.enable(gl.DEPTH_TEST);
@@ -5955,6 +7035,118 @@ void main(){
        * different pipeline from the other two. The pipeline gate reads the
        * pass names each backend records, and that is how it was found.
        */
+      /**
+       * The linear frame BERX draws into, built to fit the canvas.
+       *
+       * MULTISAMPLED, because moving off the default framebuffer would
+       * otherwise silently drop the antialiasing the canvas was created
+       * with — and the WebGPU backend keeps its four samples, so the two
+       * would stop being comparable. A multisample renderbuffer plus a blit
+       * is the WebGL2 spelling of WebGPU's resolveTarget.
+       *
+       * Returns false where a half-float colour attachment is not
+       * renderable. That is reported rather than worked around: the
+       * exposure still runs on an 8-bit frame and still fixes the darkness,
+       * but the world pass will have clamped at 1.0 first, so the shoulder
+       * has nothing above white left to roll off. Saying which of the two is
+       * happening is the difference between a known limit and a mystery.
+       */
+      ensureHdr(width, height) {
+        if (!this.floatColour) return false;
+        const gl = this.gl;
+        if (this.hdrFbo && this.hdrW === width && this.hdrH === height) return true;
+        this.releaseHdr();
+        this.hdrW = width;
+        this.hdrH = height;
+        this.hdrTex = gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_2D, this.hdrTex);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA16F, width, height, 0, gl.RGBA, gl.HALF_FLOAT, null);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        this.hdrFbo = gl.createFramebuffer();
+        gl.bindFramebuffer(gl.FRAMEBUFFER, this.hdrFbo);
+        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.hdrTex, 0);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        const canvasSamples = gl.getParameter(gl.SAMPLES);
+        this.hdrSamples = Math.max(1, Math.min(canvasSamples || 4, gl.getParameter(gl.MAX_SAMPLES)));
+        this.msColor = gl.createRenderbuffer();
+        gl.bindRenderbuffer(gl.RENDERBUFFER, this.msColor);
+        gl.renderbufferStorageMultisample(gl.RENDERBUFFER, this.hdrSamples, gl.RGBA16F, width, height);
+        this.msDepth = gl.createRenderbuffer();
+        gl.bindRenderbuffer(gl.RENDERBUFFER, this.msDepth);
+        gl.renderbufferStorageMultisample(gl.RENDERBUFFER, this.hdrSamples, gl.DEPTH_COMPONENT24, width, height);
+        this.msFbo = gl.createFramebuffer();
+        gl.bindFramebuffer(gl.FRAMEBUFFER, this.msFbo);
+        gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.RENDERBUFFER, this.msColor);
+        gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, this.msDepth);
+        const complete = gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE;
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        gl.bindRenderbuffer(gl.RENDERBUFFER, null);
+        if (!complete) {
+          this.releaseHdr();
+          return false;
+        }
+        if (!this.postProgram) {
+          this.postProgram = program(gl, CV, POSTF);
+          this.PSRC = gl.getUniformLocation(this.postProgram, "SRC");
+          this.PEXP = gl.getUniformLocation(this.postProgram, "EXPOSURE");
+        }
+        return true;
+      }
+      releaseHdr() {
+        const gl = this.gl;
+        if (this.hdrTex) gl.deleteTexture(this.hdrTex);
+        if (this.hdrFbo) gl.deleteFramebuffer(this.hdrFbo);
+        if (this.msFbo) gl.deleteFramebuffer(this.msFbo);
+        if (this.msColor) gl.deleteRenderbuffer(this.msColor);
+        if (this.msDepth) gl.deleteRenderbuffer(this.msDepth);
+        this.hdrTex = void 0;
+        this.hdrFbo = void 0;
+        this.msFbo = void 0;
+        this.msColor = void 0;
+        this.msDepth = void 0;
+        this.hdrW = 0;
+        this.hdrH = 0;
+        this.hdrSamples = 0;
+      }
+      /**
+       * POST: resolve the samples, expose, and hand the screen the result.
+       *
+       * AFTER the composite, which is the ordering fact that matters:
+       * in-scatter is light, so the air is part of what is being exposed.
+       * Tone-mapping the surfaces and then adding the air would put unmapped
+       * values on top of mapped ones — two pictures added together, not a
+       * brighter one.
+       */
+      exposeToScreen(originX, width, height) {
+        if (!this.msFbo || !this.hdrFbo || !this.postProgram) return false;
+        const gl = this.gl;
+        gl.bindFramebuffer(gl.READ_FRAMEBUFFER, this.msFbo);
+        gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, this.hdrFbo);
+        gl.blitFramebuffer(0, 0, this.hdrW, this.hdrH, 0, 0, this.hdrW, this.hdrH, gl.COLOR_BUFFER_BIT, gl.NEAREST);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        this.sceneFbo = null;
+        gl.viewport(originX, 0, width, height);
+        gl.useProgram(this.postProgram);
+        gl.activeTexture(gl.TEXTURE3);
+        gl.bindTexture(gl.TEXTURE_2D, this.hdrTex);
+        gl.uniform1i(this.PSRC, 3);
+        gl.uniform1f(this.PEXP, BERX_EXPOSURE);
+        gl.disable(gl.BLEND);
+        gl.disable(gl.DEPTH_TEST);
+        gl.depthMask(false);
+        gl.bindVertexArray(this.aoVao);
+        gl.drawArrays(gl.TRIANGLES, 0, 3);
+        gl.bindVertexArray(null);
+        gl.enable(gl.BLEND);
+        gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+        gl.enable(gl.DEPTH_TEST);
+        gl.depthMask(true);
+        gl.activeTexture(gl.TEXTURE0);
+        return true;
+      }
       compositeAir(originX, width, height) {
         if (!this.volTexture) return false;
         const gl = this.gl;
@@ -6079,6 +7271,8 @@ void main(){
           height,
           maxObjects: options.maxObjects,
           ambientMotion: options.ambientMotion,
+          quality: options.quality,
+          core: options.core,
           shadows: options.shadows,
           lighting: this.lighting,
           mediaFor: (id) => this.media.get(id),
@@ -6102,6 +7296,9 @@ void main(){
         const aoReady = options.ssao === false ? false : gbufferReady;
         const airReady = options.volumetric === false ? false : this.renderVolumetric(list, width, height);
         if (airReady) stages.push("volumetric");
+        const exposed = this.ensureHdr(this.gl.drawingBufferWidth, this.gl.drawingBufferHeight);
+        this.sceneFbo = exposed ? this.msFbo : null;
+        gl.bindFramebuffer(gl.FRAMEBUFFER, this.sceneFbo);
         gl.useProgram(this.program);
         stages.push("world");
         gl.viewport(originX, 0, width, height);
@@ -6191,6 +7388,7 @@ void main(){
         const particleCalls = options.particles === false ? 0 : this.renderParticles(list);
         if (particleCalls > 0) stages.push("particles");
         if (airReady && this.compositeAir(originX, width, height)) stages.push("composite");
+        if (exposed && this.exposeToScreen(originX, width, height)) stages.push("post");
         this.stats = {
           visible: list.stats.visible,
           inFrustum: list.stats.inFrustum,
@@ -6432,7 +7630,7 @@ void main(){
 });
 
 // packages/spatial-shaders/src/index.ts
-var BERX_WORLD_WGSL, BERX_LABEL_WGSL, BERX_VOLUMETRIC_WGSL, BERX_SSAO_WGSL, BERX_PARTICLES_WGSL;
+var BERX_WORLD_WGSL, BERX_LABEL_WGSL, BERX_VOLUMETRIC_WGSL, BERX_SSAO_WGSL, BERX_PARTICLES_WGSL, BERX_POST_WGSL;
 var init_src2 = __esm({
   "packages/spatial-shaders/src/index.ts"() {
     "use strict";
@@ -6441,6 +7639,7 @@ var init_src2 = __esm({
     BERX_VOLUMETRIC_WGSL = "// BERX volumetric light, in WGSL. This file is the only copy of it.\n//\n// Two backends run this exact text: @berx/spatial-web's WebGPU renderer,\n// which imports it through @berx/spatial-shaders, and the native\n// berx-spatial-native crate, which include_str!s it. WebGL2 runs the same\n// maths as a fullscreen fragment pass (see threeRuntime.ts) \u2014 the march\n// below is line for line the same sequence.\n//\n// A fullscreen FRAGMENT pass rather than a compute one, unlike ssao.wgsl,\n// and for a reason: WebGL2 has no compute stage, so a fragment shape is\n// the only one all three backends can run identically. SSAO writes to a\n// storage texture it then reads at a different pixel, which a fragment\n// pass cannot do; this one only ever writes the pixel it is on.\n//\n// What is NOT here is anything that decides the answer: the density, the\n// phase asymmetry, the march length and the intensity all arrive in `v`\n// from @berx/spatial's berxVolumetricUniform, and the loop is the same\n// sequence of operations as that module's berxVolumetricAt \u2014 the CPU twin\n// the gate predicts pixels with.\n\nstruct VolGlobals {\n  // the inverse of projection * view, for turning a pixel into a ray\n  inv_view_proj: mat4x4<f32>,\n  // xyz eye position, w unused\n  eye: vec4<f32>,\n  // xyz toward the key light, w unused\n  light_dir: vec4<f32>,\n  // rgb the key's colour, w its intensity\n  light_col: vec4<f32>,\n  // the light's own view-projection, in this API's depth range\n  light_vp: mat4x4<f32>,\n  // x = 1/mapSize, y = depth bias, z unused, w = shadow strength\n  shadow: vec4<f32>,\n  // x = density, y = phase g, z = max distance, w = intensity\n  params: vec4<f32>,\n  // x = march width, y = march height, z = steps, w = march scale\n  //\n  // The march may run at a FRACTION of the frame: a shaft is a smooth,\n  // low-frequency thing with no edges of its own \u2014 only the ones the\n  // shadow map gives it \u2014 so it survives being computed at half\n  // resolution and upsampled, and the cost is quadratic in that choice.\n  // xy are therefore the MARCH's dimensions, and w says how many frame\n  // pixels one of them covers, which is all the G-buffer fetch needs.\n  dims: vec4<f32>,\n  // xyz the camera's forward direction, w unused. Turns the G-buffer's\n  // view depth into a distance along THIS ray.\n  forward: vec4<f32>,\n};\n\n@group(0) @binding(0) var<uniform> v: VolGlobals;\n@group(0) @binding(1) var shadow_sampler: sampler_comparison;\n@group(0) @binding(2) var shadow_texture: texture_depth_2d;\n// rgb = view-space normal, a = linear view depth in metres (0 = nothing)\n@group(0) @binding(3) var gbuffer: texture_2d<f32>;\n\n// The composite's own resources, on a second group: a WGSL module cannot\n// declare two different resources at the same @group/@binding, and the\n// composite reads what the march wrote rather than what the march read.\n@group(1) @binding(0) var vol_sampler: sampler;\n@group(1) @binding(1) var vol_texture: texture_2d<f32>;\n\nconst PI: f32 = 3.14159265359;\n\nstruct VsOut {\n  @builtin(position) clip: vec4<f32>,\n  @location(0) uv: vec2<f32>,\n};\n\n@vertex\nfn vs_fullscreen(@builtin(vertex_index) i: u32) -> VsOut {\n  // one triangle covering the screen: fewer vertices than a quad and no\n  // seam down the diagonal where two triangles meet\n  var corners = array<vec2<f32>, 3>(\n    vec2<f32>(-1.0, -1.0), vec2<f32>(3.0, -1.0), vec2<f32>(-1.0, 3.0),\n  );\n  let c = corners[i];\n  var o: VsOut;\n  o.clip = vec4<f32>(c, 0.0, 1.0);\n  o.uv = vec2<f32>(c.x * 0.5 + 0.5, 0.5 - c.y * 0.5);\n  return o;\n}\n\n/**\n * Henyey\u2013Greenstein. The same curve as @berx/spatial's berxPhaseHG,\n * including the clamp: at g\u21921 and cosTheta\u21921 the denominator goes to\n * zero and the phase to infinity, which is the singular lobe that blows\n * a shaft out to white.\n */\nfn phase_hg(cos_theta: f32, g: f32) -> f32 {\n  let g2 = g * g;\n  let denom = 1.0 + g2 - 2.0 * g * cos_theta;\n  return (1.0 - g2) / (4.0 * PI * pow(max(denom, 1e-4), 1.5));\n}\n\n/**\n * FNV-1a over the pixel coordinate \u2014 the same hash as\n * berxVolumetricJitter, which is why a shaft dithers identically in\n * four languages without shipping a noise texture.\n */\nfn jitter(x: i32, y: i32) -> f32 {\n  var h: u32 = 0x811c9dc5u;\n  h = h ^ (u32(x) & 0xffffu);\n  h = h * 0x01000193u;\n  h = h ^ (u32(y) & 0xffffu);\n  h = h * 0x01000193u;\n  return f32(h >> 8u) / 16777216.0;\n}\n\n/** 1 where the key light reaches this point, 0 where the map says it does not. */\nfn lit_at(world: vec3<f32>) -> f32 {\n  if (v.shadow.w <= 0.0) { return 1.0; }\n  let clip = v.light_vp * vec4<f32>(world, 1.0);\n  let ndc = clip.xyz / max(clip.w, 1e-6);\n  // outside the light's own box the air is lit, not dark: a world larger\n  // than the map must not grow a hard black wall where the map ends\n  if (ndc.x < -1.0 || ndc.x > 1.0 || ndc.y < -1.0 || ndc.y > 1.0 || ndc.z > 1.0) { return 1.0; }\n  let uv = vec2<f32>(ndc.x * 0.5 + 0.5, 0.5 - ndc.y * 0.5);\n  return textureSampleCompareLevel(shadow_texture, shadow_sampler, uv, ndc.z - v.shadow.y);\n}\n\n@fragment\nfn fs_volumetric(i: VsOut) -> @location(0) vec4<f32> {\n  let px = i32(i.uv.x * v.dims.x);\n  let py = i32(i.uv.y * v.dims.y);\n\n  // The ray through this pixel, from the inverse view-projection. Two\n  // points on it rather than a direction guess, so the reconstruction is\n  // exactly the camera's own.\n  let ndc = vec2<f32>(i.uv.x * 2.0 - 1.0, 1.0 - i.uv.y * 2.0);\n  let near_h = v.inv_view_proj * vec4<f32>(ndc, 0.0, 1.0);\n  let far_h = v.inv_view_proj * vec4<f32>(ndc, 1.0, 1.0);\n  let near_p = near_h.xyz / max(near_h.w, 1e-6);\n  let far_p = far_h.xyz / max(far_h.w, 1e-6);\n  let dir = normalize(far_p - near_p);\n\n  // Distance to the first surface. The march stops there: air behind a\n  // wall does not scatter light into the eye, and marching past it is how\n  // a volumetric pass glows through solid objects.\n  //\n  // The G-buffer stores VIEW DEPTH \u2014 distance along the camera's forward\n  // axis \u2014 and the march needs distance along THIS ray. For an off-axis\n  // pixel those differ by 1/cos, and using the depth directly cuts the\n  // march short by that factor: a measurable error toward the corners of\n  // the frame, and one the CPU twin would reproduce only by making the\n  // same mistake.\n  // The G-buffer is always at FRAME resolution \u2014 the occlusion pass reads\n  // it per pixel and cannot be cheapened the same way \u2014 so a march pixel\n  // maps to the centre of the block it covers. At scale 1 this is exactly\n  // (px, py), which is why turning the scale on changes nothing at HIGH.\n  let scale = max(v.dims.w, 1.0);\n  let gxy = vec2<f32>(f32(px), f32(py)) * scale + vec2<f32>((scale - 1.0) * 0.5);\n  let g = textureLoad(gbuffer, vec2<i32>(gxy), 0);\n  let along = max(dot(dir, normalize(v.forward.xyz)), 1e-3);\n  let surface = select(v.params.z, g.a / along, g.a > 0.0);\n  let far = min(v.params.z, surface);\n  if (far <= 0.0) { return vec4<f32>(0.0, 0.0, 0.0, 1.0); }\n\n  let steps = i32(v.dims.z);\n  let step_length = far / f32(steps);\n  let phase = phase_hg(dot(dir, normalize(v.light_dir.xyz)), v.params.y);\n  let offset = jitter(px, py);\n\n  var inscatter = 0.0;\n  for (var s: i32 = 0; s < steps; s = s + 1) {\n    let t = (f32(s) + offset) * step_length;\n    let p = v.eye.xyz + dir * t;\n    let lit = lit_at(p);\n    if (lit <= 0.0) { continue; }\n    // Beer\u2013Lambert: what scatters here still has to reach the eye\n    let transmittance = exp(-v.params.x * t);\n    inscatter = inscatter + lit * phase * v.params.x * step_length * transmittance;\n  }\n\n  let energy = inscatter * v.params.w;\n  // The scattering is grey; the colour is the key light's own. Keeping\n  // them apart means a change of light colour cannot silently change the\n  // amount of scattering.\n  return vec4<f32>(v.light_col.rgb * v.light_col.w * energy, 1.0);\n}\n\n/**\n * The additive composite.\n *\n * Light in the air ADDS to what is behind it. A composite that blended\n * over the world would be a fog overlay: it would darken something, and\n * scattering never darkens anything. The blend state on the pipeline is\n * ONE/ONE for exactly that reason, and this shader only has to hand back\n * the in-scatter it was given.\n */\n@fragment\nfn fs_composite(i: VsOut) -> @location(0) vec4<f32> {\n  /**\n   * A bilinear tap, written out rather than asked of a sampler.\n   *\n   * The march target is rgba32float, and a 32-bit float texture is not\n   * filterable in WebGPU without an optional feature no phone is\n   * guaranteed to have. Dropping to rgba16float would have bought\n   * hardware filtering \u2014 and would have moved the volumetric gate's\n   * oracle tolerance from 1e-7 to about 1e-3 to accommodate it, which is\n   * loosening a measurement to fit a change rather than the other way\n   * round. Four loads and three mixes cost less than that.\n   *\n   * At scale 1 the sample lands exactly on a texel centre, f is zero in\n   * both axes, and this returns the same value a nearest tap did \u2014 so\n   * the full-resolution picture is unchanged, bit for bit.\n   */\n  let size = vec2<f32>(textureDimensions(vol_texture));\n  let p = i.uv * size - vec2<f32>(0.5);\n  let base = floor(p);\n  let f = p - base;\n  let hi = size - vec2<f32>(1.0);\n  let c00 = vec2<i32>(clamp(base, vec2<f32>(0.0), hi));\n  let c10 = vec2<i32>(clamp(base + vec2<f32>(1.0, 0.0), vec2<f32>(0.0), hi));\n  let c01 = vec2<i32>(clamp(base + vec2<f32>(0.0, 1.0), vec2<f32>(0.0), hi));\n  let c11 = vec2<i32>(clamp(base + vec2<f32>(1.0, 1.0), vec2<f32>(0.0), hi));\n  let top = mix(textureLoad(vol_texture, c00, 0).rgb, textureLoad(vol_texture, c10, 0).rgb, f.x);\n  let bottom = mix(textureLoad(vol_texture, c01, 0).rgb, textureLoad(vol_texture, c11, 0).rgb, f.x);\n  return vec4<f32>(mix(top, bottom, f.y), 1.0);\n}\n";
     BERX_SSAO_WGSL = "// BERX SSAO, in WGSL. This file is the only copy of it.\n//\n// Two backends run this exact text: @berx/spatial-web's WebGPU renderer,\n// which imports it through @berx/spatial-shaders, and the native\n// berx-spatial-native crate, which include_str!s it. WebGL2 has no\n// compute stage, so it runs the same maths as a fullscreen fragment pass\n// (see threeRuntime.ts) \u2014 the loop is line for line this one.\n//\n// It is a separate module from world.wgsl rather than another entry point\n// in it because a WGSL module cannot declare two different resources at\n// the same @group/@binding, and this pass needs its own bind group.\n\n/* ------------------------------------------------------------------ *\n * SSAO \u2014 the compute pass\n * ------------------------------------------------------------------ *\n *\n * The loop is here because a pixel has to ask its neighbours, and that\n * cannot be a closed form. What is NOT here is anything that decides the\n * answer: the sample kernel, the radius, the bias, the strength and the\n * falloff all arrive in `k` from @berx/spatial's berxSSAOUniform, and the\n * accumulation below is the same sequence of operations as that module's\n * berxSSAOAt \u2014 which is the CPU twin the gate predicts pixels with.\n *\n * There is no per-pixel random rotation and no blur pass to hide one.\n * The kernel is an evenly-spaced golden-angle spiral, which does not need\n * the rotation, and a blur would add a radius three backends would have\n * to agree on for no gain.\n */\n\nstruct SsaoKernel {\n  // BERX_SSAO_SAMPLES hemisphere offsets, then one vec4 of parameters:\n  // x = radius, y = bias, z = strength, w = power.\n  s: array<vec4<f32>, 17>,\n};\n\n@group(0) @binding(0) var<uniform> sk: SsaoKernel;\n@group(0) @binding(1) var gbuffer: texture_2d<f32>;\n@group(0) @binding(2) var ao_out: texture_storage_2d<r32float, write>;\n// x = width, y = height, z = focal length in pixels, w unused\n// x = width, y = height, z = focal length in pixels, w = LIVE TAPS\n//\n// The kernel buffer is always sixteen vec4s so that a change of quality\n// cannot change its size \u2014 and therefore cannot invalidate a bind group\n// naming it. A tier that can only afford eight gets a STRIDE through the\n// spiral in the first eight slots, zeroes in the rest, and this count.\n@group(0) @binding(3) var<uniform> sdim: vec4<f32>;\n\n@compute @workgroup_size(8, 8)\nfn cs_ssao(@builtin(global_invocation_id) id: vec3<u32>) {\n  let w = i32(sdim.x);\n  let h = i32(sdim.y);\n  let x = i32(id.x);\n  let y = i32(id.y);\n  if (x >= w || y >= h) { return; }\n\n  let centre = textureLoad(gbuffer, vec2<i32>(x, y), 0);\n  // nothing was drawn here, so there is nothing to occlude\n  if (centre.a <= 0.0) {\n    textureStore(ao_out, vec2<i32>(x, y), vec4<f32>(1.0, 0.0, 0.0, 1.0));\n    return;\n  }\n\n  let params = sk.s[16];\n  let radius = params.x;\n  let strength = params.z;\n  let power = params.w;\n  let n = normalize(centre.xyz);\n\n  // A deterministic basis, not a noise-texture rotation \u2014 see the note\n  // above and berxSSAOAt's own.\n  var up = vec3<f32>(0.0, 0.0, 1.0);\n  if (abs(n.z) >= 0.999) { up = vec3<f32>(1.0, 0.0, 0.0); }\n  let tx = normalize(cross(up, n));\n  let ty = cross(n, tx);\n  // Slope-scaled bias \u2014 see berxSSAOAt's own note. A sample lands on a\n  // whole pixel, and on an oblique surface the geometry there is up to\n  // half a pixel of slope away in depth; a constant bias leaves every\n  // tilted surface with a uniform haze.\n  let slope = 1.0 - min(1.0, abs(n.z));\n  let bias = params.y * (1.0 + slope * 4.0);\n\n  var occluded = 0.0;\n  let taps = i32(sdim.w);\n  for (var j: i32 = 0; j < 16; j = j + 1) {\n    if (j >= taps) { break; }\n    let k = sk.s[j].xyz;\n    let s = tx * k.x + ty * k.y + n * k.z;\n    let sample_depth = centre.a - s.z * radius;\n    if (sample_depth <= 0.0) { continue; }\n    let sx = x + i32(round((s.x * radius * sdim.z) / sample_depth));\n    let sy = y - i32(round((s.y * radius * sdim.z) / sample_depth));\n    if (sx < 0 || sy < 0 || sx >= w || sy >= h) { continue; }\n    let there = textureLoad(gbuffer, vec2<i32>(sx, sy), 0);\n    if (there.a <= 0.0) { continue; }\n    if (there.a < sample_depth - bias) {\n      // range check: without it every silhouette grows a dark halo from\n      // whatever happens to be far behind it\n      let range = radius / max(abs(centre.a - there.a), 1e-4);\n      occluded = occluded + min(1.0, range);\n    }\n  }\n\n  let ratio = occluded / f32(max(taps, 1));\n  let ao = max(0.0, 1.0 - pow(ratio, power) * strength);\n  textureStore(ao_out, vec2<i32>(x, y), vec4<f32>(ao, 0.0, 0.0, 1.0));\n}\n";
     BERX_PARTICLES_WGSL = "// BERX particles, in WGSL. This file is the only copy of it.\n//\n// Two backends run this exact text: @berx/spatial-web's WebGPU renderer,\n// which imports it through @berx/spatial-shaders, and the native\n// berx-spatial-native crate, which include_str!s it. WebGL2 runs the same\n// maths as a GLSL port (see threeRuntime.ts) \u2014 the hash and the placement\n// below are the same sequence.\n//\n// NOTHING IS READ FROM A BUFFER. Each vertex works out where its own\n// particle is from a hash of its index, exactly as @berx/spatial's\n// berxParticleAt does \u2014 which is what makes the field identical in four\n// languages without a buffer to keep in sync, and what lets a CPU twin\n// say where every particle will be before the GPU draws it.\n//\n// Six vertices per particle, expanded from the vertex index alone: a\n// camera-facing quad needs no vertex buffer at all when its corners come\n// from arithmetic.\n\nstruct ParticleGlobals {\n  proj: mat4x4<f32>,\n  view: mat4x4<f32>,\n  // xyz what the field is arranged around, w the time in seconds\n  origin: vec4<f32>,\n  // rgb colour, a peak alpha\n  colour: vec4<f32>,\n  // x = extent, y = speed, z = size, w = period\n  shape: vec4<f32>,\n  // x = count, y = kind (0 dust, 1 energy, 2 stars), zw unused\n  counts: vec4<f32>,\n  // the camera's right and up, for the quads that face it\n  right: vec4<f32>,\n  up: vec4<f32>,\n};\n\n@group(0) @binding(0) var<uniform> p: ParticleGlobals;\n\nconst PI: f32 = 3.14159265359;\n\n/**\n * FNV-1a over an index and a lane \u2014 the same hash as\n * berxParticleHash. `lane` turns one index into several independent\n * numbers without needing four hashes or a table.\n */\nfn phash(index: u32, lane: u32) -> f32 {\n  var h: u32 = 0x811c9dc5u;\n  h = h ^ (index & 0xffffu);\n  h = h * 0x01000193u;\n  h = h ^ ((index >> 16u) & 0xffffu);\n  h = h * 0x01000193u;\n  h = h ^ (lane & 0xffffu);\n  h = h * 0x01000193u;\n  return f32(h >> 8u) / 16777216.0;\n}\n\nstruct Particle {\n  centre: vec3<f32>,\n  alpha: f32,\n  size: f32,\n};\n\n/** The same placement as berxParticleAt, term for term. */\nfn particle_at(index: u32) -> Particle {\n  let hx = phash(index, 1u);\n  let hy = phash(index, 2u);\n  let hz = phash(index, 3u);\n  let hp = phash(index, 4u);\n  let extent = p.shape.x;\n  let speed = p.shape.y;\n  let size = p.shape.z;\n  let period = p.shape.w;\n  let alpha = p.colour.a;\n  let phase = fract(p.origin.w / period + hp);\n\n  var out: Particle;\n  if (p.counts.y > 0.5 && p.counts.y < 1.5) {\n    // energy: a spiral leaving a surface, not a column of dots\n    let angle = hx * PI * 2.0 + phase * PI * 4.0;\n    let radius = extent * (0.25 + hy * 0.55) * (1.0 - phase * 0.45);\n    out.centre = vec3<f32>(\n      p.origin.x + cos(angle) * radius,\n      p.origin.y - extent * 0.4 + phase * extent * 1.8,\n      p.origin.z + sin(angle) * radius,\n    );\n    // fades in and out over its own life: a particle that appears at\n    // full brightness is a flicker, not a rising ember\n    out.alpha = alpha * sin(phase * PI);\n    out.size = size * (0.6 + hz * 0.8);\n    return out;\n  }\n\n  // dust and stars: a hashed cube around the origin, drifting. The drift\n  // wraps by construction, so there is no respawn and no lifetime\n  // bookkeeping to desynchronise between backends.\n  var drift = phase * extent;\n  if (speed == 0.0) { drift = 0.0; }\n  let wx = fract((hx * extent + drift * 0.35) / extent) * extent - extent * 0.5;\n  let wy = fract((hy * extent + drift) / extent) * extent - extent * 0.5;\n  let wz = fract((hz * extent + drift * 0.2) / extent) * extent - extent * 0.5;\n  out.centre = vec3<f32>(p.origin.x + wx, p.origin.y + wy, p.origin.z + wz);\n  // stars twinkle very slightly; dust does not \u2014 a twinkling mote in the\n  // near field reads as a rendering error\n  if (p.counts.y > 1.5) {\n    out.alpha = alpha * (0.65 + 0.35 * sin(phase * PI * 2.0));\n  } else {\n    out.alpha = alpha;\n  }\n  out.size = size * (0.7 + hz * 0.6);\n  return out;\n}\n\nstruct VsOut {\n  @builtin(position) clip: vec4<f32>,\n  @location(0) uv: vec2<f32>,\n  @location(1) alpha: f32,\n};\n\n@vertex\nfn vs_particles(@builtin(vertex_index) v: u32) -> VsOut {\n  let index = v / 6u;\n  let corner = v % 6u;\n  var corners = array<vec2<f32>, 6>(\n    vec2<f32>(-1.0, -1.0), vec2<f32>(1.0, -1.0), vec2<f32>(1.0, 1.0),\n    vec2<f32>(-1.0, -1.0), vec2<f32>(1.0, 1.0), vec2<f32>(-1.0, 1.0),\n  );\n  let q = corners[corner];\n  let particle = particle_at(index);\n  let world = particle.centre\n    + p.right.xyz * (q.x * particle.size)\n    + p.up.xyz * (q.y * particle.size);\n  var o: VsOut;\n  o.uv = q;\n  o.alpha = particle.alpha;\n  o.clip = p.proj * p.view * vec4<f32>(world, 1.0);\n  return o;\n}\n\n@fragment\nfn fs_particles(i: VsOut) -> @location(0) vec4<f32> {\n  // A round, soft mote. A square particle reads as a missing texture,\n  // and a hard-edged circle reads as a UI dot.\n  let r = length(i.uv);\n  if (r > 1.0) { discard; }\n  let falloff = 1.0 - r * r;\n  let a = i.alpha * falloff * falloff;\n  if (a < 0.002) { discard; }\n  // premultiplied: these are drawn additively, so the colour carries the\n  // alpha and the blend adds it to whatever is behind\n  return vec4<f32>(p.colour.rgb * a, a);\n}\n";
+    BERX_POST_WGSL = "// BERX post, in WGSL. This file is the only copy of it.\n//\n// Two backends run this exact text: @berx/spatial-web's WebGPU renderer,\n// which imports it through @berx/spatial-shaders, and the native\n// berx-spatial-native crate, which include_str!s it. WebGL2 runs the same\n// maths as a fullscreen fragment pass (see threeRuntime.ts) \u2014 the five\n// constants below are the same five numbers there and in Rust and in\n// @berx/spatial's berxExposure, which is the CPU twin the gate predicts\n// pixels with.\n//\n// This stage was declared `absent` in renderPipeline.ts for the whole of\n// the project's life, and the honesty of that label is what made the\n// problem findable: there was no tone-map, so the frame was whatever the\n// world pass wrote, and what the world pass wrote was every brand colour\n// dimmed by the room's own light transport. #15191E on #07080A came out\n// 7 against 7 out of 255 \u2014 an object and a void the same colour to\n// within half a code value.\n//\n// WHAT RUNS HERE, in order, and the order is the whole point:\n//\n//   linear HDR  ->  x exposure  ->  shoulder  ->  8-bit frame\n//\n// The input is the frame AFTER the air has been added, because\n// in-scatter is light and light is part of what is being exposed.\n// Tone-mapping the surfaces and then adding the air would put unmapped\n// values on top of mapped ones, which is not a brighter picture \u2014 it is\n// two different pictures added together.\n\nstruct PostGlobals {\n  // x = exposure gain, y..w unused\n  params: vec4<f32>,\n};\n\n@group(0) @binding(0) var frame_texture: texture_2d<f32>;\n@group(0) @binding(1) var<uniform> p: PostGlobals;\n\nstruct VsOut {\n  @builtin(position) clip: vec4<f32>,\n  @location(0) uv: vec2<f32>,\n};\n\n@vertex\nfn vs_post(@builtin(vertex_index) i: u32) -> VsOut {\n  // one triangle covering the screen: fewer vertices than a quad and no\n  // seam down the diagonal where two triangles meet\n  var corners = array<vec2<f32>, 3>(\n    vec2<f32>(-1.0, -1.0), vec2<f32>(3.0, -1.0), vec2<f32>(-1.0, 3.0),\n  );\n  let c = corners[i];\n  var o: VsOut;\n  o.clip = vec4<f32>(c, 0.0, 1.0);\n  o.uv = vec2<f32>(c.x * 0.5 + 0.5, 0.5 - c.y * 0.5);\n  return o;\n}\n\n// The ACES filmic fit (Narkowicz). Five constants, four languages, one\n// set of numbers.\n//\n// Chosen over a Reinhard curve for what it does to HUE, which is the\n// thing a brand palette cannot afford to lose: past white it desaturates\n// toward white the way film does, instead of clipping each channel on\n// its own and turning a bright teal into a cyan and then into a flat\n// white. It also lifts the middle \u2014 f(0.18) = 0.267 \u2014 which is why the\n// gain does not have to be larger than the measured transport says.\nfn shoulder(x: f32) -> f32 {\n  let v = max(x, 0.0);\n  let mapped = (v * (2.51 * v + 0.03)) / (v * (2.43 * v + 0.59) + 0.14);\n  return clamp(mapped, 0.0, 1.0);\n}\n\n@fragment\nfn fs_post(i: VsOut) -> @location(0) vec4<f32> {\n  // A LOAD, not a sample. This pass is one output pixel per input\n  // pixel, so there is nothing to filter and a bilinear tap only\n  // introduces a half-texel question each API answers its own way \u2014 it\n  // was worth exactly three disagreeing pixels along the top edge\n  // between the two web backends. An integer fetch has no such\n  // question and makes them identical by construction.\n  let hdr = textureLoad(frame_texture, vec2<i32>(i.clip.xy), 0);\n  let e = hdr.rgb * p.params.x;\n  // Per channel, and the shoulder is what keeps that from being three\n  // independent clips: two colours that both pass 1.0 stay different\n  // numbers on screen instead of both being white.\n  return vec4<f32>(shoulder(e.r), shoulder(e.g), shoulder(e.b), 1.0);\n}\n";
   }
 });
 
@@ -6811,11 +8010,12 @@ var init_webgpuRuntime = __esm({
     LABEL_GLOBALS_BYTES = 160;
     SAMPLE_COUNT = 4;
     BerxWebGPURuntimeRenderer = class _BerxWebGPURuntimeRenderer {
-      constructor(canvas, device, context, format, pipeline, drawLayout, mediaLayout, labelPipeline, labelLayout, shadowPipeline, gbufferPipeline, ssaoPipeline, volPipeline, compositePipeline, volLayout, compositeLayout, particlePipeline, particleLayout, options) {
+      constructor(canvas, device, context, format, hdrFormat, pipeline, drawLayout, mediaLayout, labelPipeline, labelLayout, shadowPipeline, gbufferPipeline, ssaoPipeline, volPipeline, compositePipeline, volLayout, compositeLayout, particlePipeline, particleLayout, postPipeline, postLayout, options) {
         this.canvas = canvas;
         this.device = device;
         this.context = context;
         this.format = format;
+        this.hdrFormat = hdrFormat;
         this.pipeline = pipeline;
         this.drawLayout = drawLayout;
         this.labelPipeline = labelPipeline;
@@ -6829,6 +8029,8 @@ var init_webgpuRuntime = __esm({
         this.compositeLayout = compositeLayout;
         this.particlePipeline = particlePipeline;
         this.particleLayout = particleLayout;
+        this.postPipeline = postPipeline;
+        this.postLayout = postLayout;
         this.kind = "webgpu";
         /* what this backend really does, and nothing it does not */
         this.capabilities = {
@@ -6951,6 +8153,7 @@ var init_webgpuRuntime = __esm({
         const context = canvas.getContext("webgpu");
         if (!context) return void 0;
         const format = "rgba8unorm";
+        const hdrFormat = "rgba16float";
         context.configure({
           device,
           format,
@@ -7006,7 +8209,7 @@ var init_webgpuRuntime = __esm({
             module,
             entryPoint: "fs",
             targets: [{
-              format,
+              format: hdrFormat,
               /* the same blend the WebGL2 backend runs */
               blend: {
                 color: { srcFactor: "src-alpha", dstFactor: "one-minus-src-alpha", operation: "add" },
@@ -7088,7 +8291,7 @@ var init_webgpuRuntime = __esm({
             module: labelModule,
             entryPoint: "fs",
             targets: [{
-              format,
+              format: hdrFormat,
               blend: {
                 color: { srcFactor: "src-alpha", dstFactor: "one-minus-src-alpha", operation: "add" },
                 alpha: { srcFactor: "src-alpha", dstFactor: "one-minus-src-alpha", operation: "add" }
@@ -7135,7 +8338,7 @@ var init_webgpuRuntime = __esm({
             module: volModule,
             entryPoint: "fs_composite",
             targets: [{
-              format,
+              format: hdrFormat,
               /* ONE/ONE: light in the air adds to what is behind it */
               blend: {
                 color: { srcFactor: "one", dstFactor: "one", operation: "add" },
@@ -7164,7 +8367,7 @@ var init_webgpuRuntime = __esm({
             module: particleModule,
             entryPoint: "fs_particles",
             targets: [{
-              format,
+              format: hdrFormat,
               blend: {
                 /* premultiplied and additive: the shader hands back a
                    colour that already carries its alpha */
@@ -7177,7 +8380,20 @@ var init_webgpuRuntime = __esm({
           depthStencil: { format: "depth32float", depthWriteEnabled: false, depthCompare: "less" },
           multisample: { count: SAMPLE_COUNT }
         });
-        const renderer = new _BerxWebGPURuntimeRenderer(canvas, device, context, format, pipeline, drawLayout, mediaLayout, labelPipeline, labelLayout, shadowPipeline, gbufferPipeline, ssaoPipeline, volPipeline, compositePipeline, volLayout, compositeLayout, particlePipeline, particleLayout, options);
+        const postModule = device.createShaderModule({ code: BERX_POST_WGSL });
+        const postLayout = device.createBindGroupLayout({
+          entries: [
+            { binding: 0, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: "float" } },
+            { binding: 1, visibility: GPUShaderStage.FRAGMENT, buffer: { type: "uniform" } }
+          ]
+        });
+        const postPipeline = device.createRenderPipeline({
+          layout: device.createPipelineLayout({ bindGroupLayouts: [postLayout] }),
+          vertex: { module: postModule, entryPoint: "vs_post" },
+          fragment: { module: postModule, entryPoint: "fs_post", targets: [{ format }] },
+          primitive: { topology: "triangle-list" }
+        });
+        const renderer = new _BerxWebGPURuntimeRenderer(canvas, device, context, format, hdrFormat, pipeline, drawLayout, mediaLayout, labelPipeline, labelLayout, shadowPipeline, gbufferPipeline, ssaoPipeline, volPipeline, compositePipeline, volLayout, compositeLayout, particlePipeline, particleLayout, postPipeline, postLayout, options);
         renderer.errors = errors;
         renderer.adapter = adapter;
         renderer.lostPromise = device.lost.then((info) => {
@@ -7259,15 +8475,22 @@ var init_webgpuRuntime = __esm({
         this.msaa?.destroy();
         this.depth?.destroy();
         this.offscreen?.destroy();
+        this.hdr?.destroy();
+        this.postBind = void 0;
         this.offscreen = this.device.createTexture({
           size: { width: this.width, height: this.height },
           format: this.format,
           usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC
         });
+        this.hdr = this.device.createTexture({
+          size: { width: this.width, height: this.height },
+          format: this.hdrFormat,
+          usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING
+        });
         this.msaa = this.device.createTexture({
           size: { width: this.width, height: this.height },
           sampleCount: SAMPLE_COUNT,
-          format: this.format,
+          format: this.hdrFormat,
           usage: GPUTextureUsage.RENDER_ATTACHMENT
         });
         this.depth = this.device.createTexture({
@@ -7585,7 +8808,10 @@ var init_webgpuRuntime = __esm({
         const pass = encoder.beginRenderPass({
           colorAttachments: [{
             view: this.msaa.createView(),
-            resolveTarget: (offscreen ? this.offscreen : this.context.getCurrentTexture()).createView(),
+            /* Always the linear frame now: post is what reaches the
+               screen, and a world pass that resolved straight to it
+               would be the un-exposed picture again. */
+            resolveTarget: this.hdr.createView(),
             clearValue: { r: BERX_WORLD_CLEAR[0], g: BERX_WORLD_CLEAR[1], b: BERX_WORLD_CLEAR[2], a: 1 },
             loadOp: pass_?.clear === false ? "load" : "clear",
             storeOp: "store"
@@ -7664,6 +8890,35 @@ var init_webgpuRuntime = __esm({
           drawCalls++;
         }
         pass.end();
+        if (!this.postUniform) {
+          this.postUniform = device.createBuffer({
+            size: 16,
+            usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+          });
+        }
+        device.queue.writeBuffer(this.postUniform, 0, new Float32Array([BERX_EXPOSURE, 0, 0, 0]));
+        if (!this.postBind) {
+          this.postBind = device.createBindGroup({
+            layout: this.postLayout,
+            entries: [
+              { binding: 0, resource: this.hdr.createView() },
+              { binding: 1, resource: { buffer: this.postUniform } }
+            ]
+          });
+        }
+        const postPass = encoder.beginRenderPass({
+          colorAttachments: [{
+            view: (offscreen ? this.offscreen : this.context.getCurrentTexture()).createView(),
+            clearValue: { r: 0, g: 0, b: 0, a: 1 },
+            loadOp: "clear",
+            storeOp: "store"
+          }]
+        });
+        stages.push("post");
+        postPass.setPipeline(this.postPipeline);
+        postPass.setBindGroup(0, this.postBind);
+        postPass.draw(3);
+        postPass.end();
         device.queue.submit([encoder.finish()]);
         this.slots = list.actionSlots;
         const accumulate = pass_?.keep === true;
@@ -7936,6 +9191,10 @@ var init_webgpuRuntime = __esm({
         this.msaa?.destroy();
         this.depth?.destroy();
         this.offscreen?.destroy();
+        this.hdr?.destroy();
+        this.postUniform?.destroy();
+        this.hdr?.destroy();
+        this.postBind = void 0;
         this.device.destroy();
       }
     };
@@ -7944,6 +9203,347 @@ var init_webgpuRuntime = __esm({
 
 // packages/spatial-web/src/index.ts
 init_src();
+
+// packages/spatial-web/src/voiceToWorld.ts
+init_src();
+
+// packages/scenes/src/spatialMapping.ts
+init_src();
+function berxSpatialId(kind, guid) {
+  return `${kind}:${guid}`;
+}
+var MATERIAL_NAME = {
+  person: "pearl",
+  moment: "dark-glass",
+  place: "graphite",
+  event: "soft-gold",
+  experience: "champagne",
+  community: "ceramic",
+  business: "metal",
+  collection: "fabric",
+  message: "dark-glass",
+  create: "energy"
+};
+function materialStateFor(kind) {
+  const name = MATERIAL_NAME[kind];
+  const physical = berxWorldMaterial(name);
+  return {
+    material: name,
+    /* emission is the material's, scaled by real energy at draw time */
+    emissive: physical.emission[0] + physical.emission[1] + physical.emission[2] > 0 ? 1 : 0,
+    roughness: physical.roughness,
+    metalness: physical.metalness,
+    opacity: physical.opacity,
+    transmission: physical.transmission
+  };
+}
+var DEFAULT_DEPTH = 3;
+function baseObject(kind, guid, label, sourceId, energy, placement, time) {
+  const now = Date.now();
+  return {
+    id: berxSpatialId(kind, guid),
+    kind,
+    label,
+    sourceId,
+    ...time ? { time } : {},
+    transform: {
+      position: placement.position ? { ...placement.position } : { x: 0, y: 0, z: 0 },
+      rotation: { x: 0, y: 0, z: 0 },
+      /* the form's own proportions, so a place is portal-shaped and a
+         message is message-shaped without every caller knowing that */
+      scale: geometryScale(geometryForEntity(kind))
+    },
+    material: materialStateFor(kind),
+    visible: placement.visible ?? true,
+    interactive: placement.interactive ?? true,
+    focusable: placement.focusable ?? true,
+    energy: clamp012(energy),
+    depth: placement.depth ?? DEFAULT_DEPTH,
+    createdAt: now,
+    updatedAt: now
+  };
+}
+var clamp012 = (v) => v < 0 ? 0 : v > 1 ? 1 : v;
+function surfaceFor(object, uri, fit = "cover") {
+  if (!uri) return [];
+  return [createMediaSurface(object, { mediaId: `${object.id}:media`, uri, aspectRatio: 1, fit, opacity: 1 })];
+}
+var ownedBy = (objectId, ownerGuid) => ({
+  id: `${objectId}->${berxSpatialId("person", ownerGuid)}:created-by`,
+  from: objectId,
+  to: berxSpatialId("person", ownerGuid),
+  type: "created-by",
+  /**
+   * Weaker than any structural relation, deliberately. Who made a
+   * place matters less to where that place stands than what happens
+   * at it — so an event settles beside its venue, and the venue
+   * settles near whoever made it.
+   */
+  strength: 0.55
+});
+function mapUserToSpatial(user, placement = {}) {
+  const object = baseObject("person", user.guid, user.fullname || user.username, String(user.guid), 0, placement);
+  return { object, media: surfaceFor(object, user.icon_url), relations: [] };
+}
+function mapFeedItemToSpatial(item, placement = {}) {
+  const label = item.text.trim().slice(0, 80) || "\u041C\u043E\u043C\u0435\u043D\u0442";
+  const object = baseObject("moment", item.guid, label, String(item.guid), 0, placement, { at: item.time_created });
+  const relations = item.owner_username ? [{
+    id: `${object.id}->${berxSpatialId("person", item.owner_guid)}`,
+    from: object.id,
+    to: berxSpatialId("person", item.owner_guid),
+    type: "created-by",
+    strength: 1
+  }] : [];
+  return { object, media: [], relations };
+}
+function mapNearbyPlaceToSpatial(place, now, placement = {}) {
+  const live = place.moments.filter((m) => m.ends_at * 1e3 > now).length;
+  const object = baseObject("place", place.guid, place.title, String(place.guid), live === 0 ? 0 : Math.min(1, 0.4 + live * 0.2), placement);
+  return { object, media: surfaceFor(object, place.cover_url), relations: [] };
+}
+function mapEventToSpatial(event, placement = {}) {
+  const energy = event.has_ended ? 0 : event.is_going ? 0.7 : 0.35;
+  const object = baseObject("event", event.guid, event.title, String(event.guid), energy, placement, {
+    at: event.starts,
+    startsAt: event.starts,
+    /* `ends` is nullable, and open-ended is not the same as instant */
+    ...event.ends !== null ? { endsAt: event.ends } : {}
+  });
+  const relations = event.place ? [ownedBy(object.id, event.owner_guid), {
+    id: `${object.id}->${berxSpatialId("place", event.place.guid)}`,
+    from: object.id,
+    to: berxSpatialId("place", event.place.guid),
+    type: "located-at",
+    strength: 1
+  }] : [ownedBy(object.id, event.owner_guid)];
+  return { object, media: surfaceFor(object, event.cover_url), relations };
+}
+function mapNearbyEventToSpatial(event, placement = {}) {
+  const object = baseObject("event", event.guid, event.title, String(event.guid), 0.35, placement, { at: event.starts, startsAt: event.starts });
+  return {
+    object,
+    media: [],
+    relations: [{
+      id: `${object.id}->${berxSpatialId("place", event.place_guid)}`,
+      from: object.id,
+      to: berxSpatialId("place", event.place_guid),
+      type: "located-at",
+      strength: 1
+    }]
+  };
+}
+
+// packages/spatial-web/src/voiceToWorld.ts
+var TONE_OF = Object.freeze({
+  /* A failure is an invitation to try another way, not an apology. */
+  error: "holding",
+  recovering: "tender",
+  discovering: "warm",
+  success: "warm"
+});
+var ENTITIES = Object.freeze({
+  nearbyNow: (got, now) => {
+    const r = got;
+    return [
+      ...(r?.events ?? []).map((e) => mapNearbyEventToSpatial(e)),
+      ...(r?.places ?? []).map((p) => mapNearbyPlaceToSpatial(p, now))
+    ];
+  },
+  nearbyPlaces: (got, now) => (got?.places ?? []).map((p) => mapNearbyPlaceToSpatial(p, now)),
+  events: (got) => (got?.events ?? []).map((e) => mapEventToSpatial(e)),
+  searchUsers: (got) => (got?.users ?? []).map((u) => mapUserToSpatial(u)),
+  feed: (got) => (got?.posts ?? []).map((p) => mapFeedItemToSpatial(p))
+});
+var callFor = (capability, client, situation) => {
+  const method = client[capability];
+  if (typeof method !== "function") return void 0;
+  const call = method.bind(client);
+  const here = situation.location;
+  switch (capability) {
+    case "nearbyNow":
+      return here ? () => call(here.lat, here.lng, 5, false, true) : void 0;
+    case "nearbyPlaces":
+      return here ? () => call(here.lat, here.lng, 5) : void 0;
+    case "events":
+      return () => call({});
+    case "searchUsers":
+      return () => call("");
+    case "feed":
+      return () => call(20, 0);
+    default:
+      return () => call();
+  }
+};
+function berxVoiceToWorld(options) {
+  let state = berxLivingWorld();
+  const turns = [];
+  const now = options.now ?? (() => Date.now());
+  const situationNow = () => {
+    const world = options.host.world;
+    const frame = world?.latestFrame;
+    const position = world?.worldPosition;
+    return berxSituation({
+      nowMs: now(),
+      cursor: world?.cursor ?? berxTemporalCursor(Math.floor(now() / 1e3)),
+      region: position?.region ?? "world",
+      focusId: frame?.world.activeObjectId,
+      viewerId: world?.viewer,
+      objects: frame?.world.objects ?? [],
+      eye: frame?.camera.position ?? { x: 0, y: 0, z: 0 },
+      location: options.location?.(),
+      allowed: options.permissions?.() ?? {
+        microphone: true,
+        location: options.location?.() !== void 0,
+        notifications: false,
+        presence: false
+      }
+    });
+  };
+  const composed = /* @__PURE__ */ new Map();
+  const bridge = {
+    async execute(plan, situation) {
+      const results = [];
+      let entities = [];
+      composed.clear();
+      for (const step of plan.steps) {
+        if (!step.capability) {
+          results.push({ step, state: "done" });
+          continue;
+        }
+        const call = callFor(step.capability, options.client, situation);
+        if (!call) {
+          results.push({
+            step,
+            state: "failed",
+            reason: situation.location === void 0 && (step.capability === "nearbyNow" || step.capability === "nearbyPlaces") ? "\u044F \u043D\u0435 \u0437\u043D\u0430\u044E, \u0433\u0434\u0435 \u0442\u044B" : `${step.capability} \u043D\u0435\u0442 \u043D\u0430 \u0441\u0435\u0440\u0432\u0435\u0440\u0435`
+          });
+          break;
+        }
+        try {
+          const got = await call();
+          results.push({ step, state: "done", got });
+          const mapped = ENTITIES[step.capability]?.(got, now()) ?? [];
+          for (const m of mapped) composed.set(m.object.id, m);
+          entities = mapped.map((m) => ({ id: m.object.id, label: m.object.label }));
+        } catch (error) {
+          results.push({ step, state: "failed", reason: error instanceof Error ? error.message : "\u0441\u0435\u0440\u0432\u0435\u0440 \u043D\u0435 \u043E\u0442\u0432\u0435\u0442\u0438\u043B" });
+          break;
+        }
+      }
+      return { results, entities };
+    },
+    travel(objectId) {
+      return options.host.world?.travelTo(objectId) ?? false;
+    },
+    back() {
+      return options.host.back();
+    }
+  };
+  let generation = 0;
+  let running = false;
+  const silence = () => {
+    options.stopSpeaking?.();
+    options.voice?.stop();
+  };
+  const speakIt = async (turn, mine) => {
+    const backend = options.voice;
+    if (!backend?.available || turn.say.text === "") return;
+    if (mine !== generation) return;
+    options.host.coreCause({ kind: "speech", speaking: true });
+    try {
+      await backend.speak(turn.say.text, berxVoiceProsody(TONE_OF[turn.core.state] ?? "calm"));
+    } finally {
+      if (mine === generation) options.host.coreCause({ kind: "speech", speaking: false });
+    }
+  };
+  const run = async (utterance) => {
+    const mine = ++generation;
+    running = true;
+    try {
+      state = { ...state, core: options.host.core };
+      const turn = await berxSpeakToWorld(state, utterance, situationNow(), bridge, (intent) => {
+        state = { ...state, memory: berxRequested(state.memory, intent.kind) };
+      }, (cause) => {
+        if (mine === generation) options.host.coreCause(cause);
+      });
+      if (mine !== generation) return turn;
+      state = { core: turn.core, memory: turn.memory };
+      turns.push(turn);
+      applyToWorld(turn);
+      options.onTurn?.(turn);
+      await speakIt(turn, mine);
+      return turn;
+    } finally {
+      if (mine === generation) running = false;
+    }
+  };
+  const interrupt = async (utterance) => {
+    silence();
+    return run(utterance);
+  };
+  return {
+    get busy() {
+      return running;
+    },
+    interrupt,
+    async say(utterance) {
+      return run(utterance);
+    },
+    async hear(timeoutMs = 8e3) {
+      const backend = options.voice;
+      if (!backend) return void 0;
+      options.host.coreCause({ kind: "voice", speaking: true });
+      let heard;
+      try {
+        heard = await backend.listen(timeoutMs);
+      } catch {
+        heard = void 0;
+      }
+      if (!heard || heard.transcript.trim() === "") {
+        options.host.coreCause({ kind: "voice", speaking: false });
+        return void 0;
+      }
+      return running ? interrupt(heard.transcript) : run(heard.transcript);
+    },
+    get state() {
+      return state;
+    },
+    get turns() {
+      return turns;
+    }
+  };
+  function applyToWorld(turn) {
+    const world = options.host.world;
+    if (turn.change !== "composed" || !world) return;
+    const viewer = world.viewer;
+    for (const shown of turn.shown) {
+      const mapping = composed.get(shown.id);
+      if (!mapping) continue;
+      const asked = viewer && viewer !== shown.id ? [{
+        id: `${viewer}->${shown.id}:asked`,
+        from: viewer,
+        to: shown.id,
+        /* 'related' is the honest type: the viewer asked a
+           question and this was in the answer. Nothing about
+           it is contained, located-at or created-by, and
+           claiming one of those would be inventing a fact
+           about the world from the fact that it was found. */
+        type: "related",
+        strength: 0.5
+      }] : [];
+      world.ingest([{
+        object: mapping.object,
+        relations: [...mapping.relations, ...asked],
+        media: mapping.media
+      }]);
+    }
+    const canvas = options.host.canvas;
+    world.frameWorld(canvas.width, canvas.height);
+  }
+}
+
+// packages/spatial-web/src/index.ts
 function detectPlatform(width) {
   const ua = typeof navigator === "undefined" ? "" : navigator.userAgent;
   if (/iPad|Android(?!.*Mobile)|Tablet/i.test(ua)) return "tablet";
@@ -8550,6 +10150,18 @@ function createBerx5DWebHost(options = {}) {
   haptics.setReducedMotion(reducedMotion);
   const pixelRatioCap = Math.max(1, options.pixelRatioCap ?? 2);
   let quality = { quality: "balanced", pixelRatio: 1, maxObjects: 80, ambientMotion: true };
+  const renderTier = berxResolveRenderTier({
+    deviceMemoryGb: navigator.deviceMemory,
+    logicalCores: navigator.hardwareConcurrency,
+    pixelRatio: typeof window !== "undefined" ? window.devicePixelRatio : 1,
+    saveData: navigator.connection?.saveData,
+    prefersReducedMotion: reducedMotion
+  });
+  const renderQuality = berxRenderQuality(renderTier.tier);
+  let core = berxCoreAt("idle");
+  const coreCause = (cause) => {
+    core = berxCoreEnter(core, berxCoreCause(core.state, cause, core.unresolved));
+  };
   let raf = 0;
   let last = performance.now();
   let running = false;
@@ -8594,6 +10206,7 @@ function createBerx5DWebHost(options = {}) {
     lastAnnouncedId = object?.id;
     options.onFocusChange?.(object);
     if (object) {
+      coreCause({ kind: "arrived", region: world?.worldPosition.region ?? "world" });
       announce(`${nameOf(object)} \u0432 \u0444\u043E\u043A\u0443\u0441\u0435`);
       haptics.moment("focus");
     }
@@ -8608,7 +10221,15 @@ function createBerx5DWebHost(options = {}) {
     if (contextAlive) {
       syncQualityToLoad();
       if (world) renderer.setAffordances(world.affordances());
-      renderer.render(world ? world.frame(dt) : runtime.frame(dt), { maxObjects: quality.maxObjects, ambientMotion: quality.ambientMotion, particles, volumetric });
+      core = berxCoreStep(core, dt);
+      renderer.render(world ? world.frame(dt) : runtime.frame(dt), {
+        maxObjects: quality.maxObjects,
+        ambientMotion: quality.ambientMotion,
+        particles,
+        volumetric,
+        quality: renderQuality,
+        core: core.field
+      });
     } else {
       if (world) world.frame(dt);
       else runtime.frame(dt);
@@ -8617,10 +10238,14 @@ function createBerx5DWebHost(options = {}) {
   };
   const onPointerDown = (e) => {
     if (e.pointerType === "mouse" && e.button !== 0) return;
+    coreCause({ kind: "presence", near: true });
     dragging = true;
     lastX = downX = e.clientX;
     lastY = downY = e.clientY;
-    canvas.setPointerCapture?.(e.pointerId);
+    try {
+      canvas.setPointerCapture?.(e.pointerId);
+    } catch {
+    }
   };
   const onPointerMove = (e) => {
     if (!dragging) return;
@@ -8770,12 +10395,14 @@ function createBerx5DWebHost(options = {}) {
   const onContextLost = (e) => {
     e.preventDefault();
     contextAlive = false;
+    coreCause({ kind: "outcome", outcome: { ok: false, awaiting: false, results: [] } });
     renderer.handleContextLost();
     options.onContextChange?.("lost");
     announce("\u0413\u0440\u0430\u0444\u0438\u043A\u0430 \u043F\u0440\u0435\u0440\u0432\u0430\u043B\u0430\u0441\u044C. BERX \u0432\u043E\u0441\u0441\u0442\u0430\u043D\u043E\u0432\u0438\u0442 \u0441\u0446\u0435\u043D\u0443.");
   };
   const onDeviceLost = async (reason) => {
     contextAlive = false;
+    coreCause({ kind: "outcome", outcome: { ok: false, awaiting: false, results: [] } });
     renderer.handleContextLost(reason);
     options.onContextChange?.("lost");
     announce("\u0413\u0440\u0430\u0444\u0438\u043A\u0430 \u043F\u0440\u0435\u0440\u0432\u0430\u043B\u0430\u0441\u044C. BERX \u0432\u043E\u0441\u0441\u0442\u0430\u043D\u043E\u0432\u0438\u0442 \u0441\u0446\u0435\u043D\u0443.");
@@ -8852,6 +10479,28 @@ function createBerx5DWebHost(options = {}) {
     canvas,
     runtime,
     renderer,
+    /**
+     * What this session is actually driving, exposed so a gate can
+     * check that it IS driving it.
+     *
+     * Both of these were built and verified before anything called
+     * them, and no gate could see the gap because every gate drove the
+     * modules directly. These two getters are what verify:5d-wiring
+     * reads: the tier a real session resolved, and the Core a real
+     * frame loop stepped.
+     */
+    get renderTier() {
+      return { ...renderTier, quality: renderQuality };
+    },
+    get core() {
+      return {
+        state: core.state,
+        previous: core.previous,
+        unresolved: core.unresolved,
+        field: { ...core.field, offset: { ...core.field.offset } }
+      };
+    },
+    coreCause,
     get quality() {
       return quality;
     },
@@ -9294,6 +10943,7 @@ export {
   atmosphereCustomProperties,
   berxLayerContent,
   berxRasteriseLabel,
+  berxVoiceToWorld,
   createBerx5DWebHost,
   createBerxCard,
   createBerxControl,
