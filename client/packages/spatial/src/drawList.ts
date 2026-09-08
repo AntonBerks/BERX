@@ -41,6 +41,7 @@ import {berxShadowCamera, type BerxShadowCamera} from './shadowMap';
 import {berxVolumetricUniform} from './lighting/berxVolumetric';
 import {berxParticleOrigin, berxParticleUniform, BERX_PARTICLE_KINDS} from './lighting/berxParticles';
 import {berxRenderQuality, berxParticleCountFor, berxSSAOKernelFor, type BerxRenderQuality} from './lighting/berxRenderQuality';
+import {berxStableLod, berxBudgetDistance, berxRememberFrame, BERX_NO_MEMORY, type BerxFrameMemory} from './stability';
 import type {BerxSpatialAffordance} from './socialActions';
 import type {BerxSpatialEntityKind, BerxSpatialObject, BerxVec3} from './world';
 
@@ -192,6 +193,14 @@ export interface BerxDrawList {
 	 * x = density, y = phase g, z = max distance, w = intensity,
 	 * then [steps, 0, 0, 0].
 	 */
+	/**
+	 * What this frame decided, to hand to the next one.
+	 *
+	 * A caller that renders continuously should pass this back in as
+	 * `memory`; one rendering a single frame can ignore it. See
+	 * stability.ts for what flickers without it.
+	 */
+	memory: BerxFrameMemory;
 	volumetric: number[];
 	/** The live part of the occlusion kernel, as vec4s. See the emitter. */
 	ssao: number[];
@@ -259,6 +268,18 @@ export interface BerxDrawListOptions {
 	 * Defaults to HIGH — the reference picture the gates measure.
 	 */
 	quality?: BerxRenderQuality;
+	/**
+	 * What the previous frame decided, so this one does not decide it
+	 * again from scratch and come out differently.
+	 *
+	 * Only the decisions that WOBBLE are carried: which object had which
+	 * geometry, and which ones were on screen. Not the frame — a renderer
+	 * that remembered its pixels would be a renderer with a history, and
+	 * this world is a function of its state. Omit it and every decision
+	 * uses a bare threshold, which is correct for a first frame and is
+	 * flicker on every one after it.
+	 */
+	memory?: BerxFrameMemory;
 	/**
 	 * Whether the key light casts.
 	 *
@@ -374,18 +395,39 @@ export function berxBuildDrawList(frame: Berx5DFrame, options: BerxDrawListOptio
 	   Note the sort above deliberately runs on the object's OWN opacity,
 	   before modulation: a dissolve must not reshuffle the draw order
 	   halfway through and make the world pop. */
+	/**
+	 * What the previous frame drew, and with what geometry.
+	 *
+	 * The budget keeps the nearest N and the LOD switches at a distance,
+	 * and both of those are bare thresholds applied to a quantity that
+	 * WOBBLES — so an object at rank N, or standing at exactly the LOD
+	 * distance, changes state every frame while the camera breathes. That
+	 * is what flicker is: not a rendering artefact, a decision boundary.
+	 * See stability.ts.
+	 */
+	/* HIGH is the reference picture every gate in this repository
+	   measures, so it is what a caller that says nothing gets. Resolved
+	   here rather than further down because the budget below reads its
+	   object count. */
+	const quality = options.quality ?? berxRenderQuality('high');
+	const memory = options.memory ?? BERX_NO_MEMORY;
+	const wasDrawn = new Set(memory.drawn);
+	/* The distance an object COMPETES at, which is not the distance it is
+	   at: one already on screen competes as though slightly nearer, so a
+	   tie at the budget's edge does not flip on noise. */
+	const rank = (o: typeof inFrustum[number]) => berxBudgetDistance(distanceTo(eye, o), wasDrawn.has(o.id));
 	const opaque = inFrustum
 		.filter((o) => o.material.opacity >= 1)
 		.sort((a, b) => {
 			if (a.id === focused) return -1;
 			if (b.id === focused) return 1;
-			return distanceTo(eye, a) - distanceTo(eye, b);
+			return rank(a) - rank(b);
 		});
 	const blended = inFrustum
 		.filter((o) => o.material.opacity < 1)
-		.sort((a, b) => distanceTo(eye, b) - distanceTo(eye, a));
+		.sort((a, b) => rank(b) - rank(a));
 
-	const max = Math.max(1, Math.floor(options.maxObjects ?? frame.world.objects.length));
+	const max = Math.max(1, Math.floor(options.maxObjects ?? quality.maxObjects ?? frame.world.objects.length));
 	const drawn = [...opaque, ...blended].slice(0, max);
 
 	/* the world's standing light, plus whatever in it is live */
@@ -412,7 +454,12 @@ export function berxBuildDrawList(frame: Berx5DFrame, options: BerxDrawListOptio
 		const radius =
 			Math.max(geo.x, geo.y, geo.z) *
 			Math.max(o.transform.scale.x, o.transform.scale.y, o.transform.scale.z);
-		const lod: 0 | 1 = distance > BERX_LOD_DISTANCE ? 1 : 0;
+		/* Sticky: an object that already had reduced geometry keeps it
+		   until it comes well inside, and one that had full geometry keeps
+		   that until it goes well outside. A bare threshold here swaps an
+		   object's mesh sixty times a second when it stands at exactly the
+		   LOD distance and the camera breathes. */
+		const lod: 0 | 1 = berxStableLod(distance, BERX_LOD_DISTANCE, memory.lod[o.id]);
 		if (lod === 1) lodReduced++;
 		return {
 			id: o.id,
@@ -506,9 +553,6 @@ export function berxBuildDrawList(frame: Berx5DFrame, options: BerxDrawListOptio
 			live = {position: {x: item.model[12], y: item.model[13], z: item.model[14]}, energy};
 		}
 	}
-	/* HIGH is the reference picture every gate in this repository
-	   measures, so it is what a caller that says nothing gets. */
-	const quality = options.quality ?? berxRenderQuality('high');
 	const particleFields: number[][] = [];
 	for (const kind of BERX_PARTICLE_KINDS) {
 		const origin = berxParticleOrigin(kind, c.position, viewAhead, live?.position);
@@ -549,6 +593,7 @@ export function berxBuildDrawList(frame: Berx5DFrame, options: BerxDrawListOptio
 		 * place. The cost is bounded by the same budget the main pass
 		 * already has, since it is the same list.
 		 */
+		memory: berxRememberFrame(items),
 		volumetric: [...berxVolumetricUniform(), quality.volumetricSteps, quality.volumetricScale, 0, 0],
 		/**
 		 * The occlusion kernel and how many of it are live.

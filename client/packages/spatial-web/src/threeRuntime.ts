@@ -20,6 +20,7 @@ import {
   type Berx5DFrame,
   type BerxHit,
   berxBuildDrawList,
+  type BerxFrameMemory,
   berxSSAOUniform,
   berxInvertMat4,
   berxMultiplyMat4,
@@ -636,6 +637,20 @@ export interface BerxSpatialRenderOptions {
 	ssao?:boolean;
 	/** Whether the key light is visible in the air. Passed to the shared core. */
 	volumetric?:boolean;
+	/**
+	 * Whether this frame remembers what the last one decided.
+	 *
+	 * True by default, and the default is the one that is right for a
+	 * runtime: the budget keeps the nearest N and the LOD switches at a
+	 * distance, both bare thresholds on a quantity that wobbles, so
+	 * without a memory an object at either boundary changes state every
+	 * frame while the camera breathes. See @berx/spatial's stability.ts.
+	 *
+	 * False is for a gate that wants the control: the same walk with
+	 * every decision made afresh, so the difference between the two runs
+	 * is the measurement.
+	 */
+	stable?:boolean;
 	/** Whether the air carries dust, energy and the far field. */
 	particles?:boolean;
 	/**
@@ -668,7 +683,7 @@ export class BerxThreeRuntimeRenderer implements BerxSpatialRenderer {
   * guess at. One hard tap is exactly reproducible, which is what having
   * an oracle at all requires.
   */
- private shadowNearest?:WebGLSampler;private readonly floatColour:boolean;private readonly KEY_DIR:Loc;private readonly KEY_COL:Loc;private readonly KEY_I:Loc;private readonly PL_POS:Loc;private readonly PL_COL:Loc;private readonly PL_I:Loc;private readonly PL_R:Loc;private readonly PL_N:Loc;private readonly MET:Loc;private readonly ROUGH:Loc;private readonly OPAC:Loc;private readonly TRANS:Loc;private readonly HT:Loc;private readonly TS:Loc;private readonly TEX:Loc;private readonly LVP:Loc;private readonly SHADOW:Loc;private readonly SHADOW_MAP:Loc;
+ private memory?:BerxFrameMemory;private shadowNearest?:WebGLSampler;private readonly floatColour:boolean;private readonly KEY_DIR:Loc;private readonly KEY_COL:Loc;private readonly KEY_I:Loc;private readonly PL_POS:Loc;private readonly PL_COL:Loc;private readonly PL_I:Loc;private readonly PL_R:Loc;private readonly PL_N:Loc;private readonly MET:Loc;private readonly ROUGH:Loc;private readonly OPAC:Loc;private readonly TRANS:Loc;private readonly HT:Loc;private readonly TS:Loc;private readonly TEX:Loc;private readonly LVP:Loc;private readonly SHADOW:Loc;private readonly SHADOW_MAP:Loc;
  /* the depth-only pass from the light: its own program, its own target */
  private readonly shadowProgram:WebGLProgram;private readonly SLVP:Loc;private readonly SM:Loc;
  private shadowFbo?:WebGLFramebuffer;private shadowTexture?:WebGLTexture;private shadowSize=0;
@@ -1166,7 +1181,13 @@ export class BerxThreeRuntimeRenderer implements BerxSpatialRenderer {
    lighting:this.lighting,
    mediaFor:(id)=>this.media.get(id),
    affordances:this.affordances,
+   /* What the last frame decided, so this one does not decide it again
+      from scratch and come out differently. Carried by the RENDERER
+      rather than by every caller: a runtime that draws continuously
+      should not have to be told to be stable. */
+   memory:options.stable===false?undefined:this.memory,
   });
+  this.memory=list.memory;
   /* The light's own pass comes first: the main pass reads the depth it
      writes. Its camera is the shared core's (list.shadow), so this
      backend and the others put the light in exactly the same place. */
