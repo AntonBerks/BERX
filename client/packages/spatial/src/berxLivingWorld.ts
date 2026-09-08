@@ -45,7 +45,7 @@ import type {BerxSituation} from './voice/berxWorldState';
 import {
 	berxCoreAt, berxCoreEnter, type BerxCoreMotion,
 } from './core/berxCore';
-import {berxCoreCause} from './core/berxCoreWorld';
+import {berxCoreCause, type BerxCoreCause} from './core/berxCoreWorld';
 
 /**
  * What one exchange did to the world.
@@ -146,6 +146,22 @@ export async function berxSpeakToWorld(
 	 * mid-flight finds nothing to correct.
 	 */
 	onIntent?: (intent: BerxVoiceIntent) => void,
+	/**
+	 * Fired with every cause that moves the Core, as it moves it.
+	 *
+	 * THE CORE A PERSON SEES IS THE ONE THE FRAME LOOP STEPS, and until
+	 * this existed the loop moved a Core of its own that nothing rendered.
+	 * Every state below was computed correctly, carried in `turn.core`,
+	 * and thrown away — which photographs as a Core that never leaves the
+	 * state a pointer put it in, however green the module's gates are.
+	 *
+	 * A CAUSE rather than a state, deliberately. The rule that keeps the
+	 * Core honest is that nothing sets how it feels; things that happened
+	 * do. Handing out the resolved state would be a setter with a longer
+	 * name, and the first caller to reach for it would be the one making
+	 * the Core interesting on purpose.
+	 */
+	onCore?: (cause: BerxCoreCause) => void,
 ): Promise<BerxTurn> {
 	let memory = berxAsked(state.memory, utterance);
 	const intent = berxReadIntent(utterance, situation, memory);
@@ -154,7 +170,23 @@ export async function berxSpeakToWorld(
 	   fails is still the request a person made. */
 	memory = berxRequested(memory, intent.kind);
 	onIntent?.(intent);
-	let core = berxCoreEnter(state.core, berxCoreCause(state.core.state, {kind: 'utterance', intent}));
+
+	/**
+	 * The one place in this file that moves the Core.
+	 *
+	 * Every site below went through `berxCoreEnter(core, berxCoreCause(
+	 * core.state, cause))` written out by hand, which is six chances to
+	 * forget the new callback and six ways for the rendered Core and the
+	 * loop's Core to drift apart. One helper means a cause cannot be
+	 * applied without being announced.
+	 */
+	let core = state.core;
+	const move = (cause: BerxCoreCause): void => {
+		core = berxCoreEnter(core, berxCoreCause(core.state, cause, core.unresolved));
+		onCore?.(cause);
+	};
+
+	move({kind: 'utterance', intent});
 
 	/**
 	 * TWO READINGS, SO ASK — before planning anything.
@@ -178,7 +210,7 @@ export async function berxSpeakToWorld(
 	}
 
 	const plan = berxPlan(intent, situation);
-	core = berxCoreEnter(core, berxCoreCause(core.state, {kind: 'plan', plan}));
+	move({kind: 'plan', plan});
 
 	/* A plan that cannot run stops here, and says which part. Nothing is
 	   attempted, so nothing can half-happen. */
@@ -203,8 +235,7 @@ export async function berxSpeakToWorld(
 		}];
 		const outcome = berxOutcome(results);
 		if (moved) memory = berxSelect(memory, intent.objectId);
-		core = berxCoreEnter(core, berxCoreCause(core.state,
-			moved ? {kind: 'arrived', region: situation.region} : {kind: 'outcome', outcome}));
+		move(moved ? {kind: 'arrived', region: situation.region} : {kind: 'outcome', outcome});
 		return {
 			intent, plan, outcome, change: moved ? 'travelled' : 'none',
 			shown: memory.shown,
@@ -220,7 +251,7 @@ export async function berxSpeakToWorld(
 		memory = berxDismiss(memory, intent.objectId);
 		const removed = memory.shown.length < before;
 		const outcome = berxOutcome([{step: plan.steps[0], state: removed ? 'done' : 'failed', reason: removed ? undefined : 'этого нет в наборе'}]);
-		core = berxCoreEnter(core, berxCoreCause(core.state, {kind: 'outcome', outcome}));
+		move({kind: 'outcome', outcome});
 		return {
 			intent, plan, outcome, change: removed ? 'removed' : 'none',
 			shown: memory.shown, say: berxReport(intent, outcome, memory.shown.length), core, memory,
@@ -230,7 +261,7 @@ export async function berxSpeakToWorld(
 	if (intent.kind === 'back') {
 		const went = bridge.back?.() ?? false;
 		const outcome = berxOutcome([{step: plan.steps[0], state: went ? 'done' : 'failed', reason: went ? undefined : 'некуда возвращаться'}]);
-		core = berxCoreEnter(core, berxCoreCause(core.state, {kind: 'outcome', outcome}));
+		move({kind: 'outcome', outcome});
 		return {
 			intent, plan, outcome, change: went ? 'returned' : 'none',
 			shown: memory.shown, say: berxReport(intent, outcome, memory.shown.length), core, memory,
@@ -254,8 +285,7 @@ export async function berxSpeakToWorld(
 	const entities = outcome.ok ? (ran.entities ?? []) : [];
 	if (outcome.ok) memory = berxShow(memory, entities);
 
-	core = berxCoreEnter(core, berxCoreCause(core.state,
-		outcome.ok ? {kind: 'results', found: entities.length} : {kind: 'outcome', outcome}));
+	move(outcome.ok ? {kind: 'results', found: entities.length} : {kind: 'outcome', outcome});
 
 	return {
 		intent, plan, outcome,

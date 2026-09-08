@@ -267,6 +267,36 @@ gate('no state is unreachable, and none is decoration',
 	reachable.size >= 7,
 	`${reachable.size} of ${core.BERX_CORE_STATES.length} states reached by the causes above: ${[...reachable].join(', ')}. speaking and listening arrive from the voice layer, aware from presence — every one of the eleven is entered by something, or it would be a name with no way in`);
 
+/**
+ * A FAILURE OUTLIVES THE STATE THAT TALKS ABOUT IT.
+ *
+ * Found by photographing a real spoken exchange: BERX failed a search,
+ * said "не получилось. сеть не ответила", and when the line ended the
+ * world settled into `aware` — the person told there was a problem and
+ * then shown a room that had forgotten it. The cause was that "am I
+ * recovering?" was asked of the CURRENT state, and `speaking` had
+ * already overwritten `error`.
+ */
+const failed = core.berxOutcome([{step: plan.steps[0], state: 'failed', reason: 'сеть не ответила'}]);
+let m = core.berxCoreAt('searching');
+m = core.berxCoreEnter(m, core.berxCoreCause(m.state, {kind: 'outcome', outcome: failed}, m.unresolved));
+const atError = m.state;
+m = core.berxCoreEnter(m, core.berxCoreCause(m.state, {kind: 'speech', speaking: true}, m.unresolved));
+const whileSpeaking = m.state;
+m = core.berxCoreEnter(m, core.berxCoreCause(m.state, {kind: 'speech', speaking: false}, m.unresolved));
+gate('saying "не получилось" does not make it not have happened',
+	atError === 'error' && whileSpeaking === 'speaking' && m.state === 'recovering',
+	`${atError} → ${whileSpeaking} → ${m.state}: the failure is still standing when the line about it ends, so the world is looking for another path rather than resting. This settled into "aware" until a screenshot caught it — talking about a problem is not solving it`);
+
+let r = core.berxCoreAt('error');
+r = core.berxCoreEnter(r, core.berxCoreCause(r.state, {kind: 'utterance', intent}, r.unresolved));
+r = core.berxCoreEnter(r, core.berxCoreCause(r.state, {kind: 'plan', plan}, r.unresolved));
+const searchedAgain = r.state;
+r = core.berxCoreEnter(r, core.berxCoreCause(r.state, {kind: 'results', found: 3}, r.unresolved));
+gate('and an answer that actually arrives clears it',
+	searchedAgain === 'searching' && r.unresolved === false && r.state === 'discovering',
+	`error → understanding → ${searchedAgain} → ${r.state}, unresolved now ${r.unresolved} — a real answer ends the recovery, and nothing else does. Otherwise the Core would carry one bad request for the rest of the session`);
+
 /* An empty result must NOT look like a failure. */
 gate('finding nothing resolves, it does not fail',
 	core.berxCoreCause('searching', {kind: 'results', found: 0}) === 'success',

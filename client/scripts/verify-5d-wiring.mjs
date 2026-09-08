@@ -149,6 +149,8 @@ try {
 		conversation: await page.evaluate(async () => await window.BERX_VOICE_WIRE.conversation()),
 		fails: await page.evaluate(async () => await window.BERX_VOICE_WIRE.serverFails()),
 		missing: await page.evaluate(async () => await window.BERX_VOICE_WIRE.missingCapability()),
+		coreFrame: await page.evaluate(async () => await window.BERX_VOICE_WIRE.coreInTheFrame()),
+		placed: await page.evaluate(async () => await window.BERX_VOICE_WIRE.placement()),
 	};
 } finally {
 	await browser2.close();
@@ -225,6 +227,63 @@ gate('the interrupted turn does not rearrange the world when it lands',
 gate('the conversation keeps everything it knew',
 	b.busyDuring === true && b.second.change === 'composed',
 	`BERX was still working when it was cut off (busy=${b.busyDuring}), and the new sentence was read against everything the conversation already knew — what was shown, what was dismissed, and what was last requested. Interruption keeps context; only a reset would lose it`);
+
+/* ---------------- and WHERE it lands ----------------
+
+   Counting objects is what let the last one of these through: three
+   entities went in, three were counted, and one of them was at NaN
+   while another sat on the camera. `as never` had been used to push a
+   hand-built relation past the compiler, and the shape was wrong in
+   three ways at once. A frame caught it — the world went darker when it
+   filled — so these measure what a frame would show. */
+
+const pl = voice.placed;
+
+gate('everything the voice composes lands at a real position',
+	pl.shown === 3 && pl.atNonPosition.length === 0,
+	pl.atNonPosition.length
+		? `at a non-position: ${pl.atNonPosition.join(', ')}`
+		: `${pl.objects.map((o) => `${o.id}(${o.p.x.toFixed(1)},${o.p.y.toFixed(1)},${o.p.z.toFixed(1)})`).join(' ')} — every coordinate finite. One of these was NaN, because the relation it was placed from had a strength of undefined`);
+
+gate('and each one carries an edge the world can actually place it by',
+	pl.edges.length >= pl.shown && pl.wellFormedEdges === pl.edges.length,
+	`${pl.edges.length} edges, all with an id, a type the layout knows and a finite strength: ${pl.edges.map((e) => `${e.type}(${e.strength})`).join(', ')}. Without ids they all collapsed onto the key \`undefined\` and exactly one survived — which is why two of three entities had nothing to be positioned against`);
+
+gate('no two things are standing in the same place',
+	pl.closest > 0.5,
+	`closest pair ${pl.closest.toFixed(2)}m apart, and every object kept its name (${pl.labels} labelled). Two entities at one point is not a set a person can look at`);
+
+/* ---------------- the Core a person actually sees ----------------
+
+   Every Core check above reads `turn.core`, which is the loop's answer
+   about itself. It was right the whole time, and the Core being drawn
+   never heard any of it: the loop stepped one Core and the frame loop
+   stepped another. The screenshots found it — five frames through a
+   real spoken exchange, all of them in the state a pointer had set.
+
+   These read `host.core`: the motion the frame loop steps and the draw
+   list draws. */
+
+const cf = voice.coreFrame;
+
+gate('a spoken turn moves the Core that is actually drawn',
+	cf.duringSearch === 'searching' && cf.afterResults === 'discovering',
+	`at rest ${cf.atRest} → ${cf.afterTouch} on a hand → ${cf.duringSearch} while the server was still thinking → ${cf.afterResults} when it answered. Read off host.core, not off the turn: the loop's own Core was already correct while the drawn one sat in ${cf.afterTouch} for the whole exchange`);
+
+gate('and SEARCHING is visible WHILE a person waits, not after',
+	cf.duringSearch === 'searching' && cf.previousDuringSearch === 'understanding',
+	`mid-flight the Core was in ${cf.duringSearch}, having come from ${cf.previousDuringSearch} — the sentence was read, then the search began, and both happened before the answer did. A state that only appeared once the server replied would be a progress bar that fills after the download`);
+
+gate('a server that refuses puts the drawn Core in error',
+	cf.duringFailing === 'searching' && cf.afterFailure === 'error',
+	`${cf.duringFailing} while it tried, ${cf.afterFailure} when it could not — the same failure the world-untouched gate above measures, now visible in the room rather than only in a turn object`);
+
+gate('the whole exchange is a path, not a jump',
+	Array.isArray(cf.seen) && cf.seen.length >= 5
+		&& cf.seen[0] === 'idle' && cf.seen.includes('aware')
+		&& cf.seen.includes('searching') && cf.seen.includes('discovering')
+		&& cf.seen[cf.seen.length - 1] === 'error',
+	`${cf.seen.join(' → ')} — sampled off the rendered Core every 8ms for the length of the conversation. Delete the line that forwards causes into the host and this collapses to "idle → aware"`);
 
 gate('the platform\'s own recogniser is what a session would listen with',
 	typeof voice.recogniser?.present === 'boolean',

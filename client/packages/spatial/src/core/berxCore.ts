@@ -265,10 +265,34 @@ export interface BerxCoreMotion {
 	/** Where it is coming from, which sets the rate. */
 	previous: BerxCoreState;
 	field: BerxCoreField;
+	/**
+	 * Something failed and nothing has put it right yet.
+	 *
+	 * A real bit of state rather than a reading of the current one,
+	 * because a failure OUTLIVES the states that follow it. BERX failing
+	 * a search and then saying so left the Core in `speaking`; when the
+	 * line ended, "am I recovering?" was asked of `speaking` and the
+	 * answer was no, so the world settled back to `aware` as though
+	 * nothing had gone wrong. The person was told there was a problem
+	 * and then shown a room that had forgotten it.
+	 *
+	 * Set by entering `error`, cleared by anything that genuinely
+	 * resolves — an answer arriving, a plan finishing, arriving
+	 * somewhere. Talking about a failure does not clear it, which is the
+	 * whole point.
+	 */
+	unresolved: boolean;
 }
 
+/** Entering these means the thing that went wrong is over. */
+const RESOLVES: readonly BerxCoreState[] = ['success', 'discovering'];
+
 export function berxCoreAt(state: BerxCoreState = 'idle'): BerxCoreMotion {
-	return {state, previous: state, field: {...BERX_CORE_REST, offset: {...BERX_CORE_REST.offset}}};
+	return {
+		state, previous: state,
+		field: {...BERX_CORE_REST, offset: {...BERX_CORE_REST.offset}},
+		unresolved: state === 'error',
+	};
 }
 
 /**
@@ -311,7 +335,12 @@ export function berxCoreStep(motion: BerxCoreMotion, dt: number): BerxCoreMotion
  */
 export function berxCoreEnter(motion: BerxCoreMotion, state: BerxCoreState): BerxCoreMotion {
 	if (state === motion.state) return motion;
-	return {state, previous: motion.state, field: motion.field};
+	return {
+		state, previous: motion.state, field: motion.field,
+		unresolved: state === 'error' ? true
+			: RESOLVES.includes(state) ? false
+			: motion.unresolved,
+	};
 }
 
 /**

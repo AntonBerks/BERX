@@ -51,8 +51,23 @@ export type BerxCoreCause =
  * Core saying so is most of what "BERX не сломался, он ищет другой путь"
  * means. Everywhere else the cause is enough.
  */
-export function berxCoreCause(current: BerxCoreState, cause: BerxCoreCause): BerxCoreState {
-	const recovering = current === 'error' || current === 'recovering';
+export function berxCoreCause(
+	current: BerxCoreState,
+	cause: BerxCoreCause,
+	/**
+	 * Whether a failure is still standing — `BerxCoreMotion.unresolved`.
+	 *
+	 * Defaulted, because most callers ask about a state in isolation and
+	 * because the two states that ARE a failure answer for themselves.
+	 * It matters for the states a failure survives: BERX saying "не
+	 * получилось" is in `speaking`, and when the line ends the question
+	 * "was something wrong?" has to reach past that state to the one it
+	 * was speaking about. Without this it settled into `aware` — the
+	 * room forgetting a problem the person had just been told about.
+	 */
+	unresolved = false,
+): BerxCoreState {
+	const recovering = current === 'error' || current === 'recovering' || unresolved;
 
 	switch (cause.kind) {
 		case 'presence':

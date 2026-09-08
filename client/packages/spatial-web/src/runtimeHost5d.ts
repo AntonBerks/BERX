@@ -28,7 +28,7 @@ import {
 	Berx5DRuntime, Berx5DWorldApp, BerxHaptics, cameraBasis, pickActionSlot, rayFromNdc,
 	berxRenderQuality, berxResolveRenderTier, berxCoreAt, berxCoreStep, berxCoreEnter, berxCoreCause,
 	type BerxHapticBackend, type BerxSpatialObject, type BerxWorldIngest,
-	type BerxRenderQuality, type BerxCoreMotion, type BerxCoreCause, type BerxCoreField,
+	type BerxRenderQuality, type BerxCoreMotion, type BerxCoreCause,
 } from '@berx/spatial';
 import { BerxThreeRuntimeRenderer } from './threeRuntime';
 import type { BerxWebRendererBackend } from './webRenderer';
@@ -118,7 +118,17 @@ export interface Berx5DWebHost {
 	 */
 	readonly renderTier: {tier: string; reason: string; quality: BerxRenderQuality};
 	/** The Core this session's frame loop is stepping. Same reason. */
-	readonly core: {state: string; previous: string; field: BerxCoreField};
+	readonly core: BerxCoreMotion;
+	/**
+	 * Move the Core, by naming something that happened.
+	 *
+	 * The one way in from outside, and it takes a CAUSE rather than a
+	 * state on purpose: there is no expression here for "look like this",
+	 * only for "this occurred". The voice binding is the caller that
+	 * matters — a spoken turn's understanding, search, results and
+	 * failures reach the rendered Core through this and nowhere else.
+	 */
+	coreCause(cause: BerxCoreCause): void;
 	/** False while the GPU context is lost; the world state survives. */
 	readonly contextAlive: boolean;
 	/**
@@ -286,7 +296,7 @@ export function createBerx5DWebHost(options: Berx5DWebHostOptions = {}): Berx5DW
 	 */
 	let core: BerxCoreMotion = berxCoreAt('idle');
 	const coreCause = (cause: BerxCoreCause) => {
-		core = berxCoreEnter(core, berxCoreCause(core.state, cause));
+		core = berxCoreEnter(core, berxCoreCause(core.state, cause, core.unresolved));
 	};
 	let raf = 0;
 	let last = performance.now();
@@ -703,8 +713,12 @@ export function createBerx5DWebHost(options: Berx5DWebHostOptions = {}): Berx5DW
 			return {...renderTier, quality: renderQuality};
 		},
 		get core() {
-			return {state: core.state, previous: core.previous, field: {...core.field, offset: {...core.field.offset}}};
+			return {
+				state: core.state, previous: core.previous, unresolved: core.unresolved,
+				field: {...core.field, offset: {...core.field.offset}},
+			};
 		},
+		coreCause,
 		get quality() {
 			return quality;
 		},

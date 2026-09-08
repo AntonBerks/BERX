@@ -27,6 +27,31 @@ declare global {
  */
 const HERE = () => ({lat: 55.75, lng: 37.62, atMs: Date.now()});
 
+/**
+ * PAYLOADS THE SHAPE THE SERVER REALLY SENDS.
+ *
+ * These carried only `guid` and `title`, which was enough while this
+ * file assembled spatial objects by hand and not one field more was
+ * read. Now the real mappers run on them — they read `starts`,
+ * `place_guid`, `moments`, `cover_url` — so a stub missing those is a
+ * stub testing a world that cannot exist. See BerxNearbyPlaceItem and
+ * BerxNearbyEventItem in @berx/api/types.
+ */
+const NOW_S = () => Math.floor(Date.now() / 1000);
+const place = (guid: number, title: string, live = 0) => ({
+	guid, title, category: null, cover_url: null, distance_km: 0.4,
+	moments: Array.from({length: live}, (_, i) => ({id: guid * 10 + i, text: 'идёт сейчас', ends_at: NOW_S() + 3600})),
+	is_open_now: null,
+});
+const nearbyEvent = (guid: number, title: string, placeGuid: number) => ({
+	guid, title, starts: NOW_S() + 5400, place_guid: placeGuid, distance_km: 0.6,
+});
+const fullEvent = (guid: number, title: string) => ({
+	guid, title, description: '', category: null, starts: NOW_S() + 7200, ends: null,
+	location: null, place: null, capacity: null, seats_left: null, attendee_count: 3,
+	owner_guid: 77, cover_url: null, has_ended: false, is_going: false,
+});
+
 /** A client that answers the way the real one does, shape for shape. */
 const answering = () => {
 	const calls: string[] = [];
@@ -35,11 +60,9 @@ const answering = () => {
 		async nearbyNow(lat: number, lng: number) {
 			calls.push(`nearbyNow(${lat},${lng})`);
 			return {
-				events: [{guid: 908, title: 'Вечер импровизации'}],
-				places: [
-					{guid: 4211, title: 'Дом Культуры'},
-					{guid: 4212, title: 'Веранда'},
-				],
+				events: [nearbyEvent(908, 'Вечер импровизации', 4211)],
+				places: [place(4211, 'Дом Культуры', 2), place(4212, 'Веранда')],
+				open_now_available: false,
 			};
 		},
 	};
@@ -68,17 +91,20 @@ const slow = (ms: number) => {
 		async events() {
 			calls.push('events');
 			await new Promise((r) => setTimeout(r, ms));
-			return {events: [{guid: 1, title: 'Концерт'}, {guid: 2, title: 'Лекция'}]};
+			return {events: [fullEvent(1, 'Концерт'), fullEvent(2, 'Лекция')]};
 		},
 		async nearbyPlaces() {
 			calls.push('nearbyPlaces');
 			await new Promise((r) => setTimeout(r, ms));
-			return {places: [{guid: 10, title: 'Траттория'}, {guid: 11, title: 'Остерия'}]};
+			return {places: [place(10, 'Траттория'), place(11, 'Остерия')]};
 		},
 		async feed() {
 			calls.push('feed');
 			await new Promise((r) => setTimeout(r, ms));
-			return {posts: [{guid: 20, text: 'что-то ещё'}]};
+			return {posts: [{
+				guid: 20, text: 'что-то ещё', time_created: NOW_S(),
+				owner_guid: 77, owner_username: 'ann',
+			}]};
 		},
 	};
 };
@@ -202,6 +228,149 @@ window.BERX_VOICE_WIRE = {
 			},
 			/* what is actually in the world at the end */
 			worldIds: shown,
+		};
+	},
+
+	/**
+	 * DOES THE VOICE'S CORE REACH THE CORE THAT IS DRAWN?
+	 *
+	 * Every other Core check in this file reads `turn.core` — the state
+	 * the loop computed. That is the module's own answer about itself,
+	 * and it was right the whole time while the Core a person actually
+	 * saw sat in whatever state the last pointer event left it in. The
+	 * loop had a Core, the host had a Core, and they were different
+	 * objects.
+	 *
+	 * So this reads `host.core` — the motion the frame loop steps and the
+	 * draw list draws — and it samples it WHILE a turn is in the air,
+	 * because the whole point of SEARCHING is that it is visible while
+	 * someone waits. Delete the line that forwards causes into the host
+	 * and every state below collapses to the one the pointer set.
+	 */
+	async coreInTheFrame() {
+		const calls: string[] = [];
+		const client = {
+			calls,
+			async nearbyNow(lat: number, lng: number) {
+				calls.push(`nearbyNow(${lat},${lng})`);
+				await new Promise((r) => setTimeout(r, 220));
+				return {
+					events: [nearbyEvent(908, 'Вечер импровизации', 4211)],
+					places: [place(4211, 'Дом Культуры', 1)],
+					open_now_available: false,
+				};
+			},
+			async events() {
+				calls.push('events');
+				await new Promise((r) => setTimeout(r, 220));
+				throw new Error('сеть не ответила');
+			},
+		};
+		const {host, canvas} = build(client as unknown as Record<string, unknown>);
+		const voice = berxVoiceToWorld({
+			host, client: client as unknown as Record<string, unknown>, location: HERE,
+		});
+
+		/* Everything the rendered Core is, for as long as this runs. Not
+		   the loop's copy — the host's. */
+		const seen: string[] = [];
+		const watch = setInterval(() => {
+			if (seen[seen.length - 1] !== host.core.state) seen.push(host.core.state);
+		}, 8);
+		seen.push(host.core.state);
+
+		const atRest = host.core.state;
+
+		/* A hand on the world: the same event a pointer produces. */
+		canvas.dispatchEvent(new PointerEvent('pointerdown', {
+			pointerType: 'touch', clientX: 200, clientY: 180, bubbles: true, isPrimary: true,
+		}));
+		await new Promise((r) => setTimeout(r, 40));
+		const afterTouch = host.core.state;
+
+		/* A real question against a client that takes its time. */
+		const pending = voice.say('что происходит рядом?');
+		await new Promise((r) => setTimeout(r, 90));
+		const duringSearch = host.core.state;
+		const previousDuringSearch = host.core.previous;
+		await pending;
+		/**
+		 * A BEAT, because a conversation has one.
+		 *
+		 * The first version of this ran the next sentence in the same
+		 * microtask the previous one resolved in, so DISCOVERING existed
+		 * for less wall time than one tick of the sampler and the path
+		 * read `idle → aware → searching`. The states were all reached —
+		 * the direct readings below say so — and the sampler was right
+		 * that they were never held. A person gets to see a result before
+		 * being asked to say the next thing.
+		 */
+		await new Promise((r) => setTimeout(r, 80));
+		const afterResults = host.core.state;
+
+		/* And one the server refuses. */
+		const failing = voice.say('покажи события');
+		await new Promise((r) => setTimeout(r, 90));
+		const duringFailing = host.core.state;
+		await failing;
+		await new Promise((r) => setTimeout(r, 80));
+		const afterFailure = host.core.state;
+
+		clearInterval(watch);
+		host.stop();
+		return {
+			calls,
+			atRest, afterTouch, duringSearch, previousDuringSearch,
+			afterResults, duringFailing, afterFailure,
+			seen,
+		};
+	},
+
+	/**
+	 * WHERE WHAT WAS FOUND ACTUALLY LANDS.
+	 *
+	 * The world-changed gate above counts objects, and counting is what
+	 * let this through: three entities went in, three were counted, and
+	 * one of them was at NaN while another sat on top of the camera. The
+	 * cause was a hand-built relation cast past the compiler with `as
+	 * never` — no `id`, so all three collapsed onto the key `undefined`;
+	 * `kind`/`weight` where the world wants `type`/`strength`, so the
+	 * layout placed things from a strength that did not exist.
+	 *
+	 * A frame is what caught it — the world went DARKER when it filled —
+	 * so this measures what a frame would show: a finite position for
+	 * everything, an edge per entity that survived ingest, and no two
+	 * things occupying the same point.
+	 */
+	async placement() {
+		const client = answering();
+		const {host, world, voice} = build(client as unknown as Record<string, unknown>);
+		const turn = await voice.say('что происходит рядом?');
+		const objects = world.latestFrame.world.objects.map((o) => ({
+			id: o.id, p: o.transform.position, label: o.label,
+		}));
+		const edges = world.allRelations.map((r) => ({id: r.id, from: r.from, to: r.to, type: r.type, strength: r.strength}));
+		host.stop();
+		const finite = (v: {x: number; y: number; z: number}) =>
+			Number.isFinite(v.x) && Number.isFinite(v.y) && Number.isFinite(v.z);
+		let closest = Infinity;
+		for (let i = 0; i < objects.length; i++) {
+			for (let j = i + 1; j < objects.length; j++) {
+				const a = objects[i].p, b = objects[j].p;
+				if (!finite(a) || !finite(b)) continue;
+				closest = Math.min(closest, Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z));
+			}
+		}
+		return {
+			shown: turn.shown.length,
+			objects,
+			atNonPosition: objects.filter((o) => !finite(o.p)).map((o) => o.id),
+			edges,
+			wellFormedEdges: edges.filter((e) =>
+				typeof e.id === 'string' && e.id.length > 0
+				&& typeof e.type === 'string' && Number.isFinite(e.strength)).length,
+			closest,
+			labels: objects.map((o) => o.label).filter(Boolean).length,
 		};
 	},
 
