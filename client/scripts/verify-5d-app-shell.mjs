@@ -541,11 +541,35 @@ try {
 		await settle();
 		const personActions = w.affordances();
 		const follow = personActions.find((a) => a.action === 'follow');
+		/**
+		 * WORLD-AFTER-SUCCESS, in the form that actually protects anyone.
+		 *
+		 * That a refused action throws is already checked below. What was
+		 * not checked is the half that matters: that the canonical world
+		 * is IDENTICAL afterwards. An action which mutated the world and
+		 * then reported an error would pass "fails loudly" while leaving
+		 * a liked post sitting in a world the server never agreed to —
+		 * the same lie as a spoken "готово", and harder to notice because
+		 * the error message looks like the system being careful.
+		 *
+		 * Snapshotted as the id and the last-updated stamp of every
+		 * entity: an ingest touches updatedAt, so a mutation cannot slip
+		 * through by writing the same field back.
+		 */
+		const snapshot = () => w.latestFrame.world.objects
+			.map((o) => `${o.id}@${o.updatedAt}`).sort().join('|');
+		const worldBefore = snapshot();
 		let refused;
 		if (follow) await w.act(follow.id).catch((e) => {
 			refused = e instanceof Error ? e.message : String(e);
 		});
-		return {noFocus, offered, slots, done, error, refused, region: w.worldPosition.region};
+		await settle();
+		const worldAfter = snapshot();
+		return {
+			noFocus, offered, slots, done, error, refused, region: w.worldPosition.region,
+			worldUnchanged: worldBefore === worldAfter,
+			entities: w.latestFrame.world.objects.length,
+		};
 	});
 	gate(
 		'nothing is offered until something is in focus',
@@ -566,6 +590,11 @@ try {
 		'an action the server does not have fails loudly',
 		typeof acted.refused === 'string' && acted.refused.includes('follow'),
 		acted.refused ?? 'no unimplemented action was offered to test',
+	);
+	gate(
+		'and it leaves the canonical world exactly as it was',
+		acted.worldUnchanged === true,
+		`${acted.entities} entities, every id and updatedAt identical across the refused action. Failing loudly is only half the rule: an action that mutated the world and then reported an error would pass the check above while leaving a state the server never agreed to — and the error message would make it look like care`,
 	);
 
 	/* --- NOW is a reading of the world, not a feed --- */
