@@ -241,6 +241,104 @@ gate('and the world is not two separate worlds that happen to overlap',
 	both.length > 0,
 	`${both.length} entities are acted on by BOTH time and relations: ${both.map((r) => r.id).join(', ')}. If no entity had both, T and R would be two layouts sharing a screen rather than five dimensions sharing a space`);
 
+/* ---------------- NAMES ARE PART OF THE SPACE TOO ----------------
+
+   A name is an interface element, so it lives in the world under the
+   same rules as everything else. Two of them landing on the same piece
+   of screen is not two names, it is one smear — and half a word at the
+   frame edge reads as a different, shorter word. Photographed on the
+   real product: "Вечер импровизации" straight through "Прогулка по
+   крышам", and "Событие" running off the right edge as "Соб". */
+
+const {berxBuildDrawList} = await import(entry);
+const framed = (width, height) => berxBuildDrawList(app.latestFrame, {width, height});
+
+/**
+ * Where a name lands, in the same normalised coordinates the placement
+ * uses — recomputed here from the list's own matrices rather than taken
+ * on trust, so this measures the result instead of restating the rule.
+ */
+const boxes = (list) => {
+	const m = mul(list.projection, list.view);
+	return list.labels.map((l) => {
+		const cx = m[0] * l.position.x + m[4] * l.position.y + m[8] * l.position.z + m[12];
+		const cy = m[1] * l.position.x + m[5] * l.position.y + m[9] * l.position.z + m[13];
+		const cw = m[3] * l.position.x + m[7] * l.position.y + m[11] * l.position.z + m[15];
+		const hh = (l.halfHeight * list.projection[5]) / cw;
+		const hw = hh * 0.52 * l.text.trim().length * (list.height / list.width);
+		return {text: l.text, x: cx / cw, y: cy / cw, hw, hh};
+	});
+};
+function mul(a, b) {
+	const o = new Array(16).fill(0);
+	for (let c = 0; c < 4; c++) for (let r = 0; r < 4; r++) {
+		let v = 0;
+		for (let k = 0; k < 4; k++) v += a[k * 4 + r] * b[c * 4 + k];
+		o[c * 4 + r] = v;
+	}
+	return o;
+}
+
+const wide = framed(1440, 900);
+const laid = boxes(wide);
+let collisions = [];
+for (let i = 0; i < laid.length; i++) for (let j = i + 1; j < laid.length; j++) {
+	const a = laid[i], b = laid[j];
+	if (Math.abs(a.x - b.x) < a.hw + b.hw && Math.abs(a.y - b.y) < a.hh + b.hh) {
+		collisions.push(`"${a.text}" over "${b.text}"`);
+	}
+}
+/* A check that passes on an empty set is not a check. */
+gate('there are names to place at all',
+	laid.length >= 3,
+	`${laid.length} names in the frame: ${laid.map((l) => l.text).join(' · ')} — the two checks below are worthless if this world carries no names, and an earlier version of them passed on zero`);
+
+gate('no two names land on the same piece of screen',
+	laid.length >= 3 && collisions.length === 0,
+	collisions.length
+		? collisions.join('; ')
+		: `${laid.length} names placed, none overlapping: ${laid.map((l) => l.text).join(' · ')}. The nearer name wins the space, because the nearer thing is what someone is looking at`);
+
+/**
+ * How much of each name is outside the frame — measured, not restated.
+ *
+ * The placement rule drops a name whose CENTRE leaves the frame. This
+ * asks the question a viewer would: what fraction of the word is off the
+ * edge? Writing it the other way round would make this gate an echo of
+ * the code rather than a check on it — and the first version of this
+ * line repeated the code's own bug (comparing against 0 where the frame
+ * edge is at 1) and failed three names that were entirely inside.
+ */
+const outside = laid.map((l) => {
+	const over = Math.max(0, (l.x + l.hw) - 1) + Math.max(0, -1 - (l.x - l.hw));
+	const overY = Math.max(0, (l.y + l.hh) - 1) + Math.max(0, -1 - (l.y - l.hh));
+	return {text: l.text, fx: over / (2 * l.hw), fy: overY / (2 * l.hh)};
+});
+const cut = outside.filter((o) => o.fx > 0.5 || o.fy > 0.5);
+gate('no name is cut in half by the edge of the frame',
+	laid.length >= 3 && cut.length === 0,
+	cut.length
+		? cut.map((o) => `"${o.text}" ${(Math.max(o.fx, o.fy) * 100).toFixed(0)}% off the edge`).join('; ')
+		: `worst name sits ${(Math.max(...outside.map((o) => Math.max(o.fx, o.fy))) * 100).toFixed(0)}% outside — a name cut in two reads as a different, shorter word, which is worse than no name`);
+
+/**
+ * And a dropped name must be dropped for a REASON that goes away.
+ *
+ * A narrow frame has less room, so it should carry fewer names — but the
+ * ones it drops must come back when there is room again. A name lost
+ * permanently is an entity that has quietly become anonymous.
+ */
+const narrow = framed(480, 900);
+const narrowNames = new Set(narrow.labels.map((l) => l.text));
+const wideNames = new Set(wide.labels.map((l) => l.text));
+const lost = [...wideNames].filter((t) => !narrowNames.has(t));
+const gained = [...narrowNames].filter((t) => !wideNames.has(t));
+gate('a narrower frame carries fewer names, and loses none it could hold',
+	narrowNames.size <= wideNames.size && gained.length === 0,
+	`1440px carries ${wideNames.size}, 480px carries ${narrowNames.size}`
+	+ (lost.length ? `; dropped when the frame narrows: ${lost.join(', ')}` : '; none dropped')
+	+ ' — the same rule the code already applies to distance, since being covered makes a name exactly as unreadable as being too far away');
+
 fs.rmSync(dir, {recursive: true, force: true});
 if (failures.length) {
 	console.error(`\nBERX 5D dimensions: ${failures.length} FAILED — ${failures.join('; ')}`);

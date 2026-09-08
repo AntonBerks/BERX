@@ -8,5 +8,6 @@
 export {
 	Berx5DWorldApp, berxTemporalCursor, berxProjectTemporal, berxApplyTemporal,
 	berxRelationalLayout, berxRelationalWeight, berxWorldBounds, regionForKind,
+	berxBuildDrawList,
 } from '@berx/spatial';
 export {mapUserToSpatial, mapFeedItemToSpatial, mapPlaceToSpatial, mapEventToSpatial} from '@berx/scenes';

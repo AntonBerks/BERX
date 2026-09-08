@@ -528,9 +528,47 @@ export function berxBuildDrawList(frame: Berx5DFrame, options: BerxDrawListOptio
 	/* the names, decided here so both backends put them in the same place */
 	const basis = cameraBasis(c);
 	const labels: BerxLabelPlacement[] = [];
+	/**
+	 * Where each name lands on the screen, so two of them cannot land in
+	 * the same place.
+	 *
+	 * A name is placed above its entity and faded by distance, and
+	 * neither of those knows anything about the OTHER names. On the real
+	 * product that put "Вечер импровизации" straight through "Прогулка по
+	 * крышам", and ran "Событие" off the right-hand edge as "Соб". Two
+	 * overlapping words are not two names, they are one smear; half a
+	 * word at the frame edge is worse than no word.
+	 *
+	 * The rule that fixes it is one this code already applies for
+	 * distance — "out of reading range: not placed at all, rather than
+	 * placed as an unreadable smear that still costs a draw call". Being
+	 * covered by a nearer name makes a name exactly as unreadable as
+	 * being too far away, so it gets the same answer.
+	 *
+	 * NEARER WINS, because the nearer thing is what someone is looking
+	 * at. And the width is estimated from the character count rather than
+	 * measured: the core does not rasterise text, and an estimate that is
+	 * the same in every backend is worth more here than a measurement
+	 * only one of them could make.
+	 */
+	const viewProjection = berxMultiplyMat4(projection, view);
+	const onScreen = (p: BerxVec3): {x: number; y: number; w: number} => {
+		const m = viewProjection;
+		return {
+			x: m[0] * p.x + m[4] * p.y + m[8] * p.z + m[12],
+			y: m[1] * p.x + m[5] * p.y + m[9] * p.z + m[13],
+			w: m[3] * p.x + m[7] * p.y + m[11] * p.z + m[15],
+		};
+	};
+	/** Roughly how wide a glyph is against its height, averaged over a name. */
+	const BERX_LABEL_ADVANCE = 0.52;
+	const kept: {x: number; y: number; hw: number; hh: number}[] = [];
 	if (basis) {
 		const named = drawn.filter((o) => o.label !== undefined && o.label.trim().length > 0);
-		for (const o of named.sort((a, b) => distanceTo(eye, b) - distanceTo(eye, a))) {
+		/* NEAR TO FAR: the first name to claim a piece of the screen keeps
+		   it, and the nearest one goes first. The draw order below is the
+		   opposite, which is why this loop reverses at the end. */
+		for (const o of named.sort((a, b) => distanceTo(eye, a) - distanceTo(eye, b))) {
 			const distance = distanceTo(eye, o);
 			/* out of reading range: not placed at all, rather than placed as
 			   an unreadable smear that still costs a draw call */
@@ -541,14 +579,34 @@ export function berxBuildDrawList(frame: Berx5DFrame, options: BerxDrawListOptio
 			const fade = distance <= BERX_LABEL_FADE_START
 				? 1
 				: 1 - (distance - BERX_LABEL_FADE_START) / (BERX_LABEL_FADE_END - BERX_LABEL_FADE_START);
+			const position = {
+				x: o.transform.position.x + basis.up.x * above,
+				y: o.transform.position.y + basis.up.y * above,
+				z: o.transform.position.z + basis.up.z * above,
+			};
+			/* Behind the eye: it has no screen position to compare. */
+			const clip = onScreen(position);
+			if (clip.w <= 1e-4) continue;
+			const ndcX = clip.x / clip.w, ndcY = clip.y / clip.w;
+			/* the quad's own half-extents, carried into NDC through the
+			   projection the camera is actually using */
+			const hh = (halfHeight * projection[5]) / clip.w;
+			const hw = hh * BERX_LABEL_ADVANCE * o.label!.trim().length * (height / Math.max(1, width));
+			/* More than half outside the frame: a name cut in two reads as
+			   a different, shorter word, which is worse than no name.
+			   
+			   The frame edge in normalised device coordinates is at 1, and
+			   the first version of this compared against 0 — which dropped
+			   every name that was not dead centre, and left the gate below
+			   measuring an empty set while reporting a pass. */
+			if (Math.abs(ndcX) > 1 || Math.abs(ndcY) > 1) continue;
+			/* Covered by something nearer, which was placed first. */
+			if (kept.some((k) => Math.abs(k.x - ndcX) < k.hw + hw && Math.abs(k.y - ndcY) < k.hh + hh)) continue;
+			kept.push({x: ndcX, y: ndcY, hw, hh});
 			labels.push({
 				id: o.id,
 				text: o.label!,
-				position: {
-					x: o.transform.position.x + basis.up.x * above,
-					y: o.transform.position.y + basis.up.y * above,
-					z: o.transform.position.z + basis.up.z * above,
-				},
+				position,
 				halfHeight,
 				/* names thin out with the world they belong to, or a
 				   dissolve would leave a field of floating text */
@@ -556,6 +614,10 @@ export function berxBuildDrawList(frame: Berx5DFrame, options: BerxDrawListOptio
 				distance,
 			});
 		}
+		/* Back to far-to-near for drawing: a name in front must be drawn
+		   over one behind it, and the claim loop above ran the other way
+		   round so the nearer name could win the space. */
+		labels.reverse();
 	}
 
 	/**
