@@ -92,7 +92,10 @@ const SUBJECT: Readonly<Record<BerxUtteranceSubject, readonly string[]>> = Objec
 	],
 	events: [
 		'событи', 'мероприяти', 'концерт', 'выставк', 'вечеринк', 'лекци', 'спектакл',
-		'начина', 'идут', 'идти', 'происходит', 'афиш',
+		'начина', 'идут', 'идти', 'афиш',
+		/* NOT "происходит": "что происходит рядом" is the live question,
+		   which nearby answers, and listing it here made the very word
+		   that chose that reading count as a competing one. */
 		'event', 'concert', 'gig', 'show', 'party', 'happening',
 	],
 	content: ['пост', 'запис', 'фото', 'момент', 'лент', 'post', 'photo', 'feed'],
@@ -220,4 +223,46 @@ export function berxFeatureConfidence(f: BerxUtteranceFeatures): number {
 	if (signals === 1) return 0.5;
 	if (signals === 2) return 0.75;
 	return 0.9;
+}
+
+
+/**
+ * The OTHER readings a sentence also fits.
+ *
+ * A sentence can genuinely be two requests. "Что сегодня в центре?" has
+ * a place signal and a day signal, and both are real: it could be asking
+ * which places, or what is on. The engine picks one — it has to — and
+ * this says what it nearly picked instead, so the voice can ask rather
+ * than commit.
+ *
+ * Asking costs one exchange. Guessing wrong costs the person's trust in
+ * every answer after it, which is why this exists at all: a system that
+ * is confidently wrong is worse than one that checks.
+ *
+ * Only genuine competition is returned. A sentence with one signal in it
+ * has no runner-up, and offering a made-up second option would be the
+ * interface performing uncertainty it does not have.
+ */
+export function berxUtteranceAlternatives(f: BerxUtteranceFeatures): BerxUtteranceReading[] {
+	const readings: BerxUtteranceReading[] = [];
+	if (f.subject === 'places') readings.push({kind: 'find-places', from: 'subject'});
+	if (f.subject === 'events') readings.push({kind: 'find-events', from: 'subject'});
+	if (f.subject === 'people') readings.push({kind: 'find-people', from: 'subject'});
+	if (f.subject === 'content') readings.push({kind: 'discover', from: 'subject'});
+	if (f.time === 'today' || f.time === 'tonight' || f.time === 'tomorrow') {
+		readings.push({kind: 'find-events', from: 'time'});
+	}
+	if (f.time === 'now') readings.push({kind: 'now-nearby', from: 'time'});
+	if (f.restless) readings.push({kind: 'discover', from: 'mood'});
+	/* One reading per kind: two signals agreeing is agreement, not
+	   competition, and offering someone the same option twice would be
+	   the interface failing to notice it had. */
+	const seen = new Set<string>();
+	return readings.filter((r) => (seen.has(r.kind) ? false : (seen.add(r.kind), true)));
+}
+
+export interface BerxUtteranceReading {
+	kind: string;
+	/** Which part of the sentence suggested it. */
+	from: 'subject' | 'time' | 'mood';
 }

@@ -39,7 +39,7 @@ import {
 	berxPlan, berxOutcome, berxChangesTheWorld,
 	type BerxOutcome, type BerxPlan, type BerxStepResult,
 } from './voice/berxActionGraph';
-import {berxAcknowledge, berxReport, berxAskWhich, type BerxUtterancePlan} from './voice/berxSay';
+import {berxAcknowledge, berxReport, berxAskWhich, berxAskBetween, type BerxUtterancePlan} from './voice/berxSay';
 import {berxShow, berxDismiss, berxSelect, berxAsked, type BerxSpatialMemory, BERX_EMPTY_MEMORY} from './voice/berxSpatialMemory';
 import type {BerxSituation} from './voice/berxWorldState';
 import {
@@ -140,6 +140,27 @@ export async function berxSpeakToWorld(
 	let memory = berxAsked(state.memory, utterance);
 	const intent = berxReadIntent(utterance, situation, memory);
 	let core = berxCoreEnter(state.core, berxCoreCause(state.core.state, {kind: 'utterance', intent}));
+
+	/**
+	 * TWO READINGS, SO ASK — before planning anything.
+	 *
+	 * The sentence fits more than one request and both are real. Running
+	 * the first one and hoping is the behaviour that teaches people not to
+	 * trust the answers that WERE right: asking costs one exchange,
+	 * guessing wrong costs every answer after it.
+	 *
+	 * Nothing is attempted, so nothing can half-happen, and the world is
+	 * untouched while the question stands.
+	 */
+	const ask = intent.alternatives && intent.alternatives.length > 0
+		? berxAskBetween([{kind: intent.kind}, ...intent.alternatives.map((kind) => ({kind}))])
+		: undefined;
+	if (ask) {
+		return {
+			intent, plan: berxPlan(intent, situation), outcome: berxOutcome([]),
+			change: 'none', shown: memory.shown, say: ask, core, memory,
+		};
+	}
 
 	const plan = berxPlan(intent, situation);
 	core = berxCoreEnter(core, berxCoreCause(core.state, {kind: 'plan', plan}));

@@ -40,7 +40,7 @@
  * and costs far more.
  */
 import type {BerxSituation} from './berxWorldState';
-import {berxUtteranceFeatures, berxFeatureConfidence, type BerxUtteranceFeatures} from './berxUtterance';
+import {berxUtteranceFeatures, berxFeatureConfidence, berxUtteranceAlternatives, type BerxUtteranceFeatures} from './berxUtterance';
 import {berxHere, berxNth} from './berxWorldState';
 import type {BerxSpatialMemory} from './berxSpatialMemory';
 import {berxNthShown} from './berxSpatialMemory';
@@ -96,6 +96,15 @@ export interface BerxVoiceIntent {
 	openNow?: boolean;
 	/** What stopped this being executable. Empty means it is. */
 	needs: readonly BerxVoiceIntentGap[];
+	/**
+	 * Other readings this sentence also fits, when it genuinely fits more
+	 * than one.
+	 *
+	 * Empty when the reading is clear, which is most of the time. Present
+	 * only when two parts of the sentence point different ways — a place
+	 * word and a named day, say — so the voice can ask rather than commit.
+	 */
+	alternatives?: readonly string[];
 	/**
 	 * 0..1, and it means "how sure am I this is what they asked for" —
 	 * not how sure the speech recogniser was. The two multiply
@@ -241,6 +250,52 @@ export function berxReadIntent(
 			if (!state.allowed.location) needs.push('permission');
 			else if (!state.location) needs.push('location');
 		}
+		/**
+		 * DOES THE SENTENCE ALSO SAY SOMETHING ELSE?
+		 *
+		 * Computed here rather than in the decomposition arm below,
+		 * because that arm is the LAST resort and most sentences never
+		 * reach it — they are answered by a phrase list, and a list
+		 * matches one word and stops. "Куда завтра сходить поесть?" is
+		 * answered as a request for places on the word "поесть" and never
+		 * notices the "завтра", which is a second, equally real reading.
+		 *
+		 * Only genuine competition counts: a reading that came from a
+		 * DIFFERENT part of the sentence than the one chosen. Two signals
+		 * agreeing is agreement, and offering someone a choice they did
+		 * not pose would be the interface performing uncertainty it does
+		 * not have.
+		 *
+		 * Never on an action. "Убери это" with a time in it is still a
+		 * dismissal; asking "убрать или показать события?" would be
+		 * absurd, and the sentences that are genuinely two-way are always
+		 * requests for things.
+		 */
+		const askable = kind === 'find-places' || kind === 'find-events'
+			|| kind === 'find-people' || kind === 'discover' || kind === 'now-nearby';
+		/**
+		 * ONLY A NAMED HOUR COMPETES.
+		 *
+		 * The comment above says an alternative must come from a DIFFERENT
+		 * part of the sentence than the one chosen, and the first version
+		 * of this did not check that — it offered any reading of a
+		 * different kind. So "что происходит рядом?" asked "что рядом или
+		 * события?", because "происходит" chose the live reading AND
+		 * counted as an event word: the very signal that decided the
+		 * answer was also counted as competition against it. Nine gates
+		 * caught it.
+		 *
+		 * A time word is the one signal that is reliably a different part
+		 * of the sentence from whatever named the subject, which makes it
+		 * the only honest source of a second reading here. "Куда завтра
+		 * сходить поесть?" is the case this exists for: answered on
+		 * "поесть", and the "завтра" is a real, separate question.
+		 */
+		const also = askable
+			? berxUtteranceAlternatives(berxUtteranceFeatures(text))
+				.filter((r) => r.from === 'time' && r.kind !== kind)
+				.map((r) => r.kind)
+			: [];
 		return {
 			kind,
 			objectId,
@@ -249,6 +304,7 @@ export function berxReadIntent(
 			needs,
 			confidence,
 			matched,
+			...(also.length > 0 ? {alternatives: also} : {}),
 		};
 	};
 
@@ -414,7 +470,17 @@ export function berxReadIntent(
 	const f = berxUtteranceFeatures(text);
 	const fromFeatures = berxIntentFromFeatures(f, objectId !== undefined);
 	if (fromFeatures) {
-		return decide(fromFeatures, f.matched.join(' '), berxFeatureConfidence(f));
+		const read = decide(fromFeatures, f.matched.join(' '), berxFeatureConfidence(f));
+		/**
+		 * When two parts of the sentence point different ways, say so.
+		 *
+		 * "Что сегодня в центре?" has a place signal and a day signal and
+		 * both are real: it could be asking which places, or what is on.
+		 * One has to be chosen, and this records what was nearly chosen
+		 * instead so the voice can ask rather than commit.
+		 */
+		const also = berxUtteranceAlternatives(f).map((r) => r.kind).filter((k) => k !== read.kind);
+		return also.length > 0 ? {...read, alternatives: also} : read;
 	}
 
 	/**

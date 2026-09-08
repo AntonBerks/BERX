@@ -127,3 +127,60 @@ export function berxAskWhich(count: number): BerxUtterancePlan {
 	if (count === 0) return {text: 'Не вижу, о чём речь.', because: 'nothing is in view to refer to'};
 	return {text: 'Какое именно?', because: 'the reference is real but ambiguous, and asking costs one exchange where guessing costs trust'};
 }
+
+
+/**
+ * What each kind of request is called, when it has to be offered as a
+ * choice.
+ *
+ * Nouns, not sentences. "Места или события?" is a question a person
+ * answers in one word; "Вы имели в виду поиск мест или поиск событий?"
+ * is an interface reading its own menu aloud.
+ */
+const CHOICE: Readonly<Record<string, string>> = Object.freeze({
+	'now-nearby': 'что рядом',
+	'find-places': 'места',
+	'find-events': 'события',
+	'find-people': 'люди',
+	discover: 'что-нибудь интересное',
+});
+
+/**
+ * Ask between two readings, when the sentence really fits both.
+ *
+ * The rule this enforces is the one that matters: ASKING COSTS ONE
+ * EXCHANGE, GUESSING WRONG COSTS TRUST IN EVERY ANSWER AFTER IT. A
+ * system that is confidently wrong is worse than one that checks, and it
+ * is worse in a way people do not forgive — they stop believing the
+ * answers that were right.
+ *
+ * Two options at most, and never three: a spoken list of three is a menu,
+ * and a menu is the thing this product does not have.
+ */
+export function berxAskBetween(readings: readonly {kind: string}[]): BerxUtterancePlan | undefined {
+	const named = readings.map((r) => CHOICE[r.kind]).filter(Boolean);
+	if (named.length < 2) return undefined;
+	return {
+		text: `${named[0][0].toUpperCase()}${named[0].slice(1)} или ${named[1]}?`,
+		because: 'the sentence fits both readings, and asking costs one exchange where guessing wrong costs trust in every answer after it',
+	};
+}
+
+/**
+ * What to say when something cannot be done — WITH the way that can.
+ *
+ * A refusal that ends the conversation is a dead end, and a dead end is
+ * where a person stops using a voice interface. "Не могу удалить" is a
+ * fact; "не могу удалить — скрыть?" is the same fact and a way forward,
+ * and it costs one clause.
+ *
+ * `instead` must be something the product can really do. An offer that
+ * cannot be taken is worse than no offer: the person says yes and
+ * nothing happens.
+ */
+export function berxRefuseWithWay(reason: string, instead?: string): BerxUtterancePlan {
+	const head = `${reason[0].toUpperCase()}${reason.slice(1)}`;
+	return instead
+		? {text: `${head}. ${instead}?`, because: 'a refusal that ends the conversation is where a person stops using a voice interface'}
+		: {text: `${head}.`, because: 'the reason, and nothing invented on top of it'};
+}
