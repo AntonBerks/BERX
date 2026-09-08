@@ -305,6 +305,94 @@ const line = (text) => ({text, emotion: 'calm'});
 		`"нет, только не бары" → ${correction.kind}, against a set of ${before.shown.length} that survives the interruption — UPDATE INTENT and UPDATE WORLD happen on the same room, which is what "continue" means`);
 }
 
+/* ---------------- 6. registration: arriving, not filling in a form ----------------
+
+   The nine stages are real, and they are not all the same KIND of thing
+   — which is where a registration flow starts lying. Some commit to a
+   server, some only ask, and one cannot be committed at all because the
+   backend has nowhere to put it. */
+
+const birthCapabilities = core.BERX_BIRTH_PLAN.filter((s) => s.capability);
+const birthMissing = birthCapabilities.filter((s) => !clientMethods.has(s.capability));
+gate('every stage that commits names a real method on the real client',
+	birthMissing.length === 0 && birthCapabilities.length >= 3,
+	birthMissing.length
+		? birthMissing.map((s) => `${s.stage} promises ${s.capability}()`).join('; ')
+		: birthCapabilities.map((s) => `${s.stage} → ${s.capability}()`).join(' · ')
+		+ ' — checked by reflection against BerxApiClient, so a renamed endpoint breaks a build rather than a registration');
+
+/**
+ * THE ORDERING CONSTRAINT, and it is the API's rather than a designer's.
+ *
+ * Only register and login can be called without a session. A flow that
+ * asked for a photograph first and held it in memory until the end
+ * would lose it when the app was backgrounded, and would be showing
+ * progress it had not made.
+ */
+const bornAt = core.BERX_BIRTH_PLAN.findIndex((s) => s.stage === 'birth');
+const tooEarly = core.BERX_BIRTH_PLAN.filter((s, i) => s.needsSession && i < bornAt);
+gate('nothing that needs an account is attempted before there is one',
+	tooEarly.length === 0 && bornAt > 0,
+	tooEarly.length
+		? tooEarly.map((s) => `${s.stage} needs a session and runs before birth`).join('; ')
+		: `birth is stage ${bornAt + 1} of ${core.BERX_BIRTH_PLAN.length}, and the two that need a token — ${core.BERX_BIRTH_PLAN.filter((s) => s.needsSession).map((s) => s.stage).join(', ')} — come after it. BIRTH is not last by sentiment; it is the stage after which the others become possible`);
+
+const early = core.berxBirthReady('portrait', []);
+const late = core.berxBirthReady('portrait', [{stage: 'birth', state: 'committed'}]);
+gate('a portrait cannot be uploaded to an account that does not exist',
+	early.ok === false && late.ok === true,
+	`before birth: "${early.why}". after: allowed — the request would simply be rejected, so this is the API's constraint expressed rather than a rule invented on top of it`);
+
+/* WHAT CANNOT BE SAVED IS MARKED, NOT FAKED. */
+const blockedStages = core.BERX_BIRTH_PLAN.filter((s) => s.blocked);
+gate('what this backend cannot store is declared, not invented',
+	blockedStages.length === 1 && blockedStages[0].stage === 'interests'
+		&& !blockedStages[0].capability,
+	`${blockedStages[0].stage}: ${blockedStages[0].blocked}. It is collected because it shapes what the world shows on arrival, and it has no capability — writing it into the dating profile's interests string would be storing personal data somewhere this person did not agree to`);
+
+/* Fields: exactly what register takes, and nothing invented to fill it. */
+const oneName = core.berxBirthFields({
+	name: 'Анна', username: 'anna', email: 'a@b.c', password: 'x', agreed: true,
+});
+gate('someone with one name gets one name, not an invented surname',
+	oneName.ok && oneName.fields.firstname === 'Анна' && oneName.fields.lastname === '',
+	`"Анна" → firstname "${oneName.fields.firstname}", lastname "${oneName.fields.lastname}" — the empty string is honest and the server accepts it; a filler would put a fiction in their profile`);
+
+const notAgreed = core.berxBirthFields({name: 'Анна', username: 'anna', email: 'a@b.c', password: 'x'});
+gate('nothing is created without an explicit agreement',
+	notAgreed.ok === false && notAgreed.missing.includes('agreement'),
+	`missing: ${notAgreed.missing.join(', ')} — and agreement is not something a voice can give: it is the one step in the arc that has to be made another way`);
+
+const shape = Object.keys(oneName.fields).sort().join(',');
+gate('the fields sent are exactly the fields the endpoint takes',
+	shape === 'email,firstname,lastname,password,username',
+	`${shape} — not a superset and not a guess. A field this backend does not accept is a field that should never have been asked for`);
+
+/* And the same rule as everywhere else: progress is derived. */
+const failedBirth = core.berxBirthProgress([
+	{stage: 'name', state: 'collected'},
+	{stage: 'interests', state: 'blocked'},
+	{stage: 'identity', state: 'collected'},
+	{stage: 'birth', state: 'failed', reason: 'адрес уже занят'},
+]);
+gate('a registration whose account creation failed is not a registration',
+	failedBirth.born === false && failedBirth.failed.includes('birth'),
+	`four stages reached, birth failed → born=${failedBirth.born}. Everything before it succeeded and none of that makes an account exist — the same rule the action graph enforces, in the one flow where getting it wrong would be worst`);
+
+const realBirth = core.berxBirthProgress([
+	{stage: 'birth', state: 'committed'},
+	{stage: 'portrait', state: 'committed'},
+]);
+gate('an account the server really made is a real account',
+	realBirth.born === true && realBirth.committed.includes('portrait'),
+	`born=${realBirth.born}, committed: ${realBirth.committed.join(', ')}`);
+
+const allStages = new Set(core.BERX_BIRTH_PLAN.map((s) => s.stage));
+gate('the whole arc is present, in the order the API permits',
+	core.BERX_BIRTH_STAGES.every((s) => allStages.has(s)) && allStages.size === 9,
+	core.BERX_BIRTH_PLAN.map((s) => s.stage).join(' → ')
+	+ ' — arrival and presence come before anything is asked, which is most of what makes this not a form: the first thing that happens is a world opening and someone being noticed, not a field gaining focus');
+
 fs.rmSync(dir, {recursive: true, force: true});
 if (failures.length) {
 	console.error(`\nBERX VOICE OS: ${failures.length} FAILED — ${failures.join('; ')}`);

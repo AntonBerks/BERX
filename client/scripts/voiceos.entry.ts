@@ -9,4 +9,7 @@ export {
 /* The REAL client, so the gate can check every capability against the
    methods that actually exist rather than against a list of names. */
 export {BerxVoiceAssistant} from '@berx/spatial';
+export {
+	BERX_BIRTH_STAGES, BERX_BIRTH_PLAN, berxBirthReady, berxBirthFields, berxBirthProgress,
+} from '@berx/spatial';
 export {BerxApiClient} from '@berx/api/client';
