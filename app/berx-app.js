@@ -1249,6 +1249,34 @@ var init_berxTouch = __esm({
   }
 });
 
+// packages/spatial/src/berxLivingWorld.ts
+var init_berxLivingWorld = __esm({
+  "packages/spatial/src/berxLivingWorld.ts"() {
+    "use strict";
+  }
+});
+
+// packages/spatial/src/platform/berxReach.ts
+var BERX_NO_INSETS, BERX_WITHOUT_VOICE;
+var init_berxReach = __esm({
+  "packages/spatial/src/platform/berxReach.ts"() {
+    "use strict";
+    BERX_NO_INSETS = Object.freeze({ top: 0, right: 0, bottom: 0, left: 0 });
+    BERX_WITHOUT_VOICE = Object.freeze({
+      "now-nearby": "the NOW region, which is a place in the world and reachable by travelling to it",
+      "find-places": "the place region, entered the same way",
+      "find-events": "the event region",
+      "find-people": "the person region",
+      discover: "the discover region",
+      open: "press the entity \u2014 the same gesture, at the same thing",
+      dismiss: "draw it away, or press its dismiss affordance in the action ring",
+      refine: "the affordances on what is already shown; refining is choosing again",
+      back: "the back gesture, which every platform already has",
+      unknown: "nothing to reach: no intent was formed, so there is nothing a hand would do instead"
+    });
+  }
+});
+
 // packages/spatial/src/worldMaterials.ts
 function berxWorldMaterial(name) {
   return BERX_WORLD_MATERIALS[name] ?? BERX_WORLD_MATERIALS.ceramic;
@@ -2965,22 +2993,42 @@ function berxBuildDrawList(frame, options) {
   });
   const basis = cameraBasis(c);
   const labels = [];
+  const viewProjection = berxMultiplyMat4(projection, view);
+  const onScreen = (p) => {
+    const m = viewProjection;
+    return {
+      x: m[0] * p.x + m[4] * p.y + m[8] * p.z + m[12],
+      y: m[1] * p.x + m[5] * p.y + m[9] * p.z + m[13],
+      w: m[3] * p.x + m[7] * p.y + m[11] * p.z + m[15]
+    };
+  };
+  const BERX_LABEL_ADVANCE = 0.52;
+  const kept = [];
   if (basis) {
     const named = drawn.filter((o) => o.label !== void 0 && o.label.trim().length > 0);
-    for (const o of named.sort((a, b) => distanceTo(eye, b) - distanceTo(eye, a))) {
+    for (const o of named.sort((a, b) => distanceTo(eye, a) - distanceTo(eye, b))) {
       const distance2 = distanceTo(eye, o);
       if (distance2 > BERX_LABEL_FADE_END) continue;
       const halfHeight = BERX_LABEL_HEIGHT * 0.5;
       const above = o.transform.scale.y * 0.5 + halfHeight * 1.6;
       const fade = distance2 <= BERX_LABEL_FADE_START ? 1 : 1 - (distance2 - BERX_LABEL_FADE_START) / (BERX_LABEL_FADE_END - BERX_LABEL_FADE_START);
+      const position = {
+        x: o.transform.position.x + basis.up.x * above,
+        y: o.transform.position.y + basis.up.y * above,
+        z: o.transform.position.z + basis.up.z * above
+      };
+      const clip = onScreen(position);
+      if (clip.w <= 1e-4) continue;
+      const ndcX = clip.x / clip.w, ndcY = clip.y / clip.w;
+      const hh = halfHeight * projection[5] / clip.w;
+      const hw = hh * BERX_LABEL_ADVANCE * o.label.trim().length * (height / Math.max(1, width));
+      if (Math.abs(ndcX) > 1 || Math.abs(ndcY) > 1) continue;
+      if (kept.some((k) => Math.abs(k.x - ndcX) < k.hw + hw && Math.abs(k.y - ndcY) < k.hh + hh)) continue;
+      kept.push({ x: ndcX, y: ndcY, hw, hh });
       labels.push({
         id: o.id,
         text: o.label,
-        position: {
-          x: o.transform.position.x + basis.up.x * above,
-          y: o.transform.position.y + basis.up.y * above,
-          z: o.transform.position.z + basis.up.z * above
-        },
+        position,
         halfHeight,
         /* names thin out with the world they belong to, or a
            dissolve would leave a field of floating text */
@@ -2988,6 +3036,7 @@ function berxBuildDrawList(frame, options) {
         distance: distance2
       });
     }
+    labels.reverse();
   }
   const forward = {
     x: c.target.x - c.position.x,
@@ -3267,6 +3316,8 @@ var init_src = __esm({
     init_berxCore();
     init_berxCoreWorld();
     init_berxTouch();
+    init_berxLivingWorld();
+    init_berxReach();
     init_worldMaterials();
     init_spatialAudio();
     init_platform();
@@ -3317,6 +3368,38 @@ function createBox(width = 1, height = 1, depth = 1) {
   }
   return { vertices: new Float32Array(v), indices: new Uint16Array(q) };
 }
+function createBevelBox(width = 1, height = 1, depth = 1, bevel = 0) {
+  const b = Math.max(0, Math.min(bevel, Math.min(width, height) * 0.4, depth * 0.5));
+  if (b <= 0) return createBox(width, height, depth);
+  const x = width / 2, y = height / 2, z = depth / 2;
+  const ix = x - b, iy = y - b, iz = z - b;
+  const v = [];
+  const q = [];
+  const quad = (ax, ay, az, bx, by, bz, cx, cy, cz, dx, dy, dz, nx, ny, nz) => {
+    const o = v.length / 6;
+    push(v, ax, ay, az, nx, ny, nz);
+    push(v, bx, by, bz, nx, ny, nz);
+    push(v, cx, cy, cz, nx, ny, nz);
+    push(v, dx, dy, dz, nx, ny, nz);
+    q.push(o, o + 1, o + 2, o, o + 2, o + 3);
+  };
+  const r = Math.SQRT1_2;
+  quad(-ix, -iy, z, ix, -iy, z, ix, iy, z, -ix, iy, z, 0, 0, 1);
+  quad(ix, -iy, -z, -ix, -iy, -z, -ix, iy, -z, ix, iy, -z, 0, 0, -1);
+  quad(x, -iy, iz, x, -iy, -iz, x, iy, -iz, x, iy, iz, 1, 0, 0);
+  quad(-x, -iy, -iz, -x, -iy, iz, -x, iy, iz, -x, iy, -iz, -1, 0, 0);
+  quad(-ix, y, iz, ix, y, iz, ix, y, -iz, -ix, y, -iz, 0, 1, 0);
+  quad(-ix, -y, -iz, ix, -y, -iz, ix, -y, iz, -ix, -y, iz, 0, -1, 0);
+  quad(-ix, -y, iz, ix, -y, iz, ix, -iy, z, -ix, -iy, z, 0, -r, r);
+  quad(-ix, iy, z, ix, iy, z, ix, y, iz, -ix, y, iz, 0, r, r);
+  quad(x, -iy, iz, x, iy, iz, ix, iy, z, ix, -iy, z, r, 0, r);
+  quad(-ix, -iy, z, -ix, iy, z, -x, iy, iz, -x, -iy, iz, -r, 0, r);
+  quad(ix, -y, -iz, -ix, -y, -iz, -ix, -iy, -z, ix, -iy, -z, 0, -r, -r);
+  quad(ix, iy, -z, -ix, iy, -z, -ix, y, -iz, ix, y, -iz, 0, r, -r);
+  quad(x, iy, -iz, x, -iy, -iz, ix, -iy, -z, ix, iy, -z, r, 0, -r);
+  quad(-x, -iy, -iz, -x, iy, -iz, -ix, iy, -z, -ix, -iy, -z, -r, 0, -r);
+  return { vertices: new Float32Array(v), indices: new Uint16Array(q) };
+}
 function createSphere(radius = 1, segments = 24, rings = 16) {
   const v = [];
   const q = [];
@@ -3334,27 +3417,22 @@ function createSphere(radius = 1, segments = 24, rings = 16) {
   }
   return { vertices: new Float32Array(v), indices: new Uint16Array(q) };
 }
-function createRing(outer = 1, inner = 0.72, segments = 48) {
+function createTorus(outer = 1, inner = 0.72, segments = 48, tube = 12) {
+  const centre = (outer + inner) / 2, r = Math.max(1e-4, (outer - inner) / 2);
   const v = [];
   const q = [];
-  for (let i = 0; i < segments; i++) {
-    const a = i / segments * Math.PI * 2, c = Math.cos(a), s = Math.sin(a);
-    push(v, outer * c, outer * s, 0, 0, 0, 1);
-    push(v, inner * c, inner * s, 0, 0, 0, 1);
+  for (let i = 0; i <= segments; i++) {
+    const a = i / segments * Math.PI * 2, ca = Math.cos(a), sa = Math.sin(a);
+    for (let j = 0; j <= tube; j++) {
+      const b = j / tube * Math.PI * 2, cb = Math.cos(b), sb = Math.sin(b);
+      const nx = ca * cb, ny = sa * cb, nz = sb;
+      push(v, (centre + r * cb) * ca, (centre + r * cb) * sa, r * sb, nx, ny, nz);
+    }
   }
-  const back = segments * 2;
-  for (let i = 0; i < segments; i++) {
-    const a = i / segments * Math.PI * 2, c = Math.cos(a), s = Math.sin(a);
-    push(v, outer * c, outer * s, 0, 0, 0, -1);
-    push(v, inner * c, inner * s, 0, 0, 0, -1);
-  }
-  for (let i = 0; i < segments; i++) {
-    const n = (i + 1) % segments, a = i * 2, b = a + 1, c = n * 2, d = c + 1;
+  const row = tube + 1;
+  for (let i = 0; i < segments; i++) for (let j = 0; j < tube; j++) {
+    const a = i * row + j, b = a + 1, c = a + row, d = c + 1;
     q.push(a, c, b, b, c, d);
-  }
-  for (let i = 0; i < segments; i++) {
-    const n = (i + 1) % segments, a = back + i * 2, b = a + 1, c = back + n * 2, d = c + 1;
-    q.push(a, b, c, b, d, c);
   }
   return { vertices: new Float32Array(v), indices: new Uint16Array(q) };
 }
@@ -3689,19 +3767,19 @@ function meshFor(kind, lod) {
     case "orb":
       return createSphere(0.5, far ? 10 : 24, far ? 7 : 16);
     case "ring":
-      return createRing(0.62, 0.42, far ? 16 : 48);
+      return createTorus(0.62, 0.42, far ? 18 : 48, far ? 6 : 12);
     case "frame":
       return createFrame(1, 1, 0.12);
     case "surface":
-      return createBox(1, 1, 0.06);
+      return createBevelBox(1, 1, 0.06, 0.02);
     case "portal":
       return createFrame(1, 1.2, 0.16);
     case "node":
       return createSphere(0.58, far ? 9 : 20, far ? 6 : 12);
     case "stack":
-      return createBox(1, 1, 0.32);
+      return createBevelBox(1, 1, 0.32, 0.1);
     case "message":
-      return createBox(1, 0.46, 0.12);
+      return createBevelBox(1, 0.46, 0.12, 0.05);
     case "create":
       return createSphere(0.58, far ? 11 : 28, far ? 7 : 18);
   }
@@ -5334,19 +5412,19 @@ function meshFor2(primitive, lod) {
     case "orb":
       return createSphere(0.5, far ? 10 : 24, far ? 7 : 16);
     case "ring":
-      return createRing(0.62, 0.42, far ? 16 : 48);
+      return createTorus(0.62, 0.42, far ? 18 : 48, far ? 6 : 12);
     case "frame":
       return createFrame(1, 1, 0.12);
     case "surface":
-      return createBox(1, 1, 0.06);
+      return createBevelBox(1, 1, 0.06, 0.02);
     case "portal":
       return createFrame(1, 1.2, 0.16);
     case "node":
       return createSphere(0.58, far ? 9 : 20, far ? 6 : 12);
     case "stack":
-      return createBox(1, 1, 0.32);
+      return createBevelBox(1, 1, 0.32, 0.1);
     case "message":
-      return createBox(1, 0.46, 0.12);
+      return createBevelBox(1, 0.46, 0.12, 0.05);
     case "create":
       return createSphere(0.58, far ? 11 : 28, far ? 7 : 18);
     default:
