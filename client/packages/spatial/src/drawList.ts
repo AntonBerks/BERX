@@ -26,6 +26,7 @@ import {cameraBasis} from './spatialInteraction';
 import {presentationForKind} from './spatialPresentation';
 import {berxWorldMaterial} from './worldMaterials';
 import {berxEnvironmentUniform} from './lighting/berxEnvironment';
+import {berxRadianceFor} from './lighting/berxExposure';
 import {
 	berxEnergyLight,
 	berxResolvePointLights,
@@ -60,7 +61,19 @@ export const BERX_LOD_DISTANCE = 18;
  * ladder. Every backend clears to this exact value, which is also what
  * makes a cross-renderer pixel comparison meaningful.
  */
-export const BERX_WORLD_CLEAR: BerxShaderRgb3 = [7 / 255, 8 / 255, 10 / 255];
+/**
+ * The void, as radiance rather than as an appearance.
+ *
+ * #07080A is what the background should LOOK like; the clear colour is
+ * what is WRITTEN into a linear frame that the exposure will then
+ * multiply and roll off. Those are different numbers, and handing the
+ * token straight to glClearColor made the first exposed frame render
+ * the void as mid-grey slate. berxRadianceFor is the conversion, and it
+ * round-trips to 7, 8, 10 exactly.
+ */
+export const BERX_WORLD_CLEAR: BerxShaderRgb3 = [
+	berxRadianceFor(7 / 255), berxRadianceFor(8 / 255), berxRadianceFor(10 / 255),
+];
 
 export interface BerxDrawItem {
 	/** The entity's spatial id. The same object in every renderer. */

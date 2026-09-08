@@ -20,6 +20,7 @@ const SHADERS = [
 	['volumetric.wgsl', 'BERX_VOLUMETRIC_WGSL'],
 	['ssao.wgsl', 'BERX_SSAO_WGSL'],
 	['particles.wgsl', 'BERX_PARTICLES_WGSL'],
+	['post.wgsl', 'BERX_POST_WGSL'],
 ];
 
 const sources = SHADERS.map(([file, name]) => [name, file, fs.readFileSync(path.join(pkg, file), 'utf8')]);

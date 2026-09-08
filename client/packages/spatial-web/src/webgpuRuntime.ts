@@ -20,6 +20,7 @@
  * distant photograph is softer than on WebGL2.
  */
 import {
+	BERX_EXPOSURE,
 	berxBuildDrawList,
 	berxEyeCamera,
 	berxWorldLighting,
@@ -39,7 +40,7 @@ import {
 	type BerxSpatialRenderer,
 	type BerxWorldLighting,
 } from '@berx/spatial';
-import {BERX_LABEL_WGSL, BERX_PARTICLES_WGSL, BERX_SSAO_WGSL, BERX_VOLUMETRIC_WGSL, BERX_WORLD_WGSL} from '@berx/spatial-shaders';
+import {BERX_LABEL_WGSL, BERX_PARTICLES_WGSL, BERX_POST_WGSL, BERX_SSAO_WGSL, BERX_VOLUMETRIC_WGSL, BERX_WORLD_WGSL} from '@berx/spatial-shaders';
 import {createBevelBox, createSphere, createTorus, createFrame, type BerxPrimitiveMesh} from './primitiveGeometry';
 import {BerxWebGPUMediaTextures} from './webgpuMediaTextures';
 import {BerxWebGPUTextAtlas} from './webgpuText';
@@ -263,6 +264,10 @@ export class BerxWebGPURuntimeRenderer implements BerxSpatialRenderer {
 	adapter?: GPUAdapter;
 	private offscreen?: GPUTexture;
 	private msaa?: GPUTexture;
+	/** The resolved linear frame, before exposure. What post reads. */
+	private hdr?: GPUTexture;
+	private postBind?: GPUBindGroup;
+	private postUniform?: GPUBuffer;
 	private depth?: GPUTexture;
 	private width = 1;
 	private height = 1;
@@ -284,6 +289,8 @@ export class BerxWebGPURuntimeRenderer implements BerxSpatialRenderer {
 		readonly device: GPUDevice,
 		private readonly context: GPUCanvasContext,
 		private readonly format: GPUTextureFormat,
+		/** The linear working format, above 1.0, that post reads. */
+		private readonly hdrFormat: GPUTextureFormat,
 		private readonly pipeline: GPURenderPipeline,
 		private readonly drawLayout: GPUBindGroupLayout,
 		mediaLayout: GPUBindGroupLayout,
@@ -298,6 +305,8 @@ export class BerxWebGPURuntimeRenderer implements BerxSpatialRenderer {
 		private readonly compositeLayout: GPUBindGroupLayout,
 		private readonly particlePipeline: GPURenderPipeline,
 		private readonly particleLayout: GPUBindGroupLayout,
+		private readonly postPipeline: GPURenderPipeline,
+		private readonly postLayout: GPUBindGroupLayout,
 		options: {textureBudget?: number; labelBudget?: number; onMediaError?: (uri: string, error: unknown) => void},
 	) {
 		/* The kernel and its parameters come from the shared core; this
@@ -398,6 +407,18 @@ export class BerxWebGPURuntimeRenderer implements BerxSpatialRenderer {
 		   would re-encode every colour so the two backends could never be
 		   compared */
 		const format: GPUTextureFormat = 'rgba8unorm';
+		/**
+		 * The format everything before the tone-map is drawn into.
+		 *
+		 * Half-float, and the reason is the whole of step two: exposure
+		 * multiplies the frame by ~2.95 and the shoulder needs values
+		 * ABOVE one to have anything to roll off. An 8-bit working
+		 * target clamps at 1.0 before the curve ever sees it, so a
+		 * highlight and a much brighter highlight arrive at the tone-map
+		 * as the same number and the shoulder has nothing left to
+		 * separate. Renderable without an extension in WebGPU.
+		 */
+		const hdrFormat: GPUTextureFormat = 'rgba16float';
 		/* COPY_SRC so the frame can be read back off the GPU: a renderer
 		   whose output is never observed proves nothing, and the
 		   cross-renderer gate compares these bytes against the WebGL2 and
@@ -454,7 +475,7 @@ export class BerxWebGPURuntimeRenderer implements BerxSpatialRenderer {
 			fragment: {
 				module, entryPoint: 'fs',
 				targets: [{
-					format,
+					format: hdrFormat,
 					/* the same blend the WebGL2 backend runs */
 					blend: {
 						color: {srcFactor: 'src-alpha', dstFactor: 'one-minus-src-alpha', operation: 'add'},
@@ -572,7 +593,7 @@ export class BerxWebGPURuntimeRenderer implements BerxSpatialRenderer {
 			fragment: {
 				module: labelModule, entryPoint: 'fs',
 				targets: [{
-					format,
+					format: hdrFormat,
 					blend: {
 						color: {srcFactor: 'src-alpha', dstFactor: 'one-minus-src-alpha', operation: 'add'},
 						alpha: {srcFactor: 'src-alpha', dstFactor: 'one-minus-src-alpha', operation: 'add'},
@@ -629,7 +650,7 @@ export class BerxWebGPURuntimeRenderer implements BerxSpatialRenderer {
 			fragment: {
 				module: volModule, entryPoint: 'fs_composite',
 				targets: [{
-					format,
+					format: hdrFormat,
 					/* ONE/ONE: light in the air adds to what is behind it */
 					blend: {
 						color: {srcFactor: 'one', dstFactor: 'one', operation: 'add'},
@@ -666,7 +687,7 @@ export class BerxWebGPURuntimeRenderer implements BerxSpatialRenderer {
 			fragment: {
 				module: particleModule, entryPoint: 'fs_particles',
 				targets: [{
-					format,
+					format: hdrFormat,
 					blend: {
 						/* premultiplied and additive: the shader hands back a
 						   colour that already carries its alpha */
@@ -679,7 +700,34 @@ export class BerxWebGPURuntimeRenderer implements BerxSpatialRenderer {
 			depthStencil: {format: 'depth32float', depthWriteEnabled: false, depthCompare: 'less'},
 			multisample: {count: SAMPLE_COUNT},
 		});
-		const renderer = new BerxWebGPURuntimeRenderer(canvas, device, context, format, pipeline, drawLayout, mediaLayout, labelPipeline, labelLayout, shadowPipeline, gbufferPipeline, ssaoPipeline, volPipeline, compositePipeline, volLayout, compositeLayout, particlePipeline, particleLayout, options);
+		/**
+		 * POST: exposure and the shoulder, the only stage that writes to
+		 * the screen.
+		 *
+		 * Declared `absent` in renderPipeline.ts for the whole of the
+		 * project's life, and that honesty is what made the problem
+		 * findable — there was no tone-map, so the frame was whatever the
+		 * world pass wrote, and what it wrote was every brand colour
+		 * dimmed by the room's own light transport.
+		 *
+		 * Not multisampled: it reads a texture and writes a full-screen
+		 * triangle, so there is nothing to antialias that has not already
+		 * been resolved.
+		 */
+		const postModule = device.createShaderModule({code: BERX_POST_WGSL});
+		const postLayout = device.createBindGroupLayout({
+			entries: [
+				{binding: 0, visibility: GPUShaderStage.FRAGMENT, texture: {sampleType: 'float'}},
+				{binding: 1, visibility: GPUShaderStage.FRAGMENT, buffer: {type: 'uniform'}},
+			],
+		});
+		const postPipeline = device.createRenderPipeline({
+			layout: device.createPipelineLayout({bindGroupLayouts: [postLayout]}),
+			vertex: {module: postModule, entryPoint: 'vs_post'},
+			fragment: {module: postModule, entryPoint: 'fs_post', targets: [{format}]},
+			primitive: {topology: 'triangle-list'},
+		});
+		const renderer = new BerxWebGPURuntimeRenderer(canvas, device, context, format, hdrFormat, pipeline, drawLayout, mediaLayout, labelPipeline, labelLayout, shadowPipeline, gbufferPipeline, ssaoPipeline, volPipeline, compositePipeline, volLayout, compositeLayout, particlePipeline, particleLayout, postPipeline, postLayout, options);
 		renderer.errors = errors;
 		renderer.adapter = adapter;
 		renderer.lostPromise = device.lost.then((info) => {
@@ -747,6 +795,10 @@ export class BerxWebGPURuntimeRenderer implements BerxSpatialRenderer {
 		this.msaa?.destroy();
 		this.depth?.destroy();
 		this.offscreen?.destroy();
+		this.hdr?.destroy();
+		/* A post bind group points at the old view, so it has to go with
+		   it — a stale one samples a destroyed texture. */
+		this.postBind = undefined;
 		/* A second, offscreen resolve target the same size as the canvas.
 		   Reading a canvas texture back is unsupported on the software
 		   driver these gates run against — copyTextureToBuffer from it
@@ -758,10 +810,22 @@ export class BerxWebGPURuntimeRenderer implements BerxSpatialRenderer {
 			format: this.format,
 			usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC,
 		});
+		/**
+		 * The linear frame everything is drawn into, before exposure.
+		 *
+		 * The world, its names, the motes and the air all land here, and
+		 * post reads it once. Values above 1.0 survive to the tone-map,
+		 * which is the only reason the shoulder has anything to do.
+		 */
+		this.hdr = this.device.createTexture({
+			size: {width: this.width, height: this.height},
+			format: this.hdrFormat,
+			usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING,
+		});
 		this.msaa = this.device.createTexture({
 			size: {width: this.width, height: this.height},
 			sampleCount: SAMPLE_COUNT,
-			format: this.format,
+			format: this.hdrFormat,
 			usage: GPUTextureUsage.RENDER_ATTACHMENT,
 		});
 		this.depth = this.device.createTexture({
@@ -1209,7 +1273,10 @@ export class BerxWebGPURuntimeRenderer implements BerxSpatialRenderer {
 		const pass = encoder.beginRenderPass({
 			colorAttachments: [{
 				view: this.msaa!.createView(),
-				resolveTarget: (offscreen ? this.offscreen! : this.context.getCurrentTexture()).createView(),
+				/* Always the linear frame now: post is what reaches the
+				   screen, and a world pass that resolved straight to it
+				   would be the un-exposed picture again. */
+				resolveTarget: this.hdr!.createView(),
 				clearValue: {r: BERX_WORLD_CLEAR[0], g: BERX_WORLD_CLEAR[1], b: BERX_WORLD_CLEAR[2], a: 1},
 				loadOp: pass_?.clear === false ? 'load' : 'clear', storeOp: 'store',
 			}],
@@ -1309,6 +1376,47 @@ export class BerxWebGPURuntimeRenderer implements BerxSpatialRenderer {
 			drawCalls++;
 		}
 		pass.end();
+
+		/**
+		 * POST — exposure, then the shoulder, then the screen.
+		 *
+		 * AFTER the composite, which is the one ordering fact that
+		 * matters here: in-scatter is light, so the air has to be part of
+		 * what is exposed. Tone-mapping the surfaces and then adding the
+		 * air would put unmapped values on top of mapped ones — not a
+		 * brighter picture, two different pictures added together.
+		 */
+		if (!this.postUniform) {
+			this.postUniform = device.createBuffer({
+				size: 16, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+			});
+		}
+		/* The gain is the shared core's, not this file's: WGSL, GLSL and
+		   Rust all read one number so three backends cannot expose
+		   differently. */
+		device.queue.writeBuffer(this.postUniform, 0, new Float32Array([BERX_EXPOSURE, 0, 0, 0]));
+		if (!this.postBind) {
+			this.postBind = device.createBindGroup({
+				layout: this.postLayout,
+				entries: [
+					{binding: 0, resource: this.hdr!.createView()},
+					{binding: 1, resource: {buffer: this.postUniform}},
+				],
+			});
+		}
+		const postPass = encoder.beginRenderPass({
+			colorAttachments: [{
+				view: (offscreen ? this.offscreen! : this.context.getCurrentTexture()).createView(),
+				clearValue: {r: 0, g: 0, b: 0, a: 1},
+				loadOp: 'clear', storeOp: 'store',
+			}],
+		});
+		stages.push('post');
+		postPass.setPipeline(this.postPipeline);
+		postPass.setBindGroup(0, this.postBind);
+		postPass.draw(3);
+		postPass.end();
+
 		device.queue.submit([encoder.finish()]);
 
 		this.slots = list.actionSlots;
@@ -1608,7 +1716,13 @@ export class BerxWebGPURuntimeRenderer implements BerxSpatialRenderer {
 		this.globals.destroy();
 		this.msaa?.destroy();
 		this.depth?.destroy();
-		this.offscreen?.destroy();
+this.offscreen?.destroy();
+		this.hdr?.destroy();
+		this.postUniform?.destroy();
+		this.hdr?.destroy();
+		/* A post bind group points at the old view, so it has to go with
+		   it — a stale one samples a destroyed texture. */
+		this.postBind = undefined;
 		this.device.destroy();
 	}
 }

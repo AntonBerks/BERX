@@ -239,7 +239,7 @@ const isWorld = (buf, i) => Math.abs(buf[i] - ground[0]) > 3 || Math.abs(buf[i +
  * ground, and averaging it in turns an 8% shading error into a mean
  * under one.
  */
-function compare(a, b) {
+function compare(a, b, bound = 6) {
 	const TILE = 8;
 	const tilesX = Math.floor(width / TILE);
 	const tilesY = Math.floor(height / TILE);
@@ -256,6 +256,9 @@ function compare(a, b) {
 		return {mean: [r / n, g / n, bl / n], lit};
 	};
 	let worst = 0, worstAt = '', sum = 0, tiles = 0;
+	/* Tiles over the bound, split by whether they touch the frame's
+	   border — see the note on `agree`. */
+	const overEdge = [], overInside = [];
 	for (let ty = 0; ty < tilesY; ty++) {
 		for (let tx = 0; tx < tilesX; tx++) {
 			const p = tileOf(a, tx, ty), q = tileOf(b, tx, ty);
@@ -263,6 +266,10 @@ function compare(a, b) {
 			const d = Math.max(Math.abs(p.mean[0] - q.mean[0]), Math.abs(p.mean[1] - q.mean[1]), Math.abs(p.mean[2] - q.mean[2]));
 			sum += d; tiles++;
 			if (d > worst) { worst = d; worstAt = `${tx * TILE},${ty * TILE}`; }
+			if (d > bound) {
+				const onEdge = tx === 0 || ty === 0 || tx === tilesX - 1 || ty === tilesY - 1;
+				(onEdge ? overEdge : overInside).push(`${tx * TILE},${ty * TILE}@${d.toFixed(1)}`);
+			}
 		}
 	}
 	let both = 0, either = 0, aOnly = 0, bOnly = 0;
@@ -273,9 +280,31 @@ function compare(a, b) {
 		if (p && !q) aOnly++;
 		if (q && !p) bOnly++;
 	}
+	/**
+	 * The worst tile's actual pixels, both sides.
+	 *
+	 * A tile mean is a summary, and a summary is what sent me looking
+	 * for an amplification that was not there: the number moved the
+	 * wrong way when the exposure was set to 1. A disagreement is worth
+	 * reporting as the values that disagree, so the next reader does not
+	 * have to reproduce it to find out what it is.
+	 */
+	let sample = '';
+	if (worst > 0) {
+		const [wx, wy] = worstAt.split(',').map(Number);
+		const row = (buf, y) => {
+			const out = [];
+			for (let x = Math.max(0, wx - 2); x < Math.min(wx + 6, width); x++) {
+				const i = ((y * width) + x) * 4;
+				out.push(`${buf[i]},${buf[i + 1]},${buf[i + 2]}`);
+			}
+			return out.join(' ');
+		};
+		sample = ` · worst tile x${Math.max(0, wx - 2)}.. row ${wy}: A[${row(a, wy)}] B[${row(b, wy)}]`;
+	}
 	return {
 		tiles, total: tilesX * tilesY,
-		mean: sum / Math.max(1, tiles), worst, worstAt,
+		mean: sum / Math.max(1, tiles), worst, worstAt, sample, overEdge, overInside,
 		both, either, aOnly, bOnly,
 		overlap: either === 0 ? 0 : both / either,
 	};
@@ -291,16 +320,37 @@ function compare(a, b) {
  * WebGPU one on the CPU from alpha-weighted ones, and that shows up on
  * a letter's edge and nowhere else.
  */
-function agree(name, a, b, detail, worstTile = 6) {
+/**
+ * AND WHAT AN EXPOSED FRAME CHANGED ABOUT THIS CHECK: nothing, on
+ * purpose.
+ *
+ * The bound was calibrated on a frame with no tone-map, where every
+ * difference arrived pre-dimmed by the room's own light transport. The
+ * exposure lifts real disagreements over it, and the temptation is to
+ * raise the number. That is the wrong instrument twice over: it blinds
+ * the check everywhere to buy quiet in one place, and it treats a
+ * finding as noise before finding out what it is.
+ *
+ * `edgeTiles` allows a bounded number of tiles TOUCHING THE FRAME'S
+ * BORDER to exceed the bound, for the one thing that genuinely is a
+ * rasteriser difference: a primitive clipped at the viewport boundary
+ * by one API and kept by the other. It defaults to zero, an interior
+ * tile is never allowed, and everything allowed is printed with the
+ * actual pixel values on both sides — an allowance must not become a
+ * hiding place.
+ */
+function agree(name, a, b, detail, worstTile = 6, edgeTiles = 0) {
 	if (!a || !b) { failures.push(name); console.log(`FAIL  ${name}`); console.log(`      one of the two images is missing`); return; }
 	if (a.length !== width * height * 4 || b.length !== width * height * 4) {
 		failures.push(name); console.log(`FAIL  ${name}`);
 		console.log(`      expected ${width * height * 4} bytes each, got ${a.length} and ${b.length}`);
 		return;
 	}
-	const c = compare(a, b);
-	gate(name, c.tiles > 0 && c.worst <= worstTile && c.mean <= 1 && c.overlap >= 0.97,
-		`${detail} · ${c.tiles} of ${c.total} tiles hold the world: mean ${c.mean.toFixed(2)}/255, worst ${c.worst.toFixed(1)}/255 at ${c.worstAt} · ${(c.overlap * 100).toFixed(2)}% silhouette IoU (${c.aOnly}/${c.bOnly} disagreeing pixels of ${c.either})`);
+	const c = compare(a, b, worstTile);
+	const okEdge = c.overEdge.length <= edgeTiles;
+	gate(name,
+		c.tiles > 0 && c.overInside.length === 0 && okEdge && c.mean <= 1 && c.overlap >= 0.97,
+		`${detail} · ${c.tiles} of ${c.total} tiles hold the world: mean ${c.mean.toFixed(2)}/255, worst ${c.worst.toFixed(1)}/255 at ${c.worstAt} · ${(c.overlap * 100).toFixed(2)}% silhouette IoU (${c.aOnly}/${c.bOnly} disagreeing pixels of ${c.either})${c.overEdge.length ? ` · ${c.overEdge.length} border tile(s) over ${worstTile}/255 (${c.overEdge.join(' ')}), allowance ${edgeTiles}` : ''}${c.overInside.length ? ` · INTERIOR tiles over bound: ${c.overInside.join(' ')}` : ''}${(c.overEdge.length || c.overInside.length) ? c.sample : ''}`);
 	return c;
 }
 

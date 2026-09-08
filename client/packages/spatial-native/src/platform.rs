@@ -30,6 +30,8 @@ pub struct SurfaceSession {
     surface: wgpu::Surface<'static>,
     config: wgpu::SurfaceConfiguration,
     msaa: wgpu::Texture,
+    /// The linear frame the world resolves into, before exposure.
+    hdr: wgpu::Texture,
     depth: wgpu::Texture,
 }
 
@@ -83,8 +85,8 @@ impl SurfaceSession {
             desired_maximum_frame_latency: 2,
         };
         surface.configure(renderer.device(), &config);
-        let (msaa, depth) = renderer.pass_targets(config.width, config.height);
-        Ok(Self { renderer, surface, config, msaa, depth })
+        let (msaa, hdr, depth) = renderer.pass_targets(config.width, config.height);
+        Ok(Self { renderer, surface, config, msaa, hdr, depth })
     }
 
     /// The surface changed size — a rotation, a split screen, a keyboard.
@@ -95,8 +97,9 @@ impl SurfaceSession {
         self.config.width = width.max(1);
         self.config.height = height.max(1);
         self.surface.configure(self.renderer.device(), &self.config);
-        let (msaa, depth) = self.renderer.pass_targets(self.config.width, self.config.height);
+        let (msaa, hdr, depth) = self.renderer.pass_targets(self.config.width, self.config.height);
         self.msaa = msaa;
+        self.hdr = hdr;
         self.depth = depth;
     }
 
@@ -114,10 +117,11 @@ impl SurfaceSession {
         };
         let view = frame.texture.create_view(&Default::default());
         let msaa_view = self.msaa.create_view(&Default::default());
+        let hdr_view = self.hdr.create_view(&Default::default());
         let depth_view = self.depth.create_view(&Default::default());
         let prepared = self.renderer.prepare(list)?;
         let mut encoder = self.renderer.device().create_command_encoder(&Default::default());
-        self.renderer.record(&prepared, &mut encoder, &msaa_view, &view, &depth_view);
+        self.renderer.record(&prepared, &mut encoder, &msaa_view, &view, &hdr_view, &depth_view);
         self.renderer.queue().submit(Some(encoder.finish()));
         frame.present();
         Ok(())

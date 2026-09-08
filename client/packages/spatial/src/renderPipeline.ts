@@ -22,15 +22,23 @@
  *   Depth -> Shadows -> IBL -> SSAO -> Volumetric -> Particles ->
  *   Composition -> Post
  *
- * and three of those are not passes at all. IBL is a term inside the
+ * and two of those are not passes at all. IBL is a term inside the
  * world shader, not a stage before it — an analytic environment does not
  * need a pass, which is the whole reason berxEnvironment is a closed
  * form. Composition happens before any of this, in @berx/spatial's
  * composition.ts, and reaches the GPU as coordinates in the draw list.
- * Post does not exist yet. Writing all three down as `term`, `upstream`
- * and `absent` rather than leaving them out is the point: a reader
- * comparing the description to the code should find the difference
- * explained here rather than have to conclude something is missing.
+ * Writing them down as `term` and `upstream` rather than leaving them
+ * out is the point: a reader comparing the description to the code
+ * should find the difference explained here rather than have to
+ * conclude something is missing.
+ *
+ * POST was the third, marked `absent` for the whole of the project's
+ * life, and that label is what made the problem findable. With no
+ * tone-map the frame was whatever the world pass wrote, and what it
+ * wrote was every brand colour dimmed by the room's own light
+ * transport: #15191E on #07080A arrived as 7 against 7 out of 255. It
+ * is a real pass now — see berxExposure for why the gain is a measured
+ * reciprocal rather than a taste.
  */
 
 /** What a stage IS, which decides whether a backend can report it. */
@@ -144,10 +152,10 @@ export const BERX_PIPELINE: readonly BerxPipelineStage[] = Object.freeze([
 	},
 	{
 		id: 'post',
-		kind: 'absent',
+		kind: 'pass',
 		needs: ['frame'],
-		produces: [],
-		why: 'NOT BUILT. Named in the design and honestly absent: there is no tone-map, no bloom and no grade. The render target is linear rgba8 and the frame is what the world pass wrote. Listed so its absence is a statement rather than an omission',
+		produces: ['exposed-frame'],
+		why: 'exposure and the shoulder, the only stage that writes to the screen. It is LAST because in-scatter is light: tone-mapping the surfaces and then adding the air would put unmapped values on top of mapped ones. Everything before it draws into a linear half-float frame, so values above 1.0 reach the curve and the shoulder has something to roll off — an 8-bit working target clamps them first and a highlight and a much brighter highlight arrive identical. There is still no bloom and no grade; this is exposure alone',
 	},
 ]);
 

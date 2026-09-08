@@ -47,6 +47,8 @@ import {parseColor} from '../color';
 import type {BerxVec3} from '../world';
 import type {BerxShaderRgb3} from '../worldLighting';
 
+import {berxRadianceFor} from './berxExposure';
+
 const rgb = (hex: string): BerxShaderRgb3 => {
 	const c = parseColor(hex);
 	if (!c) throw new Error(`BERX 5D environment: ${hex} is not a colour`);
@@ -100,11 +102,32 @@ export const berxEnvSmoothstep01 = (x: number): number => {
  * light actually is rather than somewhere chosen for the look of it.
  */
 export function berxEnvironment(sunDirection: BerxVec3): BerxEnvironment {
+	/**
+	 * THE ROOM'S COLOURS ARE APPEARANCES, so they are converted to the
+	 * radiance that produces them.
+	 *
+	 * These four are brand tokens: #07080A is what the background should
+	 * LOOK like, not what it reflects. The exposure multiplies every
+	 * radiance by ~2.95 and rolls it off, so handing it the token
+	 * directly makes the void three times lighter than the void was
+	 * designed to be — the first exposed frame rendered #07080A as a
+	 * mid-grey slate, which is a fog, not an exposure.
+	 *
+	 * berxRadianceFor inverts the shoulder and divides by the gain, so
+	 * each of these comes back out of the tone-map as itself, to the
+	 * code value. An object's colour is NOT put through this: an albedo
+	 * is a reflectance and being dimmed by the light is exactly what it
+	 * should be.
+	 */
+	const appearance = (hex: string): BerxShaderRgb3 => {
+		const c = rgb(hex);
+		return [berxRadianceFor(c[0]), berxRadianceFor(c[1]), berxRadianceFor(c[2])];
+	};
 	return {
-		zenith: rgb('#15191E'),
-		horizon: rgb('#07080A'),
-		ground: rgb('#0D1014'),
-		sun: rgb('#4FD6E8'),
+		zenith: appearance('#15191E'),
+		horizon: appearance('#07080A'),
+		ground: appearance('#0D1014'),
+		sun: appearance('#4FD6E8'),
 		/* The sun is the only part of the room brighter than the room. It
 		   is deliberately modest: a glow that out-runs the key light stops
 		   reading as a reflection of it and starts reading as a second

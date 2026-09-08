@@ -61,12 +61,34 @@ const kinds = core.BERX_PIPELINE.filter((s) => s.kind !== 'pass');
 gate('the stages that are not passes say what they are instead',
 	kinds.length > 0 && kinds.every((s) => s.why.length > 30),
 	kinds.map((s) => `${s.id} is ${s.kind}`).join(', ')
-	+ ' — IBL is a term in the world shader because berxEnvironment is a closed form, composition is coordinates in the draw list, and post does not exist. Written down rather than omitted, so a reader comparing the design to the code finds the difference explained');
+	+ ' — IBL is a term in the world shader because berxEnvironment is a closed form, and composition is coordinates in the draw list. Written down rather than omitted, so a reader comparing the design to the code finds the difference explained');
 
+/**
+ * POST IS BUILT NOW, and this gate is the one that changed shape.
+ *
+ * It used to assert `post.kind === 'absent'` — the honest label for a
+ * pipeline with no tone-map, and the label that made the problem
+ * findable at all: the frame was whatever the world pass wrote, and
+ * what it wrote was every brand colour dimmed by the room's own light
+ * transport. So the check is not deleted, it is inverted: post is a
+ * real pass, both backends must report it, and it must be LAST.
+ *
+ * Whatever is still `absent` must keep explaining itself, and the
+ * assertion is not allowed to pass vacuously on an empty set — a
+ * lesson from the label gate, which once went green on zero labels.
+ */
 const post = core.berxPipelineStage('post');
-gate('what is not built says so',
-	post?.kind === 'absent',
-	`post: ${post?.why}`);
+const passes = core.berxPipelinePasses();
+gate('the tone-map is a real pass, and it is the last one',
+	post?.kind === 'pass' && passes[passes.length - 1] === 'post',
+	`${passes.join(' → ')} — post is last because in-scatter is light: the air has to be part of what is exposed. This gate asserted post was ABSENT until the exposure was built, and that honest label is what made a frame of 7-on-7 out of 255 findable instead of mysterious`);
+
+const absent = core.BERX_PIPELINE.filter((s) => s.kind === 'absent');
+gate('and whatever is still not built says so',
+	absent.every((s) => s.why.includes('NOT BUILT') && s.why.length > 30),
+	absent.length === 0
+		? 'nothing is marked absent any more: bloom and grade were never claimed, and post — the one stage that was — is built. An empty set is reported as empty rather than counted as agreement'
+		: absent.map((s) => `${s.id}: ${s.why}`).join('; '));
 
 /* ---------------- 2. the dependency rules ---------------- */
 
@@ -81,9 +103,9 @@ gate('turning occlusion off leaves the G-buffer and the march alone',
 	`with occlusion off: ${noSsao.join(' → ')} — the G-buffer has two consumers, and this is the exact regression WebGPU shipped: it gated the buffer on one of them`);
 
 const bare = core.berxExpectedPasses({ssao: false, volumetric: false, shadows: false, particles: false});
-gate('with everything optional off, only the world is drawn',
-	bare.join(',') === 'world,labels',
-	`${bare.join(' → ')} — nothing optional is load-bearing for the surfaces`);
+gate('with everything optional off, the surfaces and the tone-map remain',
+	bare.join(',') === 'world,labels,post',
+	`${bare.join(' → ')} — nothing optional is load-bearing for the surfaces, and post is not optional: a frame that skipped the exposure would be the un-lit picture again, which is a different bug wearing the same face`);
 
 /* ---------------- 3. what the backends actually encoded ---------------- */
 

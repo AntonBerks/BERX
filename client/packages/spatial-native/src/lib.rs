@@ -160,6 +160,24 @@ struct Draw {
 /// `antialias: true`, which every desktop driver honours as 4x.
 pub const SAMPLE_COUNT: u32 = 4;
 
+/// The format everything before the tone-map is drawn into.
+///
+/// Half-float, and the reason is the whole of the exposure: the gain
+/// multiplies the frame by ~2.95 and the shoulder needs values ABOVE
+/// one to have anything to roll off. An 8-bit working target clamps
+/// them first, so a highlight and a much brighter highlight arrive at
+/// the curve identical and the shoulder has nothing left to separate.
+pub const HDR_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba16Float;
+
+/// The exposure gain, mirroring @berx/spatial's BERX_EXPOSURE.
+///
+/// 1 / 0.339: the reciprocal of the room's measured light transport,
+/// so a surface authored as a colour appears as that colour. Not a
+/// taste — a number that undoes a measured dimming. The shared core
+/// owns the derivation; this is the same value, and the gate compares
+/// them rather than trusting the comment.
+pub const BERX_EXPOSURE: f32 = 1.0 / 0.339;
+
 /// Exactly 256 bytes, which is also the widest uniform alignment wgpu
 /// asks for, so one dynamic offset per item needs no padding.
 const DRAW_STRIDE: u64 = std::mem::size_of::<Draw>() as u64;
@@ -277,6 +295,8 @@ pub struct NativeRenderer {
     gbuffer_pipeline: wgpu::RenderPipeline,
     vol_pipeline: wgpu::RenderPipeline,
     composite_pipeline: wgpu::RenderPipeline,
+    post_pipeline: wgpu::RenderPipeline,
+    post_layout: wgpu::BindGroupLayout,
     vol_layout: wgpu::BindGroupLayout,
     composite_layout: wgpu::BindGroupLayout,
     vol_sampler: wgpu::Sampler,
@@ -510,7 +530,7 @@ impl NativeRenderer {
                 module: &shader,
                 entry_point: "fs",
                 targets: &[Some(wgpu::ColorTargetState {
-                    format,
+                    format: HDR_FORMAT,
                     /* the same blend the WebGL2 backend runs: source alpha
                        over one minus source alpha */
                     blend: Some(wgpu::BlendState::ALPHA_BLENDING),
@@ -743,7 +763,7 @@ impl NativeRenderer {
                 module: &vol_shader,
                 entry_point: "fs_composite",
                 targets: &[Some(wgpu::ColorTargetState {
-                    format,
+                    format: HDR_FORMAT,
                     /* ONE/ONE: light in the air adds to what is behind it */
                     blend: Some(wgpu::BlendState {
                         color: wgpu::BlendComponent {
@@ -800,6 +820,63 @@ impl NativeRenderer {
             bind_group_layouts: &[&particle_bind_layout],
             push_constant_ranges: &[],
         });
+        /* POST: exposure and the shoulder, the only stage that writes to
+           the screen. Declared `absent` in the shared renderPipeline for
+           the whole of the project's life, and that honesty is what made
+           the problem findable — with no tone-map the frame was whatever
+           the world pass wrote, and what it wrote was every brand colour
+           dimmed by the room's own light transport.
+
+           Not multisampled: it reads a resolved texture and writes one
+           full-screen triangle, so there is nothing left to antialias. */
+        let post_module = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some("berx-post"),
+            source: wgpu::ShaderSource::Wgsl(include_str!("../../spatial-shaders/post.wgsl").into()),
+        });
+        let post_bind_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: Some("berx-post-bind"),
+            entries: &[
+                wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Texture {
+                        sample_type: wgpu::TextureSampleType::Float { filterable: false },
+                        view_dimension: wgpu::TextureViewDimension::D2,
+                        multisampled: false,
+                    },
+                    count: None,
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 1,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                },
+            ],
+        });
+        let post_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some("berx-post"),
+            layout: Some(&device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                label: Some("berx-post-pipeline"),
+                bind_group_layouts: &[&post_bind_layout],
+                push_constant_ranges: &[],
+            })),
+            vertex: wgpu::VertexState { module: &post_module, entry_point: "vs_post", buffers: &[] },
+            fragment: Some(wgpu::FragmentState {
+                module: &post_module,
+                entry_point: "fs_post",
+                targets: &[Some(wgpu::ColorTargetState { format, blend: None, write_mask: wgpu::ColorWrites::ALL })],
+            }),
+            primitive: wgpu::PrimitiveState::default(),
+            depth_stencil: None,
+            multisample: wgpu::MultisampleState::default(),
+            multiview: None,
+        });
+
         let particle_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("berx-particles"),
             layout: Some(&particle_pipeline_layout),
@@ -808,7 +885,7 @@ impl NativeRenderer {
                 module: &particle_shader,
                 entry_point: "fs_particles",
                 targets: &[Some(wgpu::ColorTargetState {
-                    format,
+                    format: HDR_FORMAT,
                     /* premultiplied and additive: a mote is light, not a
                        surface */
                     blend: Some(wgpu::BlendState {
@@ -878,6 +955,8 @@ impl NativeRenderer {
             gbuffer_pipeline,
             vol_pipeline,
             composite_pipeline,
+            post_pipeline,
+            post_layout: post_bind_layout,
             vol_layout: vol_bind_layout,
             composite_layout: composite_bind_layout,
             vol_sampler,
@@ -1308,15 +1387,30 @@ impl NativeRenderer {
     ///
     /// A window supplies its own resolve target — the swapchain image —
     /// so only these two are its to make.
-    pub fn pass_targets(&self, width: u32, height: u32) -> (wgpu::Texture, wgpu::Texture) {
+    pub fn pass_targets(&self, width: u32, height: u32) -> (wgpu::Texture, wgpu::Texture, wgpu::Texture) {
         let msaa = self.device.create_texture(&wgpu::TextureDescriptor {
             label: Some("berx-colour-msaa"),
             size: wgpu::Extent3d { width, height, depth_or_array_layers: 1 },
             mip_level_count: 1,
             sample_count: SAMPLE_COUNT,
             dimension: wgpu::TextureDimension::D2,
-            format: self.format,
+            format: HDR_FORMAT,
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+            view_formats: &[],
+        });
+        /* The linear frame the world, its names, the motes and the air
+           all land in, and the only thing post reads. It is what the
+           multisampled colour resolves to now — a world pass that
+           resolved straight to the swapchain would be the un-exposed
+           picture again. */
+        let hdr = self.device.create_texture(&wgpu::TextureDescriptor {
+            label: Some("berx-colour-hdr"),
+            size: wgpu::Extent3d { width, height, depth_or_array_layers: 1 },
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: HDR_FORMAT,
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
             view_formats: &[],
         });
         let depth = self.device.create_texture(&wgpu::TextureDescriptor {
@@ -1329,14 +1423,14 @@ impl NativeRenderer {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
             view_formats: &[],
         });
-        (msaa, depth)
+        (msaa, hdr, depth)
     }
 
     /// The offscreen set: multisampled colour, the image it resolves to,
     /// and depth. The resolve target is copyable, because the whole
     /// point of the offscreen path is reading it back.
-    fn offscreen_targets(&self, width: u32, height: u32) -> (wgpu::TextureView, wgpu::Texture, wgpu::TextureView, wgpu::TextureView) {
-        let (msaa, depth) = self.pass_targets(width, height);
+    fn offscreen_targets(&self, width: u32, height: u32) -> (wgpu::TextureView, wgpu::Texture, wgpu::TextureView, wgpu::TextureView, wgpu::TextureView) {
+        let (msaa, hdr, depth) = self.pass_targets(width, height);
         let colour = self.device.create_texture(&wgpu::TextureDescriptor {
             label: Some("berx-colour"),
             size: wgpu::Extent3d { width, height, depth_or_array_layers: 1 },
@@ -1348,7 +1442,7 @@ impl NativeRenderer {
             view_formats: &[],
         });
         let colour_view = colour.create_view(&Default::default());
-        (msaa.create_view(&Default::default()), colour, colour_view, depth.create_view(&Default::default()))
+        (msaa.create_view(&Default::default()), colour, colour_view, hdr.create_view(&Default::default()), depth.create_view(&Default::default()))
     }
 
     /// Everything a recorded pass needs, built once per frame.
@@ -1364,6 +1458,9 @@ impl NativeRenderer {
         encoder: &mut wgpu::CommandEncoder,
         msaa_view: &wgpu::TextureView,
         resolve_view: &wgpu::TextureView,
+        /* hdr_view is the linear frame the world resolves into and the
+           only thing post reads; resolve_view is what post then writes. */
+        hdr_view: &wgpu::TextureView,
         depth_view: &wgpu::TextureView,
     ) -> FrameStats {
         let mut stats = FrameStats { mesh_variants: prepared.mesh_variants, skipped: prepared.skipped, ..Default::default() };
@@ -1454,7 +1551,10 @@ impl NativeRenderer {
             label: Some("berx-world"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                 view: msaa_view,
-                resolve_target: Some(resolve_view),
+                /* Always the linear frame: post is what reaches the
+                   screen, and a world pass that resolved straight to it
+                   would be the un-exposed picture again. */
+                resolve_target: Some(hdr_view),
                 ops: wgpu::Operations {
                     load: wgpu::LoadOp::Clear(wgpu::Color {
                         r: prepared.clear[0] as f64,
@@ -1508,7 +1608,61 @@ impl NativeRenderer {
             pass.draw(0..3, 0..1);
             stats.draw_calls += 1;
         }
+        drop(pass);
+        self.expose(encoder, hdr_view, resolve_view, &mut stats);
         stats
+    }
+
+    /**
+     * POST — exposure, then the shoulder, then the screen.
+     *
+     * A helper because the stereo path has two eyes and ONE image: post
+     * runs once over the whole thing, after both have been drawn, not
+     * once per eye. Two exposures of two halves would be two different
+     * pictures side by side.
+     *
+     * AFTER the composite in both callers, which is the ordering fact
+     * that matters: in-scatter is light, so the air has to be part of
+     * what is exposed.
+     */
+    fn expose(
+        &self,
+        encoder: &mut wgpu::CommandEncoder,
+        hdr_view: &wgpu::TextureView,
+        target_view: &wgpu::TextureView,
+        stats: &mut FrameStats,
+    ) {
+        let post_uniform = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("berx-post-uniform"),
+            contents: bytemuck::cast_slice(&[BERX_EXPOSURE, 0.0f32, 0.0, 0.0]),
+            usage: wgpu::BufferUsages::UNIFORM,
+        });
+        let post_bind = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("berx-post-bind"),
+            layout: &self.post_layout,
+            entries: &[
+                wgpu::BindGroupEntry { binding: 0, resource: wgpu::BindingResource::TextureView(hdr_view) },
+                wgpu::BindGroupEntry { binding: 1, resource: post_uniform.as_entire_binding() },
+            ],
+        });
+        let mut post_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            label: Some("berx-post"),
+            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                view: target_view,
+                resolve_target: None,
+                ops: wgpu::Operations {
+                    load: wgpu::LoadOp::Clear(wgpu::Color { r: 0.0, g: 0.0, b: 0.0, a: 1.0 }),
+                    store: wgpu::StoreOp::Store,
+                },
+            })],
+            depth_stencil_attachment: None,
+            timestamp_writes: None,
+            occlusion_query_set: None,
+        });
+                stats.stages.push("post".into());
+        post_pass.set_pipeline(&self.post_pipeline);
+        post_pass.set_bind_group(0, &post_bind, &[]);
+        post_pass.draw(0..3, 0..1);
     }
 
     /// Draw two draw lists side by side into one offscreen target.
@@ -1524,7 +1678,7 @@ impl NativeRenderer {
         let height = left.height.max(1).max(right.height.max(1));
         let prepared_left = self.prepare(left)?;
         let prepared_right = self.prepare(right)?;
-        let (msaa_view, colour, colour_view, depth_view) = self.offscreen_targets(width, height);
+        let (msaa_view, colour, colour_view, hdr_view, depth_view) = self.offscreen_targets(width, height);
 
         let unpadded = width * 4;
         let padded = ((unpadded + 255) / 256) * 256;
@@ -1537,15 +1691,19 @@ impl NativeRenderer {
 
         let mut encoder = self.device.create_command_encoder(&Default::default());
         let mut stats = self.record_viewport(
-            &prepared_left, &mut encoder, &msaa_view, &colour_view, &depth_view,
+            &prepared_left, &mut encoder, &msaa_view, &hdr_view, &depth_view,
             (0.0, 0.0, left.width.max(1) as f32, left.height.max(1) as f32), true,
         );
         let right_stats = self.record_viewport(
-            &prepared_right, &mut encoder, &msaa_view, &colour_view, &depth_view,
+            &prepared_right, &mut encoder, &msaa_view, &hdr_view, &depth_view,
             (left.width.max(1) as f32, 0.0, right.width.max(1) as f32, right.height.max(1) as f32), false,
         );
         stats.draw_calls += right_stats.draw_calls;
         stats.triangles += right_stats.triangles;
+        /* One exposure over the whole image, after both eyes: two
+           exposures of two halves would be two different pictures side
+           by side. */
+        self.expose(&mut encoder, &hdr_view, &colour_view, &mut stats);
         encoder.copy_texture_to_buffer(
             wgpu::ImageCopyTexture {
                 texture: &colour,
@@ -1593,6 +1751,9 @@ impl NativeRenderer {
             label: Some("berx-world-eye"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                 view: msaa_view,
+                /* The caller hands the LINEAR frame in as this eye's
+                   resolve target: post runs once over both eyes
+                   afterwards, so neither eye writes to the screen. */
                 resolve_target: Some(resolve_view),
                 ops: wgpu::Operations { load, store: wgpu::StoreOp::Store },
             })],
@@ -1656,7 +1817,7 @@ impl NativeRenderer {
         let width = list.width.max(1);
         let height = list.height.max(1);
         let prepared = self.prepare(list)?;
-        let (msaa_view, colour, colour_view, depth_view) = self.offscreen_targets(width, height);
+        let (msaa_view, colour, colour_view, hdr_view, depth_view) = self.offscreen_targets(width, height);
 
         /* readback rows are padded to 256 bytes, as the API requires */
         let unpadded = width * 4;
@@ -1669,7 +1830,7 @@ impl NativeRenderer {
         });
 
         let mut encoder = self.device.create_command_encoder(&Default::default());
-        let stats = self.record(&prepared, &mut encoder, &msaa_view, &colour_view, &depth_view);
+        let stats = self.record(&prepared, &mut encoder, &msaa_view, &colour_view, &hdr_view, &depth_view);
         encoder.copy_texture_to_buffer(
             wgpu::ImageCopyTexture {
                 texture: &colour,

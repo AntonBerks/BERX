@@ -210,5 +210,12 @@ window.BERX_CORE_SHOT = {
 		};
 	},
 
+	/** Turn the air off, to tell the void from what is floating in it. */
+	air(on: boolean) {
+		host!.setVolumetric(on);
+		host!.setParticles(on);
+		return true;
+	},
+
 	stop() { host?.stop(); return true; },
 };

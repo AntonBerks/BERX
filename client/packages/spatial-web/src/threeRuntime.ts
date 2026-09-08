@@ -13,6 +13,7 @@
  * wanted.
  */
 import {
+	BERX_EXPOSURE,
   pickSpatialObject,
   rayFromNdc,
   berxEyeCamera,
@@ -531,6 +532,35 @@ void main(){
 }`;
 /** Reads a depth texture as ordinary floats, for the verification path. */
 const DF = `#version 300 es\nprecision highp float;in vec2 UV;uniform highp sampler2D SRC;out vec4 C;void main(){C=vec4(texture(SRC,UV).r,0.,0.,1.);}`;
+/**
+ * POST — exposure and the shoulder, in GLSL.
+ *
+ * The same five constants as post.wgsl, the same five as the Rust, and
+ * the same five as @berx/spatial's berxExposure, which is the CPU twin
+ * a gate predicts real pixels with. One set of numbers is the whole
+ * point: three renderers agreeing with each other is a weaker claim
+ * than three renderers computing what the core says.
+ *
+ * Reads the linear frame — the world, its names, the motes and the air,
+ * all of it — multiplies by the measured gain and rolls the result off.
+ */
+const POSTF = `#version 300 es
+precision highp float;
+in vec2 UV;
+uniform sampler2D SRC;
+uniform float EXPOSURE;
+out vec4 C;
+float shoulder(float x){
+  float v=max(x,0.);
+  return clamp((v*(2.51*v+.03))/(v*(2.43*v+.59)+.14),0.,1.);
+}
+void main(){
+  /* A fetch, not a sample: one output pixel per input pixel, so a
+     bilinear tap only adds a half-texel question each API answers its
+     own way. It was worth three disagreeing pixels along the top edge. */
+  vec3 e=texelFetch(SRC,ivec2(gl_FragCoord.xy),0).rgb*EXPOSURE;
+  C=vec4(shoulder(e.r),shoulder(e.g),shoulder(e.b),1.);
+}`;
 
 /**
  * THE PARTICLE PASS, in GLSL.
@@ -691,6 +721,14 @@ export class BerxThreeRuntimeRenderer implements BerxSpatialRenderer {
  readonly capabilities={perspective:true,depthBuffer:true,physicallyLitMaterials:true,shadows:true,postProcessing:false} as const;
  private readonly gl:WebGL2RenderingContext;private readonly program:WebGLProgram;private readonly meshes=new Map<string,GpuMesh>();private readonly P:Loc;private readonly V:Loc;private readonly M:Loc;private readonly BASE:Loc;private readonly EMIT:Loc;private readonly CAM:Loc;private readonly AMB:Loc;private readonly ENV_ZEN:Loc;private readonly ENV_HOR:Loc;private readonly ENV_GND:Loc;private readonly ENV_SUN_DIR:Loc;private readonly ENV_SUN:Loc;private readonly AO_MAP:Loc;private readonly AO_ON:Loc;private readonly gbufProgram:WebGLProgram;private readonly aoProgram:WebGLProgram;private readonly GP:Loc;private readonly GV_:Loc;private readonly GM:Loc;private readonly GBUF:Loc;private readonly K:Loc;private readonly DIM:Loc;private gbufTexture?:WebGLTexture;private gbufDepth?:WebGLRenderbuffer;private gbufFbo?:WebGLFramebuffer;private aoTexture?:WebGLTexture;private aoFbo?:WebGLFramebuffer;private aoVao?:WebGLVertexArrayObject;private blankAo?:WebGLTexture;private ssaoSize={w:0,h:0};
  private readonly volProgram:WebGLProgram;private readonly compositeProgram:WebGLProgram;
+ /**
+  * The linear frame, and the target everything before post draws into.
+  *
+  * `sceneFbo` is what the world, label, particle and composite passes
+  * are bound to. It is null only when a half-float colour attachment is
+  * not renderable here — see ensureHdr.
+  */
+ private sceneFbo:WebGLFramebuffer|null=null;private hdrFbo?:WebGLFramebuffer;private hdrTex?:WebGLTexture;private msFbo?:WebGLFramebuffer;private msColor?:WebGLRenderbuffer;private msDepth?:WebGLRenderbuffer;private hdrW=0;private hdrH=0;private hdrSamples=0;private postProgram?:WebGLProgram;private PSRC:Loc=null;private PEXP:Loc=null;
  private readonly VINV:Loc;private readonly VLVP:Loc;private readonly VSHADOW:Loc;private readonly VPARAMS:Loc;private readonly VDIMS:Loc;private readonly VEYE:Loc;private readonly VLDIR:Loc;private readonly VLCOL:Loc;private readonly VLI:Loc;private readonly VFWD:Loc;private readonly VGBUF:Loc;private readonly VSMAP:Loc;private readonly CSRC:Loc;private readonly depthReadProgram:WebGLProgram;private readonly DSRC:Loc;
  private volTexture?:WebGLTexture;private volFbo?:WebGLFramebuffer;private volSize={w:0,h:0};
  private readonly particleProgram:WebGLProgram;private readonly PP:Loc;private readonly PVIEW:Loc;private readonly PORIGIN:Loc;private readonly PCOLOUR:Loc;private readonly PSHAPE:Loc;private readonly PCOUNTS:Loc;private readonly PRIGHT:Loc;private readonly PUP:Loc;private particleVao?:WebGLVertexArrayObject;
@@ -901,7 +939,10 @@ export class BerxThreeRuntimeRenderer implements BerxSpatialRenderer {
   gl.bindVertexArray(this.aoVao!);
   gl.drawArrays(gl.TRIANGLES,0,3);
   gl.bindVertexArray(null);
-  gl.bindFramebuffer(gl.FRAMEBUFFER,null);
+  /* back to the SCENE target, not the screen: post is what reaches the
+     screen now, and a pass that restored the default framebuffer would
+     send the rest of the frame straight past the tone-map. */
+  gl.bindFramebuffer(gl.FRAMEBUFFER,this.sceneFbo);
   /* leave GL exactly as this pass found it */
   gl.enable(gl.DEPTH_TEST);gl.depthMask(true);gl.enable(gl.BLEND);
   gl.activeTexture(gl.TEXTURE0);
@@ -1033,7 +1074,7 @@ export class BerxThreeRuntimeRenderer implements BerxSpatialRenderer {
   gl.bindVertexArray(this.aoVao!);
   gl.drawArrays(gl.TRIANGLES,0,3);
   gl.bindVertexArray(null);
-  gl.bindFramebuffer(gl.FRAMEBUFFER,null);
+  gl.bindFramebuffer(gl.FRAMEBUFFER,this.sceneFbo);
 
   /* Leave GL exactly as this pass found it. The renderer enables these
      ONCE in its constructor and every other pass relies on that global
@@ -1077,6 +1118,115 @@ export class BerxThreeRuntimeRenderer implements BerxSpatialRenderer {
   * different pipeline from the other two. The pipeline gate reads the
   * pass names each backend records, and that is how it was found.
   */
+ /**
+  * The linear frame BERX draws into, built to fit the canvas.
+  *
+  * MULTISAMPLED, because moving off the default framebuffer would
+  * otherwise silently drop the antialiasing the canvas was created
+  * with — and the WebGPU backend keeps its four samples, so the two
+  * would stop being comparable. A multisample renderbuffer plus a blit
+  * is the WebGL2 spelling of WebGPU's resolveTarget.
+  *
+  * Returns false where a half-float colour attachment is not
+  * renderable. That is reported rather than worked around: the
+  * exposure still runs on an 8-bit frame and still fixes the darkness,
+  * but the world pass will have clamped at 1.0 first, so the shoulder
+  * has nothing above white left to roll off. Saying which of the two is
+  * happening is the difference between a known limit and a mystery.
+  */
+ private ensureHdr(width:number,height:number):boolean{
+  if(!this.floatColour)return false;
+  const gl=this.gl;
+  if(this.hdrFbo&&this.hdrW===width&&this.hdrH===height)return true;
+  this.releaseHdr();
+  this.hdrW=width;this.hdrH=height;
+  this.hdrTex=gl.createTexture()!;
+  gl.bindTexture(gl.TEXTURE_2D,this.hdrTex);
+  gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA16F,width,height,0,gl.RGBA,gl.HALF_FLOAT,null);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+  this.hdrFbo=gl.createFramebuffer()!;
+  gl.bindFramebuffer(gl.FRAMEBUFFER,this.hdrFbo);
+  gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.TEXTURE_2D,this.hdrTex,0);
+  /* WHATEVER THE CANVAS ITSELF WAS GIVING.
+     The context was created with antialias:true and the driver chose a
+     sample count for the default framebuffer. Moving the world into an
+     FBO with a DIFFERENT count changes every silhouette edge in the
+     frame — it showed up as a one-pixel teal rim that WebGL2 drew and
+     the other two backends did not, on the boundary of a lit object.
+     Reading the count back and matching it keeps the antialiasing the
+     canvas was already doing, rather than substituting another. */
+  gl.bindFramebuffer(gl.FRAMEBUFFER,null);
+  const canvasSamples=gl.getParameter(gl.SAMPLES) as number;
+  this.hdrSamples=Math.max(1,Math.min(canvasSamples||4,gl.getParameter(gl.MAX_SAMPLES) as number));
+  this.msColor=gl.createRenderbuffer()!;
+  gl.bindRenderbuffer(gl.RENDERBUFFER,this.msColor);
+  gl.renderbufferStorageMultisample(gl.RENDERBUFFER,this.hdrSamples,gl.RGBA16F,width,height);
+  this.msDepth=gl.createRenderbuffer()!;
+  gl.bindRenderbuffer(gl.RENDERBUFFER,this.msDepth);
+  gl.renderbufferStorageMultisample(gl.RENDERBUFFER,this.hdrSamples,gl.DEPTH_COMPONENT24,width,height);
+  this.msFbo=gl.createFramebuffer()!;
+  gl.bindFramebuffer(gl.FRAMEBUFFER,this.msFbo);
+  gl.framebufferRenderbuffer(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.RENDERBUFFER,this.msColor);
+  gl.framebufferRenderbuffer(gl.FRAMEBUFFER,gl.DEPTH_ATTACHMENT,gl.RENDERBUFFER,this.msDepth);
+  const complete=gl.checkFramebufferStatus(gl.FRAMEBUFFER)===gl.FRAMEBUFFER_COMPLETE;
+  gl.bindFramebuffer(gl.FRAMEBUFFER,null);
+  gl.bindRenderbuffer(gl.RENDERBUFFER,null);
+  if(!complete){this.releaseHdr();return false;}
+  if(!this.postProgram){
+   this.postProgram=program(gl,CV,POSTF);
+   this.PSRC=gl.getUniformLocation(this.postProgram,'SRC');
+   this.PEXP=gl.getUniformLocation(this.postProgram,'EXPOSURE');
+  }
+  return true;
+ }
+
+ private releaseHdr():void{
+  const gl=this.gl;
+  if(this.hdrTex)gl.deleteTexture(this.hdrTex);
+  if(this.hdrFbo)gl.deleteFramebuffer(this.hdrFbo);
+  if(this.msFbo)gl.deleteFramebuffer(this.msFbo);
+  if(this.msColor)gl.deleteRenderbuffer(this.msColor);
+  if(this.msDepth)gl.deleteRenderbuffer(this.msDepth);
+  this.hdrTex=undefined;this.hdrFbo=undefined;this.msFbo=undefined;
+  this.msColor=undefined;this.msDepth=undefined;this.hdrW=0;this.hdrH=0;this.hdrSamples=0;
+ }
+
+ /**
+  * POST: resolve the samples, expose, and hand the screen the result.
+  *
+  * AFTER the composite, which is the ordering fact that matters:
+  * in-scatter is light, so the air is part of what is being exposed.
+  * Tone-mapping the surfaces and then adding the air would put unmapped
+  * values on top of mapped ones — two pictures added together, not a
+  * brighter one.
+  */
+ private exposeToScreen(originX:number,width:number,height:number):boolean{
+  if(!this.msFbo||!this.hdrFbo||!this.postProgram)return false;
+  const gl=this.gl;
+  gl.bindFramebuffer(gl.READ_FRAMEBUFFER,this.msFbo);
+  gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER,this.hdrFbo);
+  gl.blitFramebuffer(0,0,this.hdrW,this.hdrH,0,0,this.hdrW,this.hdrH,gl.COLOR_BUFFER_BIT,gl.NEAREST);
+  gl.bindFramebuffer(gl.FRAMEBUFFER,null);
+  this.sceneFbo=null;
+  gl.viewport(originX,0,width,height);
+  gl.useProgram(this.postProgram);
+  gl.activeTexture(gl.TEXTURE3);gl.bindTexture(gl.TEXTURE_2D,this.hdrTex!);gl.uniform1i(this.PSRC,3);
+  /* the shared core's number, so three backends cannot expose differently */
+  gl.uniform1f(this.PEXP,BERX_EXPOSURE);
+  gl.disable(gl.BLEND);gl.disable(gl.DEPTH_TEST);gl.depthMask(false);
+  gl.bindVertexArray(this.aoVao!);
+  gl.drawArrays(gl.TRIANGLES,0,3);
+  gl.bindVertexArray(null);
+  /* back to the renderer's standing state — see the note in the march */
+  gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);
+  gl.enable(gl.DEPTH_TEST);gl.depthMask(true);
+  gl.activeTexture(gl.TEXTURE0);
+  return true;
+ }
+
  private compositeAir(originX:number,width:number,height:number):boolean{
   if(!this.volTexture)return false;
   const gl=this.gl;
@@ -1231,6 +1381,12 @@ export class BerxThreeRuntimeRenderer implements BerxSpatialRenderer {
   const aoReady=options.ssao===false?false:gbufferReady;
   const airReady=options.volumetric===false?false:this.renderVolumetric(list,width,height);
   if(airReady)stages.push('volumetric');
+  /* Everything from here to post goes into the linear frame. Bound
+     BEFORE the clear, or the clear would land on the screen and the
+     scene would be drawn over an untouched one. */
+  const exposed=this.ensureHdr(this.gl.drawingBufferWidth,this.gl.drawingBufferHeight);
+  this.sceneFbo=exposed?this.msFbo!:null;
+  gl.bindFramebuffer(gl.FRAMEBUFFER,this.sceneFbo);
   gl.useProgram(this.program);
   stages.push('world');
   gl.viewport(originX,0,width,height);
@@ -1315,6 +1471,7 @@ export class BerxThreeRuntimeRenderer implements BerxSpatialRenderer {
   if(airReady&&this.compositeAir(originX,width,height))stages.push('composite');
   /* after everything: light in the air is in front of it all, and it
      adds to what is behind rather than covering it */
+  if(exposed&&this.exposeToScreen(originX,width,height))stages.push('post');
   this.stats={
    visible:list.stats.visible,
    inFrustum:list.stats.inFrustum,
