@@ -36,6 +36,7 @@ export * from './core/berxCore';
 export * from './core/berxCoreWorld';
 export * from './core/berxTouch';
 export * from './berxLivingWorld';
+export * from './platform/berxReach';
 export * from './worldMaterials';
 export * from './spatialAudio';
 export * from './platform';

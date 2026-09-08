@@ -502,6 +502,83 @@ const found = [
 		`${promises.length} intents promise a spatial consequence; "unknown" does not, and neither does one that is missing something it needs — a promise that cannot be kept is not held against the loop`);
 }
 
+/* ---------------- 8. a hand, on a phone, in a bar ----------------
+
+   A safe area is usually padding. In a spatial interface it is a
+   constraint on where things may EXIST, because the Core is placed in a
+   world and a world does not know the bottom of the screen is a home
+   indicator. And a thumb has a reach, which nobody encodes and everybody
+   feels. */
+
+const phone = {
+	width: 390, height: 844,
+	insets: {top: 59, right: 0, bottom: 34, left: 0},
+	hand: 'right', handheld: true,
+};
+const desktop = {width: 1440, height: 900, insets: core.BERX_NO_INSETS, handheld: false};
+
+gate('nothing is placed under a notch or a home indicator',
+	!core.berxWithinSafeArea(195, 20, phone) && !core.berxWithinSafeArea(195, 830, phone)
+		&& core.berxWithinSafeArea(195, 600, phone),
+	`390x844 with a ${phone.insets.top}pt notch and a ${phone.insets.bottom}pt indicator: y=20 and y=830 refused, y=600 allowed. A Core under the home indicator is a Core with a bar through it`);
+
+/**
+ * THE ARC, tested as an arc.
+ *
+ * The first version of this named specific corners and was wrong about
+ * one of them: it expected the bottom FAR corner to be comfortably
+ * reachable, and on a 390pt phone held one-handed it is a stretch rather
+ * than a natural zone — which is what the implementation already said.
+ * The real claim is not about any one point, it is that the reachable
+ * width NARROWS as the point rises, because a thumb pivots at its base.
+ * So that is what is measured.
+ */
+const spanAt = (y) => {
+	let n = 0;
+	for (let x = 0; x < phone.width; x += 2) if (core.berxWithinReach(x, y, phone)) n++;
+	return n * 2;
+};
+const low = spanAt(800), mid = spanAt(620), high = spanAt(430);
+const tooHigh = core.berxWithinReach(350, 200, phone);
+gate('a thumb sweeps an arc, and the reachable width narrows as it rises',
+	low > mid && mid > high && !tooHigh,
+	`right-handed on a 390pt screen: ${low}pt of reachable width near the bottom, ${mid}pt at mid-height, ${high}pt higher still, and nothing at all above the reach. A rectangle would call all three equal and the far top corner reachable — which is the one place on a phone that genuinely is not`);
+
+gate('a pointer has no ergonomics, and saying so is better than pretending',
+	core.berxWithinReach(10, 10, desktop) && core.berxWithinReach(1430, 890, desktop),
+	'on a desktop every point is reachable at the same cost — which is exactly why desktop layouts taught everyone habits that fail on a phone');
+
+const rest = {x: 0, y: 0.2, z: -1.4};
+const placed = core.berxCorePlacement(phone, rest);
+const unplaced = core.berxCorePlacement(desktop, rest);
+/* A tall bottom inset pushes it up out of the strip; a tall notch brings
+   it down away from the top. This phone's notch is 59pt against a 34pt
+   indicator, so the net is DOWNWARD — which the first version of this
+   check got backwards by asserting it must rise. It moves away from
+   whichever is larger, which is the property worth having. */
+const indicatorOnly = core.berxCorePlacement({...phone, insets: {...phone.insets, top: 0}}, rest);
+gate('the Core moves away from whichever inset is larger, and barely',
+	placed.y < rest.y && indicatorOnly.y > rest.y
+		&& Math.abs(placed.y - rest.y) < 0.05 && unplaced.y === rest.y,
+	`a ${phone.insets.top}pt notch against a ${phone.insets.bottom}pt indicator moves it ${(placed.y - rest.y).toFixed(4)} — down, away from the larger one. With the notch removed the same phone moves it ${(indicatorOnly.y - rest.y).toFixed(4)}, up out of the indicator. On a desktop it does not move at all. Small on purpose: a Core that jumped across the room because a phone has a notch would be reacting to the wrong thing entirely`);
+
+/* VOICE-FIRST, NEVER VOICE-ONLY, as a structural guarantee. */
+const everyIntent = [
+	'now-nearby', 'find-places', 'find-events', 'find-people',
+	'discover', 'open', 'dismiss', 'refine', 'back', 'unknown',
+];
+const optional = core.berxVoiceOptional(everyIntent);
+gate('every capability can be reached without speaking',
+	optional.ok,
+	optional.ok
+		? everyIntent.slice(0, 4).map((k) => `${k}: ${core.BERX_WITHOUT_VOICE[k]}`).join(' · ') + ` · and ${everyIntent.length - 4} more`
+		: `no hand path for: ${optional.missing.join(', ')}`);
+
+gate('the non-voice paths are the world\'s own, not a parallel menu',
+	['open', 'dismiss', 'back'].every((k) => /press|gesture|draw|ring/.test(core.BERX_WITHOUT_VOICE[k]))
+		&& ['now-nearby', 'find-places'].every((k) => /region/.test(core.BERX_WITHOUT_VOICE[k])),
+	'opening is pressing the entity — the same gesture at the same thing; the searches are regions of the world, entered by travelling to them. A fallback that was a separate menu would be a second product for anyone in a loud room, which is most people in a bar');
+
 fs.rmSync(dir, {recursive: true, force: true});
 if (failures.length) {
 	console.error(`\nBERX VOICE OS: ${failures.length} FAILED — ${failures.join('; ')}`);

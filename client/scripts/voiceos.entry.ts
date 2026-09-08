@@ -15,4 +15,8 @@ export {
 export {
 	BERX_BIRTH_STAGES, BERX_BIRTH_PLAN, berxBirthReady, berxBirthFields, berxBirthProgress,
 } from '@berx/spatial';
+export {
+	BERX_NO_INSETS, BERX_THUMB_REACH, BERX_THUMB_SPAN, BERX_WITHOUT_VOICE,
+	berxWithinSafeArea, berxWithinReach, berxCorePlacement, berxVoiceOptional,
+} from '@berx/spatial';
 export {BerxApiClient} from '@berx/api/client';
