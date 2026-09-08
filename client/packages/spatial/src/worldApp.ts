@@ -39,6 +39,7 @@ import {berxClampToWorld, berxNear, berxWorldBounds} from './proximity';
  */
 const BERX_WORLD_MARGIN = 12;
 import {affordancesForObject} from './spatialAffordances';
+import {berxCanActivate} from './socialActions';
 import type {BerxSocialAction, BerxSpatialAffordance} from './socialActions';
 import {berxTransitionForTravel, BERX_FAR_TRAVEL_METRES} from './transitions';
 import {berxActionRingRadius} from './actionRing';
@@ -554,6 +555,9 @@ export class Berx5DWorldApp {
 		return berxWorldBounds(this.latestFrame.world.objects);
 	}
 
+	/** Which affordance the keyboard is on. Undefined = the ring is not entered. */
+	private focusedAffordanceId?: string;
+
 	/* ---------------- doing things ---------------- */
 
 	/**
@@ -566,7 +570,45 @@ export class Berx5DWorldApp {
 	affordances(): BerxSpatialAffordance[] {
 		const object = this.runtime.world.getActiveObject();
 		if (!object || !this.options.onAction) return [];
-		return this.affordancesFor(object);
+		const offered = this.affordancesFor(object);
+		/* A focus that belonged to a different entity, or to an action no
+		   longer offered, is not a focus. Cleared here rather than in
+		   every place that changes the world. */
+		if (this.focusedAffordanceId && !offered.some((a) => a.id === this.focusedAffordanceId)) {
+			this.focusedAffordanceId = undefined;
+		}
+		return offered.map((a) => a.id === this.focusedAffordanceId ? {...a, state: 'focus' as const} : a);
+	}
+
+	/**
+	 * Move the keyboard's focus around the ring.
+	 *
+	 * The SAME affordances the pointer picks, in the order they stand in
+	 * the world, so Tab walks the ring a person can see rather than a
+	 * list assembled for the keyboard. Returns false when there is
+	 * nothing focusable, which is what lets the caller fall through to
+	 * whatever Tab otherwise means.
+	 */
+	focusAffordance(step: number): boolean {
+		const offered = this.affordances();
+		if (offered.length === 0) return false;
+		const at = offered.findIndex((a) => a.id === this.focusedAffordanceId);
+		/* first press lands on the first action, not on the second */
+		const next = at < 0
+			? (step >= 0 ? 0 : offered.length - 1)
+			: (at + step + offered.length) % offered.length;
+		this.focusedAffordanceId = offered[next].id;
+		return true;
+	}
+
+	/** Which affordance the keyboard would activate, if any. */
+	get focusedAffordance(): BerxSpatialAffordance | undefined {
+		return this.affordances().find((a) => a.id === this.focusedAffordanceId);
+	}
+
+	/** Let go of the ring, so Tab means what it meant before. */
+	blurAffordance(): void {
+		this.focusedAffordanceId = undefined;
 	}
 
 	/** What an entity affords, whether or not it is the focused one. */
@@ -588,6 +630,15 @@ export class Berx5DWorldApp {
 		if (!object || !this.options.onAction) return false;
 		const affordance = this.affordances().find((a) => a.id === affordanceId);
 		if (!affordance) return false;
+		/**
+		 * Only a state a person is allowed to act on.
+		 *
+		 * `affordancesFor` already drops `disabled`, so this is about the
+		 * rest: pending, unavailable and hidden must not activate, and
+		 * the check is a positive list so a state added later is refused
+		 * until someone decides it should not be.
+		 */
+		if (!berxCanActivate(affordance.state)) return false;
 		/* `open` is travel, and travel is not a server action */
 		if (affordance.action === 'open') return this.travelTo(object.id);
 		const updated = await this.options.onAction(affordance.action, object);

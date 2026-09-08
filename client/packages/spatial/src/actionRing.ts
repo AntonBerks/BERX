@@ -24,7 +24,19 @@ export interface BerxActionSlot {
 	position: BerxVec3;
 	/** Half-height of its quad, in world units. */
 	halfHeight: number;
+	/**
+	 * The one the keyboard would activate.
+	 *
+	 * Carried on the slot so the focus ring is a thing in the WORLD —
+	 * a larger, brighter quad standing where the action stands — rather
+	 * than a browser outline drawn around a canvas that contains
+	 * everything equally.
+	 */
+	focused: boolean;
 }
+
+/** How much larger the focused slot stands. Enough to read at a glance. */
+export const BERX_SLOT_FOCUS_SCALE = 1.35;
 
 /** How far out from the entity's own edge the ring sits. */
 const RING_GAP = 0.55;
@@ -118,7 +130,11 @@ export function berxActionRing(
 				y: object.transform.position.y + basis.right.y * across - basis.up.y * (drop + under),
 				z: object.transform.position.z + basis.right.z * across - basis.up.z * (drop + under),
 			},
-			halfHeight: SLOT_HEIGHT * 0.5,
+			/* The focused slot stands larger, in world units — geometry, so
+			   every renderer already honours it without a shader knowing
+			   what focus is. */
+			halfHeight: SLOT_HEIGHT * 0.5 * (affordance.state === 'focus' ? BERX_SLOT_FOCUS_SCALE : 1),
+			focused: affordance.state === 'focus',
 		};
 	});
 }

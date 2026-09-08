@@ -47,7 +47,32 @@ export type BerxSocialAction =
   | 'mute'
   | 'more';
 
-export type BerxSocialActionState = 'available' | 'disabled' | 'pending' | 'unavailable' | 'hidden';
+/**
+ * What an affordance is doing right now.
+ *
+ * `focus` is the keyboard's: the one affordance Enter would activate.
+ * It is a state rather than a flag on the side because the ring is
+ * built from these, so marking it here is what puts a focus ring in the
+ * WORLD instead of a browser outline around a canvas.
+ *
+ * Only states something actually produces AND something actually shows
+ * are listed. An enum value nothing assigns is a promise the product
+ * does not keep.
+ */
+export type BerxSocialActionState = 'available' | 'focus' | 'disabled' | 'pending' | 'unavailable' | 'hidden';
+
+/**
+ * The states a person can act on. Everything else is refused.
+ *
+ * Written as a set rather than as `!== 'disabled'` so that adding a
+ * state cannot silently make it activatable — a new state is refused
+ * until someone decides otherwise here.
+ */
+export const BERX_ACTIVATABLE_STATES: readonly BerxSocialActionState[] = ['available', 'focus'];
+
+export function berxCanActivate(state: BerxSocialActionState): boolean {
+	return BERX_ACTIVATABLE_STATES.includes(state);
+}
 
 export interface BerxSpatialAffordance {
   id: string;

@@ -4371,6 +4371,18 @@ var init_spatialAffordances = __esm({
   }
 });
 
+// packages/spatial/src/socialActions.ts
+function berxCanActivate(state) {
+  return BERX_ACTIVATABLE_STATES.includes(state);
+}
+var BERX_ACTIVATABLE_STATES;
+var init_socialActions = __esm({
+  "packages/spatial/src/socialActions.ts"() {
+    "use strict";
+    BERX_ACTIVATABLE_STATES = ["available", "focus"];
+  }
+});
+
 // packages/spatial/src/actionRing.ts
 function berxActionRingRadius(object, affordances) {
   if (!object || affordances.length === 0) return 0;
@@ -4404,7 +4416,11 @@ function berxActionRing(object, camera, affordances) {
         y: object.transform.position.y + basis.right.y * across - basis.up.y * (drop + under),
         z: object.transform.position.z + basis.right.z * across - basis.up.z * (drop + under)
       },
-      halfHeight: SLOT_HEIGHT * 0.5
+      /* The focused slot stands larger, in world units — geometry, so
+         every renderer already honours it without a shader knowing
+         what focus is. */
+      halfHeight: SLOT_HEIGHT * 0.5 * (affordance.state === "focus" ? BERX_SLOT_FOCUS_SCALE : 1),
+      focused: affordance.state === "focus"
     };
   });
 }
@@ -4432,11 +4448,12 @@ function pickActionSlot(slots, camera, rayDirection, aspect) {
   }
   return best;
 }
-var RING_GAP, SLOT_HEIGHT, WIDTH_PER_CHARACTER;
+var BERX_SLOT_FOCUS_SCALE, RING_GAP, SLOT_HEIGHT, WIDTH_PER_CHARACTER;
 var init_actionRing = __esm({
   "packages/spatial/src/actionRing.ts"() {
     "use strict";
     init_spatialInteraction();
+    BERX_SLOT_FOCUS_SCALE = 1.35;
     RING_GAP = 0.55;
     SLOT_HEIGHT = 0.26;
     WIDTH_PER_CHARACTER = 0.58;
@@ -4540,6 +4557,7 @@ var init_worldApp = __esm({
     init_berxFraming();
     init_proximity();
     init_spatialAffordances();
+    init_socialActions();
     init_transitions();
     init_actionRing();
     init_xrPose();
@@ -4891,7 +4909,36 @@ var init_worldApp = __esm({
       affordances() {
         const object = this.runtime.world.getActiveObject();
         if (!object || !this.options.onAction) return [];
-        return this.affordancesFor(object);
+        const offered = this.affordancesFor(object);
+        if (this.focusedAffordanceId && !offered.some((a) => a.id === this.focusedAffordanceId)) {
+          this.focusedAffordanceId = void 0;
+        }
+        return offered.map((a) => a.id === this.focusedAffordanceId ? { ...a, state: "focus" } : a);
+      }
+      /**
+       * Move the keyboard's focus around the ring.
+       *
+       * The SAME affordances the pointer picks, in the order they stand in
+       * the world, so Tab walks the ring a person can see rather than a
+       * list assembled for the keyboard. Returns false when there is
+       * nothing focusable, which is what lets the caller fall through to
+       * whatever Tab otherwise means.
+       */
+      focusAffordance(step) {
+        const offered = this.affordances();
+        if (offered.length === 0) return false;
+        const at = offered.findIndex((a) => a.id === this.focusedAffordanceId);
+        const next = at < 0 ? step >= 0 ? 0 : offered.length - 1 : (at + step + offered.length) % offered.length;
+        this.focusedAffordanceId = offered[next].id;
+        return true;
+      }
+      /** Which affordance the keyboard would activate, if any. */
+      get focusedAffordance() {
+        return this.affordances().find((a) => a.id === this.focusedAffordanceId);
+      }
+      /** Let go of the ring, so Tab means what it meant before. */
+      blurAffordance() {
+        this.focusedAffordanceId = void 0;
       }
       /** What an entity affords, whether or not it is the focused one. */
       affordancesFor(object) {
@@ -4911,6 +4958,7 @@ var init_worldApp = __esm({
         if (!object || !this.options.onAction) return false;
         const affordance = this.affordances().find((a) => a.id === affordanceId);
         if (!affordance) return false;
+        if (!berxCanActivate(affordance.state)) return false;
         if (affordance.action === "open") return this.travelTo(object.id);
         const updated = await this.options.onAction(affordance.action, object);
         if (updated) this.ingest([updated]);
@@ -5037,13 +5085,6 @@ var init_runtimeAssertions = __esm({
 // packages/spatial/src/renderer.ts
 var init_renderer = __esm({
   "packages/spatial/src/renderer.ts"() {
-    "use strict";
-  }
-});
-
-// packages/spatial/src/socialActions.ts
-var init_socialActions = __esm({
-  "packages/spatial/src/socialActions.ts"() {
     "use strict";
   }
 });
@@ -7520,7 +7561,7 @@ void main(){
           gl.bindTexture(gl.TEXTURE_2D, entry.texture);
           gl.uniform3f(this.LC, slot.position.x, slot.position.y, slot.position.z);
           gl.uniform2f(this.LS, slot.halfHeight * entry.aspect, slot.halfHeight);
-          gl.uniform1f(this.LA, 1);
+          gl.uniform1f(this.LA, slot.focused ? 1 : 0.72);
           gl.drawArrays(gl.TRIANGLES, 0, 6);
           calls++;
         }
@@ -8989,7 +9030,10 @@ var init_webgpuRuntime = __esm({
         const ring = list.actionSlots.map((slot) => ({
           position: slot.position,
           halfHeight: slot.halfHeight,
-          alpha: 1,
+          /* the focused action is brighter as well as larger: two
+             signals, so it still reads where a size difference is
+             hard to judge against nothing */
+          alpha: slot.focused ? 1 : 0.72,
           text: slot.affordance.label,
           glyphs: this.labels.get(slot.affordance.label)
         })).filter((entry) => entry.glyphs !== void 0);
@@ -10254,6 +10298,18 @@ function createBerx5DWebHost(options = {}) {
     lastY = e.clientY;
     runtime.input({ panX: -dx * 0.018, panY: dy * 0.018, depthDelta: 0, pinch: 0 });
   };
+  const activate = (affordanceId, label) => {
+    if (!world) return;
+    announce(`${label}\u2026`);
+    haptics.moment("select");
+    void world.act(affordanceId).then((done) => {
+      announce(done ? `${label}: \u0433\u043E\u0442\u043E\u0432\u043E` : `${label}: \u043D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C`);
+      haptics.moment(done ? "action-ok" : "action-refused");
+    }).catch((error) => {
+      haptics.moment("action-refused");
+      announce(error instanceof Error ? error.message : `${label}: \u043D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C`);
+    });
+  };
   const onPointerUp = (e) => {
     if (!dragging) return;
     dragging = false;
@@ -10270,15 +10326,7 @@ function createBerx5DWebHost(options = {}) {
     const ray = rayFromNdc(frameState.camera, x / canvas.width * 2 - 1, 1 - y / canvas.height * 2, canvas.width / canvas.height);
     const slot = ray && world ? pickActionSlot(renderer.actionSlots, frameState.camera, ray.direction, canvas.width / canvas.height) : void 0;
     if (slot && world) {
-      announce(`${slot.affordance.label}\u2026`);
-      haptics.moment("select");
-      void world.act(slot.affordance.id).then((done) => {
-        announce(done ? `${slot.affordance.label}: \u0433\u043E\u0442\u043E\u0432\u043E` : `${slot.affordance.label}: \u043D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C`);
-        haptics.moment(done ? "action-ok" : "action-refused");
-      }).catch((error) => {
-        haptics.moment("action-refused");
-        announce(error instanceof Error ? error.message : `${slot.affordance.label}: \u043D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C`);
-      });
+      activate(slot.affordance.id, slot.affordance.label);
       return;
     }
     const hit = renderer.pick(frameState, x, y);
@@ -10334,6 +10382,7 @@ function createBerx5DWebHost(options = {}) {
   };
   const onKeyDown = (e) => {
     let handled = true;
+    let spoke = false;
     switch (e.key) {
       case "ArrowRight":
         handled = step(1, 0);
@@ -10347,8 +10396,25 @@ function createBerx5DWebHost(options = {}) {
       case "ArrowDown":
         handled = step(0, -1);
         break;
+      case "Tab": {
+        handled = world ? world.focusAffordance(e.shiftKey ? -1 : 1) : false;
+        if (handled) {
+          const a = world?.focusedAffordance;
+          if (a) {
+            announce(`${a.label} \u2014 Enter, \u0447\u0442\u043E\u0431\u044B \u0432\u044B\u043F\u043E\u043B\u043D\u0438\u0442\u044C`);
+            spoke = true;
+          }
+        }
+        break;
+      }
       case "Enter":
       case " ": {
+        const focused = world?.focusedAffordance;
+        if (focused) {
+          activate(focused.id, focused.label);
+          spoke = true;
+          break;
+        }
         const object = runtime.world.getActiveObject();
         if (object) {
           if (world) world.travelTo(object.id);
@@ -10360,6 +10426,13 @@ function createBerx5DWebHost(options = {}) {
       }
       case "Escape":
       case "Backspace":
+        if (world?.focusedAffordance) {
+          world.blurAffordance();
+          announce("\u0414\u0435\u0439\u0441\u0442\u0432\u0438\u0435 \u043E\u0442\u043C\u0435\u043D\u0435\u043D\u043E");
+          handled = true;
+          spoke = true;
+          break;
+        }
         handled = world ? world.back() : runtime.back();
         if (handled) {
           announce("\u041D\u0430\u0437\u0430\u0434");
@@ -10392,7 +10465,7 @@ function createBerx5DWebHost(options = {}) {
     }
     if (handled) {
       e.preventDefault();
-      announceFocus();
+      if (!spoke) announceFocus();
     }
   };
   const onContextLost = (e) => {

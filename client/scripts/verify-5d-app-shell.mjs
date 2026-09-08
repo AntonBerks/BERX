@@ -744,13 +744,13 @@ try {
 		reach.missChangedWorld === false,
 		'a press in an empty corner selected no affordance and mutated nothing — picking that fell through to "nearest anything" would make every empty press an action');
 
-	/* Item 10: keyboard. Reported as a finding, not asserted away. */
-	if (reach.keyboardChangedWorld) {
-		gate('an affordance can be activated without a pointer', true, 'keyboard activation reached the canonical world');
-	} else {
-		console.log('BLOCKED  no affordance can be activated without a pointer');
-		console.log(`         Enter, Space and Tab left the canonical world untouched. world.act() has exactly ONE caller in the whole web layer — the pointerup handler in runtimeHost5d. Enter TRAVELS to the focused entity; it does not act on it. Every capability BERX offers by touch is unreachable by keyboard, which the voice work already holds itself to in the other direction (see BERX_WITHOUT_VOICE)`);
-	}
+	/* Item 10 is now proven by the keyboard gates above, which Tab onto a
+	   real affordance and press Enter. This probe pressed Enter BEFORE
+	   entering the ring, where Enter still means travel — so it is kept
+	   as the check that travel has not quietly become an action. */
+	gate('Enter before the ring is entered travels, and does not act',
+		reach.keyboardChangedWorld === false,
+		'with no affordance focused, Enter moves the camera to the focused entity and mutates nothing. Entering the ring is what makes Enter an action, and that is measured separately');
 
 	/* Item 7: the declared states. */
 	console.log(`NOTE  affordance runtime states actually produced: ${reach.states.join(', ')}`);
@@ -1015,21 +1015,47 @@ try {
 		const w = window.__berxWorld;
 		const before = {...w.latestFrame.camera.position};
 		const edgeNow = w.worldEdge;
+		/* Is the world's own frame loop running at all? Without it
+		   nothing clamps, and a still camera looks exactly like a
+		   correctly clamped one until you fly. */
+		const t0 = w.latestFrame.world.worldTime;
+		await new Promise((r) => requestAnimationFrame(r));
+		await new Promise((r) => requestAnimationFrame(r));
+		const loopRunning = w.latestFrame.world.worldTime !== t0;
 		/* fly straight out, one big step per frame, the way free flight
 		   reaches the edge in the first place */
+		const trail = [];
 		for (let i = 0; i < 40; i++) {
 			const c = w.latestFrame.camera;
 			w.runtime.camera.setState({...c, position: {x: c.position.x, y: c.position.y, z: c.position.z + 40}});
 			await new Promise((r) => requestAnimationFrame(r));
+			const p = w.latestFrame.camera.position;
+			trail.push(Math.round(Math.hypot(p.x - edgeNow.centre.x, p.y - edgeNow.centre.y, p.z - edgeNow.centre.z) * 10) / 10);
 		}
 		const after = {...w.latestFrame.camera.position};
+		/* The edge is measured from the world's centre, and the world can
+		   move: a relayout re-places everything, so a distance taken
+		   against a centre captured before the flight is a distance to
+		   somewhere the world has left. */
+		const edgeAfter = w.worldEdge;
 		const dist = (p) => Math.hypot(p.x - edgeNow.centre.x, p.y - edgeNow.centre.y, p.z - edgeNow.centre.z);
-		return {before: dist(before), after: dist(after), limit: edgeNow.limit, radius: edgeNow.radius};
+		const distNow = (p) => Math.hypot(p.x - edgeAfter.centre.x, p.y - edgeAfter.centre.y, p.z - edgeAfter.centre.z);
+		/* WHY, when it does not hold. The clamp is skipped while the
+		   runtime is travelling and on the first frame after a world is
+		   built, so a bare distance cannot tell a broken edge from a
+		   camera somebody else was moving. */
+		return {
+			before: dist(before), after: dist(after), limit: edgeNow.limit, radius: edgeNow.radius,
+			travelling: w.runtime.travelling, entities: w.latestFrame.world.objects.length, loopRunning,
+			afterAgainstNow: distNow(after), limitNow: edgeAfter.limit, trail,
+			centreMoved: Math.hypot(edgeAfter.centre.x - edgeNow.centre.x, edgeAfter.centre.y - edgeNow.centre.y, edgeAfter.centre.z - edgeNow.centre.z),
+			region: w.worldPosition.region,
+		};
 	});
 	gate(
 		'flying away from the world is still stopped by its edge',
 		edge.after <= edge.limit + 0.01 && edge.limit > 0,
-		`1600 units of outward flight left the camera ${edge.after.toFixed(1)} units from the world's centre, against the runtime's own limit of ${edge.limit.toFixed(1)} (a ${edge.radius.toFixed(1)}-unit world plus the margin that lets you step back and see all of it) — the camera's absolute depth clamp would have allowed 45.0, so this is the world edge and not that`,
+		`1600 units of outward flight left the camera ${edge.after.toFixed(1)} units from the world's centre, against the runtime's own limit of ${edge.limit.toFixed(1)} (against the world's centre as it stands now: ${edge.afterAgainstNow.toFixed(1)} of ${edge.limitNow.toFixed(1)}, centre moved ${edge.centreMoved.toFixed(2)}; trail ${edge.trail.slice(0,8).join(' ')} ... ${edge.trail.slice(-4).join(' ')}; loop running=${edge.loopRunning}, travelling=${edge.travelling}, ${edge.entities} entities, region ${edge.region}) (a ${edge.radius.toFixed(1)}-unit world plus the margin that lets you step back and see all of it) — the camera's absolute depth clamp would have allowed 45.0, so this is the world edge and not that`,
 	);
 
 	/* --- a real process crash, and what the world remembers ---
@@ -1102,6 +1128,189 @@ try {
 		perf.inFrustum <= perf.visible && perf.drawCalls <= perf.inFrustum * 2,
 		`${perf.inFrustum} of ${perf.visible} entities inside the frustum; ${perf.drawCalls} draw calls including labels`,
 	);
+
+	/**
+	 * LAST ON PURPOSE.
+	 *
+	 * These gates run as one long sequence against one session, and this
+	 * probe moves focus between entities and acts on the server. Placed
+	 * mid-file it left the session in a state where the reload two gates
+	 * later restored a pose the camera then could not be moved from —
+	 * the world-edge gate flew 1600 units and measured 40.3 against a
+	 * 24.4 limit, and was right to fail. Isolated by running the same
+	 * runtime changes against the original gate file, which passed
+	 * everything: the runtime was innocent and the probe was not.
+	 *
+	 * A probe that mutates the world goes after the gates that measure
+	 * it. Restoring focus by hand was not enough and is not the fix.
+	 */
+	/* --- W4 item 10: the ring, from a keyboard, down the same path --- */
+	const keys = await page.evaluate(async () => {
+		const w = window.__berxWorld;
+		const host = window.__berxHost;
+		const canvas = document.querySelector('canvas');
+		const settle = async () => { for (let i = 0; i < 60; i++) await new Promise((r) => requestAnimationFrame(r)); };
+		const liveText = () => [...document.querySelectorAll('[aria-live]')]
+			.map((n) => (n.textContent || '').trim()).filter(Boolean).join(' | ');
+		/** The canonical identity AND version of one entity, byte for byte. */
+		const stampOf = (id) => {
+			const o = w.latestFrame.world.objects.find((x) => x.id === id);
+			return o ? JSON.stringify({id: o.id, kind: o.kind, updatedAt: o.updatedAt, createdAt: o.createdAt, energy: o.energy, material: o.material}) : 'absent';
+		};
+		const key = async (k, shift = false) => {
+			canvas.dispatchEvent(new KeyboardEvent('keydown', {key: k, shiftKey: shift, bubbles: true, cancelable: true}));
+			await settle();
+		};
+
+		/**
+		 * WHERE THIS PROBE FOUND THE WORLD, so it can put it back.
+		 *
+		 * These gates run in one long sequence against one session, and
+		 * this one moves focus between entities. Leaving it moved changed
+		 * what the reload two gates later restored, which left a camera
+		 * transition in flight, and the world-edge clamp is deliberately
+		 * skipped while the runtime is travelling — so an unrelated gate
+		 * measured 40.3 units against a 24.4 limit and was right to fail.
+		 * A probe inserted into a sequence has to leave no trace.
+		 */
+		const enteredAt = {focus: w.worldPosition.focusId, region: w.worldPosition.region};
+		w.blur();
+		await settle();
+		w.focus('moment:5150');
+		await settle();
+
+		/* 1. Tab identifies a real, visible affordance. */
+		const beforeTab = w.focusedAffordance;
+		await key('Tab');
+		const first = w.focusedAffordance;
+		const firstSlot = host.renderer.actionSlots.find((s) => s.focused);
+		const unfocused = host.renderer.actionSlots.filter((s) => !s.focused);
+		await key('Tab');
+		const second = w.focusedAffordance;
+		await key('Tab', true);
+		const backAgain = w.focusedAffordance;
+
+		/* 8/9. The focus is a thing in the world: larger and brighter,
+		   in world units, not a browser outline. */
+		const focusIsSpatial = firstSlot && unfocused.length > 0
+			? {focusedHalfHeight: firstSlot.halfHeight, otherHalfHeight: unfocused[0].halfHeight}
+			: undefined;
+		const outlineStyle = getComputedStyle(canvas).outlineStyle;
+
+		/* 2/3/6. Enter activates the focused affordance, down world.act.
+		   Tabbed onto a SERVER action: `open` is travel, and asserting a
+		   canonical mutation from it would be asserting the wrong thing —
+		   travel moves the camera and leaves the world alone, correctly. */
+		const ring = w.affordances();
+		for (let i = 0; i < ring.length && w.focusedAffordance?.action !== 'like'; i++) await key('Tab');
+		const activating = w.focusedAffordance
+			? {id: w.focusedAffordance.id, action: w.focusedAffordance.action, label: w.focusedAffordance.label}
+			: undefined;
+		const beforeAct = stampOf('moment:5150');
+		await key('Enter');
+		const said = liveText();
+		await new Promise((r) => setTimeout(r, 500));
+		await settle();
+		const afterAct = stampOf('moment:5150');
+		const announced = liveText();
+
+		/* 5. A REJECTED action must leave identity/version byte-equal.
+		   `follow` is offered on a person and BERX has no follow
+		   endpoint, so this is a real refusal from the real path. */
+		w.focus('person:78');
+		await settle();
+		let rejected, beforeReject, afterReject, rejectedLabel;
+		const offered = w.affordances();
+		const follow = offered.find((a) => a.action === 'follow');
+		if (follow) {
+			/* Tab onto it rather than naming it: the keyboard has to be
+			   able to REACH the thing it then fails to do. */
+			for (let i = 0; i < offered.length && w.focusedAffordance?.action !== 'follow'; i++) await key('Tab');
+			rejectedLabel = w.focusedAffordance?.label;
+			beforeReject = stampOf('person:78');
+			await key('Enter');
+			await new Promise((r) => setTimeout(r, 500));
+			await settle();
+			afterReject = stampOf('person:78');
+			rejected = liveText();
+		}
+
+		/* 7. A state that is not activatable must not activate. */
+		const guarded = await w.act('moment:5150:like').then(() => 'ran').catch(() => 'threw');
+		const guardedAfterBlur = await (async () => {
+			w.blur();
+			await settle();
+			return w.act('moment:5150:like').then((r) => r).catch(() => 'threw');
+		})();
+
+		/**
+		 * LEAVE THE WORLD STILL.
+		 *
+		 * Focusing and blurring start camera transitions, and a
+		 * transition in flight overwrites the camera every frame — which
+		 * quietly broke the world-edge gate that runs after this one:
+		 * flying outward while a transition owned the camera left it 40.3
+		 * units out against a 24.4 limit. The edge gate was right and this
+		 * probe was rude. Settled by wall clock as well as by frames,
+		 * because a headless rAF is not a reliable clock.
+		 */
+		/* Put the world back where it was found, then let every
+		   transition that implies finish before handing control on. */
+		if (enteredAt.focus) w.focus(enteredAt.focus);
+		await settle();
+		await new Promise((r) => setTimeout(r, 1500));
+		await settle();
+		const settled = w.latestFrame.transition === undefined && !w.runtime.travelling;
+		const restored = {focus: w.worldPosition.focusId, region: w.worldPosition.region};
+
+		return {
+			beforeTab: beforeTab ? beforeTab.id : undefined,
+			first: first ? {id: first.id, action: first.action, state: first.state, label: first.label} : undefined,
+			second: second ? second.id : undefined,
+			backAgain: backAgain ? backAgain.id : undefined,
+			focusIsSpatial, outlineStyle,
+			settled, restored, enteredAt,
+			activating, beforeAct, afterAct, said, announced,
+			acted: beforeAct !== afterAct,
+			rejectedLabel, rejected,
+			rejectUnchanged: beforeReject !== undefined && beforeReject === afterReject,
+			beforeReject, afterReject,
+			guarded, guardedAfterBlur,
+		};
+	});
+
+	gate('Tab identifies a real affordance of the focused entity, and walks the ring',
+		keys.beforeTab === undefined && keys.first !== undefined && keys.second !== undefined
+			&& keys.first.id !== keys.second.id && keys.backAgain === keys.first.id,
+		`nothing focused before Tab; Tab → ${keys.first?.id} (${keys.first?.action}, state ${keys.first?.state}); Tab → ${keys.second}; Shift+Tab → ${keys.backAgain}. The same affordances a finger picks, in the order they stand in the world — not a second focus order assembled for the keyboard`);
+
+	gate('the focus is a state of the world, not a browser outline',
+		keys.focusIsSpatial !== undefined
+			&& keys.focusIsSpatial.focusedHalfHeight > keys.focusIsSpatial.otherHalfHeight
+			&& keys.outlineStyle === 'none',
+		keys.focusIsSpatial
+			? `the focused slot stands ${keys.focusIsSpatial.focusedHalfHeight.toFixed(3)} world units half-height against ${keys.focusIsSpatial.otherHalfHeight.toFixed(3)} for the rest, and is drawn at full alpha against 0.72. The canvas outline-style is "${keys.outlineStyle}" — a ring around a canvas that contains the whole world says nothing about WHICH action is focused`
+			: 'no focused slot to compare');
+
+	gate('Enter activates the focused affordance through the same path a finger uses',
+		keys.acted === true && keys.activating?.action === 'like'
+			&& typeof keys.announced === 'string' && keys.announced.includes('готово'),
+		`Tabbed onto ${keys.activating?.id} (${keys.activating?.action}) and pressed Enter → "${keys.activating?.label}: готово". moment:5150 updatedAt ${JSON.parse(keys.beforeAct || '{}').updatedAt} → ${JSON.parse(keys.afterAct || '{}').updatedAt}, and the entity that landed is the one read back from the server. One `+'`activate`'+` closure serves pointerup and Enter: world.act is the only action path, and neither input decides anything about what an action does`);
+
+	gate('a keyboard activation the server rejects leaves identity and version byte-equal',
+		keys.rejectUnchanged === true,
+		keys.rejectedLabel
+			? `Tabbed onto "${keys.rejectedLabel}" and pressed Enter; the shell said "${keys.rejected}". person:78 before and after: ${keys.beforeReject} / ${keys.afterReject} — byte-identical id, kind, createdAt, updatedAt, energy and material`
+			: 'no rejectable affordance was reachable by keyboard to test');
+
+	gate('the keyboard probe leaves the world as it found it',
+		keys.settled === true && keys.restored?.focus === keys.enteredAt?.focus,
+		`focus ${keys.enteredAt?.focus} restored, region ${keys.restored?.region}, no camera transition in flight — focus and blur both start one, and a transition owns the camera every frame it runs, which is enough to make a later measurement of the world edge measure the transition instead`);
+
+	gate('an affordance that is not in an activatable state does not activate',
+		keys.guardedAfterBlur === false,
+		`with nothing focused, act('moment:5150:like') returned ${JSON.stringify(keys.guardedAfterBlur)} rather than running. berxCanActivate is a positive list, so a state added later is refused until someone decides it should not be`);
+
 
 	gate('no page or console errors', pageErrors.length === 0, pageErrors.slice(0, 3).join(' | ') || 'clean');
 } finally {

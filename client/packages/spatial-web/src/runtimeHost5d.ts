@@ -425,6 +425,30 @@ export function createBerx5DWebHost(options: Berx5DWebHostOptions = {}): Berx5DW
 		lastY = e.clientY;
 		runtime.input({panX: -dx * 0.018, panY: dy * 0.018, depthDelta: 0, pinch: 0});
 	};
+	/**
+	 * DOING AN AFFORDANCE. One path, whatever reached it.
+	 *
+	 * The pointer had this inline, so a keyboard route would have meant
+	 * a second copy of the announcement, the haptics and the error
+	 * handling — three chances to drift, and a keyboard that slowly
+	 * stopped meaning the same thing as a finger. It is lifted out
+	 * unchanged instead: `world.act` is the ONE action path, and neither
+	 * input decides anything about what an action does.
+	 */
+	const activate = (affordanceId: string, label: string): void => {
+		if (!world) return;
+		announce(`${label}…`);
+		haptics.moment('select');
+		void world.act(affordanceId).then((done) => {
+			announce(done ? `${label}: готово` : `${label}: не удалось`);
+			haptics.moment(done ? 'action-ok' : 'action-refused');
+		}).catch((error) => {
+			haptics.moment('action-refused');
+			/* the server's own reason, out loud */
+			announce(error instanceof Error ? error.message : `${label}: не удалось`);
+		});
+	};
+
 	const onPointerUp = (e: PointerEvent) => {
 		if (!dragging) return;
 		dragging = false;
@@ -463,16 +487,7 @@ export function createBerx5DWebHost(options: Berx5DWebHostOptions = {}): Berx5DW
 		const ray = rayFromNdc(frameState.camera, (x / canvas.width) * 2 - 1, 1 - (y / canvas.height) * 2, canvas.width / canvas.height);
 		const slot = ray && world ? pickActionSlot(renderer.actionSlots, frameState.camera, ray.direction, canvas.width / canvas.height) : undefined;
 		if (slot && world) {
-			announce(`${slot.affordance.label}…`);
-			haptics.moment('select');
-			void world.act(slot.affordance.id).then((done) => {
-				announce(done ? `${slot.affordance.label}: готово` : `${slot.affordance.label}: не удалось`);
-				haptics.moment(done ? 'action-ok' : 'action-refused');
-			}).catch((error) => {
-				haptics.moment('action-refused');
-				/* the server's own reason, out loud */
-				announce(error instanceof Error ? error.message : `${slot.affordance.label}: не удалось`);
-			});
+			activate(slot.affordance.id, slot.affordance.label);
 			return;
 		}
 		const hit = renderer.pick(frameState, x, y);
@@ -542,13 +557,45 @@ export function createBerx5DWebHost(options: Berx5DWebHostOptions = {}): Berx5DW
 
 	const onKeyDown = (e: KeyboardEvent) => {
 		let handled = true;
+		/* Some branches say something more specific than "you are looking
+		   at X"; announceFocus below must not talk over them. */
+		let spoke = false;
 		switch (e.key) {
 			case 'ArrowRight': handled = step(1, 0); break;
 			case 'ArrowLeft': handled = step(-1, 0); break;
 			case 'ArrowUp': handled = step(0, 1); break;
 			case 'ArrowDown': handled = step(0, -1); break;
+			case 'Tab': {
+				/**
+				 * INTO THE RING, and around it.
+				 *
+				 * Tab walks the affordances of the focused entity — the
+				 * same ones a finger picks, in the order they stand in the
+				 * world. It is not a parallel focus order assembled for
+				 * the keyboard: `world.affordances()` is the one list, and
+				 * the focused one is marked in it, which is what puts the
+				 * focus ring in the WORLD rather than around the canvas.
+				 *
+				 * With nothing focusable, Tab is left alone so it still
+				 * leaves the world for the rest of the page.
+				 */
+				handled = world ? world.focusAffordance(e.shiftKey ? -1 : 1) : false;
+				if (handled) {
+					const a = world?.focusedAffordance;
+					if (a) { announce(`${a.label} — Enter, чтобы выполнить`); spoke = true; }
+				}
+				break;
+			}
 			case 'Enter':
 			case ' ': {
+				/* An affordance in focus is what Enter is for. Travel is
+				   what Enter means when the ring has not been entered. */
+				const focused = world?.focusedAffordance;
+				if (focused) {
+					activate(focused.id, focused.label);
+					spoke = true;
+					break;
+				}
 				const object = runtime.world.getActiveObject();
 				if (object) {
 					/* travel, not open: the camera moves and the world stays */
@@ -561,6 +608,15 @@ export function createBerx5DWebHost(options: Berx5DWebHostOptions = {}): Berx5DW
 			}
 			case 'Escape':
 			case 'Backspace':
+				/* Out of the ring first: Escape from an action means "not
+				   that action", not "leave the place". */
+				if (world?.focusedAffordance) {
+					world.blurAffordance();
+					announce('Действие отменено');
+					handled = true;
+					spoke = true;
+					break;
+				}
 				handled = world ? world.back() : runtime.back();
 				if (handled) {
 					announce('Назад');
@@ -593,7 +649,7 @@ export function createBerx5DWebHost(options: Berx5DWebHostOptions = {}): Berx5DW
 		}
 		if (handled) {
 			e.preventDefault();
-			announceFocus();
+			if (!spoke) announceFocus();
 		}
 	};
 

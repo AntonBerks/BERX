@@ -1496,7 +1496,10 @@ export class BerxWebGPURuntimeRenderer implements BerxSpatialRenderer {
 			.map((slot) => ({
 				position: slot.position,
 				halfHeight: slot.halfHeight,
-				alpha: 1,
+				/* the focused action is brighter as well as larger: two
+				   signals, so it still reads where a size difference is
+				   hard to judge against nothing */
+				alpha: slot.focused ? 1 : 0.72,
 				text: slot.affordance.label,
 				glyphs: this.labels.get(slot.affordance.label),
 			}))
