@@ -29,6 +29,7 @@ export * from './stability';
 export * from './voice/berxWorldState';
 export * from './voice/berxSpatialMemory';
 export * from './voice/berxIntent';
+export * from './voice/berxUtterance';
 export * from './voice/berxActionGraph';
 export * from './voice/berxSay';
 export * from './voice/berxBirth';

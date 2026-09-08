@@ -87,9 +87,18 @@ const said = (text, state = situation(), memory = core.BERX_EMPTY_MEMORY) =>
 	core.berxReadIntent(text, state, memory);
 
 const NATURAL = [
-	['Куда бы сходить сегодня?', 'now-nearby'],
-	['Хочу куда-нибудь выбраться', 'now-nearby'],
-	['Мне скучно', 'now-nearby'],
+	/* A stated day outranks the restlessness: someone at a loose end who
+	   says WHEN is asking what is on then, and that is a better answer
+	   than anything worth seeing in general. */
+	['Куда бы сходить сегодня?', 'find-events'],
+	/* Restlessness with no hour in it. These expected `now-nearby` on the
+	   reasoning that what is CLOSE is what a friend would offer, and the
+	   product decision went the other way: someone bored is asking to be
+	   shown something good, not something near, and in a city those are
+	   different answers. "Что рядом" is the question that asks for near,
+	   and it still gets it. */
+	['Хочу куда-нибудь выбраться', 'discover'],
+	['Мне скучно', 'discover'],
 	['Что сейчас происходит рядом?', 'now-nearby'],
 	['Покажи что-нибудь неожиданное', 'discover'],
 	['Хочу познакомиться с кем-нибудь', 'find-people'],

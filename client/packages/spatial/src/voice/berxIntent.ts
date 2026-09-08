@@ -40,6 +40,7 @@
  * and costs far more.
  */
 import type {BerxSituation} from './berxWorldState';
+import {berxUtteranceFeatures, berxFeatureConfidence, type BerxUtteranceFeatures} from './berxUtterance';
 import {berxHere, berxNth} from './berxWorldState';
 import type {BerxSpatialMemory} from './berxSpatialMemory';
 import {berxNthShown} from './berxSpatialMemory';
@@ -264,20 +265,74 @@ export function berxReadIntent(
 	   второй?" while looking at three places is asking to see the second
 	   one, and asking them to say "открой" would be the interface making
 	   them speak its language. */
-	if (referenced && objectId && text.split(/\s+/).length <= 4) {
-		return {kind: 'open', objectId, needs, confidence: 0.7, matched};
-	}
-
+	/**
+	 * ASKED BEFORE the bare-reference path, and the order is the fix.
+	 *
+	 * "Что тут происходит?" is three words and contains "тут", so the
+	 * reference path below read it as pointing at whatever was in focus
+	 * and answered by opening that thing. But "тут" there is LOCATIVE —
+	 * it means "around here", not "this one" — and the sentence says so
+	 * explicitly by asking what is happening. An explicit question about
+	 * what is going on is never a pointing gesture, whatever else is in
+	 * it, so it is answered first.
+	 */
 	const now = has(text, NOW_WORDS);
 	if (now) return decide('now-nearby', now, 0.9);
 
+	/**
+	 * Pointing, with nothing else in the sentence.
+	 *
+	 * "А второй?" while looking at three places is asking to see the
+	 * second one, and making a person say "открой" would be the interface
+	 * making them speak its language.
+	 *
+	 * But a sentence that ASKS FOR a named kind of thing is not merely
+	 * pointing. "Где тут завтракают?" contains "тут" and is three words
+	 * long, and it is a request for places — the "тут" narrows it to
+	 * here rather than pointing at the thing in focus.
+	 *
+	 * The exception is a QUESTION about the thing. "Кто это?" has the
+	 * subject `people`, because "кто" is a people word — and it is not a
+	 * request for people, it is a question about what is being pointed
+	 * at. So a named subject blocks the pointing path unless the sentence
+	 * is asking what something IS.
+	 *
+	 * Requiring an act of show or find instead was too narrow: "есть тут
+	 * кофейни?" names its subject and has no verb this file recognises,
+	 * and it is plainly a request for places.
+	 */
+	const pointingFeatures = berxUtteranceFeatures(text);
+	if (referenced && objectId && text.split(/\s+/).length <= 4
+		&& !(pointingFeatures.subject !== undefined && pointingFeatures.act !== 'identify')) {
+		return {kind: 'open', objectId, needs, confidence: 0.7, matched};
+	}
+
 	const restless = has(text, RESTLESS_WORDS);
 	if (restless) {
-		/* A state, answered the way a friend would: what is happening near
-		   you. Lower confidence than a direct question, because it is a
-		   reading of intent rather than a reading of words — and the
-		   confidence is what lets the voice offer rather than assert. */
-		return decide('now-nearby', restless, 0.6);
+		/**
+		 * A state, not a request, and the answer is what is worth seeing.
+		 *
+		 * This answered with what is NEARBY, on the reasoning that it is
+		 * what a friend would say. The reasoning is decent and the product
+		 * decision went the other way: someone at a loose end is asking to
+		 * be shown something good, not something close, and the two are
+		 * different answers in a city. Nearby stays the answer to "что
+		 * рядом", which is the question that actually asks it.
+		 *
+		 * Confidence stays low because this is a reading of intent rather
+		 * than of words, and low confidence is what lets the voice offer
+		 * rather than assert.
+		 *
+		 * A NAMED HOUR still outranks it, the same way it outranks a
+		 * generic interest word: "куда бы сходить сегодня?" is at a loose
+		 * end AND says when, and what is on today is a better answer than
+		 * anything worth seeing in general.
+		 */
+		const restlessWhen = berxUtteranceFeatures(text).time;
+		if (restlessWhen === 'today' || restlessWhen === 'tonight' || restlessWhen === 'tomorrow') {
+			return decide('find-events', `${restless}+${restlessWhen}`, 0.75);
+		}
+		return decide('discover', restless, 0.6);
 	}
 
 	const refine = has(text, REFINE_WORDS);
@@ -293,7 +348,25 @@ export function berxReadIntent(
 	if (people) return decide('find-people', people, 0.8);
 
 	const discover = has(text, DISCOVER_WORDS);
-	if (discover) return decide('discover', discover, 0.6);
+	if (discover) {
+		/**
+		 * A STATED HOUR OUTRANKS "something interesting".
+		 *
+		 * "Где сегодня будет интересно?" contains an interest word and is
+		 * not a request for interesting things — it asks what is ON today,
+		 * and the word carrying that is the TIME. A list cannot see this
+		 * because it matches one word and stops; reading the sentence can.
+		 *
+		 * Only for a NAMED day or evening. "Интересно" with "сейчас" stays
+		 * discovery: what is interesting right now is a different question
+		 * from what is on tonight, and nearby already answers it.
+		 */
+		const timed = berxUtteranceFeatures(text).time;
+		if (timed === 'today' || timed === 'tonight' || timed === 'tomorrow') {
+			return decide('find-events', `${discover}+${timed}`, 0.8);
+		}
+		return decide('discover', discover, 0.6);
+	}
 
 	/**
 	 * Nothing was understood — but WHY matters, and it was nearly lost
@@ -307,9 +380,56 @@ export function berxReadIntent(
 	 * which is a dead end. The gate caught it: a reference to nothing came
 	 * back with no needs at all.
 	 */
+	/**
+	 * READ THE SENTENCE FIRST, and only then give up.
+	 *
+	 * This early return used to come BEFORE the decomposition below, and
+	 * it short-circuited it for exactly the sentences the decomposition
+	 * exists to catch: "где тут завтракают?" put "тут" into `matched`,
+	 * which made `matched.length > 0` true, which returned unknown while
+	 * a perfectly readable request for places sat one branch away. It is
+	 * the root of a whole class of misses, and it looked like several
+	 * different bugs until the returns were listed in order.
+	 */
+	/**
+	 * NOTHING IN ANY LIST MATCHED — so read the sentence instead.
+	 *
+	 * The lists above are fast and exact and they stop at their own edge,
+	 * which is the difference between a set of commands and a
+	 * conversation. Measured on sixteen sentences a person would really
+	 * say, six fell through to here, and none of them was a missing
+	 * phrase: "куда все идут?" has no event word in it, "что делать
+	 * вечером?" carries its subject in the TIME, and "что это?" carries
+	 * its subject in the POINTING.
+	 *
+	 * So this takes the sentence apart — what is being asked ABOUT, WHEN,
+	 * and what is being asked FOR — and combines the parts. A sentence
+	 * with no word from any list can still be understood, and that is the
+	 * whole reason this arm exists.
+	 *
+	 * It runs LAST, deliberately. Every phrase the lists know is answered
+	 * exactly as it was before, so this can only add understanding and
+	 * never change it.
+	 */
+	const f = berxUtteranceFeatures(text);
+	const fromFeatures = berxIntentFromFeatures(f, objectId !== undefined);
+	if (fromFeatures) {
+		return decide(fromFeatures, f.matched.join(' '), berxFeatureConfidence(f));
+	}
+
+	/**
+	 * Nothing was understood — but WHY matters.
+	 *
+	 * Someone who says "что здесь сегодня?" while looking at nothing has
+	 * been perfectly clear; what they lack is a referent, not a verb.
+	 * Returning the bare UNKNOWN constant would discard the gap worked
+	 * out above and turn "не вижу, о чём речь" — which is useful, and
+	 * which invites one more word — into "не понял", which is a dead end.
+	 */
 	if (needs.length > 0 || matched.length > 0) {
 		return {kind: 'unknown', objectId, needs, confidence: 0, matched};
 	}
+
 	return UNKNOWN;
 }
 
@@ -337,4 +457,56 @@ export const BERX_VOICE_CAPABILITY: Readonly<Partial<Record<BerxVoiceIntentKind,
 /** True when this intent has everything it needs to be executed. */
 export function berxExecutable(intent: BerxVoiceIntent): boolean {
 	return intent.kind !== 'unknown' && intent.needs.length === 0;
+}
+
+
+/**
+ * What a decomposed sentence asks for.
+ *
+ * Combination rather than lookup, and every rule here is a rule about
+ * MEANING rather than about words:
+ *
+ * A question ABOUT something, when something is being pointed at, is a
+ * request to open it — "что это?" is not a search for things, it is a
+ * question about one thing.
+ *
+ * A time on its own carries a subject. "Что делать вечером?" names no
+ * events and is about nothing else: what a person wants at a stated
+ * hour is what is ON at that hour.
+ *
+ * And a subject with no act is still a request. Someone who says
+ * "рестораны" has asked for restaurants, and answering "не понял" to
+ * that is pedantry rather than caution.
+ */
+export function berxIntentFromFeatures(
+	f: BerxUtteranceFeatures,
+	hasReferent: boolean,
+): BerxVoiceIntentKind | undefined {
+	/* A question about a thing, not a request for things. */
+	if (f.act === 'identify') return hasReferent || f.pointing ? 'open' : undefined;
+	if (f.act === 'remove') return 'dismiss';
+	if (f.act === 'back') return 'back';
+	if (f.act === 'refine') return 'refine';
+	if (f.act === 'go' && (hasReferent || f.pointing)) return 'open';
+
+	if (f.subject === 'people') return 'find-people';
+	if (f.subject === 'places') return 'find-places';
+	if (f.subject === 'events') return 'find-events';
+	if (f.subject === 'content') return 'discover';
+
+	/* A stated hour is a subject. Tonight, today and tomorrow are all
+	   questions about what is ON then; "now" is the live question, which
+	   is what nearby answers. */
+	if (f.time === 'tonight' || f.time === 'today' || f.time === 'tomorrow') return 'find-events';
+	if (f.time === 'now') return 'now-nearby';
+
+	/* At a loose end, with nothing else in the sentence: the answer is
+	   something worth seeing, not a list of what is close. */
+	if (f.restless) return 'discover';
+
+	/* An act with nothing to act on says only that someone wants to be
+	   shown something. */
+	if (f.act === 'show' || f.act === 'find') return 'discover';
+
+	return undefined;
 }
