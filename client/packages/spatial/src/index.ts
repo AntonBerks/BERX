@@ -24,6 +24,7 @@ export * from './lighting/berxSSAO';
 export * from './lighting/berxVolumetric';
 export * from './lighting/berxParticles';
 export * from './lighting/berxRenderQuality';
+export * from './renderPipeline';
 export * from './worldMaterials';
 export * from './spatialAudio';
 export * from './platform';

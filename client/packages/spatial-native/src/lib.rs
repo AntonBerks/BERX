@@ -165,13 +165,22 @@ pub const SAMPLE_COUNT: u32 = 4;
 const DRAW_STRIDE: u64 = std::mem::size_of::<Draw>() as u64;
 
 /// What a native frame actually cost. Measured, never estimated.
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Debug, Clone, Default)]
 pub struct FrameStats {
     pub draw_calls: u32,
     pub triangles: u32,
     pub mesh_variants: u32,
     /// Items the shared core listed that this backend could not draw.
     pub skipped: u32,
+    /// The GPU passes this frame actually encoded, in order.
+    ///
+    /// A record, not a description: a name is pushed at the point the
+    /// pass is recorded, and @berx/spatial's berxExpectedPasses says what
+    /// it should be. Comparing final pixels cannot catch a renderer that
+    /// quietly stopped running a pass under some combination of flags —
+    /// the web backends had exactly that defect, in opposite directions,
+    /// and only a report like this one makes it visible.
+    pub stages: Vec<String>,
 }
 
 /// One frame's uniforms, bind groups and draw plan.
@@ -1372,6 +1381,7 @@ impl NativeRenderer {
                 timestamp_writes: None,
                 occlusion_query_set: None,
             });
+            stats.stages.push("shadows".into());
             shadow_pass.set_pipeline(&self.shadow_pipeline);
             shadow_pass.set_bind_group(0, &shadow.globals_bind, &[]);
             for (i, (key, count)) in prepared.plan.iter().enumerate() {
@@ -1408,6 +1418,7 @@ impl NativeRenderer {
                 timestamp_writes: None,
                 occlusion_query_set: None,
             });
+            stats.stages.push("gbuffer".into());
             g_pass.set_pipeline(&self.gbuffer_pipeline);
             g_pass.set_bind_group(0, &vol.globals_bind, &[]);
             for (i, (key, count)) in prepared.plan.iter().enumerate() {
@@ -1433,6 +1444,7 @@ impl NativeRenderer {
                 timestamp_writes: None,
                 occlusion_query_set: None,
             });
+            stats.stages.push("volumetric".into());
             vol_pass.set_pipeline(&self.vol_pipeline);
             vol_pass.set_bind_group(0, &vol.vol_bind, &[]);
             vol_pass.draw(0..3, 0..1);
@@ -1461,6 +1473,7 @@ impl NativeRenderer {
             timestamp_writes: None,
             occlusion_query_set: None,
         });
+        stats.stages.push("world".into());
         pass.set_pipeline(&self.pipeline);
         pass.set_bind_group(0, &prepared.globals_bind, &[]);
         pass.set_bind_group(2, &self.media_bind, &[]);
@@ -1476,6 +1489,7 @@ impl NativeRenderer {
         /* the air's contents, after the world so the depth buffer already
            holds everything solid */
         if let Some(bind) = &prepared.particle_bind {
+            stats.stages.push("particles".into());
             pass.set_pipeline(&self.particle_pipeline);
             for (offset, vertices) in &prepared.particles {
                 pass.set_bind_group(0, bind, &[*offset]);
@@ -1487,6 +1501,7 @@ impl NativeRenderer {
         /* the air is in front of everything, and it ADDS to what is
            behind it rather than covering it */
         if let Some(vol) = &prepared.volumetric {
+            stats.stages.push("composite".into());
             pass.set_pipeline(&self.composite_pipeline);
             pass.set_bind_group(0, &vol.vol_bind, &[]);
             pass.set_bind_group(1, &vol.composite_bind, &[]);

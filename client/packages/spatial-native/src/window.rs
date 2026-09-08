@@ -91,7 +91,7 @@ impl WindowRenderer {
     }
 
     pub fn stats(&self) -> FrameStats {
-        self.stats
+        self.stats.clone()
     }
 
     /// The window changed size, so the swapchain and both attachments do.

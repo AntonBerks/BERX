@@ -328,6 +328,16 @@ function program(gl: WebGL2RenderingContext,vs=V,fs=F) { const p=gl.createProgra
 
 /** What a frame actually cost. Measured, never estimated. */
 export interface BerxFrameStats {
+	/**
+	 * The GPU passes this frame actually encoded, in order.
+	 *
+	 * A record, not a description: each backend pushes a name at the point
+	 * it records the pass, and the pipeline gate holds that against
+	 * @berx/spatial's berxExpectedPasses. Comparing final pixels cannot
+	 * catch a renderer that stopped running a pass under some combination
+	 * of flags; this can, and did.
+	 */
+	stages?: string[];
 	/** Entities the world holds and that are marked visible. */
 	visible: number;
 	/** Survived the frustum test. */
@@ -926,7 +936,7 @@ export class BerxThreeRuntimeRenderer implements BerxSpatialRenderer {
   * Returns false when it could not run, so the caller can say so rather
   * than show a frame that quietly has no shafts in it.
   */
- private renderVolumetric(list:ReturnType<typeof berxBuildDrawList>,width:number,height:number,originX:number):boolean{
+ private renderVolumetric(list:ReturnType<typeof berxBuildDrawList>,width:number,height:number):boolean{
   if(!this.floatColour||!list.shadow||!this.shadowTexture||!this.gbufTexture)return false;
   const gl=this.gl;
   /* The march may run at a fraction of the frame — see volumetric.wgsl,
@@ -986,26 +996,65 @@ export class BerxThreeRuntimeRenderer implements BerxSpatialRenderer {
   if(this.shadowNearest)gl.bindSampler(1,this.shadowNearest);
   gl.bindVertexArray(this.aoVao!);
   gl.drawArrays(gl.TRIANGLES,0,3);
-
-  /* ---- additive composite over the world ---- */
-  gl.bindFramebuffer(gl.FRAMEBUFFER,null);
-  gl.viewport(originX,0,width,height);
-  gl.useProgram(this.compositeProgram);
-  gl.activeTexture(gl.TEXTURE2);gl.bindTexture(gl.TEXTURE_2D,this.volTexture!);gl.uniform1i(this.CSRC,2);
-  gl.enable(gl.BLEND);gl.blendFunc(gl.ONE,gl.ONE);
-  gl.drawArrays(gl.TRIANGLES,0,3);
   gl.bindVertexArray(null);
+  gl.bindFramebuffer(gl.FRAMEBUFFER,null);
 
-  /* leave GL exactly as this pass found it: the renderer sets these once
-     in its constructor and every other pass relies on that global state.
-     A pass that leaves ONE and ONE bound draws the next frame's
-     translucent surfaces as additive glass. */
+  /* Leave GL exactly as this pass found it. The renderer enables these
+     ONCE in its constructor and every other pass relies on that global
+     state, so a pass that leaves any of them off is a pass that changes
+     a later one.
+     
+     gl.enable(BLEND) is the line that matters and it was missing. The
+     march turns blending off — it writes a computed quantity into its own
+     float target, and averaging that with what was there is meaningless —
+     and never turned it back on. That was invisible while the composite
+     ran immediately afterwards and re-enabled it, and became a real defect
+     the moment the march moved to where the declared pipeline puts it,
+     BEFORE the world pass: the world then drew its translucent floor
+     opaque. It showed up as the air appearing to add a different amount
+     of light on this backend than on WebGPU — a systematic 0.91/255 across
+     the whole frame — while the in-scatter buffer the march produced was
+     bit-identical in both positions. That measurement is what found it;
+     no amount of reading the march could have, because the march was
+     never wrong. */
   gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);
+  gl.enable(gl.BLEND);
   gl.enable(gl.DEPTH_TEST);gl.depthMask(true);
   /* a sampler object left bound to a unit outrides the texture's own
      parameters for every later pass on that unit — the world pass would
      silently lose its soft shadow edge */
   gl.bindSampler(1,null);
+  gl.activeTexture(gl.TEXTURE0);
+  return true;
+ }
+
+ /**
+  * The air, added over the world.
+  *
+  * Split from the march above rather than done at the end of it, and the
+  * split is the point: the march has to happen BEFORE the world pass —
+  * that is where the declared pipeline puts it, and where WebGPU has
+  * always had it — while the composite has to happen after, because it
+  * adds to what the world pass drew. One function doing both put this
+  * backend's march after the world, which worked (it renders into its
+  * own target and samples nothing the world pass writes) and was still a
+  * different pipeline from the other two. The pipeline gate reads the
+  * pass names each backend records, and that is how it was found.
+  */
+ private compositeAir(originX:number,width:number,height:number):boolean{
+  if(!this.volTexture)return false;
+  const gl=this.gl;
+  gl.viewport(originX,0,width,height);
+  gl.useProgram(this.compositeProgram);
+  gl.activeTexture(gl.TEXTURE2);gl.bindTexture(gl.TEXTURE_2D,this.volTexture);gl.uniform1i(this.CSRC,2);
+  gl.enable(gl.BLEND);gl.blendFunc(gl.ONE,gl.ONE);
+  gl.disable(gl.DEPTH_TEST);gl.depthMask(false);
+  gl.bindVertexArray(this.aoVao!);
+  gl.drawArrays(gl.TRIANGLES,0,3);
+  gl.bindVertexArray(null);
+  /* back to the renderer's standing state — see the note in the march */
+  gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);
+  gl.enable(gl.DEPTH_TEST);gl.depthMask(true);
   gl.activeTexture(gl.TEXTURE0);
   return true;
  }
@@ -1121,6 +1170,8 @@ export class BerxThreeRuntimeRenderer implements BerxSpatialRenderer {
   /* The light's own pass comes first: the main pass reads the depth it
      writes. Its camera is the shared core's (list.shadow), so this
      backend and the others put the light in exactly the same place. */
+  const stages:string[]=[];
+  if(list.shadow) stages.push('shadows');
   this.renderShadowMap(list);
   /* The occlusion pass reads the same list, so it runs here rather than
      in render(): a stereo frame computes it per eye, which is correct —
@@ -1132,8 +1183,12 @@ export class BerxThreeRuntimeRenderer implements BerxSpatialRenderer {
      consumer would be a second opinion about where the surfaces are. */
   const wantsGbuffer=options.ssao!==false||options.volumetric!==false;
   const gbufferReady=wantsGbuffer?this.renderSSAO(list,width,height):false;
+  if(gbufferReady){stages.push('gbuffer');if(options.ssao!==false)stages.push('ssao');}
   const aoReady=options.ssao===false?false:gbufferReady;
+  const airReady=options.volumetric===false?false:this.renderVolumetric(list,width,height);
+  if(airReady)stages.push('volumetric');
   gl.useProgram(this.program);
+  stages.push('world');
   gl.viewport(originX,0,width,height);
   if(clear){gl.clearColor(list.clearColor[0],list.clearColor[1],list.clearColor[2],1);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);}
   if(list.shadow&&this.shadowTexture){
@@ -1203,12 +1258,19 @@ export class BerxThreeRuntimeRenderer implements BerxSpatialRenderer {
    gl.drawElements(gl.TRIANGLES,mesh.count,gl.UNSIGNED_SHORT,0);drawCalls++;triangles+=mesh.count/3;}
   gl.bindVertexArray(null);gl.bindTexture(gl.TEXTURE_2D,null);
   const labelCalls=this.renderLabels(list);
-  /* after the world and its names: the air is in front of everything,
-     and it adds to what is behind it rather than covering it */
-  if(options.volumetric!==false)this.renderVolumetric(list,width,height,originX);
-  /* the air's contents, after the light in it: a mote is lit by the same
-     room and drawn additively over whatever the shafts put down */
+  if(labelCalls>0)stages.push('labels');
+  /* The air's CONTENTS before the light in it, and the order matters
+     less than it looks: both are additive with no depth writes, so the
+     sum is the same either way and no pixel could tell them apart. It is
+     changed here anyway, because this backend had them the other way
+     round from WebGPU and one declared pipeline means one order to
+     verify — an ordering that only happens to be harmless is still an
+     ordering nobody chose. */
   const particleCalls=options.particles===false?0:this.renderParticles(list);
+  if(particleCalls>0)stages.push('particles');
+  if(airReady&&this.compositeAir(originX,width,height))stages.push('composite');
+  /* after everything: light in the air is in front of it all, and it
+     adds to what is behind rather than covering it */
   this.stats={
    visible:list.stats.visible,
    inFrustum:list.stats.inFrustum,
@@ -1219,6 +1281,7 @@ export class BerxThreeRuntimeRenderer implements BerxSpatialRenderer {
    residentTextures:this.textures.residentCount,
    residentLabels:this.labels.residentCount,
    meshVariants:this.meshes.size,
+   stages,
   };}
 
  /**

@@ -22,7 +22,7 @@
     "verify:5d-app-shell": "node ./scripts/verify-5d-app-shell.mjs",
     "verify:5d-lighting": "node ./scripts/verify-5d-lighting.mjs",
     "verify:5d-platforms": "node ./scripts/verify-5d-platforms.mjs",
-    "verify:5d": "npm run typecheck && npm run verify:static && npm run verify:5d-shared-core && npm run verify:5d-world && npm run verify:5d-composition && npm run verify:5d-runtime && npm run verify:5d-geometry && npm run verify:5d-gpu && npm run verify:5d-lighting && npm run verify:5d-platforms && npm run build:spatial-web && npm run verify:5d-app-shell && npm run verify:5d-crossrender && npm run verify:5d-native-targets && npm run verify:5d-xr && npm run verify:5d-backend && npm run verify:5d-realtime && npm run verify:5d-haptics && npm run verify:5d-transitions && npm run verify:5d-shadows && npm run verify:5d-environment && npm run verify:5d-ssao && npm run verify:5d-volumetric && npm run verify:5d-particles && npm run verify:5d-quality && npm run verify:5d-voice && npm run verify:v9 && npm run verify:v9:web && npm run verify:5d-blockers && npm run verify:5d-launch-gate",
+    "verify:5d": "npm run typecheck && npm run verify:static && npm run verify:5d-shared-core && npm run verify:5d-world && npm run verify:5d-composition && npm run verify:5d-runtime && npm run verify:5d-geometry && npm run verify:5d-gpu && npm run verify:5d-lighting && npm run verify:5d-platforms && npm run build:spatial-web && npm run verify:5d-app-shell && npm run verify:5d-crossrender && npm run verify:5d-native-targets && npm run verify:5d-xr && npm run verify:5d-backend && npm run verify:5d-realtime && npm run verify:5d-haptics && npm run verify:5d-transitions && npm run verify:5d-shadows && npm run verify:5d-environment && npm run verify:5d-ssao && npm run verify:5d-volumetric && npm run verify:5d-particles && npm run verify:5d-quality && npm run verify:5d-pipeline && npm run verify:5d-voice && npm run verify:v9 && npm run verify:v9:web && npm run verify:5d-blockers && npm run verify:5d-launch-gate",
     "verify:5d-realtime": "node ./scripts/verify-5d-realtime.mjs",
     "verify:5d-haptics": "node ./scripts/verify-5d-haptics.mjs",
     "verify:5d-transitions": "node ./scripts/verify-5d-transitions.mjs",
@@ -40,6 +40,7 @@
     "verify:5d-volumetric": "node ./scripts/verify-5d-volumetric.mjs",
     "verify:5d-particles": "node ./scripts/verify-5d-particles.mjs",
     "verify:5d-quality": "node ./scripts/verify-5d-quality.mjs",
+    "verify:5d-pipeline": "node ./scripts/verify-5d-pipeline.mjs",
     "verify:5d-composition": "node ./scripts/verify-5d-composition.mjs",
     "verify:5d-voice": "node ./scripts/verify-5d-voice.mjs"
   },

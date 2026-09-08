@@ -996,10 +996,23 @@ export class BerxWebGPURuntimeRenderer implements BerxSpatialRenderer {
 		});
 		device.queue.writeBuffer(this.drawBuffer!, 0, draws);
 
+		/**
+		 * What this frame ACTUALLY encoded, in the order it encoded it.
+		 *
+		 * Pushed as each pass is recorded rather than assembled afterwards,
+		 * so it is a record and not a description. @berx/spatial's
+		 * berxExpectedPasses says what it should be, and the pipeline gate
+		 * compares the two on every backend — which is a much stronger
+		 * claim than "the frames look alike": it catches a renderer that
+		 * quietly stops running a pass, which is exactly how the air came
+		 * to depend on the occlusion pass here and nowhere else.
+		 */
+		const stages: string[] = [];
 		const encoder = device.createCommandEncoder();
 		/* The light's pass first: the world pass samples the depth it
 		   writes, in the same submission. */
 		if (list.shadow) {
+			stages.push('shadows');
 			const shadowPass = encoder.beginRenderPass({
 				colorAttachments: [],
 				depthStencilAttachment: {
@@ -1047,6 +1060,7 @@ export class BerxWebGPURuntimeRenderer implements BerxSpatialRenderer {
 		const gbufferOn = wantsGbuffer && haveGbuffer;
 		const ssaoOn = pass_?.ssao !== false && gbufferOn;
 		if (gbufferOn) {
+			stages.push('gbuffer');
 			const gPass = encoder.beginRenderPass({
 				colorAttachments: [{
 					view: this.gbuffer!.createView(),
@@ -1103,6 +1117,7 @@ export class BerxWebGPURuntimeRenderer implements BerxSpatialRenderer {
 			/* Only the occlusion itself is gated: the G-buffer above is
 			   shared, the AO map below is not. */
 			if (ssaoOn) {
+				stages.push('ssao');
 				const aoPass = encoder.beginComputePass();
 				aoPass.setPipeline(this.ssaoPipeline);
 				aoPass.setBindGroup(0, ssaoBind);
@@ -1128,6 +1143,7 @@ export class BerxWebGPURuntimeRenderer implements BerxSpatialRenderer {
 		const volumetricOn = pass_?.volumetric !== false && gbufferOn && list.shadow
 			&& this.ensureMarchTarget(marchScale, marchWidth, marchHeight);
 		if (volumetricOn) {
+			stages.push('volumetric');
 			if (!this.volUniform) {
 				this.volUniform = device.createBuffer({size: VOL_GLOBALS_BYTES, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST});
 			}
@@ -1202,6 +1218,7 @@ export class BerxWebGPURuntimeRenderer implements BerxSpatialRenderer {
 				depthClearValue: 1, depthLoadOp: pass_?.clear === false ? 'load' : 'clear', depthStoreOp: 'store',
 			},
 		});
+		stages.push('world');
 		if (viewport) pass.setViewport(viewport.x, 0, viewport.width, this.height, 0, 1);
 		pass.setPipeline(this.pipeline);
 		pass.setBindGroup(0, this.globalsBind);
@@ -1217,7 +1234,9 @@ export class BerxWebGPURuntimeRenderer implements BerxSpatialRenderer {
 		});
 		/* names and the action ring, in the same pass and of the same
 		   material — a word standing in the world beside its object */
-		drawCalls += this.drawLabels(pass, list);
+		const labelCalls = this.drawLabels(pass, list);
+		if (labelCalls > 0) stages.push('labels');
+		drawCalls += labelCalls;
 		/**
 		 * The air's contents, drawn after the world so the depth buffer
 		 * already holds everything solid.
@@ -1258,6 +1277,7 @@ export class BerxWebGPURuntimeRenderer implements BerxSpatialRenderer {
 				globals.set([list.basis!.up.x, list.basis!.up.y, list.basis!.up.z, 0], 52);
 				device.queue.writeBuffer(this.particleUniform!, slot * stride, globals);
 			});
+			stages.push('particles');
 			pass.setPipeline(this.particlePipeline);
 			list.particles.forEach((field, slot) => {
 				pass.setBindGroup(0, this.particleBind!, [slot * stride]);
@@ -1278,6 +1298,7 @@ export class BerxWebGPURuntimeRenderer implements BerxSpatialRenderer {
 					],
 				});
 			}
+			stages.push('composite');
 			pass.setPipeline(this.compositePipeline);
 			/* Group 0 is the march's own — the composite declares the same
 			   struct so the two share a layout — and it is the very bind
@@ -1301,6 +1322,7 @@ export class BerxWebGPURuntimeRenderer implements BerxSpatialRenderer {
 			lodReduced: list.stats.lodReduced,
 			budgetCut: list.stats.budgetCut,
 			meshVariants: this.meshes.size,
+			stages,
 		} : {
 			visible: list.stats.visible,
 			inFrustum: list.stats.inFrustum,
@@ -1311,6 +1333,7 @@ export class BerxWebGPURuntimeRenderer implements BerxSpatialRenderer {
 			residentTextures: this.textures.residentCount,
 			residentLabels: this.labels.residentCount,
 			meshVariants: this.meshes.size,
+			stages,
 		};
 		if (!accumulate && pass_?.clear === false) {
 			/* the second eye: its counts add to the first's rather than
