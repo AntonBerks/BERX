@@ -40,7 +40,7 @@ import {
 	type BerxWorldLighting,
 } from '@berx/spatial';
 import {BERX_LABEL_WGSL, BERX_PARTICLES_WGSL, BERX_SSAO_WGSL, BERX_VOLUMETRIC_WGSL, BERX_WORLD_WGSL} from '@berx/spatial-shaders';
-import {createBox, createSphere, createRing, createFrame, type BerxPrimitiveMesh} from './primitiveGeometry';
+import {createBox, createBevelBox, createSphere, createRing, createFrame, type BerxPrimitiveMesh} from './primitiveGeometry';
 import {BerxWebGPUMediaTextures} from './webgpuMediaTextures';
 import {BerxWebGPUTextAtlas} from './webgpuText';
 import type {BerxFrameStats, BerxSpatialRenderOptions} from './threeRuntime';
@@ -75,11 +75,11 @@ function meshFor(primitive: string, lod: 0 | 1): BerxPrimitiveMesh {
 		case 'orb': return createSphere(.5, far ? 10 : 24, far ? 7 : 16);
 		case 'ring': return createRing(.62, .42, far ? 16 : 48);
 		case 'frame': return createFrame(1, 1, .12);
-		case 'surface': return createBox(1, 1, .06);
+		case 'surface': return createBevelBox(1, 1, .06, .02);
 		case 'portal': return createFrame(1, 1.2, .16);
 		case 'node': return createSphere(.58, far ? 9 : 20, far ? 6 : 12);
-		case 'stack': return createBox(1, 1, .32);
-		case 'message': return createBox(1, .46, .12);
+		case 'stack': return createBevelBox(1, 1, .32, .1);
+		case 'message': return createBevelBox(1, .46, .12, .05);
 		case 'create': return createSphere(.58, far ? 11 : 28, far ? 7 : 18);
 		default: throw new Error(`BERX 5D WebGPU: unknown primitive '${primitive}'`);
 	}

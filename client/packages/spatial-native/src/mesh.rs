@@ -19,6 +19,66 @@ fn push(v: &mut Vec<f32>, x: f32, y: f32, z: f32, nx: f32, ny: f32, nz: f32) {
     v.extend_from_slice(&[x, y, z, nx, ny, nz]);
 }
 
+/// A box with its silhouette CHAMFERED, vertex for vertex the same as
+/// createBevelBox in @berx/spatial-web's primitiveGeometry.
+///
+/// BERX's environment IS its own background — the sky is #07080A at the
+/// horizon, which is the clear colour — so a diffuse face lit only by
+/// the room is `sky x albedo` with albedo below one, and is therefore
+/// always DARKER than the space around it. Measured on the real
+/// product: a collection's face at exactly (7, 8, 10), the clear colour
+/// to the last bit, with a hard step at its edge. A hole in the room
+/// rather than an object in it.
+///
+/// A sphere never has this problem because it presents grazing angles,
+/// where Fresnel lifts the specular environment and draws the rim that
+/// separates a dark object from a dark background. A flat card has no
+/// grazing angle anywhere. A chamfer gives it one — as geometry, so it
+/// behaves from every angle and needs no outline shader, glow or second
+/// light.
+///
+/// The bevel was in the shared geometry spec all along and no mesh
+/// builder in any of the three backends ever read it.
+pub fn bevel_box_mesh(width: f32, height: f32, depth: f32, bevel: f32) -> Mesh {
+    let b = bevel
+        .max(0.0)
+        .min(width.min(height) * 0.4)
+        .min(depth * 0.5);
+    if b <= 0.0 {
+        return box_mesh(width, height, depth);
+    }
+    let (x, y, z) = (width / 2.0, height / 2.0, depth / 2.0);
+    let (ix, iy, iz) = (x - b, y - b, z - b);
+    let mut v: Vec<f32> = Vec::new();
+    let mut q: Vec<u16> = Vec::new();
+    let mut quad = |p: [f32; 12], n: [f32; 3]| {
+        let o = (v.len() / 6) as u16;
+        for i in 0..4 {
+            push(&mut v, p[i * 3], p[i * 3 + 1], p[i * 3 + 2], n[0], n[1], n[2]);
+        }
+        q.extend_from_slice(&[o, o + 1, o + 2, o, o + 2, o + 3]);
+    };
+    let r = std::f32::consts::FRAC_1_SQRT_2;
+    /* the two faces, inset by the bevel */
+    quad([-ix, -iy, z, ix, -iy, z, ix, iy, z, -ix, iy, z], [0.0, 0.0, 1.0]);
+    quad([ix, -iy, -z, -ix, -iy, -z, -ix, iy, -z, ix, iy, -z], [0.0, 0.0, -1.0]);
+    /* the four sides, inset in depth */
+    quad([x, -iy, iz, x, -iy, -iz, x, iy, -iz, x, iy, iz], [1.0, 0.0, 0.0]);
+    quad([-x, -iy, -iz, -x, -iy, iz, -x, iy, iz, -x, iy, -iz], [-1.0, 0.0, 0.0]);
+    quad([-ix, y, iz, ix, y, iz, ix, y, -iz, -ix, y, -iz], [0.0, 1.0, 0.0]);
+    quad([-ix, -y, -iz, ix, -y, -iz, ix, -y, iz, -ix, -y, iz], [0.0, -1.0, 0.0]);
+    /* THE CHAMFERS: the bands that catch the room, at 45 degrees */
+    quad([-ix, -y, iz, ix, -y, iz, ix, -iy, z, -ix, -iy, z], [0.0, -r, r]);
+    quad([-ix, iy, z, ix, iy, z, ix, y, iz, -ix, y, iz], [0.0, r, r]);
+    quad([x, -iy, iz, x, iy, iz, ix, iy, z, ix, -iy, z], [r, 0.0, r]);
+    quad([-ix, -iy, z, -ix, iy, z, -x, iy, iz, -x, -iy, iz], [-r, 0.0, r]);
+    quad([ix, -y, -iz, -ix, -y, -iz, -ix, -iy, -z, ix, -iy, -z], [0.0, -r, -r]);
+    quad([ix, iy, -z, -ix, iy, -z, -ix, y, -iz, ix, y, -iz], [0.0, r, -r]);
+    quad([x, iy, -iz, x, -iy, -iz, ix, -iy, -z, ix, iy, -z], [r, 0.0, -r]);
+    quad([-x, -iy, -iz, -x, iy, -iz, -ix, iy, -z, -ix, -iy, -z], [-r, 0.0, -r]);
+    Mesh { vertices: v, indices: q }
+}
+
 pub fn box_mesh(width: f32, height: f32, depth: f32) -> Mesh {
     let (x, y, z) = (width / 2.0, height / 2.0, depth / 2.0);
     let faces: [[f32; 15]; 6] = [
@@ -145,11 +205,11 @@ pub fn mesh_for(primitive: &str, lod: u8) -> Result<Mesh, String> {
         "orb" => sphere_mesh(0.5, if far { 10 } else { 24 }, if far { 7 } else { 16 }),
         "ring" => ring_mesh(0.62, 0.42, if far { 16 } else { 48 }),
         "frame" => frame_mesh(1.0, 1.0, 0.12),
-        "surface" => box_mesh(1.0, 1.0, 0.06),
+        "surface" => bevel_box_mesh(1.0, 1.0, 0.06, 0.02),
         "portal" => frame_mesh(1.0, 1.2, 0.16),
         "node" => sphere_mesh(0.58, if far { 9 } else { 20 }, if far { 6 } else { 12 }),
-        "stack" => box_mesh(1.0, 1.0, 0.32),
-        "message" => box_mesh(1.0, 0.46, 0.12),
+        "stack" => bevel_box_mesh(1.0, 1.0, 0.32, 0.1),
+        "message" => bevel_box_mesh(1.0, 0.46, 0.12, 0.05),
         "create" => sphere_mesh(0.58, if far { 11 } else { 28 }, if far { 7 } else { 18 }),
         other => return Err(format!("BERX 5D native: unknown primitive '{other}'")),
     })
