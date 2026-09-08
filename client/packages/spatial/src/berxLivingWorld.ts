@@ -40,7 +40,7 @@ import {
 	type BerxOutcome, type BerxPlan, type BerxStepResult,
 } from './voice/berxActionGraph';
 import {berxAcknowledge, berxReport, berxAskWhich, berxAskBetween, type BerxUtterancePlan} from './voice/berxSay';
-import {berxShow, berxDismiss, berxSelect, berxAsked, type BerxSpatialMemory, BERX_EMPTY_MEMORY} from './voice/berxSpatialMemory';
+import {berxShow, berxDismiss, berxSelect, berxAsked, berxRequested, type BerxSpatialMemory, BERX_EMPTY_MEMORY} from './voice/berxSpatialMemory';
 import type {BerxSituation} from './voice/berxWorldState';
 import {
 	berxCoreAt, berxCoreEnter, type BerxCoreMotion,
@@ -136,9 +136,24 @@ export async function berxSpeakToWorld(
 	utterance: string,
 	situation: BerxSituation,
 	bridge: BerxWorldBridge,
+	/**
+	 * Fired the instant the sentence is understood, before anything is
+	 * attempted.
+	 *
+	 * What a person asked for is known when they ask, not when a server
+	 * answers — and a conversation that only records the request on
+	 * completion cannot be interrupted, because a correction arriving
+	 * mid-flight finds nothing to correct.
+	 */
+	onIntent?: (intent: BerxVoiceIntent) => void,
 ): Promise<BerxTurn> {
 	let memory = berxAsked(state.memory, utterance);
 	const intent = berxReadIntent(utterance, situation, memory);
+	/* What this turned out to mean, so the next correction has something
+	   to correct. Recorded before anything is attempted: a request that
+	   fails is still the request a person made. */
+	memory = berxRequested(memory, intent.kind);
+	onIntent?.(intent);
 	let core = berxCoreEnter(state.core, berxCoreCause(state.core.state, {kind: 'utterance', intent}));
 
 	/**

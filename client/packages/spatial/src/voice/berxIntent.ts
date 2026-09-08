@@ -106,6 +106,16 @@ export interface BerxVoiceIntent {
 	 */
 	alternatives?: readonly string[];
 	/**
+	 * What this utterance CORRECTS, when it is a correction.
+	 *
+	 * "Нет, только итальянские" means nothing on its own — it is a
+	 * constraint on a request that already happened, and this is that
+	 * request. Without it a refinement had nothing to carry forward and
+	 * the plan fell back to a hardcoded search for places, which is the
+	 * definition of starting from scratch.
+	 */
+	refining?: string;
+	/**
 	 * 0..1, and it means "how sure am I this is what they asked for" —
 	 * not how sure the speech recogniser was. The two multiply
 	 * downstream.
@@ -392,7 +402,22 @@ export function berxReadIntent(
 	}
 
 	const refine = has(text, REFINE_WORDS);
-	if (refine && memory.shown.length > 0) return decide('refine', refine, 0.75);
+	/**
+	 * A correction needs something to correct — and a request still in
+	 * the air counts.
+	 *
+	 * Requiring `shown` alone meant a person could not cut in before the
+	 * results arrived, which is exactly when people do cut in: "покажи
+	 * события… нет, только вечерние" is one sentence with a pause in it,
+	 * and the server has not answered yet.
+	 */
+	if (refine && (memory.shown.length > 0 || memory.requested !== undefined)) {
+		const read = decide('refine', refine, 0.75);
+		/* What is being corrected. A correction with nothing to correct is
+		   not a correction, and the plan below needs the original kind to
+		   search the same way again with the new constraint. */
+		return memory.requested ? {...read, refining: memory.requested} : read;
+	}
 
 	const place = has(text, PLACE_WORDS);
 	if (place) return decide('find-places', place, 0.85);

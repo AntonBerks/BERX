@@ -57,6 +57,32 @@ const failing = () => {
 	};
 };
 
+/**
+ * A client that answers SLOWLY, so a person can cut in while it is
+ * still working. The delay is what makes barge-in observable at all.
+ */
+const slow = (ms: number) => {
+	const calls: string[] = [];
+	return {
+		calls,
+		async events() {
+			calls.push('events');
+			await new Promise((r) => setTimeout(r, ms));
+			return {events: [{guid: 1, title: 'Концерт'}, {guid: 2, title: 'Лекция'}]};
+		},
+		async nearbyPlaces() {
+			calls.push('nearbyPlaces');
+			await new Promise((r) => setTimeout(r, ms));
+			return {places: [{guid: 10, title: 'Траттория'}, {guid: 11, title: 'Остерия'}]};
+		},
+		async feed() {
+			calls.push('feed');
+			await new Promise((r) => setTimeout(r, ms));
+			return {posts: [{guid: 20, text: 'что-то ещё'}]};
+		},
+	};
+};
+
 const build = (client: Record<string, unknown>) => {
 	const canvas = document.createElement('canvas');
 	canvas.width = 480; canvas.height = 360;
@@ -68,8 +94,12 @@ const build = (client: Record<string, unknown>) => {
 	});
 	host.ingest([{object: me.object, relations: [], media: []}]);
 	host.start();
-	const voice = berxVoiceToWorld({host, client, location: HERE});
-	return {host, world, voice, canvas};
+	const silenced: number[] = [];
+	const voice = berxVoiceToWorld({
+		host, client, location: HERE,
+		stopSpeaking: () => silenced.push(Date.now()),
+	});
+	return {host, world, voice, canvas, silenced};
 };
 
 const snapshot = (world: Berx5DWorldApp) => ({
@@ -130,6 +160,48 @@ window.BERX_VOICE_WIRE = {
 			ok: turn.outcome.ok, change: turn.change,
 			shown: turn.shown.length, said: turn.say.text, core: turn.core.state,
 			reason: turn.outcome.stoppedAt?.reason,
+		};
+	},
+
+	/**
+	 * BARGE-IN: someone talks while BERX is still working.
+	 *
+	 * The slow client makes the window real. What is measured is not
+	 * that an interruption is ACCEPTED — anything accepts a second call —
+	 * but that speaking stops immediately, that the superseded turn does
+	 * NOT rearrange the world when it finally returns, and that the
+	 * correction carries the original request forward instead of starting
+	 * over.
+	 */
+	async bargeIn() {
+		const client = slow(180);
+		const {host, world, voice, silenced} = build(client as unknown as Record<string, unknown>);
+
+		/* "Покажи события" — starts, and takes its time. */
+		const first = voice.say('покажи события');
+		await new Promise((r) => setTimeout(r, 40));
+		const busyDuring = voice.busy;
+
+		/* "Нет, только вечерние" — cut in before the first came back. */
+		const second = await voice.interrupt('нет, только вечерние');
+		const firstTurn = await first;
+
+		const shown = world.latestFrame.world.objects.map((o) => o.id);
+		host.stop();
+		return {
+			calls: client.calls,
+			busyDuring,
+			silencedCount: silenced.length,
+			first: {intent: firstTurn.intent.kind, change: firstTurn.change},
+			second: {
+				intent: second.intent.kind,
+				refining: second.intent.refining,
+				change: second.change,
+				shown: second.shown.map((x) => x.label),
+				capability: second.plan.steps.map((st) => st.capability).filter(Boolean),
+			},
+			/* what is actually in the world at the end */
+			worldIds: shown,
 		};
 	},
 

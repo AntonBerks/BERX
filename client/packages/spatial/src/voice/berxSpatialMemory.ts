@@ -55,6 +55,16 @@ export interface BerxSpatialMemory {
 	asked: readonly string[];
 	/** How many exchanges deep this conversation is. */
 	turn: number;
+	/**
+	 * What the last real REQUEST was, by intent kind.
+	 *
+	 * Kept because a correction is not a new request: "нет, только
+	 * итальянские" only means anything against the thing it corrects, and
+	 * without this the refinement had nothing to carry forward and
+	 * started from a hardcoded default. `asked` holds the words; this
+	 * holds what they turned out to mean.
+	 */
+	requested?: string;
 }
 
 export const BERX_EMPTY_MEMORY: BerxSpatialMemory = Object.freeze({
@@ -109,6 +119,24 @@ export function berxSelect(memory: BerxSpatialMemory, id: string): BerxSpatialMe
 
 export function berxAsked(memory: BerxSpatialMemory, text: string): BerxSpatialMemory {
 	return {...memory, asked: [...memory.asked, text].slice(-BERX_ASKED_KEPT)};
+}
+
+/**
+ * Record what a request turned out to MEAN, so a correction has
+ * something to correct.
+ *
+ * Only real requests. A refinement does not overwrite what it refines —
+ * "покажи события" then "нет, вечером" then "нет, завтра" is three
+ * corrections of ONE request, and each of them needs the original, not
+ * the one before it. Nor does an action: dismissing something does not
+ * change what was being looked for.
+ */
+export function berxRequested(memory: BerxSpatialMemory, kind: string): BerxSpatialMemory {
+	if (kind === 'refine' || kind === 'unknown' || kind === 'dismiss'
+		|| kind === 'open' || kind === 'back') {
+		return memory;
+	}
+	return {...memory, requested: kind};
 }
 
 /**

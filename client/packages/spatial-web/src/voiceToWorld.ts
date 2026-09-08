@@ -25,6 +25,7 @@
 import {
 	berxLivingWorld, berxSpeakToWorld, berxSituation, berxTemporalCursor,
 	type BerxLivingWorldState, type BerxTurn, type BerxWorldBridge,
+	berxRequested,
 	type BerxPlan, type BerxStepResult, type BerxSituation,
 } from '@berx/spatial';
 import type {Berx5DWebHost} from './runtimeHost5d';
@@ -46,6 +47,15 @@ export interface BerxVoiceToWorldOptions {
 	permissions?: () => {microphone: boolean; location: boolean; notifications: boolean; presence: boolean};
 	/** Called after every turn, so a shell can say what was said. */
 	onTurn?: (turn: BerxTurn) => void;
+	/**
+	 * How to stop BERX talking, right now.
+	 *
+	 * BerxVoiceBackend.stop() in a real session. Handed in rather than
+	 * imported so this module does not depend on a speech backend, and so
+	 * a gate can watch exactly when it is called — which is the one thing
+	 * about barge-in that has to be measured rather than asserted.
+	 */
+	stopSpeaking?: () => void;
 	now?: () => number;
 }
 
@@ -112,6 +122,18 @@ const callFor = (
 export interface BerxVoiceToWorld {
 	/** One utterance, all the way to a changed world. */
 	say(utterance: string): Promise<BerxTurn>;
+	/**
+	 * Someone started talking while BERX was still going.
+	 *
+	 * Stops the speaking immediately, abandons whatever the previous turn
+	 * was still going to do, and reads the new sentence against
+	 * everything the conversation already knows. Interruption is not an
+	 * error and not a reset: it is how people talk, and the whole reason
+	 * this is a conversation rather than a sequence of commands.
+	 */
+	interrupt(utterance: string): Promise<BerxTurn>;
+	/** True while a turn is still running. */
+	readonly busy: boolean;
 	/** What the loop currently remembers: what was shown, chosen, dismissed. */
 	readonly state: BerxLivingWorldState;
 	/** Every turn this session has run, newest last. */
@@ -191,11 +213,85 @@ export function berxVoiceToWorld(options: BerxVoiceToWorldOptions): BerxVoiceToW
 		},
 	};
 
-	return {
-		async say(utterance: string) {
-			const turn = await berxSpeakToWorld(state, utterance, situationNow(), bridge);
+	/**
+	 * The turn in flight, and the token that says whether it still counts.
+	 *
+	 * A turn that was interrupted must not apply its result when it
+	 * finally returns — the request it was answering is no longer the
+	 * request. The counter is compared after every await, which is the
+	 * only reliable way to know that in a language with no cancellation.
+	 */
+	let generation = 0;
+	let running = false;
+
+	const run = async (utterance: string): Promise<BerxTurn> => {
+		const mine = ++generation;
+		running = true;
+		try {
+			const turn = await berxSpeakToWorld(state, utterance, situationNow(), bridge, (intent) => {
+				/**
+				 * RECORDED AT THE MOMENT IT IS UNDERSTOOD, not when it
+				 * finishes.
+				 *
+				 * A person who says "покажи события" and then cuts in with
+				 * "нет, только вечерние" before the server answers is
+				 * correcting a request that is still in the air. If the
+				 * request were only written down on completion, the
+				 * correction would arrive to an empty memory and read as a
+				 * new, meaningless sentence.
+				 */
+				state = {...state, memory: berxRequested(state.memory, intent.kind)};
+			});
+			/**
+			 * SUPERSEDED WHILE IT WAS AWAY.
+			 *
+			 * Someone spoke again while this was in the air, so the world
+			 * must not be rearranged by an answer to a question that has
+			 * been replaced. The turn is returned for the record and
+			 * nothing is applied — no memory, no entities, no Core.
+			 */
+			if (mine !== generation) return turn;
 			state = {core: turn.core, memory: turn.memory};
 			turns.push(turn);
+			applyToWorld(turn);
+			options.onTurn?.(turn);
+			return turn;
+		} finally {
+			if (mine === generation) running = false;
+		}
+	};
+
+	return {
+		get busy() { return running; },
+
+		async interrupt(utterance: string) {
+			/**
+			 * SILENCE FIRST, and before anything else in this function.
+			 *
+			 * A person who starts talking has already decided BERX should
+			 * stop, and every millisecond of continued speech after that
+			 * decision is the system talking over them. Reading the
+			 * sentence, planning it and calling a server all come after.
+			 */
+			options.stopSpeaking?.();
+			/**
+			 * And the context is KEPT. `state` is untouched here, so the
+			 * new sentence is read against everything the conversation
+			 * already knows — what was shown, what was dismissed, and what
+			 * was last REQUESTED, which is what makes "нет, только
+			 * итальянские" a correction rather than a fresh search.
+			 */
+			return run(utterance);
+		},
+
+		async say(utterance: string) {
+			return run(utterance);
+		},
+		get state() { return state; },
+		get turns() { return turns; },
+	};
+
+	function applyToWorld(turn: BerxTurn) {
 			/**
 			 * WHAT WAS FOUND BECOMES PART OF THE WORLD.
 			 *
@@ -230,10 +326,5 @@ export function berxVoiceToWorld(options: BerxVoiceToWorldOptions): BerxVoiceToW
 					void guid;
 				}
 			}
-			options.onTurn?.(turn);
-			return turn;
-		},
-		get state() { return state; },
-		get turns() { return turns; },
-	};
+	}
 }

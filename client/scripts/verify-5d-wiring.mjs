@@ -144,6 +144,7 @@ try {
 	await page.goto(`http://127.0.0.1:${server2.address().port}/`, {waitUntil: 'load'});
 	await page.waitForFunction(() => typeof window.BERX_VOICE_WIRE !== 'undefined');
 	voice = {
+		barge: await page.evaluate(async () => await window.BERX_VOICE_WIRE.bargeIn()),
 		recogniser: await page.evaluate(() => window.BERX_VOICE_WIRE.recogniser()),
 		conversation: await page.evaluate(async () => await window.BERX_VOICE_WIRE.conversation()),
 		fails: await page.evaluate(async () => await window.BERX_VOICE_WIRE.serverFails()),
@@ -196,6 +197,34 @@ gate('a capability the client does not have fails rather than being invented',
 	m.ok === false && m.change === 'none' && m.after.count === m.before.count
 		&& (m.reason ?? '').length > 0,
 	`against a client with no such method: "${m.reason}", nothing composed, world unchanged. A name with no method behind it is refused, not guessed at — which is what keeps this binding thin enough to trust`);
+
+/* ---------------- barge-in ----------------
+
+   Interruption is not an error and not a reset: it is how people talk.
+   What is measured is not that a second sentence is ACCEPTED — anything
+   accepts a second call — but that speaking stops at once, that the
+   superseded turn does not rearrange the world when it finally returns,
+   and that the correction carries the original request forward. */
+
+const b = voice.barge;
+
+gate('speaking stops the instant a person starts talking',
+	b.silencedCount === 1,
+	`stop was called ${b.silencedCount} time(s), before the new sentence was even read. A person who starts talking has already decided BERX should stop, and every millisecond after that decision is the system talking over them`);
+
+gate('a correction carries forward what it corrects, rather than starting over',
+	b.second.intent === 'refine' && b.second.refining === 'find-events'
+		&& b.second.capability.includes('events'),
+	`"нет, только вечерние" read as ${b.second.intent} of ${b.second.refining}, and planned ${b.second.capability.join(', ')} — the SAME search with one more constraint. This was hardcoded to places, so a correction after "покажи события" went looking for restaurants: the definition of starting from scratch`);
+
+gate('the interrupted turn does not rearrange the world when it lands',
+	b.calls.filter((c) => c === 'events').length === 2
+		&& b.worldIds.filter((id) => id.startsWith('event:')).length === 2,
+	`the client was called ${b.calls.join(', ')} — the first request was already in the air and still came back, and only the second one's result is in the world (${b.worldIds.join(', ')}). A turn that was superseded must not apply an answer to a question that has been replaced`);
+
+gate('the conversation keeps everything it knew',
+	b.busyDuring === true && b.second.change === 'composed',
+	`BERX was still working when it was cut off (busy=${b.busyDuring}), and the new sentence was read against everything the conversation already knew — what was shown, what was dismissed, and what was last requested. Interruption keeps context; only a reset would lose it`);
 
 gate('the platform\'s own recogniser is what a session would listen with',
 	typeof voice.recogniser?.present === 'boolean',

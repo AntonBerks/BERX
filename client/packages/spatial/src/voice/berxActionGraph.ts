@@ -136,10 +136,28 @@ export function berxPlan(intent: BerxVoiceIntent, state: BerxSituation): BerxPla
 		case 'dismiss':
 			steps.push({id: 'dismiss', effect: 'move', says: 'Убрал.'});
 			break;
-		case 'refine':
-			steps.push({id: 'search', effect: 'read', capability: BERX_VOICE_CAPABILITY['find-places'], says: 'Попробую иначе.'});
+		case 'refine': {
+			/**
+			 * SEARCH WHAT WAS BEING SEARCHED.
+			 *
+			 * This was hardcoded to places, so "покажи события" followed by
+			 * "нет, только вечерние" went looking for restaurants. A
+			 * correction is not a new request: it is the SAME request with
+			 * one more constraint, and the kind it applies to is the one
+			 * the person already made.
+			 *
+			 * With nothing to correct — a refinement arriving first — the
+			 * fallback is discovery rather than places: "покажи другое"
+			 * with no history is a request to be shown something else, and
+			 * guessing a category would be inventing half the sentence.
+			 */
+			const original = intent.refining ?? 'discover';
+			const capability = BERX_VOICE_CAPABILITY[original as keyof typeof BERX_VOICE_CAPABILITY]
+				?? BERX_VOICE_CAPABILITY.discover;
+			steps.push({id: 'search', effect: 'read', capability, says: 'Попробую иначе.'});
 			steps.push({id: 'compose', effect: 'move', says: 'Вот другое.'});
 			break;
+		}
 		case 'back':
 			steps.push({id: 'back', effect: 'move', says: 'Возвращаю.'});
 			break;
