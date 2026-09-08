@@ -42,6 +42,7 @@ import {berxVolumetricUniform} from './lighting/berxVolumetric';
 import {berxParticleOrigin, berxParticleUniform, BERX_PARTICLE_KINDS} from './lighting/berxParticles';
 import {berxRenderQuality, berxParticleCountFor, berxSSAOKernelFor, type BerxRenderQuality} from './lighting/berxRenderQuality';
 import {berxStableLod, berxBudgetDistance, berxRememberFrame, BERX_NO_MEMORY, type BerxFrameMemory} from './stability';
+import {BERX_CORE_REST, type BerxCoreField} from './core/berxCore';
 import type {BerxSpatialAffordance} from './socialActions';
 import type {BerxSpatialEntityKind, BerxSpatialObject, BerxVec3} from './world';
 
@@ -281,6 +282,18 @@ export interface BerxDrawListOptions {
 	 */
 	memory?: BerxFrameMemory;
 	/**
+	 * The Core's physical state, which is not a thing drawn beside the
+	 * world — it is parameters the world is rendered WITH.
+	 *
+	 * `haze` is how much the air holds, `grain` how much matter is in it,
+	 * `energy` and `luminance` how much light. Passing this is what makes
+	 * a search look like a search: the room fills and brightens because
+	 * something is being looked for, not because an object in the corner
+	 * started spinning. Omit it and the world renders at rest, which is
+	 * what every existing gate measures.
+	 */
+	core?: BerxCoreField;
+	/**
 	 * Whether the key light casts.
 	 *
 	 * A real switch, in the core, so every backend turns shadows off the
@@ -410,6 +423,19 @@ export function berxBuildDrawList(frame: Berx5DFrame, options: BerxDrawListOptio
 	   here rather than further down because the budget below reads its
 	   object count. */
 	const quality = options.quality ?? berxRenderQuality('high');
+	const core = options.core ?? BERX_CORE_REST;
+	/**
+	 * The Core's drives, relative to rest.
+	 *
+	 * Ratios rather than absolutes, so the Core scales what the room
+	 * already is instead of replacing it: a dim scene searched in stays a
+	 * dim scene, brighter. An absolute would have made every search look
+	 * the same regardless of where it happened, which is the opposite of
+	 * a Core that is the world's own state.
+	 */
+	const coreHaze = core.haze / BERX_CORE_REST.haze;
+	const coreGrain = core.grain / BERX_CORE_REST.grain;
+	const coreLight = 1 + (core.luminance - BERX_CORE_REST.luminance);
 	const memory = options.memory ?? BERX_NO_MEMORY;
 	const wasDrawn = new Set(memory.drawn);
 	/* The distance an object COMPETES at, which is not the distance it is
@@ -557,7 +583,12 @@ export function berxBuildDrawList(frame: Berx5DFrame, options: BerxDrawListOptio
 	for (const kind of BERX_PARTICLE_KINDS) {
 		const origin = berxParticleOrigin(kind, c.position, viewAhead, live?.position);
 		if (!origin) continue;
-		particleFields.push(berxParticleUniform(kind, origin, berxParticleCountFor(kind, quality)));
+		/* More matter in the air while something is happening, and none of
+		   it invented: the same hashed field, more of its prefix. */
+		particleFields.push(berxParticleUniform(
+			kind, origin,
+			berxParticleCountFor(kind, quality) * Math.max(0.15, Math.min(2, coreGrain)),
+		));
 	}
 
 	return {
@@ -577,7 +608,9 @@ export function berxBuildDrawList(frame: Berx5DFrame, options: BerxDrawListOptio
 		key: {
 			direction: {...lighting.key.direction},
 			colour: [...lighting.key.colour] as BerxShaderRgb3,
-			intensity: lighting.key.intensity * (options.ambientMotion === false ? 0.85 : 1),
+			/* The Core's light IS the key's, scaled — not a second light
+			   nobody placed. A search brightens the room it is searching. */
+			intensity: lighting.key.intensity * (options.ambientMotion === false ? 0.85 : 1) * coreLight,
 		},
 		items,
 		labels,
@@ -594,7 +627,15 @@ export function berxBuildDrawList(frame: Berx5DFrame, options: BerxDrawListOptio
 		 * already has, since it is the same list.
 		 */
 		memory: berxRememberFrame(items),
-		volumetric: [...berxVolumetricUniform(), quality.volumetricSteps, quality.volumetricScale, 0, 0],
+		volumetric: (() => {
+			const air = berxVolumetricUniform();
+			/* Density, and only density: the phase, the reach and the
+			   intensity are properties of the air itself and do not change
+			   because something is being looked for. Clamped so no state
+			   can turn the room into fog. */
+			air[0] = air[0] * Math.max(0.4, Math.min(2.5, coreHaze));
+			return [...air, quality.volumetricSteps, quality.volumetricScale, 0, 0];
+		})(),
 		/**
 		 * The occlusion kernel and how many of it are live.
 		 *

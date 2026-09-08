@@ -31,7 +31,9 @@ import {execFileSync} from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import http from 'node:http';
 import {fileURLToPath} from 'node:url';
+import {launchChromium} from './lib/chromium.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const clientRoot = path.resolve(here, '..');
@@ -287,6 +289,101 @@ const silent = core.BERX_CORE_STATES.filter((s) => core.berxCoreSound(s) === 'si
 gate('most states make no sound at all',
 	silent.length > core.BERX_CORE_STATES.length / 2,
 	`${silent.length} of ${core.BERX_CORE_STATES.length} are silent: ${silent.join(', ')}. A bed under a search is a condition; a mark at a resolution is a moment; silence is the majority answer and is not an omission`);
+
+/* ---------------- 7. THE PIXELS: does any of this reach the world? ----------------
+
+   Everything above is a state machine, and a beautiful state machine
+   nothing reads is decoration with good manners. This renders the SAME
+   world — same entities, same camera, same lights, same quality tier —
+   at three different Core states, and the only difference between the
+   frames is the Core. */
+
+execFileSync(esbuild, [
+	path.join(here, 'coreworld.entry.ts'), '--bundle', '--format=esm', '--target=es2020',
+	'--platform=browser', '--log-level=error', `--outfile=${path.join(dir, 'world.js')}`,
+], {cwd: clientRoot, stdio: 'inherit'});
+fs.writeFileSync(path.join(dir, 'index.html'),
+	`<!doctype html><html lang="ru"><head><meta charset="utf-8"><title>BERX Core</title>
+<style>html,body{margin:0;background:#07080A}canvas{display:block;width:1px;height:1px}</style></head>
+<body><script type="module" src="./world.js"></script></body></html>`);
+
+const types = {'.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8'};
+const server = http.createServer((req, res) => {
+	const name = (req.url ?? '/').split('?')[0];
+	if (name === '/favicon.ico') return void res.writeHead(204).end();
+	const file = path.join(dir, name === '/' ? 'index.html' : path.normalize(name).replace(/^(\.\.[/\\])+/, ''));
+	if (!file.startsWith(dir) || !fs.existsSync(file)) return void res.writeHead(404).end();
+	res.writeHead(200, {'content-type': types[path.extname(file)] ?? 'application/octet-stream'});
+	fs.createReadStream(file).pipe(res);
+});
+await new Promise((r) => server.listen(0, '127.0.0.1', r));
+
+let rendered, pageErrors = [];
+const browser = await launchChromium();
+try {
+	const page = await browser.newPage({viewport: {width: 900, height: 500}, deviceScaleFactor: 1});
+	page.on('pageerror', (e) => pageErrors.push(e.message));
+	await page.goto(`http://127.0.0.1:${server.address().port}/`, {waitUntil: 'load'});
+	await page.waitForFunction(() => typeof window.BERX_CORE_WORLD !== 'undefined');
+	rendered = await page.evaluate(async () => await window.BERX_CORE_WORLD.states(['idle', 'searching', 'success']));
+} finally {
+	await browser.close();
+	server.close();
+}
+
+gate('the Core fixture renders without a page error', pageErrors.length === 0,
+	pageErrors.length ? pageErrors.join('; ') : 'clean');
+
+if (!rendered?.available) {
+	console.log('BLOCKED  core-pixels');
+	console.log(`         ${rendered?.reason ?? 'no WebGPU device here'}`);
+} else {
+	const shots = rendered.out;
+	const differ = (a, b) => {
+		let moved = 0, worst = 0, brighter = 0;
+		for (let i = 0; i < a.length; i += 4) {
+			let d = 0, up = 0;
+			for (let k = 0; k < 3; k++) {
+				d = Math.max(d, Math.abs(a[i + k] - b[i + k]));
+				up = Math.max(up, b[i + k] - a[i + k]);
+			}
+			if (d > 2) moved++;
+			if (up > 2) brighter++;
+			if (d > worst) worst = d;
+		}
+		return {moved, worst, brighter, total: a.length / 4};
+	};
+
+	const idleToSearch = differ(shots.idle.pixels, shots.searching.pixels);
+	gate('a state the Core is in changes the world it is in',
+		idleToSearch.moved > idleToSearch.total * 0.5 && idleToSearch.worst > 6,
+		`idle → searching: ${idleToSearch.moved} of ${idleToSearch.total} pixels differ, worst ${idleToSearch.worst}/255 — same entities, same camera, same lights, same tier. The ONLY difference is the Core, so a state machine nothing read would show zero here`);
+
+	gate('searching brightens the room it is searching, rather than lighting a separate object',
+		idleToSearch.brighter > idleToSearch.moved * 0.8
+			&& shots.searching.keyIntensity > shots.idle.keyIntensity,
+		`${idleToSearch.brighter} of ${idleToSearch.moved} changed pixels got brighter, and the KEY light went ${shots.idle.keyIntensity.toFixed(3)} → ${shots.searching.keyIntensity.toFixed(3)}. The Core's light is the key's, scaled — not a second light nobody placed`);
+
+	gate('the air holds more while something is being looked for',
+		shots.searching.density > shots.idle.density * 1.5,
+		`volumetric density ${shots.idle.density.toFixed(4)} → ${shots.searching.density.toFixed(4)} — density only: the phase, the reach and the intensity are properties of the air itself and do not change because something is being searched for`);
+
+	gate('there is more matter in the air, and none of it is invented',
+		shots.searching.motes.every((n, i) => n > shots.idle.motes[i]),
+		`motes ${JSON.stringify(shots.idle.motes)} → ${JSON.stringify(shots.searching.motes)} — the same hashed field, more of its prefix. Mote 7 is still mote 7`);
+
+	/* SUCCESS must not simply be "searching, but more". */
+	const searchToSuccess = differ(shots.searching.pixels, shots.success.pixels);
+	let dimmer = 0;
+	for (let i = 0; i < shots.searching.pixels.length; i += 4) {
+		let down = 0;
+		for (let k = 0; k < 3; k++) down = Math.max(down, shots.searching.pixels[i + k] - shots.success.pixels[i + k]);
+		if (down > 2) dimmer++;
+	}
+	gate('resolution settles the room rather than flashing it',
+		dimmer > searchToSuccess.moved * 0.8 && shots.success.density < shots.searching.density,
+		`searching → success: ${dimmer} of ${searchToSuccess.moved} changed pixels got DARKER and the air thinned ${shots.searching.density.toFixed(4)} → ${shots.success.density.toFixed(4)}. The tension goes out of the space and what was found stays in it — a flash is an event, and this is the end of one`);
+}
 
 fs.rmSync(dir, {recursive: true, force: true});
 if (failures.length) {
