@@ -159,12 +159,7 @@ export function berxVolumetricRelativeCost(quality: BerxRenderQuality): number {
  * simply asks about fewer directions in it.
  */
 export function berxSSAOKernelFor(quality: BerxRenderQuality): BerxVec3[] {
-	const full = berxSSAOKernel();
-	if (quality.ssaoSamples >= full.length) return full;
-	const stride = full.length / quality.ssaoSamples;
-	const out: BerxVec3[] = [];
-	for (let i = 0; i < quality.ssaoSamples; i++) out.push(full[Math.floor(i * stride)]);
-	return out;
+	return berxSSAOKernel(quality.ssaoSamples);
 }
 
 /**

@@ -38,8 +38,9 @@ import type {Berx5DFrame} from './runtime5d';
 import type {BerxSpatialCameraState} from './spatialCamera';
 import {berxTransitionModulation} from './transitions';
 import {berxShadowCamera, type BerxShadowCamera} from './shadowMap';
-import {berxVolumetricUniform, BERX_VOLUMETRIC_STEPS} from './lighting/berxVolumetric';
+import {berxVolumetricUniform} from './lighting/berxVolumetric';
 import {berxParticleOrigin, berxParticleUniform, BERX_PARTICLE_KINDS} from './lighting/berxParticles';
+import {berxRenderQuality, berxParticleCountFor, berxSSAOKernelFor, type BerxRenderQuality} from './lighting/berxRenderQuality';
 import type {BerxSpatialAffordance} from './socialActions';
 import type {BerxSpatialEntityKind, BerxSpatialObject, BerxVec3} from './world';
 
@@ -192,6 +193,10 @@ export interface BerxDrawList {
 	 * then [steps, 0, 0, 0].
 	 */
 	volumetric: number[];
+	/** The live part of the occlusion kernel, as vec4s. See the emitter. */
+	ssao: number[];
+	/** How many of those vec4s the shaders should read. */
+	ssaoSamples: number;
 	/**
 	 * The world's own clock, in seconds — ticked by Berx5DRuntime, not
 	 * read from a wall clock.
@@ -241,6 +246,19 @@ export interface BerxDrawListOptions {
 	affordances?: readonly BerxSpatialAffordance[];
 	/** Whether the air carries dust, energy and the far field. */
 	particles?: boolean;
+	/**
+	 * What this device can afford.
+	 *
+	 * The one place a quality tier becomes numbers. Every backend reads
+	 * the step count, the march resolution, the shadow map size and the
+	 * particle counts out of the list rather than deciding any of them,
+	 * for the same reason they read the cull and the LOD out of it: a
+	 * backend that picked its own would be a second opinion about what
+	 * the world looks like, and the three would drift.
+	 *
+	 * Defaults to HIGH — the reference picture the gates measure.
+	 */
+	quality?: BerxRenderQuality;
 	/**
 	 * Whether the key light casts.
 	 *
@@ -488,11 +506,14 @@ export function berxBuildDrawList(frame: Berx5DFrame, options: BerxDrawListOptio
 			live = {position: {x: item.model[12], y: item.model[13], z: item.model[14]}, energy};
 		}
 	}
+	/* HIGH is the reference picture every gate in this repository
+	   measures, so it is what a caller that says nothing gets. */
+	const quality = options.quality ?? berxRenderQuality('high');
 	const particleFields: number[][] = [];
 	for (const kind of BERX_PARTICLE_KINDS) {
 		const origin = berxParticleOrigin(kind, c.position, viewAhead, live?.position);
 		if (!origin) continue;
-		particleFields.push(berxParticleUniform(kind, origin));
+		particleFields.push(berxParticleUniform(kind, origin, berxParticleCountFor(kind, quality)));
 	}
 
 	return {
@@ -528,7 +549,16 @@ export function berxBuildDrawList(frame: Berx5DFrame, options: BerxDrawListOptio
 		 * place. The cost is bounded by the same budget the main pass
 		 * already has, since it is the same list.
 		 */
-		volumetric: [...berxVolumetricUniform(), BERX_VOLUMETRIC_STEPS, 0, 0, 0],
+		volumetric: [...berxVolumetricUniform(), quality.volumetricSteps, quality.volumetricScale, 0, 0],
+		/**
+		 * The occlusion kernel and how many of it are live.
+		 *
+		 * In the list for the same reason the march's steps are: the tier
+		 * decides it, and a backend that generated its own would be asking
+		 * a different question from the one the oracle predicts.
+		 */
+		ssao: [...berxSSAOKernelFor(quality).flatMap((k) => [k.x, k.y, k.z, 0])],
+		ssaoSamples: quality.ssaoSamples,
 		worldTime: frame.world.worldTime,
 		particles: options.particles === false ? [] : particleFields,
 		shadow: options.shadows === false
@@ -536,6 +566,7 @@ export function berxBuildDrawList(frame: Berx5DFrame, options: BerxDrawListOptio
 			: berxShadowCamera(
 				drawn.map((o) => ({position: o.transform.position, radius: radiusOf(o)})),
 				lighting.key.direction,
+				quality.shadowMapSize,
 			),
 		basis: basis ? {right: {...basis.right}, up: {...basis.up}} : undefined,
 		stats: {

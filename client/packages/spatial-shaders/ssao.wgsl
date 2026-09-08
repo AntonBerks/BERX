@@ -37,6 +37,12 @@ struct SsaoKernel {
 @group(0) @binding(1) var gbuffer: texture_2d<f32>;
 @group(0) @binding(2) var ao_out: texture_storage_2d<r32float, write>;
 // x = width, y = height, z = focal length in pixels, w unused
+// x = width, y = height, z = focal length in pixels, w = LIVE TAPS
+//
+// The kernel buffer is always sixteen vec4s so that a change of quality
+// cannot change its size — and therefore cannot invalidate a bind group
+// naming it. A tier that can only afford eight gets a STRIDE through the
+// spiral in the first eight slots, zeroes in the rest, and this count.
 @group(0) @binding(3) var<uniform> sdim: vec4<f32>;
 
 @compute @workgroup_size(8, 8)
@@ -74,7 +80,9 @@ fn cs_ssao(@builtin(global_invocation_id) id: vec3<u32>) {
   let bias = params.y * (1.0 + slope * 4.0);
 
   var occluded = 0.0;
+  let taps = i32(sdim.w);
   for (var j: i32 = 0; j < 16; j = j + 1) {
+    if (j >= taps) { break; }
     let k = sk.s[j].xyz;
     let s = tx * k.x + ty * k.y + n * k.z;
     let sample_depth = centre.a - s.z * radius;
@@ -92,7 +100,7 @@ fn cs_ssao(@builtin(global_invocation_id) id: vec3<u32>) {
     }
   }
 
-  let ratio = occluded / 16.0;
+  let ratio = occluded / f32(max(taps, 1));
   let ao = max(0.0, 1.0 - pow(ratio, power) * strength);
   textureStore(ao_out, vec2<i32>(x, y), vec4<f32>(ao, 0.0, 0.0, 1.0));
 }

@@ -29,8 +29,6 @@ import {
 	BERX_SSAO_FLOATS,
 	berxSSAOUniform,
 	BERX_PARTICLE_KINDS,
-	berxVolumetricUniform,
-	BERX_VOLUMETRIC_STEPS,
 	berxInvertMat4,
 	berxMultiplyMat4,
 	type Berx5DFrame,
@@ -214,6 +212,11 @@ export class BerxWebGPURuntimeRenderer implements BerxSpatialRenderer {
 	private readonly blankAo: GPUTexture;
 	private gbuffer?: GPUTexture;
 	private volTexture?: GPUTexture;
+	/** Frame pixels per march pixel in the target above. 0 = none built. */
+	private volScale = 0;
+	/** Rebuilt only when the march's size changes, never per frame. */
+	private volBind?: GPUBindGroup;
+	private compositeBind?: GPUBindGroup;
 	private volUniform?: GPUBuffer;
 	private volSampler?: GPUSampler;
 	private volPointSampler?: GPUSampler;
@@ -773,11 +776,12 @@ export class BerxWebGPURuntimeRenderer implements BerxSpatialRenderer {
 		   direction nothing faces. rgba32float so the view depth in .a
 		   keeps full precision, which is what lets the gate predict a
 		   pixel from the same numbers. */
+		/* The march target is built by ensureMarchTarget() instead: its size
+		   depends on the quality tier, which is not known until a draw list
+		   arrives. Dropped here so a resize cannot leave a stale one. */
 		this.volTexture?.destroy();
-		this.volTexture = this.device.createTexture({
-			size: {width, height}, format: 'rgba32float',
-			usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_SRC,
-		});
+		this.volTexture = undefined;
+		this.volScale = 0;
 		this.gbuffer = this.device.createTexture({
 			size: {width: this.width, height: this.height},
 			format: 'rgba32float',
@@ -888,6 +892,11 @@ export class BerxWebGPURuntimeRenderer implements BerxSpatialRenderer {
 		});
 		this.shadowSize = size;
 		this.globalsBind = this.buildGlobalsBind();
+		/* The march's bind group names a VIEW of the old texture, and a
+		   quality tier changes this size (2048 down to 512). Dropping it
+		   here is what stops the air being marched against a destroyed
+		   shadow map the first frame after a tier change. */
+		this.volBind = undefined;
 	}
 
 	draw(
@@ -1021,8 +1030,23 @@ export class BerxWebGPURuntimeRenderer implements BerxSpatialRenderer {
 		 * not a hardware depth texture, so no backend has to reconstruct a
 		 * position through its own clip-space convention.
 		 */
-		const ssaoOn = pass_?.ssao !== false && this.gbuffer && this.aoMap && this.gbufferDepth;
-		if (ssaoOn) {
+		/**
+		 * The G-buffer has TWO consumers, and gating it on one of them was
+		 * a real bug: the volumetric march reads it for where each ray
+		 * stops, so `{ssao: false, volumetric: true}` silently drew no air
+		 * at all. Worse, the WebGL2 backend already got this right, so the
+		 * two web renderers disagreed about when the air exists — and no
+		 * gate caught it, because every gate runs with occlusion on.
+		 *
+		 * So the pass runs whenever EITHER wants it, and only the AO MAP's
+		 * use is gated by `ssao`. One G-buffer, because a second would be
+		 * a second opinion about where the surfaces are.
+		 */
+		const haveGbuffer = this.gbuffer && this.aoMap && this.gbufferDepth;
+		const wantsGbuffer = pass_?.ssao !== false || pass_?.volumetric !== false;
+		const gbufferOn = wantsGbuffer && haveGbuffer;
+		const ssaoOn = pass_?.ssao !== false && gbufferOn;
+		if (gbufferOn) {
 			const gPass = encoder.beginRenderPass({
 				colorAttachments: [{
 					view: this.gbuffer!.createView(),
@@ -1060,7 +1084,13 @@ export class BerxWebGPURuntimeRenderer implements BerxSpatialRenderer {
 			   than re-derived from a field of view, so it cannot disagree
 			   with the camera actually being used. */
 			const focalPx = list.projection[5] * this.height * 0.5;
-			device.queue.writeBuffer(this.ssaoDims, 0, new Float32Array([this.width, this.height, focalPx, 0]));
+			/* w is the live tap count: the buffer is always sixteen vec4s
+			   so the bind group survives a quality change, and the shader
+			   loops to this instead. */
+			device.queue.writeBuffer(this.ssaoDims, 0, new Float32Array([this.width, this.height, focalPx, list.ssaoSamples]));
+			/* The kernel the CORE chose for this tier, not the constant one
+			   this backend used to upload at construction. */
+			device.queue.writeBuffer(this.ssaoKernel, 0, new Float32Array(berxSSAOUniform(undefined, list.ssaoSamples)));
 			const ssaoBind = device.createBindGroup({
 				layout: this.ssaoPipeline.getBindGroupLayout(0),
 				entries: [
@@ -1070,11 +1100,15 @@ export class BerxWebGPURuntimeRenderer implements BerxSpatialRenderer {
 					{binding: 3, resource: {buffer: this.ssaoDims}},
 				],
 			});
-			const aoPass = encoder.beginComputePass();
-			aoPass.setPipeline(this.ssaoPipeline);
-			aoPass.setBindGroup(0, ssaoBind);
-			aoPass.dispatchWorkgroups(Math.ceil(this.width / 8), Math.ceil(this.height / 8));
-			aoPass.end();
+			/* Only the occlusion itself is gated: the G-buffer above is
+			   shared, the AO map below is not. */
+			if (ssaoOn) {
+				const aoPass = encoder.beginComputePass();
+				aoPass.setPipeline(this.ssaoPipeline);
+				aoPass.setBindGroup(0, ssaoBind);
+				aoPass.dispatchWorkgroups(Math.ceil(this.width / 8), Math.ceil(this.height / 8));
+				aoPass.end();
+			}
 		}
 
 		/**
@@ -1088,7 +1122,11 @@ export class BerxWebGPURuntimeRenderer implements BerxSpatialRenderer {
 		 * rebuilt: a second G-buffer would be a second opinion about where
 		 * the surfaces are.
 		 */
-		const volumetricOn = pass_?.volumetric !== false && ssaoOn && list.shadow && this.volTexture;
+		const marchScale = Math.max(1, Math.round(list.volumetric[5] || 1));
+		const marchWidth = Math.max(1, Math.ceil(this.width / marchScale));
+		const marchHeight = Math.max(1, Math.ceil(this.height / marchScale));
+		const volumetricOn = pass_?.volumetric !== false && gbufferOn && list.shadow
+			&& this.ensureMarchTarget(marchScale, marchWidth, marchHeight);
 		if (volumetricOn) {
 			if (!this.volUniform) {
 				this.volUniform = device.createBuffer({size: VOL_GLOBALS_BYTES, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST});
@@ -1111,22 +1149,34 @@ export class BerxWebGPURuntimeRenderer implements BerxSpatialRenderer {
 			/* the same depth remap every other projection goes through */
 			volGlobals.set(glToWgpuDepth(list.shadow!.viewProjection), 28);
 			volGlobals.set([1 / list.shadow!.mapSize, list.shadow!.depthBias, 0, list.shadow!.strength], 44);
-			volGlobals.set(berxVolumetricUniform(), 48);
-			volGlobals.set([this.width, this.height, BERX_VOLUMETRIC_STEPS, 0], 52);
+			/* Density, phase, reach and intensity — and then the two knobs a
+			   quality tier moves. Read out of the list rather than taken
+			   from the module's constants: the native backend already did
+			   this and the two disagreed, which is exactly the drift the
+			   draw list exists to prevent. */
+			volGlobals.set(list.volumetric.slice(0, 4), 48);
+			volGlobals.set([marchWidth, marchHeight, list.volumetric[4], marchScale], 52);
 			/* the camera's forward, straight off the view matrix the core
 			   built — never re-derived from a target, which could disagree */
 			volGlobals.set([-list.view[2], -list.view[6], -list.view[10], 0], 56);
 			device.queue.writeBuffer(this.volUniform, 0, volGlobals);
 
-			const volBind = device.createBindGroup({
-				layout: this.volLayout,
-				entries: [
-					{binding: 0, resource: {buffer: this.volUniform}},
-					{binding: 1, resource: this.volSampler},
-					{binding: 2, resource: this.shadowMap.createView()},
-					{binding: 3, resource: this.gbuffer!.createView()},
-				],
-			});
+			/* Built once per march size, not once per frame. Three bind
+			   groups an allocation each, every frame, for resources that
+			   never move — the particle path already cached its one, and
+			   this path did not. */
+			if (!this.volBind) {
+				this.volBind = device.createBindGroup({
+					layout: this.volLayout,
+					entries: [
+						{binding: 0, resource: {buffer: this.volUniform}},
+						{binding: 1, resource: this.volSampler},
+						{binding: 2, resource: this.shadowMap.createView()},
+						{binding: 3, resource: this.gbuffer!.createView()},
+					],
+				});
+			}
+			const volBind = this.volBind;
 			const volPass = encoder.beginRenderPass({
 				colorAttachments: [{
 					view: this.volTexture!.createView(),
@@ -1219,23 +1269,21 @@ export class BerxWebGPURuntimeRenderer implements BerxSpatialRenderer {
 		/* after the world and its names: the air is in front of everything,
 		   and it adds to what is behind it rather than covering it */
 		if (volumetricOn) {
+			if (!this.compositeBind) {
+				this.compositeBind = device.createBindGroup({
+					layout: this.compositeLayout,
+					entries: [
+						{binding: 0, resource: this.volPointSampler!},
+						{binding: 1, resource: this.volTexture!.createView()},
+					],
+				});
+			}
 			pass.setPipeline(this.compositePipeline);
-			pass.setBindGroup(0, device.createBindGroup({
-				layout: this.volLayout,
-				entries: [
-					{binding: 0, resource: {buffer: this.volUniform!}},
-					{binding: 1, resource: this.volSampler!},
-					{binding: 2, resource: this.shadowMap.createView()},
-					{binding: 3, resource: this.gbuffer!.createView()},
-				],
-			}));
-			pass.setBindGroup(1, device.createBindGroup({
-				layout: this.compositeLayout,
-				entries: [
-					{binding: 0, resource: this.volPointSampler!},
-					{binding: 1, resource: this.volTexture!.createView()},
-				],
-			}));
+			/* Group 0 is the march's own — the composite declares the same
+			   struct so the two share a layout — and it is the very bind
+			   group the march pass just used. */
+			pass.setBindGroup(0, this.volBind!);
+			pass.setBindGroup(1, this.compositeBind);
 			pass.draw(3);
 			drawCalls++;
 		}
@@ -1489,6 +1537,28 @@ export class BerxWebGPURuntimeRenderer implements BerxSpatialRenderer {
 
 	async readbackAo(): Promise<Float32Array> {
 		return this.readFloatTexture(this.aoMap!, 1);
+	}
+
+	/**
+	 * The march's target, at the resolution this quality tier asked for.
+	 *
+	 * Not built in resize(), because its size depends on the tier and the
+	 * tier arrives with the draw list. Rebuilt only when that size
+	 * actually changes — and when it does, the two bind groups that name
+	 * it are dropped with it, which is the whole reason they are fields
+	 * rather than locals.
+	 */
+	private ensureMarchTarget(scale: number, width: number, height: number): boolean {
+		if (this.volTexture && this.volScale === scale) return true;
+		this.volTexture?.destroy();
+		this.volTexture = this.device.createTexture({
+			size: {width, height}, format: 'rgba32float',
+			usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_SRC,
+		});
+		this.volScale = scale;
+		this.volBind = undefined;
+		this.compositeBind = undefined;
+		return true;
 	}
 
 	dispose(): void {

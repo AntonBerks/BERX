@@ -89,7 +89,21 @@ export function berxSSAOParams(): BerxSSAOParams {
  * hemisphere spends most of its samples far away where the answer is
  * almost always "not occluded".
  */
-export function berxSSAOKernel(): BerxVec3[] {
+export function berxSSAOKernel(
+	/**
+	 * How many of the sixteen to return, for a quality tier that cannot
+	 * afford all of them.
+	 *
+	 * A STRIDE through the spiral, not its first half. The spiral's reach
+	 * grows with the index, so a prefix would only ever ask about what is
+	 * touching: the occlusion would collapse into a dark line at every
+	 * contact and vanish an arm's length away. Striding keeps the whole
+	 * range and simply asks about fewer directions in it — and every tap
+	 * is still one of the real sixteen, so two tiers are asking a subset
+	 * of the same question rather than two different ones.
+	 */
+	samples: number = BERX_SSAO_SAMPLES,
+): BerxVec3[] {
 	/* The golden angle, in radians. */
 	const GOLDEN = Math.PI * (3 - Math.sqrt(5));
 	const out: BerxVec3[] = [];
@@ -103,7 +117,11 @@ export function berxSSAOKernel(): BerxVec3[] {
 		const scale = 0.1 + 0.9 * t * t;
 		out.push({x: Math.cos(theta) * r * scale, y: Math.sin(theta) * r * scale, z: z * scale});
 	}
-	return out;
+	if (samples >= out.length) return out;
+	const stride = out.length / samples;
+	const cheap: BerxVec3[] = [];
+	for (let i = 0; i < samples; i++) cheap.push(out[Math.floor(i * stride)]);
+	return cheap;
 }
 
 /**
@@ -114,9 +132,20 @@ export function berxSSAOKernel(): BerxVec3[] {
  * hand-written packings is three chances to put the bias in the radius
  * slot.
  */
-export function berxSSAOUniform(params: BerxSSAOParams = berxSSAOParams()): number[] {
+export function berxSSAOUniform(
+	params: BerxSSAOParams = berxSSAOParams(),
+	/** Taps a quality tier can afford. The buffer's LENGTH never changes. */
+	samples: number = BERX_SSAO_SAMPLES,
+): number[] {
 	const out: number[] = [];
-	for (const s of berxSSAOKernel()) out.push(s.x, s.y, s.z, 0);
+	const kernel = berxSSAOKernel(samples);
+	for (const s of kernel) out.push(s.x, s.y, s.z, 0);
+	/* Zero-fill the tail rather than shrink the buffer. The shaders loop
+	   to a count they are handed separately, so the unused slots are never
+	   read — and a uniform buffer whose SIZE changed with the tier would
+	   mean re-creating the bind group every time quality moved, which is
+	   the one thing a quality change must not cost. */
+	for (let i = kernel.length; i < BERX_SSAO_SAMPLES; i++) out.push(0, 0, 0, 0);
 	out.push(params.radius, params.bias, params.strength, params.power);
 	return out;
 }
@@ -250,7 +279,11 @@ export function berxSSAOAt(
 		}
 	}
 
-	const ratio = occluded / BERX_SSAO_SAMPLES;
+	/* Divided by the kernel actually used, not by sixteen. A quality tier
+	   hands this eight taps, and dividing eight results by sixteen would
+	   halve the occlusion — the oracle would then disagree with every
+	   backend, and the disagreement would look like a shader bug. */
+	const ratio = occluded / Math.max(1, kernel.length);
 	/* 1 = fully lit, 0 = fully occluded, which is what the shader multiplies by. */
 	return Math.max(0, 1 - Math.pow(ratio, params.power) * params.strength);
 }

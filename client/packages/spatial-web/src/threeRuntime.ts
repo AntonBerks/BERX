@@ -21,8 +21,6 @@ import {
   type BerxHit,
   berxBuildDrawList,
   berxSSAOUniform,
-  berxVolumetricUniform,
-  BERX_VOLUMETRIC_STEPS,
   berxInvertMat4,
   berxMultiplyMat4,
   BERX_WORLD_CLEAR,
@@ -278,7 +276,8 @@ uniform sampler2D GBUF;
 // BERX_SSAO_SAMPLES offsets, then one vec4: radius, bias, strength, power
 uniform vec4 K[17];
 // x = width, y = height, z = focal length in pixels
-uniform vec3 DIM;
+// x = width, y = height, z = focal length in pixels, w = live taps
+uniform vec4 DIM;
 out vec4 C;
 void main(){
   ivec2 at=ivec2(gl_FragCoord.xy);
@@ -295,7 +294,13 @@ void main(){
   float slope=1.-min(1.,abs(n.z));
   float bias=params.y*(1.+slope*4.);
   float occluded=0.;
+  /* Loops to the LIVE tap count, not sixteen: a quality tier hands this
+     a strided subset of the spiral and zero-fills the rest of the buffer,
+     so the buffer's size — and therefore every bind group naming it —
+     survives a change of quality. */
+  int taps=int(DIM.w);
   for(int j=0;j<16;j++){
+    if(j>=taps) break;
     vec3 k=K[j].xyz;
     vec3 s=tx*k.x+ty*k.y+n*k.z;
     float sd=centre.a-s.z*radius;
@@ -310,7 +315,7 @@ void main(){
       occluded+=min(1.,range);
     }
   }
-  float ratio=occluded/16.;
+  float ratio=occluded/float(max(taps,1));
   C=vec4(max(0.,1.-pow(ratio,power)*strength),0.,0.,1.);
 }`;
 
@@ -379,7 +384,7 @@ uniform mat4 INV_VP;            // pixel -> world ray
 uniform mat4 VLVP;              // the light's own view-projection
 uniform vec4 VSHADOW;           // x = 1/mapSize, y = depth bias, z unused, w = strength
 uniform vec4 VPARAMS;           // x = density, y = phase g, z = max distance, w = intensity
-uniform vec4 VDIMS;             // x = width, y = height, z = steps, w unused
+uniform vec4 VDIMS;             // x = march width, y = march height, z = steps, w = march scale
 uniform vec3 VEYE, VLIGHT_DIR, VLIGHT_COL, VFORWARD;
 uniform float VLIGHT_I;
 uniform sampler2D VGBUF;
@@ -439,7 +444,19 @@ void main(){
   // The G-buffer stores VIEW DEPTH — distance along the camera's forward
   // axis — and the march needs distance along THIS ray. For an off-axis
   // pixel those differ by 1/cos.
-  float depth=texture(VGBUF,UV).a;
+  // The G-buffer is at FRAME resolution while this pass may be running at
+  // a fraction of it, so the fetch is explicit rather than a UV sample: a
+  // filtered lookup would pick an unspecified one of the texels the march
+  // pixel covers, and volumetric.wgsl picks the block's centre. Two ports
+  // choosing differently is exactly the kind of divergence only a
+  // cross-backend comparison finds, so both do the same arithmetic.
+  //
+  // px is the march column and the GL row is bottom-up, which is why this
+  // uses UV.y directly where the jitter above used 1-UV.y.
+  float vscale=max(VDIMS.w,1.);
+  int gy=int(float(int(UV.y*VDIMS.y))*vscale+(vscale-1.)*.5);
+  int gx=int(float(px)*vscale+(vscale-1.)*.5);
+  float depth=texelFetch(VGBUF,ivec2(gx,gy),0).a;
   float along=max(dot(dir,normalize(VFORWARD)),1e-3);
   float surface=depth>0.?depth/along:VPARAMS.z;
   float far=min(VPARAMS.z,surface);
@@ -465,7 +482,40 @@ void main(){
 }`;
 /** Additive composite of the in-scatter buffer over the world. */
 const CV = `#version 300 es\nprecision highp float;out vec2 UV;void main(){vec2 c=vec2((gl_VertexID==1)?3.:-1.,(gl_VertexID==2)?3.:-1.);UV=vec2(c.x*.5+.5,c.y*.5+.5);gl_Position=vec4(c,0.,1.);}`;
-const CF = `#version 300 es\nprecision highp float;in vec2 UV;uniform sampler2D SRC;out vec4 C;void main(){C=vec4(texture(SRC,UV).rgb,1.);}`;
+/**
+ * The additive composite, with its own bilinear tap.
+ *
+ * The march target is RGBA32F and NEAREST, because a 32-bit float texture
+ * is not filterable in WebGL2 without the filtering companion to
+ * EXT_color_buffer_float — an extension no phone is guaranteed to have.
+ * So the four loads and three mixes are written out, exactly as
+ * composite in volumetric.wgsl does them, and the two backends upsample a
+ * half-resolution march identically instead of one of them getting
+ * hardware filtering the other cannot have.
+ *
+ * At scale 1 the sample lands on a texel centre, f is zero in both axes,
+ * and this returns what a nearest tap returned — the full-resolution
+ * picture is unchanged, bit for bit.
+ */
+const CF = `#version 300 es
+precision highp float;
+in vec2 UV;
+uniform sampler2D SRC;
+out vec4 C;
+void main(){
+  vec2 size=vec2(textureSize(SRC,0));
+  vec2 p=UV*size-.5;
+  vec2 base=floor(p);
+  vec2 f=p-base;
+  vec2 hi=size-1.;
+  ivec2 c00=ivec2(clamp(base,vec2(0.),hi));
+  ivec2 c10=ivec2(clamp(base+vec2(1.,0.),vec2(0.),hi));
+  ivec2 c01=ivec2(clamp(base+vec2(0.,1.),vec2(0.),hi));
+  ivec2 c11=ivec2(clamp(base+vec2(1.,1.),vec2(0.),hi));
+  vec3 top=mix(texelFetch(SRC,c00,0).rgb,texelFetch(SRC,c10,0).rgb,f.x);
+  vec3 bottom=mix(texelFetch(SRC,c01,0).rgb,texelFetch(SRC,c11,0).rgb,f.x);
+  C=vec4(mix(top,bottom,f.y),1.);
+}`;
 /** Reads a depth texture as ordinary floats, for the verification path. */
 const DF = `#version 300 es\nprecision highp float;in vec2 UV;uniform highp sampler2D SRC;out vec4 C;void main(){C=vec4(texture(SRC,UV).r,0.,0.,1.);}`;
 
@@ -796,10 +846,12 @@ export class BerxThreeRuntimeRenderer implements BerxSpatialRenderer {
   gl.disable(gl.DEPTH_TEST);gl.depthMask(false);
   gl.useProgram(this.aoProgram);
   gl.activeTexture(gl.TEXTURE2);gl.bindTexture(gl.TEXTURE_2D,this.gbufTexture!);gl.uniform1i(this.GBUF,2);
-  gl.uniform4fv(this.K,new Float32Array(berxSSAOUniform()));
+  /* The kernel the CORE chose for this tier — a stride through the full
+     spiral when a device cannot afford all sixteen taps. */
+  gl.uniform4fv(this.K,new Float32Array(berxSSAOUniform(undefined,list.ssaoSamples)));
   /* Focal length in pixels, off the projection the core built — never
      re-derived from a field of view, which could disagree with it. */
-  gl.uniform3f(this.DIM,width,height,list.projection[5]*height*0.5);
+  gl.uniform4f(this.DIM,width,height,list.projection[5]*height*0.5,list.ssaoSamples);
   gl.bindVertexArray(this.aoVao!);
   gl.drawArrays(gl.TRIANGLES,0,3);
   gl.bindVertexArray(null);
@@ -877,12 +929,26 @@ export class BerxThreeRuntimeRenderer implements BerxSpatialRenderer {
  private renderVolumetric(list:ReturnType<typeof berxBuildDrawList>,width:number,height:number,originX:number):boolean{
   if(!this.floatColour||!list.shadow||!this.shadowTexture||!this.gbufTexture)return false;
   const gl=this.gl;
-  if(this.volSize.w!==width||this.volSize.h!==height){
+  /* The march may run at a fraction of the frame — see volumetric.wgsl,
+     which this is the GLSL port of. The scale and the step count both
+     arrive in the draw list, decided by the quality tier, because a
+     backend picking its own would be a second opinion about what the
+     world looks like. */
+  const scale=Math.max(1,Math.round(list.volumetric[5]||1));
+  const marchW=Math.max(1,Math.ceil(width/scale));
+  const marchH=Math.max(1,Math.ceil(height/scale));
+  if(this.volSize.w!==marchW||this.volSize.h!==marchH){
    if(this.volTexture)gl.deleteTexture(this.volTexture);
    if(this.volFbo)gl.deleteFramebuffer(this.volFbo);
    this.volTexture=gl.createTexture()!;
    gl.bindTexture(gl.TEXTURE_2D,this.volTexture);
-   gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA32F,width,height,0,gl.RGBA,gl.FLOAT,null);
+   gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA32F,marchW,marchH,0,gl.RGBA,gl.FLOAT,null);
+   /* NEAREST, and it stays NEAREST: a 32-bit float texture is not
+      filterable in WebGL2 without EXT_color_buffer_float's filtering
+      companion, and the composite does its own bilinear tap instead —
+      the same four loads and three mixes composite.wgsl does, so the two
+      backends upsample identically rather than one of them getting
+      hardware filtering the other cannot have. */
    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.NEAREST);
    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.NEAREST);
    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);
@@ -890,12 +956,12 @@ export class BerxThreeRuntimeRenderer implements BerxSpatialRenderer {
    this.volFbo=gl.createFramebuffer()!;
    gl.bindFramebuffer(gl.FRAMEBUFFER,this.volFbo);
    gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.TEXTURE_2D,this.volTexture,0);
-   this.volSize={w:width,h:height};
+   this.volSize={w:marchW,h:marchH};
   }
 
   /* ---- the march, into its own float target ---- */
   gl.bindFramebuffer(gl.FRAMEBUFFER,this.volFbo!);
-  gl.viewport(0,0,width,height);
+  gl.viewport(0,0,marchW,marchH);
   gl.clearColor(0,0,0,1);gl.clear(gl.COLOR_BUFFER_BIT);
   gl.disable(gl.DEPTH_TEST);gl.depthMask(false);gl.disable(gl.BLEND);
   gl.useProgram(this.volProgram);
@@ -903,9 +969,11 @@ export class BerxThreeRuntimeRenderer implements BerxSpatialRenderer {
   gl.uniformMatrix4fv(this.VINV,false,berxInvertMat4(viewProj));
   gl.uniformMatrix4fv(this.VLVP,false,new Float32Array(list.shadow.viewProjection));
   gl.uniform4f(this.VSHADOW,1/list.shadow.mapSize,list.shadow.depthBias,0,list.shadow.strength);
-  const vp=berxVolumetricUniform();
-  gl.uniform4f(this.VPARAMS,vp[0],vp[1],vp[2],vp[3]);
-  gl.uniform4f(this.VDIMS,width,height,BERX_VOLUMETRIC_STEPS,0);
+  /* Density, phase, reach and intensity out of the LIST, not the
+     module's constants: the native backend already read them from there,
+     and two backends reading two sources is how they drift. */
+  gl.uniform4f(this.VPARAMS,list.volumetric[0],list.volumetric[1],list.volumetric[2],list.volumetric[3]);
+  gl.uniform4f(this.VDIMS,marchW,marchH,list.volumetric[4],scale);
   gl.uniform3f(this.VEYE,list.camera.x,list.camera.y,list.camera.z);
   gl.uniform3f(this.VLDIR,list.key.direction.x,list.key.direction.y,list.key.direction.z);
   gl.uniform3f(this.VLCOL,list.key.colour[0],list.key.colour[1],list.key.colour[2]);

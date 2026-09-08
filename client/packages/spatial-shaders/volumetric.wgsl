@@ -33,7 +33,14 @@ struct VolGlobals {
   shadow: vec4<f32>,
   // x = density, y = phase g, z = max distance, w = intensity
   params: vec4<f32>,
-  // x = width, y = height, z = steps, w unused
+  // x = march width, y = march height, z = steps, w = march scale
+  //
+  // The march may run at a FRACTION of the frame: a shaft is a smooth,
+  // low-frequency thing with no edges of its own — only the ones the
+  // shadow map gives it — so it survives being computed at half
+  // resolution and upsampled, and the cost is quadratic in that choice.
+  // xy are therefore the MARCH's dimensions, and w says how many frame
+  // pixels one of them covers, which is all the G-buffer fetch needs.
   dims: vec4<f32>,
   // xyz the camera's forward direction, w unused. Turns the G-buffer's
   // view depth into a distance along THIS ray.
@@ -136,7 +143,13 @@ fn fs_volumetric(i: VsOut) -> @location(0) vec4<f32> {
   // march short by that factor: a measurable error toward the corners of
   // the frame, and one the CPU twin would reproduce only by making the
   // same mistake.
-  let g = textureLoad(gbuffer, vec2<i32>(px, py), 0);
+  // The G-buffer is always at FRAME resolution — the occlusion pass reads
+  // it per pixel and cannot be cheapened the same way — so a march pixel
+  // maps to the centre of the block it covers. At scale 1 this is exactly
+  // (px, py), which is why turning the scale on changes nothing at HIGH.
+  let scale = max(v.dims.w, 1.0);
+  let gxy = vec2<f32>(f32(px), f32(py)) * scale + vec2<f32>((scale - 1.0) * 0.5);
+  let g = textureLoad(gbuffer, vec2<i32>(gxy), 0);
   let along = max(dot(dir, normalize(v.forward.xyz)), 1e-3);
   let surface = select(v.params.z, g.a / along, g.a > 0.0);
   let far = min(v.params.z, surface);
@@ -176,5 +189,31 @@ fn fs_volumetric(i: VsOut) -> @location(0) vec4<f32> {
  */
 @fragment
 fn fs_composite(i: VsOut) -> @location(0) vec4<f32> {
-  return vec4<f32>(textureSampleLevel(vol_texture, vol_sampler, i.uv, 0.0).rgb, 1.0);
+  /**
+   * A bilinear tap, written out rather than asked of a sampler.
+   *
+   * The march target is rgba32float, and a 32-bit float texture is not
+   * filterable in WebGPU without an optional feature no phone is
+   * guaranteed to have. Dropping to rgba16float would have bought
+   * hardware filtering — and would have moved the volumetric gate's
+   * oracle tolerance from 1e-7 to about 1e-3 to accommodate it, which is
+   * loosening a measurement to fit a change rather than the other way
+   * round. Four loads and three mixes cost less than that.
+   *
+   * At scale 1 the sample lands exactly on a texel centre, f is zero in
+   * both axes, and this returns the same value a nearest tap did — so
+   * the full-resolution picture is unchanged, bit for bit.
+   */
+  let size = vec2<f32>(textureDimensions(vol_texture));
+  let p = i.uv * size - vec2<f32>(0.5);
+  let base = floor(p);
+  let f = p - base;
+  let hi = size - vec2<f32>(1.0);
+  let c00 = vec2<i32>(clamp(base, vec2<f32>(0.0), hi));
+  let c10 = vec2<i32>(clamp(base + vec2<f32>(1.0, 0.0), vec2<f32>(0.0), hi));
+  let c01 = vec2<i32>(clamp(base + vec2<f32>(0.0, 1.0), vec2<f32>(0.0), hi));
+  let c11 = vec2<i32>(clamp(base + vec2<f32>(1.0, 1.0), vec2<f32>(0.0), hi));
+  let top = mix(textureLoad(vol_texture, c00, 0).rgb, textureLoad(vol_texture, c10, 0).rgb, f.x);
+  let bottom = mix(textureLoad(vol_texture, c01, 0).rgb, textureLoad(vol_texture, c11, 0).rgb, f.x);
+  return vec4<f32>(mix(top, bottom, f.y), 1.0);
 }

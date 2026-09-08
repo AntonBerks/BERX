@@ -1125,9 +1125,28 @@ impl NativeRenderer {
                 usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
                 view_formats: &[],
             });
+            /* All three come from the shared core in the draw list — see
+               drawlist.rs. Nothing about the march is decided here. */
+            let mut params = [0.0f32; 4];
+            let mut steps = 0.0f32;
+            /* How many frame pixels one march pixel covers. A shaft is
+               low-frequency — it has no edges of its own, only the ones
+               the shadow map gives it — so a quality tier can march it at
+               a fraction of the frame and upsample, and the cost of the
+               march is quadratic in that choice. */
+            let mut march_scale = 1.0f32;
+            if list.volumetric.len() >= 5 {
+                params.copy_from_slice(&list.volumetric[0..4]);
+                steps = list.volumetric[4];
+            }
+            if list.volumetric.len() >= 6 && list.volumetric[5] >= 1.0 {
+                march_scale = list.volumetric[5].round();
+            }
+            let march_width = ((width as f32 / march_scale).ceil() as u32).max(1);
+            let march_height = ((height as f32 / march_scale).ceil() as u32).max(1);
             let vol_texture = self.device.create_texture(&wgpu::TextureDescriptor {
                 label: Some("berx-inscatter"),
-                size: wgpu::Extent3d { width, height, depth_or_array_layers: 1 },
+                size: wgpu::Extent3d { width: march_width, height: march_height, depth_or_array_layers: 1 },
                 mip_level_count: 1,
                 sample_count: 1,
                 dimension: wgpu::TextureDimension::D2,
@@ -1135,14 +1154,6 @@ impl NativeRenderer {
                 usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
                 view_formats: &[],
             });
-            /* Both of these come from the shared core in the draw list —
-               see drawlist.rs. Nothing about the march is decided here. */
-            let mut params = [0.0f32; 4];
-            let mut steps = 0.0f32;
-            if list.volumetric.len() >= 5 {
-                params.copy_from_slice(&list.volumetric[0..4]);
-                steps = list.volumetric[4];
-            }
             let mut inv_view_proj = [0.0f32; 16];
             if list.inv_view_projection.len() >= 16 {
                 inv_view_proj.copy_from_slice(&list.inv_view_projection[0..16]);
@@ -1161,7 +1172,7 @@ impl NativeRenderer {
                 light_vp: gl_to_wgpu_depth(&shadow.view_projection),
                 shadow: [1.0 / shadow.map_size as f32, shadow.depth_bias, 0.0, shadow.strength],
                 params,
-                dims: [width as f32, height as f32, steps, 0.0],
+                dims: [march_width as f32, march_height as f32, steps, march_scale],
                 /* the camera's forward, straight off the view matrix the
                    core built — never re-derived from a target */
                 forward: [-list.view[2], -list.view[6], -list.view[10], 0.0],

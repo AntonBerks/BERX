@@ -129,12 +129,26 @@ export const BERX_PARTICLE_LEAD = 0.35;
  * live), and three backends deciding it separately is three worlds. A
  * backend forwards this and interprets none of it.
  */
-export function berxParticleUniform(kind: BerxParticleKind, origin: BerxVec3 = {x: 0, y: 0, z: 0}): number[] {
+export function berxParticleUniform(
+	kind: BerxParticleKind,
+	origin: BerxVec3 = {x: 0, y: 0, z: 0},
+	/**
+	 * How many of them to actually draw, when a quality tier wants fewer
+	 * than the kind describes.
+	 *
+	 * A PREFIX of the field, never a re-seed: every mote's position comes
+	 * from a hash of its own index, so drawing the first 154 of 512 leaves
+	 * those 154 exactly where they were. A tier that re-seeded would give
+	 * two devices two different rooms and make every oracle in this
+	 * repository unable to predict either.
+	 */
+	count: number = SPECS[kind].count,
+): number[] {
 	const s = SPECS[kind];
 	return [
 		s.colour[0], s.colour[1], s.colour[2], s.alpha,
 		s.extent, s.speed, s.size, s.period,
-		s.count, BERX_PARTICLE_KINDS.indexOf(kind), 0, 0,
+		Math.max(1, Math.round(count)), BERX_PARTICLE_KINDS.indexOf(kind), 0, 0,
 		origin.x, origin.y, origin.z, 0,
 	];
 }
