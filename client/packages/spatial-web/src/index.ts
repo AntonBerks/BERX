@@ -1075,3 +1075,4 @@ export function createBerxSceneRoot(root: HTMLElement): Record<BerxDepthKey, HTM
 	}
 	return layers;
 }
+export * from './voiceToWorld';
