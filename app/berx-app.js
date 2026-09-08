@@ -8951,7 +8951,10 @@ function createBerx5DWebHost(options = {}) {
   const onPointerUp = (e) => {
     if (!dragging) return;
     dragging = false;
-    canvas.releasePointerCapture?.(e.pointerId);
+    try {
+      canvas.releasePointerCapture?.(e.pointerId);
+    } catch {
+    }
     if (Math.hypot(e.clientX - downX, e.clientY - downY) > 8) return;
     const rect = canvas.getBoundingClientRect();
     const dpr = canvas.width / Math.max(1, rect.width);

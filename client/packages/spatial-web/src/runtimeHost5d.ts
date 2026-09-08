@@ -428,7 +428,28 @@ export function createBerx5DWebHost(options: Berx5DWebHostOptions = {}): Berx5DW
 	const onPointerUp = (e: PointerEvent) => {
 		if (!dragging) return;
 		dragging = false;
-		canvas.releasePointerCapture?.(e.pointerId);
+		/**
+		 * RELEASING A CAPTURE THAT WAS NEVER TAKEN THROWS, and this line
+		 * runs BEFORE the pick.
+		 *
+		 * setPointerCapture is already wrapped for the same reason; its
+		 * sibling was not. Any pointer whose capture never took — the
+		 * browser cancelled it, another element claimed it, or the
+		 * capture call itself threw — arrives here and raises, and the
+		 * throw abandons the rest of this handler. The rest of this
+		 * handler is where an affordance is picked and acted on, so the
+		 * failure is not cosmetic: the press lands on the action and
+		 * nothing happens.
+		 *
+		 * Found by driving a real PointerEvent at the pixel a slot is
+		 * drawn at, which is exactly the pointer a browser produces when
+		 * a capture has already been lost.
+		 */
+		try {
+			canvas.releasePointerCapture?.(e.pointerId);
+		} catch {
+			/* nothing held it; the pick below is what matters */
+		}
 		/* a drag is not a tap: a pick after panning would select
 		   whatever happened to be under the finger when it lifted */
 		if (Math.hypot(e.clientX - downX, e.clientY - downY) > 8) return;

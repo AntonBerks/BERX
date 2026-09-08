@@ -597,6 +597,165 @@ try {
 		`${acted.entities} entities, every id and updatedAt identical across the refused action. Failing loudly is only half the rule: an action that mutated the world and then reported an error would pass the check above while leaving a state the server never agreed to — and the error message would make it look like care`,
 	);
 
+	/* --- W4: an affordance is a place in the world you can put a finger on ---
+
+	   Counting slots proves nothing about whether any of them can be
+	   touched. This drives the SHIPPED shell: it takes each slot's
+	   world-space position out of the renderer, projects it with the
+	   frame's OWN camera, dispatches a real PointerEvent at exactly
+	   those client coordinates, and reads back which affordance the
+	   production picking path selected — then what it did to the
+	   canonical world. */
+	const reach = await page.evaluate(async () => {
+		const w = window.__berxWorld;
+		const host = window.__berxHost;
+		const canvas = document.querySelector('canvas');
+		const settle = async () => { for (let i = 0; i < 60; i++) await new Promise((r) => requestAnimationFrame(r)); };
+		w.focus('moment:5150');
+		await settle();
+
+		const frame = w.latestFrame;
+		const c = frame.camera;
+		/* The frame's own camera, built the way the draw list builds it:
+		   a second projection here would be measuring a different world
+		   from the one that was drawn. */
+		const fwd = {x: c.target.x - c.position.x, y: c.target.y - c.position.y, z: c.target.z - c.position.z};
+		const fl = Math.hypot(fwd.x, fwd.y, fwd.z) || 1;
+		fwd.x /= fl; fwd.y /= fl; fwd.z /= fl;
+		const up0 = {x: 0, y: 1, z: 0};
+		const right = {
+			x: fwd.y * up0.z - fwd.z * up0.y,
+			y: fwd.z * up0.x - fwd.x * up0.z,
+			z: fwd.x * up0.y - fwd.y * up0.x,
+		};
+		const rl = Math.hypot(right.x, right.y, right.z) || 1;
+		right.x /= rl; right.y /= rl; right.z /= rl;
+		const up = {
+			x: right.y * fwd.z - right.z * fwd.y,
+			y: right.z * fwd.x - right.x * fwd.z,
+			z: right.x * fwd.y - right.y * fwd.x,
+		};
+		const aspect = canvas.width / canvas.height;
+		const tanHalf = Math.tan((c.fov * Math.PI / 180) / 2);
+		const rect = canvas.getBoundingClientRect();
+		const dpr = canvas.width / Math.max(1, rect.width);
+
+		/** A world point as the pixel it is drawn at, and as a client point. */
+		const project = (p) => {
+			const d = {x: p.x - c.position.x, y: p.y - c.position.y, z: p.z - c.position.z};
+			const along = d.x * fwd.x + d.y * fwd.y + d.z * fwd.z;
+			if (along <= 1e-4) return undefined;
+			const rx = d.x * right.x + d.y * right.y + d.z * right.z;
+			const ry = d.x * up.x + d.y * up.y + d.z * up.z;
+			const ndcX = rx / (along * tanHalf * aspect);
+			const ndcY = ry / (along * tanHalf);
+			const px = (ndcX * 0.5 + 0.5) * canvas.width;
+			const py = (0.5 - ndcY * 0.5) * canvas.height;
+			return {
+				along, ndcX, ndcY, px, py,
+				onScreen: Math.abs(ndcX) <= 1 && Math.abs(ndcY) <= 1,
+				clientX: rect.left + px / dpr,
+				clientY: rect.top + py / dpr,
+			};
+		};
+
+		const slots = host.renderer.actionSlots.map((s) => ({
+			id: s.affordance.id, action: s.affordance.action, label: s.affordance.label,
+			state: s.affordance.state, position: {...s.position}, halfHeight: s.halfHeight,
+			projected: project(s.position),
+		}));
+
+		/* The slot to reach for, and the exact pixel it is drawn at. */
+		const target = slots.find((s) => s.action === 'like' && s.projected && s.projected.onScreen);
+		let picked, activation, sawPending;
+		/* ALL the live regions, not the first: the shell has three and the
+		   first is the loader, which still said "BERX собирает мир" long
+		   after the world had arrived. Reading one of three and calling it
+		   the announcement is the same mistake as counting slots. */
+		const liveText = () => [...document.querySelectorAll('[aria-live]')]
+			.map((n) => (n.textContent || '').trim()).filter(Boolean).join(' | ');
+		/* The entity the action is ABOUT. "Something in the world
+		   changed" is not evidence that a like happened — a focus change
+		   would satisfy it too. */
+		const stampOf = (id) => {
+			const o = w.latestFrame.world.objects.find((x) => x.id === id);
+			return o ? `${o.id}@${o.updatedAt}` : 'absent';
+		};
+		const before = stampOf('moment:5150');
+		if (target) {
+			const at = target.projected;
+			const opts = {pointerType: 'mouse', clientX: at.clientX, clientY: at.clientY, bubbles: true, isPrimary: true, pointerId: 1};
+			canvas.dispatchEvent(new PointerEvent('pointerdown', opts));
+			canvas.dispatchEvent(new PointerEvent('pointerup', opts));
+			/* the announcement names the affordance the production path
+			   selected — read before it is replaced by the outcome */
+			sawPending = liveText();
+			await settle();
+			await new Promise((r) => setTimeout(r, 500));
+			await settle();
+			activation = liveText();
+			picked = sawPending;
+		}
+		const after = stampOf('moment:5150');
+
+		/* And a point far outside every slot must select no action. */
+		const miss = {pointerType: 'mouse', clientX: rect.left + 4, clientY: rect.top + 4, bubbles: true, isPrimary: true, pointerId: 2};
+		const beforeMiss = w.latestFrame.world.objects.map((o) => `${o.id}@${o.updatedAt}`).sort().join('|');
+		canvas.dispatchEvent(new PointerEvent('pointerdown', miss));
+		canvas.dispatchEvent(new PointerEvent('pointerup', miss));
+		await settle();
+		const afterMiss = w.latestFrame.world.objects.map((o) => `${o.id}@${o.updatedAt}`).sort().join('|');
+
+		/* Keyboard: is any affordance reachable without a pointer? */
+		const beforeKeys = w.latestFrame.world.objects.map((o) => `${o.id}@${o.updatedAt}`).sort().join('|');
+		canvas.focus();
+		for (const key of ['Enter', ' ', 'Tab']) {
+			canvas.dispatchEvent(new KeyboardEvent('keydown', {key, bubbles: true, cancelable: true}));
+			await settle();
+		}
+		const afterKeys = w.latestFrame.world.objects.map((o) => `${o.id}@${o.updatedAt}`).sort().join('|');
+
+		return {
+			slots, target, picked, activation, before, after,
+			worldChanged: before !== after,
+			missChangedWorld: beforeMiss !== afterMiss,
+			keyboardChangedWorld: beforeKeys !== afterKeys,
+			states: [...new Set(slots.map((s) => s.state))],
+			canvas: {width: canvas.width, height: canvas.height},
+		};
+	});
+
+	gate('every affordance has a real world-space position that projects on screen',
+		reach.slots.length > 0 && reach.slots.every((s) => s.projected && Number.isFinite(s.projected.px) && Number.isFinite(s.projected.py)),
+		reach.slots.map((s) => `${s.action}@(${s.position.x.toFixed(2)},${s.position.y.toFixed(2)},${s.position.z.toFixed(2)})→${s.projected ? `${s.projected.px.toFixed(0)},${s.projected.py.toFixed(0)}px` : 'behind the eye'}`).join('  ')
+		+ ` — projected with the frame's own camera into a ${reach.canvas.width}x${reach.canvas.height} surface. Not a count: a coordinate`);
+
+	gate('a real pointer at the pixel a slot is drawn at selects THAT affordance',
+		typeof reach.picked === 'string' && reach.target !== undefined && reach.picked.includes(reach.target.label),
+		reach.target
+			? `PointerEvent at ${reach.target.projected.px.toFixed(0)},${reach.target.projected.py.toFixed(0)}px (client ${reach.target.projected.clientX.toFixed(0)},${reach.target.projected.clientY.toFixed(0)}) on "${reach.target.label}" → the shell announced "${reach.picked}". The pixel was computed from the slot's world position, not read off the picker`
+			: 'no like slot projected on screen to aim at');
+
+	gate('activating it changes the canonical world, from what the server confirmed',
+		reach.worldChanged === true && typeof reach.activation === 'string' && reach.activation.includes('готово'),
+		`moment:5150 ${reach.before} → ${reach.after}; the shell announced "${reach.activation}". Pinned to the entity the action is ABOUT: "something in the world changed" would be satisfied by a focus change`);
+
+	gate('a pointer that hits no slot leaves the canonical world alone',
+		reach.missChangedWorld === false,
+		'a press in an empty corner selected no affordance and mutated nothing — picking that fell through to "nearest anything" would make every empty press an action');
+
+	/* Item 10: keyboard. Reported as a finding, not asserted away. */
+	if (reach.keyboardChangedWorld) {
+		gate('an affordance can be activated without a pointer', true, 'keyboard activation reached the canonical world');
+	} else {
+		console.log('BLOCKED  no affordance can be activated without a pointer');
+		console.log(`         Enter, Space and Tab left the canonical world untouched. world.act() has exactly ONE caller in the whole web layer — the pointerup handler in runtimeHost5d. Enter TRAVELS to the focused entity; it does not act on it. Every capability BERX offers by touch is unreachable by keyboard, which the voice work already holds itself to in the other direction (see BERX_WITHOUT_VOICE)`);
+	}
+
+	/* Item 7: the declared states. */
+	console.log(`NOTE  affordance runtime states actually produced: ${reach.states.join(', ')}`);
+	console.log("      BerxSocialActionState declares 'available' | 'disabled' | 'pending' | 'unavailable' | 'hidden'. Only the first two are ever assigned (spatialAffordances.ts: object.interactive ? 'available' : 'disabled'). pending/success/failure exist as a spoken announcement and a haptic moment, and as no state on the affordance — so nothing in the world shows a press, a wait, or a refusal");
+
 	/* --- NOW is a reading of the world, not a feed --- */
 	const now = await page.evaluate(async () => {
 		const w = window.__berxWorld;
