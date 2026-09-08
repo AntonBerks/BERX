@@ -22,6 +22,8 @@ import {
   berxBuildDrawList,
   type BerxFrameMemory,
   berxSSAOUniform,
+  type BerxRenderQuality,
+  type BerxCoreField,
   berxInvertMat4,
   berxMultiplyMat4,
   BERX_WORLD_CLEAR,
@@ -624,6 +626,25 @@ void main(){
 
 export interface BerxSpatialRenderOptions {
 	maxObjects?:number;
+	/**
+	 * The quality tier's own knobs, from @berx/spatial's berxRenderQuality.
+	 *
+	 * Passed straight through to the draw list, which is where every one
+	 * of them is actually read — the march's step count and resolution,
+	 * the occlusion kernel, the shadow map's size, how much of each
+	 * particle field is drawn. A tier changes what an effect COSTS and
+	 * never whether it exists.
+	 */
+	quality?:BerxRenderQuality;
+	/**
+	 * The Core's physical state.
+	 *
+	 * Not a thing drawn beside the world — parameters the world is
+	 * rendered WITH: haze is how much the air holds, grain how much
+	 * matter is in it, luminance how much light. Passing it is what makes
+	 * a search look like a search.
+	 */
+	core?:BerxCoreField;
 	ambientMotion?:boolean;
 	/** Whether the key light casts. Passed straight to the shared core. */
 	shadows?:boolean;
@@ -1177,6 +1198,8 @@ export class BerxThreeRuntimeRenderer implements BerxSpatialRenderer {
    width,height,
    maxObjects:options.maxObjects,
    ambientMotion:options.ambientMotion,
+   quality:options.quality,
+   core:options.core,
    shadows:options.shadows,
    lighting:this.lighting,
    mediaFor:(id)=>this.media.get(id),

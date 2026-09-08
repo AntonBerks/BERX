@@ -24,7 +24,12 @@
  * stayed black until reload. It is caught, the frame loop pauses, and
  * the meshes rebuild on restore.
  */
-import { Berx5DRuntime, Berx5DWorldApp, BerxHaptics, cameraBasis, pickActionSlot, rayFromNdc, type BerxHapticBackend, type BerxSpatialObject, type BerxWorldIngest } from '@berx/spatial';
+import {
+	Berx5DRuntime, Berx5DWorldApp, BerxHaptics, cameraBasis, pickActionSlot, rayFromNdc,
+	berxRenderQuality, berxResolveRenderTier, berxCoreAt, berxCoreStep, berxCoreEnter, berxCoreCause,
+	type BerxHapticBackend, type BerxSpatialObject, type BerxWorldIngest,
+	type BerxRenderQuality, type BerxCoreMotion, type BerxCoreCause, type BerxCoreField,
+} from '@berx/spatial';
 import { BerxThreeRuntimeRenderer } from './threeRuntime';
 import type { BerxWebRendererBackend } from './webRenderer';
 import { resolveSpatialQuality, type BerxSpatialQualityResult } from './runtimeQuality';
@@ -104,6 +109,16 @@ export interface Berx5DWebHost {
 	ingest(entries: readonly BerxWorldIngest[]): void;
 	readonly renderer: BerxWebRendererBackend;
 	readonly quality: BerxSpatialQualityResult;
+	/**
+	 * The render tier this session resolved, and its knobs.
+	 *
+	 * Exposed so a gate can check the session IS resolving one. The tier
+	 * table was built and verified before anything called it, and no gate
+	 * could see the gap because every gate drove the module directly.
+	 */
+	readonly renderTier: {tier: string; reason: string; quality: BerxRenderQuality};
+	/** The Core this session's frame loop is stepping. Same reason. */
+	readonly core: {state: string; previous: string; field: BerxCoreField};
 	/** False while the GPU context is lost; the world state survives. */
 	readonly contextAlive: boolean;
 	/**
@@ -236,6 +251,43 @@ export function createBerx5DWebHost(options: Berx5DWebHostOptions = {}): Berx5DW
 	const pixelRatioCap = Math.max(1, options.pixelRatioCap ?? 2);
 
 	let quality: BerxSpatialQualityResult = {quality: 'balanced', pixelRatio: 1, maxObjects: 80, ambientMotion: true};
+
+	/**
+	 * WHAT THIS DEVICE CAN AFFORD, and what BERX is doing about it.
+	 *
+	 * Both of these were built, verified and then not called — the tier
+	 * table and the Core state machine each had their own gate and
+	 * neither reached a product session. A verified module the shell does
+	 * not drive is a library, not a feature, and the difference is
+	 * invisible from inside a gate. See verify:5d-wiring, which exists
+	 * because nothing was looking for that gap.
+	 *
+	 * The tier is resolved ONCE, from what the platform will say about
+	 * itself. It is deliberately not re-resolved per frame: a device does
+	 * not become a different device, and a tier that moved with the frame
+	 * rate would be the flicker the stability work removed.
+	 */
+	const renderTier = berxResolveRenderTier({
+		deviceMemoryGb: (navigator as unknown as {deviceMemory?: number}).deviceMemory,
+		logicalCores: navigator.hardwareConcurrency,
+		pixelRatio: typeof window !== 'undefined' ? window.devicePixelRatio : 1,
+		saveData: (navigator as unknown as {connection?: {saveData?: boolean}}).connection?.saveData,
+		prefersReducedMotion: reducedMotion,
+	});
+	const renderQuality: BerxRenderQuality = berxRenderQuality(renderTier.tier);
+
+	/**
+	 * The Core: the world's own state, made physical.
+	 *
+	 * Stepped every frame with the real elapsed time, and its field is
+	 * handed to the draw list — which is the only way it is drawn at all.
+	 * Nothing here decides how the Core feels; `berxCoreCause` does, from
+	 * things that really happened.
+	 */
+	let core: BerxCoreMotion = berxCoreAt('idle');
+	const coreCause = (cause: BerxCoreCause) => {
+		core = berxCoreEnter(core, berxCoreCause(core.state, cause));
+	};
 	let raf = 0;
 	let last = performance.now();
 	let running = false;
@@ -290,6 +342,9 @@ export function createBerx5DWebHost(options: Berx5DWebHostOptions = {}): Berx5DW
 		lastAnnouncedId = object?.id;
 		options.onFocusChange?.(object);
 		if (object) {
+			/* Arriving somewhere IS the resolution: the thing being looked
+			   for is now the thing being stood in front of. */
+			coreCause({kind: 'arrived', region: world?.worldPosition.region ?? 'world'});
 			announce(`${nameOf(object)} в фокусе`);
 			/* the same moment, said three ways: to the screen reader, to
 			   the eye, and to the hand */
@@ -310,7 +365,18 @@ export function createBerx5DWebHost(options: Berx5DWebHostOptions = {}): Berx5DW
 			syncQualityToLoad();
 			/* what can be done with what is focused, this frame */
 			if (world) renderer.setAffordances(world.affordances());
-			renderer.render(world ? world.frame(dt) : runtime.frame(dt), {maxObjects: quality.maxObjects, ambientMotion: quality.ambientMotion, particles, volumetric});
+			/* The Core advances on real elapsed time, so a slow device
+			   reaches the same state at the same moment rather than at
+			   half speed — the integrator is exponential for exactly
+			   this reason. */
+			core = berxCoreStep(core, dt);
+			renderer.render(world ? world.frame(dt) : runtime.frame(dt), {
+				maxObjects: quality.maxObjects,
+				ambientMotion: quality.ambientMotion,
+				particles, volumetric,
+				quality: renderQuality,
+				core: core.field,
+			});
 		} else {
 			/* the world keeps time even with no GPU to draw it, so a
 			   restore resumes where it was rather than snapping */
@@ -323,10 +389,24 @@ export function createBerx5DWebHost(options: Berx5DWebHostOptions = {}): Berx5DW
 	/* ---------------- pointer ---------------- */
 	const onPointerDown = (e: PointerEvent) => {
 		if (e.pointerType === 'mouse' && e.button !== 0) return;
+		/* Someone is here and reaching for something. Not a hover — a
+		   hand actually landing on the world. */
+		coreCause({kind: 'presence', near: true});
 		dragging = true;
 		lastX = downX = e.clientX;
 		lastY = downY = e.clientY;
-		canvas.setPointerCapture?.(e.pointerId);
+		/* Capture keeps a drag alive when the finger leaves the canvas,
+		   and it THROWS when the pointer is not one the browser is
+		   tracking — a synthetic event from an automation tool or an
+		   assistive one, or a pointer released between the event and this
+		   line. Losing capture costs a drag that ends at the canvas edge;
+		   letting it throw costs the whole gesture and the frame it was
+		   in. */
+		try {
+			canvas.setPointerCapture?.(e.pointerId);
+		} catch {
+			/* no capture, still a drag */
+		}
 	};
 	const onPointerMove = (e: PointerEvent) => {
 		if (!dragging) return;
@@ -492,6 +572,10 @@ export function createBerx5DWebHost(options: Berx5DWebHostOptions = {}): Berx5DW
 		   what allows a restore event to arrive at all */
 		e.preventDefault();
 		contextAlive = false;
+		/* The GPU went away mid-frame. Presence is KEPT — energy stays up
+		   while coherence falls — because something is still happening and
+		   BERX has not stopped being here. */
+		coreCause({kind: 'outcome', outcome: {ok: false, awaiting: false, results: []}});
 		renderer.handleContextLost();
 		options.onContextChange?.('lost');
 		announce('Графика прервалась. BERX восстановит сцену.');
@@ -509,6 +593,7 @@ export function createBerx5DWebHost(options: Berx5DWebHostOptions = {}): Berx5DW
 	 */
 	const onDeviceLost = async (reason: string) => {
 		contextAlive = false;
+		coreCause({kind: 'outcome', outcome: {ok: false, awaiting: false, results: []}});
 		renderer.handleContextLost(reason);
 		options.onContextChange?.('lost');
 		announce('Графика прервалась. BERX восстановит сцену.');
@@ -604,6 +689,22 @@ export function createBerx5DWebHost(options: Berx5DWebHostOptions = {}): Berx5DW
 		canvas,
 		runtime,
 		renderer,
+		/**
+		 * What this session is actually driving, exposed so a gate can
+		 * check that it IS driving it.
+		 *
+		 * Both of these were built and verified before anything called
+		 * them, and no gate could see the gap because every gate drove the
+		 * modules directly. These two getters are what verify:5d-wiring
+		 * reads: the tier a real session resolved, and the Core a real
+		 * frame loop stepped.
+		 */
+		get renderTier() {
+			return {...renderTier, quality: renderQuality};
+		},
+		get core() {
+			return {state: core.state, previous: core.previous, field: {...core.field, offset: {...core.field.offset}}};
+		},
 		get quality() {
 			return quality;
 		},
