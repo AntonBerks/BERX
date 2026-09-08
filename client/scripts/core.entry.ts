@@ -4,5 +4,6 @@ export {
 	berxCoreTarget, berxCoreStiffness, berxCoreAt, berxCoreStep, berxCoreEnter,
 	berxCoreListen, berxCoreSpeak,
 	berxCoreCause, berxCoreHaptic, berxCoreSound,
+	berxTouchField, berxGestureCause, berxTouchHaptic, BERX_TOUCH_RADIUS,
 	berxPlan, berxOutcome, berxReadIntent, berxSituation, BERX_EMPTY_MEMORY,
 } from '@berx/spatial';

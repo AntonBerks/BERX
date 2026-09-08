@@ -290,6 +290,55 @@ gate('most states make no sound at all',
 	silent.length > core.BERX_CORE_STATES.length / 2,
 	`${silent.length} of ${core.BERX_CORE_STATES.length} are silent: ${silent.join(', ')}. A bed under a search is a condition; a mark at a resolution is a moment; silence is the majority answer and is not an omission`);
 
+/* ---------------- 6b. a hand in the world ---------------- */
+
+/**
+ * A touch is not a click.
+ *
+ * A click is an event with a target and no place. A touch happens
+ * somewhere, and the response has to depend on where — otherwise it is a
+ * global flash wearing a position, which says something happened without
+ * saying where, and that is exactly the information a spatial interface
+ * has and a flat one does not.
+ */
+const listening = core.berxCoreTarget('listening');
+const gesture = (over) => ({kind: 'press', at: {x: 0, y: 0.2, z: -1.15}, force: 0.5, durationS: 0.1, ...over});
+
+const atCentre = core.berxTouchField(listening, gesture());
+const acrossRoom = core.berxTouchField(listening, gesture({at: {x: 6, y: 0.2, z: -1.15}}));
+gate('a touch is felt where it happens, and fades with distance',
+	biggestJump(listening, atCentre) > 0.05 && biggestJump(listening, acrossRoom) < 1e-9,
+	`a press at the field's centre moves it by ${(biggestJump(listening, atCentre) * 100).toFixed(1)}% of range; the same press six metres away moves it by ${biggestJump(listening, acrossRoom).toExponential(1)}. A hand affects the space around it, not the room — the whole value of a local response is lost the moment it covers everything`);
+
+const pressed = core.berxTouchField(listening, gesture({kind: 'press'}));
+const reached = core.berxTouchField(listening, gesture({kind: 'reach'}));
+gate('committing and considering are not the same gesture',
+	pressed.coherence > reached.coherence && pressed.reach < reached.reach,
+	`press gathers to coherence ${pressed.coherence.toFixed(3)} and contracts reach to ${pressed.reach.toFixed(3)}; reach only ${reached.coherence.toFixed(3)} and ${reached.reach.toFixed(3)} — these are names for what someone was DOING, not for how long a finger was on glass`);
+
+/* THE ONE THAT MATTERS: a press does not get to look like a result. */
+gate('committing is not a state — it starts a plan and waits',
+	core.berxGestureCause(gesture({kind: 'press'})) === undefined
+		&& core.berxGestureCause(gesture({kind: 'hold'}))?.kind === 'presence',
+	'press returns no cause at all: committing is the START of a plan, and what the Core does next is whatever that plan does. A press that moved the Core by itself would be click → animation — a system showing a result before it has one');
+
+gate('a hand moves the Core through the same causes the world does',
+	['reach', 'hold', 'draw', 'release'].every((kind) => {
+		const cause = core.berxGestureCause(gesture({kind}));
+		return cause === undefined || core.BERX_CORE_STATES.includes(core.berxCoreCause('idle', cause));
+	}),
+	'every gesture that moves the Core does it by returning one of the world\'s own causes, never by setting a state — one way in, so a hand has no more privilege than a server answering');
+
+gate('a body does not recoil from a finger',
+	core.berxTouchField(listening, gesture({force: 1})).deform <= 0.22,
+	`the hardest possible press reaches deform ${core.berxTouchField(listening, gesture({force: 1})).deform.toFixed(3)} — a space acknowledging, not a character reacting`);
+
+gate('only committing has weight in the hand',
+	core.berxTouchHaptic(gesture({kind: 'press'})) === 'commit'
+		&& core.berxTouchHaptic(gesture({kind: 'reach'})) === 'none'
+		&& core.berxTouchHaptic(gesture({kind: 'hold', durationS: 0.4})) === 'contact',
+	'press commits and is felt; reaching is not; holding becomes contact only once it has lasted — a phone that buzzed at every hover would be a phone people put down');
+
 /* ---------------- 7. THE PIXELS: does any of this reach the world? ----------------
 
    Everything above is a state machine, and a beautiful state machine
