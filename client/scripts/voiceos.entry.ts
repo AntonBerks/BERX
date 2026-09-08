@@ -8,4 +8,5 @@ export {
 } from '@berx/spatial';
 /* The REAL client, so the gate can check every capability against the
    methods that actually exist rather than against a list of names. */
+export {BerxVoiceAssistant} from '@berx/spatial';
 export {BerxApiClient} from '@berx/api/client';

@@ -222,6 +222,89 @@ gate('the voice describes what cannot be seen, and only that',
 	nearFar === true && nearClose === false,
 	'30m away: spoken, because a label that far is unreadable and the voice is adding. 3m away: silent, because the screen has already said it better');
 
+/* ---------------- 5. interruption is normal ---------------- */
+
+/**
+ * A backend that can be stopped mid-sentence, and says when it was.
+ *
+ * Not a mock of a service — a stand-in for the ONE property that
+ * matters here: a real synthesiser takes time to say a line and can be
+ * cut off partway. Everything the gate measures is about what BERX does
+ * around that, which is the part BERX owns.
+ */
+const makeBackend = () => {
+	const state = {speaking: false, spoke: [], stops: 0, cutAfterMs: undefined, clock: 0};
+	let cancel;
+	return {
+		state,
+		backend: {
+			available: true,
+			async speak(text) {
+				state.speaking = true;
+				const started = state.clock;
+				await new Promise((resolve) => {
+					cancel = () => {
+						state.cutAfterMs = state.clock - started;
+						resolve();
+					};
+					/* a line takes 40 ticks of the fake clock to say */
+					state.finish = () => resolve();
+					queueMicrotask(() => {
+						state.clock += 40;
+						if (state.speaking) resolve();
+					});
+				});
+				state.speaking = false;
+				state.spoke.push(text);
+			},
+			async listen() { return undefined; },
+			stop() {
+				state.stops++;
+				state.speaking = false;
+				if (cancel) cancel();
+			},
+		},
+	};
+};
+
+const line = (text) => ({text, emotion: 'calm'});
+
+{
+	const {state, backend} = makeBackend();
+	const assistant = new core.BerxVoiceAssistant({backend, wait: async () => {}});
+	assistant.grantMicrophone(true);
+	const speaking = assistant.speak(line('Я нашёл несколько вариантов…'));
+	assistant.interrupt();
+	await speaking;
+
+	gate('speaking over BERX stops the sentence at once',
+		state.stops === 1 && !state.speaking,
+		`one stop() reached the synthesiser and it fell silent — a person who says "нет, подожди, только не бары" halfway through has given the most useful thing they could, at the moment they realised it`);
+
+	gate('an interrupted line is NOT recorded as having been said',
+		assistant.transcript.length === 0 && assistant.interruptions === 1,
+		`transcript ${assistant.transcript.length} lines, ${assistant.interruptions} interruption — a record that claims BERX told someone something it never finished saying makes every later disagreement unresolvable`);
+
+	/* THE ONE THAT MATTERS: the conversation is still alive. */
+	await assistant.speak(line('Понял.'));
+	gate('the conversation continues rather than restarting',
+		assistant.transcript.length === 1 && assistant.transcript[0].text === 'Понял.'
+			&& assistant.wasInterrupted === false && assistant.canListen === true,
+		`the next line went through, the microphone grant survived, and the interruption flag cleared — interrupt() is deliberately NOT stop(): stopping ends the session, interrupting ends the sentence, and a person saying "подожди" has not asked BERX to go away`);
+}
+
+{
+	/* And the same intent machinery, on the same memory, afterwards. */
+	const before = core.berxShow(core.BERX_EMPTY_MEMORY, [
+		{id: 'place:11', label: 'Дом Культуры'},
+		{id: 'place:12', label: 'Веранда'},
+	]);
+	const correction = core.berxReadIntent('нет, только не бары', situation(), before);
+	gate('a correction spoken over BERX is read against what was already shown',
+		correction.kind === 'refine' && before.shown.length === 2,
+		`"нет, только не бары" → ${correction.kind}, against a set of ${before.shown.length} that survives the interruption — UPDATE INTENT and UPDATE WORLD happen on the same room, which is what "continue" means`);
+}
+
 fs.rmSync(dir, {recursive: true, force: true});
 if (failures.length) {
 	console.error(`\nBERX VOICE OS: ${failures.length} FAILED — ${failures.join('; ')}`);

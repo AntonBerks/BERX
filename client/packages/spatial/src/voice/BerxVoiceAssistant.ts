@@ -231,6 +231,16 @@ export class BerxVoiceAssistant {
 	private readonly source: BerxVec3;
 	private microphoneGranted = false;
 	private stopped = false;
+	/**
+	 * Set by interrupt(), cleared by the next line.
+	 *
+	 * Distinct from `stopped`, and the distinction is the whole point of
+	 * barge-in: stopping ENDS the session, interrupting ends the SENTENCE.
+	 * A person who says "нет, подожди" has not asked BERX to go away.
+	 */
+	private interrupted = false;
+	/** How many lines were cut short. Reported, never hidden. */
+	private cut = 0;
 	/** Every line spoken, in order, for verification and for captions. */
 	private readonly said: BerxVoiceUtterance[] = [];
 
@@ -267,6 +277,47 @@ export class BerxVoiceAssistant {
 		return this.microphoneGranted && this.available;
 	}
 
+	/**
+	 * Someone spoke over BERX. Stop the sentence, keep the conversation.
+	 *
+	 * INTERRUPTION IS NOT AN ERROR. A person who says "нет, подожди,
+	 * только не бары" halfway through "я нашёл несколько вариантов" has
+	 * given the most useful thing they could: a correction, at the moment
+	 * they realised it. An interface that made them wait for the end of a
+	 * sentence they had already rejected would be worse than one that
+	 * could not speak.
+	 *
+	 * So this is deliberately NOT stop(). Nothing here sets `stopped`,
+	 * the microphone grant survives, the transcript survives, and the
+	 * caller's next intent is read against the same situation and the
+	 * same spatial memory — which is what "continue" means. The
+	 * conversation does not restart; one sentence ends early.
+	 *
+	 * The line that was cut is NOT added to the transcript as though it
+	 * had been said, because it was not. A record that claims BERX told
+	 * someone something it never finished saying is a record that makes
+	 * every later disagreement unresolvable.
+	 */
+	interrupt(): void {
+		if (this.stopped) return;
+		this.interrupted = true;
+		this.cut++;
+		/* The backend's stop() kills the utterance in flight. It is the
+		   same call stop() makes; what differs is everything around it. */
+		this.backend?.stop();
+		this.options.onMoment?.({energy: 0, source: this.source, text: '', emotion: 'calm', speaking: false});
+	}
+
+	/** True while a line is being cut short. Cleared by the next one. */
+	get wasInterrupted(): boolean {
+		return this.interrupted;
+	}
+
+	/** How many lines a person has spoken over. Diagnostic, not a score. */
+	get interruptions(): number {
+		return this.cut;
+	}
+
 	/** Everything stops now — speech, listening, and the world's lift. */
 	stop(): void {
 		this.stopped = true;
@@ -284,8 +335,10 @@ export class BerxVoiceAssistant {
 	 */
 	async speak(utterance: BerxVoiceUtterance, pauseOverrideMs?: number): Promise<void> {
 		if (this.stopped) return;
+		/* A new line clears the last interruption: being spoken over is a
+		   property of one sentence, not a state to stay in. */
+		this.interrupted = false;
 		const prosody = berxVoiceProsody(utterance.emotion);
-		this.said.push(utterance);
 		this.options.onMoment?.({
 			objectId: utterance.about,
 			/* while a line is being spoken, the thing it is about is the
@@ -309,8 +362,15 @@ export class BerxVoiceAssistant {
 			emotion: utterance.emotion,
 			speaking: false,
 		});
+		/* Recorded only now, and only if it actually finished. This used
+		   to happen before the line was spoken, which meant an interrupted
+		   sentence went into the transcript as though it had been heard. */
+		if (!this.interrupted) this.said.push(utterance);
+		/* The silence after a line belongs to the line. A line somebody
+		   spoke over does not get one — holding a pause for a sentence
+		   that was rejected is the interface insisting. */
 		const pause = pauseOverrideMs ?? prosody.pauseMs;
-		if (pause > 0) await this.pause(pause);
+		if (pause > 0 && !this.interrupted) await this.pause(pause);
 	}
 
 	/**
