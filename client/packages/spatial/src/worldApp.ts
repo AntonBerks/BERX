@@ -366,9 +366,8 @@ export class Berx5DWorldApp {
 		   region, the focus and the temporal cursor together with the
 		   camera rather than only the pose */
 		this.history.push(this.worldPosition);
-		const drawn = this.drawnAt(object);
-		this.runtime.enterWorld({id: `${target}:${objectId}`, focusObjectId: objectId, enteredAt: Date.now()}, drawn, kind);
-		this.runtime.focus(objectId, berxActionRingRadius(object, this.affordancesFor(object), this.options.measureLabel), kind, drawn);
+		this.runtime.enterWorld({id: `${target}:${objectId}`, focusObjectId: objectId, enteredAt: Date.now()}, object.transform.position, kind);
+		this.runtime.focus(objectId, berxActionRingRadius(object, this.affordancesFor(object), this.options.measureLabel), kind);
 		this.position = {...this.position, region: target, focusId: objectId};
 		this.options.onPositionChange?.(this.worldPosition);
 		return true;
@@ -512,24 +511,6 @@ export class Berx5DWorldApp {
 		}
 	}
 
-
-	/**
-	 * Where an entity is DRAWN, which is not always where it is.
-	 *
-	 * The canonical world holds the truth and the temporal cursor is a
-	 * lens over it: berxApplyTemporal pushes an entity into depth as the
-	 * cursor moves away from its moment, and `frame`/`latestFrame` hand
-	 * the renderer the lensed positions. Anything that must act on what
-	 * is on the screen — the camera above all — has to ask for the same
-	 * lens rather than the canonical row, or it aims at where the entity
-	 * would have been if the viewer had not moved through time.
-	 *
-	 * One place, so the camera and the renderer cannot lens differently.
-	 */
-	private drawnAt(object: BerxSpatialObject): BerxVec3 {
-		return berxApplyTemporal(object, this.position.cursor).transform.position;
-	}
-
 	/**
 	 * Focus an entity without travelling to it — the difference between
 	 * looking at something and going to it.
@@ -540,7 +521,7 @@ export class Berx5DWorldApp {
 		   crops them off the bottom of the screen */
 		const object = this.runtime.world.getObject(objectId);
 		/* focusing is not travelling: the gentlest of the eight */
-		const ok = this.runtime.focus(objectId, berxActionRingRadius(object, this.affordancesFor(object), this.options.measureLabel), berxTransitionForTravel('focus'), object ? this.drawnAt(object) : undefined);
+		const ok = this.runtime.focus(objectId, berxActionRingRadius(object, this.affordancesFor(object), this.options.measureLabel), berxTransitionForTravel('focus'));
 		if (ok) {
 			this.position = {...this.position, focusId: objectId};
 			this.options.onPositionChange?.(this.worldPosition);

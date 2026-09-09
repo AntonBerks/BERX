@@ -1660,20 +1660,95 @@ const PROJECTOR_SOURCE = String.raw`(canvas, c) => {
 	}
 	if (depth.control) console.log(`      control (the focused entity): slot-equivalent depth ${depth.control.depth.toFixed(3)}, scene ${depth.control.scene === undefined ? '-' : depth.control.scene.toFixed(3)}`);
 	if (depth.stand) console.log(`NOTE  camera ${JSON.stringify(depth.stand.camera)} target ${JSON.stringify(depth.stand.target)}; entity ${JSON.stringify(depth.stand.object)} scale ${JSON.stringify(depth.stand.scale)}; distance ${depth.stand.distance.toFixed(3)}; focusId ${depth.stand.focusId} active ${depth.stand.active} travelling ${depth.stand.travelling}`);
-	/* The camera must aim at the entity the world DRAWS. Only meaningful
-	   while the two differ — a cursor sitting on the entity's own moment
-	   lenses it nowhere, and the check would pass without testing
-	   anything. */
-	const lensed = depth.stand && depth.stand.canonicalZ !== undefined
-		&& Math.abs(depth.stand.canonicalZ - depth.stand.frameZ) > 0.5;
-	gate('focusing an entity aims the camera at where it is DRAWN, not where it is stored',
-		lensed === true && Math.abs(depth.stand.target.z - depth.stand.frameZ) < 1e-6,
-		depth.stand
-			? `moment:5150 is stored at z ${depth.stand.canonicalZ} and drawn at ${depth.stand.frameZ.toFixed(3)} — the temporal cursor lenses it ${Math.abs(depth.stand.canonicalZ - depth.stand.frameZ).toFixed(2)} deeper — and the camera targets ${depth.stand.target.z.toFixed(3)} from ${depth.stand.distance.toFixed(3)} away. It used to pose from the STORED row: the camera stopped 13.82 in front of empty space with the entity 24.91 away and event:908 between them, and the ring it was standing back to see spanned a third of the frame it should have filled`
-			: 'the focused entity was not in the world');
-
 	if (depth.stand) console.log(`NOTE  canonical z ${depth.stand.canonicalZ} vs frame z ${depth.stand.frameZ} — focus() poses the camera from the first, the renderer draws the second. Nearest four drawn: ${depth.stand.inFront.map((o) => `${o.id}@${o.along.toFixed(2)}`).join(' ')}`);
 	console.log(`NOTE  slot NDC at that camera: ${depth.ndc.map((n) => `${n.label} ${n.left === undefined ? '?' : `${n.left.toFixed(2)}..${n.right.toFixed(2)}`}`).join('  ')}`);
+
+	/* --- W4 item 6, depth: is a slot actually ON THE SCREEN ---
+
+	   The G-buffer says what the OPAQUE pass wrote, and the label pass
+	   tests against the real depth buffer, which a translucent entity
+	   does not write. So a G-buffer reading over-reports occlusion. This
+	   measures the only thing that settles it: render the production
+	   frame with the ring and again without it, and count the pixels
+	   inside each slot's own quad that CHANGED. Those pixels are the
+	   action, drawn through the real pipeline with the real depth test.
+
+	   readPixels on the default framebuffer in the same task as the draw
+	   — the drawing buffer is not cleared until the task yields. */
+	await installProjector();
+	const visible = await page.evaluate(async () => {
+		const w = window.__berxWorld;
+		const host = window.__berxHost;
+		const canvas = document.querySelector('canvas');
+		const settle = async () => { for (let i = 0; i < 40; i++) await new Promise((r) => requestAnimationFrame(r)); };
+		const entered = w.worldPosition.focusId;
+		w.focus('moment:5150');
+		await settle();
+		const gl = host.renderer.gl;
+		if (!gl) return {ok: false, reason: 'no GL handle on the renderer'};
+		const frame = w.latestFrame;
+		const {project} = window.__berxProjector(canvas, frame.camera);
+		const all = host.renderer.actionSlots.map((sl) => ({
+			label: sl.affordance.label,
+			at: project(sl.position),
+			halfW: sl.reservedHalfWidth, halfH: sl.halfHeight,
+		}));
+		const boxes = all.map((sl) => {
+			if (!sl.at) return undefined;
+			const w2 = sl.halfW * sl.at.ndcPerUnitX * 0.5 * canvas.width;
+			const h2 = sl.halfH * sl.at.ndcPerUnitY * 0.5 * canvas.height;
+			const x0 = Math.max(0, Math.round(sl.at.px - w2));
+			const x1 = Math.min(canvas.width, Math.round(sl.at.px + w2));
+			/* py grows downward; the quad's half-height maps either way */
+			const y0 = Math.max(0, Math.round(canvas.height - sl.at.py - h2));
+			const y1 = Math.min(canvas.height, Math.round(canvas.height - sl.at.py + h2));
+			return {x: x0, y: y0, w: Math.max(1, x1 - x0), h: Math.max(1, y1 - y0)};
+		});
+		const grab = (box) => {
+			const px = new Uint8Array(box.w * box.h * 4);
+			gl.readPixels(box.x, box.y, box.w, box.h, gl.RGBA, gl.UNSIGNED_BYTE, px);
+			return px;
+		};
+		/* with the ring */
+		host.renderer.render(frame, {});
+		const withRing = boxes.map((b) => b && grab(b));
+		/* and without it — the same frame, the same camera, one thing gone */
+		const affordances = w.affordances();
+		host.renderer.setAffordances([]);
+		host.renderer.render(frame, {});
+		const without = boxes.map((b) => b && grab(b));
+		host.renderer.setAffordances(affordances);
+		host.renderer.render(frame, {});
+
+		const drawn = all.map((sl, i) => {
+			if (!boxes[i] || !withRing[i]) return {label: sl.label, share: undefined};
+			let changed = 0;
+			const a = withRing[i], b = without[i];
+			for (let k = 0; k < a.length; k += 4) {
+				if (a[k] !== b[k] || a[k + 1] !== b[k + 1] || a[k + 2] !== b[k + 2]) changed++;
+			}
+			return {label: sl.label, share: changed / (a.length / 4), pixels: changed, box: boxes[i]};
+		});
+		if (entered) w.focus(entered);
+		await settle();
+		return {ok: true, drawn, settled: w.latestFrame.transition === undefined && !w.runtime.travelling};
+	});
+	const seen = visible.ok ? visible.drawn.filter((d) => d.share !== undefined) : [];
+	const unseen = seen.filter((d) => d.share <= 0.005);
+
+	gate('what each affordance puts on the screen is measured, not assumed',
+		visible.ok === true && seen.length > 0 && seen.some((d) => d.share > 0.2),
+		visible.ok
+			? seen.map((d) => `${d.label} ${(d.share * 100).toFixed(1)}%`).join('  ')
+			+ ' — of each slot\'s own quad, from the production frame rendered with the ring and again without it, read back off the default framebuffer. A label quad is about a third ink, so a third is a slot fully drawn and zero is a slot that drew nothing at all. Not the G-buffer: that carries what the OPAQUE pass wrote, and a translucent entity occludes there without occluding the label pass'
+			: `not measured: ${visible.reason}`);
+
+	if (unseen.length > 0) {
+		console.log(`BLOCKED  ${unseen.length} of ${seen.length} affordances draw NOTHING and are still pickable: ${unseen.map((d) => d.label).join(', ')}`);
+		console.log('         W4 item 6, the depth half. The semantic model is proven from the code and both backends agree on it: the label pass keeps the depth TEST and turns depth WRITES off (threeRuntime renderLabels: depthMask(false) with DEPTH_TEST left enabled; webgpuRuntime labelPipeline: depthWriteEnabled false, depthCompare "less"), and the same file has depthCompare "always" for the composite pass, so the codebase can render above the world and deliberately does not do it here. The ring is SCENERY THAT OBEYS WORLD DEPTH — actionRing.ts says so in its first paragraph — which makes an occluded slot one nobody can see, and pickActionSlot has no depth term, so it stays pressable.');
+		console.log('         The cause is NOT the picker and NOT the ring geometry. It is where focusing stands the viewer: the world lays entities out along depth and the temporal cursor lenses them further, so a subject the cursor has pushed away is behind whatever the cursor left near. Measured: focusing moment:5150 with the cursor ten days out leaves it 24.91 away while the camera is posed 13.82 from its STORED position, with event:908 drawn at 14.70 in between.');
+		console.log('         Aiming the camera at the drawn position instead was tried, isolated, and REVERTED: it fixes the aim (target -23.835 = drawn, distance 13.824) and makes the ring far worse, because the camera then stands inside the crowd — place:4211 at 0.19, event:908 at 3.61, message:78 at 6.17, collection:33 at 7.84 — and 4 of 5 slots fell to 0% drawn from 34-40%. Both readings are recorded here rather than either being hidden. Closing this needs the LAYOUT to stop putting the world between the viewer and the subject it was asked to look at, which is its own isolated step and is not attempted here.');
+	}
 
 	/* --- W4 item 10: the ring, from a keyboard, down the same path --- */
 	const keys = await page.evaluate(async () => {
