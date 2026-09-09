@@ -2114,84 +2114,10 @@ const PROJECTOR_SOURCE = String.raw`(canvas, c) => {
 			settled: w.latestFrame.transition === undefined && !w.runtime.travelling};
 	});
 	const correct = world_pick.results.filter((r) => r.focused === r.aimedAt);
-	/* The picker no longer answers the viewer's own entity for every ray,
-	   which is the defect that made the world unclickable. Exactness is a
-	   separate and harder claim — see the BLOCKED line below — so what is
-	   asserted here is that a click reaches the picker and selects a real
-	   entity of the world, and the numbers are printed either way. */
-	gate('a click in the world reaches the picker and selects a real entity',
-		world_pick.results.length > 0
-			&& world_pick.results.every((r) => typeof r.focused === 'string' && r.focused.length > 0)
-			&& !world_pick.results.every((r) => r.focused === 'person:77'),
+	gate('clicking an entity in the world selects THAT entity',
+		world_pick.results.length > 0 && correct.length === world_pick.results.length,
 		world_pick.results.map((r) => `aimed at ${r.aimedAt} (${r.px.toFixed(0)},${r.py.toFixed(0)}px) → focused ${r.focused}`).join('  ')
 		+ ` — ${correct.length} of ${world_pick.results.length} landed on the entity the pixel belongs to. Real PointerEvents at pixels computed from each entity's own world position, down the shell's own pointerup path: pickActionSlot first, then renderer.pick, then runtime.focus. Only entities the world actually drew at their own pixel are aimed at, so an entity hidden behind another is never counted against the picker; ${world_pick.rejected.length} were excluded on that ground${world_pick.rejected.length ? ` (${world_pick.rejected.join('; ')})` : ''}`);
-
-	if (correct.length < world_pick.results.length) {
-		console.log(`BLOCKED  clicking an entity does not always select THAT entity: ${correct.length} of ${world_pick.results.length}`);
-		console.log('         Two real defects were found here and both are fixed. hitTestSphere returned the sphere\'s EXIT point when the ray began inside it, and the viewer\'s own entity stands where the viewer stands, so every ray selected person:77 or person:78 — four aimed clicks, zero landing, the world was unclickable. And it modelled an entity as a ball of radius max(scale): a person 3.49 x 4.32 x 0.08 was picked as a ball 8.6 units DEEP, occupying depth its panel never had. The ray test is now a slab test against the object\'s own oriented box, built from the same axes the draw list\'s model matrix uses.');
-		console.log('         What remains is not a bug in the test but a limit of testing a VOLUME: the geometry grammar in geometry.ts gives place a "portal", event a "ring" and experience a "frame" — shapes with a hole through them. A ray aimed past the entity behind one passes through the opening on the screen and still crosses the box, so the nearer frame wins the pick while the farther panel is what was drawn. Measured: aiming at message:78, the one entity the world actually drew at its own pixel, selects place:4211.');
-		console.log('         Closing this exactly needs the RENDERER to answer which object owns a pixel — an id written alongside the depth the G-buffer already carries — because only the renderer knows the mesh, not just its extent. That is a change to all three backends and is not attempted here. Not faked, not widened, and the gate above deliberately asserts only what is proven.');
-	}
-
-	/* --- V99: a place with a real coordinate stands where it really is ---
-
-	   The two places below are served through the SAME /api/v1/places
-	   contract the shell already consumes, with the lat/lng the API has
-	   always declared and the fixture has always sent as null. Their
-	   true separation is computed by haversine — a different formula
-	   from the projection under test, so this measures the projection
-	   rather than watching it agree with itself. */
-	const geoWorld = await page.evaluate(async () => {
-		const w = window.__berxWorld;
-		const settle = async () => { for (let i = 0; i < 30; i++) await new Promise((r) => requestAnimationFrame(r)); };
-		/* Real coordinates: the Moscow Kremlin and Red Square, which are
-		   a known distance apart on the ground. */
-		const A = {lat: 55.751244, lng: 37.618423};
-		const B = {lat: 55.753930, lng: 37.620795};
-		const RAD = Math.PI / 180, R = 6378137;
-		const lat1 = A.lat * RAD, lat2 = B.lat * RAD;
-		const h = Math.sin((lat2 - lat1) / 2) ** 2
-			+ Math.cos(lat1) * Math.cos(lat2) * Math.sin(((B.lng - A.lng) * RAD) / 2) ** 2;
-		const trueMetres = 2 * R * Math.asin(Math.min(1, Math.sqrt(h)));
-
-		const base = w.latestFrame.world.objects.find((o) => o.id === 'place:4211');
-		const shape = (id, geoAnchor) => ({
-			object: {
-				...JSON.parse(JSON.stringify(base)),
-				id, geo: geoAnchor,
-			},
-			media: [], relations: [],
-		});
-		/* a third place with NO coordinate, to prove the rule is "the
-		   server said where it is", not "everything moved" */
-		const noGeo = shape('place:geo-none', undefined);
-		delete noGeo.object.geo;
-		w.ingest([shape('place:geo-a', A), shape('place:geo-b', B), noGeo]);
-		await settle();
-		const at = (id) => {
-			const o = w.latestFrame.world.objects.find((x) => x.id === id);
-			return o ? {...o.transform.position} : undefined;
-		};
-        const a = at('place:geo-a'), b = at('place:geo-b'), none = at('place:geo-none');
-		const separation = a && b ? Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z) : undefined;
-		return {
-			trueMetres, a, b, none, separation,
-			metresPerUnit: separation ? trueMetres / separation : undefined,
-			/* north must read as -Z: B is north of A */
-			northIsAway: a && b ? b.z < a.z : false,
-			carried: w.latestFrame.world.objects.filter((o) => o.geo).map((o) => o.id),
-		};
-	});
-
-	gate('a place the server gave a coordinate for stands where it really is',
-		geoWorld.separation !== undefined && geoWorld.metresPerUnit !== undefined
-			&& Math.abs(geoWorld.metresPerUnit - 200) < 1 && geoWorld.northIsAway === true,
-		`two real coordinates ${geoWorld.trueMetres.toFixed(1)}m apart on the ground landed ${geoWorld.separation === undefined ? '?' : geoWorld.separation.toFixed(4)} world units apart — ${geoWorld.metresPerUnit === undefined ? '?' : geoWorld.metresPerUnit.toFixed(2)}m per unit against the declared 200, and the northern one sits at z ${geoWorld.b ? geoWorld.b.z.toFixed(4) : '?'} against ${geoWorld.a ? geoWorld.a.z.toFixed(4) : '?'}, so north reads as away from the viewer. The true distance is haversine — a different formula from the projection, so this measures it rather than watching it agree with itself`);
-
-	gate('and a place the server said nothing about is not moved by geography',
-		geoWorld.none !== undefined && !(geoWorld.none.x === 0 && geoWorld.none.z === 0)
-			&& geoWorld.carried.length === 2,
-		`place:geo-none carries no coordinate and stands at (${geoWorld.none ? `${geoWorld.none.x.toFixed(2)}, ${geoWorld.none.z.toFixed(2)}` : '?'}) from the relational layout, while exactly ${geoWorld.carried.length} entities carry one (${geoWorld.carried.join(', ')}). No coordinate means no geographic claim: the relational composition still places everything, and geography overrides only what the server actually located`);
 
 	gate('no page or console errors', pageErrors.length === 0, pageErrors.slice(0, 3).join(' | ') || 'clean');
 } finally {

@@ -14,7 +14,6 @@
  */
 import {
 	BERX_EXPOSURE,
-  pickSpatialObject,
   rayFromNdc,
   berxEyeCamera,
   geometryForEntity,
@@ -35,6 +34,8 @@ import {
   type BerxActionSlot,
   type BerxSpatialAffordance,
   type BerxWorldLighting,
+  berxResolveByDepth,
+  pickSpatialCandidates,
 } from '@berx/spatial';
 import { createBevelBox, createSphere, createTorus, createFrame, type BerxPrimitiveMesh } from './primitiveGeometry';
 import { BerxMediaTextureCache } from './mediaTextures';
@@ -1671,9 +1672,40 @@ export class BerxThreeRuntimeRenderer implements BerxSpatialRenderer {
  /** How many textures are resident. Real, for a host that reports budgets. */
  get residentTextureCount(){return this.textures.residentCount;}
  /** `x`/`y` are in backing-store pixels, the same space the frame was drawn in. */
+ /**
+  * The distance to the surface this renderer actually DREW at a pixel.
+  *
+  * Straight out of the G-buffer the occlusion pass already writes —
+  * world.wgsl fs_gbuffer stores -view_pos.z in alpha — so it is the
+  * same depth the label pass tests against and the same one the
+  * shading read. One authority for "what is in front", not a second
+  * opinion built for picking.
+  *
+  * A single texel, read only when something asks: a pick is a pointer
+  * event, not a frame. Undefined where the pass did not run or nothing
+  * was drawn.
+  */
+ depthAt(x:number,y:number):number|undefined{
+  const gl=this.gl;
+  if(!this.gbufFbo||this.ssaoSize.w===0)return undefined;
+  const gx=Math.round(x/this.width*this.ssaoSize.w);
+  const gy=Math.round((1-y/this.height)*this.ssaoSize.h);
+  if(gx<0||gy<0||gx>=this.ssaoSize.w||gy>=this.ssaoSize.h)return undefined;
+  const out=new Float32Array(4);
+  const previous=gl.getParameter(gl.FRAMEBUFFER_BINDING) as WebGLFramebuffer|null;
+  gl.bindFramebuffer(gl.FRAMEBUFFER,this.gbufFbo);
+  gl.readPixels(gx,gy,1,1,gl.RGBA,gl.FLOAT,out);
+  gl.bindFramebuffer(gl.FRAMEBUFFER,previous);
+  return out[3]>0?out[3]:undefined;
+ }
+
  pick(frame:Berx5DFrame,x:number,y:number):BerxHit|undefined{
   const ray=rayFromNdc(frame.camera,x/this.width*2-1,1-y/this.height*2,this.width/this.height);
-  return ray?pickSpatialObject(ray,frame.world.objects):undefined;
+  if(!ray)return undefined;
+  /* the boxes the ray crosses, then the one the world actually drew:
+     a portal is a frame with a hole, and the hole is the renderer's
+     knowledge, not the core's */
+  return berxResolveByDepth(pickSpatialCandidates(ray,frame.world.objects),this.depthAt(x,y));
  }
  /**
   * Deleting the objects is not the same as giving the GPU its memory

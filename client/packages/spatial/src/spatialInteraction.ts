@@ -116,6 +116,55 @@ export function pickSpatialObject(ray:BerxRay,objects:readonly BerxSpatialObject
   return nearest;
 }
 
+/**
+ * EVERY object the ray crosses, nearest first.
+ *
+ * A box is not a mesh. geometry.ts gives a place a "portal", an event a
+ * "ring" and an experience a "frame" — shapes with a hole through them
+ * — so a ray aimed at something behind one passes through the opening
+ * on the screen while still crossing the nearer box. Picking the
+ * nearest box therefore selects a frame the viewer can see straight
+ * through.
+ *
+ * Nothing in this package can know about the hole: only the renderer
+ * knows the mesh. So the candidates come from here and the RENDERER
+ * says which of them it actually drew — see berxResolveByDepth. This
+ * is the same picking system asked a narrower question, not a second
+ * one.
+ */
+export function pickSpatialCandidates(ray:BerxRay,objects:readonly BerxSpatialObject[]):BerxHit[]{
+  const hits:BerxHit[]=[];
+  const direction=norm(ray.direction);
+  for(const object of objects){const hit=hitTestObject({origin:ray.origin,direction},object);if(hit)hits.push(hit);}
+  return hits.sort((a,b)=>a.distance-b.distance);
+}
+
+/**
+ * Which candidate the renderer actually drew at that pixel.
+ *
+ * `drawnDepth` is the distance along the camera's forward axis to the
+ * surface the world put on the screen there — the renderer's own
+ * G-buffer, which is the same depth its label pass tests against.
+ * The candidate whose front face sits at that distance is the one being
+ * looked at.
+ *
+ * Undefined depth means the renderer could not answer — a backend with
+ * no G-buffer, or a pixel it drew nothing into — and then the nearest
+ * candidate is the honest answer, which is exactly the old behaviour.
+ */
+export function berxResolveByDepth(candidates:readonly BerxHit[],drawnDepth:number|undefined,tolerance=1.5):BerxHit|undefined{
+  if(candidates.length===0)return undefined;
+  if(drawnDepth===undefined||!Number.isFinite(drawnDepth)||drawnDepth<=0)return candidates[0];
+  let best:BerxHit|undefined;let bestGap=Infinity;
+  for(const hit of candidates){
+    const gap=Math.abs(hit.distance-drawnDepth);
+    if(gap<bestGap){bestGap=gap;best=hit;}
+  }
+  /* nothing the ray crosses stands where the world drew: the pixel
+     belongs to something that is not a candidate at all */
+  return bestGap<=tolerance?best:undefined;
+}
+
 export function interactionRadius(object:BerxSpatialObject):number{return Math.max(object.transform.scale.x,object.transform.scale.y,object.transform.scale.z,0.35);}
 
 const cross=(a:BerxVec3,b:BerxVec3):BerxVec3=>({x:a.y*b.z-a.z*b.y,y:a.z*b.x-a.x*b.z,z:a.x*b.y-a.y*b.x});

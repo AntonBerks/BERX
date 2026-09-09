@@ -4299,6 +4299,29 @@ function pickSpatialObject(ray, objects) {
   }
   return nearest;
 }
+function pickSpatialCandidates(ray, objects) {
+  const hits = [];
+  const direction = norm(ray.direction);
+  for (const object of objects) {
+    const hit = hitTestObject({ origin: ray.origin, direction }, object);
+    if (hit) hits.push(hit);
+  }
+  return hits.sort((a, b) => a.distance - b.distance);
+}
+function berxResolveByDepth(candidates, drawnDepth, tolerance = 1.5) {
+  if (candidates.length === 0) return void 0;
+  if (drawnDepth === void 0 || !Number.isFinite(drawnDepth) || drawnDepth <= 0) return candidates[0];
+  let best;
+  let bestGap = Infinity;
+  for (const hit of candidates) {
+    const gap = Math.abs(hit.distance - drawnDepth);
+    if (gap < bestGap) {
+      bestGap = gap;
+      best = hit;
+    }
+  }
+  return bestGap <= tolerance ? best : void 0;
+}
 function interactionRadius(object) {
   return Math.max(object.transform.scale.x, object.transform.scale.y, object.transform.scale.z, 0.35);
 }
@@ -7854,9 +7877,36 @@ void main(){
         return this.textures.residentCount;
       }
       /** `x`/`y` are in backing-store pixels, the same space the frame was drawn in. */
+      /**
+       * The distance to the surface this renderer actually DREW at a pixel.
+       *
+       * Straight out of the G-buffer the occlusion pass already writes —
+       * world.wgsl fs_gbuffer stores -view_pos.z in alpha — so it is the
+       * same depth the label pass tests against and the same one the
+       * shading read. One authority for "what is in front", not a second
+       * opinion built for picking.
+       *
+       * A single texel, read only when something asks: a pick is a pointer
+       * event, not a frame. Undefined where the pass did not run or nothing
+       * was drawn.
+       */
+      depthAt(x, y) {
+        const gl = this.gl;
+        if (!this.gbufFbo || this.ssaoSize.w === 0) return void 0;
+        const gx = Math.round(x / this.width * this.ssaoSize.w);
+        const gy = Math.round((1 - y / this.height) * this.ssaoSize.h);
+        if (gx < 0 || gy < 0 || gx >= this.ssaoSize.w || gy >= this.ssaoSize.h) return void 0;
+        const out = new Float32Array(4);
+        const previous = gl.getParameter(gl.FRAMEBUFFER_BINDING);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, this.gbufFbo);
+        gl.readPixels(gx, gy, 1, 1, gl.RGBA, gl.FLOAT, out);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, previous);
+        return out[3] > 0 ? out[3] : void 0;
+      }
       pick(frame, x, y) {
         const ray = rayFromNdc(frame.camera, x / this.width * 2 - 1, 1 - y / this.height * 2, this.width / this.height);
-        return ray ? pickSpatialObject(ray, frame.world.objects) : void 0;
+        if (!ray) return void 0;
+        return berxResolveByDepth(pickSpatialCandidates(ray, frame.world.objects), this.depthAt(x, y));
       }
       /**
        * Deleting the objects is not the same as giving the GPU its memory
