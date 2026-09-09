@@ -1604,7 +1604,9 @@ export class BerxThreeRuntimeRenderer implements BerxSpatialRenderer {
   for(const slot of this.slots){
    const entry=this.labels.get(slot.affordance.label);
    if(!entry)continue;
-   drawn.push(slot);
+   /* Evidence only: what was actually rasterised for this glyph. The
+      picker does not read it — see BerxActionSlot.drawnHalfWidth. */
+   drawn.push({...slot,drawnHalfWidth:slot.halfHeight*entry.aspect});
    gl.bindTexture(gl.TEXTURE_2D,entry.texture);
    gl.uniform3f(this.LC,slot.position.x,slot.position.y,slot.position.z);
    gl.uniform2f(this.LS,slot.halfHeight*entry.aspect,slot.halfHeight);

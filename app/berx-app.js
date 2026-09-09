@@ -2574,7 +2574,8 @@ function pickActionSlot(slots, camera, rayDirection, aspect) {
     const hit = { x: rayDirection.x * scale, y: rayDirection.y * scale, z: rayDirection.z * scale };
     const dx = (hit.x - d.x) * basis.right.x + (hit.y - d.y) * basis.right.y + (hit.z - d.z) * basis.right.z;
     const dy = (hit.x - d.x) * basis.up.x + (hit.y - d.y) * basis.up.y + (hit.z - d.z) * basis.up.z;
-    if (Math.abs(dx) <= slot.halfHeight * 4 * aspect && Math.abs(dy) <= slot.halfHeight * 1.6 && along < bestDistance) {
+    const halfWidth = slot.drawnHalfWidth ?? slot.halfHeight * 4 * aspect;
+    if (Math.abs(dx) <= halfWidth && Math.abs(dy) <= slot.halfHeight * 1.6 && along < bestDistance) {
       bestDistance = along;
       best = slot;
     }
@@ -2597,7 +2598,8 @@ function berxNearActionSlots(slots, camera, rayDirection, aspect, widen = 2.6) {
     const hit = { x: rayDirection.x * scale, y: rayDirection.y * scale, z: rayDirection.z * scale };
     const dx = (hit.x - d.x) * basis.right.x + (hit.y - d.y) * basis.right.y + (hit.z - d.z) * basis.right.z;
     const dy = (hit.x - d.x) * basis.up.x + (hit.y - d.y) * basis.up.y + (hit.z - d.z) * basis.up.z;
-    if (Math.abs(dx) <= slot.halfHeight * 4 * aspect * widen && Math.abs(dy) <= slot.halfHeight * 1.6 * widen) {
+    const halfWidth = slot.drawnHalfWidth ?? slot.halfHeight * 4 * aspect;
+    if (Math.abs(dx) <= halfWidth * widen && Math.abs(dy) <= slot.halfHeight * 1.6 * widen) {
       near.push(slot.affordance.id);
     }
   }
@@ -5757,7 +5759,7 @@ void main(){
         for (const slot of this.slots) {
           const entry = this.labels.get(slot.affordance.label);
           if (!entry) continue;
-          drawn.push(slot);
+          drawn.push({ ...slot, drawnHalfWidth: slot.halfHeight * entry.aspect });
           gl.bindTexture(gl.TEXTURE_2D, entry.texture);
           gl.uniform3f(this.LC, slot.position.x, slot.position.y, slot.position.z);
           gl.uniform2f(this.LS, slot.halfHeight * entry.aspect, slot.halfHeight);
@@ -7258,7 +7260,10 @@ var init_webgpuRuntime = __esm({
           glyphs: this.labels.get(slot.affordance.label)
         }));
         const ring = ringEntries.filter((entry) => entry.glyphs !== void 0);
-        this.drawnSlots = ring.map((entry) => entry.slot);
+        this.drawnSlots = ring.map((entry) => ({
+          ...entry.slot,
+          drawnHalfWidth: entry.slot.halfHeight * (entry.glyphs?.aspect ?? 1)
+        }));
         const quads = [...named, ...ring];
         if (quads.length === 0) return 0;
         const globals = new Float32Array(LABEL_GLOBALS_BYTES / 4);

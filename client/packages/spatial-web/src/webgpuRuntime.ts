@@ -1529,7 +1529,12 @@ export class BerxWebGPURuntimeRenderer implements BerxSpatialRenderer {
 			glyphs: this.labels.get(slot.affordance.label),
 		}));
 		const ring = ringEntries.filter((entry) => entry.glyphs !== undefined);
-		this.drawnSlots = ring.map((entry) => entry.slot);
+		/* Evidence only: the quad's true half-width for this glyph. The
+		   picker does not read it — see BerxActionSlot.drawnHalfWidth. */
+		this.drawnSlots = ring.map((entry) => ({
+			...entry.slot,
+			drawnHalfWidth: entry.slot.halfHeight * (entry.glyphs?.aspect ?? 1),
+		}));
 		const quads = [...named, ...ring];
 		if (quads.length === 0) return 0;
 

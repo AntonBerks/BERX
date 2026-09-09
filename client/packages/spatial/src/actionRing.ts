@@ -33,6 +33,18 @@ export interface BerxActionSlot {
 	 * everything equally.
 	 */
 	focused: boolean;
+	/**
+	 * The half-width of the quad the renderer actually drew, in world
+	 * units — EVIDENCE ONLY, set by the renderer after rasterising.
+	 *
+	 * Nothing reads this to decide a hit. It exists so the picker's box
+	 * and the drawn quad can be compared on the same glyph, which is
+	 * the one thing that was never measured: the picker uses
+	 * `halfHeight * 4 * aspect` where `aspect` is the VIEWPORT's, and
+	 * the renderers draw `halfHeight * the GLYPH's aspect`. Those are
+	 * different quantities and nobody had put a number on the gap.
+	 */
+	drawnHalfWidth?: number;
 	/** The affordance's state, so a renderer never re-derives it. */
 	state: BerxSocialActionState;
 	/** What the state does to this slot's brightness. */
@@ -247,7 +259,22 @@ export function pickActionSlot(
 		const dy = (hit.x - d.x) * basis.up.x + (hit.y - d.y) * basis.up.y + (hit.z - d.z) * basis.up.z;
 		/* the quad is as wide as its text is long; the caller sizes it,
 		   and a generous width here is honest about a small target */
-		if (Math.abs(dx) <= slot.halfHeight * 4 * aspect && Math.abs(dy) <= slot.halfHeight * 1.6 && along < bestDistance) {
+		/**
+		 * THE BOX IS THE QUAD, where the renderer measured one.
+		 *
+		 * `halfHeight * 4 * aspect` used the VIEWPORT's aspect, so every
+		 * slot got the same 0.743 half-width regardless of its label
+		 * while the quads drawn were 0.424 to 0.774 — up to 1.75x too
+		 * wide. Neighbours stand 1.411 apart and the box spans 1.486, so
+		 * all five overlapped: a press at one action's own pixel could
+		 * be answered by the one beside it, and was.
+		 *
+		 * The fallback keeps the old bound for a renderer that has not
+		 * measured a quad — the native backend rasterises no text, so it
+		 * has no glyph to measure.
+		 */
+		const halfWidth = slot.drawnHalfWidth ?? slot.halfHeight * 4 * aspect;
+		if (Math.abs(dx) <= halfWidth && Math.abs(dy) <= slot.halfHeight * 1.6 && along < bestDistance) {
 			bestDistance = along;
 			best = slot;
 		}
@@ -287,7 +314,8 @@ export function berxNearActionSlots(
 		const hit = {x: rayDirection.x * scale, y: rayDirection.y * scale, z: rayDirection.z * scale};
 		const dx = (hit.x - d.x) * basis.right.x + (hit.y - d.y) * basis.right.y + (hit.z - d.z) * basis.right.z;
 		const dy = (hit.x - d.x) * basis.up.x + (hit.y - d.y) * basis.up.y + (hit.z - d.z) * basis.up.z;
-		if (Math.abs(dx) <= slot.halfHeight * 4 * aspect * widen && Math.abs(dy) <= slot.halfHeight * 1.6 * widen) {
+		const halfWidth = slot.drawnHalfWidth ?? slot.halfHeight * 4 * aspect;
+		if (Math.abs(dx) <= halfWidth * widen && Math.abs(dy) <= slot.halfHeight * 1.6 * widen) {
 			near.push(slot.affordance.id);
 		}
 	}

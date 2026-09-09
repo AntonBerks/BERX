@@ -1351,6 +1351,38 @@ try {
 		};
 
 		/**
+		 * STEP 3/4: the picker's box against the drawn quad, same glyph.
+		 *
+		 * Measurement only — nothing here changes what is pickable. The
+		 * picker tests |dx| <= halfHeight * 4 * VIEWPORT aspect; the
+		 * renderers draw halfHeight * the GLYPH's aspect. Whether those
+		 * agree had never been given a number, and the neighbour-capture
+		 * this gate found earlier is only explicable in these terms.
+		 */
+		const canvasEl = document.querySelector('canvas');
+		const viewportAspect = canvasEl.width / canvasEl.height;
+		const geometry = host.renderer.actionSlots.map((sl) => {
+			/* what the picker used to use, and what it uses now */
+			const wasHalfWidth = sl.halfHeight * 4 * viewportAspect;
+			const nowHalfWidth = sl.drawnHalfWidth ?? wasHalfWidth;
+			return {
+				id: sl.affordance.id, label: sl.affordance.label,
+				halfHeight: sl.halfHeight,
+				wasHalfWidth, nowHalfWidth,
+				drawnHalfWidth: sl.drawnHalfWidth,
+				ratio: sl.drawnHalfWidth ? wasHalfWidth / sl.drawnHalfWidth : undefined,
+			};
+		});
+		/* And how far apart neighbouring slots actually stand, so an
+		   overlap is a fact rather than an inference. */
+		const gaps = [];
+		const ordered = host.renderer.actionSlots;
+		for (let i = 1; i < ordered.length; i++) {
+			const a = ordered[i - 1].position, b = ordered[i].position;
+			gaps.push(Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z));
+		}
+
+		/**
 		 * AN AFFORDANCE WITH NOTHING TO RASTERISE.
 		 *
 		 * My first attempt used a label the atlas had never seen, on the
@@ -1381,7 +1413,7 @@ try {
 		await settle();
 		await new Promise((r) => setTimeout(r, 1500));
 		await settle();
-		return {resident, afterInvented, settled: w.latestFrame.transition === undefined && !w.runtime.travelling};
+		return {resident, geometry, gaps, viewportAspect, afterInvented, settled: w.latestFrame.transition === undefined && !w.runtime.travelling};
 	});
 
 	gate('a resident affordance is both drawn and pickable',
@@ -1393,6 +1425,27 @@ try {
 		residency.afterInvented.requestedIds.includes(residency.afterInvented.missingId)
 			&& !residency.afterInvented.drawnIds.includes(residency.afterInvented.missingId),
 		`${residency.afterInvented.missingId} carried an empty label: present in requestedSlots, absent from actionSlots (${residency.afterInvented.drawnIds.length} drawn of ${residency.afterInvented.requestedIds.length} requested), so the picker cannot reach it. actionSlots used to return the REQUESTED set. A label the atlas has never seen does NOT exercise this — get() rasterises on demand, which is a correction to what I first reported from reading the code`);
+
+	/* --- W4 item 6, step 3/4: the picker's box against the drawn quad --- */
+	const geo = residency.geometry.filter((g) => g.drawnHalfWidth !== undefined);
+	const worst = geo.reduce((m, g) => (g.ratio ?? 0) > (m?.ratio ?? 0) ? g : m, undefined);
+	const minGap = residency.gaps.length ? Math.min(...residency.gaps) : undefined;
+	const overlapping = geo.filter((g) => minGap !== undefined && g.nowHalfWidth * 2 > minGap).length;
+
+	gate('the picker\'s hit box IS the quad that was drawn',
+		geo.length > 0 && geo.every((g) => Math.abs(g.nowHalfWidth - g.drawnHalfWidth) < 1e-9),
+		geo.map((g) => `${g.label}: ${g.nowHalfWidth.toFixed(3)} (was ${g.wasHalfWidth.toFixed(3)}, x${g.ratio.toFixed(2)})`).join('  ')
+		+ ` — viewport aspect ${residency.viewportAspect.toFixed(2)}. The old bound was halfHeight x 4 x the VIEWPORT's aspect, so every slot got the same width whatever its label; the quad is halfHeight x the GLYPH's aspect. The picker now uses the second`);
+
+	const stillWide = geo.filter((g) => minGap !== undefined && g.nowHalfWidth * 2 > minGap).map((g) => g.label);
+	gate('and far fewer neighbouring boxes overlap',
+		minGap !== undefined && overlapping < geo.length,
+		`nearest neighbours stand ${minGap.toFixed(3)} apart; ${overlapping} of ${geo.length} slots still have a box wider than that gap${stillWide.length ? ` (${stillWide.join(', ')})` : ''}. Under the old bound ALL ${geo.length} did — 1.486 of box against 1.411 of spacing — which is how a press at one action's own pixel was answered by the one beside it`);
+
+	if (overlapping > 0) {
+		console.log(`BLOCKED  ${overlapping} affordance box(es) still wider than the ring's spacing: ${stillWide.join(', ')}`);
+		console.log("         The ring sizes its arc from an ESTIMATE of label width (WIDTH_PER_CHARACTER in actionRing.ts), and the estimate is short for the longest name. Closing it means spacing the ring by the width the renderer measured rather than by a guess — a change to LAYOUT, not to picking, and therefore a separate isolated step. Not attempted here, and not asserted as passing");
+	}
 
 	gate('the residency probe leaves the world as it found it',
 		residency.settled === true,
