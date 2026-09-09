@@ -6940,6 +6940,8 @@ void main(){
         /** Where the ring stood last frame, so a tap can be tested against it. */
         this.slots = [];
         this.drawnSlots = [];
+        this.visibleFor = -1;
+        this.drawId = 0;
         /** What the last frame actually cost. Measured during the draw. */
         this.stats = { visible: 0, inFrustum: 0, drawCalls: 0, triangles: 0, lodReduced: 0, budgetCut: 0, residentTextures: 0, residentLabels: 0, meshVariants: 0 };
         const gl = canvas.getContext("webgl2", { antialias: true, alpha: false, depth: true, powerPreference: "high-performance" });
@@ -7577,6 +7579,7 @@ void main(){
           memory: options.stable === false ? void 0 : this.memory
         });
         this.memory = list.memory;
+        this.drawId++;
         const stages = [];
         if (list.shadow) stages.push("shadows");
         this.renderShadowMap(list);
@@ -7821,6 +7824,8 @@ void main(){
           calls++;
         }
         this.drawnSlots = drawn;
+        this.slotView = { projection: list.projection, view: list.view, width: this.width, height: this.height, id: this.drawId };
+        this.visibleSlots = void 0;
         gl.depthMask(true);
         gl.enable(gl.CULL_FACE);
         gl.bindVertexArray(null);
@@ -7837,7 +7842,54 @@ void main(){
       }
       /** Where the ring stood in the last drawn frame. */
       /** The slots the last frame actually DREW — what the picker reads. */
+      /**
+       * RENDERABILITY IS PICKABILITY — the depth half.
+       *
+       * Residency already removed slots whose glyphs never rasterised. This
+       * removes the ones the DEPTH TEST removed: the label pass keeps the
+       * test and turns writes off, so a slot standing behind a nearer
+       * surface draws nothing at all, and the picker had no depth term and
+       * went on accepting it. Measured on the shipped shell, "Сохранить"
+       * stood at 24.91 with event:908 drawn at 14.32 across it: zero pixels
+       * of its own quad, still pressable.
+       *
+       * The depth is this renderer's own G-buffer — the same one the label
+       * pass tests against and the same one renderer.pick resolves entity
+       * ownership with. No second visibility rule, no second policy, and
+       * nothing is disabled: a slot is pickable exactly while it is on the
+       * screen, which is the rule residency already stated.
+       *
+       * Computed on demand and cached per drawn frame: a pick is a pointer
+       * event, and a readPixels per slot per frame would be a stall the
+       * world does not need.
+       */
       get actionSlots() {
+        const at = this.slotView;
+        if (!at || this.drawnSlots.length === 0) return this.drawnSlots;
+        if (this.visibleSlots && this.visibleFor === at.id) return this.visibleSlots;
+        const P = at.projection, V2 = at.view;
+        const seen = this.drawnSlots.filter((slot) => {
+          const p = slot.position;
+          const vz = V2[2] * p.x + V2[6] * p.y + V2[10] * p.z + V2[14];
+          const depth = -vz;
+          if (depth <= 0) return false;
+          const vx = V2[0] * p.x + V2[4] * p.y + V2[8] * p.z + V2[12];
+          const vy = V2[1] * p.x + V2[5] * p.y + V2[9] * p.z + V2[13];
+          const cw = P[3] * vx + P[7] * vy + P[11] * vz + P[15];
+          if (Math.abs(cw) < 1e-6) return true;
+          const cx = P[0] * vx + P[4] * vy + P[8] * vz + P[12];
+          const cy = P[1] * vx + P[5] * vy + P[9] * vz + P[13];
+          const px = (cx / cw * 0.5 + 0.5) * at.width;
+          const py = (0.5 - cy / cw * 0.5) * at.height;
+          const scene = this.depthAt(px, py);
+          return scene === void 0 || scene >= depth - 0.05;
+        });
+        this.visibleSlots = seen;
+        this.visibleFor = at.id;
+        return seen;
+      }
+      /** Drawn, before the depth test removed any — for measurement. */
+      get residentSlots() {
         return this.drawnSlots;
       }
       /** What was requested, so the difference can be measured. */

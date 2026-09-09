@@ -766,6 +766,10 @@ export class BerxThreeRuntimeRenderer implements BerxSpatialRenderer {
  private affordances:readonly BerxSpatialAffordance[]=[];
  /** Where the ring stood last frame, so a tap can be tested against it. */
  private slots:BerxActionSlot[]=[];private drawnSlots:readonly BerxActionSlot[]=[];
+ /* the view and projection the ring was drawn with, so a slot can be
+    put back on the screen it was drawn on */
+ private slotView?:{projection:number[];view:number[];width:number;height:number;id:number};
+ private visibleSlots?:readonly BerxActionSlot[];private visibleFor=-1;private drawId=0;
  /** What the last frame actually cost. Measured during the draw. */
  private stats:BerxFrameStats={visible:0,inFrustum:0,drawCalls:0,triangles:0,lodReduced:0,budgetCut:0,residentTextures:0,residentLabels:0,meshVariants:0};
  constructor(canvas:HTMLCanvasElement,options:{textureBudget?:number;labelBudget?:number;onMediaError?:(uri:string,error:unknown)=>void}={}){const gl=canvas.getContext('webgl2',{antialias:true,alpha:false,depth:true,powerPreference:'high-performance'});if(!gl)throw Error('BERX 5D requires WebGL2');this.gl=gl;this.program=program(gl);this.P=gl.getUniformLocation(this.program,'P');this.V=gl.getUniformLocation(this.program,'V');this.M=gl.getUniformLocation(this.program,'M');this.BASE=gl.getUniformLocation(this.program,'BASE');this.EMIT=gl.getUniformLocation(this.program,'EMIT');this.CAM=gl.getUniformLocation(this.program,'CAM');this.AMB=gl.getUniformLocation(this.program,'AMB');this.ENV_ZEN=gl.getUniformLocation(this.program,'ENV_ZEN');this.ENV_HOR=gl.getUniformLocation(this.program,'ENV_HOR');this.ENV_GND=gl.getUniformLocation(this.program,'ENV_GND');this.ENV_SUN_DIR=gl.getUniformLocation(this.program,'ENV_SUN_DIR');this.ENV_SUN=gl.getUniformLocation(this.program,'ENV_SUN');this.AO_MAP=gl.getUniformLocation(this.program,'AO_MAP');this.AO_ON=gl.getUniformLocation(this.program,'AO_ON');
@@ -1371,6 +1375,7 @@ export class BerxThreeRuntimeRenderer implements BerxSpatialRenderer {
   /* The light's own pass comes first: the main pass reads the depth it
      writes. Its camera is the shared core's (list.shadow), so this
      backend and the others put the light in exactly the same place. */
+  this.drawId++;
   const stages:string[]=[];
   if(list.shadow) stages.push('shadows');
   this.renderShadowMap(list);
@@ -1634,6 +1639,8 @@ export class BerxThreeRuntimeRenderer implements BerxSpatialRenderer {
    gl.drawArrays(gl.TRIANGLES,0,6);calls++;
   }
   this.drawnSlots=drawn;
+  this.slotView={projection:list.projection,view:list.view,width:this.width,height:this.height,id:this.drawId};
+  this.visibleSlots=undefined;
   gl.depthMask(true);
   gl.enable(gl.CULL_FACE);
   gl.bindVertexArray(null);gl.bindTexture(gl.TEXTURE_2D,null);
@@ -1646,7 +1653,57 @@ export class BerxThreeRuntimeRenderer implements BerxSpatialRenderer {
  setAffordances(affordances:readonly BerxSpatialAffordance[]){this.affordances=affordances;}
  /** Where the ring stood in the last drawn frame. */
  /** The slots the last frame actually DREW — what the picker reads. */
- get actionSlots():readonly BerxActionSlot[]{return this.drawnSlots;}
+ /**
+  * RENDERABILITY IS PICKABILITY — the depth half.
+  *
+  * Residency already removed slots whose glyphs never rasterised. This
+  * removes the ones the DEPTH TEST removed: the label pass keeps the
+  * test and turns writes off, so a slot standing behind a nearer
+  * surface draws nothing at all, and the picker had no depth term and
+  * went on accepting it. Measured on the shipped shell, "Сохранить"
+  * stood at 24.91 with event:908 drawn at 14.32 across it: zero pixels
+  * of its own quad, still pressable.
+  *
+  * The depth is this renderer's own G-buffer — the same one the label
+  * pass tests against and the same one renderer.pick resolves entity
+  * ownership with. No second visibility rule, no second policy, and
+  * nothing is disabled: a slot is pickable exactly while it is on the
+  * screen, which is the rule residency already stated.
+  *
+  * Computed on demand and cached per drawn frame: a pick is a pointer
+  * event, and a readPixels per slot per frame would be a stall the
+  * world does not need.
+  */
+ get actionSlots():readonly BerxActionSlot[]{
+  const at=this.slotView;
+  if(!at||this.drawnSlots.length===0)return this.drawnSlots;
+  if(this.visibleSlots&&this.visibleFor===at.id)return this.visibleSlots;
+  const P=at.projection,V=at.view;
+  const seen=this.drawnSlots.filter((slot)=>{
+   const p=slot.position;
+   /* into view space, then to the pixel it was drawn at */
+   const vz=V[2]*p.x+V[6]*p.y+V[10]*p.z+V[14];
+   const depth=-vz;
+   if(depth<=0)return false;
+   const vx=V[0]*p.x+V[4]*p.y+V[8]*p.z+V[12];
+   const vy=V[1]*p.x+V[5]*p.y+V[9]*p.z+V[13];
+   const cw=P[3]*vx+P[7]*vy+P[11]*vz+P[15];
+   if(Math.abs(cw)<1e-6)return true;
+   const cx=P[0]*vx+P[4]*vy+P[8]*vz+P[12];
+   const cy=P[1]*vx+P[5]*vy+P[9]*vz+P[13];
+   const px=(cx/cw*.5+.5)*at.width;
+   const py=(.5-cy/cw*.5)*at.height;
+   const scene=this.depthAt(px,py);
+   /* nothing drawn there, or the nearest surface IS this slot's own
+      depth: a quad has no thickness, so the bias only has to cover the
+      G-buffer's own quantisation */
+   return scene===undefined||scene>=depth-0.05;
+  });
+  this.visibleSlots=seen;this.visibleFor=at.id;
+  return seen;
+ }
+ /** Drawn, before the depth test removed any — for measurement. */
+ get residentSlots():readonly BerxActionSlot[]{return this.drawnSlots;}
  /** What was requested, so the difference can be measured. */
  get requestedSlots():readonly BerxActionSlot[]{return this.slots;}
  /** Relight the world. Lights are state, not constants baked into a shader. */

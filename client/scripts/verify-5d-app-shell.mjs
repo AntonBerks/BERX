@@ -149,6 +149,9 @@ try {
 	let crashedOnce = false;
 	const watch = (target) => {
 		target.on('pageerror', (e) => pageErrors.push(e.message));
+		/* name the resource: "404" with no url cannot be acted on */
+		target.on('requestfailed', (r) => pageErrors.push(`requestfailed ${r.url()}`));
+		target.on('response', (r) => { if (r.status() === 404) pageErrors.push(`404 ${r.url()}`); });
 		target.on('console', (m) => {
 			if (m.type() === 'error') pageErrors.push(m.text());
 		});
@@ -1186,7 +1189,7 @@ const PROJECTOR_SOURCE = String.raw`(canvas, c) => {
 		/** What the world says, and what the renderer got, for one state. */
 		const snap = (label) => {
 			const affs = w.affordances().map((a) => ({id: a.id, action: a.action, state: a.state}));
-			const slots = host.renderer.actionSlots.map((s) => ({
+			const slots = host.renderer.residentSlots.map((s) => ({
 				id: s.affordance.id, state: s.state, halfHeight: s.halfHeight, alpha: s.alpha,
 				y: Math.round(s.position.y * 1000) / 1000,
 			}));
@@ -1294,13 +1297,13 @@ const PROJECTOR_SOURCE = String.raw`(canvas, c) => {
 		await settle();
 
 		/* hidden: never becomes a slot at all */
-		const beforeHidden = host.renderer.actionSlots.length;
+		const beforeHidden = host.renderer.residentSlots.length;
 		w.focus('moment:5150');
 		await settle();
 		const visibleRing = w.affordances().map((a) => a.id);
 		host.renderer.setAffordances(w.affordances().map((a) => ({...a, state: 'hidden'})));
 		host.renderer.render(w.latestFrame, {});
-		const hiddenSlots = host.renderer.actionSlots.length;
+		const hiddenSlots = host.renderer.residentSlots.length;
 
 		if (entered.focus) w.focus(entered.focus);
 		await settle();
@@ -1376,7 +1379,7 @@ const PROJECTOR_SOURCE = String.raw`(canvas, c) => {
 
 		const resident = {
 			requested: host.renderer.requestedSlots.map((s) => s.affordance.id),
-			drawn: host.renderer.actionSlots.map((s) => s.affordance.id),
+			drawn: host.renderer.residentSlots.map((s) => s.affordance.id),
 		};
 
 		/**
@@ -1390,7 +1393,7 @@ const PROJECTOR_SOURCE = String.raw`(canvas, c) => {
 		 */
 		const canvasEl = document.querySelector('canvas');
 		const viewportAspect = canvasEl.width / canvasEl.height;
-		const geometry = host.renderer.actionSlots.map((sl) => {
+		const geometry = host.renderer.residentSlots.map((sl) => {
 			/* what the picker used to use, and what it uses now */
 			const wasHalfWidth = sl.halfHeight * 4 * viewportAspect;
 			const nowHalfWidth = sl.drawnHalfWidth ?? wasHalfWidth;
@@ -1412,7 +1415,7 @@ const PROJECTOR_SOURCE = String.raw`(canvas, c) => {
 		   be its most generously spaced. */
 		const gaps = [];
 		const pairs = [];
-		const ordered = host.renderer.actionSlots;
+		const ordered = host.renderer.residentSlots;
 		for (let i = 1; i < ordered.length; i++) {
 			const a = ordered[i - 1], b = ordered[i];
 			const distance = Math.hypot(
@@ -1427,7 +1430,7 @@ const PROJECTOR_SOURCE = String.raw`(canvas, c) => {
 		}
 		/* Where every slot is drawn, through the gate's ONE projector. */
 		const {project} = window.__berxProjector(canvasEl, w.latestFrame.camera);
-		const onScreen = host.renderer.actionSlots.map((sl) => {
+		const onScreen = host.renderer.residentSlots.map((sl) => {
 			const at = project(sl.position);
 			if (!at) return {label: sl.affordance.label, whole: false, reason: 'behind the eye'};
 			/* the whole quad, at the widest it ever stands — a centre
@@ -1463,10 +1466,10 @@ const PROJECTOR_SOURCE = String.raw`(canvas, c) => {
 		host.renderer.render(w.latestFrame, {});
 		const afterInvented = {
 			requested: host.renderer.requestedSlots.map((s) => s.affordance.label),
-			drawn: host.renderer.actionSlots.map((s) => s.affordance.label),
+			drawn: host.renderer.residentSlots.map((s) => s.affordance.label),
 			missing: invented[0].label,
 			missingId: invented[0].id,
-			drawnIds: host.renderer.actionSlots.map((sl) => sl.affordance.id),
+			drawnIds: host.renderer.residentSlots.map((sl) => sl.affordance.id),
 			requestedIds: host.renderer.requestedSlots.map((sl) => sl.affordance.id),
 		};
 
@@ -1480,7 +1483,7 @@ const PROJECTOR_SOURCE = String.raw`(canvas, c) => {
 	gate('a resident affordance is both drawn and pickable',
 		residency.resident.drawn.length > 0
 			&& residency.resident.drawn.length === residency.resident.requested.length,
-		`${residency.resident.requested.length} requested, ${residency.resident.drawn.length} drawn: ${residency.resident.drawn.join(', ')} — with every glyph resident the two sets are the same set, which is the invariant holding in the ordinary case rather than only in the failure case`);
+		`${residency.resident.requested.length} requested, ${residency.resident.drawn.length} resident: ${residency.resident.drawn.join(', ')} — with every glyph resident the two sets are the same set, which is the invariant holding in the ordinary case rather than only in the failure case`);
 
 	gate('an affordance with nothing to rasterise is requested, never drawn, and not pickable',
 		residency.afterInvented.requestedIds.includes(residency.afterInvented.missingId)
@@ -1634,7 +1637,7 @@ const PROJECTOR_SOURCE = String.raw`(canvas, c) => {
 			active: frame.world.activeObjectId,
 			travelling: w.runtime.travelling,
 		} : undefined;
-		const ndc = host.renderer.actionSlots.map((sl) => {
+		const ndc = host.renderer.residentSlots.map((sl) => {
 			const at = project(sl.position);
 			return at ? {
 				label: sl.affordance.label,
@@ -1688,7 +1691,7 @@ const PROJECTOR_SOURCE = String.raw`(canvas, c) => {
 		if (!gl) return {ok: false, reason: 'no GL handle on the renderer'};
 		const frame = w.latestFrame;
 		const {project} = window.__berxProjector(canvas, frame.camera);
-		const all = host.renderer.actionSlots.map((sl) => ({
+		const all = (host.renderer.residentSlots ?? host.renderer.actionSlots).map((sl) => ({
 			label: sl.affordance.label,
 			at: project(sl.position),
 			halfW: sl.reservedHalfWidth, halfH: sl.halfHeight,
@@ -1719,6 +1722,9 @@ const PROJECTOR_SOURCE = String.raw`(canvas, c) => {
 		const without = boxes.map((b) => b && grab(b));
 		host.renderer.setAffordances(affordances);
 		host.renderer.render(frame, {});
+		/* the pickable set for THIS frame, before the probe puts the
+		   camera back where it found it */
+		const pickable = host.renderer.actionSlots.map((sl) => sl.affordance.label);
 
 		/**
 		 * THREE ORACLES ON ONE FRAME.
@@ -1765,7 +1771,7 @@ const PROJECTOR_SOURCE = String.raw`(canvas, c) => {
 		});
 		if (entered) w.focus(entered);
 		await settle();
-		return {ok: true, drawn, settled: w.latestFrame.transition === undefined && !w.runtime.travelling};
+		return {ok: true, drawn, pickable, settled: w.latestFrame.transition === undefined && !w.runtime.travelling};
 	});
 	if (visible.ok) {
 		console.log('NOTE  three oracles on one frame — drawn share is the truth, the other two are candidates:');
@@ -1795,11 +1801,18 @@ const PROJECTOR_SOURCE = String.raw`(canvas, c) => {
 			console.log(`      ${d.label.padEnd(16)} drawn ${(d.share*100).toFixed(1).padStart(5)}%  slot at ${d.slotDepth.toFixed(2)}  world drew ${d.gbuffer === undefined ? 'nothing' : d.gbuffer.toFixed(2)} there  (${d.pickedId ?? 'no candidate'})`);
 		}
 	}
+	/* RENDERED == PICKABLE, asserted on the two sets themselves. */
+	const pickable = new Set(visible.ok ? visible.pickable : []);
+	const acceptedBlind = seen.filter((d) => d.share <= 0.005 && pickable.has(d.label));
+	gate('every affordance the picker will accept is one that put pixels on the screen',
+		visible.ok === true && acceptedBlind.length === 0 && pickable.size > 0,
+		seen.map((d) => `${d.label} ${(d.share * 100).toFixed(1)}%${pickable.has(d.label) ? '' : ' (not pickable)'}`).join('  ')
+		+ ` — ${pickable.size} of ${seen.length} resident slots are in renderer.actionSlots, the set pickActionSlot reads. A slot the DEPTH TEST removed is removed from the pickable set in the same place residency already removed one whose glyphs never rasterised: one rule, the renderer's own G-buffer, and no second visibility policy`);
+
 	if (unseen.length > 0) {
-		console.log(`BLOCKED  ${unseen.length} of ${seen.length} affordances draw NOTHING and are still pickable: ${unseen.map((d) => d.label).join(', ')}`);
-		console.log('         W4 item 6, the depth half. The semantic model is proven from the code and both backends agree on it: the label pass keeps the depth TEST and turns depth WRITES off (threeRuntime renderLabels: depthMask(false) with DEPTH_TEST left enabled; webgpuRuntime labelPipeline: depthWriteEnabled false, depthCompare "less"), and the same file has depthCompare "always" for the composite pass, so the codebase can render above the world and deliberately does not do it here. The ring is SCENERY THAT OBEYS WORLD DEPTH — actionRing.ts says so in its first paragraph — which makes an occluded slot one nobody can see, and pickActionSlot has no depth term, so it stays pressable.');
-		console.log('         The cause is NOT the picker and NOT the ring geometry. It is where focusing stands the viewer: the world lays entities out along depth and the temporal cursor lenses them further, so a subject the cursor has pushed away is behind whatever the cursor left near. Measured: focusing moment:5150 with the cursor ten days out leaves it 24.91 away while the camera is posed 13.82 from its STORED position, with event:908 drawn at 14.70 in between.');
-		console.log('         Aiming the camera at the drawn position instead was tried TWICE — once before and once after the relational layout was corrected — and REVERTED both times: it fixes the aim but stands the camera inside the crowd, and 4 of 5 slots fall to 0% drawn from 34-40%. Both readings are recorded rather than either being hidden. What blocks this one slot is measured above: an unrelated entity drawn 10 units nearer than the ring it crosses. Closing it is a COMPOSITION question — the world must not stand between a viewer and the actions of the thing they asked to look at — and it is not closed by giving the ring permission to ignore depth, nor by making an invisible action unpickable.');
+		console.log(`BLOCKED  ${unseen.length} of ${seen.length} affordances are occluded and so cannot be reached at all: ${unseen.map((d) => d.label).join(', ')}`);
+		console.log('         Parity holds: an occluded slot draws nothing and is no longer in the pickable set, enforced by the renderer\'s own G-buffer in the same place residency runs. What is left is a COMPOSITION fact, not a picking one — an unrelated entity is drawn between the viewer and one of the actions belonging to the entity they asked to look at, measured above as the depth the world drew at that slot\'s pixel.');
+		console.log('         Aiming the camera at an entity\'s drawn rather than stored position was tried TWICE, before and after the relational layout was corrected, and reverted both times: it fixes the aim and stands the camera inside the crowd, taking 4 of 5 slots to 0% drawn. Closing this means the world not standing between a viewer and the actions of the thing they are looking at. Not closed by letting the ring ignore depth, and not hidden.');
 	}
 
 	/* --- W4 item 10: the ring, from a keyboard, down the same path --- */

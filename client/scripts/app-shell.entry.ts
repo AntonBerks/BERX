@@ -153,6 +153,26 @@ async function enterWorld(): Promise<void> {
 					return {object: mapped.object, relations: mapped.relations, media: mapped.media};
 				}
 				case 'save': {
+					/**
+					 * SAVE IS A PLACE ENDPOINT, AND ONLY A PLACE HAS ONE.
+					 *
+					 * The domain offers "save" on a moment and on a
+					 * collection too (spatialAffordances.ts), and this
+					 * sent all three to savePlace — so saving a moment
+					 * posted to /places/5150/save and the server
+					 * answered 404 for a resource of a different kind
+					 * entirely. It was invisible because a 404 is how
+					 * this shell reports "not on the server", except
+					 * that this one was not the server missing a
+					 * capability: it was BERX asking the wrong question.
+					 *
+					 * Anything the server has no save for now goes down
+					 * the same path as «follow» — named, refused, and
+					 * the world left exactly as it was.
+					 */
+					if (object.kind !== 'place' && object.kind !== 'business') {
+						throw new Error(`BERX: «${action}» пока нет на сервере для «${object.kind}»`);
+					}
 					await api.savePlace(guid);
 					const places = await api.places();
 					const found = places.places.find((p) => p.guid === guid);
