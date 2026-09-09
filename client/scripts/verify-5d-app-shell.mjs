@@ -1552,6 +1552,129 @@ const PROJECTOR_SOURCE = String.raw`(canvas, c) => {
 	 * A probe that mutates the world goes after the gates that measure
 	 * it. Restoring focus by hand was not enough and is not the fix.
 	 */
+	/* --- W4 item 6, depth: what actually stands in front of a slot ---
+
+	   Read-only. The G-buffer the SSAO pass writes carries VIEW DEPTH in
+	   its alpha (world.wgsl fs_gbuffer: -view_pos.z), cleared to 0 where
+	   no geometry was drawn, and it is written by the opaque pass — which
+	   is exactly the depth buffer the label pass tests against. So this
+	   reads what the production renderer itself would compare each slot
+	   with, rather than re-deriving an occlusion rule of its own. */
+	await installProjector();
+	const depth = await page.evaluate(async () => {
+		const w = window.__berxWorld;
+		const host = window.__berxHost;
+		const canvas = document.querySelector('canvas');
+		const settle = async () => { for (let i = 0; i < 40; i++) await new Promise((r) => requestAnimationFrame(r)); };
+		const entered = w.worldPosition.focusId;
+		w.focus('moment:5150');
+		await settle();
+		/* Render THIS frame explicitly before reading, so the buffer
+		   belongs to the camera the projection uses. The SSAO pass only
+		   runs when the tier asks for it, so a buffer read without this
+		   can be from an older frame with an older camera — which is
+		   what a first reading of this looked like: the focused entity
+		   appeared to be occluded by something 10 units in front of it. */
+		const frame = w.latestFrame;
+		host.renderer.render(frame, {});
+		const buffers = host.renderer.readSSAOBuffers?.();
+		const {project} = window.__berxProjector(canvas, frame.camera);
+		const read = (px, py) => {
+			if (!buffers) return undefined;
+			const gx = Math.round(px / canvas.width * buffers.width);
+			const gy = Math.round((1 - py / canvas.height) * buffers.height);
+			let nearest;
+			for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+				const x = gx + dx, y = gy + dy;
+				if (x < 0 || y < 0 || x >= buffers.width || y >= buffers.height) continue;
+				const a = buffers.gbuffer[(y * buffers.width + x) * 4 + 3];
+				if (a > 0 && (nearest === undefined || a < nearest)) nearest = a;
+			}
+			return nearest;
+		};
+		const slots = host.renderer.actionSlots.map((sl) => {
+			const at = project(sl.position);
+			return {
+				label: sl.affordance.label,
+				slotDepth: at ? at.along : undefined,
+				sceneDepth: at ? read(at.px, at.py) : undefined,
+				px: at ? at.px : undefined, py: at ? at.py : undefined,
+			};
+		});
+		/* and the focused entity itself, as a control: something the world
+		   definitely DID draw */
+		const object = frame.world.objects.find((o) => o.id === 'moment:5150');
+		const objAt = object ? project(object.transform.position) : undefined;
+		const control = objAt ? {depth: objAt.along, scene: read(objAt.px, objAt.py)} : undefined;
+		/* Where the camera actually stands, and where the ring's own
+		   radius says it should. A slot's depth is only meaningful
+		   against the camera that produced it. */
+		const cam = frame.camera;
+		/* The canonical entity — what focus() poses the camera from —
+		   against the frame's, which is what everything DRAWS. */
+		const canonical = w.runtime.world.getObject('moment:5150');
+		/* and whatever the world actually put in front of the ring */
+		const inFront = frame.world.objects.map((o) => {
+			const at = project(o.transform.position);
+			return at ? {id: o.id, along: at.along, ndcX: at.ndcX, ndcY: at.ndcY} : undefined;
+		}).filter(Boolean).sort((a, b) => a.along - b.along).slice(0, 4);
+		const stand = object ? {
+			canonicalZ: canonical ? canonical.transform.position.z : undefined,
+			frameZ: object.transform.position.z,
+			inFront,
+			object: {...object.transform.position},
+			scale: {...object.transform.scale},
+			camera: {...cam.position},
+			target: {...cam.target},
+			distance: Math.hypot(
+				cam.position.x - object.transform.position.x,
+				cam.position.y - object.transform.position.y,
+				cam.position.z - object.transform.position.z),
+			focusId: w.worldPosition.focusId,
+			active: frame.world.activeObjectId,
+			travelling: w.runtime.travelling,
+		} : undefined;
+		const ndc = host.renderer.actionSlots.map((sl) => {
+			const at = project(sl.position);
+			return at ? {
+				label: sl.affordance.label,
+				left: at.ndcX - sl.reservedHalfWidth * at.ndcPerUnitX,
+				right: at.ndcX + sl.reservedHalfWidth * at.ndcPerUnitX,
+			} : {label: sl.affordance.label, left: undefined, right: undefined};
+		});
+		if (entered) w.focus(entered);
+		await settle();
+		return {
+			has: buffers !== undefined,
+			size: buffers ? {w: buffers.width, h: buffers.height} : undefined,
+			slots, control, stand, ndc,
+			settled: w.latestFrame.transition === undefined && !w.runtime.travelling,
+		};
+	});
+	console.log(`NOTE  depth under each action slot (G-buffer ${depth.size ? `${depth.size.w}x${depth.size.h}` : 'ABSENT'}):`);
+	for (const sl of depth.slots) {
+		const verdict = sl.sceneDepth === undefined ? 'nothing drawn there'
+			: sl.sceneDepth < sl.slotDepth - 1e-3 ? `OCCLUDED by geometry at ${sl.sceneDepth.toFixed(3)}`
+			: 'clear';
+		console.log(`      ${sl.label}: slot at ${sl.slotDepth === undefined ? '?' : sl.slotDepth.toFixed(3)}, scene at ${sl.sceneDepth === undefined ? '-' : sl.sceneDepth.toFixed(3)} → ${verdict}`);
+	}
+	if (depth.control) console.log(`      control (the focused entity): slot-equivalent depth ${depth.control.depth.toFixed(3)}, scene ${depth.control.scene === undefined ? '-' : depth.control.scene.toFixed(3)}`);
+	if (depth.stand) console.log(`NOTE  camera ${JSON.stringify(depth.stand.camera)} target ${JSON.stringify(depth.stand.target)}; entity ${JSON.stringify(depth.stand.object)} scale ${JSON.stringify(depth.stand.scale)}; distance ${depth.stand.distance.toFixed(3)}; focusId ${depth.stand.focusId} active ${depth.stand.active} travelling ${depth.stand.travelling}`);
+	/* The camera must aim at the entity the world DRAWS. Only meaningful
+	   while the two differ — a cursor sitting on the entity's own moment
+	   lenses it nowhere, and the check would pass without testing
+	   anything. */
+	const lensed = depth.stand && depth.stand.canonicalZ !== undefined
+		&& Math.abs(depth.stand.canonicalZ - depth.stand.frameZ) > 0.5;
+	gate('focusing an entity aims the camera at where it is DRAWN, not where it is stored',
+		lensed === true && Math.abs(depth.stand.target.z - depth.stand.frameZ) < 1e-6,
+		depth.stand
+			? `moment:5150 is stored at z ${depth.stand.canonicalZ} and drawn at ${depth.stand.frameZ.toFixed(3)} — the temporal cursor lenses it ${Math.abs(depth.stand.canonicalZ - depth.stand.frameZ).toFixed(2)} deeper — and the camera targets ${depth.stand.target.z.toFixed(3)} from ${depth.stand.distance.toFixed(3)} away. It used to pose from the STORED row: the camera stopped 13.82 in front of empty space with the entity 24.91 away and event:908 between them, and the ring it was standing back to see spanned a third of the frame it should have filled`
+			: 'the focused entity was not in the world');
+
+	if (depth.stand) console.log(`NOTE  canonical z ${depth.stand.canonicalZ} vs frame z ${depth.stand.frameZ} — focus() poses the camera from the first, the renderer draws the second. Nearest four drawn: ${depth.stand.inFront.map((o) => `${o.id}@${o.along.toFixed(2)}`).join(' ')}`);
+	console.log(`NOTE  slot NDC at that camera: ${depth.ndc.map((n) => `${n.label} ${n.left === undefined ? '?' : `${n.left.toFixed(2)}..${n.right.toFixed(2)}`}`).join('  ')}`);
+
 	/* --- W4 item 10: the ring, from a keyboard, down the same path --- */
 	const keys = await page.evaluate(async () => {
 		const w = window.__berxWorld;

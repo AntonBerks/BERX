@@ -4171,12 +4171,26 @@ var init_runtime5d = __esm({
        * application knows what a thing affords and passes it; a bare
        * runtime has no affordances and passes nothing.
        */
-      focus(objectId, framingRadius = 0, kind) {
+      /**
+       * Look at an entity.
+       *
+       * `at` is WHERE TO AIM, when that is not the entity's canonical
+       * position. The canonical world is the truth and time is a lens over
+       * it — berxApplyTemporal pushes an entity into depth as the cursor
+       * moves away from it, and the renderer draws the lensed position.
+       * Framing the canonical one aims the camera at where the entity would
+       * have been: measured on the shipped shell, a moment canonically at
+       * z -12.75 was drawn at -23.84, so focusing it stood the camera 13.82
+       * from empty space with the entity 24.91 away and event:908 in front
+       * of it. The identity, the active object and the world state stay the
+       * entity's; only the point the camera aims at is the lensed one.
+       */
+      focus(objectId, framingRadius = 0, kind, at) {
         const object = this.world.getObject(objectId);
         if (!object) return false;
         this.world.setActiveObject(objectId);
         this.currentWorld.focusObjectId = objectId;
-        const pose = this.camera.poseForObject(object.transform.position, object.transform.scale, void 0, framingRadius);
+        const pose = this.camera.poseForObject(at ?? object.transform.position, object.transform.scale, void 0, framingRadius);
         this.beginCameraTransition(pose, this.durationFor(kind), this.currentWorld, this.reducedMotion ? void 0 : kind);
         return true;
       }
@@ -4809,8 +4823,9 @@ var init_worldApp = __esm({
         const reason = visited ? "return" : target !== this.position.region ? "region" : metres > BERX_FAR_TRAVEL_METRES ? "travel-far" : "travel";
         const kind = berxTransitionForTravel(reason);
         this.history.push(this.worldPosition);
-        this.runtime.enterWorld({ id: `${target}:${objectId}`, focusObjectId: objectId, enteredAt: Date.now() }, object.transform.position, kind);
-        this.runtime.focus(objectId, berxActionRingRadius(object, this.affordancesFor(object), this.options.measureLabel), kind);
+        const drawn = this.drawnAt(object);
+        this.runtime.enterWorld({ id: `${target}:${objectId}`, focusObjectId: objectId, enteredAt: Date.now() }, drawn, kind);
+        this.runtime.focus(objectId, berxActionRingRadius(object, this.affordancesFor(object), this.options.measureLabel), kind, drawn);
         this.position = { ...this.position, region: target, focusId: objectId };
         this.options.onPositionChange?.(this.worldPosition);
         return true;
@@ -4939,12 +4954,28 @@ var init_worldApp = __esm({
         }
       }
       /**
+       * Where an entity is DRAWN, which is not always where it is.
+       *
+       * The canonical world holds the truth and the temporal cursor is a
+       * lens over it: berxApplyTemporal pushes an entity into depth as the
+       * cursor moves away from its moment, and `frame`/`latestFrame` hand
+       * the renderer the lensed positions. Anything that must act on what
+       * is on the screen — the camera above all — has to ask for the same
+       * lens rather than the canonical row, or it aims at where the entity
+       * would have been if the viewer had not moved through time.
+       *
+       * One place, so the camera and the renderer cannot lens differently.
+       */
+      drawnAt(object) {
+        return berxApplyTemporal(object, this.position.cursor).transform.position;
+      }
+      /**
        * Focus an entity without travelling to it — the difference between
        * looking at something and going to it.
        */
       focus(objectId) {
         const object = this.runtime.world.getObject(objectId);
-        const ok = this.runtime.focus(objectId, berxActionRingRadius(object, this.affordancesFor(object), this.options.measureLabel), berxTransitionForTravel("focus"));
+        const ok = this.runtime.focus(objectId, berxActionRingRadius(object, this.affordancesFor(object), this.options.measureLabel), berxTransitionForTravel("focus"), object ? this.drawnAt(object) : void 0);
         if (ok) {
           this.position = { ...this.position, focusId: objectId };
           this.options.onPositionChange?.(this.worldPosition);
