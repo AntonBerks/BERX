@@ -7721,6 +7721,7 @@ void main(){
         }
         if (this.shadowFbo) gl.deleteFramebuffer(this.shadowFbo);
         if (this.shadowTexture) gl.deleteTexture(this.shadowTexture);
+        const previousFbo = gl.getParameter(gl.FRAMEBUFFER_BINDING);
         const texture = gl.createTexture();
         const fbo = gl.createFramebuffer();
         if (!texture || !fbo) throw Error("BERX 5D shadow target allocation failed");
@@ -7735,7 +7736,7 @@ void main(){
         gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
         gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D, texture, 0);
         const status = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
-        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, previousFbo);
         gl.bindTexture(gl.TEXTURE_2D, null);
         if (status !== gl.FRAMEBUFFER_COMPLETE) throw Error(`BERX 5D shadow framebuffer incomplete: 0x${status.toString(16)}`);
         this.shadowFbo = fbo;

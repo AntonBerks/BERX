@@ -1536,6 +1536,17 @@ export class BerxThreeRuntimeRenderer implements BerxSpatialRenderer {
   if(this.shadowFbo&&this.shadowTexture&&this.shadowSize===size){return {fbo:this.shadowFbo,texture:this.shadowTexture};}
   if(this.shadowFbo)gl.deleteFramebuffer(this.shadowFbo);
   if(this.shadowTexture)gl.deleteTexture(this.shadowTexture);
+  /* WHAT WAS BOUND STAYS BOUND.
+     This used to end by binding the DEFAULT framebuffer, and the
+     shadows-OFF path calls it from inside the world pass — after the
+     linear HDR target is bound and cleared. The world was then drawn
+     straight to the canvas in LINEAR space and the exposure pass
+     resolved an empty HDR target over nothing, so every render with
+     shadows disabled came out unexposed: the fixture floor read 7.93
+     against 153.58 with shadows on, a world nearly twenty times too
+     dark. Quality tiers turn shadows off, so this was the picture on
+     every device that could not afford them. */
+  const previousFbo=gl.getParameter(gl.FRAMEBUFFER_BINDING) as WebGLFramebuffer|null;
   const texture=gl.createTexture();const fbo=gl.createFramebuffer();
   if(!texture||!fbo)throw Error('BERX 5D shadow target allocation failed');
   gl.bindTexture(gl.TEXTURE_2D,texture);
@@ -1551,7 +1562,7 @@ export class BerxThreeRuntimeRenderer implements BerxSpatialRenderer {
   gl.bindFramebuffer(gl.FRAMEBUFFER,fbo);
   gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.DEPTH_ATTACHMENT,gl.TEXTURE_2D,texture,0);
   const status=gl.checkFramebufferStatus(gl.FRAMEBUFFER);
-  gl.bindFramebuffer(gl.FRAMEBUFFER,null);
+  gl.bindFramebuffer(gl.FRAMEBUFFER,previousFbo);
   gl.bindTexture(gl.TEXTURE_2D,null);
   if(status!==gl.FRAMEBUFFER_COMPLETE)throw Error(`BERX 5D shadow framebuffer incomplete: 0x${status.toString(16)}`);
   this.shadowFbo=fbo;this.shadowTexture=texture;this.shadowSize=size;

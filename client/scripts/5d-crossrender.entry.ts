@@ -84,6 +84,7 @@ const api = {
 			gl.readPixels(0, 0, canvas.width, canvas.height, gl.RGBA, gl.UNSIGNED_BYTE, px);
 			return Array.from(flipRows(px, canvas.width, canvas.height));
 		};
+
 		return {
 			width: BERX_CROSS_RENDERER_VIEWPORT.width,
 			height: BERX_CROSS_RENDERER_VIEWPORT.height,
