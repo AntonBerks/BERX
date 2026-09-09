@@ -6799,6 +6799,7 @@ void main(){
         this.affordances = [];
         /** Where the ring stood last frame, so a tap can be tested against it. */
         this.slots = [];
+        this.drawnSlots = [];
         /** What the last frame actually cost. Measured during the draw. */
         this.stats = { visible: 0, inFrustum: 0, drawCalls: 0, triangles: 0, lodReduced: 0, budgetCut: 0, residentTextures: 0, residentLabels: 0, meshVariants: 0 };
         const gl = canvas.getContext("webgl2", { antialias: true, alpha: false, depth: true, powerPreference: "high-performance" });
@@ -7660,9 +7661,11 @@ void main(){
           calls++;
         }
         this.slots = list.actionSlots;
+        const drawn = [];
         for (const slot of this.slots) {
           const entry = this.labels.get(slot.affordance.label);
           if (!entry) continue;
+          drawn.push(slot);
           gl.bindTexture(gl.TEXTURE_2D, entry.texture);
           gl.uniform3f(this.LC, slot.position.x, slot.position.y, slot.position.z);
           gl.uniform2f(this.LS, slot.halfHeight * entry.aspect, slot.halfHeight);
@@ -7670,6 +7673,7 @@ void main(){
           gl.drawArrays(gl.TRIANGLES, 0, 6);
           calls++;
         }
+        this.drawnSlots = drawn;
         gl.depthMask(true);
         gl.enable(gl.CULL_FACE);
         gl.bindVertexArray(null);
@@ -7685,7 +7689,12 @@ void main(){
         this.affordances = affordances;
       }
       /** Where the ring stood in the last drawn frame. */
+      /** The slots the last frame actually DREW — what the picker reads. */
       get actionSlots() {
+        return this.drawnSlots;
+      }
+      /** What was requested, so the difference can be measured. */
+      get requestedSlots() {
         return this.slots;
       }
       /** Relight the world. Lights are state, not constants baked into a shader. */
@@ -8208,6 +8217,8 @@ var init_webgpuRuntime = __esm({
         this.errors = [];
         this.affordances = [];
         this.slots = [];
+        /** What the last frame actually drew — see the note at the ring. */
+        this.drawnSlots = [];
         this.lighting = berxWorldLighting();
         this.lostPromise = new Promise(() => {
         });
@@ -8557,7 +8568,18 @@ var init_webgpuRuntime = __esm({
         this.affordances = affordances;
       }
       /** Where the ring stood in the last drawn frame. */
+      /**
+       * The slots the last frame actually DREW.
+       *
+       * Not the slots that were asked for: a glyph run that is not
+       * resident yet draws nothing, and something invisible must not be
+       * pickable. The picker reads this, so the two cannot diverge.
+       */
       get actionSlots() {
+        return this.drawnSlots;
+      }
+      /** What was requested, so the difference can be measured. */
+      get requestedSlots() {
         return this.slots;
       }
       /** Relight the world. Lights are state, not constants baked into a shader. */
@@ -9132,7 +9154,8 @@ var init_webgpuRuntime = __esm({
           text: placement.text,
           glyphs: this.labels.get(placement.text)
         })).filter((entry) => entry.glyphs !== void 0);
-        const ring = list.actionSlots.map((slot) => ({
+        const ringEntries = list.actionSlots.map((slot) => ({
+          slot,
           position: slot.position,
           halfHeight: slot.halfHeight,
           /* the state's own brightness, decided once in the core's
@@ -9141,7 +9164,9 @@ var init_webgpuRuntime = __esm({
           alpha: slot.alpha,
           text: slot.affordance.label,
           glyphs: this.labels.get(slot.affordance.label)
-        })).filter((entry) => entry.glyphs !== void 0);
+        }));
+        const ring = ringEntries.filter((entry) => entry.glyphs !== void 0);
+        this.drawnSlots = ring.map((entry) => entry.slot);
         const quads = [...named, ...ring];
         if (quads.length === 0) return 0;
         const globals = new Float32Array(LABEL_GLOBALS_BYTES / 4);

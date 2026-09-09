@@ -248,6 +248,8 @@ export class BerxWebGPURuntimeRenderer implements BerxSpatialRenderer {
 	errors: string[] = [];
 	private affordances: readonly BerxSpatialAffordance[] = [];
 	private slots: readonly BerxActionSlot[] = [];
+	/** What the last frame actually drew — see the note at the ring. */
+	private drawnSlots: readonly BerxActionSlot[] = [];
 	private lighting: BerxWorldLighting = berxWorldLighting();
 	/** Resolves when the device is lost, with the reason it was lost. */
 	private lost?: string;
@@ -742,7 +744,16 @@ export class BerxWebGPURuntimeRenderer implements BerxSpatialRenderer {
 	/** What can be done to the focused entity. State, not a constant. */
 	setAffordances(affordances: readonly BerxSpatialAffordance[]): void {this.affordances = affordances;}
 	/** Where the ring stood in the last drawn frame. */
-	get actionSlots(): readonly BerxActionSlot[] {return this.slots;}
+	/**
+	 * The slots the last frame actually DREW.
+	 *
+	 * Not the slots that were asked for: a glyph run that is not
+	 * resident yet draws nothing, and something invisible must not be
+	 * pickable. The picker reads this, so the two cannot diverge.
+	 */
+	get actionSlots(): readonly BerxActionSlot[] {return this.drawnSlots;}
+	/** What was requested, so the difference can be measured. */
+	get requestedSlots(): readonly BerxActionSlot[] {return this.slots;}
 	/** Relight the world. Lights are state, not constants baked into a shader. */
 	setLighting(lighting: BerxWorldLighting): void {this.lighting = lighting;}
 	get worldLighting(): BerxWorldLighting {return this.lighting;}
@@ -1492,18 +1503,33 @@ export class BerxWebGPURuntimeRenderer implements BerxSpatialRenderer {
 				glyphs: this.labels.get(placement.text),
 			}))
 			.filter((entry) => entry.glyphs !== undefined);
-		const ring = list.actionSlots
-			.map((slot) => ({
-				position: slot.position,
-				halfHeight: slot.halfHeight,
-				/* the state's own brightness, decided once in the core's
-				   presentation table so three renderers cannot disagree
-				   about what a pressed action looks like */
-				alpha: slot.alpha,
-				text: slot.affordance.label,
-				glyphs: this.labels.get(slot.affordance.label),
-			}))
-			.filter((entry) => entry.glyphs !== undefined);
+		/**
+		 * RENDERABILITY IS PICKABILITY — the residency half of it.
+		 *
+		 * A slot whose glyph run is not resident draws nothing, and used
+		 * to stay in `actionSlots`, which is what the picker reads: an
+		 * affordance nobody could see was one anybody could press. The
+		 * DRAWN set is recorded here, in the one place that knows what
+		 * residency did, and `actionSlots` returns that. No second
+		 * visibility rule to keep in step with this one.
+		 *
+		 * Nothing else about picking changes here: no depth policy, no
+		 * geometry, no ring position. Those are separate questions and
+		 * were separated after trying them together and failing.
+		 */
+		const ringEntries = list.actionSlots.map((slot) => ({
+			slot,
+			position: slot.position,
+			halfHeight: slot.halfHeight,
+			/* the state's own brightness, decided once in the core's
+			   presentation table so three renderers cannot disagree
+			   about what a pressed action looks like */
+			alpha: slot.alpha,
+			text: slot.affordance.label,
+			glyphs: this.labels.get(slot.affordance.label),
+		}));
+		const ring = ringEntries.filter((entry) => entry.glyphs !== undefined);
+		this.drawnSlots = ring.map((entry) => entry.slot);
 		const quads = [...named, ...ring];
 		if (quads.length === 0) return 0;
 

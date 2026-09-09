@@ -764,7 +764,7 @@ export class BerxThreeRuntimeRenderer implements BerxSpatialRenderer {
   */
  private affordances:readonly BerxSpatialAffordance[]=[];
  /** Where the ring stood last frame, so a tap can be tested against it. */
- private slots:BerxActionSlot[]=[];
+ private slots:BerxActionSlot[]=[];private drawnSlots:readonly BerxActionSlot[]=[];
  /** What the last frame actually cost. Measured during the draw. */
  private stats:BerxFrameStats={visible:0,inFrustum:0,drawCalls:0,triangles:0,lodReduced:0,budgetCut:0,residentTextures:0,residentLabels:0,meshVariants:0};
  constructor(canvas:HTMLCanvasElement,options:{textureBudget?:number;labelBudget?:number;onMediaError?:(uri:string,error:unknown)=>void}={}){const gl=canvas.getContext('webgl2',{antialias:true,alpha:false,depth:true,powerPreference:'high-performance'});if(!gl)throw Error('BERX 5D requires WebGL2');this.gl=gl;this.program=program(gl);this.P=gl.getUniformLocation(this.program,'P');this.V=gl.getUniformLocation(this.program,'V');this.M=gl.getUniformLocation(this.program,'M');this.BASE=gl.getUniformLocation(this.program,'BASE');this.EMIT=gl.getUniformLocation(this.program,'EMIT');this.CAM=gl.getUniformLocation(this.program,'CAM');this.AMB=gl.getUniformLocation(this.program,'AMB');this.ENV_ZEN=gl.getUniformLocation(this.program,'ENV_ZEN');this.ENV_HOR=gl.getUniformLocation(this.program,'ENV_HOR');this.ENV_GND=gl.getUniformLocation(this.program,'ENV_GND');this.ENV_SUN_DIR=gl.getUniformLocation(this.program,'ENV_SUN_DIR');this.ENV_SUN=gl.getUniformLocation(this.program,'ENV_SUN');this.AO_MAP=gl.getUniformLocation(this.program,'AO_MAP');this.AO_ON=gl.getUniformLocation(this.program,'AO_ON');
@@ -1596,9 +1596,15 @@ export class BerxThreeRuntimeRenderer implements BerxSpatialRenderer {
      the world beside the object it belongs to. Where its slots stand is
      decided in @berx/spatial with everything else about the frame. */
   this.slots=list.actionSlots;
+  /* RENDERABILITY IS PICKABILITY — the residency half. The drawn set is
+     recorded where residency is decided, and actionSlots returns it: a
+     slot whose glyphs are not resident draws nothing and must not be
+     pickable. Nothing else about picking changes here. */
+  const drawn:BerxActionSlot[]=[];
   for(const slot of this.slots){
    const entry=this.labels.get(slot.affordance.label);
    if(!entry)continue;
+   drawn.push(slot);
    gl.bindTexture(gl.TEXTURE_2D,entry.texture);
    gl.uniform3f(this.LC,slot.position.x,slot.position.y,slot.position.z);
    gl.uniform2f(this.LS,slot.halfHeight*entry.aspect,slot.halfHeight);
@@ -1607,6 +1613,7 @@ export class BerxThreeRuntimeRenderer implements BerxSpatialRenderer {
    gl.uniform1f(this.LA,slot.alpha);
    gl.drawArrays(gl.TRIANGLES,0,6);calls++;
   }
+  this.drawnSlots=drawn;
   gl.depthMask(true);
   gl.enable(gl.CULL_FACE);
   gl.bindVertexArray(null);gl.bindTexture(gl.TEXTURE_2D,null);
@@ -1618,7 +1625,10 @@ export class BerxThreeRuntimeRenderer implements BerxSpatialRenderer {
  /** The actions to offer beside whatever is focused. */
  setAffordances(affordances:readonly BerxSpatialAffordance[]){this.affordances=affordances;}
  /** Where the ring stood in the last drawn frame. */
- get actionSlots():readonly BerxActionSlot[]{return this.slots;}
+ /** The slots the last frame actually DREW — what the picker reads. */
+ get actionSlots():readonly BerxActionSlot[]{return this.drawnSlots;}
+ /** What was requested, so the difference can be measured. */
+ get requestedSlots():readonly BerxActionSlot[]{return this.slots;}
  /** Relight the world. Lights are state, not constants baked into a shader. */
  setLighting(lighting:BerxWorldLighting){this.lighting=lighting;}
  get worldLighting():BerxWorldLighting{return this.lighting;}

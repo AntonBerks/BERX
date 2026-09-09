@@ -1336,6 +1336,68 @@ try {
 		states.settled === true,
 		'no camera transition in flight when this probe ends');
 
+	/* --- W4 item 6, step 1: picking sees only what was drawn --- */
+	const residency = await page.evaluate(async () => {
+		const w = window.__berxWorld;
+		const host = window.__berxHost;
+		const settle = async () => { for (let i = 0; i < 40; i++) await new Promise((r) => requestAnimationFrame(r)); };
+		const entered = w.worldPosition.focusId;
+		w.focus('moment:5150');
+		await settle();
+
+		const resident = {
+			requested: host.renderer.requestedSlots.map((s) => s.affordance.id),
+			drawn: host.renderer.actionSlots.map((s) => s.affordance.id),
+		};
+
+		/**
+		 * AN AFFORDANCE WITH NOTHING TO RASTERISE.
+		 *
+		 * My first attempt used a label the atlas had never seen, on the
+		 * assumption that a cache miss means non-resident. Measured, it
+		 * does not: BerxSpatialTextAtlas.get RASTERISES ON DEMAND, so a
+		 * miss becomes a hit within the same call and the label draws.
+		 * The residency divergence I reported from reading the code is
+		 * therefore not reachable that way — a correction to my own
+		 * finding, and the reason this now uses the case that IS
+		 * reachable: `get` returns undefined for an empty label, so
+		 * such an affordance is requested and never drawn.
+		 */
+		const invented = w.affordances().map((a, i) => i === 0
+			? {...a, label: '   '}
+			: a);
+		host.renderer.setAffordances(invented);
+		host.renderer.render(w.latestFrame, {});
+		const afterInvented = {
+			requested: host.renderer.requestedSlots.map((s) => s.affordance.label),
+			drawn: host.renderer.actionSlots.map((s) => s.affordance.label),
+			missing: invented[0].label,
+			missingId: invented[0].id,
+			drawnIds: host.renderer.actionSlots.map((sl) => sl.affordance.id),
+			requestedIds: host.renderer.requestedSlots.map((sl) => sl.affordance.id),
+		};
+
+		if (entered) w.focus(entered);
+		await settle();
+		await new Promise((r) => setTimeout(r, 1500));
+		await settle();
+		return {resident, afterInvented, settled: w.latestFrame.transition === undefined && !w.runtime.travelling};
+	});
+
+	gate('a resident affordance is both drawn and pickable',
+		residency.resident.drawn.length > 0
+			&& residency.resident.drawn.length === residency.resident.requested.length,
+		`${residency.resident.requested.length} requested, ${residency.resident.drawn.length} drawn: ${residency.resident.drawn.join(', ')} — with every glyph resident the two sets are the same set, which is the invariant holding in the ordinary case rather than only in the failure case`);
+
+	gate('an affordance with nothing to rasterise is requested, never drawn, and not pickable',
+		residency.afterInvented.requestedIds.includes(residency.afterInvented.missingId)
+			&& !residency.afterInvented.drawnIds.includes(residency.afterInvented.missingId),
+		`${residency.afterInvented.missingId} carried an empty label: present in requestedSlots, absent from actionSlots (${residency.afterInvented.drawnIds.length} drawn of ${residency.afterInvented.requestedIds.length} requested), so the picker cannot reach it. actionSlots used to return the REQUESTED set. A label the atlas has never seen does NOT exercise this — get() rasterises on demand, which is a correction to what I first reported from reading the code`);
+
+	gate('the residency probe leaves the world as it found it',
+		residency.settled === true,
+		'no camera transition in flight when this probe ends');
+
 	/**
 	 * LAST ON PURPOSE.
 	 *

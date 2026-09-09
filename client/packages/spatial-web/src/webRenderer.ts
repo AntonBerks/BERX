@@ -37,7 +37,16 @@ export interface BerxWebRendererBackend {
 	render(frame: Berx5DFrame, options?: BerxSpatialRenderOptions): void;
 	pick(frame: Berx5DFrame, x: number, y: number): BerxHit | undefined;
 	setAffordances(affordances: readonly BerxSpatialAffordance[]): void;
+	/**
+	 * The slots the last frame actually DREW.
+	 *
+	 * The picker reads this rather than what was requested: an
+	 * affordance whose glyphs are not resident draws nothing, and
+	 * something invisible must not be touchable.
+	 */
 	readonly actionSlots: readonly BerxActionSlot[];
+	/** What was handed in, so the difference can be measured. */
+	readonly requestedSlots: readonly BerxActionSlot[];
 	setLighting(lighting: BerxWorldLighting): void;
 	readonly worldLighting: BerxWorldLighting;
 	setObjectMedia(objectId: string, surfaces: readonly {uri: string}[]): void;
