@@ -4296,7 +4296,78 @@ var init_mediaTextures = __esm({
   }
 });
 
+// packages/spatial-web/src/webgpuMipmaps.ts
+function berxMipLevelCount(width, height) {
+  return Math.floor(Math.log2(Math.max(1, Math.max(width, height)))) + 1;
+}
+function berxBuildMipChain(source, width, height) {
+  const levels = [{ width, height, data: new Uint8Array(source) }];
+  let w = width;
+  let h = height;
+  let previous = levels[0].data;
+  while (w > 1 || h > 1) {
+    const nw = Math.max(1, w >> 1);
+    const nh = Math.max(1, h >> 1);
+    const next = new Uint8Array(nw * nh * 4);
+    for (let y = 0; y < nh; y++) {
+      for (let x = 0; x < nw; x++) {
+        let r = 0, g = 0, b = 0, a = 0, weight = 0;
+        for (let dy = 0; dy < 2; dy++) {
+          for (let dx = 0; dx < 2; dx++) {
+            const sx = Math.min(w - 1, x * 2 + dx);
+            const sy = Math.min(h - 1, y * 2 + dy);
+            const i = (sy * w + sx) * 4;
+            const alpha = previous[i + 3];
+            r += previous[i] * alpha;
+            g += previous[i + 1] * alpha;
+            b += previous[i + 2] * alpha;
+            a += alpha;
+            weight += alpha;
+          }
+        }
+        const o = (y * nw + x) * 4;
+        next[o] = weight > 0 ? Math.round(r / weight) : previous[(Math.min(h - 1, y * 2) * w + Math.min(w - 1, x * 2)) * 4];
+        next[o + 1] = weight > 0 ? Math.round(g / weight) : previous[(Math.min(h - 1, y * 2) * w + Math.min(w - 1, x * 2)) * 4 + 1];
+        next[o + 2] = weight > 0 ? Math.round(b / weight) : previous[(Math.min(h - 1, y * 2) * w + Math.min(w - 1, x * 2)) * 4 + 2];
+        next[o + 3] = Math.round(a / 4);
+      }
+    }
+    levels.push({ width: nw, height: nh, data: next });
+    previous = next;
+    w = nw;
+    h = nh;
+  }
+  return levels;
+}
+function berxWriteMipChain(device, texture, levels) {
+  levels.forEach((level, mipLevel) => {
+    device.queue.writeTexture(
+      { texture, mipLevel },
+      level.data,
+      { bytesPerRow: level.width * 4, rowsPerImage: level.height },
+      { width: level.width, height: level.height }
+    );
+  });
+}
+var init_webgpuMipmaps = __esm({
+  "packages/spatial-web/src/webgpuMipmaps.ts"() {
+    "use strict";
+  }
+});
+
 // packages/spatial-web/src/spatialText.ts
+function berxRasterPixels(canvas) {
+  const context = canvas.getContext("2d", { willReadFrequently: true });
+  if (!context) return void 0;
+  const { width, height } = canvas;
+  const data = context.getImageData(0, 0, width, height).data;
+  const out = new Uint8Array(width * height * 4);
+  const stride = width * 4;
+  for (let y = 0; y < height; y++) {
+    out.set(data.subarray((height - 1 - y) * stride, (height - y) * stride), y * stride);
+  }
+  return out;
+}
 function berxRasteriseLabel(text, pixelHeight) {
   const box = berxLabelBox(text, pixelHeight);
   if (!box) return void 0;
@@ -4351,6 +4422,7 @@ var DEFAULT_BUDGET2, BERX_LABEL_PIXEL_HEIGHT, DEFAULT_PIXEL_HEIGHT, INK, BerxSpa
 var init_spatialText = __esm({
   "packages/spatial-web/src/spatialText.ts"() {
     "use strict";
+    init_webgpuMipmaps();
     DEFAULT_BUDGET2 = 96;
     BERX_LABEL_PIXEL_HEIGHT = 64;
     DEFAULT_PIXEL_HEIGHT = BERX_LABEL_PIXEL_HEIGHT;
@@ -4397,11 +4469,17 @@ var init_spatialText = __esm({
         const gl = this.gl;
         const texture = gl.createTexture();
         if (!texture) return void 0;
+        const source = berxRasterPixels(raster.canvas);
+        if (!source) return void 0;
+        const levels = berxBuildMipChain(source, raster.canvas.width, raster.canvas.height);
         gl.bindTexture(gl.TEXTURE_2D, texture);
-        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
         gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
-        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, raster.canvas);
-        gl.generateMipmap(gl.TEXTURE_2D);
+        for (let i = 0; i < levels.length; i++) {
+          const level = levels[i];
+          gl.texImage2D(gl.TEXTURE_2D, i, gl.RGBA, level.width, level.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, level.data);
+        }
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAX_LEVEL, levels.length - 1);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
@@ -6116,65 +6194,6 @@ var init_src2 = __esm({
   }
 });
 
-// packages/spatial-web/src/webgpuMipmaps.ts
-function berxMipLevelCount(width, height) {
-  return Math.floor(Math.log2(Math.max(1, Math.max(width, height)))) + 1;
-}
-function berxBuildMipChain(source, width, height) {
-  const levels = [{ width, height, data: new Uint8Array(source) }];
-  let w = width;
-  let h = height;
-  let previous = levels[0].data;
-  while (w > 1 || h > 1) {
-    const nw = Math.max(1, w >> 1);
-    const nh = Math.max(1, h >> 1);
-    const next = new Uint8Array(nw * nh * 4);
-    for (let y = 0; y < nh; y++) {
-      for (let x = 0; x < nw; x++) {
-        let r = 0, g = 0, b = 0, a = 0, weight = 0;
-        for (let dy = 0; dy < 2; dy++) {
-          for (let dx = 0; dx < 2; dx++) {
-            const sx = Math.min(w - 1, x * 2 + dx);
-            const sy = Math.min(h - 1, y * 2 + dy);
-            const i = (sy * w + sx) * 4;
-            const alpha = previous[i + 3];
-            r += previous[i] * alpha;
-            g += previous[i + 1] * alpha;
-            b += previous[i + 2] * alpha;
-            a += alpha;
-            weight += alpha;
-          }
-        }
-        const o = (y * nw + x) * 4;
-        next[o] = weight > 0 ? Math.round(r / weight) : previous[(Math.min(h - 1, y * 2) * w + Math.min(w - 1, x * 2)) * 4];
-        next[o + 1] = weight > 0 ? Math.round(g / weight) : previous[(Math.min(h - 1, y * 2) * w + Math.min(w - 1, x * 2)) * 4 + 1];
-        next[o + 2] = weight > 0 ? Math.round(b / weight) : previous[(Math.min(h - 1, y * 2) * w + Math.min(w - 1, x * 2)) * 4 + 2];
-        next[o + 3] = Math.round(a / 4);
-      }
-    }
-    levels.push({ width: nw, height: nh, data: next });
-    previous = next;
-    w = nw;
-    h = nh;
-  }
-  return levels;
-}
-function berxWriteMipChain(device, texture, levels) {
-  levels.forEach((level, mipLevel) => {
-    device.queue.writeTexture(
-      { texture, mipLevel },
-      level.data,
-      { bytesPerRow: level.width * 4, rowsPerImage: level.height },
-      { width: level.width, height: level.height }
-    );
-  });
-}
-var init_webgpuMipmaps = __esm({
-  "packages/spatial-web/src/webgpuMipmaps.ts"() {
-    "use strict";
-  }
-});
-
 // packages/spatial-web/src/webgpuMediaTextures.ts
 async function decodeToPixels(uri) {
   const image = await new Promise((resolve, reject) => {
@@ -6580,7 +6599,7 @@ var init_webgpuRuntime = __esm({
         });
         this.mediaLayout = mediaLayout;
         this.textures = new BerxWebGPUMediaTextures(device, { budget: options.textureBudget, onError: options.onMediaError });
-        this.mediaSampler = device.createSampler({ magFilter: "linear", minFilter: "linear" });
+        this.mediaSampler = device.createSampler({ magFilter: "linear", minFilter: "linear", mipmapFilter: "linear" });
         const blank = device.createTexture({
           size: { width: 1, height: 1 },
           format: "rgba8unorm",

@@ -20,6 +20,8 @@
  * letterforms by hand.
  */
 
+import {berxBuildMipChain} from './webgpuMipmaps';
+
 export interface BerxTextTexture {
 	texture: WebGLTexture;
 	/** Width / height of the rendered label, for the quad's proportions. */
@@ -102,11 +104,34 @@ export class BerxSpatialTextAtlas {
 		const gl = this.gl;
 		const texture = gl.createTexture();
 		if (!texture) return undefined;
+		/**
+		 * ONE MIP CHAIN, NOT TWO.
+		 *
+		 * This used to hand the driver the canvas and call
+		 * generateMipmap, while the WebGPU atlas built its levels with
+		 * berxBuildMipChain — so the two backends minified the same word
+		 * through different filters, and the name-pass comparison
+		 * disagreed by up to 17.3/255 across the bands of text while the
+		 * world around them agreed to 0.13. The levels come from the
+		 * shared function now, on both.
+		 *
+		 * The rows are flipped HERE rather than by UNPACK_FLIP_Y_WEBGL,
+		 * which is specified for image sources and not dependable for
+		 * the array uploads the extra levels need. Level 0 ends up
+		 * exactly as it always was: the label shader's UV stays
+		 * bottom-up, as its WGSL counterpart's stays top-down.
+		 */
+		const source = berxRasterPixels(raster.canvas);
+		if (!source) return undefined;
+		const levels = berxBuildMipChain(source, raster.canvas.width, raster.canvas.height);
 		gl.bindTexture(gl.TEXTURE_2D, texture);
-		gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+		gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
 		gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
-		gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, raster.canvas);
-		gl.generateMipmap(gl.TEXTURE_2D);
+		for (let i = 0; i < levels.length; i++) {
+			const level = levels[i];
+			gl.texImage2D(gl.TEXTURE_2D, i, gl.RGBA, level.width, level.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, level.data);
+		}
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAX_LEVEL, levels.length - 1);
 		/* trilinear: a label seen edge-on across the world minifies hard,
 		   and without mipmaps it turns into noise */
 		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
@@ -165,6 +190,20 @@ export class BerxSpatialTextAtlas {
  * Long labels are cut rather than wrapped: a name that needs two lines
  * in the world is a name that should be read by going closer to it.
  */
+/** The canvas as flipped RGBA rows, ready for a GL upload with FLIP_Y off. */
+function berxRasterPixels(canvas: HTMLCanvasElement): Uint8Array | undefined {
+	const context = canvas.getContext('2d', {willReadFrequently: true});
+	if (!context) return undefined;
+	const {width, height} = canvas;
+	const data = context.getImageData(0, 0, width, height).data;
+	const out = new Uint8Array(width * height * 4);
+	const stride = width * 4;
+	for (let y = 0; y < height; y++) {
+		out.set(data.subarray((height - 1 - y) * stride, (height - y) * stride), y * stride);
+	}
+	return out;
+}
+
 export function berxRasteriseLabel(text: string, pixelHeight: number): {canvas: HTMLCanvasElement; aspect: number} | undefined {
 	const box = berxLabelBox(text, pixelHeight);
 	if (!box) return undefined;

@@ -327,7 +327,16 @@ export class BerxWebGPURuntimeRenderer implements BerxSpatialRenderer {
 		});
 		this.mediaLayout = mediaLayout;
 		this.textures = new BerxWebGPUMediaTextures(device, {budget: options.textureBudget, onError: options.onMediaError});
-		this.mediaSampler = device.createSampler({magFilter: 'linear', minFilter: 'linear'});
+		/* TRILINEAR, because the other backend is.
+		   mipmapFilter defaults to 'nearest' in WebGPU: the glyph and
+		   media atlases both carry a full mip chain, and this sampler
+		   was picking ONE level from it while WebGL2's
+		   LINEAR_MIPMAP_LINEAR blends two. A minified glyph is where
+		   that shows, and it showed: the name pass disagreed across two
+		   bands of text at y 88 and y 184, up to 21.8/255, while the
+		   world around them agreed to 0.15. Same chain, same filter, one
+		   picture. */
+		this.mediaSampler = device.createSampler({magFilter: 'linear', minFilter: 'linear', mipmapFilter: 'linear'});
 		const blank = device.createTexture({
 			size: {width: 1, height: 1},
 			format: 'rgba8unorm',
