@@ -1789,11 +1789,17 @@ const PROJECTOR_SOURCE = String.raw`(canvas, c) => {
 			+ ' — of each slot\'s own quad, from the production frame rendered with the ring and again without it, read back off the default framebuffer. A label quad is about a third ink, so a third is a slot fully drawn and zero is a slot that drew nothing at all. Not the G-buffer: that carries what the OPAQUE pass wrote, and a translucent entity occludes there without occluding the label pass'
 			: `not measured: ${visible.reason}`);
 
+	if (visible.ok) {
+		console.log('NOTE  what stands in front of each slot:');
+		for (const d of visible.drawn) {
+			console.log(`      ${d.label.padEnd(16)} drawn ${(d.share*100).toFixed(1).padStart(5)}%  slot at ${d.slotDepth.toFixed(2)}  world drew ${d.gbuffer === undefined ? 'nothing' : d.gbuffer.toFixed(2)} there  (${d.pickedId ?? 'no candidate'})`);
+		}
+	}
 	if (unseen.length > 0) {
 		console.log(`BLOCKED  ${unseen.length} of ${seen.length} affordances draw NOTHING and are still pickable: ${unseen.map((d) => d.label).join(', ')}`);
 		console.log('         W4 item 6, the depth half. The semantic model is proven from the code and both backends agree on it: the label pass keeps the depth TEST and turns depth WRITES off (threeRuntime renderLabels: depthMask(false) with DEPTH_TEST left enabled; webgpuRuntime labelPipeline: depthWriteEnabled false, depthCompare "less"), and the same file has depthCompare "always" for the composite pass, so the codebase can render above the world and deliberately does not do it here. The ring is SCENERY THAT OBEYS WORLD DEPTH — actionRing.ts says so in its first paragraph — which makes an occluded slot one nobody can see, and pickActionSlot has no depth term, so it stays pressable.');
 		console.log('         The cause is NOT the picker and NOT the ring geometry. It is where focusing stands the viewer: the world lays entities out along depth and the temporal cursor lenses them further, so a subject the cursor has pushed away is behind whatever the cursor left near. Measured: focusing moment:5150 with the cursor ten days out leaves it 24.91 away while the camera is posed 13.82 from its STORED position, with event:908 drawn at 14.70 in between.');
-		console.log('         Aiming the camera at the drawn position instead was tried, isolated, and REVERTED: it fixes the aim (target -23.835 = drawn, distance 13.824) and makes the ring far worse, because the camera then stands inside the crowd — place:4211 at 0.19, event:908 at 3.61, message:78 at 6.17, collection:33 at 7.84 — and 4 of 5 slots fell to 0% drawn from 34-40%. Both readings are recorded here rather than either being hidden. Closing this needs the LAYOUT to stop putting the world between the viewer and the subject it was asked to look at, which is its own isolated step and is not attempted here.');
+		console.log('         Aiming the camera at the drawn position instead was tried TWICE — once before and once after the relational layout was corrected — and REVERTED both times: it fixes the aim but stands the camera inside the crowd, and 4 of 5 slots fall to 0% drawn from 34-40%. Both readings are recorded rather than either being hidden. What blocks this one slot is measured above: an unrelated entity drawn 10 units nearer than the ring it crosses. Closing it is a COMPOSITION question — the world must not stand between a viewer and the actions of the thing they asked to look at — and it is not closed by giving the ring permission to ignore depth, nor by making an invisible action unpickable.');
 	}
 
 	/* --- W4 item 10: the ring, from a keyboard, down the same path --- */
