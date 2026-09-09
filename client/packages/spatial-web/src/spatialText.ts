@@ -35,7 +35,15 @@ export interface BerxSpatialTextOptions {
 }
 
 const DEFAULT_BUDGET = 96;
-const DEFAULT_PIXEL_HEIGHT = 64;
+/**
+ * The height, in device pixels, every label in the world is rasterised at.
+ *
+ * Exported because the RING'S LAYOUT has to measure at exactly the size
+ * the atlas rasterises at, and a second copy of this number would be a
+ * second opinion about how wide a word is.
+ */
+export const BERX_LABEL_PIXEL_HEIGHT = 64;
+const DEFAULT_PIXEL_HEIGHT = BERX_LABEL_PIXEL_HEIGHT;
 /** #F2F0EB — pearl, the DNA's text colour. */
 const INK = '#F2F0EB';
 
@@ -60,6 +68,18 @@ export class BerxSpatialTextAtlas {
 
 	beginFrame(): void {
 		this.frame++;
+	}
+
+	/**
+	 * How wide this label will be drawn, in multiples of its height.
+	 *
+	 * The ring's layout asks this BEFORE the frame is built, so it can
+	 * reserve exactly the width `get` is about to rasterise. Same
+	 * function, same pixel height, so the two cannot disagree — and no
+	 * texture is created to answer it.
+	 */
+	measure(text: string): number | undefined {
+		return berxMeasureLabel(text, this.pixelHeight);
 	}
 
 	/**
@@ -146,18 +166,10 @@ export class BerxSpatialTextAtlas {
  * in the world is a name that should be read by going closer to it.
  */
 export function berxRasteriseLabel(text: string, pixelHeight: number): {canvas: HTMLCanvasElement; aspect: number} | undefined {
+	const box = berxLabelBox(text, pixelHeight);
+	if (!box) return undefined;
+	const {clipped, font, width, height, padX} = box;
 	const canvas = document.createElement('canvas');
-	const context = canvas.getContext('2d');
-	if (!context) return undefined;
-	const font = `500 ${pixelHeight}px system-ui, -apple-system, "Segoe UI", sans-serif`;
-	context.font = font;
-	const clipped = text.length > 48 ? `${text.slice(0, 47)}…` : text;
-	const metrics = context.measureText(clipped);
-	/* padding so the mipmap chain does not bleed the edge glyphs */
-	const padX = Math.ceil(pixelHeight * 0.35);
-	const padY = Math.ceil(pixelHeight * 0.3);
-	const width = Math.max(2, Math.ceil(metrics.width) + padX * 2);
-	const height = pixelHeight + padY * 2;
 	canvas.width = width;
 	canvas.height = height;
 	const ctx = canvas.getContext('2d');
@@ -176,4 +188,74 @@ export function berxRasteriseLabel(text: string, pixelHeight: number): {canvas: 
 	ctx.fillStyle = INK;
 	ctx.fillText(clipped, padX, height / 2);
 	return {canvas, aspect: width / height};
+}
+
+/**
+ * THE ONE MEASUREMENT OF HOW WIDE A WORD IS IN THE WORLD.
+ *
+ * The box a label occupies, in device pixels, decided by the platform's
+ * own text shaper. `berxRasteriseLabel` draws exactly this box, so the
+ * quad the GPU gets and the width the RING'S LAYOUT reserves are the
+ * same number by construction rather than by two functions agreeing.
+ *
+ * The ring used to space its slots from an estimate — a fixed world
+ * width per character — which was short for the longest name: at five
+ * actions «Комментировать» was 1.548 world units wide standing 1.411
+ * from its neighbour, so the two overlapped and a press in the overlap
+ * could be answered by the wrong action. An estimate cannot be made
+ * right; a measurement does not need to be.
+ *
+ * Cached, and on one reused canvas: this runs per frame for every
+ * affordance in the ring, and `measureText` on a fresh canvas element
+ * each time would allocate a DOM node per name per frame.
+ */
+export interface BerxLabelBox {
+	/** What actually gets drawn — long names are cut, not wrapped. */
+	readonly clipped: string;
+	readonly font: string;
+	readonly width: number;
+	readonly height: number;
+	readonly padX: number;
+}
+
+let measureContext: CanvasRenderingContext2D | null | undefined;
+const measured = new Map<string, BerxLabelBox>();
+
+export function berxLabelBox(text: string, pixelHeight: number = BERX_LABEL_PIXEL_HEIGHT): BerxLabelBox | undefined {
+	const label = text.trim();
+	if (label.length === 0) return undefined;
+	const key = `${pixelHeight}\u0000${label}`;
+	const hit = measured.get(key);
+	if (hit) return hit;
+	if (measureContext === undefined) measureContext = document.createElement('canvas').getContext('2d');
+	const context = measureContext;
+	if (!context) return undefined;
+	const font = `500 ${pixelHeight}px system-ui, -apple-system, "Segoe UI", sans-serif`;
+	context.font = font;
+	const clipped = label.length > 48 ? `${label.slice(0, 47)}…` : label;
+	const metrics = context.measureText(clipped);
+	/* padding so the mipmap chain does not bleed the edge glyphs */
+	const padX = Math.ceil(pixelHeight * 0.35);
+	const padY = Math.ceil(pixelHeight * 0.3);
+	const box: BerxLabelBox = {
+		clipped, font, padX,
+		width: Math.max(2, Math.ceil(metrics.width) + padX * 2),
+		height: pixelHeight + padY * 2,
+	};
+	measured.set(key, box);
+	return box;
+}
+
+/**
+ * How many times wider than tall a label is — the quad's own aspect.
+ *
+ * This is what the ring's layout reserves room for and what the
+ * renderers scale their quad by: `halfWidth = halfHeight * aspect`.
+ * Undefined for a label with nothing to draw, which is the same answer
+ * the atlas gives, so a blank affordance is neither drawn nor spaced
+ * for.
+ */
+export function berxMeasureLabel(text: string, pixelHeight: number = BERX_LABEL_PIXEL_HEIGHT): number | undefined {
+	const box = berxLabelBox(text, pixelHeight);
+	return box ? box.width / box.height : undefined;
 }

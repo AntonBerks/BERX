@@ -597,28 +597,16 @@ try {
 		`${acted.entities} entities, every id and updatedAt identical across the refused action. Failing loudly is only half the rule: an action that mutated the world and then reported an error would pass the check above while leaving a state the server never agreed to — and the error message would make it look like care`,
 	);
 
-	/* --- W4: an affordance is a place in the world you can put a finger on ---
-
-	   Counting slots proves nothing about whether any of them can be
-	   touched. This drives the SHIPPED shell: it takes each slot's
-	   world-space position out of the renderer, projects it with the
-	   frame's OWN camera, dispatches a real PointerEvent at exactly
-	   those client coordinates, and reads back which affordance the
-	   production picking path selected — then what it did to the
-	   canonical world. */
-	const reach = await page.evaluate(async () => {
-		const w = window.__berxWorld;
-		const host = window.__berxHost;
-		const canvas = document.querySelector('canvas');
-		const settle = async () => { for (let i = 0; i < 60; i++) await new Promise((r) => requestAnimationFrame(r)); };
-		w.focus('moment:5150');
-		await settle();
-
-		const frame = w.latestFrame;
-		const c = frame.camera;
-		/* The frame's own camera, built the way the draw list builds it:
-		   a second projection here would be measuring a different world
-		   from the one that was drawn. */
+/**
+ * THE ONE PROJECTION THIS GATE MEASURES WITH.
+ *
+ * Lifted out of the pointer probe so the spacing probe cannot answer
+ * "where is this drawn" differently from the probe that presses it. Two
+ * copies of a projection is the same class of defect this whole item is
+ * about — a layout and a renderer that each measured a word their own
+ * way. Installed once into the page and used by both.
+ */
+const PROJECTOR_SOURCE = String.raw`(canvas, c) => {
 		const fwd = {x: c.target.x - c.position.x, y: c.target.y - c.position.y, z: c.target.z - c.position.z};
 		const fl = Math.hypot(fwd.x, fwd.y, fwd.z) || 1;
 		fwd.x /= fl; fwd.y /= fl; fwd.z /= fl;
@@ -653,11 +641,51 @@ try {
 			const py = (0.5 - ndcY * 0.5) * canvas.height;
 			return {
 				along, ndcX, ndcY, px, py,
+				/* how much NDC one world unit is worth at this depth, so
+				   a quad can be tested by its EDGES rather than by the
+				   single point at its centre */
+				ndcPerUnitX: 1 / (along * tanHalf * aspect),
+				ndcPerUnitY: 1 / (along * tanHalf),
 				onScreen: Math.abs(ndcX) <= 1 && Math.abs(ndcY) <= 1,
 				clientX: rect.left + px / dpr,
 				clientY: rect.top + py / dpr,
 			};
 		};
+	/* the canvas geometry the projection was taken with, so a caller
+	   turning a pixel into a client coordinate uses the same rect */
+	return {project, rect, dpr};
+}`;
+
+	/* --- W4: an affordance is a place in the world you can put a finger on ---
+
+	   Counting slots proves nothing about whether any of them can be
+	   touched. This drives the SHIPPED shell: it takes each slot's
+	   world-space position out of the renderer, projects it with the
+	   frame's OWN camera, dispatches a real PointerEvent at exactly
+	   those client coordinates, and reads back which affordance the
+	   production picking path selected — then what it did to the
+	   canonical world. */
+	/* Installed before each probe that needs it rather than once: this
+	   gate kills the renderer process and forces a context loss further
+	   down, and a page that came back would have lost it. */
+	const installProjector = () => page.evaluate(
+		(src) => { window.__berxProjector = (0, eval)(src); }, PROJECTOR_SOURCE);
+	await installProjector();
+
+	const reach = await page.evaluate(async () => {
+		const w = window.__berxWorld;
+		const host = window.__berxHost;
+		const canvas = document.querySelector('canvas');
+		const settle = async () => { for (let i = 0; i < 60; i++) await new Promise((r) => requestAnimationFrame(r)); };
+		w.focus('moment:5150');
+		await settle();
+
+		const frame = w.latestFrame;
+		const c = frame.camera;
+		/* The frame's own camera, through the gate's ONE projector — see
+		   PROJECTOR_SOURCE. A second projection here would be measuring a
+		   different world from the one that was drawn. */
+		const {project, rect, dpr} = window.__berxProjector(canvas, c);
 
 		const slots = host.renderer.actionSlots.map((s) => ({
 			id: s.affordance.id, action: s.affordance.action, label: s.affordance.label,
@@ -1337,6 +1365,7 @@ try {
 		'no camera transition in flight when this probe ends');
 
 	/* --- W4 item 6, step 1: picking sees only what was drawn --- */
+	await installProjector();
 	const residency = await page.evaluate(async () => {
 		const w = window.__berxWorld;
 		const host = window.__berxHost;
@@ -1370,17 +1399,49 @@ try {
 				halfHeight: sl.halfHeight,
 				wasHalfWidth, nowHalfWidth,
 				drawnHalfWidth: sl.drawnHalfWidth,
+				/* what the RING reserved for this slot, at the largest
+				   half-height any state reaches */
+				reservedHalfWidth: sl.reservedHalfWidth,
 				ratio: sl.drawnHalfWidth ? wasHalfWidth / sl.drawnHalfWidth : undefined,
 			};
 		});
 		/* And how far apart neighbouring slots actually stand, so an
-		   overlap is a fact rather than an inference. */
+		   overlap is a fact rather than an inference. Pairwise, because
+		   the widths differ per name: one minimum gap against one
+		   maximum width would pass a ring whose widest pair happened to
+		   be its most generously spaced. */
 		const gaps = [];
+		const pairs = [];
 		const ordered = host.renderer.actionSlots;
 		for (let i = 1; i < ordered.length; i++) {
-			const a = ordered[i - 1].position, b = ordered[i].position;
-			gaps.push(Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z));
+			const a = ordered[i - 1], b = ordered[i];
+			const distance = Math.hypot(
+				a.position.x - b.position.x, a.position.y - b.position.y, a.position.z - b.position.z);
+			gaps.push(distance);
+			pairs.push({
+				a: a.affordance.label, b: b.affordance.label,
+				aHalf: a.reservedHalfWidth, bHalf: b.reservedHalfWidth,
+				aDrawn: a.drawnHalfWidth, bDrawn: b.drawnHalfWidth,
+				distance,
+			});
 		}
+		/* Where every slot is drawn, through the gate's ONE projector. */
+		const {project} = window.__berxProjector(canvasEl, w.latestFrame.camera);
+		const onScreen = host.renderer.actionSlots.map((sl) => {
+			const at = project(sl.position);
+			if (!at) return {label: sl.affordance.label, whole: false, reason: 'behind the eye'};
+			/* the whole quad, at the widest it ever stands — a centre
+			   inside the frame with half its word outside it is not
+			   "on screen" */
+			const halfW = sl.reservedHalfWidth * at.ndcPerUnitX;
+			const halfH = sl.halfHeight * at.ndcPerUnitY;
+			return {
+				label: sl.affordance.label,
+				left: at.ndcX - halfW, right: at.ndcX + halfW,
+				top: at.ndcY + halfH, bottom: at.ndcY - halfH,
+				whole: Math.abs(at.ndcX) + halfW <= 1 && Math.abs(at.ndcY) + halfH <= 1,
+			};
+		});
 
 		/**
 		 * AN AFFORDANCE WITH NOTHING TO RASTERISE.
@@ -1413,7 +1474,7 @@ try {
 		await settle();
 		await new Promise((r) => setTimeout(r, 1500));
 		await settle();
-		return {resident, geometry, gaps, viewportAspect, afterInvented, settled: w.latestFrame.transition === undefined && !w.runtime.travelling};
+		return {resident, geometry, gaps, pairs, onScreen, viewportAspect, afterInvented, settled: w.latestFrame.transition === undefined && !w.runtime.travelling};
 	});
 
 	gate('a resident affordance is both drawn and pickable',
@@ -1437,15 +1498,40 @@ try {
 		geo.map((g) => `${g.label}: ${g.nowHalfWidth.toFixed(3)} (was ${g.wasHalfWidth.toFixed(3)}, x${g.ratio.toFixed(2)})`).join('  ')
 		+ ` — viewport aspect ${residency.viewportAspect.toFixed(2)}. The old bound was halfHeight x 4 x the VIEWPORT's aspect, so every slot got the same width whatever its label; the quad is halfHeight x the GLYPH's aspect. The picker now uses the second`);
 
-	const stillWide = geo.filter((g) => minGap !== undefined && g.nowHalfWidth * 2 > minGap).map((g) => g.label);
-	gate('and far fewer neighbouring boxes overlap',
-		minGap !== undefined && overlapping < geo.length,
-		`nearest neighbours stand ${minGap.toFixed(3)} apart; ${overlapping} of ${geo.length} slots still have a box wider than that gap${stillWide.length ? ` (${stillWide.join(', ')})` : ''}. Under the old bound ALL ${geo.length} did — 1.486 of box against 1.411 of spacing — which is how a press at one action's own pixel was answered by the one beside it`);
+	/* --- W4 item 6, ring spacing: laid out from the measured widths ---
 
-	if (overlapping > 0) {
-		console.log(`BLOCKED  ${overlapping} affordance box(es) still wider than the ring's spacing: ${stillWide.join(', ')}`);
-		console.log("         The ring sizes its arc from an ESTIMATE of label width (WIDTH_PER_CHARACTER in actionRing.ts), and the estimate is short for the longest name. Closing it means spacing the ring by the width the renderer measured rather than by a guess — a change to LAYOUT, not to picking, and therefore a separate isolated step. Not attempted here, and not asserted as passing");
-	}
+	   BERX_SLOT_GAP in actionRing.ts. Written out rather than imported
+	   because this gate reads the SHIPPED bundle: a gate that imported
+	   the constant would pass by agreeing with the source it is
+	   checking. */
+	const SLOT_GAP = 0.26;
+	/* one aspect, two consumers: the ring reserved reservedHalfWidth at
+	   the largest half-height a slot reaches, the renderer drew
+	   drawnHalfWidth at this slot's own half-height. Same measurement iff
+	   the implied reserved half-HEIGHT is one number for every slot. */
+	const impliedHalfHeight = geo
+		.filter((g) => g.drawnHalfWidth > 0)
+		.map((g) => g.reservedHalfWidth * g.halfHeight / g.drawnHalfWidth);
+	const spreadOfImplied = impliedHalfHeight.length
+		? Math.max(...impliedHalfHeight) - Math.min(...impliedHalfHeight)
+		: Infinity;
+
+	gate('the ring reserves the width the renderer measured, not an estimate of it',
+		impliedHalfHeight.length === geo.length && spreadOfImplied < 1e-9,
+		geo.map((g) => `${g.label}: reserved ${g.reservedHalfWidth.toFixed(3)} / drawn ${g.drawnHalfWidth.toFixed(3)} at h=${g.halfHeight.toFixed(3)}`).join('  ')
+		+ ` — implied reserved half-height ${impliedHalfHeight.map((h) => h.toFixed(4)).join(', ')}, spread ${spreadOfImplied.toExponential(1)}. One number for every label means ONE aspect drove both the layout and the draw. A per-character estimate cannot produce that: it would have to guess each word's aspect exactly right`);
+
+	const violations = residency.pairs.filter((p) => p.aHalf + p.bHalf + SLOT_GAP > p.distance + 1e-9);
+	gate('no two neighbouring affordances overlap, at the widest either one ever stands',
+		residency.pairs.length > 0 && violations.length === 0,
+		residency.pairs.map((p) => `${p.a}|${p.b}: ${(p.aHalf + p.bHalf + SLOT_GAP).toFixed(3)} needed vs ${p.distance.toFixed(3)} apart`).join('  ')
+		+ ` — half of each reserved width plus ${SLOT_GAP} of empty world, against the true centre distance, for every adjacent pair. Under the old estimate the widest pair needed 1.548 of box into 1.411 of spacing and the ring had no way to know: it sized its arc from characters counted, then divided that width by a radius and used the answer as an ANGLE, and sine flattens toward the ends of an arc — so the outermost pairs came out closest together`);
+
+	const cropped = residency.onScreen.filter((o) => !o.whole);
+	gate('and the whole of every one of them is inside the frame',
+		residency.onScreen.length > 0 && cropped.length === 0,
+		residency.onScreen.map((o) => `${o.label}: x ${o.left !== undefined ? `${o.left.toFixed(2)}..${o.right.toFixed(2)}` : o.reason}`).join('  ')
+		+ ' — NDC bounds of the whole quad at its widest, through the same projector the pointer probe presses with. The camera stands back by the ring\'s own radius, so a ring that got wider is a camera that stepped back, not a ring that ran off the edge');
 
 	gate('the residency probe leaves the world as it found it',
 		residency.settled === true,
@@ -1633,6 +1719,89 @@ try {
 		keys.guardedAfterBlur === false,
 		`with nothing focused, act('moment:5150:like') returned ${JSON.stringify(keys.guardedAfterBlur)} rather than running. berxCanActivate is a positive list, so a state added later is refused until someone decides it should not be`);
 
+
+	/* --- W4 item 6, ring spacing: the long label still answers for itself ---
+
+	   LAST, because it presses. Spacing that no longer overlaps is a
+	   claim about geometry; that the widest name in the ring can be
+	   pressed at its own far edge, toward its neighbour, and still be
+	   the one selected is a claim about the shipped picking path. The
+	   second is the one that failed before: a press at one action's own
+	   pixel was answered by the one beside it. */
+	await installProjector();
+	const widest = await page.evaluate(async () => {
+		const w = window.__berxWorld;
+		const host = window.__berxHost;
+		const canvas = document.querySelector('canvas');
+		const settle = async () => { for (let i = 0; i < 60; i++) await new Promise((r) => requestAnimationFrame(r)); };
+		const entered = w.worldPosition.focusId;
+		w.focus('moment:5150');
+		await settle();
+
+		const {project, rect, dpr} = window.__berxProjector(canvas, w.latestFrame.camera);
+		const slots = host.renderer.actionSlots.map((sl) => ({
+			label: sl.affordance.label, action: sl.affordance.action,
+			drawnHalfWidth: sl.drawnHalfWidth, reservedHalfWidth: sl.reservedHalfWidth,
+			at: project(sl.position),
+		})).filter((sl) => sl.at);
+		/* the longest name in the ring, and whichever neighbour it stands
+		   closest to on screen */
+		let wide = slots[0];
+		for (const sl of slots) if (sl.reservedHalfWidth > wide.reservedHalfWidth) wide = sl;
+		const index = slots.indexOf(wide);
+		const neighbours = [slots[index - 1], slots[index + 1]].filter(Boolean);
+		let near = neighbours[0];
+		for (const n of neighbours) {
+			if (Math.abs(n.at.ndcX - wide.at.ndcX) < Math.abs(near.at.ndcX - wide.at.ndcX)) near = n;
+		}
+		const liveText = () => [...document.querySelectorAll('[aria-live]')]
+			.map((n) => (n.textContent || '').trim()).filter(Boolean).join(' | ');
+		const pressAt = async (px, py, id) => {
+			const opts = {pointerType: 'mouse', clientX: rect.left + px / dpr, clientY: rect.top + py / dpr,
+				bubbles: true, isPrimary: true, pointerId: id};
+			canvas.dispatchEvent(new PointerEvent('pointerdown', opts));
+			canvas.dispatchEvent(new PointerEvent('pointerup', opts));
+			const said = liveText();
+			await settle();
+			/* let the outcome state expire before the next press, so the
+			   ring is read at rest rather than mid-lifecycle */
+			await new Promise((r) => setTimeout(r, 1800));
+			await settle();
+			return {px, py, said};
+		};
+
+		/* 90% of the way to its own drawn edge, TOWARD the neighbour: the
+		   last pixel that is still unambiguously this action's */
+		const direction = near && near.at.ndcX > wide.at.ndcX ? 1 : -1;
+		const edgePx = wide.at.px + direction * wide.drawnHalfWidth * 0.9 * wide.at.ndcPerUnitX * 0.5 * canvas.width;
+
+		const centre = await pressAt(wide.at.px, wide.at.py, 11);
+		const edge = await pressAt(edgePx, wide.at.py, 12);
+		const beside = near ? await pressAt(near.at.px, near.at.py, 13) : undefined;
+
+		if (entered) w.focus(entered);
+		await settle();
+		return {
+			wide: {label: wide.label, px: wide.at.px, drawnHalfWidth: wide.drawnHalfWidth},
+			near: near ? {label: near.label, px: near.at.px} : undefined,
+			centre, edge, beside, edgePx,
+			settled: w.latestFrame.transition === undefined && !w.runtime.travelling,
+		};
+	});
+
+	gate('the widest name in the ring answers at its own pixel, and at its own far edge',
+		widest.centre.said.includes(widest.wide.label) && widest.edge.said.includes(widest.wide.label),
+		`"${widest.wide.label}" is drawn ${widest.wide.drawnHalfWidth.toFixed(3)} half-wide at ${widest.wide.px.toFixed(0)}px. A press there announced "${widest.centre.said}"; a press at ${widest.edge.px.toFixed(0)}px — 90% of the way to its own edge, toward "${widest.near ? widest.near.label : 'nothing'}" — announced "${widest.edge.said}". Both are the same action, so the widest quad in the ring does not reach into its neighbour and is not reached into`);
+
+	gate('and its neighbour answers at ITS pixel, not for the one beside it',
+		widest.beside !== undefined && widest.near !== undefined && widest.beside.said.includes(widest.near.label),
+		widest.near
+			? `a press at ${widest.near.px.toFixed(0)}px announced "${widest.beside.said}" — "${widest.near.label}", the slot drawn there. This is the pair that used to collide: the ring reserved 1.411 of spacing for a 1.548-wide word`
+			: 'the widest slot had no neighbour to test against');
+
+	gate('the spacing probe leaves the world as it found it',
+		widest.settled === true,
+		'no camera transition in flight when this probe ends');
 
 	gate('no page or console errors', pageErrors.length === 0, pageErrors.slice(0, 3).join(' | ') || 'clean');
 } finally {

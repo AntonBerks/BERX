@@ -1354,6 +1354,12 @@ export class BerxThreeRuntimeRenderer implements BerxSpatialRenderer {
    lighting:this.lighting,
    mediaFor:(id)=>this.media.get(id),
    affordances:this.affordances,
+   /* The ring reserves the width this atlas is about to rasterise —
+      the same measurement, from the same atlas, at the same pixel
+      height. It used to reserve a per-character ESTIMATE, which was
+      wrong by up to a third per name and put «Комментировать» 1.548
+      wide into 1.411 of spacing. */
+   measureLabel:(label)=>this.labels.measure(label),
    /* What the last frame decided, so this one does not decide it again
       from scratch and come out differently. Carried by the RENDERER
       rather than by every caller: a runtime that draws continuously

@@ -25,6 +25,7 @@
 import {Berx5DWorldApp, berxTemporalCursor, type BerxSocialAction, type BerxSpatialObject, type BerxWorldIngest, type BerxWorldPersistence, type BerxWorldPosition} from '@berx/spatial';
 import {createBerx5DWebHost, type Berx5DWebHost} from './runtimeHost5d';
 import {createBerxWebRenderer} from './webRenderer';
+import {berxMeasureLabel} from './spatialText';
 
 export interface BerxAppShellOptions {
 	/** Where the world is drawn. Created and appended when omitted. */
@@ -157,6 +158,12 @@ export async function startBerxApp(options: BerxAppShellOptions): Promise<BerxAp
 		cursor: berxTemporalCursor(),
 		onAction: options.act,
 		actionLabels: options.actionLabels,
+		/* How far the camera stands back depends on how wide the ring
+		   is, and how wide the ring is depends on how wide the words
+		   are. This is the SAME measurement the renderers' atlases
+		   answer with — one text shaper, one opinion about how wide a
+		   word is, so framing and layout cannot describe two rings. */
+		measureLabel: (label) => berxMeasureLabel(label),
 		onPositionChange: (position) => {
 			outline.textContent = describe(world);
 			options.onPositionChange?.(position);

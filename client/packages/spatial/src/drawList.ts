@@ -19,7 +19,7 @@
  * one place: the same culler, the same sort, the same budget, the same
  * LOD distance, the same material and light resolution.
  */
-import {berxActionRing, type BerxActionSlot} from './actionRing';
+import {berxActionRing, type BerxActionSlot, type BerxLabelAspect} from './actionRing';
 import {berxFrustumPlanes, berxInvertMat4, berxLookAt, berxMultiplyMat4, berxPerspective, berxSphereInFrustum} from './frustum';
 import {geometryForEntity, geometryScale, type BerxGeometryKind} from './geometry';
 import {cameraBasis} from './spatialInteraction';
@@ -268,6 +268,15 @@ export interface BerxDrawListOptions {
 	mediaFor?: (objectId: string) => string | undefined;
 	/** What can be done to the focused entity, from the world application. */
 	affordances?: readonly BerxSpatialAffordance[];
+	/**
+	 * How wide each affordance's name is, from whoever rasterises it.
+	 *
+	 * Host-supplied for the same reason `mediaFor` is: this package has
+	 * no text shaper, and the ring must reserve exactly the width the
+	 * renderer is about to draw. Omit it and the ring falls back to an
+	 * estimate — correct only for a backend that draws no glyphs.
+	 */
+	measureLabel?: BerxLabelAspect;
 	/** Whether the air carries dust, energy and the far field. */
 	particles?: boolean;
 	/**
@@ -696,6 +705,7 @@ export function berxBuildDrawList(frame: Berx5DFrame, options: BerxDrawListOptio
 			frame.world.objects.find((o) => o.id === frame.world.activeObjectId),
 			c,
 			options.affordances ?? [],
+			options.measureLabel,
 		),
 		/**
 		 * Everything drawn casts and receives. Not a per-object flag:

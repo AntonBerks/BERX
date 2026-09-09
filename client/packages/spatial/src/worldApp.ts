@@ -42,7 +42,7 @@ import {affordancesForObject} from './spatialAffordances';
 import {berxCanActivate, type BerxSocialActionState} from './socialActions';
 import type {BerxSocialAction, BerxSpatialAffordance} from './socialActions';
 import {berxTransitionForTravel, BERX_FAR_TRAVEL_METRES} from './transitions';
-import {berxActionRingRadius} from './actionRing';
+import {berxActionRingRadius, type BerxLabelAspect} from './actionRing';
 import type {BerxNavigationIntent} from './platform';
 import {berxCameraFromPose, berxStereoCamerasFromPose, type BerxXrPose, type BerxXrViews} from './xrPose';
 import type {BerxSpatialObject, BerxSpatialRelation, BerxVec3} from './world';
@@ -121,6 +121,16 @@ export interface Berx5DWorldAppOptions {
 	 * screenshot catches.
 	 */
 	actionLabels?: Record<BerxSocialAction, string>;
+	/**
+	 * How wide each action's name is, from whoever rasterises it.
+	 *
+	 * The camera stands back far enough to hold the whole ring, and how
+	 * far that is depends on how wide the words are. Given the same
+	 * measurement the renderer draws with, the framing and the layout
+	 * agree by construction; without it both fall back to the same
+	 * estimate, which is worse but never inconsistent.
+	 */
+	measureLabel?: BerxLabelAspect;
 }
 
 export interface BerxWorldIngest {
@@ -357,7 +367,7 @@ export class Berx5DWorldApp {
 		   camera rather than only the pose */
 		this.history.push(this.worldPosition);
 		this.runtime.enterWorld({id: `${target}:${objectId}`, focusObjectId: objectId, enteredAt: Date.now()}, object.transform.position, kind);
-		this.runtime.focus(objectId, berxActionRingRadius(object, this.affordancesFor(object)), kind);
+		this.runtime.focus(objectId, berxActionRingRadius(object, this.affordancesFor(object), this.options.measureLabel), kind);
 		this.position = {...this.position, region: target, focusId: objectId};
 		this.options.onPositionChange?.(this.worldPosition);
 		return true;
@@ -511,7 +521,7 @@ export class Berx5DWorldApp {
 		   crops them off the bottom of the screen */
 		const object = this.runtime.world.getObject(objectId);
 		/* focusing is not travelling: the gentlest of the eight */
-		const ok = this.runtime.focus(objectId, berxActionRingRadius(object, this.affordancesFor(object)), berxTransitionForTravel('focus'));
+		const ok = this.runtime.focus(objectId, berxActionRingRadius(object, this.affordancesFor(object), this.options.measureLabel), berxTransitionForTravel('focus'));
 		if (ok) {
 			this.position = {...this.position, focusId: objectId};
 			this.options.onPositionChange?.(this.worldPosition);

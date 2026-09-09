@@ -18,7 +18,7 @@
  * edge-on across the world minifies hard, and without mipmaps it turns
  * into noise.
  */
-import {berxRasteriseLabel} from './spatialText';
+import {berxMeasureLabel, berxRasteriseLabel} from './spatialText';
 import {berxBuildMipChain, berxMipLevelCount, berxWriteMipChain} from './webgpuMipmaps';
 
 export interface BerxWebGPUGlyphTexture {
@@ -51,6 +51,19 @@ export class BerxWebGPUTextAtlas {
 
 	beginFrame(): void {
 		this.frame++;
+	}
+
+	/**
+	 * How wide this label will be drawn, in multiples of its height.
+	 *
+	 * The ring's layout asks this BEFORE the frame is built, so it can
+	 * reserve exactly the width `get` is about to rasterise. The same
+	 * function the WebGL atlas answers with, at this atlas's own pixel
+	 * height: two backends measuring text differently would draw the
+	 * same world at two different widths.
+	 */
+	measure(text: string): number | undefined {
+		return berxMeasureLabel(text, this.pixelHeight);
 	}
 
 	/**

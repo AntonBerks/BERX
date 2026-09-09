@@ -2514,44 +2514,55 @@ var init_socialActions = __esm({
 function berxSlotPresentation(state) {
   return PRESENTATION[state];
 }
-function berxActionRingRadius(object, affordances) {
-  if (!object || affordances.length === 0) return 0;
-  const longest = affordances.reduce((n, a) => Math.max(n, a.label.trim().length), 1);
-  const needed = longest * SLOT_HEIGHT * WIDTH_PER_CHARACTER;
-  return Math.max(
-    Math.max(object.transform.scale.x, object.transform.scale.y) * 0.5 + RING_GAP,
-    needed * affordances.length / (Math.PI * 1.35)
-  );
+function berxRingGeometry(object, affordances, measure) {
+  const visible = affordances.filter((a) => a.state !== "hidden");
+  if (!object || visible.length === 0) return { radius: 0, places: [] };
+  const reserved = SLOT_HEIGHT * 0.5 * BERX_SLOT_FOCUS_SCALE;
+  const halfWidths = visible.map((a) => reserved * aspectFor(a.label, measure));
+  const offsets = [0];
+  for (let i = 1; i < visible.length; i++) {
+    offsets.push(offsets[i - 1] + halfWidths[i - 1] + halfWidths[i] + BERX_SLOT_GAP);
+  }
+  const span = offsets[offsets.length - 1];
+  const halfSpan = span * 0.5;
+  const edge = Math.max(object.transform.scale.x, object.transform.scale.y) * 0.5 + RING_GAP;
+  const radius = Math.max(edge, halfSpan / (REACH * Math.sin(ARC * 0.5)));
+  const reach = Math.max(1e-4, radius * REACH);
+  return {
+    radius,
+    places: visible.map((affordance, index) => {
+      const across = offsets[index] - halfSpan;
+      const t = Math.min(1, Math.abs(across) / reach);
+      return { affordance, across, under: Math.sqrt(1 - t * t) * radius * DEPTH, halfWidth: halfWidths[index] };
+    })
+  };
 }
-function berxActionRing(object, camera, affordances) {
-  if (!object || affordances.length === 0) return [];
+function berxActionRingRadius(object, affordances, measure) {
+  return berxRingGeometry(object, affordances, measure).radius;
+}
+function berxActionRing(object, camera, affordances, measure) {
+  if (!object) return [];
   const basis = cameraBasis(camera);
   if (!basis) return [];
+  const { places } = berxRingGeometry(object, affordances, measure);
+  if (places.length === 0) return [];
   const drop = object.transform.scale.y * 0.5 + SLOT_HEIGHT * 1.4;
-  const longest = affordances.reduce((n, a) => Math.max(n, a.label.trim().length), 1);
-  const needed = longest * SLOT_HEIGHT * WIDTH_PER_CHARACTER;
-  const radius = berxActionRingRadius(object, affordances);
-  const perSlot = Math.min(0.9, needed / Math.max(radius * 1.35, 1e-3));
-  const spread = Math.min(Math.PI * 0.9, perSlot * Math.max(1, affordances.length - 1));
-  const start = -spread / 2;
-  const step = affordances.length > 1 ? spread / (affordances.length - 1) : 0;
-  return affordances.filter((a) => a.state !== "hidden").map((affordance, index) => {
-    const angle = start + step * index;
-    const across = Math.sin(angle) * radius * 1.35;
-    const under = Math.cos(angle) * radius * 0.35;
-    const look = berxSlotPresentation(affordance.state);
+  return places.map((place) => {
+    const look = berxSlotPresentation(place.affordance.state);
+    const down = drop + place.under - look.lift;
     return {
-      affordance,
+      affordance: place.affordance,
       position: {
-        x: object.transform.position.x + basis.right.x * across - basis.up.x * (drop + under) + basis.up.x * look.lift,
-        y: object.transform.position.y + basis.right.y * across - basis.up.y * (drop + under) + basis.up.y * look.lift,
-        z: object.transform.position.z + basis.right.z * across - basis.up.z * (drop + under) + basis.up.z * look.lift
+        x: object.transform.position.x + basis.right.x * place.across - basis.up.x * down,
+        y: object.transform.position.y + basis.right.y * place.across - basis.up.y * down,
+        z: object.transform.position.z + basis.right.z * place.across - basis.up.z * down
       },
       /* State as GEOMETRY, so every renderer honours it without a
          shader knowing what a state is. */
       halfHeight: SLOT_HEIGHT * 0.5 * look.scale,
-      focused: affordance.state === "focus",
-      state: affordance.state,
+      reservedHalfWidth: place.halfWidth,
+      focused: place.affordance.state === "focus",
+      state: place.affordance.state,
       alpha: look.alpha
     };
   });
@@ -2605,7 +2616,7 @@ function berxNearActionSlots(slots, camera, rayDirection, aspect, widen = 2.6) {
   }
   return near;
 }
-var PRESENTATION, BERX_SLOT_FOCUS_SCALE, RING_GAP, SLOT_HEIGHT, WIDTH_PER_CHARACTER;
+var PRESENTATION, BERX_SLOT_FOCUS_SCALE, RING_GAP, SLOT_HEIGHT, BERX_SLOT_GAP, ARC, REACH, DEPTH, WIDTH_PER_CHARACTER, aspectFor;
 var init_actionRing = __esm({
   "packages/spatial/src/actionRing.ts"() {
     "use strict";
@@ -2638,7 +2649,12 @@ var init_actionRing = __esm({
     BERX_SLOT_FOCUS_SCALE = PRESENTATION.focus.scale;
     RING_GAP = 0.55;
     SLOT_HEIGHT = 0.26;
+    BERX_SLOT_GAP = SLOT_HEIGHT;
+    ARC = Math.PI * 0.9;
+    REACH = 1.35;
+    DEPTH = 0.35;
     WIDTH_PER_CHARACTER = 0.58;
+    aspectFor = (label, measure) => measure?.(label) ?? label.trim().length * WIDTH_PER_CHARACTER;
   }
 });
 
@@ -2911,7 +2927,7 @@ var init_worldApp = __esm({
         const kind = berxTransitionForTravel(reason);
         this.history.push(this.worldPosition);
         this.runtime.enterWorld({ id: `${target}:${objectId}`, focusObjectId: objectId, enteredAt: Date.now() }, object.transform.position, kind);
-        this.runtime.focus(objectId, berxActionRingRadius(object, this.affordancesFor(object)), kind);
+        this.runtime.focus(objectId, berxActionRingRadius(object, this.affordancesFor(object), this.options.measureLabel), kind);
         this.position = { ...this.position, region: target, focusId: objectId };
         this.options.onPositionChange?.(this.worldPosition);
         return true;
@@ -3045,7 +3061,7 @@ var init_worldApp = __esm({
        */
       focus(objectId) {
         const object = this.runtime.world.getObject(objectId);
-        const ok = this.runtime.focus(objectId, berxActionRingRadius(object, this.affordancesFor(object)), berxTransitionForTravel("focus"));
+        const ok = this.runtime.focus(objectId, berxActionRingRadius(object, this.affordancesFor(object), this.options.measureLabel), berxTransitionForTravel("focus"));
         if (ok) {
           this.position = { ...this.position, focusId: objectId };
           this.options.onPositionChange?.(this.worldPosition);
@@ -3679,7 +3695,8 @@ function berxBuildDrawList(frame, options) {
     actionSlots: berxActionRing(
       frame.world.objects.find((o) => o.id === frame.world.activeObjectId),
       c,
-      options.affordances ?? []
+      options.affordances ?? [],
+      options.measureLabel
     ),
     /**
      * Everything drawn casts and receives. Not a per-object flag:
@@ -4195,17 +4212,10 @@ var init_mediaTextures = __esm({
 
 // packages/spatial-web/src/spatialText.ts
 function berxRasteriseLabel(text, pixelHeight) {
+  const box = berxLabelBox(text, pixelHeight);
+  if (!box) return void 0;
+  const { clipped, font, width, height, padX } = box;
   const canvas = document.createElement("canvas");
-  const context = canvas.getContext("2d");
-  if (!context) return void 0;
-  const font = `500 ${pixelHeight}px system-ui, -apple-system, "Segoe UI", sans-serif`;
-  context.font = font;
-  const clipped = text.length > 48 ? `${text.slice(0, 47)}\u2026` : text;
-  const metrics = context.measureText(clipped);
-  const padX = Math.ceil(pixelHeight * 0.35);
-  const padY = Math.ceil(pixelHeight * 0.3);
-  const width = Math.max(2, Math.ceil(metrics.width) + padX * 2);
-  const height = pixelHeight + padY * 2;
   canvas.width = width;
   canvas.height = height;
   const ctx = canvas.getContext("2d");
@@ -4222,12 +4232,42 @@ function berxRasteriseLabel(text, pixelHeight) {
   ctx.fillText(clipped, padX, height / 2);
   return { canvas, aspect: width / height };
 }
-var DEFAULT_BUDGET2, DEFAULT_PIXEL_HEIGHT, INK, BerxSpatialTextAtlas;
+function berxLabelBox(text, pixelHeight = BERX_LABEL_PIXEL_HEIGHT) {
+  const label = text.trim();
+  if (label.length === 0) return void 0;
+  const key = `${pixelHeight}\0${label}`;
+  const hit = measured.get(key);
+  if (hit) return hit;
+  if (measureContext === void 0) measureContext = document.createElement("canvas").getContext("2d");
+  const context = measureContext;
+  if (!context) return void 0;
+  const font = `500 ${pixelHeight}px system-ui, -apple-system, "Segoe UI", sans-serif`;
+  context.font = font;
+  const clipped = label.length > 48 ? `${label.slice(0, 47)}\u2026` : label;
+  const metrics = context.measureText(clipped);
+  const padX = Math.ceil(pixelHeight * 0.35);
+  const padY = Math.ceil(pixelHeight * 0.3);
+  const box = {
+    clipped,
+    font,
+    padX,
+    width: Math.max(2, Math.ceil(metrics.width) + padX * 2),
+    height: pixelHeight + padY * 2
+  };
+  measured.set(key, box);
+  return box;
+}
+function berxMeasureLabel(text, pixelHeight = BERX_LABEL_PIXEL_HEIGHT) {
+  const box = berxLabelBox(text, pixelHeight);
+  return box ? box.width / box.height : void 0;
+}
+var DEFAULT_BUDGET2, BERX_LABEL_PIXEL_HEIGHT, DEFAULT_PIXEL_HEIGHT, INK, BerxSpatialTextAtlas, measureContext, measured;
 var init_spatialText = __esm({
   "packages/spatial-web/src/spatialText.ts"() {
     "use strict";
     DEFAULT_BUDGET2 = 96;
-    DEFAULT_PIXEL_HEIGHT = 64;
+    BERX_LABEL_PIXEL_HEIGHT = 64;
+    DEFAULT_PIXEL_HEIGHT = BERX_LABEL_PIXEL_HEIGHT;
     INK = "#F2F0EB";
     BerxSpatialTextAtlas = class {
       constructor(gl, options = {}) {
@@ -4239,6 +4279,17 @@ var init_spatialText = __esm({
       }
       beginFrame() {
         this.frame++;
+      }
+      /**
+       * How wide this label will be drawn, in multiples of its height.
+       *
+       * The ring's layout asks this BEFORE the frame is built, so it can
+       * reserve exactly the width `get` is about to rasterise. Same
+       * function, same pixel height, so the two cannot disagree — and no
+       * texture is created to answer it.
+       */
+      measure(text) {
+        return berxMeasureLabel(text, this.pixelHeight);
       }
       /**
        * The texture for a label, rasterising it on first use.
@@ -4305,6 +4356,7 @@ var init_spatialText = __esm({
         this.cache.clear();
       }
     };
+    measured = /* @__PURE__ */ new Map();
   }
 });
 
@@ -5518,6 +5570,12 @@ void main(){
           lighting: this.lighting,
           mediaFor: (id) => this.media.get(id),
           affordances: this.affordances,
+          /* The ring reserves the width this atlas is about to rasterise —
+             the same measurement, from the same atlas, at the same pixel
+             height. It used to reserve a per-character ESTIMATE, which was
+             wrong by up to a third per name and put «Комментировать» 1.548
+             wide into 1.411 of spacing. */
+          measureLabel: (label) => this.labels.measure(label),
           /* What the last frame decided, so this one does not decide it again
              from scratch and come out differently. Carried by the RENDERER
              rather than by every caller: a runtime that draws continuously
@@ -6089,6 +6147,18 @@ var init_webgpuText = __esm({
       }
       beginFrame() {
         this.frame++;
+      }
+      /**
+       * How wide this label will be drawn, in multiples of its height.
+       *
+       * The ring's layout asks this BEFORE the frame is built, so it can
+       * reserve exactly the width `get` is about to rasterise. The same
+       * function the WebGL atlas answers with, at this atlas's own pixel
+       * height: two backends measuring text differently would draw the
+       * same world at two different widths.
+       */
+      measure(text) {
+        return berxMeasureLabel(text, this.pixelHeight);
       }
       /**
        * The texture for a label, rasterising it on first use.
@@ -6811,7 +6881,12 @@ var init_webgpuRuntime = __esm({
           shadows: options.shadows,
           lighting: this.lighting,
           mediaFor: (id) => this.media.get(id),
-          affordances: this.affordances
+          affordances: this.affordances,
+          /* The ring reserves the width this atlas is about to
+             rasterise, rather than a per-character estimate — see the
+             WebGL backend, which asks its own atlas the same question
+             and gets the same answer. */
+          measureLabel: (label) => this.labels.measure(label)
         });
         if (options.stereo) {
           const half = Math.max(1, Math.floor(this.width / 2));
@@ -9545,6 +9620,7 @@ async function createBerxWebRenderer(canvas, options = {}) {
 }
 
 // packages/spatial-web/src/appShell.ts
+init_spatialText();
 function describe(world) {
   const frame = world.latestFrame;
   const position = world.worldPosition;
@@ -9577,6 +9653,12 @@ async function startBerxApp(options) {
     cursor: berxTemporalCursor(),
     onAction: options.act,
     actionLabels: options.actionLabels,
+    /* How far the camera stands back depends on how wide the ring
+       is, and how wide the ring is depends on how wide the words
+       are. This is the SAME measurement the renderers' atlases
+       answer with — one text shaper, one opinion about how wide a
+       word is, so framing and layout cannot describe two rings. */
+    measureLabel: (label) => berxMeasureLabel(label),
     onPositionChange: (position) => {
       outline.textContent = describe(world);
       options.onPositionChange?.(position);

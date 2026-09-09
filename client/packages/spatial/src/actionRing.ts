@@ -35,16 +35,28 @@ export interface BerxActionSlot {
 	focused: boolean;
 	/**
 	 * The half-width of the quad the renderer actually drew, in world
-	 * units — EVIDENCE ONLY, set by the renderer after rasterising.
+	 * units — set by the renderer after rasterising, and what the picker
+	 * tests against.
 	 *
-	 * Nothing reads this to decide a hit. It exists so the picker's box
-	 * and the drawn quad can be compared on the same glyph, which is
-	 * the one thing that was never measured: the picker uses
-	 * `halfHeight * 4 * aspect` where `aspect` is the VIEWPORT's, and
-	 * the renderers draw `halfHeight * the GLYPH's aspect`. Those are
-	 * different quantities and nobody had put a number on the gap.
+	 * The picker used to test `halfHeight * 4 * aspect` with the
+	 * VIEWPORT's aspect, so every slot got the same box whatever its
+	 * label while the quads drawn were half that or a third again as
+	 * wide. Now the box IS the quad.
 	 */
 	drawnHalfWidth?: number;
+	/**
+	 * The half-width the RING RESERVED for this slot, in world units.
+	 *
+	 * The same measured aspect the renderer draws with, taken at the
+	 * largest half-height any state can reach — see BERX_SLOT_FOCUS_SCALE.
+	 * The reservation is state-independent on purpose: a ring that
+	 * re-spaced itself when the focus moved would slide its actions out
+	 * from under the hand that was reaching for one.
+	 *
+	 * Nothing picks with it. It is what the layout guaranteed, so a gate
+	 * can check the guarantee against where the slots actually stand.
+	 */
+	reservedHalfWidth: number;
 	/** The affordance's state, so a renderer never re-derives it. */
 	state: BerxSocialActionState;
 	/** What the state does to this slot's brightness. */
@@ -115,14 +127,49 @@ export const BERX_SLOT_FOCUS_SCALE = PRESENTATION.focus.scale;
 const RING_GAP = 0.55;
 const SLOT_HEIGHT = 0.26;
 /**
- * World units of width per character, at a slot's own height.
+ * How much empty world stands between two names in the ring.
  *
- * Taken from the label rasteriser: one line of the world's font at
- * `pixelHeight` comes back a little over half as wide per character as
- * it is tall, plus its padding. Nothing here rasterises anything — this
- * is only enough to keep two names from occupying the same place.
+ * One slot-height. Not a tolerance and not padding around a hit box:
+ * it is the distance at which two words read as two things rather than
+ * as a strip of text, and it is the same number whatever the labels
+ * are, so the ring's rhythm does not change with its contents.
+ */
+export const BERX_SLOT_GAP = SLOT_HEIGHT;
+/**
+ * How far round the ring may open, and how far out along the camera's
+ * right its widest point reaches.
+ *
+ * An arc rather than a full circle — actions behind an object cannot be
+ * read — and the widest it opens is what decides the SMALLEST radius
+ * that can hold a given set of names.
+ */
+const ARC = Math.PI * 0.9;
+const REACH = 1.35;
+const DEPTH = 0.35;
+/**
+ * How wide a label is, in multiples of its own height — the quad's
+ * aspect, from whoever rasterises the glyphs.
+ *
+ * Injected rather than computed here for the same reason `mediaFor` is:
+ * measuring text needs a text shaper, this package has none, and a
+ * second shaper in the core would be a second opinion about how wide a
+ * word is. Returning undefined means there is nothing to draw.
+ */
+export type BerxLabelAspect = (label: string) => number | undefined;
+/**
+ * The fallback for a backend that rasterises no text.
+ *
+ * World units of width per character at a slot's own height, taken from
+ * the label rasteriser's own output. It is an ESTIMATE and it is only
+ * ever used where there is no measurement: the native backend draws no
+ * glyphs, so it has none to measure. Everywhere a renderer can measure,
+ * the measurement wins — the estimate was short for the longest name by
+ * enough to overlap its neighbour.
  */
 const WIDTH_PER_CHARACTER = 0.58;
+
+const aspectFor = (label: string, measure?: BerxLabelAspect): number =>
+	measure?.(label) ?? label.trim().length * WIDTH_PER_CHARACTER;
 
 /**
  * The ring, laid out beneath and around the focused entity.
@@ -137,81 +184,153 @@ const WIDTH_PER_CHARACTER = 0.58;
  * object with no affordances — an empty ring is not drawn.
  */
 /**
+ * WHERE EVERY ACTION STANDS, AND HOW MUCH ROOM EACH ONE HAS.
+ *
+ * The one place the ring's geometry is decided. The radius the camera
+ * frames by and the positions the renderers draw at come out of the
+ * same call, so the two cannot describe different rings — they used to
+ * be two functions computing the same estimate side by side.
+ *
+ * The arrangement is built the other way round from how it reads. It
+ * starts from the WIDTHS: every name is measured, laid out left to
+ * right with `BERX_SLOT_GAP` of empty world between neighbours, and
+ * only then is the smallest radius found that can carry that span
+ * within the arc. So the radius is a CONSEQUENCE of the words, never a
+ * number turned up until the overlaps stopped.
+ *
+ * The room reserved is at BERX_SLOT_FOCUS_SCALE — the largest a slot
+ * ever gets. Spacing by each slot's current size would re-lay the ring
+ * out every time the focus moved, which is a world that slides away
+ * from the hand reaching into it.
+ *
+ * Why the widths cannot simply be turned into an angle: `across` is
+ * `sin(angle) * radius * REACH`, and sine flattens toward the ends of
+ * the arc, so equal angles are NOT equal distances. The old spacing
+ * divided a width by a radius and used the result as an angle, which
+ * is why the outermost pairs ended up closest together. Here the
+ * across-positions are chosen first and the angle is recovered from
+ * each one.
+ */
+export interface BerxRingPlace {
+	readonly affordance: BerxSpatialAffordance;
+	/** Along the camera's right, from the object's centre. */
+	readonly across: number;
+	/** How far the arc has swung under the object at this point. */
+	readonly under: number;
+	/** Half the width this slot was given, at its largest. */
+	readonly halfWidth: number;
+}
+
+export interface BerxRingGeometry {
+	readonly radius: number;
+	readonly places: readonly BerxRingPlace[];
+}
+
+export function berxRingGeometry(
+	object: BerxSpatialObject | undefined,
+	affordances: readonly BerxSpatialAffordance[],
+	measure?: BerxLabelAspect,
+): BerxRingGeometry {
+	/* An affordance nobody may see is an affordance nobody may touch, so
+	   `hidden` is dropped HERE — before it can take up room, before
+	   there is a slot to draw OR to pick. Nothing downstream has to
+	   remember the rule. */
+	const visible = affordances.filter((a) => a.state !== 'hidden');
+	if (!object || visible.length === 0) return {radius: 0, places: []};
+
+	/* the tallest a slot ever stands, so the room it needs never
+	   changes with what the hand is doing */
+	const reserved = SLOT_HEIGHT * 0.5 * BERX_SLOT_FOCUS_SCALE;
+	const halfWidths = visible.map((a) => reserved * aspectFor(a.label, measure));
+
+	/* lay the names out in a line first: each one's own half-width, its
+	   neighbour's, and the gap between them */
+	const offsets: number[] = [0];
+	for (let i = 1; i < visible.length; i++) {
+		offsets.push(offsets[i - 1] + halfWidths[i - 1] + halfWidths[i] + BERX_SLOT_GAP);
+	}
+	const span = offsets[offsets.length - 1];
+	const halfSpan = span * 0.5;
+
+	/* then bend that line into the arc. The smallest radius whose widest
+	   point reaches halfSpan is the radius; the object's own edge is a
+	   floor under it, never a ceiling over it. */
+	const edge = Math.max(object.transform.scale.x, object.transform.scale.y) * 0.5 + RING_GAP;
+	const radius = Math.max(edge, halfSpan / (REACH * Math.sin(ARC * 0.5)));
+	const reach = Math.max(1e-4, radius * REACH);
+
+	return {
+		radius,
+		places: visible.map((affordance, index) => {
+			const across = offsets[index] - halfSpan;
+			/* the arc's own depth at this point: cos of the angle whose
+			   sine put the slot here, without the round trip through
+			   asin */
+			const t = Math.min(1, Math.abs(across) / reach);
+			return {affordance, across, under: Math.sqrt(1 - t * t) * radius * DEPTH, halfWidth: halfWidths[index]};
+		}),
+	};
+}
+
+/**
  * How far the ring stands from the object it belongs to.
  *
  * A camera that frames only the object crops the ring off the bottom
  * of the screen — which is what focusing a person did: the actions
  * were placed correctly and half of them were off-frame. This is the
  * one number that has to be shared for the camera to know better, and
- * it is the same calculation the placement uses.
+ * it is the same calculation the placement uses, because it IS the
+ * placement's calculation.
  */
 export function berxActionRingRadius(
 	object: BerxSpatialObject | undefined,
 	affordances: readonly BerxSpatialAffordance[],
+	measure?: BerxLabelAspect,
 ): number {
-	if (!object || affordances.length === 0) return 0;
-	const longest = affordances.reduce((n, a) => Math.max(n, a.label.trim().length), 1);
-	const needed = longest * SLOT_HEIGHT * WIDTH_PER_CHARACTER;
-	return Math.max(
-		Math.max(object.transform.scale.x, object.transform.scale.y) * 0.5 + RING_GAP,
-		(needed * affordances.length) / (Math.PI * 1.35),
-	);
+	return berxRingGeometry(object, affordances, measure).radius;
 }
 
+/**
+ * The ring, laid out beneath and around the focused entity.
+ *
+ * An arc rather than a full circle: actions behind an object cannot be
+ * read, and a ring you have to orbit to use is a worse control than a
+ * button. The arc opens toward the camera, spread by how wide the
+ * names are, and it sits below the entity so it never covers its face
+ * or its own name.
+ *
+ * Returns nothing when there is nothing focused, and nothing for an
+ * object with no affordances — an empty ring is not drawn.
+ */
 export function berxActionRing(
 	object: BerxSpatialObject | undefined,
 	camera: BerxSpatialCameraState,
 	affordances: readonly BerxSpatialAffordance[],
+	measure?: BerxLabelAspect,
 ): BerxActionSlot[] {
-	if (!object || affordances.length === 0) return [];
+	if (!object) return [];
 	const basis = cameraBasis(camera);
 	if (!basis) return [];
+	const {places} = berxRingGeometry(object, affordances, measure);
+	if (places.length === 0) return [];
 	const drop = object.transform.scale.y * 0.5 + SLOT_HEIGHT * 1.4;
 
-	/**
-	 * How wide the words actually are.
-	 *
-	 * The ring used to space its slots by a fixed angle, which put
-	 * «Событие», «Пойду» and «Поделиться» on top of each other — the
-	 * spacing knew how many actions there were and nothing about how
-	 * long their names are. Nobody here can measure glyphs, but the
-	 * label is right there, and its length is a good enough proxy: the
-	 * arc is sized so the longest name fits in its own share of it.
-	 *
-	 * `WIDTH_PER_CHARACTER` is in world units at SLOT_HEIGHT, measured
-	 * from the label rasteriser's own output rather than guessed — its
-	 * glyphs average a little over half their height in width.
-	 */
-	const longest = affordances.reduce((n, a) => Math.max(n, a.label.trim().length), 1);
-	const needed = longest * SLOT_HEIGHT * WIDTH_PER_CHARACTER;
-	/* wide enough that the words do not touch, and never closer in than
-	   the object's own edge */
-	const radius = berxActionRingRadius(object, affordances);
-	/* the arc widens with the count but never wraps past the sides */
-	const perSlot = Math.min(0.9, needed / Math.max(radius * 1.35, 0.001));
-	const spread = Math.min(Math.PI * 0.9, perSlot * Math.max(1, affordances.length - 1));
-	const start = -spread / 2;
-	const step = affordances.length > 1 ? spread / (affordances.length - 1) : 0;
-	/* An affordance nobody may see is an affordance nobody may touch, so
-	   `hidden` is dropped here — before there is a slot to draw OR to
-	   pick. Nothing downstream has to remember the rule. */
-	return affordances.filter((a) => a.state !== 'hidden').map((affordance, index) => {
-		const angle = start + step * index;
-		const across = Math.sin(angle) * radius * 1.35;
-		const under = Math.cos(angle) * radius * 0.35;
-		const look = berxSlotPresentation(affordance.state);
+	return places.map((place) => {
+		const look = berxSlotPresentation(place.affordance.state);
+		const down = drop + place.under - look.lift;
 		return {
-			affordance,
+			affordance: place.affordance,
 			position: {
-				x: object.transform.position.x + basis.right.x * across - basis.up.x * (drop + under) + basis.up.x * look.lift,
-				y: object.transform.position.y + basis.right.y * across - basis.up.y * (drop + under) + basis.up.y * look.lift,
-				z: object.transform.position.z + basis.right.z * across - basis.up.z * (drop + under) + basis.up.z * look.lift,
+				x: object.transform.position.x + basis.right.x * place.across - basis.up.x * down,
+				y: object.transform.position.y + basis.right.y * place.across - basis.up.y * down,
+				z: object.transform.position.z + basis.right.z * place.across - basis.up.z * down,
 			},
 			/* State as GEOMETRY, so every renderer honours it without a
 			   shader knowing what a state is. */
 			halfHeight: SLOT_HEIGHT * 0.5 * look.scale,
-			focused: affordance.state === 'focus',
-			state: affordance.state,
+			reservedHalfWidth: place.halfWidth,
+			focused: place.affordance.state === 'focus',
+			state: place.affordance.state,
 			alpha: look.alpha,
 		};
 	});

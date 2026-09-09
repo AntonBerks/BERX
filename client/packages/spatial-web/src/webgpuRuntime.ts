@@ -908,6 +908,11 @@ export class BerxWebGPURuntimeRenderer implements BerxSpatialRenderer {
 			lighting: this.lighting,
 			mediaFor: (id) => this.media.get(id),
 			affordances: this.affordances,
+			/* The ring reserves the width this atlas is about to
+			   rasterise, rather than a per-character estimate — see the
+			   WebGL backend, which asks its own atlas the same question
+			   and gets the same answer. */
+			measureLabel: (label) => this.labels.measure(label),
 		});
 		if (options.stereo) {
 			/* the same world, the same lights and the same budget, drawn
