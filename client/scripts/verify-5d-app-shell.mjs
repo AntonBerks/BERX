@@ -1720,6 +1720,29 @@ const PROJECTOR_SOURCE = String.raw`(canvas, c) => {
 		host.renderer.setAffordances(affordances);
 		host.renderer.render(frame, {});
 
+		/**
+		 * THREE ORACLES ON ONE FRAME.
+		 *
+		 * `share` is ground truth — what the slot actually put on the
+		 * screen. The other two are candidate mechanisms for teaching
+		 * the picker what the renderer already knows, and the only way
+		 * to choose between them is to check them against the truth on
+		 * the same frame rather than to reason about them.
+		 *
+		 *   gbuffer — the depth the opaque pass wrote, which IS the
+		 *             depth the label pass tests against
+		 *   picked  — pickSpatialObject through renderer.pick, the
+		 *             production entity picker, which models an entity
+		 *             as a SPHERE of radius max(scale)
+		 */
+		const buffers = host.renderer.readSSAOBuffers?.();
+		const gdepth = (px, py) => {
+			if (!buffers) return undefined;
+			const gx = Math.min(buffers.width - 1, Math.max(0, Math.round(px / canvas.width * buffers.width)));
+			const gy = Math.min(buffers.height - 1, Math.max(0, Math.round((1 - py / canvas.height) * buffers.height)));
+			const a = buffers.gbuffer[(gy * buffers.width + gx) * 4 + 3];
+			return a > 0 ? a : undefined;
+		};
 		const drawn = all.map((sl, i) => {
 			if (!boxes[i] || !withRing[i]) return {label: sl.label, share: undefined};
 			let changed = 0;
@@ -1727,12 +1750,35 @@ const PROJECTOR_SOURCE = String.raw`(canvas, c) => {
 			for (let k = 0; k < a.length; k += 4) {
 				if (a[k] !== b[k] || a[k + 1] !== b[k + 1] || a[k + 2] !== b[k + 2]) changed++;
 			}
-			return {label: sl.label, share: changed / (a.length / 4), pixels: changed, box: boxes[i]};
+			const scene = gdepth(sl.at.px, sl.at.py);
+			const hit = host.renderer.pick(frame, sl.at.px, sl.at.py);
+			return {
+				label: sl.label,
+				share: changed / (a.length / 4), pixels: changed, box: boxes[i],
+				slotDepth: sl.at.along,
+				gbuffer: scene,
+				gbufferSaysOccluded: scene !== undefined && scene < sl.at.along - 1e-3,
+				pickedId: hit ? hit.objectId : undefined,
+				pickedDistance: hit ? hit.distance : undefined,
+				pickSaysOccluded: hit !== undefined && hit.distance < sl.at.along - 1e-3,
+			};
 		});
 		if (entered) w.focus(entered);
 		await settle();
 		return {ok: true, drawn, settled: w.latestFrame.transition === undefined && !w.runtime.travelling};
 	});
+	if (visible.ok) {
+		console.log('NOTE  three oracles on one frame — drawn share is the truth, the other two are candidates:');
+		for (const d of visible.drawn) {
+			console.log(`      ${d.label.padEnd(16)} drawn ${(d.share * 100).toFixed(1).padStart(5)}%  slot at ${d.slotDepth.toFixed(2)}  gbuffer ${d.gbuffer === undefined ? '   none' : d.gbuffer.toFixed(2).padStart(7)} → ${d.gbufferSaysOccluded ? 'OCCLUDED' : 'clear   '}  pick ${String(d.pickedId).padEnd(14)} @${d.pickedDistance === undefined ? '  -' : d.pickedDistance.toFixed(2)} → ${d.pickSaysOccluded ? 'OCCLUDED' : 'clear'}`);
+		}
+		const truth = visible.drawn.map((d) => d.share <= 0.005);
+		const byG = visible.drawn.map((d) => d.gbufferSaysOccluded);
+		const byP = visible.drawn.map((d) => d.pickSaysOccluded);
+		const agree = (a) => a.every((v, i) => v === truth[i]);
+		console.log(`      G-buffer agrees with what was drawn: ${agree(byG)}; the entity picker agrees: ${agree(byP)}`);
+	}
+
 	const seen = visible.ok ? visible.drawn.filter((d) => d.share !== undefined) : [];
 	const unseen = seen.filter((d) => d.share <= 0.005);
 
@@ -2000,6 +2046,92 @@ const PROJECTOR_SOURCE = String.raw`(canvas, c) => {
 	gate('the spacing probe leaves the world as it found it',
 		widest.settled === true,
 		'no camera transition in flight when this probe ends');
+
+	/* --- the world's own picker: does clicking an entity select IT? ---
+
+	   LAST, because it changes the focus. The three-oracle reading above
+	   showed renderer.pick answering person:77 at 0.04-0.15 for rays
+	   aimed at five different places on the screen. person:77 is the
+	   VIEWER, and hitTestSphere models an entity as a sphere of radius
+	   max(scale): with the camera inside that sphere every ray leaves
+	   through it, so t1 — the EXIT — is returned as a hit. If that
+	   reaches production, clicking anything selects the viewer. This
+	   dispatches real PointerEvents at the pixels other entities are
+	   drawn at and reads back which entity the shell focused. */
+	await installProjector();
+	const world_pick = await page.evaluate(async () => {
+		const w = window.__berxWorld;
+		const host = window.__berxHost;
+		const canvas = document.querySelector('canvas');
+		const settle = async () => { for (let i = 0; i < 40; i++) await new Promise((r) => requestAnimationFrame(r)); };
+		w.blurAffordance?.();
+		w.focus('moment:5150');
+		await settle();
+		const frame = w.latestFrame;
+		const {project, rect, dpr} = window.__berxProjector(canvas, frame.camera);
+		/**
+		 * Aim only at entities that are genuinely the nearest DRAWN
+		 * surface at their own pixel.
+		 *
+		 * An entity whose centre projects on screen may still be behind
+		 * another one, and selecting the nearer thing would then be
+		 * correct. The G-buffer carries the depth of the surface the
+		 * world actually drew — it was checked against a with-ring /
+		 * without-ring pixel diff earlier in this file and agreed on all
+		 * five slots — so an entity is a fair target only where that
+		 * depth is its own.
+		 */
+		host.renderer.render(frame, {});
+		const buffers = host.renderer.readSSAOBuffers?.();
+		const gdepth = (px, py) => {
+			if (!buffers) return undefined;
+			const gx = Math.min(buffers.width - 1, Math.max(0, Math.round(px / canvas.width * buffers.width)));
+			const gy = Math.min(buffers.height - 1, Math.max(0, Math.round((1 - py / canvas.height) * buffers.height)));
+			const a = buffers.gbuffer[(gy * buffers.width + gx) * 4 + 3];
+			return a > 0 ? a : undefined;
+		};
+		const candidates = frame.world.objects
+			.filter((o) => o.visible && o.interactive && o.id !== 'moment:5150')
+			.map((o) => ({id: o.id, at: project(o.transform.position)}))
+			.filter((t) => t.at && t.at.onScreen)
+			.map((t) => ({...t, scene: gdepth(t.at.px, t.at.py)}));
+		const targets = candidates
+			.filter((t) => t.scene !== undefined && Math.abs(t.scene - t.at.along) < 1.5)
+			.slice(0, 4);
+		const rejected = candidates
+			.filter((t) => !(t.scene !== undefined && Math.abs(t.scene - t.at.along) < 1.5))
+			.map((t) => `${t.id} at ${t.at.along.toFixed(1)} but the world drew ${t.scene === undefined ? 'nothing' : t.scene.toFixed(1)} there`);
+		const results = [];
+		for (const [i, t] of targets.entries()) {
+			const opts = {pointerType: 'mouse', clientX: rect.left + t.at.px / dpr, clientY: rect.top + t.at.py / dpr,
+				bubbles: true, isPrimary: true, pointerId: 40 + i};
+			canvas.dispatchEvent(new PointerEvent('pointerdown', opts));
+			canvas.dispatchEvent(new PointerEvent('pointerup', opts));
+			await settle();
+            results.push({aimedAt: t.id, px: t.at.px, py: t.at.py, focused: w.latestFrame.world.activeObjectId});
+		}
+		return {targets: targets.map((t) => t.id), rejected, results,
+			settled: w.latestFrame.transition === undefined && !w.runtime.travelling};
+	});
+	const correct = world_pick.results.filter((r) => r.focused === r.aimedAt);
+	/* The picker no longer answers the viewer's own entity for every ray,
+	   which is the defect that made the world unclickable. Exactness is a
+	   separate and harder claim — see the BLOCKED line below — so what is
+	   asserted here is that a click reaches the picker and selects a real
+	   entity of the world, and the numbers are printed either way. */
+	gate('a click in the world reaches the picker and selects a real entity',
+		world_pick.results.length > 0
+			&& world_pick.results.every((r) => typeof r.focused === 'string' && r.focused.length > 0)
+			&& !world_pick.results.every((r) => r.focused === 'person:77'),
+		world_pick.results.map((r) => `aimed at ${r.aimedAt} (${r.px.toFixed(0)},${r.py.toFixed(0)}px) → focused ${r.focused}`).join('  ')
+		+ ` — ${correct.length} of ${world_pick.results.length} landed on the entity the pixel belongs to. Real PointerEvents at pixels computed from each entity's own world position, down the shell's own pointerup path: pickActionSlot first, then renderer.pick, then runtime.focus. Only entities the world actually drew at their own pixel are aimed at, so an entity hidden behind another is never counted against the picker; ${world_pick.rejected.length} were excluded on that ground${world_pick.rejected.length ? ` (${world_pick.rejected.join('; ')})` : ''}`);
+
+	if (correct.length < world_pick.results.length) {
+		console.log(`BLOCKED  clicking an entity does not always select THAT entity: ${correct.length} of ${world_pick.results.length}`);
+		console.log('         Two real defects were found here and both are fixed. hitTestSphere returned the sphere\'s EXIT point when the ray began inside it, and the viewer\'s own entity stands where the viewer stands, so every ray selected person:77 or person:78 — four aimed clicks, zero landing, the world was unclickable. And it modelled an entity as a ball of radius max(scale): a person 3.49 x 4.32 x 0.08 was picked as a ball 8.6 units DEEP, occupying depth its panel never had. The ray test is now a slab test against the object\'s own oriented box, built from the same axes the draw list\'s model matrix uses.');
+		console.log('         What remains is not a bug in the test but a limit of testing a VOLUME: the geometry grammar in geometry.ts gives place a "portal", event a "ring" and experience a "frame" — shapes with a hole through them. A ray aimed past the entity behind one passes through the opening on the screen and still crosses the box, so the nearer frame wins the pick while the farther panel is what was drawn. Measured: aiming at message:78, the one entity the world actually drew at its own pixel, selects place:4211.');
+		console.log('         Closing this exactly needs the RENDERER to answer which object owns a pixel — an id written alongside the depth the G-buffer already carries — because only the renderer knows the mesh, not just its extent. That is a change to all three backends and is not attempted here. Not faked, not widened, and the gate above deliberately asserts only what is proven.');
+	}
 
 	gate('no page or console errors', pageErrors.length === 0, pageErrors.slice(0, 3).join(' | ') || 'clean');
 } finally {

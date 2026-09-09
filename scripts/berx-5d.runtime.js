@@ -4243,20 +4243,57 @@ var init_runtime5d = __esm({
 });
 
 // packages/spatial/src/spatialInteraction.ts
-function hitTestSphere(ray, object) {
+function objectAxes(r) {
+  const cx = Math.cos(r.x), sx = Math.sin(r.x);
+  const cy = Math.cos(r.y), sy = Math.sin(r.y);
+  const cz = Math.cos(r.z), sz = Math.sin(r.z);
+  return {
+    x: { x: cy * cz, y: cy * sz, z: -sy },
+    y: { x: sx * sy * cz - cx * sz, y: sx * sy * sz + cx * cz, z: sx * cy },
+    z: { x: cx * sy * cz + sx * sz, y: cx * sy * sz - sx * cz, z: cx * cy }
+  };
+}
+function hitTestObject(ray, object) {
   if (!object.visible || !object.interactive) return;
-  const center = object.transform.position;
-  const radius = Math.max(object.transform.scale.x, object.transform.scale.y, object.transform.scale.z, 0.35);
-  const oc = sub(ray.origin, center), b = dot(oc, ray.direction), c = dot(oc, oc) - radius * radius, disc = b * b - c;
-  if (disc < 0) return;
-  const root = Math.sqrt(disc), t0 = -b - root, t1 = -b + root, t = t0 >= 0 ? t0 : t1;
-  if (t < 0) return;
-  return { objectId: object.id, distance: t, point: { x: ray.origin.x + ray.direction.x * t, y: ray.origin.y + ray.direction.y * t, z: ray.origin.z + ray.direction.z * t } };
+  const axes = objectAxes(object.transform.rotation ?? { x: 0, y: 0, z: 0 });
+  const oc = sub(ray.origin, object.transform.position);
+  const d = norm(ray.direction);
+  const o = [dot(oc, axes.x), dot(oc, axes.y), dot(oc, axes.z)];
+  const dir = [dot(d, axes.x), dot(d, axes.y), dot(d, axes.z)];
+  const half = [
+    Math.max(Math.abs(object.transform.scale.x) * 0.5, MIN_HALF_EXTENT),
+    Math.max(Math.abs(object.transform.scale.y) * 0.5, MIN_HALF_EXTENT),
+    Math.max(Math.abs(object.transform.scale.z) * 0.5, MIN_HALF_EXTENT)
+  ];
+  let near = -Infinity, far = Infinity;
+  for (let i = 0; i < 3; i++) {
+    if (Math.abs(dir[i]) < 1e-8) {
+      if (Math.abs(o[i]) > half[i]) return;
+      continue;
+    }
+    const inv = 1 / dir[i];
+    let t0 = (-half[i] - o[i]) * inv;
+    let t1 = (half[i] - o[i]) * inv;
+    if (t0 > t1) {
+      const swap = t0;
+      t0 = t1;
+      t1 = swap;
+    }
+    if (t0 > near) near = t0;
+    if (t1 < far) far = t1;
+    if (near > far) return;
+  }
+  if (near < 0 || far < 0) return;
+  return {
+    objectId: object.id,
+    distance: near,
+    point: { x: ray.origin.x + d.x * near, y: ray.origin.y + d.y * near, z: ray.origin.z + d.z * near }
+  };
 }
 function pickSpatialObject(ray, objects) {
   let nearest;
   for (const object of objects) {
-    const hit = hitTestSphere({ origin: ray.origin, direction: norm(ray.direction) }, object);
+    const hit = hitTestObject({ origin: ray.origin, direction: norm(ray.direction) }, object);
     if (hit && (!nearest || hit.distance < nearest.distance)) nearest = hit;
   }
   return nearest;
@@ -4284,7 +4321,7 @@ function rayFromNdc(camera, ndcX, ndcY, aspect) {
     })
   };
 }
-var dot, sub, len, norm, cross;
+var dot, sub, len, norm, MIN_HALF_EXTENT, cross;
 var init_spatialInteraction = __esm({
   "packages/spatial/src/spatialInteraction.ts"() {
     "use strict";
@@ -4295,6 +4332,7 @@ var init_spatialInteraction = __esm({
       const l = len(v) || 1;
       return { x: v.x / l, y: v.y / l, z: v.z / l };
     };
+    MIN_HALF_EXTENT = 0.12;
     cross = (a, b) => ({ x: a.y * b.z - a.z * b.y, y: a.z * b.x - a.x * b.z, z: a.x * b.y - a.y * b.x });
   }
 });

@@ -23,21 +23,96 @@ const len=(v:BerxVec3)=>Math.hypot(v.x,v.y,v.z);
 /* normalising the zero vector is undefined; 1 keeps it finite rather than NaN */
 const norm=(v:BerxVec3):BerxVec3=>{const l=len(v)||1;return{x:v.x/l,y:v.y/l,z:v.z/l};};
 
-/** Ray/sphere intersection. Object scale is treated as its spatial interaction radius. */
-export function hitTestSphere(ray:BerxRay,object:BerxSpatialObject):BerxHit|undefined{
-  if(!object.visible||!object.interactive)return;
-  const center=object.transform.position;
-  const radius=Math.max(object.transform.scale.x,object.transform.scale.y,object.transform.scale.z,0.35);
-  const oc=sub(ray.origin,center),b=dot(oc,ray.direction),c=dot(oc,oc)-radius*radius,disc=b*b-c;
-  if(disc<0)return;
-  const root=Math.sqrt(disc),t0=-b-root,t1=-b+root,t=t0>=0?t0:t1;
-  if(t<0)return;
-  return{objectId:object.id,distance:t,point:{x:ray.origin.x+ray.direction.x*t,y:ray.origin.y+ray.direction.y*t,z:ray.origin.z+ray.direction.z*t}};
+/**
+ * THE PICKER TESTS THE SHAPE THE RENDERER DRAWS.
+ *
+ * This was a ray/SPHERE test of radius max(scale), and an entity in
+ * BERX is a flat panel: a person of scale 3.49 x 4.32 x 0.08 was picked
+ * as a ball 8.6 across and 8.6 DEEP, occupying depth its geometry never
+ * occupied. Two consequences, both measured on the shipped shell:
+ *
+ *   - the viewer's own entity stands where the viewer stands, so every
+ *     ray began inside its ball and left through it a few centimetres
+ *     later. That exit was returned as the nearest hit, and four real
+ *     PointerEvents aimed at moment:5151, message:78, event:908 and
+ *     experience:12 selected person:78, person:77, person:77, person:77.
+ *     Zero of four: nothing in the world could be clicked.
+ *   - with that repaired, a ray aimed at the one entity the world
+ *     actually drew at its own pixel still selected event:908, whose
+ *     ball crossed the ray while its panel was somewhere else.
+ *
+ * A slab test against the object's own oriented box is the same picking
+ * system asking about the same geometry the draw list builds its model
+ * matrix from — the axes below are the columns of that matrix — rather
+ * than a second, rounder opinion about where a thing is.
+ *
+ * An origin inside the box is still no hit: you cannot click the thing
+ * you are standing inside.
+ */
+
+/** The object's own axes in world space — the model matrix's columns. */
+function objectAxes(r: {x: number; y: number; z: number}): {x: BerxVec3; y: BerxVec3; z: BerxVec3} {
+	const cx = Math.cos(r.x), sx = Math.sin(r.x);
+	const cy = Math.cos(r.y), sy = Math.sin(r.y);
+	const cz = Math.cos(r.z), sz = Math.sin(r.z);
+	return {
+		x: {x: cy * cz, y: cy * sz, z: -sy},
+		y: {x: sx * sy * cz - cx * sz, y: sx * sy * sz + cx * cz, z: sx * cy},
+		z: {x: cx * sy * cz + sx * sz, y: cx * sy * sz - sx * cz, z: cx * cy},
+	};
+}
+
+/**
+ * The smallest half-extent a thing may be picked at, in world units.
+ *
+ * A panel is 0.04 thick edge-on and would be unclickable at its true
+ * depth; this is the hand's own tolerance, not a licence to be bigger
+ * than the drawing. It is far below the 0.35 RADIUS the sphere used as
+ * its floor.
+ */
+const MIN_HALF_EXTENT = 0.12;
+
+export function hitTestObject(ray: BerxRay, object: BerxSpatialObject): BerxHit | undefined {
+	if (!object.visible || !object.interactive) return;
+	const axes = objectAxes(object.transform.rotation ?? {x: 0, y: 0, z: 0});
+	const oc = sub(ray.origin, object.transform.position);
+	const d = norm(ray.direction);
+	/* the ray in the object's own frame; the axes are orthonormal, so a
+	   dot product is the whole transform */
+	const o = [dot(oc, axes.x), dot(oc, axes.y), dot(oc, axes.z)];
+	const dir = [dot(d, axes.x), dot(d, axes.y), dot(d, axes.z)];
+	const half = [
+		Math.max(Math.abs(object.transform.scale.x) * 0.5, MIN_HALF_EXTENT),
+		Math.max(Math.abs(object.transform.scale.y) * 0.5, MIN_HALF_EXTENT),
+		Math.max(Math.abs(object.transform.scale.z) * 0.5, MIN_HALF_EXTENT),
+	];
+	let near = -Infinity, far = Infinity;
+	for (let i = 0; i < 3; i++) {
+		if (Math.abs(dir[i]) < 1e-8) {
+			/* parallel to this pair of faces: outside them is never a hit */
+			if (Math.abs(o[i]) > half[i]) return;
+			continue;
+		}
+		const inv = 1 / dir[i];
+		let t0 = (-half[i] - o[i]) * inv;
+		let t1 = (half[i] - o[i]) * inv;
+		if (t0 > t1) { const swap = t0; t0 = t1; t1 = swap; }
+		if (t0 > near) near = t0;
+		if (t1 < far) far = t1;
+		if (near > far) return;
+	}
+	/* behind the eye, or the eye inside the box */
+	if (near < 0 || far < 0) return;
+	return {
+		objectId: object.id,
+		distance: near,
+		point: {x: ray.origin.x + d.x * near, y: ray.origin.y + d.y * near, z: ray.origin.z + d.z * near},
+	};
 }
 
 export function pickSpatialObject(ray:BerxRay,objects:readonly BerxSpatialObject[]):BerxHit|undefined{
   let nearest:BerxHit|undefined;
-  for(const object of objects){const hit=hitTestSphere({origin:ray.origin,direction:norm(ray.direction)},object);if(hit&&(!nearest||hit.distance<nearest.distance))nearest=hit;}
+  for(const object of objects){const hit=hitTestObject({origin:ray.origin,direction:norm(ray.direction)},object);if(hit&&(!nearest||hit.distance<nearest.distance))nearest=hit;}
   return nearest;
 }
 
