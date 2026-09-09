@@ -8,5 +8,9 @@ export {
 	berxResolveRenderTier,
 } from '@berx/spatial';
 export {BERX_SSAO_SAMPLES, berxSSAOKernel} from '@berx/spatial';
+/* the exposure the frame was written through, so two tiers can be
+   compared as the RADIANCE they carry rather than as the display values
+   a shoulder curve stretched apart in the dark */
+export {berxShoulderInverse, BERX_EXPOSURE} from '@berx/spatial';
 export {BERX_VOLUMETRIC_STEPS} from '@berx/spatial';
 export {BERX_PARTICLE_KINDS, berxParticleSpec, berxParticleAt} from '@berx/spatial';

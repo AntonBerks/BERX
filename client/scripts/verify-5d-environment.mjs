@@ -212,8 +212,24 @@ if (orb) {
 	/* Schlick at nov == 1 is exactly f0: (1-1)^5 == 0. */
 	const F = f0;
 	const diffuse = baseC.map((c) => c * (1 - metal));
-	oracle = [0, 1, 2].map((k) =>
+	/**
+	 * THE PREDICTION MUST BE COMPARABLE WITH THE PIXEL.
+	 *
+	 * The shading above is LINEAR radiance — what leaves the surface.
+	 * What the frame holds is that radiance through the world's own
+	 * exposure: the gain and the ACES shoulder, in post. Comparing a
+	 * linear prediction against an exposed pixel measured a missing
+	 * tone-map, not a wrong environment, and it read as a 2.3x error on
+	 * every channel.
+	 *
+	 * berxExpose is the SAME function the post stage runs, so this is
+	 * the core predicting the pixel rather than the gate inventing a
+	 * second curve. The 2/255 tolerance is untouched.
+	 */
+	const linear = [0, 1, 2].map((k) =>
 		envBoth[k] * diffuse[k] * (1 - F[k]) + envBoth[k] * F[k] + orb.emissive[k]);
+	const exposed = core.berxExpose({r: linear[0], g: linear[1], b: linear[2]});
+	oracle = [exposed.r, exposed.g, exposed.b];
 }
 
 if (!orb) {

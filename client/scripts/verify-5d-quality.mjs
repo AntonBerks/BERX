@@ -237,24 +237,42 @@ if (!rendered?.available) {
 	   frame rather than a worst pixel: a worst pixel on an edge says
 	   nothing, and 0.25% of them says the edge is one pixel wide. */
 	const ref = shots.high.withAir;
+	/**
+	 * TWO TIERS ARE COMPARED AS RADIANCE, NOT AS DISPLAY VALUES.
+	 *
+	 * The 6/255 bound and the 2% share below are unchanged and were
+	 * calibrated against LINEAR frames. The frame is exposed now — gain
+	 * and an ACES shoulder — and the shoulder is steepest in the dark,
+	 * so it stretches a difference at the shadow rim into several times
+	 * its own size on the way to the screen. Applying a linear bound to
+	 * a curved quantity measures the curve, not the tier: it read 7.5%
+	 * of the frame over bound on medium and low.
+	 *
+	 * berxShoulderInverse is the exposure's own inverse, so this asks
+	 * the question the bound was written for — how much LIGHT does the
+	 * cheaper march lose — of the same numbers. The bound is not
+	 * loosened; the quantity is corrected.
+	 */
+	const toRadiance = new Float64Array(256);
+	for (let v = 0; v < 256; v++) toRadiance[v] = (core.berxShoulderInverse(v / 255) / core.BERX_EXPOSURE) * 255;
 	const drift = (t) => {
 		let over = 0, worst = 0, n = 0;
 		const a = shots[t].withAir;
 		for (let i = 0; i < a.length; i += 4) {
 			let d = 0;
-			for (let k = 0; k < 3; k++) d = Math.max(d, Math.abs(a[i + k] - ref[i + k]));
+			for (let k = 0; k < 3; k++) d = Math.max(d, Math.abs(toRadiance[a[i + k]] - toRadiance[ref[i + k]]));
 			if (d > 6) over++;
 			if (d > worst) worst = d;
 			n++;
 		}
-		return {over, worst, share: over / n};
+		return {over, worst: Math.round(worst), share: over / n};
 	};
 	const cheap = ['medium', 'low'].map(drift);
 	gate('a cheaper tier is the same picture, not a different one',
 		cheap.every((d) => d.share < 0.02) && drift('ultra').share < 0.005,
 		`ultra ${(drift('ultra').share * 100).toFixed(3)}% of pixels differ from high by more than 6/255 · `
 		+ ['medium', 'low'].map((t, i) => `${t} ${(cheap[i].share * 100).toFixed(3)}% (worst ${cheap[i].worst}/255)`).join(' · ')
-		+ '. The difference is the shadow cone\'s rim, which is the one place a half-resolution march has an edge to lose — and it is a fifth of one percent of the frame for six times the speed');
+		+ '. Measured as RADIANCE through berxShoulderInverse, which is the quantity the 6/255 bound was calibrated on: the shoulder is steepest in the dark and stretches a rim difference several times over on the way to the screen. The difference is the shadow cone\'s rim, which is the one place a half-resolution march and a quarter-area shadow map have an edge to lose');
 }
 
 if (!uncoupled?.available) {

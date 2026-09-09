@@ -190,22 +190,59 @@ try {
 	server.close();
 }
 
+const luminanceOf = (px, i) => 0.2126 * px[i] + 0.7152 * px[i + 1] + 0.0722 * px[i + 2];
+
+/**
+ * WHERE THE VOID ENDS, MEASURED RATHER THAN REMEMBERED.
+ *
+ * This counted pixels above a fixed 14, on the reasoning that the
+ * ground is #07080A and reads about 8. That was true of a LINEAR frame.
+ * The world is exposed now — gain and an ACES shoulder in post — and
+ * the void comes back well above 14, so 171347 of 172800 pixels
+ * counted as "lit": 99.2% of the frame, a metric with nothing left to
+ * measure. It could no longer tell a world that thinned from one that
+ * did not, which is the only thing it exists to tell.
+ *
+ * The void is the most common value in a frame of a small world in a
+ * large room, so the median IS the background, whatever the exposure
+ * does to it. A pixel is world when it stands a real step above that.
+ * Same question, asked of the frame instead of of a memory of it.
+ */
+const backgroundOf = (image) => {
+	const px = image.rgba;
+	const histogram = new Uint32Array(256);
+	for (let i = 0; i < px.length; i += 4) histogram[Math.min(255, Math.round(luminanceOf(px, i)))]++;
+	const half = (px.length / 4) / 2;
+	let seen = 0;
+	for (let v = 0; v < 256; v++) {
+		seen += histogram[v];
+		if (seen >= half) return v;
+	}
+	return 0;
+};
+
+/* the reference frame decides the threshold, and every image is then
+   measured against that ONE number — a per-image threshold would move
+   with the very effect being measured */
+const voidLevel = backgroundOf(rendered.none);
+const LIT_ABOVE = voidLevel + 6;
+
 /** Mean luminance and lit-pixel count: what an effect changes about an image. */
 const measure = (image) => {
 	const px = image.rgba;
 	let sum = 0;
 	let lit = 0;
 	for (let i = 0; i < px.length; i += 4) {
-		const l = 0.2126 * px[i] + 0.7152 * px[i + 1] + 0.0722 * px[i + 2];
+		const l = luminanceOf(px, i);
 		sum += l;
-		/* the ground is #07080A ≈ 8; anything meaningfully above it is world */
-		if (l > 14) lit++;
+		if (l > LIT_ABOVE) lit++;
 	}
 	return {mean: sum / (px.length / 4), lit};
 };
 
 const none = measure(rendered.none);
 const measured = Object.fromEntries(BERX_TRANSITION_KINDS.map((k) => [k, measure(rendered[k])]));
+console.log(`NOTE  the void reads ${voidLevel}/255 in the untouched frame, so world is anything above ${LIT_ABOVE}; ${none.lit} of ${rendered.none.rgba.length / 4} pixels are world at rest`);
 
 const differs = BERX_TRANSITION_KINDS.filter((k) =>
 	Math.abs(measured[k].mean - none.mean) > 0.05 || Math.abs(measured[k].lit - none.lit) > 40);
