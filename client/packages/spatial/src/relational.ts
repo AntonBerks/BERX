@@ -53,6 +53,8 @@ const RELATION_RADIUS: Record<BerxSpatialRelation['type'], number> = {
 
 /** How far apart entities with no relation at all are held. */
 const UNRELATED_RING = 9.5;
+/** π(3−√5): successive multiples are as evenly spread as any count allows. */
+const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
 
 export interface BerxRelationalLayoutOptions {
 	/**
@@ -119,15 +121,48 @@ export function berxRelationalLayout(
 	const place = (id: string, at: BerxVec3) => {
 		positions.set(id, at);
 	};
-	const beside = (anchorId: string, id: string, type: BerxSpatialRelation['type'], strength: number): BerxVec3 => {
+	const beside = (anchorId: string, _id: string, type: BerxSpatialRelation['type'], strength: number): BerxVec3 => {
 		const origin = positions.get(anchorId)!;
 		/* strength pulls in: a strong relation is a near one */
 		const radius = RELATION_RADIUS[type] / Math.max(0.25, Math.min(1, strength));
-		const angle = berxStableAngle(id);
+		/**
+		 * WHICH WAY, WHEN NO DIRECTION IS MEANT.
+		 *
+		 * The DISTANCE carries the relation — strength pulls in — and it
+		 * is untouched below. The ANGLE never carried anything: it is a
+		 * hash of the id, chosen so the same graph lands the same way
+		 * twice. Being meaningless, it was free to point anywhere, and
+		 * on a horizontal plane "anywhere" is mostly INTO DEPTH.
+		 *
+		 * Squashing the circle toward the lateral axis was tried and
+		 * REVERTED: it lifted desktop coverage but a wide arrangement
+		 * cannot fit a portrait frame, and the phone fell from four
+		 * entities wholly inside to one of three. Containment is not
+		 * tradeable for coverage.
+		 */
 		/* neighbours of the same anchor step outward rather than stacking
 		   on one radius when their angles happen to be close */
 		const rank = placedAround.get(anchorId) ?? 0;
 		placedAround.set(anchorId, rank + 1);
+		/**
+		 * And they are SPREAD around the anchor rather than each taking
+		 * its own hash.
+		 *
+		 * Four things related to one person used to hash to four
+		 * independent directions, which is four samples of a uniform
+		 * distribution and behaves like it: on the framing fixture three
+		 * of them landed within half a unit of each other and the fourth
+		 * went to the far side, so the arrangement was both crowded and
+		 * enormous. The golden angle is the standard answer — successive
+		 * ranks are as far apart as any count allows, without needing to
+		 * know the count in advance, which this does not.
+		 *
+		 * The anchor's own hash still sets where the spread STARTS, so
+		 * two anchors do not lay their neighbours out identically, and
+		 * the rank order is deterministic, so the same graph still gives
+		 * the same world.
+		 */
+		const angle = berxStableAngle(anchorId) + rank * GOLDEN_ANGLE;
 		const spread = radius + rank * 0.42;
 		return {
 			x: origin.x + Math.cos(angle) * spread,

@@ -1555,12 +1555,12 @@ function berxRelationalLayout(objects, relations, options = {}) {
   const place = (id, at) => {
     positions.set(id, at);
   };
-  const beside = (anchorId, id, type, strength) => {
+  const beside = (anchorId, _id, type, strength) => {
     const origin = positions.get(anchorId);
     const radius = RELATION_RADIUS[type] / Math.max(0.25, Math.min(1, strength));
-    const angle = berxStableAngle(id);
     const rank = placedAround.get(anchorId) ?? 0;
     placedAround.set(anchorId, rank + 1);
+    const angle = berxStableAngle(anchorId) + rank * GOLDEN_ANGLE;
     const spread = radius + rank * 0.42;
     return {
       x: origin.x + Math.cos(angle) * spread,
@@ -1630,7 +1630,7 @@ function berxRelationalWeight(id, relations) {
   }
   return total === 0 ? 0 : 1 - 1 / (1 + total);
 }
-var RELATION_RADIUS, UNRELATED_RING;
+var RELATION_RADIUS, UNRELATED_RING, GOLDEN_ANGLE;
 var init_relational = __esm({
   "packages/spatial/src/relational.ts"() {
     "use strict";
@@ -1647,6 +1647,7 @@ var init_relational = __esm({
       related: 4
     };
     UNRELATED_RING = 9.5;
+    GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
   }
 });
 
