@@ -2133,6 +2133,66 @@ const PROJECTOR_SOURCE = String.raw`(canvas, c) => {
 		console.log('         Closing this exactly needs the RENDERER to answer which object owns a pixel — an id written alongside the depth the G-buffer already carries — because only the renderer knows the mesh, not just its extent. That is a change to all three backends and is not attempted here. Not faked, not widened, and the gate above deliberately asserts only what is proven.');
 	}
 
+	/* --- V99: a place with a real coordinate stands where it really is ---
+
+	   The two places below are served through the SAME /api/v1/places
+	   contract the shell already consumes, with the lat/lng the API has
+	   always declared and the fixture has always sent as null. Their
+	   true separation is computed by haversine — a different formula
+	   from the projection under test, so this measures the projection
+	   rather than watching it agree with itself. */
+	const geoWorld = await page.evaluate(async () => {
+		const w = window.__berxWorld;
+		const settle = async () => { for (let i = 0; i < 30; i++) await new Promise((r) => requestAnimationFrame(r)); };
+		/* Real coordinates: the Moscow Kremlin and Red Square, which are
+		   a known distance apart on the ground. */
+		const A = {lat: 55.751244, lng: 37.618423};
+		const B = {lat: 55.753930, lng: 37.620795};
+		const RAD = Math.PI / 180, R = 6378137;
+		const lat1 = A.lat * RAD, lat2 = B.lat * RAD;
+		const h = Math.sin((lat2 - lat1) / 2) ** 2
+			+ Math.cos(lat1) * Math.cos(lat2) * Math.sin(((B.lng - A.lng) * RAD) / 2) ** 2;
+		const trueMetres = 2 * R * Math.asin(Math.min(1, Math.sqrt(h)));
+
+		const base = w.latestFrame.world.objects.find((o) => o.id === 'place:4211');
+		const shape = (id, geoAnchor) => ({
+			object: {
+				...JSON.parse(JSON.stringify(base)),
+				id, geo: geoAnchor,
+			},
+			media: [], relations: [],
+		});
+		/* a third place with NO coordinate, to prove the rule is "the
+		   server said where it is", not "everything moved" */
+		const noGeo = shape('place:geo-none', undefined);
+		delete noGeo.object.geo;
+		w.ingest([shape('place:geo-a', A), shape('place:geo-b', B), noGeo]);
+		await settle();
+		const at = (id) => {
+			const o = w.latestFrame.world.objects.find((x) => x.id === id);
+			return o ? {...o.transform.position} : undefined;
+		};
+        const a = at('place:geo-a'), b = at('place:geo-b'), none = at('place:geo-none');
+		const separation = a && b ? Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z) : undefined;
+		return {
+			trueMetres, a, b, none, separation,
+			metresPerUnit: separation ? trueMetres / separation : undefined,
+			/* north must read as -Z: B is north of A */
+			northIsAway: a && b ? b.z < a.z : false,
+			carried: w.latestFrame.world.objects.filter((o) => o.geo).map((o) => o.id),
+		};
+	});
+
+	gate('a place the server gave a coordinate for stands where it really is',
+		geoWorld.separation !== undefined && geoWorld.metresPerUnit !== undefined
+			&& Math.abs(geoWorld.metresPerUnit - 200) < 1 && geoWorld.northIsAway === true,
+		`two real coordinates ${geoWorld.trueMetres.toFixed(1)}m apart on the ground landed ${geoWorld.separation === undefined ? '?' : geoWorld.separation.toFixed(4)} world units apart — ${geoWorld.metresPerUnit === undefined ? '?' : geoWorld.metresPerUnit.toFixed(2)}m per unit against the declared 200, and the northern one sits at z ${geoWorld.b ? geoWorld.b.z.toFixed(4) : '?'} against ${geoWorld.a ? geoWorld.a.z.toFixed(4) : '?'}, so north reads as away from the viewer. The true distance is haversine — a different formula from the projection, so this measures it rather than watching it agree with itself`);
+
+	gate('and a place the server said nothing about is not moved by geography',
+		geoWorld.none !== undefined && !(geoWorld.none.x === 0 && geoWorld.none.z === 0)
+			&& geoWorld.carried.length === 2,
+		`place:geo-none carries no coordinate and stands at (${geoWorld.none ? `${geoWorld.none.x.toFixed(2)}, ${geoWorld.none.z.toFixed(2)}` : '?'}) from the relational layout, while exactly ${geoWorld.carried.length} entities carry one (${geoWorld.carried.join(', ')}). No coordinate means no geographic claim: the relational composition still places everything, and geography overrides only what the server actually located`);
+
 	gate('no page or console errors', pageErrors.length === 0, pageErrors.slice(0, 3).join(' | ') || 'clean');
 } finally {
 	await browser.close();

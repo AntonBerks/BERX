@@ -65,3 +65,4 @@ export * from './mediaSurface';
 export * from './haptics';
 export * from './transitions';
 export * from './shadowMap';
+export * from './geoProjection';

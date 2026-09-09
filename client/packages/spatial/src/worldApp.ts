@@ -43,9 +43,10 @@ import {berxCanActivate, type BerxSocialActionState} from './socialActions';
 import type {BerxSocialAction, BerxSpatialAffordance} from './socialActions';
 import {berxTransitionForTravel, BERX_FAR_TRAVEL_METRES} from './transitions';
 import {berxActionRingRadius, type BerxLabelAspect} from './actionRing';
+import {berxProjectGeo} from './geoProjection';
 import type {BerxNavigationIntent} from './platform';
 import {berxCameraFromPose, berxStereoCamerasFromPose, type BerxXrPose, type BerxXrViews} from './xrPose';
-import type {BerxSpatialObject, BerxSpatialRelation, BerxVec3} from './world';
+import type {BerxSpatialGeoAnchor, BerxSpatialObject, BerxSpatialRelation, BerxVec3} from './world';
 
 /**
  * A named part of the world the camera can be in.
@@ -159,6 +160,15 @@ export class Berx5DWorldApp {
 	 * movement.
 	 */
 	private lastDistanceFromWorld?: number;
+	/**
+	 * The real-world point world-space is measured from.
+	 *
+	 * Fixed on the first entity that carries a coordinate and never
+	 * changed, so geography stays still while the world fills up. Not
+	 * persisted: a new session re-derives it from the same first
+	 * coordinate the same way.
+	 */
+	private geoOrigin?: BerxSpatialGeoAnchor;
 
 	constructor(options: Berx5DWorldAppOptions = {}) {
 		this.options = options;
@@ -243,6 +253,30 @@ export class Berx5DWorldApp {
 		 */
 		const composition = berxCompositionFor(this.position.region);
 		this.layout = berxComposeLayout(composition, snapshot.objects, usable, {rootId: this.viewerId});
+		/**
+		 * A THING WITH A REAL COORDINATE STANDS WHERE IT REALLY IS.
+		 *
+		 * Not a second layout: the relational composition above still
+		 * places every entity, and this overrides only those the SERVER
+		 * gave a latitude and longitude for. Two restaurants on the same
+		 * street were as far apart as the graph felt like putting them;
+		 * now they are as far apart as they are, to the metre, through
+		 * berxProjectGeo and one shared origin.
+		 *
+		 * The origin is fixed the first time a coordinate is seen and
+		 * never moves. An origin that followed whatever arrived last
+		 * would slide the whole world sideways every time a place was
+		 * ingested — the world would appear to drift while nothing in it
+		 * had moved.
+		 *
+		 * No coordinate means no geographic claim, so an entity the
+		 * server said nothing about is untouched here.
+		 */
+		for (const object of snapshot.objects) {
+			if (!object.geo) continue;
+			this.geoOrigin ??= {...object.geo};
+			this.layout.set(object.id, berxProjectGeo(object.geo, this.geoOrigin));
+		}
 		for (const object of snapshot.objects) {
 			const at = this.layout.get(object.id);
 			if (!at) continue;

@@ -48,9 +48,31 @@ export interface BerxSpatialMaterialState {
   transmission: number;
 }
 
+/**
+ * WHERE A THING REALLY IS, when the server knows.
+ *
+ * A place is somewhere. A person may be somewhere. Carried on the
+ * object so the world can stand them where they are instead of only
+ * where their relations put them — and OPTIONAL, because most entities
+ * have no coordinates and inventing one would be inventing a fact.
+ * `accuracyM` is the provider's own reported uncertainty in metres,
+ * never a guess: absent means the provider did not say.
+ */
+export interface BerxSpatialGeoAnchor {
+  lat: number;
+  lng: number;
+  accuracyM?: number;
+}
+
 export interface BerxSpatialObject {
   id: string;
   kind: BerxSpatialEntityKind;
+  /**
+   * The real-world coordinate the server gave for this entity, if it
+   * gave one. No coordinate means no geographic claim: the entity
+   * stands where the relational layout puts it, exactly as before.
+   */
+  geo?: BerxSpatialGeoAnchor;
   /**
    * Where this entity sits in time, from the server's own timestamps.
    * Absent for things that do not stop existing — a person, a place —

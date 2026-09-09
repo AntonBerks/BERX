@@ -4579,6 +4579,23 @@ var init_actionRing = __esm({
   }
 });
 
+// packages/spatial/src/geoProjection.ts
+function berxProjectGeo(coordinate, origin, metresPerUnit = BERX_GEO_METRES_PER_UNIT) {
+  const scale = Math.max(1e-6, metresPerUnit);
+  const eastM = BERX_EARTH_RADIUS_M * (coordinate.lng - origin.lng) * RAD * Math.cos(origin.lat * RAD);
+  const northM = BERX_EARTH_RADIUS_M * (coordinate.lat - origin.lat) * RAD;
+  return { x: eastM / scale, y: 0, z: -northM / scale };
+}
+var BERX_EARTH_RADIUS_M, BERX_GEO_METRES_PER_UNIT, RAD;
+var init_geoProjection = __esm({
+  "packages/spatial/src/geoProjection.ts"() {
+    "use strict";
+    BERX_EARTH_RADIUS_M = 6378137;
+    BERX_GEO_METRES_PER_UNIT = 200;
+    RAD = Math.PI / 180;
+  }
+});
+
 // packages/spatial/src/xrPose.ts
 function berxRotateByQuaternion(v, q) {
   const l = Math.hypot(q.x, q.y, q.z, q.w) || 1;
@@ -4679,6 +4696,7 @@ var init_worldApp = __esm({
     init_socialActions();
     init_transitions();
     init_actionRing();
+    init_geoProjection();
     init_xrPose();
     BERX_WORLD_MARGIN = 12;
     BERX_PERSISTENCE_VERSION = 1;
@@ -4756,6 +4774,11 @@ var init_worldApp = __esm({
         const usable = [...this.relations.values()].filter((r) => present.has(r.from) && present.has(r.to));
         const composition = berxCompositionFor(this.position.region);
         this.layout = berxComposeLayout(composition, snapshot.objects, usable, { rootId: this.viewerId });
+        for (const object of snapshot.objects) {
+          if (!object.geo) continue;
+          this.geoOrigin ?? (this.geoOrigin = { ...object.geo });
+          this.layout.set(object.id, berxProjectGeo(object.geo, this.geoOrigin));
+        }
         for (const object of snapshot.objects) {
           const at = this.layout.get(object.id);
           if (!at) continue;
@@ -5882,6 +5905,7 @@ var init_src = __esm({
     init_haptics();
     init_transitions();
     init_shadowMap();
+    init_geoProjection();
   }
 });
 
@@ -9589,9 +9613,23 @@ function mapFeedItemToSpatial(item, placement = {}) {
   }] : [];
   return { object, media: [], relations };
 }
+function geoOf(lat, lng) {
+  const n = (v) => {
+    const x = typeof v === "string" ? Number(v) : typeof v === "number" ? v : Number.NaN;
+    return Number.isFinite(x) ? x : void 0;
+  };
+  const latitude = n(lat);
+  const longitude = n(lng);
+  if (latitude === void 0 || longitude === void 0) return void 0;
+  if (Math.abs(latitude) > 90 || Math.abs(longitude) > 180) return void 0;
+  if (latitude === 0 && longitude === 0) return void 0;
+  return { lat: latitude, lng: longitude };
+}
 function mapNearbyPlaceToSpatial(place, now, placement = {}) {
   const live = place.moments.filter((m) => m.ends_at * 1e3 > now).length;
   const object = baseObject("place", place.guid, place.title, String(place.guid), live === 0 ? 0 : Math.min(1, 0.4 + live * 0.2), placement);
+  const geo = geoOf(place.lat, place.lng);
+  if (geo) object.geo = geo;
   return { object, media: surfaceFor(object, place.cover_url), relations: [] };
 }
 function mapEventToSpatial(event, placement = {}) {

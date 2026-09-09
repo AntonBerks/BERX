@@ -48,6 +48,7 @@ import {
 	geometryForEntity,
 	geometryScale,
 	type BerxEntityTime,
+	type BerxSpatialGeoAnchor,
 	type BerxSpatialEntityKind,
 	type BerxSpatialMediaSurface,
 	type BerxSpatialObject,
@@ -250,11 +251,36 @@ export function mapFeedItemToSpatial(item: BerxFeedItem, placement: BerxSpatialP
 /* PLACES                                                              */
 /* ------------------------------------------------------------------ */
 
+/**
+ * The server's own coordinate, or nothing.
+ *
+ * `lat`/`lng` are nullable in the API precisely because a place may
+ * have no coordinate on file, and the strings a PHP backend sends for
+ * numbers have to survive the trip. Anything that is not a finite pair
+ * of degrees in range is NOT a location, and an entity without one
+ * stands where its relations put it rather than at a made-up point.
+ */
+function geoOf(lat: unknown, lng: unknown): BerxSpatialGeoAnchor | undefined {
+	const n = (v: unknown): number | undefined => {
+		const x = typeof v === 'string' ? Number(v) : typeof v === 'number' ? v : Number.NaN;
+		return Number.isFinite(x) ? x : undefined;
+	};
+	const latitude = n(lat);
+	const longitude = n(lng);
+	if (latitude === undefined || longitude === undefined) return undefined;
+	if (Math.abs(latitude) > 90 || Math.abs(longitude) > 180) return undefined;
+	/* 0,0 is in the Atlantic and is what an empty column serialises to */
+	if (latitude === 0 && longitude === 0) return undefined;
+	return {lat: latitude, lng: longitude};
+}
+
 export function mapPlaceToSpatial(place: BerxPlace, placement: BerxSpatialPlacement = {}): BerxSpatialMapping {
 	const object = baseObject('place', place.guid, place.title, String(place.guid), 0, placement);
 	/* a verified business is a different kind of thing in the world, and
 	   the server is the one that says so */
 	if (place.is_business) object.kind = 'business';
+	const geo = geoOf(place.lat, place.lng);
+	if (geo) object.geo = geo;
 	return {object, media: surfaceFor(object, place.cover_url), relations: [ownedBy(object.id, place.owner_guid)]};
 }
 
@@ -271,6 +297,8 @@ export function mapPlaceToSpatial(place: BerxPlace, placement: BerxSpatialPlacem
 export function mapNearbyPlaceToSpatial(place: BerxNearbyPlaceItem, now: number, placement: BerxSpatialPlacement = {}): BerxSpatialMapping {
 	const live = place.moments.filter((m) => m.ends_at * 1000 > now).length;
 	const object = baseObject('place', place.guid, place.title, String(place.guid), live === 0 ? 0 : Math.min(1, 0.4 + live * 0.2), placement);
+	const geo = geoOf((place as {lat?: unknown}).lat, (place as {lng?: unknown}).lng);
+	if (geo) object.geo = geo;
 	return {object, media: surfaceFor(object, place.cover_url), relations: []};
 }
 
