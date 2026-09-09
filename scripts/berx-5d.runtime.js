@@ -3938,6 +3938,24 @@ var init_spatialCamera = __esm({
         * through them makes it the wrong size. `optics` is how a pose says
         * so, and nothing else may use it.
         */
+      /**
+       * HOW FAR THE CAMERA MAY GO, from the world rather than from a constant.
+       *
+       * maxDepth clamps each axis every frame. At its default of 30 it is a
+       * fixed box around the ORIGIN that knows nothing about how big the
+       * world is or how far back a narrow frame has to stand — and BERX
+       * already has an edge, derived from the world's own bounds, which the
+       * world app keeps. Two edges that can disagree is one edge too many:
+       * measured, framing this world into a phone asked for z 49.68 and the
+       * camera stopped dead at 30.00, with two of five entities cropped and
+       * nothing reporting why.
+       *
+       * The world app sets this from the same bound its clamp uses, so the
+       * two cannot drift.
+       */
+      setLimits(limits) {
+        this.limits = { ...this.limits, ...limits };
+      }
       setState(next, source = {}) {
         this.state = { position: copy(next.position), target: copy(next.target), rotation: { ...next.rotation }, fov: source.optics === true ? next.fov : clamp2(next.fov, this.limits.minFov, this.limits.maxFov), near: next.near, far: next.far };
         this.baseTarget = copy(next.target);
@@ -4876,6 +4894,15 @@ var init_worldApp = __esm({
         const frame = this.latestFrame;
         if (frame.world.objects.filter((o) => o.visible).length === 0) return false;
         const fitted = berxFrameTheWorld(frame, width, height);
+        const bounds = berxWorldBounds(this.runtime.latestFrame.world.objects);
+        this.framedFrom = Math.max(
+          this.framedFrom ?? 0,
+          Math.hypot(
+            fitted.position.x - bounds.centre.x,
+            fitted.position.y - bounds.centre.y,
+            fitted.position.z - bounds.centre.z
+          )
+        );
         this.runtime.moveCamera(fitted.position, fitted.target, berxTransitionForTravel("travel"));
         return true;
       }
@@ -5229,10 +5256,30 @@ var init_worldApp = __esm({
        * applied: relational positions, then the temporal projection that
        * pushes the past away and brings what is live forward.
        */
+      /**
+       * How far outside the world the viewer may stand.
+       *
+       * The world's own margin, or the distance a fit needed to hold the
+       * whole world in the frame — whichever is further out. Standing
+       * where everything is visible is not being lost.
+       */
+      edgeMargin(bounds) {
+        return Math.max(BERX_WORLD_MARGIN, (this.framedFrom ?? 0) - bounds.radius);
+      }
       frame(deltaSeconds) {
         if (this.layoutDirty) this.relayout();
+        const wasTravelling = this.runtime.travelling;
         const base = this.runtime.frame(deltaSeconds);
         const bounds = berxWorldBounds(base.world.objects);
+        {
+          const edge = bounds.radius + this.edgeMargin(bounds);
+          const offset = Math.max(
+            Math.abs(bounds.centre.x),
+            Math.abs(bounds.centre.y),
+            Math.abs(bounds.centre.z)
+          );
+          this.runtime.camera.setLimits({ maxDepth: Math.max(30, offset + edge) });
+        }
         const centre = bounds.centre;
         const dx = base.camera.position.x - centre.x;
         const dy = base.camera.position.y - centre.y;
@@ -5241,8 +5288,8 @@ var init_worldApp = __esm({
         this.elapsed += Math.max(0, deltaSeconds);
         if (this.lifecycle && this.elapsed >= this.lifecycle.until) this.lifecycle = void 0;
         const movedOutwards = this.lastDistanceFromWorld !== void 0 && distanceFromWorld > this.lastDistanceFromWorld + 1e-6;
-        if (bounds.radius > 0 && !this.runtime.travelling && movedOutwards) {
-          const clamped = berxClampToWorld(base.camera.position, bounds, BERX_WORLD_MARGIN);
+        if (bounds.radius > 0 && !wasTravelling && !this.runtime.travelling && movedOutwards) {
+          const clamped = berxClampToWorld(base.camera.position, bounds, this.edgeMargin(bounds));
           if (clamped !== base.camera.position) {
             this.runtime.camera.setState({ ...base.camera, position: clamped });
           }

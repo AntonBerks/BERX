@@ -19,7 +19,7 @@ const lerp=(a:number,b:number,t:number)=>a+(b-a)*t;
 const copy=(v:BerxVec3):BerxVec3=>({x:v.x,y:v.y,z:v.z});
 const smoothstep=(t:number)=>t*t*(3-2*t);
 export class BerxSpatialCamera {
- private state:BerxSpatialCameraState; private baseTarget:BerxVec3; private velocity:BerxVec3={x:0,y:0,z:0}; private readonly limits:BerxCameraLimits;
+ private state:BerxSpatialCameraState; private baseTarget:BerxVec3; private velocity:BerxVec3={x:0,y:0,z:0}; private limits:BerxCameraLimits;
  constructor(initial?:Partial<BerxSpatialCameraState>,limits?:Partial<BerxCameraLimits>){
   this.state={position:copy(initial?.position??{x:0,y:0,z:8}),target:copy(initial?.target??{x:0,y:0,z:0}),rotation:{...(initial?.rotation??{x:0,y:0,z:0})},fov:initial?.fov??42,near:initial?.near??0.1,far:initial?.far??200};
   this.baseTarget=copy(this.state.target);this.limits={maxTiltDeg:limits?.maxTiltDeg??2.5,maxDepth:limits?.maxDepth??30,minFov:limits?.minFov??28,maxFov:limits?.maxFov??58};
@@ -35,6 +35,22 @@ export class BerxSpatialCamera {
   * through them makes it the wrong size. `optics` is how a pose says
   * so, and nothing else may use it.
   */
+ /**
+  * HOW FAR THE CAMERA MAY GO, from the world rather than from a constant.
+  *
+  * maxDepth clamps each axis every frame. At its default of 30 it is a
+  * fixed box around the ORIGIN that knows nothing about how big the
+  * world is or how far back a narrow frame has to stand — and BERX
+  * already has an edge, derived from the world's own bounds, which the
+  * world app keeps. Two edges that can disagree is one edge too many:
+  * measured, framing this world into a phone asked for z 49.68 and the
+  * camera stopped dead at 30.00, with two of five entities cropped and
+  * nothing reporting why.
+  *
+  * The world app sets this from the same bound its clamp uses, so the
+  * two cannot drift.
+  */
+ setLimits(limits:Partial<BerxCameraLimits>){this.limits={...this.limits,...limits};}
  setState(next:BerxSpatialCameraState,source:{optics?:boolean}={}){this.state={position:copy(next.position),target:copy(next.target),rotation:{...next.rotation},fov:source.optics===true?next.fov:clamp(next.fov,this.limits.minFov,this.limits.maxFov),near:next.near,far:next.far};this.baseTarget=copy(next.target);}
  applyInput(input:BerxCameraInput){
   this.velocity.x+=input.panX*0.18;this.velocity.y+=input.panY*0.18;this.velocity.z+=input.depthDelta*0.28;this.state.fov=clamp(this.state.fov-input.pinch*0.45,this.limits.minFov,this.limits.maxFov);

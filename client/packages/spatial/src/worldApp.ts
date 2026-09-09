@@ -161,6 +161,14 @@ export class Berx5DWorldApp {
 	 */
 	private lastDistanceFromWorld?: number;
 	/**
+	 * The furthest a fit has had to stand to hold this world whole.
+	 *
+	 * A floor under the edge's limit — see frameWorld. Undefined until
+	 * the world has been framed at least once, which is when the
+	 * viewport is first known.
+	 */
+	private framedFrom?: number;
+	/**
 	 * The real-world point world-space is measured from.
 	 *
 	 * Fixed on the first entity that carries a coordinate and never
@@ -360,6 +368,36 @@ export class Berx5DWorldApp {
 		const frame = this.latestFrame;
 		if (frame.world.objects.filter((o) => o.visible).length === 0) return false;
 		const fitted = berxFrameTheWorld(frame, width, height);
+		/**
+		 * STANDING WHERE THE WHOLE WORLD FITS IS NOT BEING LOST.
+		 *
+		 * The edge stops someone flying away until they cannot tell
+		 * which direction anything is in. Its limit is the world's own
+		 * radius plus a margin, and a NARROW frame needs to stand
+		 * further back than that: a phone is 0.46 as wide as it is tall,
+		 * so the same world costs more than twice the distance it costs
+		 * a desktop. The clamp then fought the framing on every breath
+		 * of ambient motion and dragged the camera in until two of five
+		 * entities were off the edge — the fit had returned a pose
+		 * holding all five.
+		 *
+		 * So the edge remembers how far the world last had to be seen
+		 * from. It is a floor under the limit, never a ceiling: flying
+		 * beyond it is still stopped, and the number comes from a fit
+		 * this world actually needed rather than from a constant.
+		 */
+		/* the CANONICAL bounds, which is what the edge clamps against —
+		   measuring this against the temporally lensed ones would store a
+		   distance the clamp does not recognise */
+		const bounds = berxWorldBounds(this.runtime.latestFrame.world.objects);
+		this.framedFrom = Math.max(
+			this.framedFrom ?? 0,
+			Math.hypot(
+				fitted.position.x - bounds.centre.x,
+				fitted.position.y - bounds.centre.y,
+				fitted.position.z - bounds.centre.z,
+			),
+		);
 		this.runtime.moveCamera(fitted.position, fitted.target, berxTransitionForTravel('travel'));
 		return true;
 	}
@@ -859,8 +897,37 @@ export class Berx5DWorldApp {
 	 * applied: relational positions, then the temporal projection that
 	 * pushes the past away and brings what is live forward.
 	 */
+	/**
+	 * How far outside the world the viewer may stand.
+	 *
+	 * The world's own margin, or the distance a fit needed to hold the
+	 * whole world in the frame — whichever is further out. Standing
+	 * where everything is visible is not being lost.
+	 */
+	private edgeMargin(bounds: {radius: number}): number {
+		return Math.max(BERX_WORLD_MARGIN, (this.framedFrom ?? 0) - bounds.radius);
+	}
+
 	frame(deltaSeconds: number): Berx5DFrame {
 		if (this.layoutDirty) this.relayout();
+		/**
+		 * Was a transition in flight when this frame BEGAN?
+		 *
+		 * The edge clamp below is skipped while travelling, and the
+		 * transition clears itself the moment it arrives — so the frame
+		 * in which the camera reaches its destination sees travelling
+		 * false AND a step outwards, and the clamp fired on exactly that
+		 * frame and dragged the camera back off the pose it had just
+		 * reached. Framing a world into a PORTRAIT frame has to stand
+		 * further back than a square one, so that is where it showed:
+		 * berxFrameTheWorld returned a pose holding all five entities
+		 * at 3.62% of a phone frame, and what arrived was 10.87% with
+		 * two of them gone off the edge.
+		 *
+		 * Reading it before the step means the arrival frame is still
+		 * part of the journey, which is what it is.
+		 */
+		const wasTravelling = this.runtime.travelling;
 		const base = this.runtime.frame(deltaSeconds);
 		/**
 		 * The world has an edge.
@@ -873,6 +940,25 @@ export class Berx5DWorldApp {
 		 * chosen once.
 		 */
 		const bounds = berxWorldBounds(base.world.objects);
+		/**
+		 * ONE EDGE.
+		 *
+		 * The camera carries its own per-axis limit, a box around the
+		 * ORIGIN that knew nothing about the world — and BERX already
+		 * has an edge, derived from the world's bounds, kept here. Two
+		 * edges that can disagree is one edge too many, and they did:
+		 * framing this world into a phone asked for z 49.68 and the
+		 * camera stopped at 30.00 with two of five entities cropped.
+		 * The camera's limit is set from the same bound the clamp below
+		 * uses. The box must contain the sphere, so an off-centre world
+		 * adds its own offset.
+		 */
+		{
+			const edge = bounds.radius + this.edgeMargin(bounds);
+			const offset = Math.max(
+				Math.abs(bounds.centre.x), Math.abs(bounds.centre.y), Math.abs(bounds.centre.z));
+			this.runtime.camera.setLimits({maxDepth: Math.max(30, offset + edge)});
+		}
 		/* Not while travelling. A journey to an entity at the world's
 		   edge is a legitimate destination, and clamping every frame of
 		   it fights the transition — the camera never arrives, and a
@@ -906,8 +992,10 @@ export class Berx5DWorldApp {
 
 		const movedOutwards =
 			this.lastDistanceFromWorld !== undefined && distanceFromWorld > this.lastDistanceFromWorld + 1e-6;
-		if (bounds.radius > 0 && !this.runtime.travelling && movedOutwards) {
-			const clamped = berxClampToWorld(base.camera.position, bounds, BERX_WORLD_MARGIN);
+		if (bounds.radius > 0 && !wasTravelling && !this.runtime.travelling && movedOutwards) {
+			/* the margin the world has always had, or the distance a fit
+			   needed to hold it whole — whichever is further out */
+			const clamped = berxClampToWorld(base.camera.position, bounds, this.edgeMargin(bounds));
 			if (clamped !== base.camera.position) {
 				this.runtime.camera.setState({...base.camera, position: clamped});
 			}
