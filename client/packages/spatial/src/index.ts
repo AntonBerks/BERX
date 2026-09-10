@@ -39,6 +39,7 @@ export * from './voice/berxBirth';
 export * from './core/berxCore';
 export * from './core/berxCoreWorld';
 export * from './core/berxTouch';
+export * from './i18n';
 export * from './berxLivingWorld';
 export * from './platform/berxReach';
 export * from './worldMaterials';

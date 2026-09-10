@@ -21,7 +21,10 @@ import {
 	mapOfferToSpatial,
 	mapPlaceToSpatial,
 } from '@berx/scenes';
-import {berxDrawnHalfExtent, cameraBasis, pickSpatialCandidates, rayFromNdc} from '@berx/spatial';
+import {
+	berxDrawnHalfExtent, berxLocaleDirection, berxResolveLocale, berxTranslate, cameraBasis,
+	pickSpatialCandidates, rayFromNdc, type BerxCatalogues,
+} from '@berx/spatial';
 import {startBerxApp} from '@berx/spatial-web/appShell';
 
 /**
@@ -129,6 +132,92 @@ const whereAmI = () => {
    centre of the screen and would have reported a perfect layout however
    broken the real one was. */
 (globalThis as unknown as {__berxCameraBasis?: typeof cameraBasis}).__berxCameraBasis = cameraBasis;
+
+/**
+ * THE PRODUCT'S WORDS, in the one language it has.
+ *
+ * Keyed by message id rather than written at the call site, so
+ * `berxLocaleCoverage` can answer "how much of German exists" with a
+ * number instead of a guess. The Russian values are byte-identical to
+ * the ones that were inline here.
+ *
+ * The other five catalogues are EMPTY AND STAY EMPTY until somebody
+ * writes them. Five catalogues of unreviewed machine output would read
+ * as finished and be wrong in ways nobody would find until a person
+ * read them, and `berxTranslate` reports every miss precisely so a
+ * half-built language cannot look complete.
+ *
+ * What DOES work in all six today is everything that needs no
+ * translated content: the locale is resolved from the browser, the
+ * document's `lang` and `dir` follow it, and numbers, dates and
+ * relative times come from `Intl` — so a German browser gets German
+ * date order and German number grouping now, and German words when
+ * somebody writes them.
+ */
+const BERX_MESSAGES: BerxCatalogues = {
+	ru: {
+		'action.open': 'Открыть',
+		'action.focus': 'Навести',
+		'action.like': 'Нравится',
+		'action.unlike': 'Убрать «нравится»',
+		'action.comment': 'Комментировать',
+		'action.reply': 'Ответить',
+		'action.share': 'Поделиться',
+		'action.save': 'Сохранить',
+		'action.unsave': 'Убрать из сохранённого',
+		'action.follow': 'Подписаться',
+		'action.unfollow': 'Отписаться',
+		'action.message': 'Написать',
+		'action.view-profile': 'Профиль',
+		'action.view-media': 'Смотреть',
+		'action.view-place': 'Место',
+		'action.view-event': 'Событие',
+		'action.view-experience': 'Впечатление',
+		'action.view-community': 'Сообщество',
+		'action.view-business': 'Бизнес',
+		'action.join': 'Вступить',
+		'action.leave': 'Выйти',
+		'action.attend': 'Пойду',
+		'action.unattend': 'Не пойду',
+		'action.reserve': 'Забронировать',
+		'action.directions': 'Маршрут',
+		'action.check-in': 'Отметиться',
+		'action.create-moment': 'Создать момент',
+		'action.create-story': 'Создать историю',
+		'action.create-post': 'Написать',
+		'action.create-event': 'Создать событие',
+		'action.create-community': 'Создать сообщество',
+		'action.send-message': 'Отправить',
+		'action.react': 'Реакция',
+		'action.report': 'Пожаловаться',
+		'action.block': 'Заблокировать',
+		'action.mute': 'Заглушить',
+		'action.back': 'Назад',
+		'action.more': 'Ещё',
+	},
+	en: {},
+	de: {},
+	fr: {},
+	es: {},
+	ar: {},
+};
+
+/** The viewer's own locale, from what their browser actually asks for. */
+const berxLocale = berxResolveLocale(
+	typeof navigator === 'undefined' ? undefined : (navigator.languages ?? [navigator.language]),
+);
+/* Text direction is a property of TEXT: it reverses the sign-in form,
+   the composer and the live region. The world does not flip — a world
+   has real space with real handedness, and mirroring it would move
+   every entity to the wrong side of every other one. */
+if (typeof document !== 'undefined') {
+	document.documentElement.lang = berxLocale;
+	document.documentElement.dir = berxLocaleDirection(berxLocale);
+}
+/** Every message id this session asked for and did not have. */
+const berxMissingText = new Set<string>();
+const berxText = (id: string): string =>
+	berxTranslate(BERX_MESSAGES, berxLocale, id, (missed, locale) => berxMissingText.add(`${missed}@${locale}`)).text;
 
 async function enterWorld(): Promise<void> {
 	gate?.remove();
@@ -389,44 +478,44 @@ async function enterWorld(): Promise<void> {
 		   because a missing one used to be drawn in the world as its own
 		   identifier — «view-event», in English, beside «Пойду». */
 		actionLabels: {
-			open: 'Открыть',
-			focus: 'Навести',
-			like: 'Нравится',
-			unlike: 'Убрать «нравится»',
-			comment: 'Комментировать',
-			reply: 'Ответить',
-			share: 'Поделиться',
-			save: 'Сохранить',
-			unsave: 'Убрать из сохранённого',
-			follow: 'Подписаться',
-			unfollow: 'Отписаться',
-			message: 'Написать',
-			'view-profile': 'Профиль',
-			'view-media': 'Смотреть',
-			'view-place': 'Место',
-			'view-event': 'Событие',
-			'view-experience': 'Впечатление',
-			'view-community': 'Сообщество',
-			'view-business': 'Бизнес',
-			join: 'Вступить',
-			leave: 'Выйти',
-			attend: 'Пойду',
-			unattend: 'Не пойду',
-			reserve: 'Забронировать',
-			directions: 'Маршрут',
-			'check-in': 'Отметиться',
-			'create-moment': 'Создать момент',
-			'create-story': 'Создать историю',
-			'create-post': 'Написать',
-			'create-event': 'Создать событие',
-			'create-community': 'Создать сообщество',
-			'send-message': 'Отправить',
-			react: 'Реакция',
-			report: 'Пожаловаться',
-			block: 'Заблокировать',
-			mute: 'Заглушить',
-			back: 'Назад',
-			more: 'Ещё',
+			open: berxText('action.open'),
+			focus: berxText('action.focus'),
+			like: berxText('action.like'),
+			unlike: berxText('action.unlike'),
+			comment: berxText('action.comment'),
+			reply: berxText('action.reply'),
+			share: berxText('action.share'),
+			save: berxText('action.save'),
+			unsave: berxText('action.unsave'),
+			follow: berxText('action.follow'),
+			unfollow: berxText('action.unfollow'),
+			message: berxText('action.message'),
+			'view-profile': berxText('action.view-profile'),
+			'view-media': berxText('action.view-media'),
+			'view-place': berxText('action.view-place'),
+			'view-event': berxText('action.view-event'),
+			'view-experience': berxText('action.view-experience'),
+			'view-community': berxText('action.view-community'),
+			'view-business': berxText('action.view-business'),
+			join: berxText('action.join'),
+			leave: berxText('action.leave'),
+			attend: berxText('action.attend'),
+			unattend: berxText('action.unattend'),
+			reserve: berxText('action.reserve'),
+			directions: berxText('action.directions'),
+			'check-in': berxText('action.check-in'),
+			'create-moment': berxText('action.create-moment'),
+			'create-story': berxText('action.create-story'),
+			'create-post': berxText('action.create-post'),
+			'create-event': berxText('action.create-event'),
+			'create-community': berxText('action.create-community'),
+			'send-message': berxText('action.send-message'),
+			react: berxText('action.react'),
+			report: berxText('action.report'),
+			block: berxText('action.block'),
+			mute: berxText('action.mute'),
+			back: berxText('action.back'),
+			more: berxText('action.more'),
 		},
 		textureBudget: 96,
 	});
