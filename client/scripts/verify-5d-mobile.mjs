@@ -729,8 +729,13 @@ try {
 			+ ` at aspect ${r.rotated.aspect.toFixed(2)} with ${r.rotated.onScreen} of them in frame, canvas ${r.rotated.bufferWidth}x${r.rotated.bufferHeight}.`
 			+ ` The ResizeObserver in runtimeHost5d re-resolves quality and the backing store; the world itself is untouched, because a rotation is a fact about a window and not about a world`);
 
+		/* 20 000 was a placeholder and the measurement retired it: 419ms
+		   on the iPhone profile and 320ms on the Android one, from
+		   navigation to a world holding entities, on a CPU rasteriser.
+		   3 000 is a real budget with sevenfold headroom over that, and
+		   it would catch a regression the old number never could. */
 		gate(`${d.id}: the world is on the screen within a phone's patience`,
-			r.bootMs < 20000,
+			r.bootMs < 3000,
 			`${r.bootMs}ms from navigation to a world holding more than four entities: the sign-in tap, the token, /me, and the world loader's twelve domain endpoints, on this ${d.viewport.width}x${d.viewport.height} device.`
 			+ ` Every pixel of it rasterised on the CPU by mesa's lavapipe, so this is a ceiling on a phone's real number rather than a prediction of it`);
 
