@@ -287,8 +287,20 @@ function geoOf(lat: unknown, lng: unknown): BerxSpatialGeoAnchor | undefined {
 
 export function mapPlaceToSpatial(place: BerxPlace, placement: BerxSpatialPlacement = {}): BerxSpatialMapping {
 	const object = baseObject('place', place.guid, place.title, String(place.guid), 0, placement);
-	/* a verified business is a different kind of thing in the world, and
-	   the server is the one that says so */
+	/**
+	 * A verified business is a different kind of thing in the world, and
+	 * the server is the one that says so.
+	 *
+	 * THE ID STAYS `place:<guid>` AND THAT IS DELIBERATE. An id
+	 * namespaces the server ROW this entity came from; `kind` is what
+	 * the world draws. They differ here, and they have to: an event at
+	 * this address relates to `berxSpatialId('place', place.guid)` from
+	 * a different mapper that has never seen the business flag, and
+	 * renaming the entity would leave that edge pointing at nothing.
+	 * Anything asking what this IS asks `kind`, which is what the
+	 * geometry table, the material table and the affordance table all
+	 * do.
+	 */
 	if (place.is_business) object.kind = 'business';
 	const geo = geoOf(place.lat, place.lng);
 	if (geo) object.geo = geo;

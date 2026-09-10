@@ -94,7 +94,39 @@ export async function startBerxAppServer() {
 				guid: 4211, title: 'Дом Культуры', description: '', category: 'venue', address: null, phone: null,
 				website: null, hours: null, price: null, lat: null, lng: null, owner_guid: 77, cover_url: null,
 				rating: 0, rating_count: 0, is_saved: false, is_business: false, business_type: null, verified: false,
+			}, {
+				/* A BUSINESS IS A PLACE THE SERVER SAYS IS ONE.
+				   `is_business` is what makes mapPlaceToSpatial produce the
+				   `business` kind — its own geometry (a stack) and its own
+				   affordances (view-business / directions / reserve) — and
+				   no fixture had ever set it, so the whole business reading
+				   of the world went unmeasured. */
+				guid: 4212, title: 'Кофейня «Полдень»', description: '', category: 'cafe', address: null, phone: null,
+				website: null, hours: null, price: null, lat: null, lng: null, owner_guid: 78, cover_url: null,
+				rating: 0, rating_count: 0, is_saved: false, is_business: true, business_type: 'cafe', verified: true,
 			}],
+		},
+		/* A creator, keyed by the username the friends list really sends.
+		   These endpoints are the reason a person entity carries
+		   `sourceName`: they are keyed by name, not by guid. */
+		'/api/v1/creator/lev': {
+			user_guid: 78, category: 'music', bio: 'пишу и играю', is_own: false,
+			time_enabled: NOW - 40 * 86400, audience: {followers: 3, views: 11},
+		},
+		'/api/v1/creator/lev/content': {
+			posts: [{guid: 6001, text: 'новая запись', time: NOW - 7200}],
+			albums: [{guid: 6002, title: 'Крыши'}],
+			events: [{guid: 6003, title: 'Концерт в четверг'}],
+			experiences: [{id: 6004, title: 'Репетиция'}],
+		},
+		/* The viewer's own dating world, read only when they travel to
+		   their own presence. Pseudonyms, never `person:<guid>`. */
+		'/api/v1/dating/discover': {
+			limit: 12, offset: 0,
+			profiles: [
+				{guid: 91, pseudonym: 'Вечер', age: 29, city: 'Москва', goal: 'дружба', bio: 'люблю крыши', interests: 'музыка'},
+				{guid: 92, pseudonym: 'Полдень', age: null, city: null, goal: null, bio: '', interests: ''},
+			],
 		},
 		'/api/v1/experiences': {
 			experiences: [{
