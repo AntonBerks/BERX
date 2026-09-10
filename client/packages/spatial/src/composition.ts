@@ -47,6 +47,8 @@ export const BERX_COMPOSITIONS: readonly BerxComposition[] = [
 ] as const;
 
 export interface BerxCompositionOptions {
+	/** The frame this world will be seen in, width / height. See BerxRelationalLayoutOptions. */
+	aspect?: number;
 	/** The entity the arrangement is built around. */
 	rootId?: string;
 	/** Metres. What "near" means for this arrangement. */
@@ -110,7 +112,7 @@ export function berxComposeLayout(
 	options: BerxCompositionOptions = {},
 ): Map<string, BerxVec3> {
 	if (composition === 'relational' || objects.length === 0) {
-		return berxRelationalLayout(objects, relations, {rootId: options.rootId});
+		return berxRelationalLayout(objects, relations, {rootId: options.rootId, aspect: options.aspect});
 	}
 	const radius = options.radius ?? RADIUS[composition];
 	const rise = options.rise ?? 1.15;

@@ -234,9 +234,40 @@ export function assertBerx5DWorldInvariants(): void {
 	const proximity = build();
 	proximity.frame(0.02);
 	proximity.focus(berxSpatialId('place', PLACE));
-	const withinReach = proximity.nearFocus(4).map((o) => o.id);
-	const wide = proximity.nearFocus(100).map((o) => o.id);
+	/**
+	 * MEASURED AGAINST THE WORLD'S OWN DISTANCES.
+	 *
+	 * This used to ask for four units and then a hundred, and read the
+	 * second returning more than the first as proof that a wider radius
+	 * reaches further. That only tested anything while the arrangement
+	 * happened to be bigger than four units across — and once the
+	 * relational layout was made compact enough to fill a frame, four
+	 * units reached everything and the two answers were identical. The
+	 * invariant then failed on a world that had not stopped obeying it.
+	 *
+	 * So the radii come from the distances that are actually in the
+	 * world: just inside the nearest neighbour, just outside it, and
+	 * past the furthest. That is a sharper statement of the same
+	 * property — a radius below the nearest thing finds nothing, one
+	 * above it finds exactly that thing, and one past everything finds
+	 * everything — and it holds at any scale.
+	 */
+	const focusAt = proximity.latestFrame.world.objects.find((o) => o.id === berxSpatialId('place', PLACE))!.transform.position;
+	const spans = proximity.latestFrame.world.objects
+		.filter((o) => o.id !== berxSpatialId('place', PLACE))
+		.map((o) => Math.hypot(o.transform.position.x - focusAt.x, o.transform.position.y - focusAt.y, o.transform.position.z - focusAt.z))
+		.sort((x, y) => x - y);
+	if (spans.length < 2) fail('a world with fewer than two other entities cannot test reach');
+	if (!(spans[0] > 0)) fail('something is standing exactly where the focus is');
+	const nearest = spans[0];
+	const furthest = spans[spans.length - 1];
+	if (proximity.nearFocus(nearest * 0.9).length !== 0) {
+		fail('a radius shorter than the nearest entity still found something');
+	}
+	const withinReach = proximity.nearFocus(nearest * 1.05).map((o) => o.id);
+	const wide = proximity.nearFocus(furthest * 1.05).map((o) => o.id);
 	if (withinReach.includes(berxSpatialId('place', PLACE))) fail('an entity is near itself');
+	if (withinReach.length === 0) fail('a radius past the nearest entity did not find it');
 	if (wide.length <= withinReach.length) fail('a wider radius did not reach further');
 	if (wide.length !== a.length - 1) fail(`a radius covering the whole world missed something (${wide.length} of ${a.length - 1})`);
 	/* and it is ordered by real distance */

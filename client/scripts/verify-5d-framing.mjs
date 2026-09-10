@@ -73,7 +73,10 @@ const buildWorld = () => {
 const settle = (w) => { for (let i = 0; i < 60; i++) w.frame(1 / 20); };
 const world = buildWorld();
 
-const SCREENS = [[1100, 700, 'desktop'], [390, 844, 'phone'], [1024, 768, 'tablet']];
+/* Four real shapes, not three. A wide desktop is the one where the
+   VERTICAL angle is tightest, so it is the shape a layout tuned on a
+   1.57 aspect is most likely to have quietly left behind. */
+const SCREENS = [[1100, 700, 'desktop'], [390, 844, 'phone'], [1024, 768, 'tablet'], [1920, 1080, 'wide desktop']];
 const results = SCREENS.map(([w, h, name]) => {
 	const fresh = buildWorld();
 	const before = fresh.framing(w, h);

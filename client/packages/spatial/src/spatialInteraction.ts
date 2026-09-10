@@ -15,7 +15,23 @@ import type { BerxSpatialCameraState } from './spatialCamera';
 import type { BerxSpatialObject, BerxVec3 } from './world';
 
 export interface BerxRay { origin: BerxVec3; direction: BerxVec3; }
-export interface BerxHit { objectId: string; distance: number; point: BerxVec3; }
+export interface BerxHit {
+	objectId: string;
+	/** Where the ray ENTERS the object's box, along the ray. */
+	distance: number;
+	/**
+	 * And where it leaves.
+	 *
+	 * Kept because a box is not a surface: the mesh the renderer draws
+	 * sits INSIDE this box, so the depth the G-buffer reports for a
+	 * pixel can be anywhere between the two. Resolving by "which entry
+	 * point is nearest the drawn depth" is only approximate, and the
+	 * approximation stops working the moment entities stand closer
+	 * together than their own size — see berxResolveByDepth.
+	 */
+	exit: number;
+	point: BerxVec3;
+}
 export interface BerxSpatialInteractionState { hoveredObjectId?: string; pressedObjectId?: string; focusedObjectId?: string; }
 
 const dot=(a:BerxVec3,b:BerxVec3)=>a.x*b.x+a.y*b.y+a.z*b.z;
@@ -123,6 +139,7 @@ export function hitTestObject(ray: BerxRay, object: BerxSpatialObject): BerxHit 
 	return {
 		objectId: object.id,
 		distance: near,
+		exit: far,
 		point: {x: ray.origin.x + d.x * near, y: ray.origin.y + d.y * near, z: ray.origin.z + d.z * near},
 	};
 }
@@ -181,10 +198,61 @@ export function pickSpatialCandidates(ray:BerxRay,objects:readonly BerxSpatialOb
  */
 export const BERX_PICK_DEPTH_TOLERANCE=1.5;
 
+/**
+ * How far outside a box the drawn point may still be counted as its own.
+ *
+ * The G-buffer stores depth at a quantised resolution and a ray may
+ * graze an edge; this covers that and nothing else. It is not a
+ * tolerance for being wrong about which entity is which.
+ */
+const EDGE_BIAS=0.08;
+
 export function berxResolveByDepth(candidates:readonly BerxHit[],drawnDepth:number|undefined,forwardCosine=1,tolerance=BERX_PICK_DEPTH_TOLERANCE):BerxHit|undefined{
   if(candidates.length===0)return undefined;
   if(drawnDepth===undefined||!Number.isFinite(drawnDepth)||drawnDepth<=0)return candidates[0];
   const cos=Number.isFinite(forwardCosine)&&forwardCosine>1e-6?forwardCosine:1;
+  /**
+   * FIRST, EXACTLY: whose box is the drawn point INSIDE?
+   *
+   * The mesh sits inside its box, so the drawn surface at a pixel lies
+   * somewhere between where the ray enters that box and where it
+   * leaves. Any candidate whose interval contains the drawn depth could
+   * be the thing that was drawn there; no other candidate can be. The
+   * nearest such candidate is the answer, and no tolerance is involved.
+   *
+   * The gap test below was all there was, and it is only an
+   * approximation: it compares the drawn depth against where each box
+   * STARTS. That held while entities stood seven units apart and broke
+   * as soon as the layout was made compact enough to fill a frame —
+   * with neighbours two units apart, a box beginning one unit past the
+   * drawn point scored better than the box the point was actually
+   * inside. Measured: 24 of 36 presses correct. It stays as the
+   * fallback for a pixel no candidate contains, which is what a
+   * backend with no depth, or a ray grazing an edge, produces.
+   */
+  let inside:BerxHit|undefined;let insideGap=Infinity;
+  for(const hit of candidates){
+    const entry=hit.distance*cos;
+    if(entry-EDGE_BIAS<=drawnDepth&&drawnDepth<=hit.exit*cos+EDGE_BIAS){
+      /**
+       * And among those, the box whose FRONT FACE sits nearest below
+       * the drawn point.
+       *
+       * "The nearest box containing it" was the first rule here and it
+       * is not right either: a sphere is inscribed in its box, so a
+       * ray through a box's corner passes through no mesh at all, and
+       * a large nearby entity's box swallowed the drawn surface of a
+       * thin panel standing inside it. A drawn surface is always AT OR
+       * BEHIND the front face of whatever was drawn, so the box that
+       * starts closest below the drawn depth is the only one that
+       * explains it. Measured: 17 of 22 with the nearest-box rule,
+       * where a person's orb won a message panel's own pixel twice.
+       */
+      const gap=drawnDepth-entry;
+      if(gap<insideGap){insideGap=gap;inside=hit;}
+    }
+  }
+  if(inside)return inside;
   let best:BerxHit|undefined;let bestGap=Infinity;
   for(const hit of candidates){
     /* along the ray, converted to the axis the G-buffer measures on */

@@ -169,6 +169,17 @@ export class Berx5DWorldApp {
 	 */
 	private framedFrom?: number;
 	/**
+	 * The shape of the frame this world is last known to be seen in.
+	 *
+	 * Recorded by `frameWorld`, which is where a viewport is actually
+	 * known. The arrangement is re-laid out when the frame changes
+	 * ORIENTATION — landscape to portrait or back — and not for every
+	 * resize: a window growing wider does not change which axis is the
+	 * long one, and re-arranging the world under someone dragging a
+	 * window edge would be the camera taking the world away from them.
+	 */
+	private viewportAspect?: number;
+	/**
 	 * The real-world point world-space is measured from.
 	 *
 	 * Fixed on the first entity that carries a coordinate and never
@@ -260,7 +271,14 @@ export class Berx5DWorldApp {
 		 * every renderer through the same draw list.
 		 */
 		const composition = berxCompositionFor(this.position.region);
-		this.layout = berxComposeLayout(composition, snapshot.objects, usable, {rootId: this.viewerId});
+		this.layout = berxComposeLayout(composition, snapshot.objects, usable, {
+			rootId: this.viewerId,
+			/* the shape of the frame this world is being seen in: the
+			   arrangement's long axis follows it, which is what lets one
+			   world fill a desktop and a portrait phone rather than
+			   filling one and rattling around in the other */
+			aspect: this.viewportAspect,
+		});
 		/**
 		 * A THING WITH A REAL COORDINATE STANDS WHERE IT REALLY IS.
 		 *
@@ -365,6 +383,17 @@ export class Berx5DWorldApp {
 	 * world away from them.
 	 */
 	frameWorld(width: number, height: number): boolean {
+		/* the frame's shape reaches the arrangement before the fit runs,
+		   so what is being framed is the arrangement for THIS frame */
+		const aspect = width > 0 && height > 0 ? width / height : undefined;
+		if (aspect !== undefined) {
+			const was = this.viewportAspect;
+			this.viewportAspect = aspect;
+			if (was === undefined || (was < 1) !== (aspect < 1)) {
+				this.layoutDirty = true;
+				this.relayout();
+			}
+		}
 		const frame = this.latestFrame;
 		if (frame.world.objects.filter((o) => o.visible).length === 0) return false;
 		const fitted = berxFrameTheWorld(frame, width, height);

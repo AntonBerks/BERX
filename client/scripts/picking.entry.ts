@@ -13,7 +13,7 @@
  * thing they can see there?
  */
 import {createBerx5DWebHost} from '@berx/spatial-web/runtimeHost5d';
-import {Berx5DWorldApp} from '@berx/spatial';
+import {Berx5DWorldApp, pickSpatialCandidates, rayFromNdc} from '@berx/spatial';
 import {
 	mapCollectionToSpatial, mapCommunityToSpatial, mapEventToSpatial, mapExperienceToSpatial,
 	mapFeedItemToSpatial, mapMessageToSpatial, mapPlaceToSpatial, mapUserToSpatial,
@@ -242,7 +242,30 @@ window.BERX_PICKING = {
 				const p = at(object.transform.position);
 				if (!p || !p.onScreen) continue;
 				const drawn = host.renderer.depthAt?.(p.px, p.py);
-				if (drawn === undefined || Math.abs(drawn - p.along) >= 1.5) continue;
+				if (drawn === undefined) continue;
+				/**
+				 * A FAIR TARGET IS ONE THE WORLD REALLY DREW THERE.
+				 *
+				 * "within 1.5 units of its centre" was the test, and with
+				 * entities seven units apart it meant something. Once the
+				 * layout was compact enough to fill a frame — neighbours
+				 * about two units apart — 1.5 could not tell one entity
+				 * from the next, and the probe was aiming at entities its
+				 * neighbour was standing in front of and then calling the
+				 * picker wrong for saying so.
+				 *
+				 * The exact test is the one the picker itself uses: the
+				 * drawn depth has to lie between where the ray enters
+				 * this entity's own box and where it leaves.
+				 */
+				const aim = rayFromNdc(frame.camera, (p.px / canvas.width) * 2 - 1, 1 - (p.py / canvas.height) * 2, canvas.width / canvas.height);
+				if (!aim) continue;
+				const own = pickSpatialCandidates(aim, [object])[0];
+				if (!own) continue;
+				/* the ray's own distances converted onto the axis the
+				   G-buffer measures on, the same way the picker does it */
+				const cos = p.along / Math.max(1e-6, own.distance);
+				if (!(drawn >= own.distance * cos - 0.12 && drawn <= own.exit * cos + 0.12)) continue;
 				fair.push({id: object.id, p, drawn});
 			}
 			console.log(`BERX picking: focus ${focusId} — ${fair.length} reachable of ${frame.world.objects.length - 1}`
