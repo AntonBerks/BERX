@@ -307,7 +307,44 @@ export function berxActionRingRadius(
 	affordances: readonly BerxSpatialAffordance[],
 	measure?: BerxLabelAspect,
 ): number {
-	return berxRingGeometry(object, affordances, measure).radius;
+	/**
+	 * THE ROOM THE RING ACTUALLY NEEDS, not its laid-out radius.
+	 *
+	 * The radius is where the slot CENTRES sit. What has to fit in the
+	 * frame is the whole ring: each name's own half-width beyond its
+	 * centre, and the drop below the entity, which for a tall entity is
+	 * the larger of the two. Handing over the centre radius framed the
+	 * entity correctly and put actions off the edge — measured on a
+	 * 1000x700 surface, three of three slots outside it for a person,
+	 * `follow` at x=1076 and `message` at y=735.
+	 *
+	 * And divided by the nearness: the ring stands a third of the way
+	 * from the entity toward the eye (TOWARD_THE_EYE), which makes it
+	 * that much larger on screen because it is that much closer.
+	 *
+	 * This is the one number the camera is given, and the comment above
+	 * says why — so the fit and the placement cannot disagree about how
+	 * much room the ring needs. It therefore has to be the room the ring
+	 * really occupies, measured off the same places the ring is built
+	 * from.
+	 */
+	if (!object) return 0;
+	const {places} = berxRingGeometry(object, affordances, measure);
+	if (places.length === 0) return 0;
+	const drop = object.transform.scale.y * 0.5 + SLOT_HEIGHT * 1.4;
+	let extent = 0;
+	for (const place of places) {
+		const look = berxSlotPresentation(place.affordance.state);
+		const down = drop + place.under - look.lift;
+		extent = Math.max(
+			extent,
+			/* sideways, to the far edge of the widest name */
+			Math.abs(place.across) + place.halfWidth,
+			/* and downward, to the bottom of the lowest slot */
+			down + SLOT_HEIGHT * 0.5 * look.scale,
+		);
+	}
+	return extent / (1 - TOWARD_THE_EYE);
 }
 
 /**
