@@ -70,6 +70,16 @@ export class BerxRealtimeClient {
 	private closing = false;
 	private currentState: BerxRealtimeState = 'idle';
 	private userGuid = 0;
+	/**
+	 * When this socket last authenticated.
+	 *
+	 * Kept so the backoff can tell a connection that WORKED from one
+	 * that merely opened — see the close handler. Undefined until a
+	 * socket has been authenticated at least once.
+	 */
+	private openedAt?: number;
+	/** Waiting for the server's answer to a subscribe sent after connect. */
+	private pendingSubscribe?: (result: {granted: string[]; refused: string[]}) => void;
 
 	constructor(api: BerxApiClient, options: BerxRealtimeOptions = {}) {
 		this.api = api;
@@ -129,7 +139,15 @@ export class BerxRealtimeClient {
 					case 'auth:ok':
 						this.userGuid = Number(message.user_guid ?? 0);
 						this.setState('open');
-						this.attempt = 0;
+						/* The backoff is NOT reset here. A socket that
+						   authenticates and then dies immediately is
+						   exactly the case that made this hammer the
+						   server: `attempt` went back to zero on every
+						   auth:ok, so a connection failing just after
+						   authentication reconnected twice a second
+						   forever. It is reset in the close handler, and
+						   only for a connection that lasted. */
+						this.openedAt = Date.now();
 						socket.send(JSON.stringify({type: 'subscribe', channels}));
 						break;
 					case 'auth:error':
@@ -146,6 +164,13 @@ export class BerxRealtimeClient {
 						if (!settled) {
 							settled = true;
 							resolve({granted, refused});
+						} else {
+							/* a later subscribe on the same socket — see
+							   subscribe(), which is how a world that grew
+							   asks for the channels it now needs */
+							const waiting = this.pendingSubscribe;
+							this.pendingSubscribe = undefined;
+							waiting?.({granted, refused});
 						}
 						break;
 					}
@@ -171,6 +196,19 @@ export class BerxRealtimeClient {
 			socket.onclose = () => {
 				this.setState('closed');
 				this.socket = undefined;
+				/**
+				 * A connection that LASTED is proof the backoff had
+				 * already waited long enough; one that died as soon as it
+				 * came up is not, and starting over from half a second
+				 * because it got as far as auth is how a client turns a
+				 * server's bad minute into a denial of service against
+				 * it. So the ladder only resets for a session that
+				 * outlived the longest rung.
+				 */
+				const backoff = this.options.backoffMs ?? DEFAULT_BACKOFF;
+				const lasted = this.openedAt !== undefined && Date.now() - this.openedAt >= backoff[backoff.length - 1];
+				if (lasted) this.attempt = 0;
+				this.openedAt = undefined;
 				if (!settled) {
 					settled = true;
 					reject(new Error('BERX realtime: the socket closed before it was ready'));
@@ -179,6 +217,36 @@ export class BerxRealtimeClient {
 				}
 			};
 		});
+	}
+
+	/**
+	 * Ask for channels on a socket that is already open.
+	 *
+	 * A world grows: someone arrives through an event or through
+	 * travelling into a conversation, and they are a person this
+	 * session is now looking at and not listening to. Reconnecting to
+	 * pick them up would burn a fresh credential and drop every event in
+	 * between, so the protocol takes `subscribe` at any time and the
+	 * server accumulates what it grants.
+	 *
+	 * Send the WHOLE set each time, not the difference: the answer is
+	 * the server's decision about exactly what was asked for, and a
+	 * caller that sent only the new ones would read back a channel list
+	 * missing everything it already had.
+	 */
+	async subscribe(channels: readonly string[]): Promise<{granted: string[]; refused: string[]}> {
+		const socket = this.socket;
+		if (!socket || this.currentState !== 'open') {
+			throw new Error('BERX realtime: subscribe on a socket that is not open');
+		}
+		if (this.pendingSubscribe) {
+			throw new Error('BERX realtime: a subscribe is already in flight on this socket');
+		}
+		const answered = new Promise<{granted: string[]; refused: string[]}>((resolve) => {
+			this.pendingSubscribe = resolve;
+		});
+		socket.send(JSON.stringify({type: 'subscribe', channels}));
+		return answered;
 	}
 
 	/**
@@ -201,6 +269,8 @@ export class BerxRealtimeClient {
 
 	close(): void {
 		this.closing = true;
+		this.openedAt = undefined;
+		this.pendingSubscribe = undefined;
 		this.socket?.close();
 		this.socket = undefined;
 		this.channels = [];

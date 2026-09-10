@@ -36,6 +36,22 @@ export interface BerxWebRendererBackend {
 	resize(width: number, height: number): void;
 	render(frame: Berx5DFrame, options?: BerxSpatialRenderOptions): void;
 	pick(frame: Berx5DFrame, x: number, y: number): BerxHit | undefined;
+	/**
+	 * The distance to the surface this backend actually DREW at a pixel.
+	 *
+	 * The one authority for "what is in front" — `pick` resolves an
+	 * entity with it, and the shell tests the affordance ring against
+	 * the same number so a ring and an entity cannot disagree about
+	 * which of them a person is touching.
+	 *
+	 * Optional because a backend may genuinely be unable to answer, and
+	 * an invented depth is worse than none: WebGPU reads its G-buffer
+	 * back asynchronously (`copyTextureToBuffer` then `mapAsync`) and a
+	 * pick is a synchronous pointer event, so it answers undefined until
+	 * that is solved. Undefined means "cannot say", and every caller
+	 * falls back to the geometry it had before.
+	 */
+	depthAt?(x: number, y: number): number | undefined;
 	setAffordances(affordances: readonly BerxSpatialAffordance[]): void;
 	/**
 	 * The slots the last frame actually DREW.

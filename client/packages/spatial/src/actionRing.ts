@@ -134,6 +134,14 @@ const SLOT_HEIGHT = 0.26;
  * as a strip of text, and it is the same number whatever the labels
  * are, so the ring's rhythm does not change with its contents.
  */
+/**
+ * How much nearer than a slot the world has to have drawn before the
+ * slot counts as hidden. A quad has no thickness; this covers the
+ * G-buffer's quantisation and nothing else. Same value the renderer
+ * uses to drop a slot at its own centre — one number, one rule.
+ */
+const SLOT_DEPTH_BIAS = 0.05;
+
 export const BERX_SLOT_GAP = SLOT_HEIGHT;
 /**
  * How far round the ring may open, and how far out along the camera's
@@ -348,6 +356,29 @@ export function pickActionSlot(
 	camera: BerxSpatialCameraState,
 	rayDirection: BerxVec3,
 	aspect: number,
+	/**
+	 * WHAT THE WORLD ACTUALLY DREW AT THIS PIXEL.
+	 *
+	 * The renderer's own G-buffer depth, along the camera's forward
+	 * axis — the same number `berxResolveByDepth` resolves an entity
+	 * with, so the ring and the entities are picked against ONE
+	 * authority rather than two.
+	 *
+	 * Without it a slot won any pixel its quad covered, whatever stood
+	 * in front. The renderer already drops a slot the world drew over AT
+	 * THE SLOT'S OWN CENTRE, and that is not the same test: a name is
+	 * half a world unit wide, so a slot whose centre is clear can still
+	 * have its far edge lying across an entity nearer to the eye. A
+	 * press there landed on the action rather than on the thing the
+	 * person could see, which is how "aim at collection:33, focus stays
+	 * on community:501" happened — the ring of the entity focused a
+	 * moment earlier reached across a neighbour.
+	 *
+	 * Undefined means the backend cannot say (no G-buffer, or nothing
+	 * drawn there) and the ring is picked as before — the honest
+	 * fallback, not a guess.
+	 */
+	drawnDepth?: number,
 ): BerxActionSlot | undefined {
 	const basis = cameraBasis(camera);
 	if (!basis) return undefined;
@@ -371,6 +402,16 @@ export function pickActionSlot(
 		};
 		const along = d.x * basis.forward.x + d.y * basis.forward.y + d.z * basis.forward.z;
 		if (along <= 0) continue;
+		/**
+		 * Behind what the eye can see, at THIS pixel.
+		 *
+		 * A quad has no thickness, so the only slack needed is the
+		 * G-buffer's own quantisation — the same bias the renderer uses
+		 * when it drops a slot at its centre. Anything nearer than the
+		 * slot at this pixel is standing in front of it, and a person
+		 * pressing there is pressing on that.
+		 */
+		if (drawnDepth !== undefined && drawnDepth > 0 && along > drawnDepth + SLOT_DEPTH_BIAS) continue;
 		/* where the slot's centre lands on the ray, and where the ray is */
 		const scale = along / Math.max(1e-4, rayDirection.x * basis.forward.x + rayDirection.y * basis.forward.y + rayDirection.z * basis.forward.z);
 		const hit = {x: rayDirection.x * scale, y: rayDirection.y * scale, z: rayDirection.z * scale};

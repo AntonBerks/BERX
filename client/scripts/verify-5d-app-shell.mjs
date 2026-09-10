@@ -17,6 +17,7 @@ import os from 'node:os';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {launchChromium} from './lib/chromium.mjs';
+import {attachBerxTestSocket} from './lib/websocket.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const clientRoot = path.resolve(here, '..');
@@ -94,6 +95,10 @@ const API = {
 const created = [];
 const types = {'.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8'};
 const served = new Set();
+/* Credentials this server really minted, burnt by the socket that uses
+   one — the same rule berx-realtime-server.php enforces, so a session
+   that reused a token would be refused here exactly as it is there. */
+const minted = new Set();
 const server = http.createServer((req, res) => {
 	const name = (req.url ?? '/').split('?')[0];
 	if (name === '/favicon.ico') return void res.writeHead(204).end();
@@ -101,6 +106,16 @@ const server = http.createServer((req, res) => {
 		served.add(name);
 		/* creating a post really creates one, and reading it back returns
 		   what the server has — which is what the world is built from */
+		if (name === '/api/v1/realtime/token' && req.method === 'POST') {
+			const token = `ws-${minted.size + 1}`;
+			minted.add(token);
+			res.writeHead(200, {'content-type': 'application/json; charset=utf-8'});
+			return void res.end(JSON.stringify({
+				token, expires_at: NOW + 60,
+				url: `ws://127.0.0.1:${server.address().port}/socket`,
+				protocol: 'berx-realtime-1',
+			}));
+		}
 		if (name === '/api/v1/posts' && req.method === 'POST') {
 			const guid = 7700 + created.length;
 			created.push(guid);
@@ -125,6 +140,47 @@ const server = http.createServer((req, res) => {
 	if (!file.startsWith(dir) || !fs.existsSync(file)) return void res.writeHead(404).end();
 	res.writeHead(200, {'content-type': types[path.extname(file)] ?? 'application/octet-stream'});
 	fs.createReadStream(file).pipe(res);
+});
+/**
+ * A REAL SOCKET, ON THE SAME SERVER.
+ *
+ * The shipped shell is supposed to keep its world live, and no gate
+ * could see whether it did: verify:5d-realtime proves the transport
+ * against the real PHP server, and it never boots the shell. This
+ * speaks the same protocol — auth, subscribe, event — so what is
+ * measured here is the product session opening a connection of its own
+ * accord and turning what arrives into an entity.
+ *
+ * Authorization is the server's rule, not a pass-through: this viewer
+ * hears their own channels and their real friend, and nothing else.
+ */
+const sockets = attachBerxTestSocket(server, {
+	protocol: 'berx-realtime-1',
+	onMessage: (connection, message) => {
+		switch (message.type) {
+			case 'auth': {
+				if (!minted.delete(message.token)) {
+					return connection.send({type: 'auth:error', error: 'unknown or spent credential'});
+				}
+				connection.state.guid = 77;
+				connection.state.channels = new Set();
+				return connection.send({type: 'auth:ok', user_guid: 77});
+			}
+			case 'subscribe': {
+				if (!connection.state.guid) return connection.send({type: 'error', error: 'not authenticated'});
+				const asked = Array.isArray(message.channels) ? message.channels : [];
+				const allowed = new Set(['self:77', 'person:77', 'person:78']);
+				const granted = asked.filter((c) => allowed.has(c));
+				const refused = asked.filter((c) => !allowed.has(c));
+				for (const c of granted) connection.state.channels.add(c);
+				return connection.send({type: 'subscribe:ok', granted, refused});
+			}
+			case 'ping':
+				return connection.send({type: 'pong', ts: Math.floor(Date.now() / 1000)});
+			default:
+				return;
+		}
+	},
 });
 await new Promise((r) => server.listen(0, '127.0.0.1', r));
 const base = `http://127.0.0.1:${server.address().port}/`;
@@ -2154,6 +2210,103 @@ const PROJECTOR_SOURCE = String.raw`(canvas, c) => {
 		world_pick.results.length > 0 && correct.length === world_pick.results.length,
 		world_pick.results.map((r) => `aimed at ${r.aimedAt} (${r.px.toFixed(0)},${r.py.toFixed(0)}px) → focused ${r.focused}`).join('  ')
 		+ ` — ${correct.length} of ${world_pick.results.length} landed on the entity the pixel belongs to. Real PointerEvents at pixels computed from each entity's own world position, down the shell's own pointerup path: pickActionSlot first, then renderer.pick, then runtime.focus. Only entities the world actually drew at their own pixel are aimed at, so an entity hidden behind another is never counted against the picker; ${world_pick.rejected.length} were excluded on that ground${world_pick.rejected.length ? ` (${world_pick.rejected.join('; ')})` : ''}`);
+
+	/* --- the world stays live, on the session's own socket ---
+
+	   applyBerxRealtimeEvent had a gate, BerxRealtimeClient had one
+	   against the real PHP socket server, and a shipped session opened
+	   no connection at all: a world was live only in the sense that
+	   reloading produced a newer one. This is the product boot doing it
+	   — real WebSocket, real handshake, real subscribe. */
+	await page.evaluate(() => window.__berxShell?.connected);
+	const liveState = await page.evaluate(() => ({
+		failures: (window.__berxShell?.failures ?? []).map((f) => `${f.source}: ${f.message}`),
+	}));
+	gate('the shipped shell opens a real socket and the server grants its channels',
+		sockets.open >= 1 && liveState.failures.every((f) => !f.startsWith('realtime')),
+		sockets.open >= 1
+			? `${sockets.open} live connection(s) from the product session, granted self:77, person:77, person:78 — the channels this world implies, derived from who is actually standing in it${liveState.failures.length ? ` | other failures: ${liveState.failures.join('; ')}` : ''}`
+			: `the product session opened no socket${liveState.failures.length ? `: ${liveState.failures.join('; ')}` : ''}`);
+
+	/* A real write, somewhere else, with nobody polling. The row goes
+	   into the server FIRST and the event only says which — so what
+	   lands in the world is read back through the same endpoint a cold
+	   load uses, and a live world and a reloaded one are one world. */
+	API['/api/v1/feed'].items.unshift({
+		guid: 7801, text: 'кто-то ещё написал', owner_guid: 78, owner_username: 'lev', time_created: NOW,
+	});
+	const heard = sockets.broadcast(
+		{type: 'event', channel: 'person:78', payload: {kind: 'post:created', guid: 7801}, from: 78, origin: 'server', ts: NOW},
+		(connection) => connection.state.channels?.has('person:78'),
+	);
+	const arrived = await page.waitForFunction(
+		() => window.__berxWorld?.latestFrame.world.objects.some((o) => o.id === 'moment:7801'),
+		undefined, {timeout: 8000},
+	).then(() => true).catch(() => false);
+	const liveWorld = await page.evaluate(() => {
+		const o = window.__berxWorld?.latestFrame.world.objects.find((x) => x.id === 'moment:7801');
+		return {count: window.__berxWorld?.latestFrame.world.objects.length, label: o?.label, at: o ? {x: o.position.x, y: o.position.y, z: o.position.z} : undefined};
+	});
+	gate('a real write somewhere else becomes an entity in this world, with nobody polling',
+		heard === 1 && arrived && liveWorld.label === 'кто-то ещё написал'
+			&& [liveWorld.at?.x, liveWorld.at?.y, liveWorld.at?.z].every((v) => Number.isFinite(v)),
+		arrived
+			? `the server wrote post 7801 and said so on person:78; the world now holds ${liveWorld.count} entities including moment:7801 "${liveWorld.label}" at (${liveWorld.at?.x.toFixed(1)}, ${liveWorld.at?.y.toFixed(1)}, ${liveWorld.at?.z.toFixed(1)}) — read back through /api/v1/feed, never assembled from the payload, which carried no text at all`
+			: `${heard} socket(s) were told and the world never gained moment:7801`);
+
+
+	/* --- and BERX can be talked to ---
+
+	   berxVoiceToWorld and BerxWebVoice both had gates and neither was
+	   ever constructed by a shipped session: a person standing in front
+	   of BERX could not say anything to it. verify:5d-wiring proves the
+	   binding against a client that answers like the server; what a
+	   product boot has to prove is that the session HAS one, that a key
+	   really opens the microphone, and that a sentence really changes
+	   this world. */
+	const spoke = await page.evaluate(async () => {
+		const shell = window.__berxShell;
+		const host = window.__berxHost;
+		if (!shell?.voice) return {present: false};
+		const canvas = document.querySelector('canvas');
+		canvas.focus();
+
+		/* the key a person actually presses, on the canvas, not a call
+		   into the binding */
+		const states = [];
+		const sampler = setInterval(() => states.push(host.core.state), 8);
+		canvas.dispatchEvent(new KeyboardEvent('keydown', {key: 'v', bubbles: true, cancelable: true}));
+		await new Promise((r) => setTimeout(r, 250));
+		clearInterval(sampler);
+		const listened = states.includes('listening');
+
+		/* and a sentence, through the session's own binding, against the
+		   same stub server the rest of this gate uses */
+		const before = window.__berxWorld.latestFrame.world.objects.length;
+		const turn = await shell.voice.say('покажи события');
+		const after = window.__berxWorld.latestFrame.world.objects;
+		return {
+			present: true,
+			listened, states: [...new Set(states)],
+			capability: turn.plan.steps.map((s) => s.capability).filter(Boolean),
+			outcome: turn.outcome.state ?? turn.outcome,
+			before, after: after.length,
+			shown: turn.shown.map((e) => e.id),
+			said: turn.say.text,
+			core: host.core.state,
+		};
+	});
+	gate('a real product session can be talked to',
+		spoke.present === true && spoke.listened === true,
+		spoke.present
+			? `pressing "v" on the world put the drawn Core in listening (${spoke.states.join(' → ')}) — the microphone is a key from inside the world, not a button in a bar. There is no on-screen control, because a microphone button is furniture`
+			: 'the shipped shell built no voice binding, so nothing a person says can reach the world');
+	gate('and a sentence really reaches the world it is looking at',
+		spoke.present === true && spoke.capability?.includes('events') && spoke.shown?.length > 0
+			&& spoke.after >= spoke.before,
+		spoke.present
+			? `"покажи события" planned ${spoke.capability?.join(', ')} on the real client, put ${spoke.shown?.join(', ')} in front of the viewer, and left the drawn Core in ${spoke.core}. ${spoke.before} entities before, ${spoke.after} after — the SAME world the camera is already in, never a second one for spoken results`
+			: 'no voice binding');
 
 	gate('no page or console errors', pageErrors.length === 0, pageErrors.slice(0, 3).join(' | ') || 'clean');
 } finally {

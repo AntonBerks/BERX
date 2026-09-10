@@ -15,8 +15,11 @@
 import {
 	BERX_EXPOSURE,
   rayFromNdc,
+  cameraBasis,
   berxEyeCamera,
   geometryForEntity,
+  BERX_PRIMITIVES,
+  type BerxGeometryKind,
   type Berx5DFrame,
   type BerxHit,
   berxBuildDrawList,
@@ -371,7 +374,29 @@ function gpuMesh(gl:WebGL2RenderingContext,mesh:BerxPrimitiveMesh):GpuMesh { con
  * whole distinction between level of detail and dropping things.
  * Boxes are already minimal and are shared across both levels.
  */
-function meshFor(kind:ReturnType<typeof geometryForEntity>['kind'],lod:0|1):BerxPrimitiveMesh { const far=lod===1; switch(kind){case'orb':return createSphere(.5,far?10:24,far?7:16);case'ring':return createTorus(.62,.42,far?18:48,far?6:12);case'frame':return createFrame(1,1,.12);case'surface':return createBevelBox(1,1,.06,.02);case'portal':return createFrame(1,1.2,.16);case'node':return createSphere(.58,far?9:20,far?6:12);case'stack':return createBevelBox(1,1,.32,.1);case'message':return createBevelBox(1,.46,.12,.05);case'create':return createSphere(.58,far?11:28,far?7:18);} }
+/**
+ * The mesh for a form, built from BERX_PRIMITIVES.
+ *
+ * The dimensions are NOT written here. They were, and they were written
+ * again in webgpuRuntime.ts, and the picker had a third opinion of its
+ * own — a ray crossed a box the world had never drawn. One declaration
+ * in @berx/spatial now, and only the tessellation is the backend's own
+ * business: how many segments a sphere gets is a cost decision, how big
+ * it is is not.
+ */
+const TESSELLATION:Record<BerxGeometryKind,[number,number,number,number]>={
+ orb:[24,16,10,7],ring:[48,12,18,6],node:[20,12,9,6],create:[28,18,11,7],
+ frame:[0,0,0,0],surface:[0,0,0,0],portal:[0,0,0,0],stack:[0,0,0,0],message:[0,0,0,0],
+};
+function meshFor(kind:BerxGeometryKind,lod:0|1):BerxPrimitiveMesh {
+ const far=lod===1;const p=BERX_PRIMITIVES[kind];const t=TESSELLATION[kind];
+ switch(p.form){
+  case'sphere':return createSphere(p.radius,far?t[2]:t[0],far?t[3]:t[1]);
+  case'torus':return createTorus(p.outer,p.inner,far?t[2]:t[0],far?t[3]:t[1]);
+  case'frame':return createFrame(p.width,p.height,p.bar);
+  case'box':return createBevelBox(p.width,p.height,p.depth,p.bevel);
+ }
+}
 
 
 /**
@@ -1762,7 +1787,12 @@ export class BerxThreeRuntimeRenderer implements BerxSpatialRenderer {
   /* the boxes the ray crosses, then the one the world actually drew:
      a portal is a frame with a hole, and the hole is the renderer's
      knowledge, not the core's */
-  return berxResolveByDepth(pickSpatialCandidates(ray,frame.world.objects),this.depthAt(x,y));
+  /* the ray's own distance is not the axis the G-buffer measures on:
+     off-centre the two diverge by 1/cos, and at the edge of the frame
+     that is a third of the distance */
+  const basis=cameraBasis(frame.camera);
+  const cos=basis?ray.direction.x*basis.forward.x+ray.direction.y*basis.forward.y+ray.direction.z*basis.forward.z:1;
+  return berxResolveByDepth(pickSpatialCandidates(ray,frame.world.objects),this.depthAt(x,y),cos);
  }
  /**
   * Deleting the objects is not the same as giving the GPU its memory

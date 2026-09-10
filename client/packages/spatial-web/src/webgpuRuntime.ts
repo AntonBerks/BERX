@@ -39,6 +39,8 @@ import {
 	type BerxSpatialAffordance,
 	type BerxSpatialRenderer,
 	type BerxWorldLighting,
+	BERX_PRIMITIVES,
+	type BerxGeometryKind,
 } from '@berx/spatial';
 import {BERX_LABEL_WGSL, BERX_PARTICLES_WGSL, BERX_POST_WGSL, BERX_SSAO_WGSL, BERX_VOLUMETRIC_WGSL, BERX_WORLD_WGSL} from '@berx/spatial-shaders';
 import {createBevelBox, createSphere, createTorus, createFrame, type BerxPrimitiveMesh} from './primitiveGeometry';
@@ -70,19 +72,28 @@ const LABEL_GLOBALS_BYTES = 160;
 const SAMPLE_COUNT = 4;
 
 /** The same table as the WebGL2 backend's, at the same levels of detail. */
+/**
+ * The same mesh WebGL2 builds, from the same declaration.
+ *
+ * These dimensions were written out here as well as in threeRuntime.ts,
+ * which is two chances to be right about one shape — and the picker had
+ * a third, wrong, opinion of its own. BERX_PRIMITIVES is the one place
+ * an entity's size is stated; only the tessellation below is a
+ * backend's own cost decision.
+ */
+const TESSELLATION: Record<string, [number, number, number, number]> = {
+	orb: [24, 16, 10, 7], ring: [48, 12, 18, 6], node: [20, 12, 9, 6], create: [28, 18, 11, 7],
+};
 function meshFor(primitive: string, lod: 0 | 1): BerxPrimitiveMesh {
 	const far = lod === 1;
-	switch (primitive) {
-		case 'orb': return createSphere(.5, far ? 10 : 24, far ? 7 : 16);
-		case 'ring': return createTorus(.62, .42, far ? 18 : 48, far ? 6 : 12);
-		case 'frame': return createFrame(1, 1, .12);
-		case 'surface': return createBevelBox(1, 1, .06, .02);
-		case 'portal': return createFrame(1, 1.2, .16);
-		case 'node': return createSphere(.58, far ? 9 : 20, far ? 6 : 12);
-		case 'stack': return createBevelBox(1, 1, .32, .1);
-		case 'message': return createBevelBox(1, .46, .12, .05);
-		case 'create': return createSphere(.58, far ? 11 : 28, far ? 7 : 18);
-		default: throw new Error(`BERX 5D WebGPU: unknown primitive '${primitive}'`);
+	const p = BERX_PRIMITIVES[primitive as BerxGeometryKind];
+	if (!p) throw new Error(`BERX 5D WebGPU: unknown primitive '${primitive}'`);
+	const t = TESSELLATION[primitive] ?? [0, 0, 0, 0];
+	switch (p.form) {
+		case 'sphere': return createSphere(p.radius, far ? t[2] : t[0], far ? t[3] : t[1]);
+		case 'torus': return createTorus(p.outer, p.inner, far ? t[2] : t[0], far ? t[3] : t[1]);
+		case 'frame': return createFrame(p.width, p.height, p.bar);
+		case 'box': return createBevelBox(p.width, p.height, p.depth, p.bevel);
 	}
 }
 

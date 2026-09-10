@@ -10,6 +10,7 @@
  * the seam a renderer plugs into rather than a maths problem it
  * re-solves.
  */
+import { berxDrawnHalfExtent } from './geometry';
 import type { BerxSpatialCameraState } from './spatialCamera';
 import type { BerxSpatialObject, BerxVec3 } from './world';
 
@@ -81,10 +82,26 @@ export function hitTestObject(ray: BerxRay, object: BerxSpatialObject): BerxHit 
 	   dot product is the whole transform */
 	const o = [dot(oc, axes.x), dot(oc, axes.y), dot(oc, axes.z)];
 	const dir = [dot(d, axes.x), dot(d, axes.y), dot(d, axes.z)];
+	/**
+	 * THE BOX IS WHAT THE WORLD DREW.
+	 *
+	 * `scale * 0.5` was a fourth opinion about an entity's size, and it
+	 * was wrong for six of the nine forms: a mesh is not a unit cube, so
+	 * an event's collider came out 0.475 across where the ring is drawn
+	 * 0.589, a message's 0.36 tall where the panel is 0.166, and a
+	 * collection's three times too deep. Rays then crossed boxes the
+	 * world had never drawn, and `berxResolveByDepth` — asking which
+	 * candidate stands where the G-buffer says the surface is — found
+	 * either the wrong one or none at all.
+	 *
+	 * berxDrawnHalfExtent is the mesh's own reach times this transform,
+	 * from the single declaration both renderers build from.
+	 */
+	const drawn = berxDrawnHalfExtent(object.kind, object.transform.scale);
 	const half = [
-		Math.max(Math.abs(object.transform.scale.x) * 0.5, MIN_HALF_EXTENT),
-		Math.max(Math.abs(object.transform.scale.y) * 0.5, MIN_HALF_EXTENT),
-		Math.max(Math.abs(object.transform.scale.z) * 0.5, MIN_HALF_EXTENT),
+		Math.max(drawn.x, MIN_HALF_EXTENT),
+		Math.max(drawn.y, MIN_HALF_EXTENT),
+		Math.max(drawn.z, MIN_HALF_EXTENT),
 	];
 	let near = -Infinity, far = Infinity;
 	for (let i = 0; i < 3; i++) {
@@ -142,22 +159,36 @@ export function pickSpatialCandidates(ray:BerxRay,objects:readonly BerxSpatialOb
 /**
  * Which candidate the renderer actually drew at that pixel.
  *
- * `drawnDepth` is the distance along the camera's forward axis to the
+ * `drawnDepth` is the distance along the camera's FORWARD AXIS to the
  * surface the world put on the screen there — the renderer's own
- * G-buffer, which is the same depth its label pass tests against.
- * The candidate whose front face sits at that distance is the one being
- * looked at.
+ * G-buffer, which stores -view_pos.z and is the same depth its label
+ * pass tests against. The candidate whose front face sits at that
+ * distance is the one being looked at.
+ *
+ * `forwardCosine` IS NOT OPTIONAL DECORATION. A hit's `distance` is
+ * measured along the RAY, and away from the centre of the screen a ray
+ * is not the forward axis: at the edge of a 60° frame at 16:10 the two
+ * differ by 1/cos(42.7°) — a third again. Comparing them directly made
+ * every candidate look 3.6 units away from a surface 10 units off, so
+ * everything failed the tolerance and a press at the edge of the world
+ * selected nothing at all. Centre-screen worked, because there the
+ * cosine is 1 and the two measures coincide, which is exactly why it
+ * survived so long.
  *
  * Undefined depth means the renderer could not answer — a backend with
  * no G-buffer, or a pixel it drew nothing into — and then the nearest
  * candidate is the honest answer, which is exactly the old behaviour.
  */
-export function berxResolveByDepth(candidates:readonly BerxHit[],drawnDepth:number|undefined,tolerance=1.5):BerxHit|undefined{
+export const BERX_PICK_DEPTH_TOLERANCE=1.5;
+
+export function berxResolveByDepth(candidates:readonly BerxHit[],drawnDepth:number|undefined,forwardCosine=1,tolerance=BERX_PICK_DEPTH_TOLERANCE):BerxHit|undefined{
   if(candidates.length===0)return undefined;
   if(drawnDepth===undefined||!Number.isFinite(drawnDepth)||drawnDepth<=0)return candidates[0];
+  const cos=Number.isFinite(forwardCosine)&&forwardCosine>1e-6?forwardCosine:1;
   let best:BerxHit|undefined;let bestGap=Infinity;
   for(const hit of candidates){
-    const gap=Math.abs(hit.distance-drawnDepth);
+    /* along the ray, converted to the axis the G-buffer measures on */
+    const gap=Math.abs(hit.distance*cos-drawnDepth);
     if(gap<bestGap){bestGap=gap;best=hit;}
   }
   /* nothing the ray crosses stands where the world drew: the pixel

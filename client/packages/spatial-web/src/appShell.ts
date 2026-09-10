@@ -27,6 +27,8 @@ import {createBerx5DWebHost, type Berx5DWebHost} from './runtimeHost5d';
 import {createBerxWebRenderer} from './webRenderer';
 import {berxMeasureLabel} from './spatialText';
 import {BerxWebSpatialAudio} from './spatialAudioWeb';
+import {BerxWebVoice} from './voiceWeb';
+import {berxVoiceToWorld, type BerxVoiceToWorld} from './voiceToWorld';
 
 export interface BerxAppShellOptions {
 	/** Where the world is drawn. Created and appended when omitted. */
@@ -109,6 +111,50 @@ export interface BerxAppShellOptions {
 		/** The entity the viewer is with, when there is one. */
 		focused: BerxSpatialObject | undefined,
 	) => Promise<{entries: BerxWorldIngest[]; failures: {source: string; message: string}[]} | undefined>;
+	/**
+	 * Keep this world live.
+	 *
+	 * Called once, after the first load has filled the world — the
+	 * channels a session needs are derived from who is in it, so
+	 * connecting before there is a world would subscribe to nothing.
+	 * What comes back is closed when the session is.
+	 *
+	 * The shell does not know what a socket is: this is a callback
+	 * because @berx/spatial-web owns the world and @berx/api owns the
+	 * transport, and joining them here would make the renderer package
+	 * depend on the API client. Rejecting is a real outcome — a
+	 * deployment with no socket configured is not live, and that lands
+	 * in `failures` under `realtime` rather than as a session that
+	 * quietly never updates.
+	 */
+	live?: (world: Berx5DWorldApp) => Promise<{close(): void}>;
+	/**
+	 * Talking to BERX.
+	 *
+	 * berxVoiceToWorld turns a sentence into a confirmed change of the
+	 * world and BerxWebVoice turns a microphone into a transcript; both
+	 * were verified and neither was ever constructed by a shipped
+	 * session, so a person in front of BERX could not say anything to
+	 * it. This is what gives them the microphone.
+	 *
+	 * `client` is the real API client — a plan step's capability is a
+	 * method name on it, and a name with no method behind it fails
+	 * rather than being invented. Nothing here interprets a sentence;
+	 * that is @berx/spatial's intent engine, once, for every platform.
+	 *
+	 * Voice-first, never voice-only: every capability it reaches is
+	 * reachable from the keyboard and from a finger, and a browser with
+	 * no synthesiser gets the silent path rather than a broken one.
+	 */
+	voice?: {
+		client: Record<string, unknown>;
+		/** Where the person is, when they have allowed it to be known. */
+		location?: () => {lat: number; lng: number; atMs: number} | undefined;
+		/** What the platform has actually granted. Never assumed. */
+		permissions?: () => {microphone: boolean; location: boolean; notifications: boolean; presence: boolean};
+		/** How long the microphone stays open. Default 8s. */
+		listenMs?: number;
+	} | false;
 }
 
 export interface BerxAppShell {
@@ -123,6 +169,26 @@ export interface BerxAppShell {
 	 * the camera.
 	 */
 	readonly audio?: BerxSpatialAudioBackend;
+	/**
+	 * Settles once the live connection has either opened or failed.
+	 *
+	 * Nothing waits on it to use the world — the world is already there
+	 * — but a caller that needs to know whether this session is live,
+	 * verification included, has something to await instead of a
+	 * timeout. Undefined when no caller asked for a live world.
+	 */
+	readonly connected?: Promise<void>;
+	/**
+	 * The voice, when this session has one.
+	 *
+	 * Exposed so a native bridge, a hardware button or the verification
+	 * can open the microphone the same way the keyboard does. There is
+	 * no on-screen control, because a microphone button is a piece of 2D
+	 * interface that is always there whether or not anyone is talking.
+	 */
+	readonly voice?: BerxVoiceToWorld;
+	/** Open the microphone and run whatever was said. Nothing when silent. */
+	listen(): Promise<void>;
 	/** What did not load, named. Never hidden behind a plausible world. */
 	readonly failures: readonly {source: string; message: string}[];
 	/**
@@ -286,6 +352,7 @@ export async function startBerxApp(options: BerxAppShellOptions): Promise<BerxAp
 	 * bar, because a bar is a piece of 2D interface that is always
 	 * there whether or not anyone is writing.
 	 */
+	let destroyed = false;
 	let composer: HTMLFormElement | undefined;
 	const compose = () => {
 		if (composer || !options.publish) return;
@@ -336,6 +403,44 @@ export async function startBerxApp(options: BerxAppShellOptions): Promise<BerxAp
 	};
 
 	/**
+	 * THE VOICE, IN A SESSION THAT REALLY HAS ONE.
+	 *
+	 * Built here because this is where the host and the API client are
+	 * both in scope, and one binding is the whole point: `listening` and
+	 * `speaking` are two of the Core's states, and until a session
+	 * constructs this nothing in the product can cause either.
+	 *
+	 * What is said goes into the same live region everything else says,
+	 * so a person who cannot hear gets the turn as text. The world it
+	 * changes is the world already on screen — there is no second world
+	 * for spoken results to land in.
+	 */
+	const speech = options.voice ? new BerxWebVoice() : undefined;
+	const voice = options.voice && speech
+		? berxVoiceToWorld({
+			host,
+			client: options.voice.client,
+			location: options.voice.location,
+			permissions: options.voice.permissions,
+			voice: speech,
+			stopSpeaking: () => speech.stop(),
+			onTurn: (turn) => {
+				/* the outline first: the world changed, and the sentence
+				   is about the world rather than instead of it */
+				outline.textContent = describe(world);
+				if (turn.say.text.length > 0) outline.textContent += ` | ${turn.say.text}`;
+			},
+		})
+		: undefined;
+	const listenMs = options.voice ? options.voice.listenMs ?? 8000 : 8000;
+	const listen = async () => {
+		if (!voice) return;
+		/* someone talking while BERX is still working is an interruption,
+		   which berxVoiceToWorld routes rather than queues */
+		await voice.hear(listenMs);
+	};
+
+	/**
 	 * Browsers will not make sound until someone has touched the page,
 	 * and there is no way around that worth taking. The first real
 	 * gesture on the world resumes the context; until then the listener
@@ -361,7 +466,39 @@ export async function startBerxApp(options: BerxAppShellOptions): Promise<BerxAp
 	};
 	canvas.addEventListener('keydown', onCompose);
 
+	/* And talking to it, on the same keyboard, from inside the world.
+	   `v` is `м` on a Russian layout: one key, whichever one is under
+	   the finger. Not a microphone button — that is furniture. */
+	const onSpeak = (event: KeyboardEvent) => {
+		if (event.key !== 'v' && event.key !== 'м') return;
+		if (composer || !voice) return;
+		event.preventDefault();
+		void listen();
+	};
+	canvas.addEventListener('keydown', onSpeak);
+
 	await pull();
+
+	/**
+	 * And now the world stays live.
+	 *
+	 * After the first load, because the channels come from who is
+	 * actually in the world. Not awaited into the boot: a socket that
+	 * takes three seconds to refuse must not hold the world behind it,
+	 * and what it does when it fails is say so, in the same list every
+	 * other unreachable thing is named in.
+	 */
+	let liveWorld: {close(): void} | undefined;
+	const connected = options.live?.(world)
+		.then((connection) => {
+			liveWorld = connection;
+			/* destroy() may have run while the socket was opening */
+			if (destroyed) connection.close();
+		})
+		.catch((error) => {
+			failures.push({source: 'realtime', message: error instanceof Error ? error.message : String(error)});
+		});
+
 	/* the entities are live; the place is restored around them */
 	const remembered = options.restore?.();
 	if (remembered) {
@@ -380,25 +517,37 @@ export async function startBerxApp(options: BerxAppShellOptions): Promise<BerxAp
 	/* and the host, which is where the real frame cost is measured */
 	(globalThis as unknown as {__berxHost?: Berx5DWebHost}).__berxHost = host;
 
-	return {
+	const shell: BerxAppShell = {
 		host,
 		world,
 		audio,
+		connected,
+		voice,
+		listen,
 		failures,
 		refresh: pull,
 		compose,
 		destroy: () => {
+			destroyed = true;
+			liveWorld?.close();
 			canvas.removeEventListener('keydown', onCompose);
+			canvas.removeEventListener('keydown', onSpeak);
+			speech?.stop();
 			canvas.removeEventListener('pointerdown', resumeAudio);
 			canvas.removeEventListener('keydown', resumeAudio);
 			audio?.dispose();
 			composer?.remove();
 			delete (globalThis as unknown as {__berxWorld?: Berx5DWorldApp}).__berxWorld;
 			delete (globalThis as unknown as {__berxHost?: Berx5DWebHost}).__berxHost;
+			delete (globalThis as unknown as {__berxShell?: BerxAppShell}).__berxShell;
 			host.destroy();
 			notice.remove();
 			outline.remove();
 			canvas.remove();
 		},
 	};
+	/* and the session itself, which is what knows whether this world is
+	   live and what it could not reach */
+	(globalThis as unknown as {__berxShell?: BerxAppShell}).__berxShell = shell;
+	return shell;
 }

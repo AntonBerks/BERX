@@ -324,6 +324,104 @@ gate('the platform\'s own recogniser is what a session would listen with',
 		? 'SpeechRecognition is present in this browser, so BerxWebVoice drives it directly'
 		: 'this browser exposes no SpeechRecognition, and BerxWebVoice reports that rather than pretending — the touch and keyboard paths reach every capability the voice can (see BERX_WITHOUT_VOICE)');
 
+/* ---------------- the world, kept live ----------------
+
+   applyBerxRealtimeEvent had a gate. BerxRealtimeClient had a gate
+   against the real PHP socket server (verify:5d-realtime, which dials a
+   real TCP socket with real accounts). Nothing joined them, so a shipped
+   session opened no socket at all and a world was live only in the sense
+   that reloading produced a newer one.
+
+   These drive the REAL join against a socket that answers exactly the
+   way berx-realtime-server.php answers — same frames, same order, same
+   authorization rule. */
+
+execFileSync(esbuild, [
+	path.join(here, 'livewire.entry.ts'), '--bundle', '--format=esm', '--target=es2020',
+	'--platform=browser', '--log-level=error', `--outfile=${path.join(dir, 'live.js')}`,
+], {cwd: clientRoot, stdio: 'inherit'});
+fs.writeFileSync(path.join(dir, 'live.html'),
+	`<!doctype html><html lang="ru"><head><meta charset="utf-8"><title>BERX 5D live wiring</title>
+<style>html,body{margin:0;background:#07080A}</style></head>
+<body><script type="module" src="./live.js"></script></body></html>`);
+
+let liveOut, liveErrors = [];
+const server3 = http.createServer((req, res) => {
+	const name = (req.url ?? '/').split('?')[0];
+	if (name === '/favicon.ico') return void res.writeHead(204).end();
+	const file = path.join(dir, name === '/' ? 'live.html' : path.normalize(name).replace(/^(\.\.[/\\])+/, ''));
+	if (!file.startsWith(dir) || !fs.existsSync(file)) return void res.writeHead(404).end();
+	res.writeHead(200, {'content-type': types[path.extname(file)] ?? 'application/octet-stream'});
+	fs.createReadStream(file).pipe(res);
+});
+await new Promise((r) => server3.listen(0, '127.0.0.1', r));
+const browser3 = await launchChromium();
+try {
+	const page = await browser3.newPage({viewport: {width: 640, height: 400}, deviceScaleFactor: 1});
+	page.on('pageerror', (e) => liveErrors.push(e.message));
+	await page.goto(`http://127.0.0.1:${server3.address().port}/`, {waitUntil: 'load'});
+	await page.waitForFunction(() => typeof window.BERX_LIVE_WIRE !== 'undefined');
+	liveOut = await page.evaluate(async () => await window.BERX_LIVE_WIRE.run());
+} finally {
+	await browser3.close();
+	server3.close();
+}
+
+gate('a real live session runs without a page error', liveErrors.length === 0,
+	liveErrors.length ? liveErrors.join('; ') : 'clean');
+
+gate('a session really opens a socket, with a credential the server minted',
+	liveOut.opened?.protocol === 'berx-realtime-1'
+		&& liveOut.post?.calls?.includes('mintRealtimeToken')
+		&& JSON.stringify(liveOut.opened?.handshake) === JSON.stringify(['auth', 'subscribe']),
+	`the session minted a credential and sent ${liveOut.opened?.handshake?.join(' then ')} on subprotocol ${liveOut.opened?.protocol} — nothing here is subscribed to before the server says who this socket is`);
+
+gate('and it subscribes to the channels this world implies, not to a list',
+	JSON.stringify(liveOut.opened?.channels) === JSON.stringify(['person:77', 'person:78', 'self:77']),
+	`granted ${liveOut.opened?.channels?.join(', ')} — the viewer's own, and the people who are really standing in their world. Delete the line that derives them and there is nothing to send`);
+
+gate('a real write somewhere else becomes an entity in this world',
+	liveOut.post?.heard === true
+		&& JSON.stringify(liveOut.post?.gained) === JSON.stringify(['moment:5150'])
+		&& liveOut.post?.applied?.[0]?.applied === 'ingested',
+	`${liveOut.post?.before?.length} entities before the event, ${liveOut.post?.after?.length} after: ${liveOut.post?.gained?.join(', ')} arrived with nobody polling`);
+
+gate('and what arrived is the server\'s entity, never the event\'s payload',
+	liveOut.post?.calls?.includes('feed(30)') && liveOut.post?.label === 'реальный пост с сервера',
+	`the event said {kind: post:created, guid: 5150} and carried no text; the world shows "${liveOut.post?.label}", read back through ${liveOut.post?.calls?.filter((c) => c !== 'mintRealtimeToken').join(', ')} — the same endpoint a cold load uses, which is what makes a live world and a reloaded one the same world`);
+
+gate('a channel this session was never granted delivers nothing',
+	liveOut.unentitled?.delivered === false,
+	'an event on person:999 reached no listener — the server filters by what each connection was actually granted, and this session asked for nothing it is not entitled to');
+
+gate('a world that grew starts listening to who arrived in it',
+	liveOut.grew?.heard === true
+		&& liveOut.grew?.objects?.includes('person:79')
+		&& !liveOut.grew?.channelsBefore?.includes('person:79')
+		&& liveOut.grew?.channelsAfter?.includes('person:79')
+		&& liveOut.grew?.subscribes === 2,
+	`Вера arrived through an event; the session's channels went from ${liveOut.grew?.channelsBefore?.join(', ')} to ${liveOut.grew?.channelsAfter?.join(', ')} on the SAME socket (${liveOut.grew?.subscribes} subscribe frames, no reconnect, no second credential). A person on screen nobody is listening to is a world that is live only for the people who were there at boot`);
+
+gate('a deployment with no socket refuses rather than pretending',
+	typeof liveOut.noUrl?.refused === 'string' && liveOut.noUrl.refused.includes('no socket URL')
+		&& liveOut.noUrl?.called?.includes('mintRealtimeToken'),
+	`"${liveOut.noUrl?.refused}" — it asked the server, the server had no URL configured, and it refused to dial a guessed address. A handle that silently never delivers is the failure this makes impossible`);
+
+gate('a world with nobody signed in has no channels to ask for',
+	typeof liveOut.noViewer?.refused === 'string' && liveOut.noViewer.refused.includes('no signed-in viewer')
+		&& liveOut.noViewer?.dialled === 0,
+	`"${liveOut.noViewer?.refused}", and the token endpoint was never called — every channel is derived from who the viewer is`);
+
+gate('an entity the server cannot return leaves the world exactly as it was',
+	liveOut.broken?.before === liveOut.broken?.after
+		&& liveOut.broken?.applied?.[0]?.startsWith('failed:')
+		&& liveOut.broken?.state === 'open',
+	`the read threw "сеть не ответила": ${liveOut.broken?.before} entities before and ${liveOut.broken?.after} after, and the socket is still ${liveOut.broken?.state}. One unreachable entity is not a reason to drop a live session, and it is never a reason to show something the server did not give`);
+
+gate('closing the session closes the socket',
+	liveOut.closed?.socketClosed === true && liveOut.closed?.state === 'closed',
+	'destroy() reaches the socket — a world that is gone must not keep a connection open behind it');
+
 fs.rmSync(dir, {recursive: true, force: true});
 if (failures.length) {
 	console.error(`\nBERX 5D wiring: ${failures.length} FAILED — ${failures.join('; ')}`);

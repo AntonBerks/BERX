@@ -519,7 +519,10 @@ export function createBerx5DWebHost(options: Berx5DWebHostOptions = {}): Berx5DW
 		if (!ray || !world) return {x, y, frameState, over: undefined, near: [] as string[]};
 		return {
 			x, y, frameState,
-			over: pickActionSlot(renderer.actionSlots, frameState.camera, ray.direction, aspect),
+			/* the same depth the entity pick resolves against, so a
+			   highlight and a press cannot disagree with each other or
+			   with what is drawn */
+			over: pickActionSlot(renderer.actionSlots, frameState.camera, ray.direction, aspect, renderer.depthAt?.(x, y)),
 			near: berxNearActionSlots(renderer.actionSlots, frameState.camera, ray.direction, aspect),
 		};
 	};
@@ -564,7 +567,18 @@ export function createBerx5DWebHost(options: Berx5DWebHostOptions = {}): Berx5DW
 		/* an action beside the focused entity is nearer to hand than the
 		   entity behind it, so the ring is tested first */
 		const ray = rayFromNdc(frameState.camera, (x / canvas.width) * 2 - 1, 1 - (y / canvas.height) * 2, canvas.width / canvas.height);
-		const slot = ray && world ? pickActionSlot(renderer.actionSlots, frameState.camera, ray.direction, canvas.width / canvas.height) : undefined;
+		/**
+		 * ONE READ OF THE G-BUFFER, for both halves of the pick.
+		 *
+		 * The ring is still tested first — an action beside the focused
+		 * entity is nearer to hand than the entity behind it — but only
+		 * among the slots the world did not draw over at THIS pixel.
+		 * Without that, a slot's quad won every pixel it covered, and a
+		 * press aimed at an entity standing in front of a neighbouring
+		 * ring activated the ring instead.
+		 */
+		const drawnDepth = renderer.depthAt?.(x, y);
+		const slot = ray && world ? pickActionSlot(renderer.actionSlots, frameState.camera, ray.direction, canvas.width / canvas.height, drawnDepth) : undefined;
 		if (slot && world) {
 			activate(slot.affordance.id, slot.affordance.label);
 			return;

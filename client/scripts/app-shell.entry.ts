@@ -10,6 +10,7 @@
 import {BerxApiClient} from '@berx/api/client';
 import type {BerxTokenStorage} from '@berx/core';
 import {
+	berxKeepWorldLive,
 	loadBerxConversation,
 	loadBerxWorld,
 	mapEventToSpatial,
@@ -54,10 +55,77 @@ const identifier = document.getElementById('berx-identifier') as HTMLInputElemen
 const password = document.getElementById('berx-password') as HTMLInputElement | null;
 const submit = document.getElementById('berx-enter') as HTMLButtonElement | null;
 
+/**
+ * WHERE THE PERSON IS, WHEN THEY HAVE SAID IT MAY BE KNOWN.
+ *
+ * Only ever a fix the browser really gave. There is no default city, no
+ * IP guess and no last-known value read off disk — "рядом" with a
+ * location BERX invented is the worst possible answer, because it is
+ * confidently wrong about the one thing the question is made of.
+ *
+ * The watch starts the first time anything asks, which is the first
+ * time someone talks to BERX: a permission prompt at boot, for a
+ * capability nobody has reached for yet, is a prompt people refuse.
+ * Until a fix arrives this answers undefined, and the intent engine
+ * says "я не знаю, где ты" rather than searching somewhere else.
+ */
+let fix: {lat: number; lng: number; atMs: number} | undefined;
+let watching = false;
+const whereAmI = () => {
+	if (!watching && typeof navigator !== 'undefined' && navigator.geolocation) {
+		watching = true;
+		navigator.geolocation.watchPosition(
+			(position) => {
+				fix = {lat: position.coords.latitude, lng: position.coords.longitude, atMs: position.timestamp};
+			},
+			() => {
+				/* refused, or no signal. Both are real answers, and both
+				   mean BERX does not know where this person is. */
+				fix = undefined;
+			},
+			{enableHighAccuracy: false, maximumAge: 60000, timeout: 15000},
+		);
+	}
+	return fix;
+};
+
 async function enterWorld(): Promise<void> {
 	gate?.remove();
 	await startBerxApp({
 		load: () => loadBerxWorld(api, {feedLimit: 30}),
+		/**
+		 * The world stays live.
+		 *
+		 * One socket, subscribed to the channels this world implies,
+		 * and every event resolved back through the same API endpoints
+		 * a cold load uses — so a live world and a reloaded one are the
+		 * same world. Nothing here invents an entity from a payload.
+		 *
+		 * It reconnects on its own, because a phone that changed
+		 * networks has not stopped being in the world.
+		 */
+		live: (world) => berxKeepWorldLive(world, api, {realtime: {autoReconnect: true}}),
+		/**
+		 * And BERX can be talked to.
+		 *
+		 * The plan names a capability by this client's own method name
+		 * and this calls that method — nothing about a sentence is
+		 * interpreted here, and a capability the server does not have
+		 * fails rather than being invented.
+		 */
+		voice: {
+			client: api as unknown as Record<string, unknown>,
+			location: whereAmI,
+			permissions: () => ({
+				/* the microphone is asked for by opening it, and the
+				   browser answers then — claiming it in advance would be
+				   a permission BERX granted itself */
+				microphone: typeof navigator !== 'undefined' && navigator.mediaDevices !== undefined,
+				location: whereAmI() !== undefined,
+				notifications: typeof Notification !== 'undefined' && Notification.permission === 'granted',
+				presence: false,
+			}),
+		},
 		/**
 		 * Arriving at a conversation reads it.
 		 *
