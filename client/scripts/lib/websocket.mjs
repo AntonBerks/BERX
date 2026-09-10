@@ -16,7 +16,15 @@
  */
 import crypto from 'node:crypto';
 
-const RFC6455_GUID = '258EAFA5-E914-47DA-95CA-5AB0DC85B11F';
+/**
+ * The one constant RFC 6455 specifies, and it is easy to get subtly
+ * wrong: a transposed character here produces a perfectly formed
+ * handshake that every client rejects with "Incorrect
+ * Sec-WebSocket-Accept", which reads like a client problem and is not.
+ * Verified against Node's own WebSocket client, which is the same
+ * check a browser makes.
+ */
+const RFC6455_GUID = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11';
 
 const accept = (key) => crypto.createHash('sha1').update(key + RFC6455_GUID).digest('base64');
 

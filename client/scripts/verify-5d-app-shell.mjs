@@ -2260,7 +2260,8 @@ const PROJECTOR_SOURCE = String.raw`(canvas, c) => {
 	).then(() => true).catch(() => false);
 	const liveWorld = await page.evaluate(() => {
 		const o = window.__berxWorld?.latestFrame.world.objects.find((x) => x.id === 'moment:7801');
-		return {count: window.__berxWorld?.latestFrame.world.objects.length, label: o?.label, at: o ? {x: o.position.x, y: o.position.y, z: o.position.z} : undefined};
+		const p = o?.transform?.position;
+		return {count: window.__berxWorld?.latestFrame.world.objects.length, label: o?.label, at: p ? {x: p.x, y: p.y, z: p.z} : undefined};
 	});
 	gate('a real write somewhere else becomes an entity in this world, with nobody polling',
 		heard === 1 && arrived && liveWorld.label === 'кто-то ещё написал'
@@ -2288,9 +2289,23 @@ const PROJECTOR_SOURCE = String.raw`(canvas, c) => {
 
 		/* the key a person actually presses, on the canvas, not a call
 		   into the binding */
+		/**
+		 * READ IT SYNCHRONOUSLY.
+		 *
+		 * `hear()` puts the Core in `listening` before its first await —
+		 * the microphone opening IS the cause — and in a browser with no
+		 * speech service the recogniser fails in the same tick, so the
+		 * Core is back to `aware` before any sampler's first interval.
+		 * A poll at 8ms measured nothing and called it absence. The
+		 * state right after the keypress is the state the keypress
+		 * caused; the sampler stays as well, for the case where the
+		 * microphone really does stay open.
+		 */
 		const states = [];
 		const sampler = setInterval(() => states.push(host.core.state), 8);
 		canvas.dispatchEvent(new KeyboardEvent('keydown', {key: 'v', bubbles: true, cancelable: true}));
+		const immediately = host.core.state;
+		states.push(immediately);
 		await new Promise((r) => setTimeout(r, 250));
 		clearInterval(sampler);
 		const listened = states.includes('listening');
@@ -2302,7 +2317,7 @@ const PROJECTOR_SOURCE = String.raw`(canvas, c) => {
 		const after = window.__berxWorld.latestFrame.world.objects;
 		return {
 			present: true,
-			listened, states: [...new Set(states)],
+			listened, immediately, states: [...new Set(states)],
 			capability: turn.plan.steps.map((s) => s.capability).filter(Boolean),
 			outcome: turn.outcome.state ?? turn.outcome,
 			before, after: after.length,
@@ -2314,7 +2329,7 @@ const PROJECTOR_SOURCE = String.raw`(canvas, c) => {
 	gate('a real product session can be talked to',
 		spoke.present === true && spoke.listened === true,
 		spoke.present
-			? `pressing "v" on the world put the drawn Core in listening (${spoke.states.join(' → ')}) — the microphone is a key from inside the world, not a button in a bar. There is no on-screen control, because a microphone button is furniture`
+			? `pressing "v" on the world put the drawn Core in listening — ${spoke.immediately} the instant the key landed, then ${spoke.states.join(', ')} — the microphone is a key from inside the world, not a button in a bar. There is no on-screen control, because a microphone button is furniture`
 			: 'the shipped shell built no voice binding, so nothing a person says can reach the world');
 	gate('and a sentence really reaches the world it is looking at',
 		spoke.present === true && spoke.capability?.includes('events') && spoke.shown?.length > 0
@@ -2326,6 +2341,11 @@ const PROJECTOR_SOURCE = String.raw`(canvas, c) => {
 	gate('no page or console errors', pageErrors.length === 0, pageErrors.slice(0, 3).join(' | ') || 'clean');
 } finally {
 	await browser.close();
+	/* An upgraded socket is still a connection, and server.close() waits
+	   for every one of them — a gate that leaves a WebSocket open never
+	   exits, whatever it measured. */
+	sockets.closeAll();
+	server.closeAllConnections?.();
 	server.close();
 	fs.rmSync(dir, {recursive: true, force: true});
 }
