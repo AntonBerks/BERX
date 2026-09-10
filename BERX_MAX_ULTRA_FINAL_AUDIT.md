@@ -604,34 +604,71 @@ rather than a fixture.
 
 ## 5. Results, as measured in this pass
 
+Every row below was run on this machine in this pass. Where a number
+appears it is the gate's own count, not a summary of one.
+
 | Gate | Result |
 |---|---|
-| `typecheck` | PASS |
+| `typecheck` | PASS — whole client workspace, strict |
 | `verify:static` | PASS |
-| `verify:5d-shared-core` | ALL PASS |
-| `verify:5d-geometry` | PASS — 4 meshes, winding and ring facing verified |
+| `verify:5d-shared-core` | ALL PASS — 14 |
+| `verify:5d-geometry` | PASS — 4 meshes, winding and ring facing |
 | `verify:5d-runtime` | PASS — runtime invariants and data→world mapping |
 | `verify:5d-world` | PASS — X/Y/Z + T + R invariants |
-| `verify:5d-picking` *(new)* | ALL PASS — 35/35 presses, ring up on all 35 |
-| `verify:5d-composition` | ALL PASS |
-| `verify:5d-dimensions` | ALL PASS |
-| `verify:5d-wiring` | ALL PASS — tiers, Core, 4 ears gates, 12 live-world gates, 19 voice gates |
-| `verify:5d-crossrender` | ALL PASS — 28 gates |
-| `verify:5d-app-shell` | **76 PASS, 0 FAIL, 2 BLOCKED** on a real product boot (webgl2) |
-| `verify:5d-xr` | ALL PASS with every device path BLOCKED — no headset, no ARKit, no ARCore, no OpenXR runtime |
-| `build:spatial-web` | PASS — `berx-app.js` 532.7 kB, `berx-5d.runtime.js` 522.2 kB, `berx-5d.scenes.js` 21.0 kB |
+| `verify:5d-picking` | **ALL PASS — 47 presses, 47 correct, 31 of 31 slots reachable across nine viewpoints, 0 BLOCKED** |
+| `verify:5d-composition` | ALL PASS — 10 |
+| `verify:5d-dimensions` | ALL PASS — 15 |
+| `verify:5d-framing` | ALL PASS — 4; desktop 46.5 %, phone 41.5 %, tablet 50.0 %, wide desktop 43.4 %, every entity wholly inside on all four |
+| `verify:5d-lighting` | ALL PASS — 5 |
+| `verify:5d-platforms` | ALL PASS — 11 |
+| `verify:5d-wiring` | **ALL PASS — 46** (two gates had been failing: a hand demoted a search in flight) |
+| `verify:5d-core` | ALL PASS — 31 |
+| `verify:5d-voiceos` | ALL PASS — 45 |
+| `verify:5d-voice` | ALL PASS — 46 |
+| `verify:5d-xr` | ALL PASS — 7, with every device path BLOCKED: no `navigator.xr`, no headset, no ARKit, no ARCore, no OpenXR runtime |
+| `verify:5d-native-targets` | PASS |
+| `verify:5d-transitions` | **ALL PASS — 12** (`collapse` had been failing: its own two terms cancelled) |
+| `verify:5d-backend` | ALL PASS — 20 |
+| `verify:5d-haptics` | ALL PASS — 14 |
+| `verify:5d-blockers` | PASS |
+| `verify:v9` | ALL PASS — 33 |
+| `verify:5d-mobile` *(new)* | **36 of 40 device gates PASS** on the first complete run; the four were the gate's own two mistakes (`host.backend`, and a frame budget asserted with no GPU), both fixed — see §1.9. 1 ENGINE BLOCKER (no WebKit installed), 2 HARDWARE BLOCKER (frame cost on a software rasteriser) |
+| `verify:5d-pwa` *(new)* | see the final run below |
+| `build:spatial-web` | PASS — `berx-app.js` 567.3 kB, `berx-5d.runtime.js` 552.2 kB, `berx-5d.scenes.js` 21.0 kB (8 contracts) |
 | PHP syntax | PASS — 61 files, 0 errors |
-
-The two BLOCKED in the app-shell run are the honest ones described in §3:
-WebGPU cannot present to a canvas on lavapipe, and one affordance is
-occluded by composition (parity holds — an occluded slot draws nothing and
-is not pickable).
+| lint | **No linter is configured in this workspace** — no eslint, prettier or biome config and none in devDependencies. `typecheck` (strict `tsc --noEmit`) is what stands in for it, and `verify:static` is a file-presence check rather than a linter. Not claimed as a lint pass |
+| tests | No separate unit-test runner: the `verify:5d-*` suite IS the test suite, and it runs against real browsers, a real socket server and a real MariaDB rather than against fixtures |
 
 ## 6. 5D is intact
 
 Nothing in this pass weakened X, Y, Z, T or R. The picking repair made the
-picker agree with what the renderer draws; it did not change where anything
-stands.
+picker agree with what the renderer draws; the pan repair changed how far a
+finger moves the eye. Neither changed where anything stands, and no
+dimension was turned off to make a number come out.
+
+**And 5D is not the visual.** The five are load-bearing or they are
+decoration, so each one is asserted by something that would break if it
+were only a label:
+
+- **Z is real depth, not a shadow.** The G-buffer's alpha stores
+  `-view_pos.z`, and it is the authority a press is resolved against —
+  `verify:5d-picking` puts 47 real PointerEvents at 47 entities' own
+  pixels and every one lands on the entity whose surface the renderer
+  actually drew there. A world with painted-on depth would fail that on
+  the first occluded entity.
+- **T changes the world, not a caption.** Scrub the cursor a year back and
+  NOW is empty, because nothing was happening then; a three-year-old
+  memory stands sixty units further into depth than a post from this
+  morning. `verify:5d-dimensions`, and `verify:5d-app-shell` measures it
+  on a real product boot.
+- **R decides where things are.** The relational layout sets separation
+  from relation type and strength; a relation arriving over the socket
+  places its entity by the same rule a cold load uses — post 7801 landed
+  at a real finite position, not at the origin.
+- **The camera really moves.** A focus is a travel with a pose and a
+  transition kind, a drag translates the eye by the distance the pixels
+  subtend, and two fingers change the field of view. All three are
+  measured off `frame.camera`, not off a CSS transform.
 
 - **X/Y/Z** — `verify:5d-world` PASS, `verify:5d-dimensions` PASS.
 - **T** — the temporal cursor still offsets what is drawn without moving the
@@ -670,12 +707,45 @@ it. **A file existing is not wiring.**
 
 | commit | what |
 |---|---|
-| `80aac39` | The ears are the camera, in a session that really has them |
-| `8c146c5` | The box the ray crosses is the shape on the screen |
-| `0256041` | The world stays live, is heard from the camera, and can be spoken to |
 | `3e3db01` | One transposed character in the RFC 6455 GUID |
+| `0256041` | The world stays live, is heard from the camera, and can be spoken to |
+| `8c146c5` | The box the ray crosses is the shape on the screen |
+| `80aac39` | The ears are the camera, in a session that really has them |
+| `d88161f` | The audit, as measured rather than as hoped |
+| `93011e6` | Four domains that had an endpoint and no place in the world |
+| `683997c` | The actions of what you are looking at stand between you and it |
+| `2a12de9` | The camera is told the room the ring needs, not where its centres are |
+| `6703a9e` | A phone has no keyboard, and a held finger is how it asks BERX to listen |
+| `cfb4f89` | The audit, the production path, and an offline shell that answers any address |
+| `bda900b` | Adaptive quality that could not react, and a budget that is a claim about hardware |
 
-### Files changed
+**A note on branches.** The harness this session runs under names
+`claude/opt-berx-contents-ij6gnl` as its development branch. That branch
+is a different line of history — 339 commits behind this one and 304
+ahead of it — so bringing this work onto it would mean force-discarding
+those 304. This pass was directed to `berx-max-ultra-final` explicitly
+and repeatedly, so that is where it is, and nothing was forced.
+
+### Files changed in the mobile / PWA pass
+
+```
+app/index.html                                      interactive-widget, overscroll, safe-area padding, manifest link
+app/berx-sw.js                            NEW       shell-only cache; /api/ never intercepted
+app/berx.webmanifest                      NEW       installable, in the Visual DNA's own colours
+client/packages/spatial/src/core/berxCoreWorld.ts   presence does not demote a busy Core
+client/packages/spatial/src/spatialCamera.ts        nudge() — a drag in world units
+client/packages/spatial/src/runtime5d.ts            nudge(), refused during a transition like input()
+client/packages/spatial/src/transitions.ts          collapse actually collapses
+client/packages/spatial-web/src/runtimeHost5d.ts    the hold gesture; calibrated pan; measured-fps tier
+client/packages/spatial-web/src/appShell.ts         canvas touch rules; safe areas; keyboard lift; onHold
+client/scripts/app-shell.entry.ts                   service worker; rayFromNdc/candidates/cameraBasis exposed
+client/scripts/lib/appserver.mjs           NEW      one server for every gate that needs a session
+client/scripts/verify-5d-mobile.mjs        NEW      iPhone and Android, 20 gates each
+client/scripts/verify-5d-pwa.mjs           NEW      manifest, worker, CacheStorage, and a reload with no network
+client/scripts/verify-5d-app-shell.mjs              depthAt instead of a second G-buffer read
+```
+
+### Files changed in the earlier passes
 
 ```
 client/packages/spatial/src/geometry.ts             BERX_PRIMITIVES, primitiveHalfExtent, berxDrawnHalfExtent
