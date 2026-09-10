@@ -72,7 +72,27 @@ export function berxCoreCause(
 	switch (cause.kind) {
 		case 'presence':
 			if (!cause.near) return 'idle';
-			return recovering ? 'recovering' : 'aware';
+			if (recovering) return 'recovering';
+			/**
+			 * A HAND ARRIVING DOES NOT MAKE BERX LESS BUSY.
+			 *
+			 * `aware` means "something could happen". Every state below
+			 * is something already happening — it is listening, or
+			 * reading a sentence, or waiting on a server it has already
+			 * asked — and all of them are MORE than aware. Returning
+			 * `aware` from one of them demoted the drawn Core in the
+			 * middle of the work: a finger resting on the world while a
+			 * search was in flight reset the room to "someone is here"
+			 * and the search became invisible until the answer came
+			 * back, which is a progress bar that fills after the
+			 * download.
+			 *
+			 * Found by the held gesture, which produces a presence the
+			 * moment a finger has stayed half a second — but the same
+			 * hole was under every tap and every hotword, and the
+			 * ordering of a test was all that hid it.
+			 */
+			return current === 'idle' || current === 'aware' || current === 'success' ? 'aware' : current;
 
 		case 'voice':
 			/* Someone speaking after a failure is the recovery: they are

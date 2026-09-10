@@ -2457,7 +2457,8 @@ function berxCoreCause(current, cause, unresolved = false) {
   switch (cause.kind) {
     case "presence":
       if (!cause.near) return "idle";
-      return recovering ? "recovering" : "aware";
+      if (recovering) return "recovering";
+      return current === "idle" || current === "aware" || current === "success" ? "aware" : current;
     case "voice":
       return cause.speaking ? "listening" : recovering ? "recovering" : "aware";
     case "utterance":
@@ -2490,9 +2491,56 @@ var init_berxCoreWorld = __esm({
 });
 
 // packages/spatial/src/core/berxTouch.ts
+function berxTouchField(field, gesture, origin = field.offset) {
+  const dx = gesture.at.x - origin.x;
+  const dy = gesture.at.y - origin.y;
+  const dz = gesture.at.z - origin.z;
+  const d = Math.hypot(dx, dy, dz);
+  const near = Math.max(0, 1 - d / (BERX_TOUCH_RADIUS * 3));
+  if (near <= 0) return field;
+  const force = Math.max(0, Math.min(1, gesture.force));
+  const weight = gesture.kind === "press" ? 1 : gesture.kind === "hold" ? 0.7 : gesture.kind === "draw" ? 0.35 : 0.5;
+  const pull = near * weight * (0.35 + 0.4 * force);
+  return {
+    ...field,
+    /* Attention gathers where the hand is. */
+    coherence: Math.min(1, field.coherence + 0.18 * pull),
+    /* And contracts around it: a touched field is a smaller field. */
+    reach: field.reach * (1 - 0.3 * pull),
+    /* Barely. A body that visibly recoils from a finger is a
+       character reacting; this is a space acknowledging. */
+    deform: Math.min(0.22, field.deform + 0.06 * pull),
+    offset: {
+      x: field.offset.x + dx * 0.25 * pull,
+      y: field.offset.y + dy * 0.25 * pull,
+      z: field.offset.z + dz * 0.25 * pull
+    }
+  };
+}
+function berxGestureCause(gesture) {
+  switch (gesture.kind) {
+    case "reach":
+    case "hold":
+    case "draw":
+      return { kind: "presence", near: true };
+    case "release":
+      return { kind: "presence", near: true };
+    case "press":
+      return void 0;
+    default:
+      return void 0;
+  }
+}
+function berxTouchHaptic(gesture) {
+  if (gesture.kind === "press") return "commit";
+  if (gesture.kind === "hold" && gesture.durationS > 0.25) return "contact";
+  return "none";
+}
+var BERX_TOUCH_RADIUS;
 var init_berxTouch = __esm({
   "packages/spatial/src/core/berxTouch.ts"() {
     "use strict";
+    BERX_TOUCH_RADIUS = 0.9;
   }
 });
 
@@ -2847,14 +2895,34 @@ var init_transitions = __esm({
         ease: smooth,
         modulate: (t) => ({ opacity: 1, emissive: 0.42 * hill(t), scale: 1 + 0.06 * hill(t), fov: 1 })
       },
-      /** Everything draws in toward the destination, then releases. */
+      /**
+       * Everything draws in toward the destination, then releases.
+       *
+       * ITS OWN TWO TERMS USED TO CANCEL. The objects shrank by 22% and
+       * the field of view narrowed by 18% at the same instant, and a
+       * narrower field of view is the camera MAGNIFYING: at 60 degrees,
+       * 0.82 of the angle is 1.26 of the size. 0.78 x 1.26 is 0.98, so
+       * nothing measurably drew in — the world sat almost exactly the
+       * size it already was, and the slowest, most deliberate transition
+       * in the set was the one that showed the least.
+       *
+       * Measured, not reasoned: a real GPU readback counted 39,042 lit
+       * pixels mid-collapse against 37,232 in the untouched frame. The
+       * world was very slightly BIGGER while collapsing.
+       *
+       * So the scale now carries it, the narrowing is small enough to be
+       * the tunnel closing rather than a zoom, and a shallow fade takes
+       * the edges with it. Still nobody else's image: fold fades and
+       * narrows without shrinking, dissolve only fades, and this is the
+       * only one where the world itself gets smaller.
+       */
       collapse: {
         kind: "collapse",
         durationSeconds: 0.7,
         arcMetres: 0,
         meaning: "the world draws in \u2014 for going back, or closing something",
         ease: (t) => clamp01(t) * clamp01(t),
-        modulate: (t) => ({ opacity: 1, emissive: 0, scale: 1 - 0.22 * hill(t), fov: 1 - 0.18 * hill(t) })
+        modulate: (t) => ({ opacity: 1 - 0.15 * hill(t), emissive: 0, scale: 1 - 0.22 * hill(t), fov: 1 - 0.06 * hill(t) })
       }
     });
     REASONS2 = Object.freeze({
@@ -2929,6 +2997,52 @@ var init_spatialCamera = __esm({
       setState(next, source = {}) {
         this.state = { position: copy(next.position), target: copy(next.target), rotation: { ...next.rotation }, fov: source.optics === true ? next.fov : clamp2(next.fov, this.limits.minFov, this.limits.maxFov), near: next.near, far: next.far };
         this.baseTarget = copy(next.target);
+      }
+      /**
+        * A DRAG MOVES THE WORLD BY WHAT IS UNDER THE FINGER.
+        *
+        * `applyInput`'s pan is an impulse into a damped velocity, and it is
+        * calibrated in nothing: `panX * 0.018` turns a pixel into a number
+        * with no relation to how far away the world is or how wide the frame
+        * is. Measured on a phone, a 120px drag moved the camera **0.067
+        * world units** — the world stands about twelve units away and spans
+        * about twenty, so crossing it would have taken a drag of two
+        * thousand pixels. On a desktop that is a nuisance beside a wheel and
+        * a keyboard. On a phone a drag is the ONLY way to move, so it meant
+        * a world you could look at and not move through. It was ungated,
+        * which is how it stayed that way.
+        *
+        * So a drag translates the eye AND what it is looking at, directly,
+        * by a distance the CALLER computed from the real geometry — the
+        * world distance one pixel subtends at the focal depth. The world
+        * then follows the finger exactly, which is the whole of direct
+        * manipulation, and it does so identically at 10fps and at 120fps
+        * because nothing here is integrated over time.
+        *
+        * `right` and `up` are the camera's own axes, so this is a pan across
+        * the frame rather than along the world's axes — dragging left moves
+        * what you are looking at leftward whatever direction the camera
+        * happens to face. Clamped by the same maxDepth every frame is, so a
+        * drag cannot leave the world.
+        */
+      nudge(alongRight, alongUp) {
+        if (alongRight === 0 && alongUp === 0) return;
+        const f = { x: this.state.target.x - this.state.position.x, y: this.state.target.y - this.state.position.y, z: this.state.target.z - this.state.position.z };
+        const fl = Math.hypot(f.x, f.y, f.z);
+        if (fl < 1e-6) return;
+        f.x /= fl;
+        f.y /= fl;
+        f.z /= fl;
+        const rRaw = { x: f.y * 1 - f.z * 0, y: f.z * 0 - f.x * 1, z: f.x * 0 - f.y * 0 };
+        const rl = Math.hypot(rRaw.x, rRaw.y, rRaw.z);
+        if (rl < 1e-3) return;
+        const r = { x: rRaw.x / rl, y: rRaw.y / rl, z: rRaw.z / rl };
+        const u = { x: r.y * f.z - r.z * f.y, y: r.z * f.x - r.x * f.z, z: r.x * f.y - r.y * f.x };
+        const dx = r.x * alongRight + u.x * alongUp, dy = r.y * alongRight + u.y * alongUp, dz = r.z * alongRight + u.z * alongUp;
+        const m = this.limits.maxDepth;
+        this.state.position = { x: clamp2(this.state.position.x + dx, -m, m), y: clamp2(this.state.position.y + dy, -m, m), z: clamp2(this.state.position.z + dz, -m, m) };
+        this.state.target = { x: clamp2(this.state.target.x + dx, -m, m), y: clamp2(this.state.target.y + dy, -m, m), z: clamp2(this.state.target.z + dz, -m, m) };
+        this.baseTarget = copy(this.state.target);
       }
       applyInput(input) {
         this.velocity.x += input.panX * 0.18;
@@ -3213,6 +3327,20 @@ var init_runtime5d = __esm({
         if (this.cameraTransition) return;
         this.camera.applyInput({ ...input, motion: this.deviceMotionEnabled ? input.motion : void 0 });
       }
+      /**
+       * A drag, in world units the CALLER measured off the frame.
+       *
+       * Same door and same rule as `input`: a transition owns the camera
+       * every frame it runs, and a pan arriving mid-travel would fight it.
+       * Separate from `input` because it is a different kind of quantity —
+       * `panX` is an impulse into a damped velocity, this is a distance —
+       * and mixing them would leave a pan whose meaning depended on which
+       * field it arrived in.
+       */
+      nudge(alongRight, alongUp) {
+        if (this.cameraTransition) return;
+        this.camera.nudge(alongRight, alongUp);
+      }
       frame(deltaSeconds) {
         this.world.tick(deltaSeconds);
         if (this.cameraTransition) {
@@ -3490,7 +3618,23 @@ function berxRingGeometry(object, affordances, measure) {
   };
 }
 function berxActionRingRadius(object, affordances, measure) {
-  return berxRingGeometry(object, affordances, measure).radius;
+  if (!object) return 0;
+  const { places } = berxRingGeometry(object, affordances, measure);
+  if (places.length === 0) return 0;
+  const drop = object.transform.scale.y * 0.5 + SLOT_HEIGHT * 1.4;
+  let extent = 0;
+  for (const place of places) {
+    const look = berxSlotPresentation(place.affordance.state);
+    const down = drop + place.under - look.lift;
+    extent = Math.max(
+      extent,
+      /* sideways, to the far edge of the widest name */
+      Math.abs(place.across) + place.halfWidth,
+      /* and downward, to the bottom of the lowest slot */
+      down + SLOT_HEIGHT * 0.5 * look.scale
+    );
+  }
+  return extent / (1 - TOWARD_THE_EYE);
 }
 function berxActionRing(object, camera, affordances, measure) {
   if (!object) return [];
@@ -3499,15 +3643,33 @@ function berxActionRing(object, camera, affordances, measure) {
   const { places } = berxRingGeometry(object, affordances, measure);
   if (places.length === 0) return [];
   const drop = object.transform.scale.y * 0.5 + SLOT_HEIGHT * 1.4;
+  const eye = Math.hypot(
+    camera.position.x - object.transform.position.x,
+    camera.position.y - object.transform.position.y,
+    camera.position.z - object.transform.position.z
+  );
+  const toward = Math.max(
+    /* never inside the entity's own surface */
+    Math.max(object.transform.scale.x, object.transform.scale.y, object.transform.scale.z) * 0.5 + SLOT_HEIGHT,
+    /* and a share of the way toward whoever is looking, so the ring
+       clears whatever the world has put between the two — which the
+       ring cannot know about and does not need to, because standing
+       further back is exactly when there is more room for something
+       to be in the way. A fixed offset in world units cleared a
+       neighbour two units away and not one three units away:
+       measured 29 of 34 slots reachable, short on three of ten
+       entities. */
+    eye * TOWARD_THE_EYE
+  );
   return places.map((place) => {
     const look = berxSlotPresentation(place.affordance.state);
     const down = drop + place.under - look.lift;
     return {
       affordance: place.affordance,
       position: {
-        x: object.transform.position.x + basis.right.x * place.across - basis.up.x * down,
-        y: object.transform.position.y + basis.right.y * place.across - basis.up.y * down,
-        z: object.transform.position.z + basis.right.z * place.across - basis.up.z * down
+        x: object.transform.position.x + basis.right.x * place.across - basis.up.x * down - basis.forward.x * toward,
+        y: object.transform.position.y + basis.right.y * place.across - basis.up.y * down - basis.forward.y * toward,
+        z: object.transform.position.z + basis.right.z * place.across - basis.up.z * down - basis.forward.z * toward
       },
       /* State as GEOMETRY, so every renderer honours it without a
          shader knowing what a state is. */
@@ -3569,7 +3731,7 @@ function berxNearActionSlots(slots, camera, rayDirection, aspect, widen = 2.6) {
   }
   return near;
 }
-var PRESENTATION, BERX_SLOT_FOCUS_SCALE, RING_GAP, SLOT_HEIGHT, SLOT_DEPTH_BIAS, BERX_SLOT_GAP, ARC, REACH, DEPTH, WIDTH_PER_CHARACTER, aspectFor;
+var PRESENTATION, BERX_SLOT_FOCUS_SCALE, RING_GAP, SLOT_HEIGHT, SLOT_DEPTH_BIAS, BERX_SLOT_GAP, ARC, REACH, DEPTH, TOWARD_THE_EYE, WIDTH_PER_CHARACTER, aspectFor;
 var init_actionRing = __esm({
   "packages/spatial/src/actionRing.ts"() {
     "use strict";
@@ -3607,6 +3769,7 @@ var init_actionRing = __esm({
     ARC = Math.PI * 0.9;
     REACH = 1.35;
     DEPTH = 0.35;
+    TOWARD_THE_EYE = 0.34;
     WIDTH_PER_CHARACTER = 0.58;
     aspectFor = (label, measure) => measure?.(label) ?? label.trim().length * WIDTH_PER_CHARACTER;
   }
@@ -10512,6 +10675,9 @@ async function berxKeepWorldLive(world, api2, options = {}) {
   };
 }
 
+// scripts/app-shell.entry.ts
+init_src();
+
 // packages/spatial-web/src/appShell.ts
 init_src();
 
@@ -10562,6 +10728,8 @@ var BerxWebHaptics = class {
 };
 
 // packages/spatial-web/src/runtimeHost5d.ts
+var BERX_HOLD_MS = 500;
+var BERX_TAP_SLOP = 8;
 var prefersReducedMotion = () => typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
 var KIND_NAME = {
   person: "\u0447\u0435\u043B\u043E\u0432\u0435\u043A",
@@ -10628,6 +10796,14 @@ function createBerx5DWebHost(options = {}) {
   let contextAlive = true;
   let dragging = false;
   let lastX = 0, lastY = 0, downX = 0, downY = 0;
+  let holdTimer;
+  let downAt = 0;
+  let held = false;
+  const cancelHold = () => {
+    if (holdTimer === void 0) return;
+    clearTimeout(holdTimer);
+    holdTimer = void 0;
+  };
   let pinchDistance;
   let cssWidth = 1, cssHeight = 1;
   let lastAnnouncedId;
@@ -10701,6 +10877,52 @@ function createBerx5DWebHost(options = {}) {
     }
     raf = requestAnimationFrame(frame);
   };
+  const holdGesture = (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const dpr = canvas.width / Math.max(1, rect.width);
+    const x = (e.clientX - rect.left) * dpr;
+    const y = (e.clientY - rect.top) * dpr;
+    const frameState = world ? world.latestFrame : runtime.latestFrame;
+    const camera = frameState.camera;
+    const ray = rayFromNdc(camera, x / canvas.width * 2 - 1, 1 - y / canvas.height * 2, canvas.width / canvas.height);
+    const basis = cameraBasis(camera);
+    if (!ray || !basis) return void 0;
+    const cos = Math.max(
+      1e-3,
+      ray.direction.x * basis.forward.x + ray.direction.y * basis.forward.y + ray.direction.z * basis.forward.z
+    );
+    const drawn = drawnDepthAt(x, y);
+    const along = drawn !== void 0 ? drawn / cos : Math.hypot(camera.target.x - camera.position.x, camera.target.y - camera.position.y, camera.target.z - camera.position.z);
+    return {
+      kind: "hold",
+      at: {
+        x: ray.origin.x + ray.direction.x * along,
+        y: ray.origin.y + ray.direction.y * along,
+        z: ray.origin.z + ray.direction.z * along
+      },
+      objectId: renderer.pick(frameState, x, y)?.objectId,
+      /* the platform's own pressure where it has one; 0.5 where it
+         does not, which is every mouse and most touchscreens.
+         Never inferred from how long the finger stayed — a long
+         press is a long press, not a hard one */
+      force: e.pressure > 0 && e.pressure < 1 ? e.pressure : 0.5,
+      durationS: (performance.now() - downAt) / 1e3
+    };
+  };
+  const beginHold = (e) => {
+    holdTimer = void 0;
+    if (slotsUnder(e).over) return;
+    const gesture = holdGesture(e);
+    if (!gesture) return;
+    const cause = berxGestureCause(gesture);
+    if (cause) coreCause(cause);
+    core = { ...core, field: berxTouchField(core.field, gesture) };
+    held = true;
+    const feel = berxTouchHaptic(gesture);
+    if (feel === "contact") haptics.moment("focus");
+    else if (feel === "commit") haptics.moment("select");
+    options.onHold?.(gesture);
+  };
   const onPointerDown = (e) => {
     if (e.pointerType === "mouse" && e.button !== 0) return;
     coreCause({ kind: "presence", near: true });
@@ -10708,6 +10930,10 @@ function createBerx5DWebHost(options = {}) {
     dragging = true;
     lastX = downX = e.clientX;
     lastY = downY = e.clientY;
+    downAt = performance.now();
+    held = false;
+    cancelHold();
+    holdTimer = setTimeout(() => beginHold(e), BERX_HOLD_MS);
     try {
       canvas.setPointerCapture?.(e.pointerId);
     } catch {
@@ -10722,10 +10948,19 @@ function createBerx5DWebHost(options = {}) {
       return;
     }
     if (world) world.pointAt(void 0);
+    if (Math.hypot(e.clientX - downX, e.clientY - downY) > BERX_TAP_SLOP) cancelHold();
     const dx = e.clientX - lastX, dy = e.clientY - lastY;
     lastX = e.clientX;
     lastY = e.clientY;
-    runtime.input({ panX: -dx * 0.018, panY: dy * 0.018, depthDelta: 0, pinch: 0 });
+    const cam = (world ? world.latestFrame : runtime.latestFrame).camera;
+    const focal = Math.max(0.5, Math.hypot(
+      cam.target.x - cam.position.x,
+      cam.target.y - cam.position.y,
+      cam.target.z - cam.position.z
+    ));
+    const height = cssHeight > 1 ? cssHeight : canvas.getBoundingClientRect().height;
+    const perPixel = 2 * Math.tan(cam.fov * Math.PI / 180 / 2) * focal / Math.max(1, height);
+    runtime.nudge(-dx * perPixel, dy * perPixel);
   };
   const activate = (affordanceId, label) => {
     if (!world) return;
@@ -10773,12 +11008,17 @@ function createBerx5DWebHost(options = {}) {
   const onPointerUp = (e) => {
     if (!dragging) return;
     dragging = false;
+    cancelHold();
     if (world) world.pressAffordance(void 0);
     try {
       canvas.releasePointerCapture?.(e.pointerId);
     } catch {
     }
-    if (Math.hypot(e.clientX - downX, e.clientY - downY) > 8) return;
+    if (Math.hypot(e.clientX - downX, e.clientY - downY) > BERX_TAP_SLOP) return;
+    if (held) {
+      held = false;
+      return;
+    }
     const rect = canvas.getBoundingClientRect();
     const dpr = canvas.width / Math.max(1, rect.width);
     const x = (e.clientX - rect.left) * dpr;
@@ -11110,6 +11350,7 @@ function createBerx5DWebHost(options = {}) {
       cancelAnimationFrame(raf);
     },
     destroy: () => {
+      cancelHold();
       running = false;
       cancelAnimationFrame(raf);
       canvas.removeEventListener("pointerdown", onPointerDown);
@@ -11798,11 +12039,11 @@ async function startBerxApp(options) {
   const notice = document.createElement("p");
   notice.setAttribute("role", "status");
   notice.setAttribute("aria-live", "polite");
-  notice.style.cssText = "position:fixed;inset:auto 0 24px;margin:0;text-align:center;color:#A7ADB4;font:14px/1.5 system-ui,sans-serif";
+  notice.style.cssText = "position:fixed;left:0;right:0;bottom:calc(24px + env(safe-area-inset-bottom));margin:0;text-align:center;color:#A7ADB4;font:14px/1.5 system-ui,sans-serif";
   notice.textContent = "BERX \u0441\u043E\u0431\u0438\u0440\u0430\u0435\u0442 \u043C\u0438\u0440";
   mount.appendChild(notice);
   const canvas = document.createElement("canvas");
-  canvas.style.cssText = "position:fixed;inset:0;width:100%;height:100%;display:block";
+  canvas.style.cssText = "position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent";
   mount.appendChild(canvas);
   const world = new Berx5DWorldApp({
     reducedMotion: options.reducedMotion,
@@ -11843,7 +12084,33 @@ async function startBerxApp(options) {
        a new backend picks up exactly where the old one stopped */
     rendererFactory: buildRenderer,
     reducedMotion: options.reducedMotion,
-    textureBudget: options.textureBudget
+    textureBudget: options.textureBudget,
+    /**
+     * A HELD FINGER IS HOW A PHONE ASKS BERX TO LISTEN.
+     *
+     * `v` starts listening from the keyboard, and a phone has no
+     * `v`: on mobile web, voice — the thing BERX is — was
+     * unreachable, and so were the fifteen intents behind it. Not a
+     * microphone button, because a button is furniture that is
+     * there whether or not anyone is talking; the gesture the Core
+     * already models. A hold is `attention, held`, and BERX giving
+     * its attention is BERX listening.
+     *
+     * It is a real user gesture, which is exactly what the
+     * microphone permission needs: the browser asks the first time,
+     * the person answers, and the recording indicator does what it
+     * always does. Nothing here opens a microphone before that
+     * gesture and nothing here touches an indicator.
+     *
+     * The host has already ruled out a hold on an affordance. This
+     * rules out the two states where listening would be wrong:
+     * while someone is typing (the composer owns the keyboard and
+     * the intent), and where this build has no voice at all.
+     */
+    onHold: () => {
+      if (composer || !voice) return;
+      void listen();
+    }
   });
   const failures = [];
   const loadedRegions = /* @__PURE__ */ new Set();
@@ -11880,11 +12147,21 @@ async function startBerxApp(options) {
   };
   let destroyed = false;
   let composer;
+  let closeComposer;
   const compose = () => {
     if (composer || !options.publish) return;
     const form = document.createElement("form");
     composer = form;
-    form.style.cssText = "position:fixed;left:50%;bottom:32px;transform:translateX(-50%);display:flex;gap:8px;width:min(560px,calc(100% - 48px))";
+    form.style.cssText = "position:fixed;left:50%;bottom:calc(32px + env(safe-area-inset-bottom));transform:translateX(-50%);display:flex;gap:8px;width:min(560px,calc(100% - 48px - env(safe-area-inset-left) - env(safe-area-inset-right)))";
+    const vv = window.visualViewport;
+    const liftAboveKeyboard = () => {
+      if (!vv) return;
+      const hidden = Math.max(0, window.innerHeight - (vv.height + vv.offsetTop));
+      form.style.transform = hidden > 0 ? `translate(-50%, -${Math.round(hidden)}px)` : "translateX(-50%)";
+    };
+    vv?.addEventListener("resize", liftAboveKeyboard);
+    vv?.addEventListener("scroll", liftAboveKeyboard);
+    liftAboveKeyboard();
     const field = document.createElement("input");
     field.setAttribute("aria-label", "\u0427\u0442\u043E \u043F\u0440\u043E\u0438\u0441\u0445\u043E\u0434\u0438\u0442");
     field.placeholder = "\u0427\u0442\u043E \u043F\u0440\u043E\u0438\u0441\u0445\u043E\u0434\u0438\u0442";
@@ -11900,10 +12177,14 @@ async function startBerxApp(options) {
     mount.appendChild(form);
     field.focus();
     const close = () => {
+      closeComposer = void 0;
+      vv?.removeEventListener("resize", liftAboveKeyboard);
+      vv?.removeEventListener("scroll", liftAboveKeyboard);
       form.remove();
       composer = void 0;
       canvas.focus();
     };
+    closeComposer = close;
     field.addEventListener("keydown", (event) => {
       if (event.key === "Escape") close();
     });
@@ -12045,7 +12326,7 @@ async function startBerxApp(options) {
       canvas.removeEventListener("pointerdown", resumeAudio);
       canvas.removeEventListener("keydown", resumeAudio);
       audio?.dispose();
-      composer?.remove();
+      closeComposer?.();
       delete globalThis.__berxWorld;
       delete globalThis.__berxHost;
       delete globalThis.__berxShell;
@@ -12100,6 +12381,10 @@ var whereAmI = () => {
   }
   return fix;
 };
+globalThis.__berxDrawnHalfExtent = berxDrawnHalfExtent;
+globalThis.__berxRayFromNdc = rayFromNdc;
+globalThis.__berxCandidates = pickSpatialCandidates;
+globalThis.__berxCameraBasis = cameraBasis;
 async function enterWorld() {
   gate?.remove();
   await startBerxApp({
@@ -12315,4 +12600,8 @@ async function boot() {
     }
   });
 }
-void boot();
+function keepShell() {
+  if (!("serviceWorker" in navigator)) return;
+  void navigator.serviceWorker.register("./berx-sw.js", { scope: "./" }).catch(() => void 0);
+}
+void boot().then(keepShell);

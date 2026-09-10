@@ -85,6 +85,17 @@ export class Berx5DRuntime{
     this.cameraTransition=this.camera.moveToPose(pose,duration,effect);this.transition={fromWorld:from,toWorld:cloneWorld(previous),fromCamera:this.camera.getState(),destination:{...pose.position},progress:0,duration:Math.max(.001,duration),kind:effect};return true;
   }
   input(input:BerxCameraInput){if(this.cameraTransition)return;this.camera.applyInput({...input,motion:this.deviceMotionEnabled?input.motion:undefined});}
+  /**
+   * A drag, in world units the CALLER measured off the frame.
+   *
+   * Same door and same rule as `input`: a transition owns the camera
+   * every frame it runs, and a pan arriving mid-travel would fight it.
+   * Separate from `input` because it is a different kind of quantity —
+   * `panX` is an impulse into a damped velocity, this is a distance —
+   * and mixing them would leave a pan whose meaning depended on which
+   * field it arrived in.
+   */
+  nudge(alongRight:number,alongUp:number){if(this.cameraTransition)return;this.camera.nudge(alongRight,alongUp);}
   frame(deltaSeconds:number):Berx5DFrame{
     this.world.tick(deltaSeconds);
     if(this.cameraTransition){const next=this.cameraTransition.step(deltaSeconds);this.camera.setState(next);if(this.transition)this.transition.progress=Math.min(1,this.transition.progress+Math.max(0,deltaSeconds)/this.transition.duration);if(this.cameraTransition.done){this.cameraTransition=undefined;this.transition=undefined;}}

@@ -1,0 +1,19 @@
+{
+  "name": "BERX",
+  "short_name": "BERX",
+  "description": "BERX — живая пространственная среда: люди, места, события и то, что происходит сейчас.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#07080A",
+  "theme_color": "#07080A",
+  "lang": "ru",
+  "dir": "ltr",
+  "icons": [
+    { "src": "/assets/brand/favicon/berx-icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/assets/brand/favicon/berx-icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/assets/brand/favicon/berx-icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "/assets/brand/favicon/apple-touch-icon-180.png", "sizes": "180x180", "type": "image/png" }
+  ]
+}

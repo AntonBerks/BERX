@@ -17,7 +17,7 @@ import {
 	mapFeedItemToSpatial,
 	mapPlaceToSpatial,
 } from '@berx/scenes';
-import {berxDrawnHalfExtent} from '@berx/spatial';
+import {berxDrawnHalfExtent, cameraBasis, pickSpatialCandidates, rayFromNdc} from '@berx/spatial';
 import {startBerxApp} from '@berx/spatial-web/appShell';
 
 /**
@@ -101,6 +101,27 @@ const whereAmI = () => {
  * second copy of the geometry table.
  */
 (globalThis as unknown as {__berxDrawnHalfExtent?: typeof berxDrawnHalfExtent}).__berxDrawnHalfExtent = berxDrawnHalfExtent;
+
+/**
+ * The ray a point on the screen casts, and what it passes through.
+ *
+ * Same reason, and the same two functions the shell's own pointer path
+ * calls: `rayFromNdc` turns a normalised screen point into a world ray
+ * and `pickSpatialCandidates` says which entities that ray enters and
+ * leaves, at what distance. A gate asking "is this entity really the
+ * nearest drawn surface at its own pixel" has to answer with the
+ * picker's own geometry; the alternative — and what was there before —
+ * is a gate carrying its own ray-box intersection, which can agree
+ * with production or disagree with it and either way proves nothing
+ * about production.
+ */
+(globalThis as unknown as {__berxRayFromNdc?: typeof rayFromNdc}).__berxRayFromNdc = rayFromNdc;
+(globalThis as unknown as {__berxCandidates?: typeof pickSpatialCandidates}).__berxCandidates = pickSpatialCandidates;
+/* and the three axes both of those are expressed in. A gate that
+   hand-rolled this cross product put every projected point at the exact
+   centre of the screen and would have reported a perfect layout however
+   broken the real one was. */
+(globalThis as unknown as {__berxCameraBasis?: typeof cameraBasis}).__berxCameraBasis = cameraBasis;
 
 async function enterWorld(): Promise<void> {
 	gate?.remove();
@@ -340,4 +361,27 @@ async function boot(): Promise<void> {
 	});
 }
 
-void boot();
+/**
+ * THE SHELL, KEPT FOR THE NEXT COLD START.
+ *
+ * Registered here rather than inline in the page because it is product
+ * code and belongs where the rest of the product is typechecked. After
+ * the world, never before it: a registration is a network fetch and a
+ * new worker install, and the first thing a person should get is the
+ * world.
+ *
+ * berx-sw.js caches the page and this bundle and NOTHING ELSE — it does
+ * not intercept /api/ at all, so nothing private is ever written to a
+ * store that outlives the session. A failure here costs the offline
+ * shell and nothing else, which is why it is swallowed rather than
+ * surfaced: the world does not depend on it.
+ */
+function keepShell(): void {
+	if (!('serviceWorker' in navigator)) return;
+	/* file:// and any insecure origin refuse registration by design, and
+	   an unhandled rejection there would be a console error in a
+	   perfectly healthy session */
+	void navigator.serviceWorker.register('./berx-sw.js', {scope: './'}).catch(() => undefined);
+}
+
+void boot().then(keepShell);

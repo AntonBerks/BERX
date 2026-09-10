@@ -224,6 +224,137 @@ mapping it onto the public profile would merge two identities the privacy
 model deliberately keeps apart. No compatibility score is invented, because
 the endpoint returns none.
 
+### 1.9 Mobile web, which is not a small desktop
+
+A desktop WebGL2 pass proves the renderer. It proves nothing about the
+things that only exist on a phone, and every one of these was broken:
+
+**The browser was taking the gesture.** The canvas carried no
+`touch-action`, so the browser reserved every drag and every second finger
+while it decided whether the person meant to scroll or zoom. A pan arrives
+as `pointerdown`, one `pointermove` and then **`pointercancel`**; a pinch
+never reaches the world because the page zooms instead; a tap waits 300 ms
+for a double-tap that is not coming; and a downward drag near the top runs
+Chrome's pull-to-refresh, which reloads the world in the middle of a
+gesture meant to move it. Fixed on the element that owns the world —
+`touch-action: none`, `-webkit-touch-callout: none`, `user-select: none`,
+`-webkit-tap-highlight-color: transparent`, and `overscroll-behavior: none`
+on the page. The sign-in form keeps all of it: pinch-zoom on text is an
+accessibility right, and a form is not a world.
+
+**Voice — the thing BERX is — was unreachable.** Listening started from the
+`v` key, and a phone has no `v`. So did creating (`n`) and entering XR
+(`x`). The Core has modelled a held touch since it was written —
+`berxTouchField` gathers coherence where the hand is, `berxGestureCause`
+routes it through the same closed union a server answer goes through, and
+`berxTouchHaptic` ticks once at a quarter second — **and nothing had ever
+produced one.** The web shell reported `presence` on pointerdown and then
+only pan; the whole touch model was dead code.
+
+`runtimeHost5d` now produces a real `BerxSpatialGesture` when a finger has
+stayed 500 ms without moving past the 8 px tap threshold: a world point
+found by the picking ray carried to the depth the renderer actually drew
+(divided by the ray-to-forward cosine, exactly as `berxResolveByDepth`
+does), the entity it landed on, the platform's own pressure, and how long
+it has gone on. All three Core functions are then given it, and the host
+asks its owner what a hold MEANS. The shell's answer: **BERX listens.** A
+hold is `attention, held`, and BERX giving its attention is BERX
+listening. It is a real user gesture, which is exactly what the microphone
+permission needs — the browser asks, the person answers, and the recording
+indicator is left completely alone. A hold on an affordance is still that
+affordance pressing in; the host rules those out before asking.
+
+Measured on the iPhone profile: `core aware → listening` while a finger
+stayed on the world for 900 ms. `aware` alone would not have proved
+anything — a plain `pointerdown` reports presence and reaches `aware`, so
+the gate requires a state a tap cannot produce.
+
+**A hand arriving made BERX look less busy.** The held gesture exposed a
+hole that was under every tap and every hotword: `presence` returned
+`aware` from ANY state, so a finger resting on the world while a search was
+in flight reset the drawn Core to "someone is here" and the search became
+invisible until the answer came back — a progress bar that fills after the
+download. `aware` means "something could happen"; `listening`,
+`understanding`, `searching`, `acting`, `speaking` and `discovering` are
+all something already happening, and all of them are MORE than aware.
+Presence now only reaches `aware` from `idle`, `aware` or `success`.
+`verify:5d-wiring` had been failing two gates on this and passes 46.
+
+**The notch and the home indicator.** `viewport-fit=cover` is what lets the
+world reach the glass; it is also what puts the sign-in form under the
+notch and the world's status line behind the home indicator. Every fixed
+element now respects `env(safe-area-inset-*)` with `max()`/`calc()`, so a
+device with no insets is unchanged. This is measured rather than asserted:
+the gate emulates **real insets over CDP** (`Emulation.setSafeAreaInsetsOverride`,
+59/34 for an iPhone, 24/24 for an Android drawn edge-to-edge) and checks
+that the elements actually moved by them.
+
+**The keyboard covering the one field there is.** `interactive-widget=resizes-content`
+is the declarative answer and Chrome honours it. **iOS Safari does not
+implement it**: the layout viewport is unchanged and only the visual
+viewport shrinks, so the composer sits behind the keyboard and what someone
+is writing cannot be seen while they write it. The composer now listens to
+`visualViewport` and lifts by exactly the height the keyboard took —
+measured, with no keyboard-height table and no user-agent test — and
+`destroy()` closes it rather than removing the element, so its listeners do
+not outlive the shell.
+
+### 1.10 Installable, and honest offline
+
+There was no service worker anywhere and the page linked no manifest. Both
+now exist, and what matters about them is what they refuse:
+
+`app/berx-sw.js` caches the page, the bundle and the manifest. **It does not
+intercept `/api/` at all** — not "caches it carefully": the request goes to
+the network as if the worker did not exist. A worker holding a copy of
+somebody's messages would put private data in a store that outlives the
+session, survives sign-out and is readable by any later visitor to the same
+browser profile, and there is no cache policy that makes that safe. The
+shell is network-first, so a new build is picked up on the next load rather
+than pinning a person to whichever build they first opened.
+
+`verify:5d-pwa` signs in — so the session really reads the feed, the
+friends, the conversations and thirteen more endpoints — and then reads the
+browser's own `CacheStorage` back to see what went in. Then it aborts every
+request in the context and reloads: BERX has to come up from the cache, and
+it has to show **no world**, because there is no world without the server
+and a remembered feed shown as a live one is the exact fake data this
+runtime refuses.
+
+### 1.11 A transition whose own two terms cancelled
+
+`collapse` — "the world draws in", the transition for going back — shrank
+every object by 22% and narrowed the field of view by 18% at the same
+instant. A narrower field of view is the camera MAGNIFYING: at 60°, 0.82 of
+the angle is 1.26 of the size, and 0.78 × 1.26 = 0.98. Nothing measurably
+drew in. A real GPU readback counted **39 042 lit pixels mid-collapse
+against 37 232 in the untouched frame** — the world was very slightly
+*bigger* while collapsing, and the most deliberate transition in the set
+was the one that showed the least. The scale now carries it, the narrowing
+is small enough to read as a tunnel closing rather than a zoom, and a
+shallow fade takes the edges with it.
+
+### 1.12 One server for two gates
+
+The app-shell gate carried its own two hundred lines of API fixtures. When
+mobile web needed a signed-in world the choice was a copy of them or one
+server, and a copy drifts the first time an endpoint changes — a stub that
+has fallen behind the client reports a fault the product does not have. It
+is `scripts/lib/appserver.mjs` now: the shipped page byte for byte, the
+shell bundled from the shipped entry, `/api/v1/*` in the shapes the types in
+`@berx/api` declare, and a real WebSocket enforcing the same one-use
+credential rule the PHP server does.
+
+The same pass found the app-shell gate reading depth its own way. It pulled
+the SSAO G-buffer back and mapped pixels into it by hand, while the shell
+resolves a press with `renderer.depthAt` — which this very file gates as
+"the one authority both the entity pick and the affordance ring are
+resolved against". They disagreed: the hand-rolled read answered 8.0–9.0
+for **every pixel on the screen**, all thirteen candidates were discarded as
+occluded, and the gate reported "0 of 0". That failure was entirely the
+gate's, and it is the same defect the file keeps finding elsewhere — one
+thing measured twice.
+
 ### 1.6 Two harness defects that were destroying evidence
 
 - The gate's own WebSocket server dropped the bytes Node hands over in the

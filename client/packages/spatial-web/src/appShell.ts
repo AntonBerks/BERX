@@ -300,12 +300,42 @@ export async function startBerxApp(options: BerxAppShellOptions): Promise<BerxAp
 	const notice = document.createElement('p');
 	notice.setAttribute('role', 'status');
 	notice.setAttribute('aria-live', 'polite');
-	notice.style.cssText = 'position:fixed;inset:auto 0 24px;margin:0;text-align:center;color:#A7ADB4;font:14px/1.5 system-ui,sans-serif';
+	/* 24px above the bottom of the SAFE area: on a phone with a home
+	   indicator the bottom of the screen is not a place text can be
+	   read, and viewport-fit=cover means this element really does reach
+	   it. calc(), so a device with no inset is unchanged. */
+	notice.style.cssText = 'position:fixed;left:0;right:0;bottom:calc(24px + env(safe-area-inset-bottom));'
+		+ 'margin:0;text-align:center;color:#A7ADB4;font:14px/1.5 system-ui,sans-serif';
 	notice.textContent = 'BERX собирает мир';
 	mount.appendChild(notice);
 
 	const canvas = document.createElement('canvas');
-	canvas.style.cssText = 'position:fixed;inset:0;width:100%;height:100%;display:block';
+	/**
+	 * WHAT THE BROWSER MUST NOT DO WITH A TOUCH ON THE WORLD.
+	 *
+	 * Every one of these is a real mobile defect, and none of them
+	 * shows on a desktop:
+	 *
+	 * touch-action:none — without it the browser reserves every drag
+	 *   and every two-finger gesture for itself while it decides
+	 *   whether you meant to scroll or zoom. A pan on the world
+	 *   arrives as pointerdown, one pointermove, and then
+	 *   POINTERCANCEL; the pinch handler never sees the second finger
+	 *   because the page zoomed instead; and a tap waits 300ms for a
+	 *   double-tap that is not coming. The world is fixed and there is
+	 *   nothing to scroll, so nothing is taken away from anyone.
+	 * -webkit-touch-callout / user-select — a held finger on iOS
+	 *   raises the selection callout OVER the world, which is exactly
+	 *   the gesture that now means "BERX, listen".
+	 * -webkit-tap-highlight-color — a grey rectangle flashes over the
+	 *   whole canvas on every tap, because the canvas IS the target.
+	 *
+	 * The sign-in form keeps all of it: pinch-zoom on text is an
+	 * accessibility right, and it is not a world.
+	 */
+	canvas.style.cssText = 'position:fixed;inset:0;width:100%;height:100%;display:block;'
+		+ 'touch-action:none;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;'
+		+ '-webkit-tap-highlight-color:transparent';
 	mount.appendChild(canvas);
 
 	const world = new Berx5DWorldApp({
@@ -362,6 +392,32 @@ export async function startBerxApp(options: BerxAppShellOptions): Promise<BerxAp
 		rendererFactory: buildRenderer,
 		reducedMotion: options.reducedMotion,
 		textureBudget: options.textureBudget,
+		/**
+		 * A HELD FINGER IS HOW A PHONE ASKS BERX TO LISTEN.
+		 *
+		 * `v` starts listening from the keyboard, and a phone has no
+		 * `v`: on mobile web, voice — the thing BERX is — was
+		 * unreachable, and so were the fifteen intents behind it. Not a
+		 * microphone button, because a button is furniture that is
+		 * there whether or not anyone is talking; the gesture the Core
+		 * already models. A hold is `attention, held`, and BERX giving
+		 * its attention is BERX listening.
+		 *
+		 * It is a real user gesture, which is exactly what the
+		 * microphone permission needs: the browser asks the first time,
+		 * the person answers, and the recording indicator does what it
+		 * always does. Nothing here opens a microphone before that
+		 * gesture and nothing here touches an indicator.
+		 *
+		 * The host has already ruled out a hold on an affordance. This
+		 * rules out the two states where listening would be wrong:
+		 * while someone is typing (the composer owns the keyboard and
+		 * the intent), and where this build has no voice at all.
+		 */
+		onHold: () => {
+			if (composer || !voice) return;
+			void listen();
+		},
 	});
 
 	const failures: {source: string; message: string}[] = [];
@@ -419,11 +475,45 @@ export async function startBerxApp(options: BerxAppShellOptions): Promise<BerxAp
 	 */
 	let destroyed = false;
 	let composer: HTMLFormElement | undefined;
+	/* How to close the one that is open, from outside the closure that
+	   opened it. `composer.remove()` takes the element away and leaves
+	   its visualViewport listeners attached to a window that outlives
+	   the shell. */
+	let closeComposer: (() => void) | undefined;
 	const compose = () => {
 		if (composer || !options.publish) return;
 		const form = document.createElement('form');
 		composer = form;
-		form.style.cssText = 'position:fixed;left:50%;bottom:32px;transform:translateX(-50%);display:flex;gap:8px;width:min(560px,calc(100% - 48px))';
+		form.style.cssText = 'position:fixed;left:50%;bottom:calc(32px + env(safe-area-inset-bottom));'
+			+ 'transform:translateX(-50%);display:flex;gap:8px;'
+			+ 'width:min(560px,calc(100% - 48px - env(safe-area-inset-left) - env(safe-area-inset-right)))';
+		/**
+		 * ABOVE THE KEYBOARD THAT IS ABOUT TO APPEAR.
+		 *
+		 * `interactive-widget=resizes-content` in the page's viewport
+		 * meta is the declarative answer and Chrome honours it: the
+		 * layout viewport shrinks and a bottom-anchored element rises
+		 * with it. iOS SAFARI DOES NOT IMPLEMENT IT. There the layout
+		 * viewport is unchanged and only the VISUAL viewport shrinks,
+		 * so this form — the one field in the product someone types
+		 * into — sits behind the keyboard, and what they are writing
+		 * cannot be seen while they write it.
+		 *
+		 * visualViewport reports exactly how much of the window the
+		 * keyboard took, and the form is lifted by that much. It is
+		 * measured, not assumed: no keyboard-height table, no user
+		 * agent test. Where visualViewport is absent nothing happens
+		 * and the meta tag is doing the work.
+		 */
+		const vv = window.visualViewport;
+		const liftAboveKeyboard = () => {
+			if (!vv) return;
+			const hidden = Math.max(0, window.innerHeight - (vv.height + vv.offsetTop));
+			form.style.transform = hidden > 0 ? `translate(-50%, -${Math.round(hidden)}px)` : 'translateX(-50%)';
+		};
+		vv?.addEventListener('resize', liftAboveKeyboard);
+		vv?.addEventListener('scroll', liftAboveKeyboard);
+		liftAboveKeyboard();
 		const field = document.createElement('input');
 		field.setAttribute('aria-label', 'Что происходит');
 		field.placeholder = 'Что происходит';
@@ -439,10 +529,14 @@ export async function startBerxApp(options: BerxAppShellOptions): Promise<BerxAp
 		mount.appendChild(form);
 		field.focus();
 		const close = () => {
+			closeComposer = undefined;
+			vv?.removeEventListener('resize', liftAboveKeyboard);
+			vv?.removeEventListener('scroll', liftAboveKeyboard);
 			form.remove();
 			composer = undefined;
 			canvas.focus();
 		};
+		closeComposer = close;
 		field.addEventListener('keydown', (event) => {
 			if (event.key === 'Escape') close();
 		});
@@ -661,7 +755,9 @@ export async function startBerxApp(options: BerxAppShellOptions): Promise<BerxAp
 			canvas.removeEventListener('pointerdown', resumeAudio);
 			canvas.removeEventListener('keydown', resumeAudio);
 			audio?.dispose();
-			composer?.remove();
+			/* not `composer.remove()`: closing is what detaches the
+			   keyboard listeners with it */
+			closeComposer?.();
 			delete (globalThis as unknown as {__berxWorld?: Berx5DWorldApp}).__berxWorld;
 			delete (globalThis as unknown as {__berxHost?: Berx5DWebHost}).__berxHost;
 			delete (globalThis as unknown as {__berxShell?: BerxAppShell}).__berxShell;

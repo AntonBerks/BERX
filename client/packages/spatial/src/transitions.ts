@@ -188,14 +188,34 @@ const SPECS: Readonly<Record<BerxTransitionKind, BerxTransitionSpec>> = Object.f
 		ease: smooth,
 		modulate: (t) => ({opacity: 1, emissive: 0.42 * hill(t), scale: 1 + 0.06 * hill(t), fov: 1}),
 	},
-	/** Everything draws in toward the destination, then releases. */
+	/**
+	 * Everything draws in toward the destination, then releases.
+	 *
+	 * ITS OWN TWO TERMS USED TO CANCEL. The objects shrank by 22% and
+	 * the field of view narrowed by 18% at the same instant, and a
+	 * narrower field of view is the camera MAGNIFYING: at 60 degrees,
+	 * 0.82 of the angle is 1.26 of the size. 0.78 x 1.26 is 0.98, so
+	 * nothing measurably drew in — the world sat almost exactly the
+	 * size it already was, and the slowest, most deliberate transition
+	 * in the set was the one that showed the least.
+	 *
+	 * Measured, not reasoned: a real GPU readback counted 39,042 lit
+	 * pixels mid-collapse against 37,232 in the untouched frame. The
+	 * world was very slightly BIGGER while collapsing.
+	 *
+	 * So the scale now carries it, the narrowing is small enough to be
+	 * the tunnel closing rather than a zoom, and a shallow fade takes
+	 * the edges with it. Still nobody else's image: fold fades and
+	 * narrows without shrinking, dissolve only fades, and this is the
+	 * only one where the world itself gets smaller.
+	 */
 	collapse: {
 		kind: 'collapse',
 		durationSeconds: 0.7,
 		arcMetres: 0,
 		meaning: 'the world draws in — for going back, or closing something',
 		ease: (t) => clamp01(t) * clamp01(t),
-		modulate: (t) => ({opacity: 1, emissive: 0, scale: 1 - 0.22 * hill(t), fov: 1 - 0.18 * hill(t)}),
+		modulate: (t) => ({opacity: 1 - 0.15 * hill(t), emissive: 0, scale: 1 - 0.22 * hill(t), fov: 1 - 0.06 * hill(t)}),
 	},
 });
 

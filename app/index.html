@@ -3,18 +3,35 @@
 <html lang="ru">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,interactive-widget=resizes-content">
 <title>BERX</title>
 <meta name="theme-color" content="#07080A">
 <meta name="color-scheme" content="dark">
 <link rel="icon" href="/favicon.ico" sizes="any">
+<link rel="apple-touch-icon" href="/assets/brand/favicon/apple-touch-icon-180.png">
+<!-- Installable: BERX opens as a world, not as a page in a browser with a
+     URL bar over the top of it. The manifest is scope-relative so it works
+     wherever the app is mounted, and its colours are the Visual DNA's own
+     (#07080A) rather than a second opinion about the background. -->
+<link rel="manifest" href="./berx.webmanifest">
 <style>
   /* The only styling in the product: the ground the world stands on,
      and the one form that exists because text entry is not something a
      GPU surface can honestly provide. No layout, no components, no
      screens — the world owns everything else. */
-  html,body{margin:0;height:100%;background:#07080A;color:#F2F0EB;font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
-  #berx-entry{position:fixed;inset:0;display:grid;place-content:center;gap:12px;padding:24px;max-width:340px;margin:auto}
+  /* overscroll-behavior: a downward drag near the top of the world is
+     Chrome Android's pull-to-refresh, and refreshing reloads the world
+     from the server in the middle of a gesture meant to move it.
+     There is nothing to scroll here — the canvas is fixed — so the
+     browser's rubber-band and its refresh have nothing to act on but
+     the world. */
+  html,body{margin:0;height:100%;overscroll-behavior:none;background:#07080A;color:#F2F0EB;font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
+  /* viewport-fit=cover puts this form under the notch and behind the
+     home indicator on any phone with either. The insets are the real
+     numbers the device reports, and 24px is the floor where there are
+     none — max(), not addition, so a desktop is unchanged. */
+  #berx-entry{position:fixed;inset:0;display:grid;place-content:center;gap:12px;max-width:340px;margin:auto;
+    padding:max(24px,env(safe-area-inset-top)) max(24px,env(safe-area-inset-right)) max(24px,env(safe-area-inset-bottom)) max(24px,env(safe-area-inset-left))}
   #berx-entry h1{margin:0 0 8px;font-size:20px;font-weight:600;letter-spacing:.04em}
   #berx-entry input{padding:12px 14px;border-radius:12px;border:1px solid #1C2228;background:#0D1014;color:#F2F0EB;font:inherit;min-height:44px}
   #berx-entry button{min-height:44px;padding:0 18px;border-radius:999px;border:1px solid #1C2228;background:#15191E;color:#4FD6E8;font:inherit;cursor:pointer}

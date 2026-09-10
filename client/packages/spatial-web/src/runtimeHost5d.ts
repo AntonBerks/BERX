@@ -28,7 +28,9 @@ import {
 	Berx5DRuntime, Berx5DWorldApp, BerxHaptics, cameraBasis, pickActionSlot, berxNearActionSlots, rayFromNdc,
 	berxRenderQuality, berxResolveRenderTier, berxCoreAt, berxCoreStep, berxCoreEnter, berxCoreCause,
 	berxListenerFromCamera,
+	berxTouchField, berxGestureCause, berxTouchHaptic,
 	type BerxHapticBackend, type BerxSpatialObject, type BerxWorldIngest,
+	type BerxSpatialGesture,
 	type BerxRenderQuality, type BerxCoreMotion, type BerxCoreCause,
 	type BerxSpatialAudioBackend, type Berx5DFrame,
 } from '@berx/spatial';
@@ -36,6 +38,27 @@ import { BerxThreeRuntimeRenderer } from './threeRuntime';
 import type { BerxWebRendererBackend } from './webRenderer';
 import { resolveSpatialQuality, type BerxSpatialQualityResult } from './runtimeQuality';
 import { BerxWebHaptics } from './hapticsWeb';
+
+/**
+ * How long a finger has to stay for it to be a hold.
+ *
+ * 500ms is what the platforms settled on — UIKit's long press, Android's
+ * ViewConfiguration, and what a hand expects because of them — and
+ * shorter reads as an accident every time a tap is slow. The Core's own
+ * haptic threshold is a quarter second (berxTouchHaptic), so the tick
+ * has already happened by the time this fires.
+ */
+export const BERX_HOLD_MS = 500;
+
+/**
+ * How far a finger may move and still be in the same place.
+ *
+ * One number, because two would mean a gesture that was a drag for the
+ * pick and a hold for the Core. A finger on glass never stays exactly
+ * still; 8px at any density is inside the noise and well inside a
+ * 44px touch target.
+ */
+export const BERX_TAP_SLOP = 8;
 
 export interface Berx5DWebHostOptions {
 	/**
@@ -87,6 +110,22 @@ export interface Berx5DWebHostOptions {
 	 * Left out, nothing listens and nothing costs anything.
 	 */
 	audio?: BerxSpatialAudioBackend;
+	/**
+	 * What a held touch MEANS, decided by the host that owns the world.
+	 *
+	 * The gesture itself is produced here — a hold is a fact about a
+	 * hand, and the Core is moved by it whether or not anyone listens.
+	 * What it should DO is not this file's business: `runtimeHost5d`
+	 * draws a world and reports what happens to it, and a shell that
+	 * wanted a hold to mean something would otherwise have to re-derive
+	 * the timing, the slop, the world point and the slot test.
+	 *
+	 * Called only for a hold on the WORLD: a finger resting on an
+	 * affordance is that affordance pressing in, which is already a
+	 * state, and stealing it would make a slow press on a button do
+	 * something else entirely.
+	 */
+	onHold?(gesture: BerxSpatialGesture): void;
 	/** Whether the air carries dust, energy and the far field. Default on. */
 	particles?: boolean;
 	/** Whether the key light is visible in the air. Default on. */
@@ -321,6 +360,40 @@ export function createBerx5DWebHost(options: Berx5DWebHostOptions = {}): Berx5DW
 	let contextAlive = true;
 	let dragging = false;
 	let lastX = 0, lastY = 0, downX = 0, downY = 0;
+	/**
+	 * A FINGER THAT STAYS IS SAYING SOMETHING.
+	 *
+	 * `berxTouchField`, `berxGestureCause` and `berxTouchHaptic` have
+	 * modelled a held touch since the Core was written — a hold gathers
+	 * coherence where the hand is, contracts reach around it, and ticks
+	 * once at a quarter second — and NOTHING HAS EVER PRODUCED ONE. The
+	 * web shell reported `presence` on pointerdown and then only pan,
+	 * so on a phone, where a hold is the one gesture a hand has beyond
+	 * tap and drag, the whole model was dead code.
+	 *
+	 * This is the timer that produces it. Cancelled by movement past
+	 * the tap threshold (a drag is not a hold) and by release before it
+	 * fires, so it cannot fire for a gesture that turned into something
+	 * else.
+	 */
+	let holdTimer: ReturnType<typeof setTimeout> | undefined;
+	let downAt = 0;
+	/**
+	 * A HOLD IS NOT ALSO A TAP.
+	 *
+	 * The release after a hold is inside the tap threshold — the finger
+	 * did not move, that is what made it a hold — so without this the
+	 * lift ALSO ran the pick, and asking BERX to listen re-focused
+	 * whatever was under the thumb at the same moment. One gesture, one
+	 * meaning: once a hold has happened for this pointer, its release
+	 * ends the press and chooses nothing.
+	 */
+	let held = false;
+	const cancelHold = () => {
+		if (holdTimer === undefined) return;
+		clearTimeout(holdTimer);
+		holdTimer = undefined;
+	};
 	let pinchDistance: number | undefined;
 	/* the last size the observer reported, in CSS pixels */
 	let cssWidth = 1, cssHeight = 1;
@@ -436,6 +509,88 @@ export function createBerx5DWebHost(options: Berx5DWebHostOptions = {}): Berx5DW
 	};
 
 	/* ---------------- pointer ---------------- */
+
+	/**
+	 * THE HOLD, AS THE CORE ALREADY DEFINES IT.
+	 *
+	 * Not "long press fires a callback": a real `BerxSpatialGesture`,
+	 * with a place in the world, the entity it landed on, the pressure
+	 * the platform reported and how long it has gone on — and then the
+	 * three functions that already know what to do with one:
+	 *
+	 *   berxGestureCause  -> the Core, through the SAME closed union a
+	 *                        server answer goes through. A hand has no
+	 *                        privilege.
+	 *   berxTouchField    -> the field gathers where the hand is. Local,
+	 *                        because attention is somewhere.
+	 *   berxTouchHaptic   -> one tick at contact, if the device can.
+	 *
+	 * `at` is a real world point, found the way everything else here
+	 * finds one: the picking ray through that pixel, carried to the
+	 * depth the renderer actually drew. The ray's own length and the
+	 * G-buffer's forward depth are not the same measure — away from the
+	 * centre of the frame they differ by 1/cos — so the depth is
+	 * divided by that cosine before it is walked, exactly as
+	 * berxResolveByDepth does. Where nothing was drawn (the sky) the
+	 * point is the focus distance along the ray, which is where the
+	 * world someone is looking at actually is.
+	 */
+	const holdGesture = (e: PointerEvent): BerxSpatialGesture | undefined => {
+		const rect = canvas.getBoundingClientRect();
+		const dpr = canvas.width / Math.max(1, rect.width);
+		const x = (e.clientX - rect.left) * dpr;
+		const y = (e.clientY - rect.top) * dpr;
+		const frameState = world ? world.latestFrame : runtime.latestFrame;
+		const camera = frameState.camera;
+		const ray = rayFromNdc(camera, (x / canvas.width) * 2 - 1, 1 - (y / canvas.height) * 2, canvas.width / canvas.height);
+		const basis = cameraBasis(camera);
+		if (!ray || !basis) return undefined;
+		const cos = Math.max(
+			1e-3,
+			ray.direction.x * basis.forward.x + ray.direction.y * basis.forward.y + ray.direction.z * basis.forward.z,
+		);
+		const drawn = drawnDepthAt(x, y);
+		const along = drawn !== undefined
+			? drawn / cos
+			: Math.hypot(camera.target.x - camera.position.x, camera.target.y - camera.position.y, camera.target.z - camera.position.z);
+		return {
+			kind: 'hold',
+			at: {
+				x: ray.origin.x + ray.direction.x * along,
+				y: ray.origin.y + ray.direction.y * along,
+				z: ray.origin.z + ray.direction.z * along,
+			},
+			objectId: renderer.pick(frameState, x, y)?.objectId,
+			/* the platform's own pressure where it has one; 0.5 where it
+			   does not, which is every mouse and most touchscreens.
+			   Never inferred from how long the finger stayed — a long
+			   press is a long press, not a hard one */
+			force: e.pressure > 0 && e.pressure < 1 ? e.pressure : 0.5,
+			durationS: (performance.now() - downAt) / 1000,
+		};
+	};
+
+	const beginHold = (e: PointerEvent): void => {
+		holdTimer = undefined;
+		/* a finger resting on an action is that action pressing in, which
+		   `pressAffordance` already says; it is not a hold on the world */
+		if (slotsUnder(e).over) return;
+		const gesture = holdGesture(e);
+		if (!gesture) return;
+		const cause = berxGestureCause(gesture);
+		if (cause) coreCause(cause);
+		core = {...core, field: berxTouchField(core.field, gesture)};
+		held = true;
+		const feel = berxTouchHaptic(gesture);
+		/* the touch model's own two words, in the vocabulary the device
+		   speaks: contact is the light tick a focus is, a commit is a
+		   selection. One mapping, here, rather than a second haptic
+		   table that could drift from the first */
+		if (feel === 'contact') haptics.moment('focus');
+		else if (feel === 'commit') haptics.moment('select');
+		options.onHold?.(gesture);
+	};
+
 	const onPointerDown = (e: PointerEvent) => {
 		if (e.pointerType === 'mouse' && e.button !== 0) return;
 		/* Someone is here and reaching for something. Not a hover — a
@@ -447,6 +602,10 @@ export function createBerx5DWebHost(options: Berx5DWebHostOptions = {}): Berx5DW
 		dragging = true;
 		lastX = downX = e.clientX;
 		lastY = downY = e.clientY;
+		downAt = performance.now();
+		held = false;
+		cancelHold();
+		holdTimer = setTimeout(() => beginHold(e), BERX_HOLD_MS);
 		/* Capture keeps a drag alive when the finger leaves the canvas,
 		   and it THROWS when the pointer is not one the browser is
 		   tracking — a synthetic event from an automation tool or an
@@ -475,10 +634,40 @@ export function createBerx5DWebHost(options: Berx5DWebHostOptions = {}): Berx5DW
 		/* Dragging: the hand is moving the world, not choosing in it, so
 		   nothing is hovered. */
 		if (world) world.pointAt(undefined);
+		/* and it is not holding either, once it has gone further than a
+		   tap: the same 8px threshold the pick uses, so what counts as
+		   "the finger stayed here" is one number */
+		if (Math.hypot(e.clientX - downX, e.clientY - downY) > BERX_TAP_SLOP) cancelHold();
 		const dx = e.clientX - lastX, dy = e.clientY - lastY;
 		lastX = e.clientX;
 		lastY = e.clientY;
-		runtime.input({panX: -dx * 0.018, panY: dy * 0.018, depthDelta: 0, pinch: 0});
+		/**
+		 * HOW FAR ONE PIXEL IS, WHERE THE WORLD IS.
+		 *
+		 * `panX * 0.018` into a damped velocity was calibrated in
+		 * nothing: a 120px drag on a phone moved the camera 0.067 world
+		 * units, in a world twenty units across seen from twelve units
+		 * away. Crossing it needed a two-thousand-pixel drag, and on a
+		 * phone a drag is the only way to move at all.
+		 *
+		 * The frame already knows the answer. A vertical field of view
+		 * of `fov` at a focal distance of `d` spans `2 d tan(fov/2)`
+		 * world units across `height` CSS pixels, so one pixel is that
+		 * over the height — the exact distance the world under the
+		 * finger has to travel for the world to follow it. Dragging
+		 * right moves the eye left, which is what pushing the world
+		 * right means.
+		 */
+		const cam = (world ? world.latestFrame : runtime.latestFrame).camera;
+		const focal = Math.max(0.5, Math.hypot(
+			cam.target.x - cam.position.x, cam.target.y - cam.position.y, cam.target.z - cam.position.z));
+		/* the observer's height normally, and the element's own when the
+		   first observation has not landed yet — cssHeight starts at 1,
+		   and one pixel worth 2 d tan(fov/2) would fling the camera off
+		   the world on the first drag of a session */
+		const height = cssHeight > 1 ? cssHeight : canvas.getBoundingClientRect().height;
+		const perPixel = 2 * Math.tan((cam.fov * Math.PI / 180) / 2) * focal / Math.max(1, height);
+		runtime.nudge(-dx * perPixel, dy * perPixel);
 	};
 	/**
 	 * DOING AN AFFORDANCE. One path, whatever reached it.
@@ -560,6 +749,8 @@ export function createBerx5DWebHost(options: Berx5DWebHostOptions = {}): Berx5DW
 	const onPointerUp = (e: PointerEvent) => {
 		if (!dragging) return;
 		dragging = false;
+		/* released before the hold fired, so it never happened */
+		cancelHold();
 		/* The finger is off it: `press` ends here, whatever happens next.
 		   The pick below reads the slots the last frame produced, so
 		   clearing it now cannot cost the activation. */
@@ -588,7 +779,9 @@ export function createBerx5DWebHost(options: Berx5DWebHostOptions = {}): Berx5DW
 		}
 		/* a drag is not a tap: a pick after panning would select
 		   whatever happened to be under the finger when it lifted */
-		if (Math.hypot(e.clientX - downX, e.clientY - downY) > 8) return;
+		if (Math.hypot(e.clientX - downX, e.clientY - downY) > BERX_TAP_SLOP) return;
+		/* and neither is a hold, which has already meant something */
+		if (held) { held = false; return; }
 		const rect = canvas.getBoundingClientRect();
 		const dpr = canvas.width / Math.max(1, rect.width);
 		const x = (e.clientX - rect.left) * dpr;
@@ -992,6 +1185,8 @@ export function createBerx5DWebHost(options: Berx5DWebHostOptions = {}): Berx5DW
 			cancelAnimationFrame(raf);
 		},
 		destroy: () => {
+			/* a pending hold must not fire into a host that is gone */
+			cancelHold();
 			running = false;
 			cancelAnimationFrame(raf);
 			canvas.removeEventListener('pointerdown', onPointerDown);

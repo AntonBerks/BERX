@@ -52,6 +52,52 @@ export class BerxSpatialCamera {
   */
  setLimits(limits:Partial<BerxCameraLimits>){this.limits={...this.limits,...limits};}
  setState(next:BerxSpatialCameraState,source:{optics?:boolean}={}){this.state={position:copy(next.position),target:copy(next.target),rotation:{...next.rotation},fov:source.optics===true?next.fov:clamp(next.fov,this.limits.minFov,this.limits.maxFov),near:next.near,far:next.far};this.baseTarget=copy(next.target);}
+/**
+  * A DRAG MOVES THE WORLD BY WHAT IS UNDER THE FINGER.
+  *
+  * `applyInput`'s pan is an impulse into a damped velocity, and it is
+  * calibrated in nothing: `panX * 0.018` turns a pixel into a number
+  * with no relation to how far away the world is or how wide the frame
+  * is. Measured on a phone, a 120px drag moved the camera **0.067
+  * world units** — the world stands about twelve units away and spans
+  * about twenty, so crossing it would have taken a drag of two
+  * thousand pixels. On a desktop that is a nuisance beside a wheel and
+  * a keyboard. On a phone a drag is the ONLY way to move, so it meant
+  * a world you could look at and not move through. It was ungated,
+  * which is how it stayed that way.
+  *
+  * So a drag translates the eye AND what it is looking at, directly,
+  * by a distance the CALLER computed from the real geometry — the
+  * world distance one pixel subtends at the focal depth. The world
+  * then follows the finger exactly, which is the whole of direct
+  * manipulation, and it does so identically at 10fps and at 120fps
+  * because nothing here is integrated over time.
+  *
+  * `right` and `up` are the camera's own axes, so this is a pan across
+  * the frame rather than along the world's axes — dragging left moves
+  * what you are looking at leftward whatever direction the camera
+  * happens to face. Clamped by the same maxDepth every frame is, so a
+  * drag cannot leave the world.
+  */
+ nudge(alongRight:number,alongUp:number){
+  if(alongRight===0&&alongUp===0)return;
+  const f={x:this.state.target.x-this.state.position.x,y:this.state.target.y-this.state.position.y,z:this.state.target.z-this.state.position.z};
+  const fl=Math.hypot(f.x,f.y,f.z);
+  if(fl<1e-6)return;
+  f.x/=fl;f.y/=fl;f.z/=fl;
+  const rRaw={x:f.y*1-f.z*0,y:f.z*0-f.x*1,z:f.x*0-f.y*0};
+  const rl=Math.hypot(rRaw.x,rRaw.y,rRaw.z);
+  /* looking straight up or down: the world up gives no right vector,
+     and a silently wrong one would send the drag sideways */
+  if(rl<1e-3)return;
+  const r={x:rRaw.x/rl,y:rRaw.y/rl,z:rRaw.z/rl};
+  const u={x:r.y*f.z-r.z*f.y,y:r.z*f.x-r.x*f.z,z:r.x*f.y-r.y*f.x};
+  const dx=r.x*alongRight+u.x*alongUp,dy=r.y*alongRight+u.y*alongUp,dz=r.z*alongRight+u.z*alongUp;
+  const m=this.limits.maxDepth;
+  this.state.position={x:clamp(this.state.position.x+dx,-m,m),y:clamp(this.state.position.y+dy,-m,m),z:clamp(this.state.position.z+dz,-m,m)};
+  this.state.target={x:clamp(this.state.target.x+dx,-m,m),y:clamp(this.state.target.y+dy,-m,m),z:clamp(this.state.target.z+dz,-m,m)};
+  this.baseTarget=copy(this.state.target);
+ }
  applyInput(input:BerxCameraInput){
   this.velocity.x+=input.panX*0.18;this.velocity.y+=input.panY*0.18;this.velocity.z+=input.depthDelta*0.28;this.state.fov=clamp(this.state.fov-input.pinch*0.45,this.limits.minFov,this.limits.maxFov);
   if(input.motion){const factor=clamp(input.motion.intensity,0,1),tilt=this.limits.maxTiltDeg*factor;this.state.rotation.x=clamp(input.motion.pitch*tilt,-this.limits.maxTiltDeg,this.limits.maxTiltDeg);this.state.rotation.z=clamp(input.motion.roll*tilt,-this.limits.maxTiltDeg,this.limits.maxTiltDeg);this.state.rotation.y=clamp(input.motion.yaw*tilt*0.55,-this.limits.maxTiltDeg,this.limits.maxTiltDeg);

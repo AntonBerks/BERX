@@ -10,204 +10,15 @@
  * came from those responses, no 2D product UI in the document, and
  * navigation that moves a camera instead of replacing anything.
  */
-import {execFileSync} from 'node:child_process';
 import fs from 'node:fs';
-import http from 'node:http';
-import os from 'node:os';
-import path from 'node:path';
-import {fileURLToPath} from 'node:url';
 import {launchChromium} from './lib/chromium.mjs';
-import {attachBerxTestSocket} from './lib/websocket.mjs';
+import {startBerxAppServer} from './lib/appserver.mjs';
 
-const here = path.dirname(fileURLToPath(import.meta.url));
-const clientRoot = path.resolve(here, '..');
-const repoRoot = path.resolve(clientRoot, '..');
-const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'berx-app-shell-'));
-
-/* the shipped shell, byte for byte, and the bundle the build produced */
-execFileSync(path.join(clientRoot, 'node_modules/.bin/esbuild'), [
-	path.join(here, 'app-shell.entry.ts'), '--bundle', '--format=esm', '--target=es2020', '--platform=browser',
-	'--log-level=error', `--outfile=${path.join(dir, 'berx-app.js')}`,
-], {cwd: clientRoot, stdio: 'inherit'});
-/* the same presentability probe the shell decides with, served so a
-   gate can ask the identical question rather than a similar one */
-execFileSync(path.join(clientRoot, 'node_modules/.bin/esbuild'), [
-	path.join(here, 'webgpu-probe.entry.ts'), '--bundle', '--format=esm', '--target=es2020', '--platform=browser',
-	'--log-level=error', `--outfile=${path.join(dir, 'webgpu-probe.js')}`,
-], {cwd: clientRoot, stdio: 'inherit'});
-fs.copyFileSync(path.join(repoRoot, 'app', 'index.html'), path.join(dir, 'index.html'));
-
-/* ---------------------------------------------------------------- */
-/* A server that answers exactly what components/OssnApi/v1 answers.  */
-/* These are the response shapes the API types declare — the same     */
-/* fields, the same nullability. Nothing here is a field BERX does    */
-/* not send, and nothing the client reads is missing.                 */
-/* ---------------------------------------------------------------- */
-const NOW = Math.floor(Date.now() / 1000);
-const API = {
-	'/api/v1/auth/login': {token: 'test-token', user_guid: 77, expires_at: NOW + 86400},
-	'/api/v1/me': {guid: 77, username: 'ann', fullname: 'Анна', email: 'a@b.c', icon_url: '', profile_url: '', time_created: NOW - 90000},
-	'/api/v1/feed': {
-		limit: 30, offset: 0,
-		items: [
-			{guid: 5150, text: 'вечер удался', owner_guid: 77, owner_username: 'ann', time_created: NOW - 400},
-			{guid: 5151, text: 'до завтра', owner_guid: 78, owner_username: 'lev', time_created: NOW - 90000},
-		],
-	},
-	'/api/v1/friends': {friends: [{guid: 78, username: 'lev', fullname: 'Лев', icon: ''}]},
-	'/api/v1/conversations': {conversations: [{with_guid: 78, with_username: 'lev', last_message: 'до завтра', time: NOW - 500}]},
-	'/api/v1/conversations/78': {
-		messages: [
-			{id: 9001, from_guid: 77, to_guid: 78, text: 'ты идёшь?', time: NOW - 900},
-			{id: 9002, from_guid: 78, to_guid: 77, text: 'до завтра', time: NOW - 500},
-			{id: 9003, from_guid: 78, to_guid: 77, text: 'в прошлом месяце', time: NOW - 30 * 86400},
-		],
-	},
-	'/api/v1/places': {
-		places: [{
-			guid: 4211, title: 'Дом Культуры', description: '', category: 'venue', address: null, phone: null,
-			website: null, hours: null, price: null, lat: null, lng: null, owner_guid: 77, cover_url: null,
-			rating: 0, rating_count: 0, is_saved: false, is_business: false, business_type: null, verified: false,
-		}],
-	},
-	'/api/v1/experiences': {
-		experiences: [{
-			id: 12, title: 'Прогулка по крышам', description: '',
-			anchor: {type: 'event', guid: 908, title: 'Вечер импровизации', image_url: null},
-			visibility: 'public', owner_guid: 77, is_own: true,
-			scheduled_start: NOW + 7200, scheduled_end: null, my_status: null,
-		}],
-	},
-	'/api/v1/communities': {communities: [{guid: 501, name: 'Соседи', description: '', owner_guid: 77, privacy: 'public', is_member: true}]},
-	'/api/v1/collections': {collections: [{id: 33, title: 'Любимые места', description: '', visibility: 'public', owner_guid: 77, is_own: true, item_count: 2, time_updated: NOW}]},
-	/* Four domains the world loader now reads. Real response shapes,
-	   from the types in @berx/api — a stub that 404s an endpoint the
-	   shell really calls is a stub that has fallen behind the client. */
-	'/api/v1/stories': {
-		feed: [{owner_guid: 78, owner_username: 'lev', stories: [
-			{id: 91, caption: 'вид с крыши', time_created: NOW - 3600, mime_type: 'image/jpeg'},
-		]}],
-	},
-	'/api/v1/trips': {
-		trips: [{
-			id: 7, title: 'Север', description: '', visibility: 'public', owner_guid: 77, is_own: true,
-			start_date: NOW + 86400, end_date: NOW + 6 * 86400, stop_count: 1, time_updated: NOW,
-		}],
-	},
-	'/api/v1/notifications': {
-		limit: 20, offset: 1,
-		notifications: [{
-			guid: 31, type: 'post:like', poster_guid: 78, subject_guid: 77,
-			item_guid: 5150, viewed: false, time_created: NOW - 30,
-		}],
-	},
-	'/api/v1/memories': {
-		memories: [{type: 'post', guid: 5151, years_ago: 3, time: NOW - 3 * 365 * 86400, text: 'три года назад'}],
-	},
-	'/api/v1/posts/5150/like': {status: 'ok'},
-	'/api/v1/posts/5150': {guid: 5150, text: 'вечер удался', owner_guid: 77, owner_username: 'ann', time_created: NOW - 400, like_count: 1, comment_count: 0},
-	'/api/v1/events': {
-		events: [{
-			guid: 908, title: 'Вечер импровизации', description: '', category: null,
-			starts: NOW - 600, ends: NOW + 3600, location: null, place: {guid: 4211, title: 'Дом Культуры'},
-			capacity: null, seats_left: null, attendee_count: 3, owner_guid: 77, cover_url: null,
-			has_ended: false, is_going: true,
-		}],
-	},
-};
-
-const created = [];
-const types = {'.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8'};
-const served = new Set();
-/* Credentials this server really minted, burnt by the socket that uses
-   one — the same rule berx-realtime-server.php enforces, so a session
-   that reused a token would be refused here exactly as it is there. */
-const minted = new Set();
-const server = http.createServer((req, res) => {
-	const name = (req.url ?? '/').split('?')[0];
-	if (name === '/favicon.ico') return void res.writeHead(204).end();
-	if (name.startsWith('/api/')) {
-		served.add(name);
-		/* creating a post really creates one, and reading it back returns
-		   what the server has — which is what the world is built from */
-		if (name === '/api/v1/realtime/token' && req.method === 'POST') {
-			const token = `ws-${minted.size + 1}`;
-			minted.add(token);
-			res.writeHead(200, {'content-type': 'application/json; charset=utf-8'});
-			return void res.end(JSON.stringify({
-				token, expires_at: NOW + 60,
-				url: `ws://127.0.0.1:${server.address().port}/socket`,
-				protocol: 'berx-realtime-1',
-			}));
-		}
-		if (name === '/api/v1/posts' && req.method === 'POST') {
-			const guid = 7700 + created.length;
-			created.push(guid);
-			API[`/api/v1/posts/${guid}`] = {
-				guid, text: 'опубликовано через мир', owner_guid: 77, owner_username: 'ann',
-				time_created: NOW, like_count: 0, comment_count: 0,
-			};
-			res.writeHead(200, {'content-type': 'application/json; charset=utf-8'});
-			return void res.end(JSON.stringify({guid}));
-		}
-		const body = API[name];
-		if (!body) {
-			/* a path this server does not know is a real mismatch between
-			   the client and the endpoints it claims to call — say which */
-			console.log(`      unmatched API path: ${req.method} ${name}`);
-			return void res.writeHead(404, {'content-type': 'application/json'}).end('{"error":"not_found"}');
-		}
-		res.writeHead(200, {'content-type': 'application/json; charset=utf-8'});
-		return void res.end(JSON.stringify(body));
-	}
-	const file = path.join(dir, name === '/' ? 'index.html' : path.normalize(name).replace(/^(\.\.[/\\])+/, ''));
-	if (!file.startsWith(dir) || !fs.existsSync(file)) return void res.writeHead(404).end();
-	res.writeHead(200, {'content-type': types[path.extname(file)] ?? 'application/octet-stream'});
-	fs.createReadStream(file).pipe(res);
-});
-/**
- * A REAL SOCKET, ON THE SAME SERVER.
- *
- * The shipped shell is supposed to keep its world live, and no gate
- * could see whether it did: verify:5d-realtime proves the transport
- * against the real PHP server, and it never boots the shell. This
- * speaks the same protocol — auth, subscribe, event — so what is
- * measured here is the product session opening a connection of its own
- * accord and turning what arrives into an entity.
- *
- * Authorization is the server's rule, not a pass-through: this viewer
- * hears their own channels and their real friend, and nothing else.
- */
-const sockets = attachBerxTestSocket(server, {
-	protocol: 'berx-realtime-1',
-	onMessage: (connection, message) => {
-		switch (message.type) {
-			case 'auth': {
-				if (!minted.delete(message.token)) {
-					return connection.send({type: 'auth:error', error: 'unknown or spent credential'});
-				}
-				connection.state.guid = 77;
-				connection.state.channels = new Set();
-				return connection.send({type: 'auth:ok', user_guid: 77});
-			}
-			case 'subscribe': {
-				if (!connection.state.guid) return connection.send({type: 'error', error: 'not authenticated'});
-				const asked = Array.isArray(message.channels) ? message.channels : [];
-				const allowed = new Set(['self:77', 'person:77', 'person:78']);
-				const granted = asked.filter((c) => allowed.has(c));
-				const refused = asked.filter((c) => !allowed.has(c));
-				for (const c of granted) connection.state.channels.add(c);
-				return connection.send({type: 'subscribe:ok', granted, refused});
-			}
-			case 'ping':
-				return connection.send({type: 'pong', ts: Math.floor(Date.now() / 1000)});
-			default:
-				return;
-		}
-	},
-});
-await new Promise((r) => server.listen(0, '127.0.0.1', r));
-const base = `http://127.0.0.1:${server.address().port}/`;
+/* The app, served the way it ships — see scripts/lib/appserver.mjs.
+   Lifted out of this file so the mobile-web gate drives the same
+   session against the same responses, rather than a second stub free
+   to fall behind the client in a different way. */
+const {base, server, sockets, API, served, NOW, dir} = await startBerxAppServer();
 
 const failures = [];
 /** Which GPU backend the product session actually ran on. Reported, not assumed. */
@@ -2253,75 +2064,87 @@ const PROJECTOR_SOURCE = String.raw`(canvas, c) => {
 		w.blurAffordance?.();
 		w.frameWorld(canvas.width, canvas.height);
 		await settle();
-		w.focus('moment:5150');
-		await settle();
-		const frame = w.latestFrame;
-		const {project, rect, dpr} = window.__berxProjector(canvas, frame.camera);
 		/**
-		 * Aim only at entities that are genuinely the nearest DRAWN
-		 * surface at their own pixel.
+		 * ONE DEPTH AUTHORITY, AND IT IS THE PRODUCTION ONE.
 		 *
-		 * An entity whose centre projects on screen may still be behind
-		 * another one, and selecting the nearer thing would then be
-		 * correct. The G-buffer carries the depth of the surface the
-		 * world actually drew — it was checked against a with-ring /
-		 * without-ring pixel diff earlier in this file and agreed on all
-		 * five slots — so an entity is a fair target only where that
-		 * depth is its own.
+		 * This read the SSAO G-buffer back itself and mapped pixels into
+		 * it by hand. `renderer.depthAt` is what the SHELL resolves a
+		 * press with — it is gated three hundred lines above as "the one
+		 * authority both the entity pick and the affordance ring are
+		 * resolved against" — and a second read of the same buffer is
+		 * the exact defect this file keeps finding elsewhere: two
+		 * measurements of one thing, free to disagree. They did. With
+		 * the camera standing where the fit now puts it, the hand-rolled
+		 * read answered 8.0-9.0 for every pixel on the screen while
+		 * depthAt answered each entity's own depth, so all thirteen
+		 * candidates were thrown out as occluded and the gate reported
+		 * "0 of 0" — a failure that was entirely the gate's.
 		 */
-		host.renderer.render(frame, {});
-		/* the camera's own forward axis, which is the axis the G-buffer
-		   measures depth along */
-		const forward = (() => {
-			const c = frame.camera;
-			const f = {x: c.target.x - c.position.x, y: c.target.y - c.position.y, z: c.target.z - c.position.z};
-			const l = Math.hypot(f.x, f.y, f.z) || 1;
-			return {x: f.x / l, y: f.y / l, z: f.z / l};
-		})();
-		const buffers = host.renderer.readSSAOBuffers?.();
-		const gdepth = (px, py) => {
-			if (!buffers) return undefined;
-			const gx = Math.min(buffers.width - 1, Math.max(0, Math.round(px / canvas.width * buffers.width)));
-			const gy = Math.min(buffers.height - 1, Math.max(0, Math.round((1 - py / canvas.height) * buffers.height)));
-			const a = buffers.gbuffer[(gy * buffers.width + gx) * 4 + 3];
-			return a > 0 ? a : undefined;
-		};
-		const candidates = frame.world.objects
-			.filter((o) => o.visible && o.interactive && o.id !== 'moment:5150')
-			.map((o) => ({id: o.id, at: project(o.transform.position)}))
-			.filter((t) => t.at && t.at.onScreen)
-			.map((t) => ({
-				...t,
-				scene: gdepth(t.at.px, t.at.py),
-				/* where the ray through this entity's own pixel enters and
-				   leaves its own box, from the shared core */
-				own: (() => {
-					const aim = window.__berxRay(frame.camera, t.at.px, t.at.py, canvas.width, canvas.height);
-					const o = frame.world.objects.find((x) => x.id === t.id);
-					return aim && o ? window.__berxCandidates(aim, [o])[0] : undefined;
-				})(),
-			}));
+		const drawnAt = (px, py) => host.renderer.depthAt?.(px, py);
 		/**
-		 * A FAIR TARGET IS ONE THE WORLD REALLY DREW THERE.
+		 * FROM A VIEWPOINT THAT HAS NEIGHBOURS.
 		 *
-		 * "within 1.5 units of its centre" cannot tell one entity from
-		 * the next once neighbours stand about two units apart — it
-		 * admitted entities their neighbour was standing in front of,
-		 * and then counted the picker wrong for saying so. The exact
-		 * test is the picker's own: the drawn depth has to lie between
-		 * where the ray enters this entity's box and where it leaves.
+		 * Standing at one entity says nothing about the picker if
+		 * nothing else is visible from there: a compact world means most
+		 * viewpoints have most of the world behind something, which is
+		 * true of the world and not a fault of the pick. The focus walks
+		 * until it finds a place with real neighbours in front, exactly
+		 * as verify:5d-picking does across its nine viewpoints, and the
+		 * gate reports which place that was.
 		 */
-		const fair = (t) => {
-			if (t.scene === undefined) return false;
-			const own = t.own;
-			if (!own) return false;
-			const cos = t.at.along / Math.max(1e-6, own.distance);
-			return t.scene >= own.distance * cos - 0.12 && t.scene <= own.exit * cos + 0.12;
-		};
-		const targets = candidates.filter(fair).slice(0, 4);
-		const rejected = candidates
-			.filter((t) => !fair(t))
-			.map((t) => `${t.id} at ${t.at.along.toFixed(1)} but the world drew ${t.scene === undefined ? 'nothing' : t.scene.toFixed(1)} there`);
+		const viewpoints = ['moment:5150', 'place:4211', 'person:78', 'event:908', 'community:501', 'experience:12'];
+		let picked = {from: undefined, targets: [], rejected: [], project: undefined, rect: undefined, dpr: 1};
+		for (const from of viewpoints) {
+			w.blurAffordance?.();
+			w.focus(from);
+			await settle();
+			const frame = w.latestFrame;
+			const {project, rect, dpr} = window.__berxProjector(canvas, frame.camera);
+			host.renderer.render(frame, {});
+			const candidates = frame.world.objects
+				.filter((o) => o.visible && o.interactive && o.id !== from)
+				.map((o) => ({id: o.id, at: project(o.transform.position)}))
+				.filter((t) => t.at && t.at.onScreen)
+				.map((t) => ({
+					...t,
+					scene: drawnAt(t.at.px, t.at.py),
+					/* where the ray through this entity's own pixel enters and
+					   leaves its own box, from the shared core */
+					own: (() => {
+						/* the shipped picker's own ray, from the NDC the ONE
+						   projector above already produced for this pixel — not a
+						   second pixel-to-ray conversion living in a gate */
+						const aim = window.__berxRayFromNdc(
+							frame.camera, t.at.ndcX, t.at.ndcY, canvas.width / canvas.height);
+						const o = frame.world.objects.find((x) => x.id === t.id);
+						return aim && o ? window.__berxCandidates(aim, [o])[0] : undefined;
+					})(),
+				}));
+			/**
+			 * A FAIR TARGET IS ONE THE WORLD REALLY DREW THERE.
+			 *
+			 * "within 1.5 units of its centre" cannot tell one entity from
+			 * the next once neighbours stand about two units apart — it
+			 * admitted entities their neighbour was standing in front of,
+			 * and then counted the picker wrong for saying so. The exact
+			 * test is the picker's own: the drawn depth has to lie between
+			 * where the ray enters this entity's box and where it leaves.
+			 */
+			const fair = (t) => {
+				if (t.scene === undefined) return false;
+				const own = t.own;
+				if (!own) return false;
+				const cos = t.at.along / Math.max(1e-6, own.distance);
+				return t.scene >= own.distance * cos - 0.12 && t.scene <= own.exit * cos + 0.12;
+			};
+			const targets = candidates.filter(fair).slice(0, 4);
+			const rejected = candidates
+				.filter((t) => !fair(t))
+				.map((t) => `${t.id} at ${t.at.along.toFixed(1)} but the world drew ${t.scene === undefined ? 'nothing' : t.scene.toFixed(1)} there`);
+			picked = {from, targets, rejected, project, rect, dpr};
+			if (targets.length > 0) break;
+		}
+		const {targets, rejected, rect, dpr} = picked;
 		const results = [];
 		for (const [i, t] of targets.entries()) {
 			const opts = {pointerType: 'mouse', clientX: rect.left + t.at.px / dpr, clientY: rect.top + t.at.py / dpr,
@@ -2331,14 +2154,14 @@ const PROJECTOR_SOURCE = String.raw`(canvas, c) => {
 			await settle();
             results.push({aimedAt: t.id, px: t.at.px, py: t.at.py, focused: w.latestFrame.world.activeObjectId});
 		}
-		return {targets: targets.map((t) => t.id), rejected, results,
+		return {from: picked.from, targets: targets.map((t) => t.id), rejected, results,
 			settled: w.latestFrame.transition === undefined && !w.runtime.travelling};
 	});
 	const correct = world_pick.results.filter((r) => r.focused === r.aimedAt);
 	gate('clicking an entity in the world selects THAT entity',
 		world_pick.results.length > 0 && correct.length === world_pick.results.length,
 		world_pick.results.map((r) => `aimed at ${r.aimedAt} (${r.px.toFixed(0)},${r.py.toFixed(0)}px) → focused ${r.focused}`).join('  ')
-		+ ` — ${correct.length} of ${world_pick.results.length} landed on the entity the pixel belongs to. Real PointerEvents at pixels computed from each entity's own world position, down the shell's own pointerup path: pickActionSlot first, then renderer.pick, then runtime.focus. Only entities the world actually drew at their own pixel are aimed at, so an entity hidden behind another is never counted against the picker; ${world_pick.rejected.length} were excluded on that ground${world_pick.rejected.length ? ` (${world_pick.rejected.join('; ')})` : ''}`);
+		+ ` — ${correct.length} of ${world_pick.results.length} landed on the entity the pixel belongs to, standing at ${world_pick.from}. Real PointerEvents at pixels computed from each entity's own world position, down the shell's own pointerup path: pickActionSlot first, then renderer.pick, then runtime.focus. The drawn depth comes from renderer.depthAt — the same authority the press itself is resolved against — so only entities the world actually drew at their own pixel are aimed at, and an entity hidden behind another is never counted against the picker; ${world_pick.rejected.length} were excluded on that ground${world_pick.rejected.length ? ` (${world_pick.rejected.join('; ')})` : ''}`);
 
 	/* --- the world stays live, on the session's own socket ---
 
