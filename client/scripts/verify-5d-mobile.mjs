@@ -192,7 +192,12 @@ try {
 			const world = window.__berxWorld;
 			const vv = window.visualViewport;
 			return {
-				backend: host?.backend,
+				/* the renderer's own name for itself — `host.backend`
+				   does not exist, and `undefined` failed a gate against a
+				   world that was drawing perfectly */
+				backend: host?.renderer?.kind,
+				tier: host?.renderTier?.tier,
+				tierReason: host?.renderTier?.reason,
 				objects: world?.latestFrame.world.objects.length ?? 0,
 				canvas: {
 					cssWidth: rect.width, cssHeight: rect.height,
@@ -218,6 +223,22 @@ try {
 				})(),
 				audio: window.__berxHost?.audio ? {running: window.__berxHost.audio.running, spatial: window.__berxHost.audio.spatial} : undefined,
 				captured: window.__berxCapture?.length ?? 0,
+				/**
+				 * WHAT IS ACTUALLY DRAWING, as the driver names itself.
+				 *
+				 * A frame budget is a claim about hardware. On a software
+				 * rasteriser the number is real and means nothing about a
+				 * phone, so the gate has to know which it is measuring —
+				 * asked of WEBGL_debug_renderer_info rather than assumed
+				 * from the environment.
+				 */
+				gpu: (() => {
+					try {
+						const probe = document.createElement('canvas').getContext('webgl2');
+						const ext = probe?.getExtension('WEBGL_debug_renderer_info');
+						return ext ? probe.getParameter(ext.UNMASKED_RENDERER_WEBGL) : (probe?.getParameter(probe.RENDERER) ?? 'unknown');
+					} catch { return 'unknown'; }
+				})(),
 			};
 		});
 
@@ -555,9 +576,14 @@ try {
 				last = now;
 			}
 			times.sort((a, b) => a - b);
-            return {
+			const median = times[Math.floor(times.length / 2)];
+			return {
 				p50: times[Math.floor(times.length * 0.5)],
 				p95: times[Math.floor(times.length * 0.95)],
+				medianMs: median,
+				fps: median > 0 ? 1000 / median : 0,
+				tier: host?.renderTier?.tier,
+				tierReason: host?.renderTier?.reason,
 				frames: times.length,
 				quality: host?.quality?.quality,
 				pixelRatio: host?.quality?.pixelRatio,
@@ -582,7 +608,8 @@ try {
 				&& r.shell.canvas.bufferWidth > 0,
 			`${r.shell.objects} entities on ${r.shell.backend}, canvas ${r.shell.canvas.cssWidth}x${r.shell.canvas.cssHeight} CSS px`
 			+ ` backed by ${r.shell.canvas.bufferWidth}x${r.shell.canvas.bufferHeight} device px at devicePixelRatio ${r.shell.dpr}`
-			+ ` — quality "${r.shell.quality}" resolved a pixel ratio of ${r.shell.pixelRatio}, and the world boots signed in with a TAP, not a click`);
+			+ ` — quality "${r.shell.quality}" resolved a pixel ratio of ${r.shell.pixelRatio}, render tier "${r.shell.tier}" (${r.shell.tierReason}),`
+			+ ` drawn by ${r.shell.gpu}. The world boots signed in with a TAP, not a click`);
 
 		gate(`${d.id}: the browser is not allowed to take the gesture`,
 			r.shell.canvas.touchAction === 'none',
@@ -707,10 +734,42 @@ try {
 			`${r.bootMs}ms from navigation to a world holding more than four entities: the sign-in tap, the token, /me, and the world loader's twelve domain endpoints, on this ${d.viewport.width}x${d.viewport.height} device.`
 			+ ` Every pixel of it rasterised on the CPU by mesa's lavapipe, so this is a ceiling on a phone's real number rather than a prediction of it`);
 
-		gate(`${d.id}: a frame costs what a phone can pay`,
-			r.perf.p95 < 60,
-			`p50 ${r.perf.p50.toFixed(1)}ms, p95 ${r.perf.p95.toFixed(1)}ms over ${r.perf.frames} frames with ${r.perf.drawn} entities drawn at quality "${r.perf.quality}" and pixel ratio ${r.perf.pixelRatio}.`
-			+ ` THIS CONTAINER HAS NO GPU: everything is rasterised on the CPU by mesa's lavapipe at ${(r.shell.canvas.bufferWidth * r.shell.canvas.bufferHeight / 1e6).toFixed(2)} megapixels, so this is a floor and not a phone's real number`);
+		/**
+		 * A FRAME BUDGET IS A CLAIM ABOUT HARDWARE.
+		 *
+		 * 60ms is the right budget for a phone and it is not a
+		 * measurable claim on a machine with no GPU: here every fragment
+		 * is rasterised on the CPU by mesa's lavapipe, and the number is
+		 * real but says nothing about a phone. So the software case is
+		 * reported as a HARDWARE BLOCKER carrying the measurement, and
+		 * the budget is asserted wherever there is hardware to assert it
+		 * against. The driver is asked which it is; nothing is assumed
+		 * from the environment.
+		 *
+		 * What IS asserted here regardless: the runtime has to NOTICE.
+		 * A machine drawing at 1fps must step its render tier down —
+		 * that is what an adaptive tier is for, and it was measuring a
+		 * rolling p95 and never feeding it back.
+		 */
+		const software = /llvmpipe|lavapipe|softpipe|swiftshader|software/i.test(String(r.shell.gpu));
+		const cost = `p50 ${r.perf.p50.toFixed(1)}ms, p95 ${r.perf.p95.toFixed(1)}ms over ${r.perf.frames} frames`
+			+ ` with ${r.perf.drawn} entities at ${(r.shell.canvas.bufferWidth * r.shell.canvas.bufferHeight / 1e6).toFixed(2)} megapixels,`
+			+ ` quality "${r.perf.quality}", pixel ratio ${r.perf.pixelRatio}, render tier "${r.perf.tier}" (${r.perf.tierReason})`;
+		if (software) {
+			blocker(`${d.id}: a frame costs what a phone can pay`, 'HARDWARE BLOCKER',
+				`${cost}. The driver names itself "${r.shell.gpu}" — a software rasteriser, so the 60ms budget cannot be measured here and is NOT reported as passing.`
+				+ ' What is measured below is the thing that does not need a GPU: whether the runtime notices.');
+		} else {
+			gate(`${d.id}: a frame costs what a phone can pay`, r.perf.p95 < 60,
+				`${cost}, drawn by ${r.shell.gpu}`);
+		}
+
+		gate(`${d.id}: a runtime that is behind steps down instead of insisting`,
+			r.perf.fps >= 50 ? r.perf.tier === r.shell.tier : r.perf.tier === 'low' || r.perf.tier === 'medium',
+			`the median frame was ${r.perf.medianMs.toFixed(1)}ms — ${r.perf.fps.toFixed(1)}fps — and the render tier is "${r.perf.tier}" because ${r.perf.tierReason}.`
+			+ ` It booted at "${r.shell.tier}" from static signals (${r.shell.tierReason}).`
+			+ ` berxResolveRenderTier says a real measurement outranks memory and core count; the host was measuring a rolling p95, exposing it on host.performance, and never feeding it back,`
+			+ ` so a machine that turned out to be behind kept the tier its RAM had suggested. It now re-resolves at most every two seconds off a full window's MEDIAN, with 56fps sustained for four seconds required to climb back`);
 
 		gate(`${d.id}: no page or console errors anywhere in that`,
 			r.pageErrors.length === 0,

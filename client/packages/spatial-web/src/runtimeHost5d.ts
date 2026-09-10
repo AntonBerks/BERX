@@ -333,14 +333,24 @@ export function createBerx5DWebHost(options: Berx5DWebHostOptions = {}): Berx5DW
 	 * not become a different device, and a tier that moved with the frame
 	 * rate would be the flicker the stability work removed.
 	 */
-	const renderTier = berxResolveRenderTier({
+	/**
+	 * WHAT THIS MACHINE CAN DO, asked of the machine.
+	 *
+	 * The static signals answer at boot, before a single frame has been
+	 * drawn: how much memory the device admits to, how many cores, how
+	 * dense the screen is. They are a guess, and `berxResolveRenderTier`
+	 * says so in its own comment — "a real measurement, when one exists,
+	 * outranks everything below".
+	 */
+	const tierSignals = {
 		deviceMemoryGb: (navigator as unknown as {deviceMemory?: number}).deviceMemory,
 		logicalCores: navigator.hardwareConcurrency,
 		pixelRatio: typeof window !== 'undefined' ? window.devicePixelRatio : 1,
 		saveData: (navigator as unknown as {connection?: {saveData?: boolean}}).connection?.saveData,
 		prefersReducedMotion: reducedMotion,
-	});
-	const renderQuality: BerxRenderQuality = berxRenderQuality(renderTier.tier);
+	};
+	let renderTier = berxResolveRenderTier(tierSignals);
+	let renderQuality: BerxRenderQuality = berxRenderQuality(renderTier.tier);
 
 	/**
 	 * The Core: the world's own state, made physical.
@@ -407,7 +417,24 @@ export function createBerx5DWebHost(options: Berx5DWebHostOptions = {}): Berx5DW
 	/** Re-resolve quality and the backing store. Only on real size or load changes. */
 	const applySize = () => {
 		const nativeDpr = (typeof window !== 'undefined' ? window.devicePixelRatio : 1) || 1;
-		const baseDpr = Math.min(nativeDpr, pixelRatioCap);
+		/**
+		 * FEWER PIXELS IS THE FIRST THING YOU GIVE UP.
+		 *
+		 * A tier decides what the renderer does per pixel — shadows,
+		 * SSAO, volumetrics. It has to decide how MANY pixels too, or a
+		 * machine measured at 20fps drops its lighting and then keeps
+		 * paying for three device pixels per CSS pixel, which is where
+		 * almost all of a fragment-bound frame goes. This is the only
+		 * lever that scales the whole frame at once, and it is the least
+		 * visible: a phone at 1.5x is soft in a way nobody photographs,
+		 * where a phone with no ambient occlusion is flat in a way
+		 * everybody feels.
+		 *
+		 * The top two tiers are untouched, so nothing capable renders
+		 * softer than it did.
+		 */
+		const tierCap = renderTier.tier === 'low' ? 1 : renderTier.tier === 'medium' ? 1.5 : Number.POSITIVE_INFINITY;
+		const baseDpr = Math.min(nativeDpr, pixelRatioCap, tierCap);
 		quality = resolveSpatialQuality({
 			devicePixelRatio: baseDpr,
 			width: Math.max(1, cssWidth),
@@ -470,6 +497,57 @@ export function createBerx5DWebHost(options: Berx5DWebHostOptions = {}): Berx5DW
 		options.audio?.setListener(berxListenerFromCamera(scene.camera.position, scene.camera.target));
 	};
 
+	/**
+	 * AND WHAT IT IS ACTUALLY DOING.
+	 *
+	 * The rolling window of real frame times was measured, exposed on
+	 * `host.performance` — and never fed back. The tier was resolved
+	 * ONCE at construction from memory and core count, so a machine
+	 * that turned out to be behind stayed at whatever its RAM had
+	 * suggested and never stepped down. Adaptive quality that cannot
+	 * react to the one signal it says outranks all the others is not
+	 * adaptive; it is a guess with a good comment.
+	 *
+	 * Measured here: this container draws the world at 1.2fps on a
+	 * software rasteriser and was being handed the same render tier a
+	 * workstation gets.
+	 *
+	 * HYSTERESIS, because a tier that flaps is worse than one that is
+	 * wrong. `berxResolveRenderTier` steps down below 24fps and below
+	 * 50fps; stepping back UP needs 56fps sustained, so the window a
+	 * drop opens cannot immediately close itself. And it is asked at
+	 * most every two seconds, with a full window, so one slow frame —
+	 * a texture upload, a garbage collection — decides nothing.
+	 */
+	let tierCheckedAt = 0;
+	let fastEnoughSince = 0;
+	const adaptTier = (now: number) => {
+		if (frameTimes.length < 120 || now - tierCheckedAt < 2000) return;
+		tierCheckedAt = now;
+		const sorted = [...frameTimes].sort((a, b) => a - b);
+		/* the median, not the mean: one 400ms hitch must not decide the
+		   tier, and not the p95 either — that is the tail, and the tail
+		   is what a tier is chosen to protect rather than what it is
+		   chosen from */
+		const median = sorted[Math.floor(sorted.length / 2)];
+		const fps = median > 0 ? 1000 / median : 60;
+		if (fps >= 56) {
+			if (fastEnoughSince === 0) fastEnoughSince = now;
+		} else {
+			fastEnoughSince = 0;
+		}
+		/* going up is only allowed once it has been fast for a while */
+		const measuredFps = fps >= 56 && now - fastEnoughSince < 4000 ? undefined : fps;
+		if (measuredFps === undefined) return;
+		const next = berxResolveRenderTier({...tierSignals, measuredFps});
+		if (next.tier === renderTier.tier) return;
+		renderTier = next;
+		renderQuality = berxRenderQuality(next.tier);
+		/* and a tier decides how many pixels as well as what is done per
+		   pixel — see applySize */
+		applySize();
+	};
+
 	const frame = (now: number) => {
 		if (!running) return;
 		const dt = Math.min(0.05, Math.max(0, (now - last) / 1000));
@@ -479,6 +557,7 @@ export function createBerx5DWebHost(options: Berx5DWebHostOptions = {}): Berx5DW
 		   mean something, short enough to reflect what is happening now */
 		frameTimes.push(lastFrameMs);
 		if (frameTimes.length > 120) frameTimes.shift();
+		adaptTier(now);
 		if (contextAlive) {
 			syncQualityToLoad();
 			/* what can be done with what is focused, this frame */

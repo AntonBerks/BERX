@@ -299,6 +299,63 @@ measured, with no keyboard-height table and no user-agent test — and
 `destroy()` closes it rather than removing the element, so its listeners do
 not outlive the shell.
 
+### 1.13 Adaptive quality that could not react
+
+`berxResolveRenderTier` says it in its own comment — *"a real
+measurement, when one exists, outranks everything below"* — and takes
+`measuredFps` for exactly that. The host resolved the tier **once, at
+construction**, from how much memory the device admits to, how many
+cores it has and how dense its screen is. It then measured a rolling
+120-frame window of real frame times, exposed the p95 on
+`host.performance`, and **never fed it back.**
+
+So a machine that turned out to be behind kept whatever tier its RAM had
+suggested and never stepped down. Measured here: this container draws the
+world at **1.2 fps** on a software rasteriser and was being handed the
+same render tier a workstation gets. Adaptive quality that cannot react
+to the one signal it names as decisive is not adaptive; it is a guess
+with a good comment.
+
+It now re-resolves at most every two seconds, off a full window's
+**median** rather than its mean (one 400 ms hitch must not decide a
+tier) and not its p95 (that is the tail — what a tier is chosen to
+protect, not what it is chosen from). Hysteresis, because a tier that
+flaps is worse than one that is wrong: `berxResolveRenderTier` steps down
+below 24 fps and below 50, and climbing back needs 56 fps sustained for
+four seconds.
+
+And a tier now decides how MANY pixels as well as what is done per
+pixel. A machine measured at 20 fps that drops its lighting and keeps
+paying for three device pixels per CSS pixel has given up the visible
+half and kept the expensive one: `low` caps the backing store at 1x and
+`medium` at 1.5x, which is the least visible cut there is — a phone at
+1.5x is soft in a way nobody photographs, where a phone with no ambient
+occlusion is flat in a way everybody feels. The top two tiers are
+untouched, so nothing capable renders softer than it did.
+
+**What the two profiles measured.** 20 gates each, on the shipped page
+and the shipped bundle. iPhone 390x844 at 3x with 59/34 insets; Android
+Chrome 412x915 at 2.625x with 24/24. A tap at `collection:trip-7`'s own
+pixel focused `collection:trip-7` — with two other candidate pixels
+rejected first as *shared*, because a box is not a mesh and at a pixel
+where two boxes hold the same drawn surface either answer is defensible.
+Two fingers opened the field of view from 42.00° to 38.76°. A held finger
+took the Core from `aware` to `listening` on both. Zero `getUserMedia`
+calls between page load and the world existing, with
+`navigator.mediaDevices.getUserMedia` wrapped before the page ran a line.
+The composer, given a visual viewport 336 px shorter, lifted and came
+back. Landscape held the same entity ids and the same focus, re-framed,
+with no horizontal scroll. No page or console errors on either.
+
+**And two things the first run got wrong, both the gate's.** It read
+`host.backend`, which does not exist — the renderer's own name for itself
+is `renderer.kind` — and reported `undefined` against a world that was
+drawing perfectly. And it asserted a 60 ms frame budget on a machine with
+no GPU, which is not a measurable claim: that case is now a HARDWARE
+BLOCKER carrying the measurement, decided by asking
+`WEBGL_debug_renderer_info` which driver is drawing rather than assuming
+it from the environment.
+
 ### 1.10 Installable, and honest offline
 
 There was no service worker anywhere and the page linked no manifest. Both
@@ -412,7 +469,9 @@ in this pass.
 | Safe areas | PASS | `viewport-fit=cover` + `env(safe-area-inset-*)` with `max()`/`calc()` on every fixed element | `app/index.html`, `appShell.ts` | `verify:5d-mobile` — **real insets emulated over CDP** (`Emulation.setSafeAreaInsetsOverride`: 59/34 iPhone, 24/24 Android) and the elements measured after | — |
 | Virtual keyboard | PASS | `interactive-widget=resizes-content` for Chrome; `visualViewport` resize/scroll → the composer lifts by the height the keyboard took | `app/index.html`, `appShell.ts` | `verify:5d-mobile` — the shipped listener driven with a keyboard's geometry, and the field's bottom measured against the keyboard's top | — |
 | Orientation | PASS | `ResizeObserver` → `applySize` → quality + backing store re-resolved; the world is untouched | `runtimeHost5d.ts` | `verify:5d-mobile` — same entity ids and same focus in landscape, re-framed, no horizontal scroll | — |
-| Mobile boot + frame cost | PASS | the whole path, on a phone's viewport and density | — | `verify:5d-mobile` | Frame cost is a CEILING, not a phone's number: every pixel here is rasterised on the CPU by mesa lavapipe |
+| Mobile boot | PASS | the whole path, on a phone's viewport and density | — | `verify:5d-mobile` — a world of 14 entities on webgl2 at 780x1688 (iPhone) and 1082x2402 (Android) device pixels, signed in with a tap | — |
+| Mobile frame cost | HARDWARE BLOCKER | — | — | `verify:5d-mobile` | Measured: p50 813.6ms / p95 913.4ms at 1.32 Mpx (iPhone profile) and p50 933.2ms / p95 1009.6ms at 1.51 Mpx (Android). The driver names itself `llvmpipe` — every fragment is rasterised on the CPU. Real, and meaningless as a phone's number, so the 60ms budget is NOT reported as passing; the gate asserts it wherever `WEBGL_debug_renderer_info` reports real hardware |
+| Adaptive tier | PASS | rolling 120-frame window → median → `berxResolveRenderTier({measuredFps})` → render quality AND the pixel-ratio cap | `runtimeHost5d.ts`, `lighting/berxRenderQuality.ts` | `verify:5d-mobile` — the tier the runtime ends on, against the frame rate it measured | — |
 | Core state under a hand | PASS | `presence` reaches `aware` only from `idle`, `aware` or `success` | `core/berxCoreWorld.ts` | `verify:5d-wiring` — 46 PASS; two gates had been failing because a hand demoted a search in flight | — |
 | Service worker / offline shell | PASS | `app/berx-sw.js` — shell network-first, `/api/` NEVER intercepted | `app/berx-sw.js`, `scripts/app-shell.entry.ts` | `verify:5d-pwa` — CacheStorage read back after a signed-in session; then every request aborted and the page reloaded | — |
 | Installable | PASS | `app/berx.webmanifest`, linked from the shipped page, in the Visual DNA's own colours | `app/berx.webmanifest`, `app/index.html` | `verify:5d-pwa` — fetched and parsed as the browser sees it | — |
@@ -423,16 +482,19 @@ in this pass.
 | Typecheck | PASS | — | whole client workspace | `npm run typecheck` | — |
 | Production build | PASS | — | `app/berx-app.js`, `scripts/berx-5d.runtime.js`, `scripts/berx-5d.scenes.js` | `npm run build:spatial-web` | — |
 
+| Location privacy | PASS | `navigator.geolocation.watchPosition` started only when something first ASKS — which is the first time someone talks to BERX — with `enableHighAccuracy: false`; refused or no signal both answer `undefined` | `scripts/app-shell.entry.ts` | `verify:5d-voiceos`, `verify:5d-core` | No default city, no IP guess, no last-known value read off disk. An unresolvable "рядом" carries `needs: ['location']` and the voice says «я не знаю, где ты» rather than searching somewhere else |
+| Block / report / mute | PASS | `blockUser`, `unblockUser`, `blockedUsers`, the report endpoints and `mute` — real API methods, offered as affordances with real labels | `packages/api/src/client.ts`, `spatialAffordances.ts`, `scripts/app-shell.entry.ts` | `verify:5d-backend`, `verify:5d-app-shell` (an action with no server endpoint is named and refused, and leaves the world byte-identical) | — |
+| Dating privacy | PASS | `PATCH /dating/privacy` with exactly the fields the endpoint accepts; a dating profile maps to its own pseudonymous entity, never `person:<guid>` | `packages/api/src/client.ts`, `packages/scenes/src/spatialMapping.ts` | `verify:5d-runtime` (mapping invariants) | Merging a dating profile onto the public one would join two identities the privacy model deliberately keeps apart |
 | iPhone Safari behaviour | HARDWARE BLOCKER | — | — | `verify:5d-mobile` iPhone profile | Playwright's WebKit is not installed here, so what WebKit itself does — iOS's WebGL2 limits, its absent `interactive-widget`, its own `touch-action`, its total lack of WebXR — is not measured and is not claimed. Everything the profile measures about BERX's own code is real. `npx playwright install webkit` closes it |
 
 ### Totals
 
 | STATUS | COUNT |
 |---|---|
-| **PASS** | 33 |
+| **PASS** | 37 |
 | **PARTIAL** | 6 |
 | **FAIL** | 0 |
-| **HARDWARE BLOCKER** | 3 |
+| **HARDWARE BLOCKER** | 4 |
 | **PROVIDER BLOCKER** | 2 |
 
 The six PARTIAL are all the same shape and none is a defect being hidden:
