@@ -476,12 +476,35 @@ try {
 			 * the rule has two sides and only testing one of them would
 			 * leave the other free to break.
 			 */
+			/**
+			 * ASK THE PRODUCT WHETHER THE FINGER IS ON AN ACTION.
+			 *
+			 * Excluding pixels near a projected slot was a guess, and it
+			 * was wrong on the Android profile: a slot the projection
+			 * had not reported sat 54px from the pixel this probe chose,
+			 * the host correctly suppressed the world-hold, and the gate
+			 * called that a failure.
+			 *
+			 * The shell already answers the question. `pointerdown`
+			 * makes the host call `world.pressAffordance(slotsUnder(e).over?...)`,
+			 * so the affordance under the finger enters the `press`
+			 * state and `world.affordances()` says which. No
+			 * re-implementation, no projection of my own: press each
+			 * candidate, ask, and keep the first pixel that is the
+			 * world rather than an action.
+			 */
 			const slots = host.renderer.actionSlots.map((sl) => t.project(sl.position)).filter((p) => p && p.onScreen);
-			const far = (px, py) => slots.every((p) => Math.hypot(p.px - px, p.py - py) > 140);
+			const pressedNow = () => w.affordances().some((a) => a.state === 'press');
 			let onWorld;
-			for (const [fx, fy] of [[0.12, 0.85], [0.88, 0.85], [0.12, 0.15], [0.88, 0.15], [0.5, 0.92]]) {
+			let rejected = 0;
+			for (const [fx, fy] of [[0.12, 0.85], [0.88, 0.85], [0.12, 0.15], [0.88, 0.15], [0.5, 0.94], [0.5, 0.06]]) {
 				const px = t.canvas.width * fx, py = t.canvas.height * fy;
-				if (far(px, py)) { onWorld = {px, py}; break; }
+				t.send('pointerdown', t.at(px, py, {pointerId: 8}));
+				const onAction = pressedNow();
+				t.send('pointerup', t.at(px, py, {pointerId: 8}));
+				await new Promise((r) => requestAnimationFrame(r));
+				if (!onAction) { onWorld = {px, py}; break; }
+				rejected++;
 			}
 			const beforeWorld = host.core?.state;
 			const focusBefore = w.latestFrame.world.activeObjectId;
@@ -517,6 +540,11 @@ try {
 				t.send('pointerup', t.at(onWorld.px, onWorld.py, {pointerId: 3}));
 				await t.settle();
 			}
+			/* read NOW, before the second half deliberately focuses
+			   something to raise a ring: "one gesture, one meaning" is a
+			   claim about the hold, and measuring it after the probe's
+			   own re-focus measured the probe */
+			const focusAfterHold = w.latestFrame.world.activeObjectId;
 			const captured = window.__berxCapture?.length ?? 0;
 
 			/**
@@ -560,9 +588,9 @@ try {
 			}
 			return {
 				before: beforeWorld, during, captured, after: host.core?.state,
-				focusBefore, focusAfter: w.latestFrame.world.activeObjectId,
+				focusBefore, focusAfter: focusAfterHold,
 				at: onWorld ? `${onWorld.px.toFixed(0)},${onWorld.py.toFixed(0)}` : undefined,
-				path,
+				rejected, path,
 				slotCount: slots.length, onSlot,
 			};
 		});
@@ -782,7 +810,8 @@ try {
 
 		gate(`${d.id}: a held finger is how a phone asks BERX to listen`,
 			r.touch.hold.during === 'listening',
-			`held at ${r.touch.hold.at} — a pixel with no ring slot within 140px of it, out of ${r.touch.hold.slotCount} the renderer is drawing.`
+			`held at ${r.touch.hold.at} — a pixel the SHELL itself confirmed is the world and not an action, after rejecting ${r.touch.hold.rejected} that pressed one (${r.touch.hold.slotCount} slots drawn).`
+			+ ` Sampled every 10ms across the hold, the drawn Core went ${(r.touch.hold.path ?? []).join(' → ') || 'nowhere'}.`
 			+ ` Sampled every 10ms across the hold, the drawn Core went ${(r.touch.hold.path ?? []).join(' → ') || 'nowhere'}.`
 			+ ` "aware" would not do: a pointerdown ALONE reports presence and reaches aware, so only a state a plain tap cannot produce is evidence the hold did anything.`
 			+ ` "v" does this from a keyboard and a phone has no "v", so voice — and the fifteen intents behind it — was unreachable on mobile web.`
