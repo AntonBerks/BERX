@@ -184,6 +184,7 @@ try {
 		missing: await page.evaluate(async () => await window.BERX_VOICE_WIRE.missingCapability()),
 		coreFrame: await page.evaluate(async () => await window.BERX_VOICE_WIRE.coreInTheFrame()),
 		placed: await page.evaluate(async () => await window.BERX_VOICE_WIRE.placement()),
+		providers: await page.evaluate(async () => await window.BERX_VOICE_WIRE.providers()),
 	};
 } finally {
 	await browser2.close();
@@ -317,6 +318,34 @@ gate('the whole exchange is a path, not a jump',
 		&& cf.seen.includes('searching') && cf.seen.includes('discovering')
 		&& cf.seen[cf.seen.length - 1] === 'error',
 	`${cf.seen.join(' → ')} — sampled off the rendered Core every 8ms for the length of the conversation. Delete the line that forwards causes into the host and this collapses to "idle → aware"`);
+
+/* ---------------- the voice, and whose voice it is ----------------
+
+   There is no BERX text-to-speech service and none is invented here.
+   What is measured is the SEAM a real one plugs into: a provider that
+   fails is fallen back from, the fallback is reported rather than
+   silent, a language reaches the provider that claims it, and silence
+   gets a reason. */
+const pr = voice.providers;
+
+gate('a provider that fails is fallen back from, and the failure is said out loud',
+	pr.paidSaid === 0 && pr.platformSaid?.length === 2 && pr.using === 'web-speech'
+		&& pr.log?.some((l) => l.startsWith('paid-tts:failed')),
+	`the first provider refused both lines and the second spoke both; the chain reports ${pr.log?.join(' ')} and says it is using ${pr.using}. A deployment that has paid for a voice needs to see when it is silently not being used`);
+
+gate('the language reaches the provider, and can be changed',
+	pr.platformSaid?.[0]?.language === 'ru-RU' && pr.platformSaid?.[1]?.language === 'en-GB' && pr.language === 'en-GB',
+	`"${pr.platformSaid?.[0]?.text}" went out as ${pr.platformSaid?.[0]?.language} and "${pr.platformSaid?.[1]?.text}" as ${pr.platformSaid?.[1]?.language} — BerxWebVoice took one language at construction and could not be asked for another, which is not multilingual`);
+
+gate('the chain reports what it really is, pessimistically',
+	pr.capability?.speaks === true && pr.capability?.listens === true
+		&& pr.capability?.offDevice === true
+		&& pr.capability?.id?.startsWith('chain('),
+	`${pr.capability?.id}: speaks=${pr.capability?.speaks} listens=${pr.capability?.listens} offDevice=${pr.capability?.offDevice}. One provider in the chain posts audio to a remote service, so the CHAIN does — a person deciding whether to open a microphone is entitled to the pessimistic answer`);
+
+gate('listening falls to whoever can hear, and stop reaches everyone',
+	pr.heard === 'heard by mic' && Array.isArray(pr.stopped) && pr.stopped.every((n) => n === 1),
+	`a provider that only listens was asked and answered "${pr.heard}"; stop() reached all ${pr.stopped?.length} providers. A person who wants silence gets it from the whole chain, not from whoever happens to be speaking`);
 
 gate('the platform\'s own recogniser is what a session would listen with',
 	typeof voice.recogniser?.present === 'boolean',

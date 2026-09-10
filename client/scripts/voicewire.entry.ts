@@ -9,11 +9,11 @@
  */
 import {createBerx5DWebHost} from '@berx/spatial-web/runtimeHost5d';
 import {berxVoiceToWorld} from '@berx/spatial-web/voiceToWorld';
-import {Berx5DWorldApp} from '@berx/spatial';
+import {Berx5DWorldApp, berxSpeechChain} from '@berx/spatial';
 import {mapUserToSpatial} from '@berx/scenes';
 
 declare global {
-	interface Window { BERX_VOICE_WIRE: unknown }
+	interface Window { BERX_VOICE_WIRE: unknown; BERX_5D_CHAIN: typeof berxSpeechChain }
 }
 
 /**
@@ -133,7 +133,73 @@ const snapshot = (world: Berx5DWorldApp) => ({
 	count: world.latestFrame.world.objects.length,
 });
 
+/**
+ * A provider that fails, one that works, and one that only listens.
+ *
+ * No fake voice: none of these makes a sound. What is being measured is
+ * the CHAIN — that a failing provider is fallen back from, that the
+ * fallback is reported, that a language reaches the provider, and that
+ * stop() reaches all of them. A real text-to-speech service is a
+ * provider like these with an HTTP call inside `speak`.
+ */
+const provider = (id: string, opts: {speaks?: boolean; listens?: boolean; offDevice?: boolean; languages?: string[]; fails?: boolean} = {}) => {
+	const said: {text: string; language?: string}[] = [];
+	let stopped = 0;
+	return {
+		said,
+		get stopped() { return stopped; },
+		capability: {
+			id,
+			speaks: opts.speaks !== false,
+			listens: opts.listens === true,
+			offDevice: opts.offDevice === true,
+			languages: opts.languages ?? [],
+		},
+		available: opts.speaks !== false,
+		async speak(text: string) {
+			if (opts.fails) throw new Error(`${id} refused`);
+			said.push({text});
+		},
+		async speakIn(text: string, _p: unknown, language: string) {
+			if (opts.fails) throw new Error(`${id} refused`);
+			said.push({text, language});
+		},
+		async listen() {
+			return opts.listens ? {transcript: `heard by ${id}`, confidence: 0.9, hesitationMs: 10} : undefined;
+		},
+		stop() { stopped++; },
+	};
+};
+
 window.BERX_VOICE_WIRE = {
+	/** The provider chain: fallback, language, reporting, stop. */
+	async providers() {
+		const log: string[] = [];
+		const paid = provider('paid-tts', {languages: ['ru-RU', 'en-GB'], offDevice: true, fails: true});
+		const platform = provider('web-speech', {languages: []});
+		const ears = provider('mic', {speaks: false, listens: true});
+		const chain = berxSpeechChain(
+			[paid, platform, ears],
+			{language: 'ru-RU', onProvider: (id: string, what: string, detail?: string) => log.push(`${id}:${what}${detail ? `(${detail})` : ''}`)},
+		);
+		await chain.speak('привет', {rate: 1, pitch: 1, pauseMs: 0});
+		const heard = await chain.listen(50);
+		chain.setLanguage('en-GB');
+		await chain.speak('hello', {rate: 1, pitch: 1, pauseMs: 0});
+		chain.stop();
+		return {
+			capability: chain.capability,
+			providers: chain.providers.map((c: {id: string}) => c.id),
+			using: chain.using,
+			log,
+			paidSaid: paid.said.length,
+			platformSaid: platform.said,
+			heard: heard?.transcript,
+			stopped: [paid.stopped, platform.stopped, ears.stopped],
+			language: chain.language,
+		};
+	},
+
 	/** Is the platform's own recogniser what the shell would listen with? */
 	recogniser() {
 		const w = window as unknown as {SpeechRecognition?: unknown; webkitSpeechRecognition?: unknown};

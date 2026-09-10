@@ -22,7 +22,7 @@
  * Signing in is text input, so it is a real form. Everything after it
  * is space.
  */
-import {Berx5DWorldApp, berxTemporalCursor, type BerxSocialAction, type BerxSpatialAudioBackend, type BerxSpatialObject, type BerxWorldIngest, type BerxWorldPersistence, type BerxWorldPosition} from '@berx/spatial';
+import {Berx5DWorldApp, berxSpeechChain, berxTemporalCursor, type BerxSpeechChain, type BerxSpeechProvider, type BerxSocialAction, type BerxSpatialAudioBackend, type BerxSpatialObject, type BerxWorldIngest, type BerxWorldPersistence, type BerxWorldPosition} from '@berx/spatial';
 import {createBerx5DWebHost, type Berx5DWebHost} from './runtimeHost5d';
 import {createBerxWebRenderer} from './webRenderer';
 import {berxMeasureLabel} from './spatialText';
@@ -149,6 +149,27 @@ export interface BerxAppShellOptions {
 	 */
 	voice?: {
 		client: Record<string, unknown>;
+		/**
+		 * Speech providers, in preference order.
+		 *
+		 * A deployment with a real text-to-speech service lists it first
+		 * and the browser's own synthesiser second: the good voice is
+		 * used when it works and the world still talks when it does not.
+		 * BERX ships no provider — there is no BERX voice service, and
+		 * inventing one would be inventing content — so the default is
+		 * the platform's own, which on a machine with no installed voice
+		 * reports itself unavailable and takes the silent path.
+		 *
+		 * A provider implements BerxSpeechProvider and nothing else has
+		 * to change: the chain presents itself to the world runtime as
+		 * the same BerxVoiceBackend the assistant has always spoken
+		 * through.
+		 */
+		providers?: readonly BerxSpeechProvider[];
+		/** BCP-47. What language BERX answers in. */
+		language?: string;
+		/** Told which provider served a line, and what any failure was. */
+		onProvider?: (id: string, what: 'spoke' | 'listened' | 'failed', detail?: string) => void;
 		/** Where the person is, when they have allowed it to be known. */
 		location?: () => {lat: number; lng: number; atMs: number} | undefined;
 		/** What the platform has actually granted. Never assumed. */
@@ -208,6 +229,13 @@ export interface BerxAppShell {
 	 */
 	readonly live?: BerxLiveConnection;
 	readonly voice?: BerxVoiceToWorld;
+	/**
+	 * The speech providers this session is using, and which one last
+	 * spoke. Exposed so a shell can say whose voice this is, and so a
+	 * deployment can see when the voice it paid for is silently not
+	 * being used.
+	 */
+	readonly speech?: BerxSpeechChain;
 	/** Open the microphone and run whatever was said. Nothing when silent. */
 	listen(): Promise<void>;
 	/**
@@ -452,7 +480,12 @@ export async function startBerxApp(options: BerxAppShellOptions): Promise<BerxAp
 	 * changes is the world already on screen — there is no second world
 	 * for spoken results to land in.
 	 */
-	const speech = options.voice ? new BerxWebVoice() : undefined;
+	const speech = options.voice
+		? berxSpeechChain(
+			options.voice.providers ?? [new BerxWebVoice({lang: options.voice.language})],
+			{language: options.voice.language, onProvider: options.voice.onProvider},
+		)
+		: undefined;
 	const voice = options.voice && speech
 		? berxVoiceToWorld({
 			host,
@@ -605,6 +638,7 @@ export async function startBerxApp(options: BerxAppShellOptions): Promise<BerxAp
 			return liveWorld;
 		},
 		voice,
+		speech,
 		listen,
 		get xr() {
 			return xr;

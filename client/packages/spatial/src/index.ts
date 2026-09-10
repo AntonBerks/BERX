@@ -15,6 +15,7 @@ export * from './temporal';
 export * from './relational';
 export * from './composition';
 export * from './voice/BerxVoiceAssistant';
+export * from './voice/berxSpeechProvider';
 export * from './voice/berxPhrases';
 export * from './voice/berxVoiceWorld';
 export * from './voice/berxRegistrationVoice';

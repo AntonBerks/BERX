@@ -18,7 +18,7 @@
  * Both are reported honestly by `available`: a browser with no
  * synthesiser gets the silent path, not a broken script.
  */
-import type {BerxHeard, BerxVoiceBackend, BerxVoiceProsody} from '@berx/spatial';
+import type {BerxHeard, BerxSpeechCapability, BerxSpeechProvider, BerxVoiceProsody} from '@berx/spatial';
 
 interface SpeechRecognitionLike {
 	lang: string;
@@ -50,10 +50,12 @@ export interface BerxWebVoiceOptions {
 	recognition?: RecognitionCtor;
 }
 
-export class BerxWebVoice implements BerxVoiceBackend {
+export class BerxWebVoice implements BerxSpeechProvider {
 	private readonly synthesis?: SpeechSynthesis;
 	private readonly Recognition?: RecognitionCtor;
 	private readonly lang: string;
+	/** The language of the NEXT utterance; see speakIn. */
+	private spoken?: string;
 	private readonly preferVoice?: string;
 	private active?: SpeechRecognitionLike;
 
@@ -94,16 +96,65 @@ export class BerxWebVoice implements BerxVoiceBackend {
 		return (this.synthesis?.getVoices() ?? []).map((v) => ({name: v.name, lang: v.lang}));
 	}
 
+	/**
+	 * What this provider can really do — see BerxSpeechCapability.
+	 *
+	 * `languages` comes from the voices the browser has actually
+	 * installed, which on a bare Linux container is none: an empty list
+	 * says "it has not told us" rather than "it cannot", because a
+	 * voice list loads asynchronously and claiming otherwise would make
+	 * a chain skip a provider that was about to work.
+	 *
+	 * `offDevice` is true because Chromium's recogniser posts audio to a
+	 * remote service. It is true for the WHOLE provider even though only
+	 * the listening half leaves the device: a person deciding whether to
+	 * open a microphone is entitled to the pessimistic answer.
+	 */
+	get capability(): BerxSpeechCapability {
+		return {
+			id: 'web-speech',
+			speaks: this.available,
+			listens: this.canListen,
+			offDevice: this.requiresNetwork,
+			languages: [...new Set(this.voices().map((v) => v.lang))],
+		};
+	}
+
+	/**
+	 * Speak in a named language.
+	 *
+	 * A voice installed for that language where the browser has one,
+	 * and the utterance's own `lang` regardless — which is what a
+	 * synthesiser uses to decide pronunciation even when it substitutes
+	 * a voice. Nothing is refused for want of a matching voice: a
+	 * Russian voice reading French badly is a real outcome a person can
+	 * hear and correct, and silence is not.
+	 */
+	async speakIn(text: string, prosody: BerxVoiceProsody, language: string): Promise<void> {
+		const previous = this.spoken;
+		this.spoken = language;
+		try {
+			await this.speak(text, prosody);
+		} finally {
+			this.spoken = previous;
+		}
+	}
+
 	speak(text: string, prosody: BerxVoiceProsody): Promise<void> {
 		if (!this.available) return Promise.resolve();
 		return new Promise<void>((resolve) => {
 			const utterance = new SpeechSynthesisUtterance(text);
-			utterance.lang = this.lang;
+			const language = this.spoken ?? this.lang;
+			utterance.lang = language;
 			utterance.rate = prosody.rate;
 			utterance.pitch = prosody.pitch;
+			const installed = this.synthesis!.getVoices() ?? [];
 			const chosen = this.preferVoice
-				? (this.synthesis!.getVoices() ?? []).find((v) => v.name === this.preferVoice)
-				: undefined;
+				? installed.find((v) => v.name === this.preferVoice)
+				/* the best voice for the language being spoken, when one is
+				   installed: an exact tag first, then the same base tag */
+				: installed.find((v) => v.lang.toLowerCase() === language.toLowerCase())
+					?? installed.find((v) => v.lang.toLowerCase().split('-')[0] === language.toLowerCase().split('-')[0]);
 			if (chosen) utterance.voice = chosen;
 			/* Resolve on END, never on start. The script's silences are
 			   measured from the moment a line finishes, so resolving early
