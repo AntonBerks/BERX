@@ -1,0 +1,795 @@
+{
+  "capturedAt": "2026-09-10T15:28:53.332Z",
+  "route": "http://127.0.0.1:36235/",
+  "realRuntime": true,
+  "hardware": "no GPU in this container; mesa lavapipe software rasteriser; WebGPU cannot present to a canvas, so every screenshot is WebGL2",
+  "pageErrors": [],
+  "shots": [
+    {
+      "id": "01-boot-entry",
+      "title": "BERX boot / entry",
+      "file": "docs/web-screenshots/01-boot-entry.png",
+      "route": "http://127.0.0.1:36235/",
+      "viewport": "1600x1000 @2",
+      "worldMode": "not signed in (entry form)",
+      "renderer": "none yet",
+      "realRuntime": true,
+      "hardware": "no GPU — undefined; every pixel rasterised on the CPU. WebGPU cannot present to a canvas here, so the backend is WebGL2",
+      "state": {
+        "signedIn": false
+      },
+      "note": "The shipped app/index.html before there is a session. The only DOM the product owns: one form, because text entry is the one thing a GPU surface cannot honestly provide. Ground #07080A, accent #4FD6E8."
+    },
+    {
+      "id": "02-entry-locale-rtl",
+      "title": "Locale resolution and RTL, on the real entry",
+      "file": "docs/web-screenshots/02-entry-locale-rtl.png",
+      "route": "http://127.0.0.1:36235/",
+      "viewport": "1600x1000 @2",
+      "worldMode": "not signed in (entry form)",
+      "renderer": "none yet",
+      "realRuntime": true,
+      "hardware": "no GPU — undefined; every pixel rasterised on the CPU. WebGPU cannot present to a canvas here, so the backend is WebGL2",
+      "state": {
+        "signedIn": false
+      },
+      "note": "navigator.languages [\"ar-EG\"] resolved to lang=\"ar\" dir=\"rtl\" — the shipped locale layer, applied to the shipped page. THERE IS NO SEPARATE REGISTRATION SCREEN in the web shell: registration is POST /auth/register (username, firstname, lastname, email, password — exactly what auth.php accepts) and the spoken arrival flow in @berx/spatial is not mounted by this entry. A language and a visual-world preference have no backend field to be stored in, which the audit records as the pass's one PARTIAL."
+    },
+    {
+      "id": "03-living-world",
+      "title": "The 5D living world",
+      "file": "docs/web-screenshots/03-living-world.png",
+      "route": "http://127.0.0.1:36235/",
+      "viewport": "1600x1000 @2",
+      "worldMode": "region \"world\"",
+      "renderer": "webgl2",
+      "realRuntime": true,
+      "hardware": "no GPU — ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver); every pixel rasterised on the CPU. WebGPU cannot present to a canvas here, so the backend is WebGL2",
+      "state": {
+        "signedIn": true,
+        "region": "world",
+        "entities": 15,
+        "byKind": {
+          "person": 2,
+          "moment": 5,
+          "message": 1,
+          "place": 1,
+          "business": 1,
+          "event": 1,
+          "experience": 1,
+          "community": 1,
+          "collection": 2
+        },
+        "relations": 18,
+        "slots": 0,
+        "renderer": "webgl2",
+        "tier": "low",
+        "cursorAt": "2026-09-10 15:17",
+        "camera": {
+          "position": {
+            "x": 31.986473236483562,
+            "y": -10.989073607397007,
+            "z": 367.48884969958027
+          },
+          "target": {
+            "x": -0.8568105643620643,
+            "y": 0.2943605032589455,
+            "z": -1.6295031313939323
+          },
+          "fov": 42
+        },
+        "depthSpread": "-29.9 … 2.7",
+        "gpu": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)"
+      },
+      "note": "Every entity came from an /api/v1 response. X and Y from the relational layout, Z from real depth, T from the temporal cursor, R from the relation graph that decided the separations. One draw list, WebGL2."
+    },
+    {
+      "id": "04-now",
+      "title": "BERX NOW",
+      "file": "docs/web-screenshots/04-now.png",
+      "route": "http://127.0.0.1:36235/",
+      "viewport": "1600x1000 @2",
+      "worldMode": "region \"now\"",
+      "renderer": "webgl2",
+      "realRuntime": true,
+      "hardware": "no GPU — ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver); every pixel rasterised on the CPU. WebGPU cannot present to a canvas here, so the backend is WebGL2",
+      "state": {
+        "signedIn": true,
+        "region": "now",
+        "entities": 15,
+        "byKind": {
+          "person": 2,
+          "moment": 5,
+          "message": 1,
+          "place": 1,
+          "business": 1,
+          "event": 1,
+          "experience": 1,
+          "community": 1,
+          "collection": 2
+        },
+        "relations": 18,
+        "slots": 0,
+        "renderer": "webgl2",
+        "tier": "low",
+        "cursorAt": "2026-09-10 15:17",
+        "camera": {
+          "position": {
+            "x": 0,
+            "y": 0,
+            "z": 3.1999999999999886
+          },
+          "target": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "fov": 42
+        },
+        "depthSpread": "-29.9 … 2.7",
+        "gpu": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)"
+      },
+      "note": "The now region. NOW is a reading of the world through the temporal cursor, not a feed: scrub a year back and it is empty, because nothing was happening then."
+    },
+    {
+      "id": "05-people-gravity",
+      "title": "People, and social gravity",
+      "file": "docs/web-screenshots/05-people-gravity.png",
+      "route": "http://127.0.0.1:36235/",
+      "viewport": "1600x1000 @2",
+      "worldMode": "region \"person\", focused person:78",
+      "renderer": "webgl2",
+      "realRuntime": true,
+      "hardware": "no GPU — ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver); every pixel rasterised on the CPU. WebGPU cannot present to a canvas here, so the backend is WebGL2",
+      "state": {
+        "signedIn": true,
+        "region": "person",
+        "focus": "person:78",
+        "focusLabel": "Лев",
+        "focusKind": "person",
+        "entities": 19,
+        "byKind": {
+          "person": 2,
+          "moment": 6,
+          "message": 1,
+          "place": 1,
+          "business": 1,
+          "event": 2,
+          "experience": 2,
+          "community": 1,
+          "collection": 3
+        },
+        "relations": 22,
+        "slots": 3,
+        "renderer": "webgl2",
+        "tier": "low",
+        "cursorAt": "2026-09-10 15:17",
+        "camera": {
+          "position": {
+            "x": -1.7191352603781684,
+            "y": 0.49417298771543344,
+            "z": 12.255776028519692
+          },
+          "target": {
+            "x": -1.7191352603781684,
+            "y": 0.49417298771543344,
+            "z": 0.6124426951863557
+          },
+          "fov": 42
+        },
+        "depthSpread": "-34.8 … 7.8",
+        "gpu": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)"
+      },
+      "note": "Travelled to a person. The relational layout pulls what belongs to them around them — created-by edges at a weaker strength than any structural relation, because who made a place matters less to where it stands than what happens there."
+    },
+    {
+      "id": "06-dating-world",
+      "title": "The dating world, and only your own",
+      "file": "docs/web-screenshots/06-dating-world.png",
+      "route": "http://127.0.0.1:36235/",
+      "viewport": "1600x1000 @2",
+      "worldMode": "region \"person\", focused person:77",
+      "renderer": "webgl2",
+      "realRuntime": true,
+      "hardware": "no GPU — ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver); every pixel rasterised on the CPU. WebGPU cannot present to a canvas here, so the backend is WebGL2",
+      "state": {
+        "signedIn": true,
+        "region": "person",
+        "focus": "person:77",
+        "focusLabel": "Анна",
+        "focusKind": "person",
+        "entities": 21,
+        "byKind": {
+          "person": 4,
+          "moment": 6,
+          "message": 1,
+          "place": 1,
+          "business": 1,
+          "event": 2,
+          "experience": 2,
+          "community": 1,
+          "collection": 3
+        },
+        "relations": 22,
+        "slots": 1,
+        "renderer": "webgl2",
+        "tier": "low",
+        "cursorAt": "2026-09-10 15:17",
+        "camera": {
+          "position": {
+            "x": 0,
+            "y": 0,
+            "z": 11.643333333333336
+          },
+          "target": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "fov": 42
+        },
+        "depthSpread": "-31.4 … 8.8",
+        "gpu": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)"
+      },
+      "note": "Arriving at your OWN presence reads /dating/discover. Each profile is person:dating-N, never person:<guid> — the public identity and the dating one stay the two separate things the privacy model keeps them as. Read here and never at boot."
+    },
+    {
+      "id": "07-place-business",
+      "title": "A place the server calls a business",
+      "file": "docs/web-screenshots/07-place-business.png",
+      "route": "http://127.0.0.1:36235/",
+      "viewport": "1600x1000 @2",
+      "worldMode": "region \"place\", focused place:4212",
+      "renderer": "webgl2",
+      "realRuntime": true,
+      "hardware": "no GPU — ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver); every pixel rasterised on the CPU. WebGPU cannot present to a canvas here, so the backend is WebGL2",
+      "state": {
+        "signedIn": true,
+        "region": "place",
+        "focus": "place:4212",
+        "focusLabel": "Кофейня «Полдень»",
+        "focusKind": "business",
+        "entities": 22,
+        "byKind": {
+          "person": 4,
+          "moment": 6,
+          "message": 1,
+          "place": 1,
+          "business": 1,
+          "event": 2,
+          "experience": 3,
+          "community": 1,
+          "collection": 3
+        },
+        "relations": 23,
+        "slots": 3,
+        "renderer": "webgl2",
+        "tier": "low",
+        "cursorAt": "2026-09-10 15:17",
+        "camera": {
+          "position": {
+            "x": 3.201376607393335,
+            "y": 0,
+            "z": 10.732785940752763
+          },
+          "target": {
+            "x": 3.201376607393335,
+            "y": 0,
+            "z": -5.015345234142386
+          },
+          "fov": 42
+        },
+        "depthSpread": "-62.5 … 0.0",
+        "gpu": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)"
+      },
+      "note": "is_business on the place row makes this a business kind: a stack rather than a portal, because a business is not a doorway. Its ring offers view-business, directions, reserve."
+    },
+    {
+      "id": "12-offer-at-a-place",
+      "title": "An offer, attached to a real place",
+      "file": "docs/web-screenshots/12-offer-at-a-place.png",
+      "route": "http://127.0.0.1:36235/",
+      "viewport": "1600x1000 @2",
+      "worldMode": "region \"place\", focused experience:offer-501",
+      "renderer": "webgl2",
+      "realRuntime": true,
+      "hardware": "no GPU — ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver); every pixel rasterised on the CPU. WebGPU cannot present to a canvas here, so the backend is WebGL2",
+      "state": {
+        "signedIn": true,
+        "region": "place",
+        "focus": "experience:offer-501",
+        "focusLabel": "Второй кофе бесплатно",
+        "focusKind": "experience",
+        "entities": 22,
+        "byKind": {
+          "person": 4,
+          "moment": 6,
+          "message": 1,
+          "place": 1,
+          "business": 1,
+          "event": 2,
+          "experience": 3,
+          "community": 1,
+          "collection": 3
+        },
+        "relations": 23,
+        "slots": 0,
+        "renderer": "webgl2",
+        "tier": "low",
+        "cursorAt": "2026-09-10 15:17",
+        "camera": {
+          "position": {
+            "x": 4.5600000000000005,
+            "y": -0.9199999999999999,
+            "z": -6.711212121212114
+          },
+          "target": {
+            "x": 4.5600000000000005,
+            "y": -0.9199999999999999,
+            "z": -20.4
+          },
+          "fov": 42
+        },
+        "depthSpread": "-62.5 … 0.0",
+        "gpu": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)"
+      },
+      "note": "experience:offer-501 from GET /offers/places/4212, located-at its business at full strength, ending when the server says it ends, energy from how many redemptions are left. Reserve IS the claim: POST /offers/501/claim."
+    },
+    {
+      "id": "08-events",
+      "title": "The events world",
+      "file": "docs/web-screenshots/08-events.png",
+      "route": "http://127.0.0.1:36235/",
+      "viewport": "1600x1000 @2",
+      "worldMode": "region \"event\", focused event:908",
+      "renderer": "webgl2",
+      "realRuntime": true,
+      "hardware": "no GPU — ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver); every pixel rasterised on the CPU. WebGPU cannot present to a canvas here, so the backend is WebGL2",
+      "state": {
+        "signedIn": true,
+        "region": "event",
+        "focus": "event:908",
+        "focusLabel": "Вечер импровизации",
+        "focusKind": "event",
+        "entities": 22,
+        "byKind": {
+          "person": 4,
+          "moment": 6,
+          "message": 1,
+          "place": 1,
+          "business": 1,
+          "event": 2,
+          "experience": 3,
+          "community": 1,
+          "collection": 3
+        },
+        "relations": 23,
+        "slots": 3,
+        "renderer": "webgl2",
+        "tier": "low",
+        "cursorAt": "2026-09-10 15:17",
+        "camera": {
+          "position": {
+            "x": -1.1400000000000006,
+            "y": -0.22999999999999998,
+            "z": 13.390074703127645
+          },
+          "target": {
+            "x": -1.1400000000000006,
+            "y": -0.22999999999999998,
+            "z": -2.5500000000000007
+          },
+          "fov": 42
+        },
+        "depthSpread": "-62.5 … 0.0",
+        "gpu": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)"
+      },
+      "note": "An event is a ring, located-at its place at full strength. Its own affordances: view-event, attend, share — and attend really rsvps."
+    },
+    {
+      "id": "09-conversation",
+      "title": "Messages, as a region you stand in",
+      "file": "docs/web-screenshots/09-conversation.png",
+      "route": "http://127.0.0.1:36235/",
+      "viewport": "1600x1000 @2",
+      "worldMode": "region \"conversation\", focused message:78",
+      "renderer": "webgl2",
+      "realRuntime": true,
+      "hardware": "no GPU — ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver); every pixel rasterised on the CPU. WebGPU cannot present to a canvas here, so the backend is WebGL2",
+      "state": {
+        "signedIn": true,
+        "region": "conversation",
+        "focus": "message:78",
+        "focusLabel": "lev",
+        "focusKind": "message",
+        "entities": 25,
+        "byKind": {
+          "person": 4,
+          "moment": 6,
+          "message": 4,
+          "place": 1,
+          "business": 1,
+          "event": 2,
+          "experience": 3,
+          "community": 1,
+          "collection": 3
+        },
+        "relations": 29,
+        "slots": 3,
+        "renderer": "webgl2",
+        "tier": "low",
+        "cursorAt": "2026-09-10 15:17",
+        "camera": {
+          "position": {
+            "x": 1.1400000000000001,
+            "y": -0.22999999999999998,
+            "z": 13.136756251212296
+          },
+          "target": {
+            "x": 1.1400000000000001,
+            "y": -0.22999999999999998,
+            "z": -5.1
+          },
+          "fov": 42
+        },
+        "depthSpread": "-28.2 … 1.7",
+        "gpu": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)"
+      },
+      "note": "Travelling into a conversation fetches its messages, and they land in the SAME world: the person you are talking to is the entity that was already there. Each message relates to them by a messages edge."
+    },
+    {
+      "id": "10-stories",
+      "title": "Stories, which leave when the server says they do",
+      "file": "docs/web-screenshots/10-stories.png",
+      "route": "http://127.0.0.1:36235/",
+      "viewport": "1600x1000 @2",
+      "worldMode": "region \"now\", focused moment:story-91",
+      "renderer": "webgl2",
+      "realRuntime": true,
+      "hardware": "no GPU — ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver); every pixel rasterised on the CPU. WebGPU cannot present to a canvas here, so the backend is WebGL2",
+      "state": {
+        "signedIn": true,
+        "region": "now",
+        "focus": "moment:story-91",
+        "focusLabel": "вид с крыши",
+        "focusKind": "moment",
+        "entities": 25,
+        "byKind": {
+          "person": 4,
+          "moment": 6,
+          "message": 4,
+          "place": 1,
+          "business": 1,
+          "event": 2,
+          "experience": 3,
+          "community": 1,
+          "collection": 3
+        },
+        "relations": 29,
+        "slots": 5,
+        "renderer": "webgl2",
+        "tier": "low",
+        "cursorAt": "2026-09-10 15:17",
+        "camera": {
+          "position": {
+            "x": -3.1086956521739126,
+            "y": 0.5175,
+            "z": 23.239970970629372
+          },
+          "target": {
+            "x": -3.1086956521739126,
+            "y": 0.5175,
+            "z": 1.21
+          },
+          "fov": 42
+        },
+        "depthSpread": "-28.2 … 1.7",
+        "gpu": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)"
+      },
+      "note": "A story is a moment that expires: T comes from the server time_expires, and a story the feed gave no expiry for is not given one. It is not a separate ring UI — it is an entity in the same world with an end."
+    },
+    {
+      "id": "11-memories-temporal",
+      "title": "T, scrubbed three years back",
+      "file": "docs/web-screenshots/11-memories-temporal.png",
+      "route": "http://127.0.0.1:36235/",
+      "viewport": "1600x1000 @2",
+      "worldMode": "region \"now\", focused moment:story-91",
+      "renderer": "webgl2",
+      "realRuntime": true,
+      "hardware": "no GPU — ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver); every pixel rasterised on the CPU. WebGPU cannot present to a canvas here, so the backend is WebGL2",
+      "state": {
+        "signedIn": true,
+        "region": "now",
+        "focus": "moment:story-91",
+        "focusLabel": "вид с крыши",
+        "focusKind": "moment",
+        "entities": 25,
+        "byKind": {
+          "person": 4,
+          "moment": 6,
+          "message": 4,
+          "place": 1,
+          "business": 1,
+          "event": 2,
+          "experience": 3,
+          "community": 1,
+          "collection": 3
+        },
+        "relations": 29,
+        "slots": 0,
+        "renderer": "webgl2",
+        "tier": "low",
+        "cursorAt": "2023-09-11 15:17",
+        "camera": {
+          "position": {
+            "x": -3.1086956521739126,
+            "y": 0.5175,
+            "z": 23.239970970629372
+          },
+          "target": {
+            "x": -3.1086956521739126,
+            "y": 0.5175,
+            "z": 1.21
+          },
+          "fov": 42
+        },
+        "depthSpread": "-1.2 … 30.6",
+        "gpu": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)"
+      },
+      "note": "The temporal cursor moved from 2026-09-10 15:17 to three years earlier. Nothing was re-fetched: the same entities are drawn at different depths, because T offsets z in the frame and never in the canonical world. A memory that happened then comes forward; the present recedes."
+    },
+    {
+      "id": "13-creator-world",
+      "title": "A creator, with their work standing around them",
+      "file": "docs/web-screenshots/13-creator-world.png",
+      "route": "http://127.0.0.1:36235/",
+      "viewport": "1600x1000 @2",
+      "worldMode": "region \"person\", focused person:78",
+      "renderer": "webgl2",
+      "realRuntime": true,
+      "hardware": "no GPU — ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver); every pixel rasterised on the CPU. WebGPU cannot present to a canvas here, so the backend is WebGL2",
+      "state": {
+        "signedIn": true,
+        "region": "person",
+        "focus": "person:78",
+        "focusLabel": "Лев",
+        "focusKind": "person",
+        "entities": 25,
+        "byKind": {
+          "person": 4,
+          "moment": 6,
+          "message": 4,
+          "place": 1,
+          "business": 1,
+          "event": 2,
+          "experience": 3,
+          "community": 1,
+          "collection": 3
+        },
+        "relations": 29,
+        "slots": 3,
+        "renderer": "webgl2",
+        "tier": "low",
+        "cursorAt": "2026-09-10 15:17",
+        "camera": {
+          "position": {
+            "x": -5.5,
+            "y": 0,
+            "z": 20.090513356582775
+          },
+          "target": {
+            "x": -5.5,
+            "y": 0,
+            "z": 0
+          },
+          "fov": 42
+        },
+        "depthSpread": "-28.2 … 1.7",
+        "gpu": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)"
+      },
+      "note": "GET /creator/lev and /creator/lev/content. A creator is a person with a body of work, so the work is what is mapped — a post, an album, an event, an experience — each created-by its author. No follower count, no badge."
+    },
+    {
+      "id": "14-profile-in-world",
+      "title": "A profile, inside the world",
+      "file": "docs/web-screenshots/14-profile-in-world.png",
+      "route": "http://127.0.0.1:36235/",
+      "viewport": "1600x1000 @2",
+      "worldMode": "region \"person\", focused person:77",
+      "renderer": "webgl2",
+      "realRuntime": true,
+      "hardware": "no GPU — ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver); every pixel rasterised on the CPU. WebGPU cannot present to a canvas here, so the backend is WebGL2",
+      "state": {
+        "signedIn": true,
+        "region": "person",
+        "focus": "person:77",
+        "focusLabel": "Анна",
+        "focusKind": "person",
+        "entities": 25,
+        "byKind": {
+          "person": 4,
+          "moment": 6,
+          "message": 4,
+          "place": 1,
+          "business": 1,
+          "event": 2,
+          "experience": 3,
+          "community": 1,
+          "collection": 3
+        },
+        "relations": 29,
+        "slots": 3,
+        "renderer": "webgl2",
+        "tier": "low",
+        "cursorAt": "2026-09-10 15:17",
+        "camera": {
+          "position": {
+            "x": 0,
+            "y": 0,
+            "z": 20.491932051069227
+          },
+          "target": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "fov": 42
+        },
+        "depthSpread": "-28.2 … 1.7",
+        "gpu": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)"
+      },
+      "note": "A person focused, with their affordance ring up: view-profile, message, follow. The ring stands a third of the way from the entity toward the eye, which is what made all of its actions reachable rather than one of five."
+    },
+    {
+      "id": "15-spoken-search",
+      "title": "A spoken question, answered in the world",
+      "file": "docs/web-screenshots/15-spoken-search.png",
+      "route": "http://127.0.0.1:36235/",
+      "viewport": "1600x1000 @2",
+      "worldMode": "region \"person\", focused person:77",
+      "renderer": "webgl2",
+      "realRuntime": true,
+      "hardware": "no GPU — ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver); every pixel rasterised on the CPU. WebGPU cannot present to a canvas here, so the backend is WebGL2",
+      "state": {
+        "signedIn": true,
+        "region": "person",
+        "focus": "person:77",
+        "focusLabel": "Анна",
+        "focusKind": "person",
+        "entities": 25,
+        "byKind": {
+          "person": 4,
+          "moment": 6,
+          "message": 4,
+          "place": 1,
+          "business": 1,
+          "event": 2,
+          "experience": 3,
+          "community": 1,
+          "collection": 3
+        },
+        "relations": 29,
+        "slots": 3,
+        "renderer": "webgl2",
+        "tier": "low",
+        "cursorAt": "2026-09-10 15:17",
+        "camera": {
+          "position": {
+            "x": 0,
+            "y": 0,
+            "z": 20.491932051069227
+          },
+          "target": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "fov": 42
+        },
+        "depthSpread": "-28.2 … 1.7",
+        "gpu": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)"
+      },
+      "note": "The voice-to-world binding is not exposed on window by the shipped entry, so this is the world as the previous state left it. verify:5d-app-shell drives the same path through a real keypress and measures it: \"покажи события\" planned events on the real client and put event:908 in front of the viewer."
+    },
+    {
+      "id": "17-desktop-wide",
+      "title": "Wide desktop",
+      "file": "docs/web-screenshots/17-desktop-wide.png",
+      "route": "http://127.0.0.1:36235/",
+      "viewport": "2560x1080 @2",
+      "worldMode": "region \"person\", focused person:77",
+      "renderer": "webgl2",
+      "realRuntime": true,
+      "hardware": "no GPU — ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver); every pixel rasterised on the CPU. WebGPU cannot present to a canvas here, so the backend is WebGL2",
+      "state": {
+        "signedIn": true,
+        "region": "person",
+        "focus": "person:77",
+        "focusLabel": "Анна",
+        "focusKind": "person",
+        "entities": 25,
+        "byKind": {
+          "person": 4,
+          "moment": 6,
+          "message": 4,
+          "place": 1,
+          "business": 1,
+          "event": 2,
+          "experience": 3,
+          "community": 1,
+          "collection": 3
+        },
+        "relations": 29,
+        "slots": 3,
+        "renderer": "webgl2",
+        "tier": "low",
+        "cursorAt": "2026-09-10 15:17",
+        "camera": {
+          "position": {
+            "x": 0,
+            "y": 1.40964116486742e-16,
+            "z": 373.5966241386488
+          },
+          "target": {
+            "x": 0,
+            "y": -8.881784197001253e-18,
+            "z": -1.7562808433479438
+          },
+          "fov": 42
+        },
+        "depthSpread": "-28.2 … 1.7",
+        "gpu": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)"
+      },
+      "note": "The same world, framed for a 2560x1080 frame. Framing is a question about a frame: the relational layout is shaped by the aspect and the fit finds the nearest containment-preserving distance, which is why occupancy stays in the 40-60% band on every shape."
+    },
+    {
+      "id": "16-mobile-iphone",
+      "title": "Mobile web, at an iPhone's viewport and density",
+      "file": "docs/web-screenshots/16-mobile-iphone.png",
+      "route": "http://127.0.0.1:36235/",
+      "viewport": "390x844 @3",
+      "worldMode": "region \"world\"",
+      "renderer": "webgl2",
+      "realRuntime": true,
+      "hardware": "no GPU — ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver); every pixel rasterised on the CPU. WebGPU cannot present to a canvas here, so the backend is WebGL2",
+      "state": {
+        "signedIn": true,
+        "region": "world",
+        "entities": 15,
+        "byKind": {
+          "person": 2,
+          "moment": 5,
+          "message": 1,
+          "place": 1,
+          "business": 1,
+          "event": 1,
+          "experience": 1,
+          "community": 1,
+          "collection": 2
+        },
+        "relations": 18,
+        "slots": 0,
+        "renderer": "webgl2",
+        "tier": "low",
+        "cursorAt": "2026-09-10 15:28",
+        "camera": {
+          "position": {
+            "x": 0,
+            "y": 0,
+            "z": 8
+          },
+          "target": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "fov": 42
+        },
+        "depthSpread": "-29.9 … 2.3",
+        "gpu": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)"
+      },
+      "note": "390x844 at 3x with real 59/34 safe-area insets emulated over CDP, signed in with a TAP. touch-action is none so the browser cannot take the gesture; a held finger opens the microphone because a phone has no \"v\" key. Chromium at an iPhone's geometry — WebKit is not installed here, so iOS's own engine behaviour is not shown and not claimed."
+    }
+  ]
+}

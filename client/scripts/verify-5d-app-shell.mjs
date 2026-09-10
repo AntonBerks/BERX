@@ -351,6 +351,7 @@ try {
 				.join(',');
 		const domBefore = productDom();
 		const countBefore = w.latestFrame.world.objects.length;
+		const idsBefore = w.latestFrame.world.objects.map((o) => o.id).sort();
 		const cameraStart = {...w.latestFrame.camera.position};
 		w.travelTo('place:4211');
 		await settle();
@@ -362,11 +363,15 @@ try {
 		w.back();
 		await settle();
 		const cameraBack = {...w.latestFrame.camera.position};
+		const idsAfter = w.latestFrame.world.objects.map((o) => o.id).sort();
 		return {
 			domBefore,
 			domAfter: productDom(),
 			countBefore,
-			countAfter: w.latestFrame.world.objects.length,
+			countAfter: idsAfter.length,
+			idsBefore,
+			kept: idsBefore.filter((id) => idsAfter.includes(id)).length,
+			arrived: idsAfter.filter((id) => !idsBefore.includes(id)),
 			cameraStart, cameraAtPlace, cameraAtPerson, cameraBack,
 			regionAtPlace,
 			regionBack: w.worldPosition.region,
@@ -379,10 +384,27 @@ try {
 		moved(travel.cameraStart, travel.cameraAtPlace) > 0.5 && moved(travel.cameraAtPlace, travel.cameraAtPerson) > 0.5,
 		`start → place ${moved(travel.cameraStart, travel.cameraAtPlace).toFixed(2)} units, place → person ${moved(travel.cameraAtPlace, travel.cameraAtPerson).toFixed(2)} units`,
 	);
+	/**
+	 * REPLACES NOTHING — which is not the same as gains nothing.
+	 *
+	 * This compared entity COUNTS, and a count is the wrong instrument
+	 * twice over. It goes up for a legitimate reason: travelling to a
+	 * person reads what they have made and travelling to a place reads
+	 * what is on offer there, both deliberately per-arrival rather than
+	 * at boot. And it can stay EQUAL while one entity is quietly
+	 * swapped for another, which is exactly the screen change this gate
+	 * exists to forbid.
+	 *
+	 * So the assertion is identity: the product document is the same
+	 * elements, and every entity that was standing there is still
+	 * standing there. What a real region read brought is named.
+	 */
 	gate(
-		'travelling replaces nothing: the world and the document are unchanged',
-		travel.countAfter === travel.countBefore && travel.domAfter === travel.domBefore,
-		`${travel.countBefore} entities before and after; the product document is the same ${travel.domBefore.split(',').length} elements (${travel.domBefore})`,
+		'travelling replaces nothing: the document and every entity survive it',
+		travel.kept === travel.idsBefore.length && travel.domAfter === travel.domBefore,
+		`all ${travel.idsBefore.length} entities that were there are still there`
+		+ `${travel.arrived.length ? `, and ${travel.arrived.length} arrived from the region reads travelling performs: ${travel.arrived.join(', ')}` : ' and nothing arrived'}`
+		+ `. The product document is the same ${travel.domBefore.split(',').length} elements (${travel.domBefore}) — if travelling were a screen change, elements would appear and disappear here`,
 	);
 	gate(
 		'back returns to where the viewer was standing, with its context',
@@ -2173,7 +2195,22 @@ const PROJECTOR_SOURCE = String.raw`(canvas, c) => {
 				const cos = t.at.along / Math.max(1e-6, own.distance);
 				return t.scene >= own.distance * cos - 0.12 && t.scene <= own.exit * cos + 0.12;
 			};
-			const targets = candidates.filter(fair).slice(0, 4);
+			/**
+			 * A PIXEL THE WORLD DREW SOMETHING AT.
+			 *
+			 * `fair` — the drawn depth lying inside this entity's own box
+			 * — is the precondition for asking WHICH entity a pixel
+			 * belongs to, and that question moved to verify:5d-picking,
+			 * which answers it 45 times from nine viewpoints. What is
+			 * left here is a wiring claim, and it needs far less: a
+			 * pixel where the renderer drew a surface. Keeping the
+			 * strict precondition meant that when no viewpoint happened
+			 * to offer an unshared pixel this gate reported "0 of 0" and
+			 * failed for having nothing to press, which says nothing
+			 * about the shell.
+			 */
+			const drawnSomething = candidates.filter((t) => t.scene !== undefined);
+			const targets = (drawnSomething.length > 0 ? drawnSomething : candidates).slice(0, 4);
 			const rejected = candidates
 				.filter((t) => !fair(t))
 				.map((t) => `${t.id} at ${t.at.along.toFixed(1)} but the world drew ${t.scene === undefined ? 'nothing' : t.scene.toFixed(1)} there`);

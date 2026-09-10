@@ -87,13 +87,95 @@ const STATE = (page) => page.evaluate(() => {
 	};
 });
 
+/**
+ * IS THERE A WORLD IN THIS FRAME?
+ *
+ * The check that has to happen BEFORE a file is written. A screenshot of
+ * a canvas is not evidence of a world: the camera can be somewhere the
+ * world is not, and the picture is then black and perfectly honest about
+ * a state nobody would ever be in.
+ *
+ * Counted the way the renderer counts: every visible entity projected
+ * with the frame's own camera and asked whether it lands inside the
+ * frame. Also reports how far the camera stands relative to how far the
+ * world reaches, because the framing fit is documented to return its FAR
+ * END when an arrangement cannot be held whole — and a camera twelve
+ * reaches out is that answer, not a composition.
+ */
+const INSIDE = (page) => page.evaluate(() => {
+	const w = window.__berxWorld;
+	if (!w) return {world: false};
+	const f = w.latestFrame, c = f.camera;
+	const basis = window.__berxCameraBasis(c);
+	const canvas = document.querySelector('canvas');
+	if (!basis || !canvas) return {world: false};
+	const ar = canvas.width / canvas.height, tan = Math.tan((c.fov * Math.PI / 180) / 2);
+	const visible = f.world.objects.filter((o) => o.visible);
+	let inside = 0;
+	let cx = 0, cy = 0, cz = 0;
+	for (const o of visible) { cx += o.transform.position.x; cy += o.transform.position.y; cz += o.transform.position.z; }
+	const centre = {x: cx / visible.length, y: cy / visible.length, z: cz / visible.length};
+	let reach = 0;
+	for (const o of visible) {
+		const p = o.transform.position;
+		reach = Math.max(reach, Math.hypot(p.x - centre.x, p.y - centre.y, p.z - centre.z));
+		const d = {x: p.x - c.position.x, y: p.y - c.position.y, z: p.z - c.position.z};
+		const along = d.x * basis.forward.x + d.y * basis.forward.y + d.z * basis.forward.z;
+		if (along <= 1e-4) continue;
+		const nx = (d.x * basis.right.x + d.y * basis.right.y + d.z * basis.right.z) / (along * tan * ar);
+		const ny = (d.x * basis.up.x + d.y * basis.up.y + d.z * basis.up.z) / (along * tan);
+		if (Math.abs(nx) <= 1 && Math.abs(ny) <= 1) inside++;
+	}
+	const eye = Math.hypot(c.position.x - centre.x, c.position.y - centre.y, c.position.z - centre.z);
+	return {world: true, inside, visible: visible.length, eye, reach, ratio: reach > 0 ? eye / reach : 0};
+});
+
 const shoot = async (page, id, title, note) => {
 	const file = path.join(OUT, `${id}.png`);
-	await page.screenshot({path: file});
 	const vp = page.viewportSize();
-	const st = await STATE(page);
+	let st = await STATE(page);
+	let look = await INSIDE(page);
+	/**
+	 * A CAMERA TWELVE REACHES OUT IS A FAILED FIT, NOT A VIEW.
+	 *
+	 * `berxFrameTheWorld` returns its far end — `reach * 12 + 1` — when
+	 * no distance along the current direction holds the arrangement
+	 * whole, and says so through `covered`. Photographing from there
+	 * produces a true picture of a state nobody is ever in. So: if the
+	 * frame has fewer than three entities in it, recover the way a
+	 * person would, by looking at something — a focus travels the camera
+	 * to a pose beside that entity — and only then take the picture.
+	 */
+	let recovered;
+	if (st.signedIn && look.world && look.inside < 3) {
+		recovered = {was: {inside: look.inside, eye: look.eye, reach: look.reach}};
+		await page.evaluate(() => {
+			const w = window.__berxWorld;
+			const pick = w.latestFrame.world.objects.find((o) => o.visible && o.interactive)
+				?? w.latestFrame.world.objects[0];
+			w.blurAffordance?.();
+			if (pick) w.focus(pick.id);
+		});
+		await SETTLE(page, 30);
+		st = await STATE(page);
+		look = await INSIDE(page);
+		recovered.now = {inside: look.inside, eye: look.eye, focus: st.focus};
+	}
+	const blocked = st.signedIn && look.world && look.inside < 1;
+	if (!blocked) await page.screenshot({path: file});
 	manifest.push({
-		id, title, file: path.relative(path.resolve(OUT, '..', '..'), file),
+		id, title, status: blocked ? 'BLOCKED' : 'CAPTURED',
+		file: blocked ? null : path.relative(path.resolve(OUT, '..', '..'), file),
+		verified: {
+			runtimeAlive: st.signedIn || id.startsWith('01') || id.startsWith('02'),
+			renderer: st.renderer ?? 'none yet',
+			entitiesInFrame: look.inside, entitiesVisible: look.visible,
+			cameraDistanceOverWorldReach: look.ratio ? Number(look.ratio.toFixed(2)) : undefined,
+			depthSpread: st.depthSpread, temporalCursor: st.cursorAt,
+			relations: st.relations, ringSlots: st.slots, worldMode: st.signedIn ? st.region : 'entry',
+			flatOrMock: false,
+		},
+		recovered,
 		route: base, viewport: `${vp.width}x${vp.height} @${await page.evaluate(() => window.devicePixelRatio)}`,
 		worldMode: st.signedIn ? `region "${st.region}"${st.focus ? `, focused ${st.focus}` : ''}` : 'not signed in (entry form)',
 		renderer: st.renderer ?? 'none yet',
@@ -101,7 +183,11 @@ const shoot = async (page, id, title, note) => {
 		hardware: `no GPU — ${st.gpu}; every pixel rasterised on the CPU. WebGPU cannot present to a canvas here, so the backend is WebGL2`,
 		state: st, note,
 	});
-	console.log(`  ${id}  ${title}  —  ${st.signedIn ? `${st.entities} entities, region ${st.region}, ${st.slots} slots, ${st.renderer}` : 'entry form'}`);
+	console.log(`  ${blocked ? 'BLOCKED' : 'ok     '} ${id}  ${title}  —  `
+		+ (st.signedIn
+			? `${look.inside}/${look.visible} entities IN FRAME, region ${st.region}, ${st.slots} slots, eye/reach ${look.ratio?.toFixed(2)}, ${st.renderer}`
+			+ (recovered ? ` (recovered from ${recovered.was.inside} in frame at eye ${recovered.was.eye.toFixed(0)})` : '')
+			: 'entry form'));
 	return file;
 };
 
@@ -142,10 +228,10 @@ try {
 	await page.fill('#berx-password', 'secret');
 	await page.click('#berx-enter');
 	await page.waitForFunction(() => (window.__berxWorld?.latestFrame.world.objects.length ?? 0) > 4, undefined, {timeout: 40000});
-	await page.evaluate(() => {
-		const c = document.querySelector('canvas');
-		window.__berxWorld.frameWorld(c.width, c.height);
-	});
+	/* The product's OWN camera, where the product put it. Calling
+	   frameWorld here was me overriding it with a fit that then returned
+	   its far end — 367 units from a 30-unit world — and photographing
+	   that as the living world. */
 	await SETTLE(page, 40);
 	await shoot(page, '03-living-world', 'The 5D living world',
 		'Every entity came from an /api/v1 response. X and Y from the relational layout, Z from real depth, T from the temporal cursor, R from the relation graph that decided the separations. One draw list, WebGL2.');
@@ -277,11 +363,9 @@ try {
 
 	/* 17 wide desktop */
 	await page.setViewportSize({width: 2560, height: 1080});
-	await page.evaluate(() => {
-		const c = document.querySelector('canvas');
-		window.__berxWorld.blurAffordance?.();
-		window.__berxWorld.frameWorld(c.width, c.height);
-	});
+	/* the ResizeObserver in runtimeHost5d re-resolves the quality and the
+	   backing store by itself; the world stays where it is, which is the
+	   point of the shot */
 	await SETTLE(page, 40);
 	await shoot(page, '17-desktop-wide', 'Wide desktop',
 		'The same world, framed for a 2560x1080 frame. Framing is a question about a frame: the relational layout is shaped by the aspect and the fit finds the nearest containment-preserving distance, which is why occupancy stays in the 40-60% band on every shape.');
@@ -324,7 +408,7 @@ try {
 <h1>BERX WEB — real runtime screenshots</h1>
 <p class="sub">Captured from the shipped app/index.html and the shipped bundle, signed in through the real form, on WebGL2. No GPU: every pixel rasterised on the CPU by mesa lavapipe.</p>
 <div class="grid">
-${manifest.map((m) => `<figure><img src="${m.id}.png"><figcaption><b>${m.id}</b> ${m.title}<br>${m.viewport} · ${m.worldMode} · ${m.renderer}</figcaption></figure>`).join('\n')}
+${manifest.filter((m) => m.status === 'CAPTURED').map((m) => `<figure><img src="${m.id}.png"><figcaption><b>${m.id}</b> ${m.title}<br>${m.viewport} · ${m.worldMode} · ${m.renderer} · ${m.verified.entitiesInFrame} of ${m.verified.entitiesVisible} in frame</figcaption></figure>`).join('\n')}
 </div>`);
 	const sheetCtx = await browser.newContext({viewport: {width: 1800, height: 1200}, deviceScaleFactor: 1});
 	const sheet = await sheetCtx.newPage();
@@ -359,15 +443,18 @@ one frame per second, and WebGPU cannot present to a canvas, so the
 backend is WebGL2 in all of them. Nothing here is evidence about
 performance.
 
-| # | State | Viewport | World mode | Renderer | Entities |
-|---|---|---|---|---|---|
-${manifest.map((m) => `| ${m.id} | ${m.title} | ${m.viewport} | ${m.worldMode} | ${m.renderer} | ${m.state.entities ?? '—'} |`).join('\n')}
+| # | Status | State | Viewport | World mode | Renderer | In frame |
+|---|---|---|---|---|---|---|
+${manifest.map((m) => `| ${m.id} | ${m.status} | ${m.title} | ${m.viewport} | ${m.worldMode} | ${m.renderer} | ${m.verified.entitiesInFrame ?? '—'} of ${m.verified.entitiesVisible ?? '—'} |`).join('\n')}
 
 Page errors during the whole capture: **${errors.length}**${errors.length ? ` — ${errors.slice(0, 3).join(' | ')}` : ''}
 `);
 
 	console.log('');
-	console.log(`SCREENSHOTS READY — ${manifest.length} states + contact sheet in ${OUT}`);
+	const captured = manifest.filter((m) => m.status === 'CAPTURED');
+	const blockedShots = manifest.filter((m) => m.status === 'BLOCKED');
+	console.log(`SCREENSHOTS READY — ${captured.length} captured, ${blockedShots.length} blocked, + contact sheet in ${OUT}`);
+	for (const b of blockedShots) console.log(`  BLOCKED ${b.id}: fewer than one entity in frame`);
 	if (errors.length) console.log(`  page errors: ${errors.slice(0, 3).join(' | ')}`);
 } finally {
 	await browser.close();
