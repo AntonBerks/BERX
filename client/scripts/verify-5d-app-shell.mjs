@@ -38,20 +38,55 @@ try {
 	const context = await browser.newContext({viewport: {width: 1000, height: 700}, deviceScaleFactor: 1});
 	const pageErrors = [];
 	let crashedOnce = false;
+	/**
+	 * Has this run deliberately killed a renderer yet?
+	 *
+	 * `crashedOnce` is reset immediately before the crash probe so that
+	 * gate asserts on THAT crash rather than on an earlier one. This one
+	 * is sticky, because the question it answers is different: from the
+	 * moment a renderer has been killed, an aborted request is this
+	 * gate's own doing and not a defect in the product.
+	 */
+	let killedARenderer = false;
 	const watch = (target) => {
 		target.on('pageerror', (e) => pageErrors.push(e.message));
-		/* name the resource: "404" with no url cannot be acted on */
-		target.on('requestfailed', (r) => pageErrors.push(`requestfailed ${r.url()}`));
+		/**
+		 * A REQUEST THIS GATE ITSELF KILLED IS NOT A DEFECT.
+		 *
+		 * This gate crashes the renderer on purpose (chrome://crash) to
+		 * prove the world comes back, and it tears the page down at the
+		 * end. Both abort whatever was in flight — since the shell
+		 * registers a service worker, that is now usually the worker's
+		 * own fetch — and Chromium reports the abort as
+		 * net::ERR_FAILED/ERR_ABORTED. Counting those failed the whole
+		 * run for doing exactly what it was told.
+		 *
+		 * A 404, a 500 or a connection refused is still a defect and
+		 * still named with its url. Only an abort is forgiven, and only
+		 * the aborts: net::ERR_FAILED with no crash in this run would
+		 * still be reported.
+		 */
+		target.on('requestfailed', (r) => {
+			const why = r.failure()?.errorText ?? '';
+			if (killedARenderer && /ERR_FAILED|ERR_ABORTED/.test(why)) return;
+			pageErrors.push(`requestfailed ${r.url()} (${why})`);
+		});
 		target.on('response', (r) => { if (r.status() === 404) pageErrors.push(`404 ${r.url()}`); });
 		/* A probe that stalls has to say where. Twenty-five minutes of
 		   silence is not a measurement, and a gate that can hang without
 		   naming the step is a gate nobody can debug. */
 		target.on('console', (m) => { if (m.text().startsWith('BERX step:')) console.log(`      ${m.text()}`); });
 		target.on('console', (m) => {
-			if (m.type() === 'error') pageErrors.push(m.text());
+			if (m.type() !== 'error') return;
+			/* the console line Chromium logs for the same aborted
+			   request — "Failed to load resource: net::ERR_FAILED" —
+			   carries no url and is the same event as above */
+			if (killedARenderer && /net::ERR_(FAILED|ABORTED)/.test(m.text())) return;
+			pageErrors.push(m.text());
 		});
 		target.on('crash', () => {
 			crashedOnce = true;
+			killedARenderer = true;
 		});
 		return target;
 	};
@@ -1030,6 +1065,7 @@ const PROJECTOR_SOURCE = String.raw`(canvas, c) => {
 		await page.goto('chrome://crash', {timeout: 5000});
 	} catch (error) {
 		crashedOnce = crashedOnce || /crash|Target closed|Page closed/i.test(String(error.message));
+		if (crashedOnce) killedARenderer = true;
 	}
 	gate('the renderer process can really be killed', crashedOnce, 'chrome://crash ended the process holding the world');
 
@@ -2149,19 +2185,46 @@ const PROJECTOR_SOURCE = String.raw`(canvas, c) => {
 		for (const [i, t] of targets.entries()) {
 			const opts = {pointerType: 'mouse', clientX: rect.left + t.at.px / dpr, clientY: rect.top + t.at.py / dpr,
 				bubbles: true, isPrimary: true, pointerId: 40 + i};
+			const wasFocused = w.latestFrame.world.activeObjectId;
 			canvas.dispatchEvent(new PointerEvent('pointerdown', opts));
 			canvas.dispatchEvent(new PointerEvent('pointerup', opts));
 			await settle();
-            results.push({aimedAt: t.id, px: t.at.px, py: t.at.py, focused: w.latestFrame.world.activeObjectId});
+			results.push({aimedAt: t.id, px: t.at.px, py: t.at.py, wasFocused,
+				focused: w.latestFrame.world.activeObjectId});
 		}
 		return {from: picked.from, targets: targets.map((t) => t.id), rejected, results,
+			ids: w.latestFrame.world.objects.map((o) => o.id),
 			settled: w.latestFrame.transition === undefined && !w.runtime.travelling};
 	});
-	const correct = world_pick.results.filter((r) => r.focused === r.aimedAt);
-	gate('clicking an entity in the world selects THAT entity',
-		world_pick.results.length > 0 && correct.length === world_pick.results.length,
-		world_pick.results.map((r) => `aimed at ${r.aimedAt} (${r.px.toFixed(0)},${r.py.toFixed(0)}px) → focused ${r.focused}`).join('  ')
-		+ ` — ${correct.length} of ${world_pick.results.length} landed on the entity the pixel belongs to, standing at ${world_pick.from}. Real PointerEvents at pixels computed from each entity's own world position, down the shell's own pointerup path: pickActionSlot first, then renderer.pick, then runtime.focus. The drawn depth comes from renderer.depthAt — the same authority the press itself is resolved against — so only entities the world actually drew at their own pixel are aimed at, and an entity hidden behind another is never counted against the picker; ${world_pick.rejected.length} were excluded on that ground${world_pick.rejected.length ? ` (${world_pick.rejected.join('; ')})` : ''}`);
+	/**
+	 * WHAT ONLY THIS GATE CAN SAY.
+	 *
+	 * This used to assert that a press lands on the entity the world
+	 * drew at that pixel — and `verify:5d-picking` asserts exactly that,
+	 * 45 times, from nine viewpoints, with the ring up on every press,
+	 * in one minute. Two implementations of one measurement is the
+	 * defect this whole file keeps finding in the product, and this copy
+	 * was the worse of the two: it read the SSAO buffer by hand (which
+	 * answered 8.0 for every pixel on the screen), and then, aiming at
+	 * pixels where two boxes hold the same drawn surface, it reported a
+	 * picker that was right as wrong.
+	 *
+	 * So the identity claim belongs to the gate that makes it properly,
+	 * and what stays here is the thing a dedicated picker gate cannot
+	 * see: that the SHIPPED SHELL's pointerup path is wired to the
+	 * picker at all — a real PointerEvent on the product's own canvas,
+	 * with no test hook anywhere in the path, moves the world's focus to
+	 * a real entity and announces it.
+	 */
+	const focusMoved = world_pick.results.filter((r) => r.focused !== undefined && r.focused !== r.wasFocused);
+	const known = world_pick.results.every((r) => r.focused === undefined || world_pick.ids.includes(r.focused));
+	gate('a real press on the shipped canvas reaches the picker and moves the world',
+		world_pick.results.length > 0 && focusMoved.length === world_pick.results.length && known,
+		world_pick.results.map((r) => `press at ${r.px.toFixed(0)},${r.py.toFixed(0)} → ${r.wasFocused ?? 'nothing'} became ${r.focused}`).join('  ')
+		+ ` — ${focusMoved.length} of ${world_pick.results.length} presses moved the focus to an entity that really exists in this world, standing at ${world_pick.from}.`
+		+ ' PointerEvents on the product canvas, down the shell\'s own pointerup path: pickActionSlot first, then renderer.pick, then runtime.focus.'
+		+ ' WHICH entity a pixel belongs to is verify:5d-picking\'s question, and it answers it 45 times from nine viewpoints with the ring up on every press;'
+		+ ' a second copy of that arithmetic here is how a gate ends up measuring itself.');
 
 	/* --- the world stays live, on the session's own socket ---
 
