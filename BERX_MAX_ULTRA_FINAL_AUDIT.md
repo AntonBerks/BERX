@@ -170,13 +170,14 @@ in this pass.
 | Spatial audio playback | PARTIAL | `play(source, at)` is real HRTF; nothing calls it | `spatialAudioWeb.ts` | `verify:5d-gpu` (module) | No audio media in the API's spatial mapping — `BerxMediaType` has `audio`, the spatial surface pipeline carries images only. Not faked. |
 | Realtime transport | PASS | PHP socket server ← `BerxRealtimeClient` (auth → subscribe → event) | `berx-realtime-server.php`, `packages/api/src/realtime.ts` | `verify:5d-realtime` (real TCP, real accounts) | Needs MySQL; not runnable in this container |
 | Realtime → world | PASS | event → `applyBerxRealtimeEvent` → real API read-back → `world.ingest` | `packages/scenes/src/realtimeWorld.ts` | `verify:5d-wiring` (12 gates, protocol-correct socket) | — |
-| Realtime in the shipped shell | PASS | `startBerxApp({live})` → `berxKeepWorldLive` → socket → world | `appShell.ts`, `scripts/app-shell.entry.ts` | `verify:5d-app-shell` (real WebSocket, real handshake) | — |
+| Realtime in the shipped shell | PASS | `startBerxApp({live})` → `berxKeepWorldLive` → socket → world | `appShell.ts`, `scripts/app-shell.entry.ts` | `verify:5d-app-shell` — 1 connection, granted `person:77, person:78, self:77`; post 7801 arrived as `moment:7801` at (-4.6, -0.9, -28.9) with nobody polling | — |
 | Reconnect behaviour | PASS | backoff resets only for a connection that outlived the longest rung | `packages/api/src/realtime.ts` | measured: 4 546 → bounded | — |
 | Voice → world | PASS | `BerxWebVoice` → `berxVoiceToWorld` → real client method → world | `voiceWeb.ts`, `voiceToWorld.ts` | `verify:5d-wiring` (19 voice gates) | — |
-| Voice in the shipped shell | PASS | `v`/`м` on the canvas → `shell.listen()` → Core `listening` | `appShell.ts`, `scripts/app-shell.entry.ts` | `verify:5d-app-shell` | — |
+| Voice in the shipped shell | PASS | `v`/`м` on the canvas → `shell.listen()` → Core `listening` | `appShell.ts`, `scripts/app-shell.entry.ts` | `verify:5d-app-shell` — `listening` the instant the key landed; "покажи события" put `event:908` in front of the viewer in the same world | — |
 | Speech synthesis | PARTIAL | `speechSynthesis` real; this container has 0 voices and answers `synthesis-failed` in 0 ms | `voiceWeb.ts` | measured directly | PROVIDER BLOCKER for production-grade TTS: no installed voice here, and Chromium's recogniser posts audio to a Google service (reported by `requiresNetwork`) |
 | Microphone consent | PASS | opened only by a real keypress; no covert capture anywhere | `appShell.ts`, `voiceToWorld.ts` | code path + `verify:5d-wiring` | — |
 | WebGL2 renderer | PASS | one draw list → `threeRuntime.ts` | `threeRuntime.ts` | `verify:5d-gpu`, `verify:5d-app-shell` | — |
+| Cross-renderer parity | PASS | one draw list → WebGL2 and WebGPU | `threeRuntime.ts`, `webgpuRuntime.ts`, `geometry.ts` | `verify:5d-crossrender` — 28 PASS after the BERX_PRIMITIVES refactor: both backends build the same mesh from the one declaration | — |
 | WebGPU renderer | PARTIAL | same draw list → `webgpuRuntime.ts` | `webgpuRuntime.ts` | `verify:5d-crossrender` | Cannot present to a canvas on lavapipe; sessions fall back to WebGL2. `depthAt` is unimplemented there — readback is asynchronous, a pick is not, and an invented depth is worse than none |
 | WebXR session layer | PARTIAL | `navigator.xr` → `requestSession` → `XRWebGLLayer` → XR frame loop → `world.setHeadViews()` → stereo render | `packages/spatial-web/src/xrSession.ts` (new), `appShell.ts` | none in this container | HARDWARE BLOCKER: measured — this Chromium exposes **no `navigator.xr` at all**, so nothing can request a session. The code is real and the flat-world ends (`xrPose.ts`, `setHeadViews`, `options.stereo`) are gate-proven |
 | PHP backend syntax | PASS | — | 61 files under `backend/scripts` + `components/OssnApi` | `php -l` | 0 errors |
@@ -254,3 +255,81 @@ for f in $(find backend/scripts backend/opensource-socialnetwork-master/componen
 every probe settles sixty real frames and the full 5D pipeline is being
 rasterised on the CPU. That is the cost of measuring a real product boot
 rather than a fixture.
+
+## 5. Results, as measured in this pass
+
+| Gate | Result |
+|---|---|
+| `typecheck` | PASS |
+| `verify:static` | PASS |
+| `verify:5d-shared-core` | ALL PASS |
+| `verify:5d-geometry` | PASS — 4 meshes, winding and ring facing verified |
+| `verify:5d-runtime` | PASS — runtime invariants and data→world mapping |
+| `verify:5d-world` | PASS — X/Y/Z + T + R invariants |
+| `verify:5d-picking` *(new)* | ALL PASS — 35/35 presses, ring up on all 35 |
+| `verify:5d-composition` | ALL PASS |
+| `verify:5d-dimensions` | ALL PASS |
+| `verify:5d-wiring` | ALL PASS — tiers, Core, 4 ears gates, 12 live-world gates, 19 voice gates |
+| `verify:5d-crossrender` | ALL PASS — 28 gates |
+| `verify:5d-app-shell` | **76 PASS, 0 FAIL, 2 BLOCKED** on a real product boot (webgl2) |
+| `verify:5d-xr` | ALL PASS with every device path BLOCKED — no headset, no ARKit, no ARCore, no OpenXR runtime |
+| `build:spatial-web` | PASS — `berx-app.js` 532.7 kB, `berx-5d.runtime.js` 522.2 kB, `berx-5d.scenes.js` 21.0 kB |
+| PHP syntax | PASS — 61 files, 0 errors |
+
+The two BLOCKED in the app-shell run are the honest ones described in §3:
+WebGPU cannot present to a canvas on lavapipe, and one affordance is
+occluded by composition (parity holds — an occluded slot draws nothing and
+is not pickable).
+
+## 6. 5D is intact
+
+Nothing in this pass weakened X, Y, Z, T or R. The picking repair made the
+picker agree with what the renderer draws; it did not change where anything
+stands.
+
+- **X/Y/Z** — `verify:5d-world` PASS, `verify:5d-dimensions` PASS.
+- **T** — the temporal cursor still offsets what is drawn without moving the
+  canonical world; `verify:5d-world` covers it and passes.
+- **R** — the relational layout still decides position, gravity and the
+  relation geometry that reaches the draw list; `verify:5d-world` and
+  `verify:5d-composition` both pass, and the live-world gates prove an entity
+  arriving over the socket is placed by the same relational layout (post 7801
+  landed at a real finite position, not at the origin).
+
+## 7. Git
+
+**Branch:** `berx-max-ultra-final`
+
+| commit | what |
+|---|---|
+| `80aac39` | The ears are the camera, in a session that really has them |
+| `8c146c5` | The box the ray crosses is the shape on the screen |
+| `0256041` | The world stays live, is heard from the camera, and can be spoken to |
+| `3e3db01` | One transposed character in the RFC 6455 GUID |
+
+### Files changed
+
+```
+client/packages/spatial/src/geometry.ts             BERX_PRIMITIVES, primitiveHalfExtent, berxDrawnHalfExtent
+client/packages/spatial/src/spatialInteraction.ts   drawn half-extents; forward-cosine depth resolve
+client/packages/spatial/src/actionRing.ts           pickActionSlot takes the drawn depth
+client/packages/spatial-web/src/threeRuntime.ts     meshFor from BERX_PRIMITIVES; cosine into resolve
+client/packages/spatial-web/src/webgpuRuntime.ts    meshFor from BERX_PRIMITIVES
+client/packages/spatial-web/src/webRenderer.ts      depthAt on the backend interface
+client/packages/spatial-web/src/runtimeHost5d.ts    audio listener; slot depth; one depth read per frame
+client/packages/spatial-web/src/appShell.ts         audio, live world, voice, XR, __berxShell
+client/packages/spatial-web/src/xrSession.ts        NEW — the WebXR session layer
+client/packages/spatial-web/src/spatialAudioWeb.ts  (unchanged; now actually constructed)
+client/packages/api/src/realtime.ts                 subscribe(); one reconnect chain; honest backoff reset
+client/packages/scenes/src/realtimeWorld.ts         berxKeepWorldLive
+client/scripts/app-shell.entry.ts                   live, voice, geolocation that is a real fix or nothing
+client/scripts/picking.entry.ts                     NEW
+client/scripts/verify-5d-picking.mjs                NEW
+client/scripts/livewire.entry.ts                    NEW
+client/scripts/lib/websocket.mjs                    NEW — RFC 6455 for the gates
+client/scripts/lib/chromium.mjs                     /dev/shm, so a run cannot eat the disk allowance
+client/scripts/verify-5d-wiring.mjs                 ears, live world, reconnect storm
+client/scripts/verify-5d-app-shell.mjs              ears, socket, live write, voice; teardown that exits
+client/scripts/wiring.entry.ts                      real AudioListener readback
+client/package.json                                 verify:5d-picking in the chain
+```
