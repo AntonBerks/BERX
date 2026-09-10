@@ -10,6 +10,7 @@
  */
 import type { BerxEuler3, BerxVec3 } from './world';
 import {berxTransitionArcOffset, berxTransitionSpec, type BerxTransitionKind, type BerxTransitionSpec} from './transitions';
+import {cameraBasis} from './spatialInteraction';
 export interface BerxSpatialCameraState { position: BerxVec3; target: BerxVec3; rotation: BerxEuler3; fov: number; near: number; far: number; }
 export interface BerxDeviceMotion { pitch:number; roll:number; yaw:number; intensity:number; }
 export interface BerxCameraInput { panX:number; panY:number; depthDelta:number; pinch:number; motion?:BerxDeviceMotion; }
@@ -81,17 +82,29 @@ export class BerxSpatialCamera {
   */
  nudge(alongRight:number,alongUp:number){
   if(alongRight===0&&alongUp===0)return;
-  const f={x:this.state.target.x-this.state.position.x,y:this.state.target.y-this.state.position.y,z:this.state.target.z-this.state.position.z};
-  const fl=Math.hypot(f.x,f.y,f.z);
-  if(fl<1e-6)return;
-  f.x/=fl;f.y/=fl;f.z/=fl;
-  const rRaw={x:f.y*1-f.z*0,y:f.z*0-f.x*1,z:f.x*0-f.y*0};
-  const rl=Math.hypot(rRaw.x,rRaw.y,rRaw.z);
+  /**
+   * THE SHARED BASIS, NOT A HAND-ROLLED ONE.
+   *
+   * This had its own cross product and it crossed the forward axis with
+   * (0,0,1) instead of the world up (0,1,0). For a camera looking down
+   * -z — which is every camera BERX ever puts anywhere — that gives a
+   * right vector of length ZERO, the degeneracy guard fired, and the
+   * drag silently did nothing: measured through the real handlers, a
+   * 120px drag moved the camera 0.000 units against 0.873 expected.
+   *
+   * `cameraBasis` is the one function everything else in this runtime
+   * translates "right on screen" with — the picking ray, keyboard
+   * navigation, the affordance ring. There is no reason for a second
+   * opinion here and the second opinion was wrong. It imports cleanly:
+   * spatialInteraction depends on this file for a TYPE only, so there
+   * is no runtime cycle.
+   */
+  const basis=cameraBasis(this.state);
   /* looking straight up or down: the world up gives no right vector,
      and a silently wrong one would send the drag sideways */
-  if(rl<1e-3)return;
-  const r={x:rRaw.x/rl,y:rRaw.y/rl,z:rRaw.z/rl};
-  const u={x:r.y*f.z-r.z*f.y,y:r.z*f.x-r.x*f.z,z:r.x*f.y-r.y*f.x};
+  if(!basis)return;
+  const {forward:f,right:r,up:u}=basis;
+  void f;
   const dx=r.x*alongRight+u.x*alongUp,dy=r.y*alongRight+u.y*alongUp,dz=r.z*alongRight+u.z*alongUp;
   const m=this.limits.maxDepth;
   this.state.position={x:clamp(this.state.position.x+dx,-m,m),y:clamp(this.state.position.y+dy,-m,m),z:clamp(this.state.position.z+dz,-m,m)};

@@ -46,6 +46,8 @@ import type {
 	BerxTrip,
 	BerxNotification,
 	BerxDatingProfileCard,
+	BerxCreatorProfile,
+	BerxCreatorContent,
 } from '@berx/api/types';
 import {
 	berxWorldMaterial,
@@ -213,16 +215,20 @@ const ownedBy = (objectId: string, ownerGuid: number): BerxSpatialRelation => ({
 
 export function mapUserToSpatial(user: BerxUser, placement: BerxSpatialPlacement = {}): BerxSpatialMapping {
 	const object = baseObject('person', user.guid, user.fullname || user.username, String(user.guid), 0, placement);
+	/* the key /profiles/{username} and the creator endpoints are keyed by */
+	object.sourceName = user.username;
 	return {object, media: surfaceFor(object, user.icon_url), relations: []};
 }
 
 export function mapProfileToSpatial(profile: BerxProfileSummary, placement: BerxSpatialPlacement = {}): BerxSpatialMapping {
 	const object = baseObject('person', profile.guid, profile.fullname || profile.username, String(profile.guid), 0, placement);
+	object.sourceName = profile.username;
 	return {object, media: surfaceFor(object, profile.icon_url), relations: []};
 }
 
 export function mapFriendToSpatial(friend: BerxFriend, placement: BerxSpatialPlacement = {}): BerxSpatialMapping {
 	const object = baseObject('person', friend.guid, friend.fullname || friend.username, String(friend.guid), 0, placement);
+	object.sourceName = friend.username;
 	return {object, media: surfaceFor(object, friend.icon), relations: []};
 }
 
@@ -622,6 +628,62 @@ const NOTIFICATION_LABEL: Readonly<Record<string, string>> = Object.freeze({
  * distance is the relational layout's, from a relation the caller
  * supplies.
  */
+/**
+ * A CREATOR IS A PERSON WITH A BODY OF WORK.
+ *
+ * Not a new kind of entity and not a card with a follower count: the
+ * person is already in the world, and what makes them a creator is that
+ * their work is standing with them. So this maps the WORK — every post,
+ * album, event and experience the creator endpoints return — and relates
+ * each piece to its author by `created-by`, which is the edge the
+ * relational layout already uses to gather things around whoever made
+ * them.
+ *
+ * The profile itself contributes energy rather than an entity: a creator
+ * with a stated category and a bio is a person who has said what they
+ * do, and the world shows that as presence rather than as a badge.
+ *
+ * Nothing is invented. `BerxCreatorContent` carries four real lists and
+ * this maps exactly those; a creator with an empty body of work produces
+ * no entities and no relations, which is the honest picture of one.
+ */
+export function mapCreatorToSpatial(
+	userGuid: number,
+	profile: BerxCreatorProfile,
+	content: BerxCreatorContent,
+): {work: BerxSpatialMapping[]; energy: number} {
+	const personId = berxSpatialId('person', userGuid);
+	const author = (id: string) => ({
+		id: `${id}->${personId}:created-by`,
+		from: id,
+		to: personId,
+		type: 'created-by' as const,
+		strength: 0.35,
+	});
+	const work: BerxSpatialMapping[] = [];
+	for (const post of content.posts) {
+		const object = baseObject('moment', post.guid, post.text, String(post.guid), 0, {});
+		object.createdAt = post.time * 1000;
+		object.updatedAt = post.time * 1000;
+		work.push({object, media: [], relations: [author(object.id)]});
+	}
+	for (const album of content.albums) {
+		const object = baseObject('collection', `album-${album.guid}`, album.title, String(album.guid), 0, {});
+		work.push({object, media: [], relations: [author(object.id)]});
+	}
+	for (const event of content.events) {
+		const object = baseObject('event', event.guid, event.title, String(event.guid), 0, {});
+		work.push({object, media: [], relations: [author(object.id)]});
+	}
+	for (const experience of content.experiences) {
+		const object = baseObject('experience', experience.id, experience.title, String(experience.id), 0, {});
+		work.push({object, media: [], relations: [author(object.id)]});
+	}
+	/* what they have said about what they do, as presence */
+	const said = [profile.category, profile.bio].filter((v) => v !== null && v !== '').length;
+	return {work, energy: Math.min(1, 0.2 * said + Math.min(0.4, work.length * 0.05))};
+}
+
 export function mapDatingProfileToSpatial(card: BerxDatingProfileCard, placement: BerxSpatialPlacement = {}): BerxSpatialMapping {
 	const said = [card.goal, card.bio, card.interests].filter((v) => v !== null && v !== '').length;
 	const object = baseObject('person', `dating-${card.guid}`, card.pseudonym, String(card.guid), 0.3 + said * 0.15, placement);

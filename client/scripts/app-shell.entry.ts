@@ -12,6 +12,8 @@ import type {BerxTokenStorage} from '@berx/core';
 import {
 	berxKeepWorldLive,
 	loadBerxConversation,
+	loadBerxCreator,
+	loadBerxDating,
 	loadBerxWorld,
 	mapEventToSpatial,
 	mapFeedItemToSpatial,
@@ -49,6 +51,9 @@ const storage: BerxTokenStorage = {
    itself. Passing the API root produced /api/v1/api/v1/auth/login. */
 const apiHost = document.documentElement.dataset.berxHost || location.origin;
 const api = new BerxApiClient(apiHost, storage);
+
+/* Whose world this is, once the loader has said so. */
+let viewerGuid: number | undefined;
 
 const gate = document.getElementById('berx-entry') as HTMLFormElement | null;
 const gateError = document.getElementById('berx-entry-error');
@@ -126,7 +131,21 @@ const whereAmI = () => {
 async function enterWorld(): Promise<void> {
 	gate?.remove();
 	await startBerxApp({
-		load: () => loadBerxWorld(api, {feedLimit: 30}),
+		/**
+		 * The load, and who is doing it.
+		 *
+		 * `loadBerxWorld` already answers with the viewer's own entity
+		 * id, because the world has to know whose world it is. Keeping
+		 * the guid here is what lets the region loader tell "I have
+		 * travelled to myself" from "I have travelled to someone else",
+		 * which are two completely different questions to ask a server.
+		 */
+		load: async () => {
+			const loaded = await loadBerxWorld(api, {feedLimit: 30});
+			const guid = Number(loaded.viewerId?.split(':')[1]);
+			if (Number.isFinite(guid)) viewerGuid = guid;
+			return loaded;
+		},
 		/**
 		 * The world stays live.
 		 *
@@ -174,11 +193,42 @@ async function enterWorld(): Promise<void> {
 			   conversation*, not merely standing in one: focusing a moment
 			   without leaving the region would otherwise ask the server
 			   for a conversation with a post's guid. */
-			if (position.region !== 'conversation' || focused?.kind !== 'message') return undefined;
-			const guid = Number(focused.sourceId);
-			/* a message inside a thread has an id, not a person's guid */
-			if (!Number.isFinite(guid) || focused.id.startsWith('message:m')) return undefined;
-			return loadBerxConversation(api, guid);
+			if (position.region === 'conversation' && focused?.kind === 'message') {
+				const guid = Number(focused.sourceId);
+				/* a message inside a thread has an id, not a person's guid */
+				if (!Number.isFinite(guid) || focused.id.startsWith('message:m')) return undefined;
+				return loadBerxConversation(api, guid);
+			}
+			/**
+			 * TRAVELLING TO A PERSON, which is a deliberate act about one
+			 * person and therefore the only honest moment to ask the
+			 * server anything about them.
+			 *
+			 * Their own presence brings THEIR dating world: their own
+			 * life, nobody else's, and never at boot — a session that
+			 * pulled other people's dating profiles into every world
+			 * would have decided on their behalf that being
+			 * discoverable and being displayed are the same thing.
+			 *
+			 * Somebody else's presence brings what they have MADE. A
+			 * creator is a person with a body of work, so the work
+			 * stands with them, related by `created-by`. A person who is
+			 * not a creator answers 404, which arrives as a named
+			 * failure and leaves the world exactly as it was — the truth
+			 * about them, rather than an empty state pretending to be
+			 * one.
+			 */
+			if (position.region === 'person' && focused?.kind === 'person') {
+				const guid = Number(focused.sourceId);
+				if (!Number.isFinite(guid)) return undefined;
+				if (viewerGuid !== undefined && guid === viewerGuid) return loadBerxDating(api);
+				/* the creator endpoints are keyed by username, and the
+				   person mappers carry the one the server sent */
+				const username = focused.sourceName;
+				if (!username) return undefined;
+				return loadBerxCreator(api, username, guid);
+			}
+			return undefined;
 		},
 		/**
 		 * Publishing creates a real post and reads it back.

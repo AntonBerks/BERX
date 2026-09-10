@@ -32,10 +32,20 @@ const gate = (name, ok, detail) => {
 const browser = await launchChromium();
 try {
 	const context = await browser.newContext({viewport: {width: 420, height: 900}, deviceScaleFactor: 2});
-	const pageErrors = [];
+	/**
+	 * TWO KINDS OF BAD NEWS, KEPT APART.
+	 *
+	 * An uncaught exception is always a defect. A console error is not:
+	 * this gate deliberately turns the network off, and a request that
+	 * then fails logs `ERR_INTERNET_DISCONNECTED` — which is the
+	 * arrangement working, not the page breaking. Lumping them together
+	 * failed the run for doing exactly what it was told.
+	 */
+	const thrown = [];
+	const logged = [];
 	const page = await context.newPage();
-	page.on('pageerror', (e) => pageErrors.push(e.message));
-	page.on('console', (m) => { if (m.type() === 'error') pageErrors.push(`console: ${m.text()}`); });
+	page.on('pageerror', (e) => thrown.push(e.message));
+	page.on('console', (m) => { if (m.type() === 'error') logged.push(m.text()); });
 
 	await page.goto(base, {waitUntil: 'load'});
 	await page.waitForSelector('#berx-entry:not([hidden])');
@@ -135,6 +145,10 @@ try {
 	   the fetches a SERVICE WORKER makes, and the whole question here is
 	   what the worker does when its own `fetch(request)` fails. This turns
 	   the context's network off at the stack, the way a lift does. */
+	/* everything up to here happened with a network, and nothing may
+	   have gone wrong in it */
+	const onlineThrown = [...thrown];
+	const onlineLogged = [...logged];
 	await context.setOffline(true);
 	let reloaded = true;
 	try {
@@ -164,9 +178,25 @@ try {
 		`${offline.objects} entities. There is no world without the server, and a remembered feed shown as a live one would be the exact fake data this runtime refuses.`
 		+ ` The session is ${offline.hasCanvas ? 'holding its canvas' : 'back at sign-in'} and says: "${(offline.said || '').slice(0, 120)}"`);
 
-	gate('no page or console errors in any of that',
-		pageErrors.length === 0,
-		pageErrors.length === 0 ? 'clean' : pageErrors.slice(0, 4).join(' | '));
+	gate('nothing went wrong while there was a network',
+		onlineThrown.length === 0 && onlineLogged.length === 0,
+		onlineThrown.length === 0 && onlineLogged.length === 0
+			? 'clean through the manifest, the registration, a signed-in world and a cache read-back'
+			: [...onlineThrown, ...onlineLogged].slice(0, 4).join(' | '));
+
+	/* And offline: the network being unreachable is the arrangement.
+	   An UNCAUGHT EXCEPTION is not, and neither is any console error
+	   that is about something other than the network. */
+	const offlineLogged = logged.slice(onlineLogged.length);
+	const offlineThrown = thrown.slice(onlineThrown.length);
+	const networky = (t) => /ERR_INTERNET_DISCONNECTED|ERR_NETWORK|ERR_NAME_NOT_RESOLVED|Failed to load resource|Failed to fetch|NetworkError/i.test(t);
+	gate('and offline it fails at the network and nowhere else',
+		offlineThrown.length === 0 && offlineLogged.every(networky),
+		offlineThrown.length > 0
+			? `it threw: ${offlineThrown.slice(0, 3).join(' | ')}`
+			: `${offlineLogged.length} console error(s), every one of them the network being unreachable`
+			+ `${offlineLogged.length ? ` — ${offlineLogged.slice(0, 2).join(' | ')}` : ''}.`
+			+ ' A page that threw with no network would be a page that assumes one, which is the whole thing an offline shell is for');
 
 	await context.close();
 } finally {

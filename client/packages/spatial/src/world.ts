@@ -88,6 +88,18 @@ export interface BerxSpatialObject {
    */
   label?: string;
   sourceId?: string;
+  /**
+   * The server's own NAME for this row, where it has one that is not
+   * the id — a person's username.
+   *
+   * Kept because some of BERX's endpoints are keyed by it rather than
+   * by guid: `/profiles/{username}` and the creator endpoints. Without
+   * it, travelling to a person and asking what they have made means
+   * either a second round trip to translate a guid the client already
+   * had a name for, or a guess. Optional, and absent for everything
+   * whose only key is its guid.
+   */
+  sourceName?: string;
   parentId?: string;
   transform: BerxSpatialTransform;
   material: BerxSpatialMaterialState;

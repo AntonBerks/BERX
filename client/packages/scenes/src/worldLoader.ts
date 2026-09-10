@@ -17,6 +17,8 @@ import type {BerxWorldIngest} from '@berx/spatial';
 import {
 	berxSpatialId,
 	mapCollectionToSpatial,
+	mapCreatorToSpatial,
+	mapDatingProfileToSpatial,
 	mapStoryToSpatial,
 	mapMemoryToSpatial,
 	mapTripToSpatial,
@@ -219,6 +221,75 @@ export const berxPersonId = (guid: number) => berxSpatialId('person', guid);
  * Entities already in the world are updated rather than duplicated —
  * the person you are talking to is the same person the feed put there.
  */
+/**
+ * WHAT SOMEONE HAS MADE, brought into the world beside them.
+ *
+ * Read when a viewer travels TO a person, for the same reason a
+ * conversation is read when they travel to one: it is a deliberate act
+ * about one person, and reading every account's creator content at boot
+ * would be reading the whole site to show one world.
+ *
+ * A person who is not a creator is not an error and not an empty state.
+ * `getCreatorProfile` answers 404 for them, which arrives here as a
+ * named failure the shell reports and the world simply does not gain
+ * anything — which is the truth about them.
+ */
+export async function loadBerxCreator(
+	api: BerxApiClient,
+	username: string,
+	userGuid: number,
+	viewerId?: string,
+): Promise<BerxWorldLoad> {
+	const entries: BerxWorldIngest[] = [];
+	const failures: BerxWorldLoadFailure[] = [];
+	try {
+		const [profile, content] = await Promise.all([
+			api.getCreatorProfile(username),
+			api.getCreatorContent(username),
+		]);
+		const {work} = mapCreatorToSpatial(userGuid, profile, content);
+		for (const mapped of work) {
+			entries.push({object: mapped.object, relations: mapped.relations, media: mapped.media});
+		}
+	} catch (error) {
+		failures.push({source: `creator:${username}`, message: error instanceof Error ? error.message : String(error)});
+	}
+	return {entries, viewerId, failures};
+}
+
+/**
+ * THE VIEWER'S OWN DATING WORLD, and only ever theirs.
+ *
+ * Read when someone travels to their OWN presence — the one region that
+ * is their own life rather than somebody else's — and never at boot.
+ * That is not a performance choice: a world that pulled other people's
+ * dating profiles into every session would have decided, on their
+ * behalf, that being discoverable and being displayed are the same
+ * thing.
+ *
+ * Each profile arrives as its own pseudonymous entity, never as
+ * `person:<guid>`: `mapDatingProfileToSpatial` builds `person:dating-N`
+ * precisely so the public identity and the dating one stay the two
+ * separate things the privacy model keeps them as.
+ */
+export async function loadBerxDating(
+	api: BerxApiClient,
+	viewerId?: string,
+): Promise<BerxWorldLoad> {
+	const entries: BerxWorldIngest[] = [];
+	const failures: BerxWorldLoadFailure[] = [];
+	try {
+		const {profiles} = await api.datingDiscover(12, 0);
+		for (const card of profiles) {
+			const mapped = mapDatingProfileToSpatial(card);
+			entries.push({object: mapped.object, relations: mapped.relations, media: mapped.media});
+		}
+	} catch (error) {
+		failures.push({source: 'datingDiscover', message: error instanceof Error ? error.message : String(error)});
+	}
+	return {entries, viewerId, failures};
+}
+
 export async function loadBerxConversation(
 	api: BerxApiClient,
 	otherGuid: number,
