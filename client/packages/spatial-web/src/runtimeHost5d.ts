@@ -417,6 +417,9 @@ export function createBerx5DWebHost(options: Berx5DWebHostOptions = {}): Berx5DW
 			core = berxCoreStep(core, dt);
 			const scene = world ? world.frame(dt) : runtime.frame(dt);
 			listen(scene);
+			/* a new frame: whatever depth was read from the last one is
+			   no longer what is on the screen */
+			framesDrawn++;
 			renderer.render(scene, {
 				maxObjects: quality.maxObjects,
 				ambientMotion: quality.ambientMotion,
@@ -508,6 +511,33 @@ export function createBerx5DWebHost(options: Berx5DWebHostOptions = {}): Berx5DW
 	 * highlights is the slot a press activates. Two copies of this is
 	 * how a highlight and a hit-test end up one pixel apart.
 	 */
+	/**
+	 * ONE G-BUFFER READ PER FRAME, not one per pointer event.
+	 *
+	 * `depthAt` is a `readPixels`, and a readPixels is a pipeline
+	 * flush — cheap once, ruinous sixty times a second. A pointer
+	 * moving across the world produces a move event per frame at best
+	 * and several per frame at worst, and every one of them wants to
+	 * know what is drawn under it.
+	 *
+	 * The depth of a pixel cannot change without a new frame, so a read
+	 * is reused for as long as the frame it came from is the one on the
+	 * screen, and only re-taken when the pointer has actually moved to
+	 * a different pixel. A press always reads for itself: it is one
+	 * event, it is rare, and it is the one that has to be right.
+	 */
+	let depthCache: {frame: number; x: number; y: number; value: number | undefined} | undefined;
+	let framesDrawn = 0;
+	const drawnDepthAt = (x: number, y: number): number | undefined => {
+		const px = Math.round(x), py = Math.round(y);
+		if (depthCache && depthCache.frame === framesDrawn && depthCache.x === px && depthCache.y === py) {
+			return depthCache.value;
+		}
+		const value = renderer.depthAt?.(px, py);
+		depthCache = {frame: framesDrawn, x: px, y: py, value};
+		return value;
+	};
+
 	const slotsUnder = (e: {clientX: number; clientY: number}) => {
 		const rect = canvas.getBoundingClientRect();
 		const dpr = canvas.width / Math.max(1, rect.width);
@@ -522,7 +552,7 @@ export function createBerx5DWebHost(options: Berx5DWebHostOptions = {}): Berx5DW
 			/* the same depth the entity pick resolves against, so a
 			   highlight and a press cannot disagree with each other or
 			   with what is drawn */
-			over: pickActionSlot(renderer.actionSlots, frameState.camera, ray.direction, aspect, renderer.depthAt?.(x, y)),
+			over: pickActionSlot(renderer.actionSlots, frameState.camera, ray.direction, aspect, drawnDepthAt(x, y)),
 			near: berxNearActionSlots(renderer.actionSlots, frameState.camera, ray.direction, aspect),
 		};
 	};
@@ -577,7 +607,7 @@ export function createBerx5DWebHost(options: Berx5DWebHostOptions = {}): Berx5DW
 		 * press aimed at an entity standing in front of a neighbouring
 		 * ring activated the ring instead.
 		 */
-		const drawnDepth = renderer.depthAt?.(x, y);
+		const drawnDepth = drawnDepthAt(x, y);
 		const slot = ray && world ? pickActionSlot(renderer.actionSlots, frameState.camera, ray.direction, canvas.width / canvas.height, drawnDepth) : undefined;
 		if (slot && world) {
 			activate(slot.affordance.id, slot.affordance.label);

@@ -84,7 +84,7 @@ function decode(buffer) {
 export function attachBerxTestSocket(server, {path: socketPath = '/socket', protocol, onOpen, onMessage} = {}) {
 	const connections = new Set();
 
-	server.on('upgrade', (req, socket) => {
+	server.on('upgrade', (req, socket, head) => {
 		const url = (req.url ?? '/').split('?')[0];
 		const key = req.headers['sec-websocket-key'];
 		if (url !== socketPath || !key) {
@@ -111,12 +111,29 @@ export function attachBerxTestSocket(server, {path: socketPath = '/socket', prot
 		connections.add(connection);
 		onOpen?.(connection);
 
-		let pending = Buffer.alloc(0);
-		socket.on('data', (chunk) => {
-			pending = Buffer.concat([pending, chunk]);
+		/**
+		 * THE BYTES NODE ALREADY READ.
+		 *
+		 * The HTTP parser stops at the end of the request headers, and
+		 * anything the client sent immediately after them is handed over
+		 * in `head` — it is NOT re-delivered as a 'data' event. A client
+		 * that writes its first frame the instant the socket opens, which
+		 * is exactly what BerxRealtimeClient does with its auth frame,
+		 * therefore vanishes into a buffer nobody read: the server never
+		 * answers, the client never resolves, and the session sits there
+		 * looking connected. Dropping `head` is the classic way to write
+		 * a WebSocket server that works on a slow network and hangs on
+		 * localhost.
+		 */
+		let pending = head && head.length ? Buffer.from(head) : Buffer.alloc(0);
+		const consume = () => {
 			const {frames, consumed} = decode(pending);
 			pending = pending.subarray(consumed);
-			for (const frame of frames) {
+			return frames;
+		};
+		socket.on('data', (chunk) => {
+			pending = Buffer.concat([pending, chunk]);
+			for (const frame of consume()) {
 				if (frame.opcode === 0x8) {
 					connections.delete(connection);
 					socket.end();
@@ -132,6 +149,17 @@ export function attachBerxTestSocket(server, {path: socketPath = '/socket', prot
 				onMessage?.(connection, message);
 			}
 		});
+		/* whatever arrived with the handshake, read before anything else */
+		if (pending.length) {
+			for (const frame of consume()) {
+				if (frame.opcode !== 0x1) continue;
+				try {
+					onMessage?.(connection, JSON.parse(frame.text));
+				} catch {
+					/* not JSON: nothing this protocol sends */
+				}
+			}
+		}
 		const forget = () => connections.delete(connection);
 		socket.on('close', forget);
 		socket.on('error', forget);

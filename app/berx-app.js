@@ -500,6 +500,9 @@ var init_composition = __esm({
 });
 
 // packages/spatial/src/voice/BerxVoiceAssistant.ts
+function berxVoiceProsody(emotion) {
+  return PROSODY[emotion];
+}
 var BERX_VOICE_RATE, BERX_VOICE_PITCH, BERX_VOICE_PAUSE_AFTER_QUESTION, PROSODY, ANSWER_TO_TONE;
 var init_BerxVoiceAssistant = __esm({
   "packages/spatial/src/voice/BerxVoiceAssistant.ts"() {
@@ -1236,11 +1239,11 @@ function berxFrameTheWorld(frame, width, height, target = (BERX_FRAMING_MIN + BE
       o.transform.position.z - centre.z
     ) + berxBoundingRadius(o));
   }
-  const at = (distance2) => {
+  const at = (distance3) => {
     const position = {
-      x: centre.x + dx * distance2,
-      y: centre.y + dy * distance2,
-      z: centre.z + dz * distance2
+      x: centre.x + dx * distance3,
+      y: centre.y + dy * distance3,
+      z: centre.z + dz * distance3
     };
     return {
       position,
@@ -1387,13 +1390,13 @@ var init_renderPipeline = __esm({
 });
 
 // packages/spatial/src/stability.ts
-function berxStableLod(distance2, threshold, previous) {
-  if (previous === void 0) return distance2 > threshold ? 1 : 0;
-  if (previous === 1) return distance2 > threshold - BERX_LOD_HYSTERESIS ? 1 : 0;
-  return distance2 > threshold + BERX_LOD_HYSTERESIS ? 1 : 0;
+function berxStableLod(distance3, threshold, previous) {
+  if (previous === void 0) return distance3 > threshold ? 1 : 0;
+  if (previous === 1) return distance3 > threshold - BERX_LOD_HYSTERESIS ? 1 : 0;
+  return distance3 > threshold + BERX_LOD_HYSTERESIS ? 1 : 0;
 }
-function berxBudgetDistance(distance2, wasDrawn) {
-  return wasDrawn ? distance2 - BERX_BUDGET_HYSTERESIS : distance2;
+function berxBudgetDistance(distance3, wasDrawn) {
+  return wasDrawn ? distance3 - BERX_BUDGET_HYSTERESIS : distance3;
 }
 function berxRememberFrame(items) {
   const lod = {};
@@ -1411,10 +1414,44 @@ var init_stability = __esm({
 });
 
 // packages/spatial/src/voice/berxWorldState.ts
-var BERX_NO_PERMISSIONS;
+function distance(a, b) {
+  return Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z);
+}
+function berxSituation(input) {
+  const visible = input.objects.filter((o) => o.visible).map((o) => ({
+    id: o.id,
+    kind: o.kind,
+    label: o.label,
+    energy: o.energy,
+    distanceM: distance(input.eye, o.transform.position)
+  })).sort((a, b) => a.distanceM - b.distanceM);
+  const fresh = input.location && input.nowMs - input.location.atMs <= 10 * 6e4 ? input.location : void 0;
+  return {
+    nowMs: input.nowMs,
+    cursor: { ...input.cursor },
+    location: fresh,
+    region: input.region,
+    focusId: input.focusId,
+    visible,
+    conversationId: input.conversationId,
+    viewerId: input.viewerId,
+    recent: (input.recent ?? []).slice(-BERX_RECENT_ACTIONS),
+    allowed: input.allowed ?? BERX_NO_PERMISSIONS
+  };
+}
+function berxHere(state) {
+  if (!state.focusId) return void 0;
+  return state.visible.find((v) => v.id === state.focusId);
+}
+function berxNth(state, n) {
+  if (!Number.isInteger(n) || n < 1) return void 0;
+  return state.visible[n - 1];
+}
+var BERX_RECENT_ACTIONS, BERX_NO_PERMISSIONS;
 var init_berxWorldState = __esm({
   "packages/spatial/src/voice/berxWorldState.ts"() {
     "use strict";
+    BERX_RECENT_ACTIONS = 12;
     BERX_NO_PERMISSIONS = Object.freeze({
       microphone: false,
       location: false,
@@ -1425,7 +1462,46 @@ var init_berxWorldState = __esm({
 });
 
 // packages/spatial/src/voice/berxSpatialMemory.ts
-var BERX_EMPTY_MEMORY;
+function berxShow(memory, entities) {
+  const turn = memory.turn + 1;
+  return {
+    ...memory,
+    turn,
+    shown: entities.map((e) => ({ id: e.id, label: e.label, turn })),
+    /* A dismissal was about the last set. Carrying it into a new one
+       would mean a place refused for tonight is refused forever, which
+       is a memory nobody asked for. */
+    dismissed: [],
+    selected: void 0
+  };
+}
+function berxDismiss(memory, id) {
+  if (!memory.shown.some((s) => s.id === id)) return memory;
+  return {
+    ...memory,
+    shown: memory.shown.filter((s) => s.id !== id),
+    dismissed: [...memory.dismissed, id],
+    selected: memory.selected === id ? void 0 : memory.selected
+  };
+}
+function berxSelect(memory, id) {
+  if (!memory.shown.some((s) => s.id === id)) return memory;
+  return { ...memory, selected: id };
+}
+function berxAsked(memory, text) {
+  return { ...memory, asked: [...memory.asked, text].slice(-BERX_ASKED_KEPT) };
+}
+function berxRequested(memory, kind) {
+  if (kind === "refine" || kind === "unknown" || kind === "dismiss" || kind === "open" || kind === "back") {
+    return memory;
+  }
+  return { ...memory, requested: kind };
+}
+function berxNthShown(memory, n) {
+  if (!Number.isInteger(n) || n < 1) return void 0;
+  return memory.shown[n - 1];
+}
+var BERX_EMPTY_MEMORY, BERX_ASKED_KEPT;
 var init_berxSpatialMemory = __esm({
   "packages/spatial/src/voice/berxSpatialMemory.ts"() {
     "use strict";
@@ -1435,11 +1511,85 @@ var init_berxSpatialMemory = __esm({
       asked: [],
       turn: 0
     });
+    BERX_ASKED_KEPT = 6;
   }
 });
 
 // packages/spatial/src/voice/berxUtterance.ts
-var SUBJECT, TIME, ACT;
+function berxUtteranceFeatures(utterance) {
+  const text = utterance.trim().toLowerCase();
+  const matched = [];
+  const take = (kind, hit) => {
+    if (hit === void 0) return void 0;
+    matched.push(`${kind}:${hit}`);
+    return kind;
+  };
+  let act;
+  const identify = stem(text, ACT.identify);
+  if (identify) act = take("identify", identify);
+  else {
+    for (const kind of ["remove", "back", "refine", "go", "show", "find"]) {
+      const hit = kind === "back" || kind === "go" ? word(text, ACT[kind]) : stem(text, ACT[kind]);
+      if (hit) {
+        act = take(kind, hit);
+        break;
+      }
+    }
+  }
+  let subject;
+  for (const kind of ["events", "places", "content", "people"]) {
+    const hit = stem(text, SUBJECT[kind]);
+    if (hit) {
+      subject = take(kind, hit);
+      break;
+    }
+  }
+  let time;
+  for (const kind of ["now", "tonight", "tomorrow", "past", "today"]) {
+    const hit = word(text, TIME[kind]) ?? TIME[kind].find((w) => w.endsWith(" ") && text.includes(w));
+    if (hit) {
+      time = take(kind, hit);
+      break;
+    }
+  }
+  const pointingWord = word(text, POINTING);
+  if (pointingWord) matched.push(`pointing:${pointingWord}`);
+  const restlessWord = stem(text, RESTLESS);
+  if (restlessWord) matched.push(`restless:${restlessWord}`);
+  const openWord = stem(text, OPEN_NOW);
+  if (openWord) matched.push(`open-now:${openWord}`);
+  return {
+    subject,
+    time,
+    act,
+    pointing: pointingWord !== void 0,
+    restless: restlessWord !== void 0,
+    openNow: openWord !== void 0,
+    matched
+  };
+}
+function berxFeatureConfidence(f) {
+  const signals = [f.subject, f.time, f.act].filter(Boolean).length + (f.pointing ? 1 : 0) + (f.restless ? 1 : 0);
+  if (signals === 0) return 0;
+  if (signals === 1) return 0.5;
+  if (signals === 2) return 0.75;
+  return 0.9;
+}
+function berxUtteranceAlternatives(f) {
+  const readings = [];
+  if (f.subject === "places") readings.push({ kind: "find-places", from: "subject" });
+  if (f.subject === "events") readings.push({ kind: "find-events", from: "subject" });
+  if (f.subject === "people") readings.push({ kind: "find-people", from: "subject" });
+  if (f.subject === "content") readings.push({ kind: "discover", from: "subject" });
+  if (f.time === "today" || f.time === "tonight" || f.time === "tomorrow") {
+    readings.push({ kind: "find-events", from: "time" });
+  }
+  if (f.time === "now") readings.push({ kind: "now-nearby", from: "time" });
+  if (f.restless) readings.push({ kind: "discover", from: "mood" });
+  const seen = /* @__PURE__ */ new Set();
+  return readings.filter((r) => seen.has(r.kind) ? false : (seen.add(r.kind), true));
+}
+var SUBJECT, TIME, ACT, POINTING, RESTLESS, OPEN_NOW, stem, word;
 var init_berxUtterance = __esm({
   "packages/spatial/src/voice/berxUtterance.ts"() {
     "use strict";
@@ -1530,15 +1680,229 @@ var init_berxUtterance = __esm({
       identify: ["\u0447\u0442\u043E \u044D\u0442\u043E", "\u043A\u0442\u043E \u044D\u0442\u043E", "\u0447\u0442\u043E \u0437\u0430", "\u043A\u0442\u043E \u0442\u0430\u043A\u043E\u0439", "\u0440\u0430\u0441\u0441\u043A\u0430\u0436\u0438 \u043F\u0440\u043E", "what is this", "who is this"],
       refine: ["\u043D\u0435 \u0442\u0430\u043A", "\u0441\u043B\u0438\u0448\u043A\u043E\u043C", "\u0434\u0440\u0443\u0433\u043E\u0435", "\u0434\u0440\u0443\u0433\u0438\u0435", "\u0435\u0449\u0451 \u0432\u0430\u0440\u0438\u0430\u043D\u0442", "something else", "too "]
     });
+    POINTING = [
+      "\u044D\u0442\u043E",
+      "\u044D\u0442\u043E\u0442",
+      "\u044D\u0442\u0430",
+      "\u044D\u0442\u0438",
+      "\u0442\u043E\u0442",
+      "\u0442\u0430",
+      "\u0442\u0435",
+      "\u0437\u0434\u0435\u0441\u044C",
+      "\u0442\u0443\u0442",
+      "\u0442\u0430\u043C",
+      "\u0442\u0443\u0434\u0430",
+      "\u0441\u044E\u0434\u0430",
+      "this",
+      "that",
+      "these",
+      "here",
+      "there"
+    ];
+    RESTLESS = [
+      "\u0441\u043A\u0443\u0447\u043D\u043E",
+      "\u043D\u0435\u0447\u0435\u0433\u043E \u0434\u0435\u043B\u0430\u0442\u044C",
+      "\u0445\u043E\u0447\u0443 \u043A\u0443\u0434\u0430-\u043D\u0438\u0431\u0443\u0434\u044C",
+      "\u0445\u043E\u0447\u0443 \u0432\u044B\u0431\u0440\u0430\u0442\u044C\u0441\u044F",
+      "\u0447\u0435\u043C \u0437\u0430\u043D\u044F\u0442\u044C\u0441\u044F",
+      "bored",
+      "nothing to do"
+    ];
+    OPEN_NOW = ["\u043E\u0442\u043A\u0440\u044B\u0442", "\u0440\u0430\u0431\u043E\u0442\u0430", "\u0433\u0434\u0435 \u0436\u0438\u0437\u043D\u044C", "\u0433\u0434\u0435 \u043B\u044E\u0434\u0438", "\u043E\u0436\u0438\u0432\u043B", "open now", "lively"];
+    stem = (text, list) => list.find((w) => text.includes(w));
+    word = (text, list) => {
+      const padded = ` ${text.replace(/[.,!?;:]/g, " ")} `;
+      return list.find((w) => padded.includes(` ${w} `));
+    };
   }
 });
 
 // packages/spatial/src/voice/berxIntent.ts
-var UNKNOWN, BERX_VOICE_CAPABILITY;
+function berxReadIntent(utterance, state, memory) {
+  const text = utterance.trim().toLowerCase();
+  if (text === "") return UNKNOWN;
+  const matched = [];
+  const needs = [];
+  let objectId;
+  let referenced = false;
+  const ordinalWord = Object.keys(ORDINALS).find((w) => text.includes(w));
+  if (ordinalWord) {
+    referenced = true;
+    matched.push(ordinalWord);
+    const nth = berxNthShown(memory, ORDINALS[ordinalWord]) ?? berxNth(state, ORDINALS[ordinalWord]);
+    objectId = nth?.id;
+  }
+  const hereWord = !objectId ? hasWord(text, HERE_WORDS) : void 0;
+  if (hereWord) {
+    referenced = true;
+    matched.push(hereWord);
+    objectId = berxHere(state)?.id;
+  }
+  const thereWord = !objectId ? hasWord(text, THERE_WORDS) : void 0;
+  if (thereWord) {
+    referenced = true;
+    matched.push(thereWord);
+    objectId = memory.selected ?? state.focusId;
+  }
+  if (referenced && !objectId) needs.push("referent");
+  const openNowWord = has(text, OPEN_NOW_WORDS);
+  if (openNowWord) matched.push(openNowWord);
+  const decide = (kind, word2, confidence) => {
+    matched.push(word2);
+    if (kind === "now-nearby" || kind === "find-places" && Boolean(openNowWord)) {
+      if (!state.allowed.location) needs.push("permission");
+      else if (!state.location) needs.push("location");
+    }
+    const askable = kind === "find-places" || kind === "find-events" || kind === "find-people" || kind === "discover" || kind === "now-nearby";
+    const also = askable ? berxUtteranceAlternatives(berxUtteranceFeatures(text)).filter((r) => r.from === "time" && r.kind !== kind).map((r) => r.kind) : [];
+    return {
+      kind,
+      objectId,
+      query: kind === "find-places" || kind === "find-events" || kind === "find-people" ? text : void 0,
+      openNow: Boolean(openNowWord) || void 0,
+      needs,
+      confidence,
+      matched,
+      ...also.length > 0 ? { alternatives: also } : {}
+    };
+  };
+  const dismiss = has(text, DISMISS_WORDS);
+  if (dismiss) return decide("dismiss", dismiss, objectId ? 0.9 : 0.5);
+  const back = has(text, BACK_WORDS);
+  if (back) return decide("back", back, 0.85);
+  const open = has(text, OPEN_WORDS);
+  if (open) return decide("open", open, objectId ? 0.9 : 0.5);
+  const now = has(text, NOW_WORDS);
+  if (now) return decide("now-nearby", now, 0.9);
+  const pointingFeatures = berxUtteranceFeatures(text);
+  if (referenced && objectId && text.split(/\s+/).length <= 4 && !(pointingFeatures.subject !== void 0 && pointingFeatures.act !== "identify")) {
+    return { kind: "open", objectId, needs, confidence: 0.7, matched };
+  }
+  const restless = has(text, RESTLESS_WORDS);
+  if (restless) {
+    const restlessWhen = berxUtteranceFeatures(text).time;
+    if (restlessWhen === "today" || restlessWhen === "tonight" || restlessWhen === "tomorrow") {
+      return decide("find-events", `${restless}+${restlessWhen}`, 0.75);
+    }
+    return decide("discover", restless, 0.6);
+  }
+  const refine = has(text, REFINE_WORDS);
+  if (refine && (memory.shown.length > 0 || memory.requested !== void 0)) {
+    const read = decide("refine", refine, 0.75);
+    return memory.requested ? { ...read, refining: memory.requested } : read;
+  }
+  const place = has(text, PLACE_WORDS);
+  if (place) return decide("find-places", place, 0.85);
+  const event = has(text, EVENT_WORDS);
+  if (event) return decide("find-events", event, 0.85);
+  const people = has(text, PEOPLE_WORDS);
+  if (people) return decide("find-people", people, 0.8);
+  const discover = has(text, DISCOVER_WORDS);
+  if (discover) {
+    const timed = berxUtteranceFeatures(text).time;
+    if (timed === "today" || timed === "tonight" || timed === "tomorrow") {
+      return decide("find-events", `${discover}+${timed}`, 0.8);
+    }
+    return decide("discover", discover, 0.6);
+  }
+  const f = berxUtteranceFeatures(text);
+  const fromFeatures = berxIntentFromFeatures(f, objectId !== void 0);
+  if (fromFeatures) {
+    const read = decide(fromFeatures, f.matched.join(" "), berxFeatureConfidence(f));
+    const also = berxUtteranceAlternatives(f).map((r) => r.kind).filter((k) => k !== read.kind);
+    return also.length > 0 ? { ...read, alternatives: also } : read;
+  }
+  if (needs.length > 0 || matched.length > 0) {
+    return { kind: "unknown", objectId, needs, confidence: 0, matched };
+  }
+  return UNKNOWN;
+}
+function berxIntentFromFeatures(f, hasReferent) {
+  if (f.act === "identify") return hasReferent || f.pointing ? "open" : void 0;
+  if (f.act === "remove") return "dismiss";
+  if (f.act === "back") return "back";
+  if (f.act === "refine") return "refine";
+  if (f.act === "go" && (hasReferent || f.pointing)) return "open";
+  if (f.subject === "people") return "find-people";
+  if (f.subject === "places") return "find-places";
+  if (f.subject === "events") return "find-events";
+  if (f.subject === "content") return "discover";
+  if (f.time === "tonight" || f.time === "today" || f.time === "tomorrow") return "find-events";
+  if (f.time === "now") return "now-nearby";
+  if (f.restless) return "discover";
+  if (f.act === "show" || f.act === "find") return "discover";
+  return void 0;
+}
+var UNKNOWN, NOW_WORDS, RESTLESS_WORDS, PLACE_WORDS, EVENT_WORDS, PEOPLE_WORDS, DISCOVER_WORDS, OPEN_WORDS, DISMISS_WORDS, REFINE_WORDS, BACK_WORDS, OPEN_NOW_WORDS, HERE_WORDS, THERE_WORDS, ORDINALS, has, hasWord, BERX_VOICE_CAPABILITY;
 var init_berxIntent = __esm({
   "packages/spatial/src/voice/berxIntent.ts"() {
     "use strict";
+    init_berxUtterance();
+    init_berxWorldState();
+    init_berxSpatialMemory();
     UNKNOWN = Object.freeze({ kind: "unknown", needs: [], confidence: 0, matched: [] });
+    NOW_WORDS = [
+      "\u0447\u0442\u043E \u043F\u0440\u043E\u0438\u0441\u0445\u043E\u0434\u0438\u0442",
+      "\u0447\u0442\u043E \u0441\u0435\u0439\u0447\u0430\u0441",
+      "\u0447\u0442\u043E \u0440\u044F\u0434\u043E\u043C",
+      "\u0447\u0442\u043E \u0432\u043E\u043A\u0440\u0443\u0433",
+      "\u043A\u0442\u043E \u0440\u044F\u0434\u043E\u043C",
+      "\u0447\u0442\u043E \u0442\u0443\u0442 \u043F\u0440\u043E\u0438\u0441\u0445\u043E\u0434\u0438\u0442",
+      "\u0447\u0442\u043E \u0437\u0434\u0435\u0441\u044C \u043F\u0440\u043E\u0438\u0441\u0445\u043E\u0434\u0438\u0442",
+      "what's happening",
+      "what is happening",
+      "around me",
+      "near me",
+      "right now"
+    ];
+    RESTLESS_WORDS = [
+      "\u0441\u043A\u0443\u0447\u043D\u043E",
+      "\u043C\u043D\u0435 \u0441\u043A\u0443\u0447\u043D\u043E",
+      "\u043D\u0435\u0447\u0435\u0433\u043E \u0434\u0435\u043B\u0430\u0442\u044C",
+      "\u0445\u043E\u0447\u0443 \u043A\u0443\u0434\u0430-\u043D\u0438\u0431\u0443\u0434\u044C",
+      "\u0445\u043E\u0447\u0443 \u0432\u044B\u0431\u0440\u0430\u0442\u044C\u0441\u044F",
+      "\u043A\u0443\u0434\u0430 \u0431\u044B \u0441\u0445\u043E\u0434\u0438\u0442\u044C",
+      "\u043A\u0443\u0434\u0430 \u043F\u043E\u0439\u0442\u0438",
+      "\u0447\u0435\u043C \u0437\u0430\u043D\u044F\u0442\u044C\u0441\u044F",
+      "bored",
+      "nothing to do",
+      "somewhere to go"
+    ];
+    PLACE_WORDS = ["\u043C\u0435\u0441\u0442", "\u043C\u0435\u0441\u0442\u043E", "\u0437\u0430\u0432\u0435\u0434\u0435\u043D\u0438", "\u0440\u0435\u0441\u0442\u043E\u0440\u0430\u043D", "\u0431\u0430\u0440", "\u043A\u0430\u0444\u0435", "\u043F\u043E\u0443\u0436\u0438\u043D\u0430\u0442\u044C", "\u043F\u043E\u0435\u0441\u0442\u044C", "\u0432\u044B\u043F\u0438\u0442\u044C", "place", "restaurant", "bar", "cafe", "eat", "dinner"];
+    EVENT_WORDS = ["\u0441\u043E\u0431\u044B\u0442\u0438", "\u043C\u0435\u0440\u043E\u043F\u0440\u0438\u044F\u0442\u0438", "\u043A\u043E\u043D\u0446\u0435\u0440\u0442", "\u0432\u044B\u0441\u0442\u0430\u0432\u043A", "\u0447\u0442\u043E \u043D\u0430\u0447\u0438\u043D\u0430\u0435\u0442\u0441\u044F", "event", "concert", "gig"];
+    PEOPLE_WORDS = ["\u043B\u044E\u0434", "\u043F\u043E\u0437\u043D\u0430\u043A\u043E\u043C\u0438\u0442", "\u043A\u0442\u043E-\u043D\u0438\u0431\u0443\u0434\u044C", "\u043A\u043E\u0433\u043E-\u043D\u0438\u0431\u0443\u0434\u044C", "people", "meet someone"];
+    DISCOVER_WORDS = ["\u043D\u0435\u043E\u0436\u0438\u0434\u0430\u043D\u043D", "\u0438\u043D\u0442\u0435\u0440\u0435\u0441\u043D", "\u0443\u0434\u0438\u0432\u0438", "\u0447\u0442\u043E-\u043D\u0438\u0431\u0443\u0434\u044C", "surprise", "something interesting", "anything"];
+    OPEN_WORDS = ["\u043E\u0442\u043A\u0440\u043E\u0439", "\u043F\u043E\u043A\u0430\u0436\u0438 \u044D\u0442\u043E", "\u0437\u0430\u0439\u0434\u0438", "\u043F\u0435\u0440\u0435\u0439\u0434\u0438", "open", "go there", "take me"];
+    DISMISS_WORDS = ["\u0443\u0431\u0435\u0440\u0438", "\u043D\u0435 \u044D\u0442\u043E", "\u043D\u0435 \u0445\u043E\u0447\u0443 \u044D\u0442\u043E", "\u0441\u043A\u0440\u043E\u0439", "remove", "hide", "not this"];
+    REFINE_WORDS = ["\u043D\u0435\u0442,", "\u043D\u0435 \u0442\u0430\u043A", "\u0441\u043B\u0438\u0448\u043A\u043E\u043C", "\u0434\u0440\u0443\u0433\u043E\u0435", "\u0447\u0442\u043E-\u043D\u0438\u0431\u0443\u0434\u044C \u0435\u0449\u0451", "\u0435\u0449\u0451 \u0432\u0430\u0440\u0438\u0430\u043D\u0442", "no,", "too ", "something else"];
+    BACK_WORDS = ["\u043D\u0430\u0437\u0430\u0434", "\u043E\u0431\u0440\u0430\u0442\u043D\u043E", "\u0432\u0435\u0440\u043D\u0438", "back", "go back"];
+    OPEN_NOW_WORDS = ["\u043E\u0442\u043A\u0440\u044B\u0442", "\u0441\u0435\u0439\u0447\u0430\u0441 \u0440\u0430\u0431\u043E\u0442\u0430", "\u0433\u0434\u0435 \u0436\u0438\u0437\u043D\u044C", "\u0433\u0434\u0435 \u043B\u044E\u0434\u0438", "open now", "still open", "lively"];
+    HERE_WORDS = ["\u0437\u0434\u0435\u0441\u044C", "\u0442\u0443\u0442", "\u044D\u0442\u043E", "\u044D\u0442\u043E\u0442", "\u044D\u0442\u0430", "\u0441\u044E\u0434\u0430", "here", "this one", "this place"];
+    THERE_WORDS = ["\u0442\u0443\u0434\u0430", "\u0442\u0430\u043C", "there"];
+    ORDINALS = {
+      "\u043F\u0435\u0440\u0432\u044B\u0439": 1,
+      "\u043F\u0435\u0440\u0432\u043E\u0435": 1,
+      "\u043F\u0435\u0440\u0432\u0430\u044F": 1,
+      "first": 1,
+      "\u0432\u0442\u043E\u0440\u043E\u0439": 2,
+      "\u0432\u0442\u043E\u0440\u043E\u0435": 2,
+      "\u0432\u0442\u043E\u0440\u0430\u044F": 2,
+      "second": 2,
+      "\u0442\u0440\u0435\u0442\u0438\u0439": 3,
+      "\u0442\u0440\u0435\u0442\u044C\u0435": 3,
+      "\u0442\u0440\u0435\u0442\u044C\u044F": 3,
+      "third": 3,
+      "\u0447\u0435\u0442\u0432\u0451\u0440\u0442\u044B\u0439": 4,
+      "\u0447\u0435\u0442\u0432\u0435\u0440\u0442\u044B\u0439": 4,
+      "fourth": 4,
+      "\u043F\u044F\u0442\u044B\u0439": 5,
+      "fifth": 5
+    };
+    has = (text, words) => words.find((w) => text.includes(w));
+    hasWord = (text, words) => {
+      const padded = ` ${text.replace(/[.,!?;:]/g, " ")} `;
+      return words.find((w) => padded.includes(` ${w} `));
+    };
     BERX_VOICE_CAPABILITY = Object.freeze({
       "now-nearby": "nearbyNow",
       "find-places": "nearbyPlaces",
@@ -1550,17 +1914,124 @@ var init_berxIntent = __esm({
 });
 
 // packages/spatial/src/voice/berxActionGraph.ts
+function berxPlan(intent, state) {
+  const blocked = [];
+  if (intent.kind === "unknown") blocked.push("nothing was understood");
+  for (const need of intent.needs) {
+    if (need === "referent") blocked.push("that referred to something not in view");
+    if (need === "location") blocked.push("where you are is not known yet");
+    if (need === "permission") blocked.push("location has not been allowed");
+  }
+  const capability = BERX_VOICE_CAPABILITY[intent.kind];
+  const steps = [];
+  switch (intent.kind) {
+    case "now-nearby":
+      steps.push({
+        id: "nearby",
+        effect: "read",
+        capability,
+        says: "\u0421\u043C\u043E\u0442\u0440\u044E, \u0447\u0442\u043E \u0440\u044F\u0434\u043E\u043C."
+      });
+      steps.push({ id: "compose", effect: "move", says: "\u041F\u043E\u043A\u0430\u0437\u044B\u0432\u0430\u044E." });
+      break;
+    case "find-places":
+    case "find-events":
+    case "find-people":
+    case "discover":
+      steps.push({ id: "search", effect: "read", capability, says: "\u0421\u0435\u0439\u0447\u0430\u0441 \u043F\u043E\u0441\u043C\u043E\u0442\u0440\u044E." });
+      steps.push({ id: "compose", effect: "move", says: "\u0412\u043E\u0442 \u0447\u0442\u043E \u043D\u0430\u0448\u0451\u043B." });
+      break;
+    case "open":
+      steps.push({ id: "travel", effect: "move", says: "\u0418\u0434\u0443 \u0442\u0443\u0434\u0430." });
+      break;
+    case "dismiss":
+      steps.push({ id: "dismiss", effect: "move", says: "\u0423\u0431\u0440\u0430\u043B." });
+      break;
+    case "refine": {
+      const original = intent.refining ?? "discover";
+      const capability2 = BERX_VOICE_CAPABILITY[original] ?? BERX_VOICE_CAPABILITY.discover;
+      steps.push({ id: "search", effect: "read", capability: capability2, says: "\u041F\u043E\u043F\u0440\u043E\u0431\u0443\u044E \u0438\u043D\u0430\u0447\u0435." });
+      steps.push({ id: "compose", effect: "move", says: "\u0412\u043E\u0442 \u0434\u0440\u0443\u0433\u043E\u0435." });
+      break;
+    }
+    case "back":
+      steps.push({ id: "back", effect: "move", says: "\u0412\u043E\u0437\u0432\u0440\u0430\u0449\u0430\u044E." });
+      break;
+    default:
+      break;
+  }
+  if (steps.some((s) => s.effect === "write" || s.effect === "sensitive") && !state.viewerId) {
+    blocked.push("nobody is signed in");
+  }
+  return { intent, steps, blocked };
+}
+function berxOutcome(results) {
+  const stoppedAt = results.find((r) => r.state !== "done");
+  return {
+    ok: results.length > 0 && stoppedAt === void 0,
+    stoppedAt,
+    results,
+    awaiting: results.some((r) => r.state === "awaiting-confirmation")
+  };
+}
+function berxChangesTheWorld(kind) {
+  return kind === "now-nearby" || kind === "find-places" || kind === "find-events" || kind === "find-people" || kind === "discover" || kind === "refine";
+}
 var init_berxActionGraph = __esm({
   "packages/spatial/src/voice/berxActionGraph.ts"() {
     "use strict";
+    init_berxIntent();
   }
 });
 
 // packages/spatial/src/voice/berxSay.ts
-var CHOICE;
+function berxAcknowledge(plan) {
+  if (plan.blocked.length > 0) {
+    return { text: `${plan.blocked[0][0].toUpperCase()}${plan.blocked[0].slice(1)}.`, because: "the plan cannot run and the person needs to know which part" };
+  }
+  const first = plan.steps[0];
+  if (!first) return SILENT("there is nothing to do");
+  if (first.effect === "move") return SILENT("the world is about to move, which the person can see");
+  return { text: first.says, because: "work is starting that takes long enough to be worth covering" };
+}
+function berxReport(intent, outcome, found) {
+  if (outcome.awaiting) {
+    return { text: "\u041D\u0443\u0436\u043D\u043E \u043F\u043E\u0434\u0442\u0432\u0435\u0440\u0434\u0438\u0442\u044C.", because: "a person must agree some way other than out loud" };
+  }
+  if (!outcome.ok) {
+    const stopped = outcome.stoppedAt;
+    const why = stopped?.reason ? ` ${stopped.reason}` : "";
+    return { text: `\u041D\u0435 \u043F\u043E\u043B\u0443\u0447\u0438\u043B\u043E\u0441\u044C.${why}`, because: "a step did not finish, and saying otherwise would be a lie the person would catch" };
+  }
+  if (!berxChangesTheWorld(intent.kind)) {
+    return SILENT("the camera moved and the person watched it happen");
+  }
+  if (found === 0) {
+    return { text: "\u041D\u0438\u0447\u0435\u0433\u043E \u043D\u0435 \u043D\u0430\u0448\u0451\u043B. \u041F\u043E\u043F\u0440\u043E\u0431\u0443\u0435\u043C \u0438\u043D\u0430\u0447\u0435?", because: "an empty result is a real answer and inventing one would be worse than silence" };
+  }
+  if (found === 1) {
+    return { text: "\u041E\u0434\u043D\u043E \u043C\u0435\u0441\u0442\u043E.", because: "the count is the one thing not visible at a glance" };
+  }
+  return { text: `${found}. \u0412\u043E\u0442 \u0447\u0442\u043E \u043F\u0440\u043E\u0438\u0441\u0445\u043E\u0434\u0438\u0442.`, because: "the count, and then the world speaks for itself" };
+}
+function berxAskWhich(count) {
+  if (count === 0) return { text: "\u041D\u0435 \u0432\u0438\u0436\u0443, \u043E \u0447\u0451\u043C \u0440\u0435\u0447\u044C.", because: "nothing is in view to refer to" };
+  return { text: "\u041A\u0430\u043A\u043E\u0435 \u0438\u043C\u0435\u043D\u043D\u043E?", because: "the reference is real but ambiguous, and asking costs one exchange where guessing costs trust" };
+}
+function berxAskBetween(readings) {
+  const named = readings.map((r) => CHOICE[r.kind]).filter(Boolean);
+  if (named.length < 2) return void 0;
+  return {
+    text: `${named[0][0].toUpperCase()}${named[0].slice(1)} \u0438\u043B\u0438 ${named[1]}?`,
+    because: "the sentence fits both readings, and asking costs one exchange where guessing wrong costs trust in every answer after it"
+  };
+}
+var SILENT, CHOICE;
 var init_berxSay = __esm({
   "packages/spatial/src/voice/berxSay.ts"() {
     "use strict";
+    init_berxActionGraph();
+    SILENT = (because) => ({ text: "", because });
     CHOICE = Object.freeze({
       "now-nearby": "\u0447\u0442\u043E \u0440\u044F\u0434\u043E\u043C",
       "find-places": "\u043C\u0435\u0441\u0442\u0430",
@@ -1780,9 +2251,128 @@ var init_berxTouch = __esm({
 });
 
 // packages/spatial/src/berxLivingWorld.ts
+function berxLivingWorld() {
+  return { core: berxCoreAt("idle"), memory: BERX_EMPTY_MEMORY };
+}
+async function berxSpeakToWorld(state, utterance, situation, bridge, onIntent, onCore) {
+  let memory = berxAsked(state.memory, utterance);
+  const intent = berxReadIntent(utterance, situation, memory);
+  memory = berxRequested(memory, intent.kind);
+  onIntent?.(intent);
+  let core = state.core;
+  const move = (cause) => {
+    core = berxCoreEnter(core, berxCoreCause(core.state, cause, core.unresolved));
+    onCore?.(cause);
+  };
+  move({ kind: "utterance", intent });
+  const ask = intent.alternatives && intent.alternatives.length > 0 ? berxAskBetween([{ kind: intent.kind }, ...intent.alternatives.map((kind) => ({ kind }))]) : void 0;
+  if (ask) {
+    return {
+      intent,
+      plan: berxPlan(intent, situation),
+      outcome: berxOutcome([]),
+      change: "none",
+      shown: memory.shown,
+      say: ask,
+      core,
+      memory
+    };
+  }
+  const plan = berxPlan(intent, situation);
+  move({ kind: "plan", plan });
+  if (plan.blocked.length > 0 || plan.steps.length === 0) {
+    const say = intent.needs.includes("referent") ? berxAskWhich(situation.visible.length) : berxAcknowledge(plan);
+    return {
+      intent,
+      plan,
+      outcome: berxOutcome([]),
+      change: "none",
+      shown: memory.shown,
+      say,
+      core,
+      memory
+    };
+  }
+  if (intent.kind === "open" && intent.objectId) {
+    const moved = bridge.travel?.(intent.objectId) ?? false;
+    const results = [{
+      step: plan.steps[0],
+      state: moved ? "done" : "failed",
+      reason: moved ? void 0 : "\u044D\u0442\u043E\u0433\u043E \u043D\u0435\u0442 \u0432 \u043C\u0438\u0440\u0435"
+    }];
+    const outcome2 = berxOutcome(results);
+    if (moved) memory = berxSelect(memory, intent.objectId);
+    move(moved ? { kind: "arrived", region: situation.region } : { kind: "outcome", outcome: outcome2 });
+    return {
+      intent,
+      plan,
+      outcome: outcome2,
+      change: moved ? "travelled" : "none",
+      shown: memory.shown,
+      /* Silent on success: the camera is visibly moving, and saying
+         "иду туда" over it is narration. */
+      say: berxReport(intent, outcome2, memory.shown.length),
+      core,
+      memory
+    };
+  }
+  if (intent.kind === "dismiss" && intent.objectId) {
+    const before = memory.shown.length;
+    memory = berxDismiss(memory, intent.objectId);
+    const removed = memory.shown.length < before;
+    const outcome2 = berxOutcome([{ step: plan.steps[0], state: removed ? "done" : "failed", reason: removed ? void 0 : "\u044D\u0442\u043E\u0433\u043E \u043D\u0435\u0442 \u0432 \u043D\u0430\u0431\u043E\u0440\u0435" }]);
+    move({ kind: "outcome", outcome: outcome2 });
+    return {
+      intent,
+      plan,
+      outcome: outcome2,
+      change: removed ? "removed" : "none",
+      shown: memory.shown,
+      say: berxReport(intent, outcome2, memory.shown.length),
+      core,
+      memory
+    };
+  }
+  if (intent.kind === "back") {
+    const went = bridge.back?.() ?? false;
+    const outcome2 = berxOutcome([{ step: plan.steps[0], state: went ? "done" : "failed", reason: went ? void 0 : "\u043D\u0435\u043A\u0443\u0434\u0430 \u0432\u043E\u0437\u0432\u0440\u0430\u0449\u0430\u0442\u044C\u0441\u044F" }]);
+    move({ kind: "outcome", outcome: outcome2 });
+    return {
+      intent,
+      plan,
+      outcome: outcome2,
+      change: went ? "returned" : "none",
+      shown: memory.shown,
+      say: berxReport(intent, outcome2, memory.shown.length),
+      core,
+      memory
+    };
+  }
+  const ran = await bridge.execute(plan, situation);
+  const outcome = berxOutcome(ran.results);
+  const entities = outcome.ok ? ran.entities ?? [] : [];
+  if (outcome.ok) memory = berxShow(memory, entities);
+  move(outcome.ok ? { kind: "results", found: entities.length } : { kind: "outcome", outcome });
+  return {
+    intent,
+    plan,
+    outcome,
+    change: outcome.ok && entities.length > 0 ? "composed" : "none",
+    shown: memory.shown,
+    say: berxReport(intent, outcome, entities.length),
+    core,
+    memory
+  };
+}
 var init_berxLivingWorld = __esm({
   "packages/spatial/src/berxLivingWorld.ts"() {
     "use strict";
+    init_berxIntent();
+    init_berxActionGraph();
+    init_berxSay();
+    init_berxSpatialMemory();
+    init_berxCore();
+    init_berxCoreWorld();
   }
 });
 
@@ -1845,6 +2435,23 @@ var init_worldMaterials = __esm({
 });
 
 // packages/spatial/src/spatialAudio.ts
+function berxAudioAttenuation(source, listener, at) {
+  const d = Math.hypot(at.x - listener.x, at.y - listener.y, at.z - listener.z);
+  if (d >= source.maxDistance) return 0;
+  if (d <= source.refDistance) return source.gain;
+  const inverse = source.refDistance / d;
+  const window2 = 1 - (d - source.refDistance) / (source.maxDistance - source.refDistance);
+  return source.gain * inverse * window2;
+}
+function berxListenerFromCamera(position, target) {
+  const f = { x: target.x - position.x, y: target.y - position.y, z: target.z - position.z };
+  const l = Math.hypot(f.x, f.y, f.z) || 1;
+  return {
+    position: { ...position },
+    forward: { x: f.x / l, y: f.y / l, z: f.z / l },
+    up: { x: 0, y: 1, z: 0 }
+  };
+}
 var init_spatialAudio = __esm({
   "packages/spatial/src/spatialAudio.ts"() {
     "use strict";
@@ -2114,8 +2721,8 @@ var init_spatialCamera = __esm({
         * used to be ignored, so focusing a person put the camera close
         * enough to crop half the ring off the bottom of the screen.
         */
-      poseForObject(position, scale = { x: 1, y: 1, z: 1 }, distance2, framingRadius = 0) {
-        const radius = Math.max(scale.x, scale.y, scale.z, framingRadius, 0.5), d = distance2 ?? Math.max(2.4, radius * 3.2);
+      poseForObject(position, scale = { x: 1, y: 1, z: 1 }, distance3, framingRadius = 0) {
+        const radius = Math.max(scale.x, scale.y, scale.z, framingRadius, 0.5), d = distance3 ?? Math.max(2.4, radius * 3.2);
         return { position: { x: position.x, y: position.y, z: position.z + d }, target: copy(position) };
       }
       moveToPose(pose, durationSeconds = 0.65, kind) {
@@ -2378,6 +2985,65 @@ var init_runtime5d = __esm({
   }
 });
 
+// packages/spatial/src/geometry.ts
+function geometryForEntity(kind) {
+  return { ...specs[kind] };
+}
+function geometryScale(spec) {
+  return { x: spec.width ?? spec.radius ?? 1, y: spec.height ?? spec.radius ?? 1, z: spec.depth ?? spec.radius ?? 1 };
+}
+function primitiveHalfExtent(kind) {
+  const p = BERX_PRIMITIVES[kind];
+  switch (p.form) {
+    case "sphere":
+      return { x: p.radius, y: p.radius, z: p.radius };
+    case "box":
+      return { x: p.width / 2, y: p.height / 2, z: p.depth / 2 };
+    /* the tube's centre line plus its own radius IS the outer radius; the
+       tube is only as thick as half the gap between the two radii */
+    case "torus":
+      return { x: p.outer, y: p.outer, z: (p.outer - p.inner) / 2 };
+    /* the bars stand centred on the edge, so each face reaches half a bar
+       further than the frame's nominal size; createFrame's bars are .12
+       deep whatever the bar width */
+    case "frame":
+      return { x: p.width / 2 + p.bar / 2, y: p.height / 2 + p.bar / 2, z: 0.06 };
+  }
+}
+function berxDrawnHalfExtent(kind, scale) {
+  const mesh = primitiveHalfExtent(specs[kind].kind);
+  return { x: mesh.x * Math.abs(scale.x), y: mesh.y * Math.abs(scale.y), z: mesh.z * Math.abs(scale.z) };
+}
+var specs, BERX_PRIMITIVES;
+var init_geometry = __esm({
+  "packages/spatial/src/geometry.ts"() {
+    "use strict";
+    specs = {
+      person: { kind: "orb", radius: 0.72, segments: 32, bevel: 0.08 },
+      moment: { kind: "surface", width: 1.9, height: 2.35, depth: 0.045, bevel: 0.08 },
+      place: { kind: "portal", width: 1.8, height: 2.1, depth: 0.22, bevel: 0.14 },
+      event: { kind: "ring", radius: 0.95, segments: 48, emissive: 0.12 },
+      experience: { kind: "frame", width: 1.9, height: 1.4, depth: 0.18, bevel: 0.1 },
+      community: { kind: "node", radius: 0.86, segments: 24 },
+      business: { kind: "stack", width: 1.7, height: 1.15, depth: 0.45, bevel: 0.1 },
+      collection: { kind: "stack", width: 1.6, height: 1.05, depth: 0.34, bevel: 0.1 },
+      message: { kind: "message", width: 1.55, height: 0.72, depth: 0.12, bevel: 0.16 },
+      create: { kind: "create", radius: 0.82, segments: 40, emissive: 0.08 }
+    };
+    BERX_PRIMITIVES = {
+      orb: { form: "sphere", radius: 0.5 },
+      ring: { form: "torus", outer: 0.62, inner: 0.42 },
+      frame: { form: "frame", width: 1, height: 1, bar: 0.12 },
+      surface: { form: "box", width: 1, height: 1, depth: 0.06, bevel: 0.02 },
+      portal: { form: "frame", width: 1, height: 1.2, bar: 0.16 },
+      node: { form: "sphere", radius: 0.58 },
+      stack: { form: "box", width: 1, height: 1, depth: 0.32, bevel: 0.1 },
+      message: { form: "box", width: 1, height: 0.46, depth: 0.12, bevel: 0.05 },
+      create: { form: "sphere", radius: 0.58 }
+    };
+  }
+});
+
 // packages/spatial/src/spatialInteraction.ts
 function objectAxes(r) {
   const cx = Math.cos(r.x), sx = Math.sin(r.x);
@@ -2396,10 +3062,11 @@ function hitTestObject(ray, object) {
   const d = norm(ray.direction);
   const o = [dot(oc, axes.x), dot(oc, axes.y), dot(oc, axes.z)];
   const dir = [dot(d, axes.x), dot(d, axes.y), dot(d, axes.z)];
+  const drawn = berxDrawnHalfExtent(object.kind, object.transform.scale);
   const half = [
-    Math.max(Math.abs(object.transform.scale.x) * 0.5, MIN_HALF_EXTENT),
-    Math.max(Math.abs(object.transform.scale.y) * 0.5, MIN_HALF_EXTENT),
-    Math.max(Math.abs(object.transform.scale.z) * 0.5, MIN_HALF_EXTENT)
+    Math.max(drawn.x, MIN_HALF_EXTENT),
+    Math.max(drawn.y, MIN_HALF_EXTENT),
+    Math.max(drawn.z, MIN_HALF_EXTENT)
   ];
   let near = -Infinity, far = Infinity;
   for (let i = 0; i < 3; i++) {
@@ -2443,13 +3110,14 @@ function pickSpatialCandidates(ray, objects) {
   }
   return hits.sort((a, b) => a.distance - b.distance);
 }
-function berxResolveByDepth(candidates, drawnDepth, tolerance = 1.5) {
+function berxResolveByDepth(candidates, drawnDepth, forwardCosine = 1, tolerance = BERX_PICK_DEPTH_TOLERANCE) {
   if (candidates.length === 0) return void 0;
   if (drawnDepth === void 0 || !Number.isFinite(drawnDepth) || drawnDepth <= 0) return candidates[0];
+  const cos = Number.isFinite(forwardCosine) && forwardCosine > 1e-6 ? forwardCosine : 1;
   let best;
   let bestGap = Infinity;
   for (const hit of candidates) {
-    const gap = Math.abs(hit.distance - drawnDepth);
+    const gap = Math.abs(hit.distance * cos - drawnDepth);
     if (gap < bestGap) {
       bestGap = gap;
       best = hit;
@@ -2480,10 +3148,11 @@ function rayFromNdc(camera, ndcX, ndcY, aspect) {
     })
   };
 }
-var dot, sub, len, norm, MIN_HALF_EXTENT, cross;
+var dot, sub, len, norm, MIN_HALF_EXTENT, BERX_PICK_DEPTH_TOLERANCE, cross;
 var init_spatialInteraction = __esm({
   "packages/spatial/src/spatialInteraction.ts"() {
     "use strict";
+    init_geometry();
     dot = (a, b) => a.x * b.x + a.y * b.y + a.z * b.z;
     sub = (a, b) => ({ x: a.x - b.x, y: a.y - b.y, z: a.z - b.z });
     len = (v) => Math.hypot(v.x, v.y, v.z);
@@ -2492,13 +3161,14 @@ var init_spatialInteraction = __esm({
       return { x: v.x / l, y: v.y / l, z: v.z / l };
     };
     MIN_HALF_EXTENT = 0.12;
+    BERX_PICK_DEPTH_TOLERANCE = 1.5;
     cross = (a, b) => ({ x: a.y * b.z - a.z * b.y, y: a.z * b.x - a.x * b.z, z: a.x * b.y - a.y * b.x });
   }
 });
 
 // packages/spatial/src/proximity.ts
 function berxNear(at, objects, radius, options = {}) {
-  return objects.filter((o) => o.visible && o.id !== options.exclude && distance(at, o.transform.position) <= radius).sort((a, b) => distance(at, a.transform.position) - distance(at, b.transform.position));
+  return objects.filter((o) => o.visible && o.id !== options.exclude && distance2(at, o.transform.position) <= radius).sort((a, b) => distance2(at, a.transform.position) - distance2(at, b.transform.position));
 }
 function berxWorldBounds(objects) {
   const visible = objects.filter((o) => o.visible);
@@ -2520,13 +3190,13 @@ function berxWorldBounds(objects) {
   const centre = { x: (min.x + max.x) / 2, y: (min.y + max.y) / 2, z: (min.z + max.z) / 2 };
   let radius = 0;
   for (const o of visible) {
-    radius = Math.max(radius, distance(centre, o.transform.position) + interactionRadius(o));
+    radius = Math.max(radius, distance2(centre, o.transform.position) + interactionRadius(o));
   }
   return { min, max, centre, radius };
 }
 function berxClampToWorld(position, bounds, margin = 12) {
   const limit = bounds.radius + margin;
-  const d = distance(position, bounds.centre);
+  const d = distance2(position, bounds.centre);
   if (d <= limit || d === 0) return position;
   const scale = limit / d;
   return {
@@ -2535,12 +3205,12 @@ function berxClampToWorld(position, bounds, margin = 12) {
     z: bounds.centre.z + (position.z - bounds.centre.z) * scale
   };
 }
-var distance;
+var distance2;
 var init_proximity = __esm({
   "packages/spatial/src/proximity.ts"() {
     "use strict";
     init_spatialInteraction();
-    distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z);
+    distance2 = (a, b) => Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z);
   }
 });
 
@@ -2647,7 +3317,7 @@ function berxActionRing(object, camera, affordances, measure) {
     };
   });
 }
-function pickActionSlot(slots, camera, rayDirection, aspect) {
+function pickActionSlot(slots, camera, rayDirection, aspect, drawnDepth) {
   const basis = cameraBasis(camera);
   if (!basis) return void 0;
   let best;
@@ -2661,6 +3331,7 @@ function pickActionSlot(slots, camera, rayDirection, aspect) {
     };
     const along = d.x * basis.forward.x + d.y * basis.forward.y + d.z * basis.forward.z;
     if (along <= 0) continue;
+    if (drawnDepth !== void 0 && drawnDepth > 0 && along > drawnDepth + SLOT_DEPTH_BIAS) continue;
     const scale = along / Math.max(1e-4, rayDirection.x * basis.forward.x + rayDirection.y * basis.forward.y + rayDirection.z * basis.forward.z);
     const hit = { x: rayDirection.x * scale, y: rayDirection.y * scale, z: rayDirection.z * scale };
     const dx = (hit.x - d.x) * basis.right.x + (hit.y - d.y) * basis.right.y + (hit.z - d.z) * basis.right.z;
@@ -2696,7 +3367,7 @@ function berxNearActionSlots(slots, camera, rayDirection, aspect, widen = 2.6) {
   }
   return near;
 }
-var PRESENTATION, BERX_SLOT_FOCUS_SCALE, RING_GAP, SLOT_HEIGHT, BERX_SLOT_GAP, ARC, REACH, DEPTH, WIDTH_PER_CHARACTER, aspectFor;
+var PRESENTATION, BERX_SLOT_FOCUS_SCALE, RING_GAP, SLOT_HEIGHT, SLOT_DEPTH_BIAS, BERX_SLOT_GAP, ARC, REACH, DEPTH, WIDTH_PER_CHARACTER, aspectFor;
 var init_actionRing = __esm({
   "packages/spatial/src/actionRing.ts"() {
     "use strict";
@@ -2729,6 +3400,7 @@ var init_actionRing = __esm({
     BERX_SLOT_FOCUS_SCALE = PRESENTATION.focus.scale;
     RING_GAP = 0.55;
     SLOT_HEIGHT = 0.26;
+    SLOT_DEPTH_BIAS = 0.05;
     BERX_SLOT_GAP = SLOT_HEIGHT;
     ARC = Math.PI * 0.9;
     REACH = 1.35;
@@ -3461,32 +4133,6 @@ var init_renderer = __esm({
   }
 });
 
-// packages/spatial/src/geometry.ts
-function geometryForEntity(kind) {
-  return { ...specs[kind] };
-}
-function geometryScale(spec) {
-  return { x: spec.width ?? spec.radius ?? 1, y: spec.height ?? spec.radius ?? 1, z: spec.depth ?? spec.radius ?? 1 };
-}
-var specs;
-var init_geometry = __esm({
-  "packages/spatial/src/geometry.ts"() {
-    "use strict";
-    specs = {
-      person: { kind: "orb", radius: 0.72, segments: 32, bevel: 0.08 },
-      moment: { kind: "surface", width: 1.9, height: 2.35, depth: 0.045, bevel: 0.08 },
-      place: { kind: "portal", width: 1.8, height: 2.1, depth: 0.22, bevel: 0.14 },
-      event: { kind: "ring", radius: 0.95, segments: 48, emissive: 0.12 },
-      experience: { kind: "frame", width: 1.9, height: 1.4, depth: 0.18, bevel: 0.1 },
-      community: { kind: "node", radius: 0.86, segments: 24 },
-      business: { kind: "stack", width: 1.7, height: 1.15, depth: 0.45, bevel: 0.1 },
-      collection: { kind: "stack", width: 1.6, height: 1.05, depth: 0.34, bevel: 0.1 },
-      message: { kind: "message", width: 1.55, height: 0.72, depth: 0.12, bevel: 0.16 },
-      create: { kind: "create", radius: 0.82, segments: 40, emissive: 0.08 }
-    };
-  }
-});
-
 // packages/spatial/src/spatialPresentation.ts
 function presentationForKind(kind, object) {
   const m = materials[kind];
@@ -3690,10 +4336,10 @@ function berxBuildDrawList(frame, options) {
     const spec = geometryForEntity(o.kind);
     const presentation = presentationForKind(o.kind, o);
     const material = berxWorldMaterial(o.material.material);
-    const distance2 = distanceTo(eye, o);
+    const distance3 = distanceTo(eye, o);
     const geo = geometryScale(spec);
     const radius = Math.max(geo.x, geo.y, geo.z) * Math.max(o.transform.scale.x, o.transform.scale.y, o.transform.scale.z);
-    const lod = berxStableLod(distance2, BERX_LOD_DISTANCE, memory.lod[o.id]);
+    const lod = berxStableLod(distance3, BERX_LOD_DISTANCE, memory.lod[o.id]);
     if (lod === 1) lodReduced++;
     return {
       id: o.id,
@@ -3727,7 +4373,7 @@ function berxBuildDrawList(frame, options) {
       pointLights: berxResolvePointLights(litWorld, o.transform.position),
       media: options.mediaFor?.(o.id),
       label: o.label,
-      distance: distance2
+      distance: distance3
     };
   });
   const basis = cameraBasis(c);
@@ -3746,11 +4392,11 @@ function berxBuildDrawList(frame, options) {
   if (basis) {
     const named = drawn.filter((o) => o.label !== void 0 && o.label.trim().length > 0);
     for (const o of named.sort((a, b) => distanceTo(eye, a) - distanceTo(eye, b))) {
-      const distance2 = distanceTo(eye, o);
-      if (distance2 > BERX_LABEL_FADE_END) continue;
+      const distance3 = distanceTo(eye, o);
+      if (distance3 > BERX_LABEL_FADE_END) continue;
       const halfHeight = BERX_LABEL_HEIGHT * 0.5;
       const above = o.transform.scale.y * 0.5 + halfHeight * 1.6;
-      const fade = distance2 <= BERX_LABEL_FADE_START ? 1 : 1 - (distance2 - BERX_LABEL_FADE_START) / (BERX_LABEL_FADE_END - BERX_LABEL_FADE_START);
+      const fade = distance3 <= BERX_LABEL_FADE_START ? 1 : 1 - (distance3 - BERX_LABEL_FADE_START) / (BERX_LABEL_FADE_END - BERX_LABEL_FADE_START);
       const position = {
         x: o.transform.position.x + basis.up.x * above,
         y: o.transform.position.y + basis.up.y * above,
@@ -3772,7 +4418,7 @@ function berxBuildDrawList(frame, options) {
         /* names thin out with the world they belong to, or a
            dissolve would leave a field of floating text */
         alpha: fade * o.material.opacity * modulation.opacity,
-        distance: distance2
+        distance: distance3
       });
     }
     labels.reverse();
@@ -4626,28 +5272,20 @@ function gpuMesh(gl, mesh) {
 }
 function meshFor(kind, lod) {
   const far = lod === 1;
-  switch (kind) {
-    case "orb":
-      return createSphere(0.5, far ? 10 : 24, far ? 7 : 16);
-    case "ring":
-      return createTorus(0.62, 0.42, far ? 18 : 48, far ? 6 : 12);
+  const p = BERX_PRIMITIVES[kind];
+  const t = TESSELLATION[kind];
+  switch (p.form) {
+    case "sphere":
+      return createSphere(p.radius, far ? t[2] : t[0], far ? t[3] : t[1]);
+    case "torus":
+      return createTorus(p.outer, p.inner, far ? t[2] : t[0], far ? t[3] : t[1]);
     case "frame":
-      return createFrame(1, 1, 0.12);
-    case "surface":
-      return createBevelBox(1, 1, 0.06, 0.02);
-    case "portal":
-      return createFrame(1, 1.2, 0.16);
-    case "node":
-      return createSphere(0.58, far ? 9 : 20, far ? 6 : 12);
-    case "stack":
-      return createBevelBox(1, 1, 0.32, 0.1);
-    case "message":
-      return createBevelBox(1, 0.46, 0.12, 0.05);
-    case "create":
-      return createSphere(0.58, far ? 11 : 28, far ? 7 : 18);
+      return createFrame(p.width, p.height, p.bar);
+    case "box":
+      return createBevelBox(p.width, p.height, p.depth, p.bevel);
   }
 }
-var V, SV, SF, F, TV, TF, GV, GF, AV, AF, VV, VF, CV, CF, DF, POSTF, PV, PF, BerxThreeRuntimeRenderer;
+var V, SV, SF, F, TV, TF, GV, GF, AV, AF, TESSELLATION, VV, VF, CV, CF, DF, POSTF, PV, PF, BerxThreeRuntimeRenderer;
 var init_threeRuntime = __esm({
   "packages/spatial-web/src/threeRuntime.ts"() {
     "use strict";
@@ -4894,6 +5532,17 @@ void main(){
   float ratio=occluded/float(max(taps,1));
   C=vec4(max(0.,1.-pow(ratio,power)*strength),0.,0.,1.);
 }`;
+    TESSELLATION = {
+      orb: [24, 16, 10, 7],
+      ring: [48, 12, 18, 6],
+      node: [20, 12, 9, 6],
+      create: [28, 18, 11, 7],
+      frame: [0, 0, 0, 0],
+      surface: [0, 0, 0, 0],
+      portal: [0, 0, 0, 0],
+      stack: [0, 0, 0, 0],
+      message: [0, 0, 0, 0]
+    };
     VV = `#version 300 es
 precision highp float;out vec2 UV;void main(){vec2 c=vec2((gl_VertexID==1)?3.:-1.,(gl_VertexID==2)?3.:-1.);UV=vec2(c.x*.5+.5,c.y*.5+.5);gl_Position=vec4(c,0.,1.);}`;
     VF = `#version 300 es
@@ -6175,7 +6824,9 @@ void main(){
       pick(frame, x, y) {
         const ray = rayFromNdc(frame.camera, x / this.width * 2 - 1, 1 - y / this.height * 2, this.width / this.height);
         if (!ray) return void 0;
-        return berxResolveByDepth(pickSpatialCandidates(ray, frame.world.objects), this.depthAt(x, y));
+        const basis = cameraBasis(frame.camera);
+        const cos = basis ? ray.direction.x * basis.forward.x + ray.direction.y * basis.forward.y + ray.direction.z * basis.forward.z : 1;
+        return berxResolveByDepth(pickSpatialCandidates(ray, frame.world.objects), this.depthAt(x, y), cos);
       }
       /**
        * Deleting the objects is not the same as giving the GPU its memory
@@ -6468,27 +7119,18 @@ __export(webgpuRuntime_exports, {
 });
 function meshFor2(primitive, lod) {
   const far = lod === 1;
-  switch (primitive) {
-    case "orb":
-      return createSphere(0.5, far ? 10 : 24, far ? 7 : 16);
-    case "ring":
-      return createTorus(0.62, 0.42, far ? 18 : 48, far ? 6 : 12);
+  const p = BERX_PRIMITIVES[primitive];
+  if (!p) throw new Error(`BERX 5D WebGPU: unknown primitive '${primitive}'`);
+  const t = TESSELLATION2[primitive] ?? [0, 0, 0, 0];
+  switch (p.form) {
+    case "sphere":
+      return createSphere(p.radius, far ? t[2] : t[0], far ? t[3] : t[1]);
+    case "torus":
+      return createTorus(p.outer, p.inner, far ? t[2] : t[0], far ? t[3] : t[1]);
     case "frame":
-      return createFrame(1, 1, 0.12);
-    case "surface":
-      return createBevelBox(1, 1, 0.06, 0.02);
-    case "portal":
-      return createFrame(1, 1.2, 0.16);
-    case "node":
-      return createSphere(0.58, far ? 9 : 20, far ? 6 : 12);
-    case "stack":
-      return createBevelBox(1, 1, 0.32, 0.1);
-    case "message":
-      return createBevelBox(1, 0.46, 0.12, 0.05);
-    case "create":
-      return createSphere(0.58, far ? 11 : 28, far ? 7 : 18);
-    default:
-      throw new Error(`BERX 5D WebGPU: unknown primitive '${primitive}'`);
+      return createFrame(p.width, p.height, p.bar);
+    case "box":
+      return createBevelBox(p.width, p.height, p.depth, p.bevel);
   }
 }
 function glToWgpuDepth(projection) {
@@ -6543,7 +7185,7 @@ async function berxWebGPUCanvasPresentable() {
     }
   }
 }
-var DRAW_STRIDE, GLOBALS_BYTES, SHADOW_FORMAT, VOL_GLOBALS_BYTES, PARTICLE_GLOBALS_BYTES, LABEL_STRIDE, LABEL_GLOBALS_BYTES, SAMPLE_COUNT, BerxWebGPURuntimeRenderer;
+var DRAW_STRIDE, GLOBALS_BYTES, SHADOW_FORMAT, VOL_GLOBALS_BYTES, PARTICLE_GLOBALS_BYTES, LABEL_STRIDE, LABEL_GLOBALS_BYTES, SAMPLE_COUNT, TESSELLATION2, BerxWebGPURuntimeRenderer;
 var init_webgpuRuntime = __esm({
   "packages/spatial-web/src/webgpuRuntime.ts"() {
     "use strict";
@@ -6560,6 +7202,12 @@ var init_webgpuRuntime = __esm({
     LABEL_STRIDE = 256;
     LABEL_GLOBALS_BYTES = 160;
     SAMPLE_COUNT = 4;
+    TESSELLATION2 = {
+      orb: [24, 16, 10, 7],
+      ring: [48, 12, 18, 6],
+      node: [20, 12, 9, 6],
+      create: [28, 18, 11, 7]
+    };
     BerxWebGPURuntimeRenderer = class _BerxWebGPURuntimeRenderer {
       constructor(canvas, device, context, format, hdrFormat, pipeline, drawLayout, mediaLayout, labelPipeline, labelLayout, shadowPipeline, gbufferPipeline, ssaoPipeline, volPipeline, compositePipeline, volLayout, compositeLayout, particlePipeline, particleLayout, postPipeline, postLayout, options) {
         this.canvas = canvas;
@@ -9015,6 +9663,10 @@ function mapUserToSpatial(user, placement = {}) {
   const object = baseObject("person", user.guid, user.fullname || user.username, String(user.guid), 0, placement);
   return { object, media: surfaceFor(object, user.icon_url), relations: [] };
 }
+function mapProfileToSpatial(profile, placement = {}) {
+  const object = baseObject("person", profile.guid, profile.fullname || profile.username, String(profile.guid), 0, placement);
+  return { object, media: surfaceFor(object, profile.icon_url), relations: [] };
+}
 function mapFriendToSpatial(friend, placement = {}) {
   const object = baseObject("person", friend.guid, friend.fullname || friend.username, String(friend.guid), 0, placement);
   return { object, media: surfaceFor(object, friend.icon), relations: [] };
@@ -9219,6 +9871,7 @@ async function loadBerxWorld(api2, options = {}) {
   }
   return { entries, viewerId, failures };
 }
+var berxPersonId = (guid) => berxSpatialId("person", guid);
 async function loadBerxConversation(api2, otherGuid, viewerId) {
   const entries = [];
   const failures = [];
@@ -9246,6 +9899,280 @@ async function loadBerxConversation(api2, otherGuid, viewerId) {
     failures.push({ source: "conversationWith", message: error instanceof Error ? error.message : String(error) });
   }
   return { entries, viewerId, failures };
+}
+
+// packages/api/src/realtime.ts
+var DEFAULT_BACKOFF = [500, 1e3, 2e3, 4e3, 8e3, 15e3];
+var BERX_REALTIME_PROTOCOL = "berx-realtime-1";
+var BerxRealtimeClient = class {
+  constructor(api2, options = {}) {
+    this.channels = [];
+    this.attempt = 0;
+    this.closing = false;
+    this.currentState = "idle";
+    this.userGuid = 0;
+    this.api = api2;
+    this.options = options;
+  }
+  get state() {
+    return this.currentState;
+  }
+  /** The guid the server said this socket is. 0 until authenticated. */
+  get guid() {
+    return this.userGuid;
+  }
+  get subscribed() {
+    return this.channels;
+  }
+  setState(state) {
+    if (this.currentState === state) return;
+    this.currentState = state;
+    this.options.onState?.(state);
+  }
+  /**
+   * Open a socket and subscribe. Resolves with what the server
+   * actually granted — never with what was asked for.
+   */
+  async connect(channels) {
+    this.closing = false;
+    this.setState("connecting");
+    const minted = await this.api.mintRealtimeToken();
+    const url = this.options.url ?? minted.url;
+    if (!url) {
+      this.setState("closed");
+      throw new Error(
+        "BERX realtime: no socket URL. The server returned none (site setting berx_realtime_url is unset) and none was passed \u2014 refusing to dial a guessed address."
+      );
+    }
+    const socket = this.open(url);
+    this.socket = socket;
+    return new Promise((resolve, reject) => {
+      let settled = false;
+      socket.onopen = () => {
+        socket.send(JSON.stringify({ type: "auth", token: minted.token }));
+      };
+      socket.onmessage = (event) => {
+        let message;
+        try {
+          message = JSON.parse(String(event.data));
+        } catch {
+          return;
+        }
+        switch (message.type) {
+          case "auth:ok":
+            this.userGuid = Number(message.user_guid ?? 0);
+            this.setState("open");
+            this.openedAt = Date.now();
+            socket.send(JSON.stringify({ type: "subscribe", channels }));
+            break;
+          case "auth:error":
+            if (!settled) {
+              settled = true;
+              reject(new Error(`BERX realtime: ${String(message.error ?? "authentication refused")}`));
+            }
+            break;
+          case "subscribe:ok": {
+            const granted = message.granted ?? [];
+            const refused = message.refused ?? [];
+            this.channels = granted;
+            if (refused.length > 0) this.options.onRefused?.(refused);
+            if (!settled) {
+              settled = true;
+              resolve({ granted, refused });
+            } else {
+              const waiting = this.pendingSubscribe;
+              this.pendingSubscribe = void 0;
+              waiting?.({ granted, refused });
+            }
+            break;
+          }
+          case "event":
+            this.options.onEvent?.({
+              channel: String(message.channel),
+              payload: message.payload,
+              from: Number(message.from ?? 0),
+              origin: message.origin === "server" ? "server" : void 0,
+              ts: Number(message.ts ?? 0)
+            });
+            break;
+          default:
+            break;
+        }
+      };
+      socket.onerror = () => {
+        if (!settled) {
+          settled = true;
+          reject(new Error("BERX realtime: the socket failed to open"));
+        }
+      };
+      socket.onclose = () => {
+        this.setState("closed");
+        this.socket = void 0;
+        const backoff = this.options.backoffMs ?? DEFAULT_BACKOFF;
+        const lasted = this.openedAt !== void 0 && Date.now() - this.openedAt >= backoff[backoff.length - 1];
+        if (lasted) this.attempt = 0;
+        this.openedAt = void 0;
+        if (!settled) {
+          settled = true;
+          reject(new Error("BERX realtime: the socket closed before it was ready"));
+        } else if (!this.closing && this.options.autoReconnect) {
+          this.scheduleReconnect(channels);
+        }
+      };
+    });
+  }
+  /**
+   * Ask for channels on a socket that is already open.
+   *
+   * A world grows: someone arrives through an event or through
+   * travelling into a conversation, and they are a person this
+   * session is now looking at and not listening to. Reconnecting to
+   * pick them up would burn a fresh credential and drop every event in
+   * between, so the protocol takes `subscribe` at any time and the
+   * server accumulates what it grants.
+   *
+   * Send the WHOLE set each time, not the difference: the answer is
+   * the server's decision about exactly what was asked for, and a
+   * caller that sent only the new ones would read back a channel list
+   * missing everything it already had.
+   */
+  async subscribe(channels) {
+    const socket = this.socket;
+    if (!socket || this.currentState !== "open") {
+      throw new Error("BERX realtime: subscribe on a socket that is not open");
+    }
+    if (this.pendingSubscribe) {
+      throw new Error("BERX realtime: a subscribe is already in flight on this socket");
+    }
+    const answered = new Promise((resolve) => {
+      this.pendingSubscribe = resolve;
+    });
+    socket.send(JSON.stringify({ type: "subscribe", channels }));
+    return answered;
+  }
+  /**
+   * Publish on a channel. Returns immediately: the server answers
+   * with publish:ok/publish:refused, which arrives through the same
+   * message path as everything else rather than as a fake promise
+   * this client would have to invent a timeout for.
+   */
+  publish(channel, payload) {
+    if (!this.socket || this.currentState !== "open") return false;
+    this.socket.send(JSON.stringify({ type: "publish", channel, payload }));
+    return true;
+  }
+  ping() {
+    if (!this.socket || this.currentState !== "open") return false;
+    this.socket.send(JSON.stringify({ type: "ping" }));
+    return true;
+  }
+  close() {
+    this.closing = true;
+    this.openedAt = void 0;
+    this.pendingSubscribe = void 0;
+    this.socket?.close();
+    this.socket = void 0;
+    this.channels = [];
+    this.setState("closed");
+  }
+  open(url) {
+    if (this.options.socketFactory) return this.options.socketFactory(url, BERX_REALTIME_PROTOCOL);
+    const Ctor = globalThis.WebSocket;
+    if (!Ctor) {
+      throw new Error("BERX realtime: this runtime has no WebSocket and no socketFactory was given");
+    }
+    return new Ctor(url, BERX_REALTIME_PROTOCOL);
+  }
+  scheduleReconnect(channels) {
+    const backoff = this.options.backoffMs ?? DEFAULT_BACKOFF;
+    const delay = backoff[Math.min(this.attempt, backoff.length - 1)];
+    this.attempt++;
+    setTimeout(() => {
+      if (this.closing) return;
+      this.connect(channels).catch(() => {
+        if (!this.closing) this.scheduleReconnect(channels);
+      });
+    }, delay);
+  }
+};
+
+// packages/scenes/src/realtimeWorld.ts
+var isPayload = (value) => typeof value === "object" && value !== null && typeof value.kind === "string";
+async function applyBerxRealtimeEvent(world, api2, event) {
+  if (!isPayload(event.payload)) return { applied: "ignored", reason: "payload has no kind" };
+  const payload = event.payload;
+  try {
+    switch (payload.kind) {
+      case "post:created": {
+        const feed = await api2.feed(30, 0);
+        const item = feed.items.find((entry) => entry.guid === payload.guid);
+        if (!item) return { applied: "ignored", reason: `post ${payload.guid} is not visible to this viewer` };
+        const mapped = mapFeedItemToSpatial(item);
+        world.ingest([{ object: mapped.object, relations: mapped.relations, media: mapped.media }]);
+        return { applied: "ingested", objectId: mapped.object.id };
+      }
+      case "post:removed": {
+        const id = `moment:${payload.guid}`;
+        world.remove(id);
+        return { applied: "removed", objectId: id };
+      }
+      case "person:changed": {
+        const profile = await api2.getProfile(payload.username);
+        const mapped = mapProfileToSpatial(profile);
+        world.ingest([{ object: mapped.object, relations: mapped.relations, media: mapped.media }]);
+        return { applied: "ingested", objectId: berxPersonId(payload.guid) };
+      }
+    }
+  } catch (error) {
+    return { applied: "failed", reason: error instanceof Error ? error.message : String(error) };
+  }
+  return { applied: "ignored" };
+}
+function berxRealtimeChannelsFor(world, viewerGuid) {
+  const channels = /* @__PURE__ */ new Set([`self:${viewerGuid}`, `person:${viewerGuid}`]);
+  for (const object of world.frame(0).world.objects) {
+    if (object.kind !== "person") continue;
+    const guid = Number(object.id.slice("person:".length));
+    if (Number.isFinite(guid) && guid > 0) channels.add(`person:${guid}`);
+  }
+  return [...channels];
+}
+async function berxKeepWorldLive(world, api2, options = {}) {
+  const viewer = world.viewer;
+  const guid = viewer ? Number(viewer.slice("person:".length)) : NaN;
+  if (!viewer || !viewer.startsWith("person:") || !Number.isFinite(guid) || guid <= 0) {
+    throw new Error("BERX realtime: this world has no signed-in viewer, so there are no channels to subscribe to");
+  }
+  let live;
+  let subscribed = [];
+  let queue = Promise.resolve();
+  const client = new BerxRealtimeClient(api2, {
+    ...options.realtime,
+    onEvent: (event) => {
+      options.realtime?.onEvent?.(event);
+      queue = queue.then(async () => {
+        const result = await applyBerxRealtimeEvent(world, api2, event);
+        options.onApplied?.(result, event);
+        if (result.applied !== "ingested" || !live) return;
+        const wanted = berxRealtimeChannelsFor(world, guid);
+        const missing = wanted.filter((channel) => !subscribed.includes(channel));
+        if (missing.length === 0) return;
+        const granted = await live.subscribe(wanted).catch(() => void 0);
+        if (granted) subscribed = [...granted.granted];
+      });
+    }
+  });
+  live = client;
+  const opened = await client.connect(berxRealtimeChannelsFor(world, guid));
+  subscribed = [...opened.granted];
+  return {
+    client,
+    get channels() {
+      return subscribed;
+    },
+    refused: opened.refused,
+    close: () => client.close()
+  };
 }
 
 // packages/spatial-web/src/appShell.ts
@@ -9407,6 +10334,9 @@ function createBerx5DWebHost(options = {}) {
       haptics.moment("focus");
     }
   };
+  const listen = (scene) => {
+    options.audio?.setListener(berxListenerFromCamera(scene.camera.position, scene.camera.target));
+  };
   const frame = (now) => {
     if (!running) return;
     const dt = Math.min(0.05, Math.max(0, (now - last) / 1e3));
@@ -9418,7 +10348,9 @@ function createBerx5DWebHost(options = {}) {
       syncQualityToLoad();
       if (world) renderer.setAffordances(world.affordances());
       core = berxCoreStep(core, dt);
-      renderer.render(world ? world.frame(dt) : runtime.frame(dt), {
+      const scene = world ? world.frame(dt) : runtime.frame(dt);
+      listen(scene);
+      renderer.render(scene, {
         maxObjects: quality.maxObjects,
         ambientMotion: quality.ambientMotion,
         particles,
@@ -9427,8 +10359,7 @@ function createBerx5DWebHost(options = {}) {
         core: core.field
       });
     } else {
-      if (world) world.frame(dt);
-      else runtime.frame(dt);
+      listen(world ? world.frame(dt) : runtime.frame(dt));
     }
     raf = requestAnimationFrame(frame);
   };
@@ -9483,7 +10414,10 @@ function createBerx5DWebHost(options = {}) {
       x,
       y,
       frameState,
-      over: pickActionSlot(renderer.actionSlots, frameState.camera, ray.direction, aspect),
+      /* the same depth the entity pick resolves against, so a
+         highlight and a press cannot disagree with each other or
+         with what is drawn */
+      over: pickActionSlot(renderer.actionSlots, frameState.camera, ray.direction, aspect, renderer.depthAt?.(x, y)),
       near: berxNearActionSlots(renderer.actionSlots, frameState.camera, ray.direction, aspect)
     };
   };
@@ -9502,7 +10436,8 @@ function createBerx5DWebHost(options = {}) {
     const y = (e.clientY - rect.top) * dpr;
     const frameState = world ? world.latestFrame : runtime.latestFrame;
     const ray = rayFromNdc(frameState.camera, x / canvas.width * 2 - 1, 1 - y / canvas.height * 2, canvas.width / canvas.height);
-    const slot = ray && world ? pickActionSlot(renderer.actionSlots, frameState.camera, ray.direction, canvas.width / canvas.height) : void 0;
+    const drawnDepth = renderer.depthAt?.(x, y);
+    const slot = ray && world ? pickActionSlot(renderer.actionSlots, frameState.camera, ray.direction, canvas.width / canvas.height, drawnDepth) : void 0;
     if (slot && world) {
       activate(slot.affordance.id, slot.affordance.label);
       return;
@@ -9755,6 +10690,7 @@ function createBerx5DWebHost(options = {}) {
       };
     },
     coreCause,
+    audio: options.audio,
     get quality() {
       return quality;
     },
@@ -9869,6 +10805,459 @@ async function createBerxWebRenderer(canvas, options = {}) {
 
 // packages/spatial-web/src/appShell.ts
 init_spatialText();
+
+// packages/spatial-web/src/spatialAudioWeb.ts
+init_src();
+var BerxWebSpatialAudio = class {
+  /**
+   * Any real audio context. An `OfflineAudioContext` is one — it is
+   * how the verification renders sound deterministically — and it has
+   * no `resume` or `close`, which is why both are guarded rather than
+   * assumed.
+   */
+  constructor(context) {
+    this.spatial = true;
+    this.playing = /* @__PURE__ */ new Map();
+    this.buffers = /* @__PURE__ */ new Map();
+    this.listener = {
+      position: { x: 0, y: 0, z: 0 },
+      forward: { x: 0, y: 0, z: -1 },
+      up: { x: 0, y: 1, z: 0 }
+    };
+    this.context = context ?? new AudioContext();
+  }
+  /** Running only after a gesture. Reported, never assumed. */
+  get running() {
+    return this.context.state === "running";
+  }
+  /** Call from a real user gesture. Browsers require one; this is honest about it. */
+  async resume() {
+    const context = this.context;
+    if (context.state !== "running" && typeof context.resume === "function") await context.resume();
+  }
+  setListener(listener) {
+    this.listener = listener;
+    const l = this.context.listener;
+    if (l.positionX) {
+      l.positionX.value = listener.position.x;
+      l.positionY.value = listener.position.y;
+      l.positionZ.value = listener.position.z;
+      l.forwardX.value = listener.forward.x;
+      l.forwardY.value = listener.forward.y;
+      l.forwardZ.value = listener.forward.z;
+      l.upX.value = listener.up.x;
+      l.upY.value = listener.up.y;
+      l.upZ.value = listener.up.z;
+    } else {
+      l.setPosition(listener.position.x, listener.position.y, listener.position.z);
+      l.setOrientation(
+        listener.forward.x,
+        listener.forward.y,
+        listener.forward.z,
+        listener.up.x,
+        listener.up.y,
+        listener.up.z
+      );
+    }
+  }
+  async buffer(uri) {
+    const cached = this.buffers.get(uri);
+    if (cached) return cached;
+    const response = await fetch(uri, { mode: "cors" });
+    if (!response.ok) throw new Error(`BERX 5D audio: ${uri} answered ${response.status}`);
+    const decoded = await this.context.decodeAudioData(await response.arrayBuffer());
+    this.buffers.set(uri, decoded);
+    return decoded;
+  }
+  async play(spec, at) {
+    this.stop(spec.id);
+    const buffer = await this.buffer(spec.uri);
+    const source = this.context.createBufferSource();
+    source.buffer = buffer;
+    source.loop = spec.loop;
+    const panner = this.context.createPanner();
+    panner.panningModel = "HRTF";
+    panner.distanceModel = "inverse";
+    panner.refDistance = spec.refDistance;
+    panner.maxDistance = spec.maxDistance;
+    panner.rolloffFactor = 1;
+    if (spec.orientation) {
+      panner.coneInnerAngle = spec.coneInnerAngle ?? 60;
+      panner.coneOuterAngle = spec.coneOuterAngle ?? 180;
+      panner.coneOuterGain = 0.2;
+    }
+    setPannerPosition(panner, at, spec.orientation);
+    const gain = this.context.createGain();
+    gain.gain.value = berxAudioAttenuation(spec, this.listener.position, at) > 0 ? spec.gain : 0;
+    source.connect(panner).connect(gain).connect(this.context.destination);
+    source.start();
+    source.onended = () => this.stop(spec.id);
+    this.playing.set(spec.id, { source, panner, gain, spec });
+  }
+  move(sourceId, to) {
+    const entry = this.playing.get(sourceId);
+    if (!entry) return;
+    setPannerPosition(entry.panner, to, entry.spec.orientation);
+    entry.gain.gain.value = berxAudioAttenuation(entry.spec, this.listener.position, to) > 0 ? entry.spec.gain : 0;
+  }
+  stop(sourceId) {
+    const entry = this.playing.get(sourceId);
+    if (!entry) return;
+    this.playing.delete(sourceId);
+    try {
+      entry.source.onended = null;
+      entry.source.stop();
+    } catch {
+    }
+    entry.source.disconnect();
+    entry.panner.disconnect();
+    entry.gain.disconnect();
+  }
+  stopAll() {
+    for (const id of [...this.playing.keys()]) this.stop(id);
+  }
+  dispose() {
+    this.stopAll();
+    this.buffers.clear();
+    const context = this.context;
+    if (typeof context.close === "function") void context.close();
+  }
+};
+function setPannerPosition(panner, at, orientation) {
+  if (panner.positionX) {
+    panner.positionX.value = at.x;
+    panner.positionY.value = at.y;
+    panner.positionZ.value = at.z;
+    if (orientation) {
+      panner.orientationX.value = orientation.x;
+      panner.orientationY.value = orientation.y;
+      panner.orientationZ.value = orientation.z;
+    }
+  } else {
+    panner.setPosition(at.x, at.y, at.z);
+    if (orientation) {
+      panner.setOrientation(orientation.x, orientation.y, orientation.z);
+    }
+  }
+}
+
+// packages/spatial-web/src/voiceWeb.ts
+var BerxWebVoice = class {
+  constructor(options = {}) {
+    const w = globalThis;
+    this.synthesis = options.synthesis ?? w.speechSynthesis;
+    this.Recognition = options.recognition ?? w.SpeechRecognition ?? w.webkitSpeechRecognition;
+    this.lang = options.lang ?? "ru-RU";
+    this.preferVoice = options.preferVoice;
+  }
+  /** Speaking is the half that must work; listening is optional. */
+  get available() {
+    return typeof this.synthesis?.speak === "function";
+  }
+  get canListen() {
+    return this.Recognition !== void 0;
+  }
+  /**
+   * True where recognition is known to leave the device.
+   *
+   * Chromium's implementation posts audio to a remote service. A
+   * person deserves to be told that before the microphone opens, so
+   * this is exposed rather than buried.
+   */
+  get requiresNetwork() {
+    return this.canListen;
+  }
+  /** The installed voices, so a deployment can choose a good one. */
+  voices() {
+    return (this.synthesis?.getVoices() ?? []).map((v) => ({ name: v.name, lang: v.lang }));
+  }
+  speak(text, prosody) {
+    if (!this.available) return Promise.resolve();
+    return new Promise((resolve) => {
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = this.lang;
+      utterance.rate = prosody.rate;
+      utterance.pitch = prosody.pitch;
+      const chosen = this.preferVoice ? (this.synthesis.getVoices() ?? []).find((v) => v.name === this.preferVoice) : void 0;
+      if (chosen) utterance.voice = chosen;
+      let settled = false;
+      const done = () => {
+        if (settled) return;
+        settled = true;
+        resolve();
+      };
+      utterance.onend = done;
+      utterance.onerror = done;
+      this.synthesis.speak(utterance);
+    });
+  }
+  async listen(timeoutMs) {
+    if (!this.Recognition) return void 0;
+    const started = Date.now();
+    return await new Promise((resolve) => {
+      const recognition = new this.Recognition();
+      this.active = recognition;
+      recognition.lang = this.lang;
+      recognition.continuous = false;
+      recognition.interimResults = false;
+      recognition.maxAlternatives = 1;
+      let settled = false;
+      const finish = (heard) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        this.active = void 0;
+        try {
+          recognition.abort();
+        } catch {
+        }
+        resolve(heard);
+      };
+      const timer = setTimeout(() => finish(void 0), timeoutMs);
+      recognition.onresult = (event) => {
+        const best = event.results[0]?.[0];
+        if (!best) return finish(void 0);
+        finish({
+          transcript: best.transcript,
+          /* some engines omit confidence entirely; a missing number
+             is not a confident one */
+          confidence: Number.isFinite(best.confidence) ? best.confidence : 0.5,
+          hesitationMs: Date.now() - started
+        });
+      };
+      recognition.onerror = () => finish(void 0);
+      recognition.onend = () => finish(void 0);
+      try {
+        recognition.start();
+      } catch {
+        finish(void 0);
+      }
+    });
+  }
+  stop() {
+    try {
+      this.synthesis?.cancel();
+    } catch {
+    }
+    try {
+      this.active?.abort();
+    } catch {
+    }
+    this.active = void 0;
+  }
+};
+
+// packages/spatial-web/src/voiceToWorld.ts
+init_src();
+var TONE_OF = Object.freeze({
+  /* A failure is an invitation to try another way, not an apology. */
+  error: "holding",
+  recovering: "tender",
+  discovering: "warm",
+  success: "warm"
+});
+var ENTITIES = Object.freeze({
+  nearbyNow: (got, now) => {
+    const r = got;
+    return [
+      ...(r?.events ?? []).map((e) => mapNearbyEventToSpatial(e)),
+      ...(r?.places ?? []).map((p) => mapNearbyPlaceToSpatial(p, now))
+    ];
+  },
+  nearbyPlaces: (got, now) => (got?.places ?? []).map((p) => mapNearbyPlaceToSpatial(p, now)),
+  events: (got) => (got?.events ?? []).map((e) => mapEventToSpatial(e)),
+  searchUsers: (got) => (got?.users ?? []).map((u) => mapUserToSpatial(u)),
+  feed: (got) => (got?.posts ?? []).map((p) => mapFeedItemToSpatial(p))
+});
+var callFor = (capability, client, situation) => {
+  const method = client[capability];
+  if (typeof method !== "function") return void 0;
+  const call = method.bind(client);
+  const here = situation.location;
+  switch (capability) {
+    case "nearbyNow":
+      return here ? () => call(here.lat, here.lng, 5, false, true) : void 0;
+    case "nearbyPlaces":
+      return here ? () => call(here.lat, here.lng, 5) : void 0;
+    case "events":
+      return () => call({});
+    case "searchUsers":
+      return () => call("");
+    case "feed":
+      return () => call(20, 0);
+    default:
+      return () => call();
+  }
+};
+function berxVoiceToWorld(options) {
+  let state = berxLivingWorld();
+  const turns = [];
+  const now = options.now ?? (() => Date.now());
+  const situationNow = () => {
+    const world = options.host.world;
+    const frame = world?.latestFrame;
+    const position = world?.worldPosition;
+    return berxSituation({
+      nowMs: now(),
+      cursor: world?.cursor ?? berxTemporalCursor(Math.floor(now() / 1e3)),
+      region: position?.region ?? "world",
+      focusId: frame?.world.activeObjectId,
+      viewerId: world?.viewer,
+      objects: frame?.world.objects ?? [],
+      eye: frame?.camera.position ?? { x: 0, y: 0, z: 0 },
+      location: options.location?.(),
+      allowed: options.permissions?.() ?? {
+        microphone: true,
+        location: options.location?.() !== void 0,
+        notifications: false,
+        presence: false
+      }
+    });
+  };
+  const composed = /* @__PURE__ */ new Map();
+  const bridge = {
+    async execute(plan, situation) {
+      const results = [];
+      let entities = [];
+      composed.clear();
+      for (const step of plan.steps) {
+        if (!step.capability) {
+          results.push({ step, state: "done" });
+          continue;
+        }
+        const call = callFor(step.capability, options.client, situation);
+        if (!call) {
+          results.push({
+            step,
+            state: "failed",
+            reason: situation.location === void 0 && (step.capability === "nearbyNow" || step.capability === "nearbyPlaces") ? "\u044F \u043D\u0435 \u0437\u043D\u0430\u044E, \u0433\u0434\u0435 \u0442\u044B" : `${step.capability} \u043D\u0435\u0442 \u043D\u0430 \u0441\u0435\u0440\u0432\u0435\u0440\u0435`
+          });
+          break;
+        }
+        try {
+          const got = await call();
+          results.push({ step, state: "done", got });
+          const mapped = ENTITIES[step.capability]?.(got, now()) ?? [];
+          for (const m of mapped) composed.set(m.object.id, m);
+          entities = mapped.map((m) => ({ id: m.object.id, label: m.object.label }));
+        } catch (error) {
+          results.push({ step, state: "failed", reason: error instanceof Error ? error.message : "\u0441\u0435\u0440\u0432\u0435\u0440 \u043D\u0435 \u043E\u0442\u0432\u0435\u0442\u0438\u043B" });
+          break;
+        }
+      }
+      return { results, entities };
+    },
+    travel(objectId) {
+      return options.host.world?.travelTo(objectId) ?? false;
+    },
+    back() {
+      return options.host.back();
+    }
+  };
+  let generation = 0;
+  let running = false;
+  const silence = () => {
+    options.stopSpeaking?.();
+    options.voice?.stop();
+  };
+  const speakIt = async (turn, mine) => {
+    const backend = options.voice;
+    if (!backend?.available || turn.say.text === "") return;
+    if (mine !== generation) return;
+    options.host.coreCause({ kind: "speech", speaking: true });
+    try {
+      await backend.speak(turn.say.text, berxVoiceProsody(TONE_OF[turn.core.state] ?? "calm"));
+    } finally {
+      if (mine === generation) options.host.coreCause({ kind: "speech", speaking: false });
+    }
+  };
+  const run = async (utterance) => {
+    const mine = ++generation;
+    running = true;
+    try {
+      state = { ...state, core: options.host.core };
+      const turn = await berxSpeakToWorld(state, utterance, situationNow(), bridge, (intent) => {
+        state = { ...state, memory: berxRequested(state.memory, intent.kind) };
+      }, (cause) => {
+        if (mine === generation) options.host.coreCause(cause);
+      });
+      if (mine !== generation) return turn;
+      state = { core: turn.core, memory: turn.memory };
+      turns.push(turn);
+      applyToWorld(turn);
+      options.onTurn?.(turn);
+      await speakIt(turn, mine);
+      return turn;
+    } finally {
+      if (mine === generation) running = false;
+    }
+  };
+  const interrupt = async (utterance) => {
+    silence();
+    return run(utterance);
+  };
+  return {
+    get busy() {
+      return running;
+    },
+    interrupt,
+    async say(utterance) {
+      return run(utterance);
+    },
+    async hear(timeoutMs = 8e3) {
+      const backend = options.voice;
+      if (!backend) return void 0;
+      options.host.coreCause({ kind: "voice", speaking: true });
+      let heard;
+      try {
+        heard = await backend.listen(timeoutMs);
+      } catch {
+        heard = void 0;
+      }
+      if (!heard || heard.transcript.trim() === "") {
+        options.host.coreCause({ kind: "voice", speaking: false });
+        return void 0;
+      }
+      return running ? interrupt(heard.transcript) : run(heard.transcript);
+    },
+    get state() {
+      return state;
+    },
+    get turns() {
+      return turns;
+    }
+  };
+  function applyToWorld(turn) {
+    const world = options.host.world;
+    if (turn.change !== "composed" || !world) return;
+    const viewer = world.viewer;
+    for (const shown of turn.shown) {
+      const mapping = composed.get(shown.id);
+      if (!mapping) continue;
+      const asked = viewer && viewer !== shown.id ? [{
+        id: `${viewer}->${shown.id}:asked`,
+        from: viewer,
+        to: shown.id,
+        /* 'related' is the honest type: the viewer asked a
+           question and this was in the answer. Nothing about
+           it is contained, located-at or created-by, and
+           claiming one of those would be inventing a fact
+           about the world from the fact that it was found. */
+        type: "related",
+        strength: 0.5
+      }] : [];
+      world.ingest([{
+        object: mapping.object,
+        relations: [...mapping.relations, ...asked],
+        media: mapping.media
+      }]);
+    }
+    const canvas = options.host.canvas;
+    world.frameWorld(canvas.width, canvas.height);
+  }
+}
+
+// packages/spatial-web/src/appShell.ts
 function describe(world) {
   const frame = world.latestFrame;
   const position = world.worldPosition;
@@ -9924,10 +11313,12 @@ async function startBerxApp(options) {
     prefer: options.renderer ?? "auto"
   });
   const renderer = await buildRenderer();
+  const audio = options.audio === false ? void 0 : options.audio ?? new BerxWebSpatialAudio();
   const host = createBerx5DWebHost({
     canvas,
     world,
     renderer,
+    audio,
     /* a lost GPU device costs pixels and nothing else: the world, the
        camera, the time cursor and the focus are in @berx/spatial, so
        a new backend picks up exactly where the old one stopped */
@@ -9968,6 +11359,7 @@ async function startBerxApp(options) {
       notice.hidden = true;
     }
   };
+  let destroyed = false;
   let composer;
   const compose = () => {
     if (composer || !options.publish) return;
@@ -10014,6 +11406,33 @@ async function startBerxApp(options) {
       }
     });
   };
+  const speech = options.voice ? new BerxWebVoice() : void 0;
+  const voice = options.voice && speech ? berxVoiceToWorld({
+    host,
+    client: options.voice.client,
+    location: options.voice.location,
+    permissions: options.voice.permissions,
+    voice: speech,
+    stopSpeaking: () => speech.stop(),
+    onTurn: (turn) => {
+      outline.textContent = describe(world);
+      if (turn.say.text.length > 0) outline.textContent += ` | ${turn.say.text}`;
+    }
+  }) : void 0;
+  const listenMs = options.voice ? options.voice.listenMs ?? 8e3 : 8e3;
+  const listen = async () => {
+    if (!voice) return;
+    await voice.hear(listenMs);
+  };
+  const resumeAudio = () => {
+    canvas.removeEventListener("pointerdown", resumeAudio);
+    canvas.removeEventListener("keydown", resumeAudio);
+    void audio?.resume?.();
+  };
+  if (audio) {
+    canvas.addEventListener("pointerdown", resumeAudio);
+    canvas.addEventListener("keydown", resumeAudio);
+  }
   const onCompose = (event) => {
     if (event.key !== "n" && event.key !== "\u0442") return;
     if (composer) return;
@@ -10021,7 +11440,21 @@ async function startBerxApp(options) {
     compose();
   };
   canvas.addEventListener("keydown", onCompose);
+  const onSpeak = (event) => {
+    if (event.key !== "v" && event.key !== "\u043C") return;
+    if (composer || !voice) return;
+    event.preventDefault();
+    void listen();
+  };
+  canvas.addEventListener("keydown", onSpeak);
   await pull();
+  let liveWorld;
+  const connected = options.live?.(world).then((connection) => {
+    liveWorld = connection;
+    if (destroyed) connection.close();
+  }).catch((error) => {
+    failures.push({ source: "realtime", message: error instanceof Error ? error.message : String(error) });
+  });
   const remembered = options.restore?.();
   if (remembered) {
     world.restore(remembered);
@@ -10030,23 +11463,40 @@ async function startBerxApp(options) {
   host.start();
   globalThis.__berxWorld = world;
   globalThis.__berxHost = host;
-  return {
+  const shell = {
     host,
     world,
+    audio,
+    connected,
+    get live() {
+      return liveWorld;
+    },
+    voice,
+    listen,
     failures,
     refresh: pull,
     compose,
     destroy: () => {
+      destroyed = true;
+      liveWorld?.close();
       canvas.removeEventListener("keydown", onCompose);
+      canvas.removeEventListener("keydown", onSpeak);
+      speech?.stop();
+      canvas.removeEventListener("pointerdown", resumeAudio);
+      canvas.removeEventListener("keydown", resumeAudio);
+      audio?.dispose();
       composer?.remove();
       delete globalThis.__berxWorld;
       delete globalThis.__berxHost;
+      delete globalThis.__berxShell;
       host.destroy();
       notice.remove();
       outline.remove();
       canvas.remove();
     }
   };
+  globalThis.__berxShell = shell;
+  return shell;
 }
 
 // scripts/app-shell.entry.ts
@@ -10073,10 +11523,60 @@ var gateError = document.getElementById("berx-entry-error");
 var identifier = document.getElementById("berx-identifier");
 var password = document.getElementById("berx-password");
 var submit = document.getElementById("berx-enter");
+var fix;
+var watching = false;
+var whereAmI = () => {
+  if (!watching && typeof navigator !== "undefined" && navigator.geolocation) {
+    watching = true;
+    navigator.geolocation.watchPosition(
+      (position) => {
+        fix = { lat: position.coords.latitude, lng: position.coords.longitude, atMs: position.timestamp };
+      },
+      () => {
+        fix = void 0;
+      },
+      { enableHighAccuracy: false, maximumAge: 6e4, timeout: 15e3 }
+    );
+  }
+  return fix;
+};
 async function enterWorld() {
   gate?.remove();
   await startBerxApp({
     load: () => loadBerxWorld(api, { feedLimit: 30 }),
+    /**
+     * The world stays live.
+     *
+     * One socket, subscribed to the channels this world implies,
+     * and every event resolved back through the same API endpoints
+     * a cold load uses — so a live world and a reloaded one are the
+     * same world. Nothing here invents an entity from a payload.
+     *
+     * It reconnects on its own, because a phone that changed
+     * networks has not stopped being in the world.
+     */
+    live: (world) => berxKeepWorldLive(world, api, { realtime: { autoReconnect: true } }),
+    /**
+     * And BERX can be talked to.
+     *
+     * The plan names a capability by this client's own method name
+     * and this calls that method — nothing about a sentence is
+     * interpreted here, and a capability the server does not have
+     * fails rather than being invented.
+     */
+    voice: {
+      client: api,
+      location: whereAmI,
+      permissions: () => ({
+        /* the microphone is asked for by opening it, and the
+           browser answers then — claiming it in advance would be
+           a permission BERX granted itself */
+        microphone: typeof navigator !== "undefined" && navigator.mediaDevices !== void 0,
+        location: whereAmI() !== void 0,
+        notifications: typeof Notification !== "undefined" && Notification.permission === "granted",
+        presence: false
+      })
+    },
     /**
      * Arriving at a conversation reads it.
      *

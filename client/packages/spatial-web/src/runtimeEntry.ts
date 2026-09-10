@@ -8,3 +8,4 @@ export * from './mediaTextures';
 export * from './spatialText';
 export * from './spatialAudioWeb';
 export * from './appShell';
+export * from './xrSession';

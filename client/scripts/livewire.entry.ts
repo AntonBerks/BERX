@@ -13,7 +13,7 @@
  */
 import {Berx5DWorldApp} from '@berx/spatial';
 import type {BerxApiClient} from '@berx/api/client';
-import type {BerxRealtimeSocket} from '@berx/api/realtime';
+import {BerxRealtimeClient, type BerxRealtimeSocket} from '@berx/api/realtime';
 import {berxKeepWorldLive, mapUserToSpatial} from '@berx/scenes';
 
 declare global {
@@ -259,6 +259,52 @@ window.BERX_LIVE_WIRE = {
 
 		live.close();
 		out.closed = {socketClosed: socket?.closed === true, state: live.client.state};
+
+		/**
+		 * A SERVER HAVING A BAD MINUTE MUST NOT BE GIVEN A WORSE ONE.
+		 *
+		 * One failed attempt used to schedule two reconnects — the
+		 * socket's own close handler and the rejected promise's catch —
+		 * and each of those failed and became two. 2^n. A real browser
+		 * session held 4 462 open sockets against the server after
+		 * twenty minutes of this.
+		 *
+		 * So: a socket that refuses every time, a deliberately fast
+		 * backoff, and a count of how many were ever opened. Linear is
+		 * the contract. Anything that doubles fails here.
+		 */
+		{
+			const failing = answering('ws://berx.invalid/socket');
+			const world2 = new Berx5DWorldApp({viewerId: 'person:77'});
+			world2.ingest([{object: ann.object, relations: [], media: []}]);
+			let opened = 0;
+			let stop = () => {};
+			const client = new BerxRealtimeClient(failing as unknown as BerxApiClient, {
+				autoReconnect: true,
+				backoffMs: [20, 20, 20, 20],
+				socketFactory: () => {
+					opened++;
+					const dead = new ProtocolSocket('ws://berx.invalid/socket', 'berx-realtime-1', () => true, 'never-matches');
+					/* refused the way a server refuses: it opens, and then
+					   it is gone */
+					setTimeout(() => dead.close(), 1);
+					return dead;
+				},
+			});
+			stop = () => client.close();
+			await client.connect(['self:77']).catch(() => undefined);
+			await new Promise((r) => setTimeout(r, 400));
+			stop();
+			const after = opened;
+			await new Promise((r) => setTimeout(r, 200));
+			out.storm = {
+				opened: after,
+				/* 400ms at a 20ms floor is at most ~20 rounds; doubling
+				   would be six figures long before that */
+				ceiling: 25,
+				stoppedAfterClose: opened === after,
+			};
+		}
 		return out;
 	},
 };

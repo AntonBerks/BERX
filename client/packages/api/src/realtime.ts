@@ -80,6 +80,19 @@ export class BerxRealtimeClient {
 	private openedAt?: number;
 	/** Waiting for the server's answer to a subscribe sent after connect. */
 	private pendingSubscribe?: (result: {granted: string[]; refused: string[]}) => void;
+	/**
+	 * The ONE reconnect that is allowed to be pending.
+	 *
+	 * A failed attempt used to schedule two: `socket.onclose` fires after
+	 * `onerror` has already rejected, and the rejected promise's own
+	 * `.catch` in scheduleReconnect schedules another. Two chains from
+	 * one failure, each of which fails and becomes two — 2^n sockets
+	 * against the server, measured at 4 462 open connections from a
+	 * single browser session in twenty minutes. A client that answers a
+	 * server's bad minute by doubling its load every round is a denial
+	 * of service with a friendly name.
+	 */
+	private reconnectTimer?: ReturnType<typeof setTimeout>;
 
 	constructor(api: BerxApiClient, options: BerxRealtimeOptions = {}) {
 		this.api = api;
@@ -271,6 +284,10 @@ export class BerxRealtimeClient {
 		this.closing = true;
 		this.openedAt = undefined;
 		this.pendingSubscribe = undefined;
+		if (this.reconnectTimer !== undefined) {
+			clearTimeout(this.reconnectTimer);
+			this.reconnectTimer = undefined;
+		}
 		this.socket?.close();
 		this.socket = undefined;
 		this.channels = [];
@@ -287,10 +304,13 @@ export class BerxRealtimeClient {
 	}
 
 	private scheduleReconnect(channels: readonly string[]): void {
+		/* one chain, whichever path asked for it */
+		if (this.reconnectTimer !== undefined) return;
 		const backoff = this.options.backoffMs ?? DEFAULT_BACKOFF;
 		const delay = backoff[Math.min(this.attempt, backoff.length - 1)];
 		this.attempt++;
-		setTimeout(() => {
+		this.reconnectTimer = setTimeout(() => {
+			this.reconnectTimer = undefined;
 			if (this.closing) return;
 			/* A fresh token every time: the server burns each on use, so
 			   a reconnect that reused one would be refused. */

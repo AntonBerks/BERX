@@ -208,6 +208,10 @@ try {
 		/* name the resource: "404" with no url cannot be acted on */
 		target.on('requestfailed', (r) => pageErrors.push(`requestfailed ${r.url()}`));
 		target.on('response', (r) => { if (r.status() === 404) pageErrors.push(`404 ${r.url()}`); });
+		/* A probe that stalls has to say where. Twenty-five minutes of
+		   silence is not a measurement, and a gate that can hang without
+		   naming the step is a gate nobody can debug. */
+		target.on('console', (m) => { if (m.text().startsWith('BERX step:')) console.log(`      ${m.text()}`); });
 		target.on('console', (m) => {
 			if (m.type() === 'error') pageErrors.push(m.text());
 		});
@@ -1945,16 +1949,21 @@ const PROJECTOR_SOURCE = String.raw`(canvas, c) => {
 		   Tabbed onto a SERVER action: `open` is travel, and asserting a
 		   canonical mutation from it would be asserting the wrong thing —
 		   travel moves the camera and leaves the world alone, correctly. */
+		const step = (name) => console.log(`BERX step: ${name}`);
+		step('keyboard: start');
 		const ring = w.affordances();
 		for (let i = 0; i < ring.length && w.focusedAffordance?.action !== 'like'; i++) await key('Tab');
+		step(`keyboard: tabbed to ${w.focusedAffordance?.id ?? 'nothing'}`);
 		const activating = w.focusedAffordance
 			? {id: w.focusedAffordance.id, action: w.focusedAffordance.action, label: w.focusedAffordance.label}
 			: undefined;
 		const beforeAct = stampOf('moment:5150');
 		await key('Enter');
+		step('keyboard: Enter dispatched');
 		const said = liveText();
 		await new Promise((r) => setTimeout(r, 500));
 		await settle();
+		step('keyboard: action settled');
 		const afterAct = stampOf('moment:5150');
 		const announced = liveText();
 
@@ -1979,6 +1988,7 @@ const PROJECTOR_SOURCE = String.raw`(canvas, c) => {
 			rejected = liveText();
 		}
 
+		step('keyboard: rejection case done');
 		/* 7. A state that is not activatable must not activate. */
 		const guarded = await w.act('moment:5150:like').then(() => 'ran').catch(() => 'threw');
 		const guardedAfterBlur = await (async () => {
@@ -2221,11 +2231,16 @@ const PROJECTOR_SOURCE = String.raw`(canvas, c) => {
 	await page.evaluate(() => window.__berxShell?.connected);
 	const liveState = await page.evaluate(() => ({
 		failures: (window.__berxShell?.failures ?? []).map((f) => `${f.source}: ${f.message}`),
+		/* what the SERVER granted, read off the session itself */
+		channels: [...(window.__berxShell?.live?.channels ?? [])].sort(),
 	}));
+	const wanted = ['person:77', 'person:78', 'self:77'];
 	gate('the shipped shell opens a real socket and the server grants its channels',
-		sockets.open >= 1 && liveState.failures.every((f) => !f.startsWith('realtime')),
 		sockets.open >= 1
-			? `${sockets.open} live connection(s) from the product session, granted self:77, person:77, person:78 — the channels this world implies, derived from who is actually standing in it${liveState.failures.length ? ` | other failures: ${liveState.failures.join('; ')}` : ''}`
+			&& JSON.stringify(liveState.channels) === JSON.stringify(wanted)
+			&& liveState.failures.every((f) => !f.startsWith('realtime')),
+		sockets.open >= 1
+			? `${sockets.open} live connection(s) from the product session; the server granted ${liveState.channels.join(', ') || 'nothing'} — the channels this world implies, derived from who is actually standing in it${liveState.failures.length ? ` | other failures: ${liveState.failures.join('; ')}` : ''}`
 			: `the product session opened no socket${liveState.failures.length ? `: ${liveState.failures.join('; ')}` : ''}`);
 
 	/* A real write, somewhere else, with nobody polling. The row goes

@@ -29,6 +29,7 @@ import {berxMeasureLabel} from './spatialText';
 import {BerxWebSpatialAudio} from './spatialAudioWeb';
 import {BerxWebVoice} from './voiceWeb';
 import {berxVoiceToWorld, type BerxVoiceToWorld} from './voiceToWorld';
+import {berxEnterXr, berxXrAvailability, type BerxXrAvailability, type BerxXrMode, type BerxXrSession} from './xrSession';
 
 export interface BerxAppShellOptions {
 	/** Where the world is drawn. Created and appended when omitted. */
@@ -127,7 +128,7 @@ export interface BerxAppShellOptions {
 	 * in `failures` under `realtime` rather than as a session that
 	 * quietly never updates.
 	 */
-	live?: (world: Berx5DWorldApp) => Promise<{close(): void}>;
+	live?: (world: Berx5DWorldApp) => Promise<BerxLiveConnection>;
 	/**
 	 * Talking to BERX.
 	 *
@@ -155,6 +156,20 @@ export interface BerxAppShellOptions {
 		/** How long the microphone stays open. Default 8s. */
 		listenMs?: number;
 	} | false;
+}
+
+/**
+ * A live connection, as much of it as the shell needs to know.
+ *
+ * Structural on purpose: @berx/spatial-web owns the world and @berx/api
+ * owns the transport, and a shared type would make the renderer package
+ * depend on the API client. `channels` is what the SERVER granted —
+ * never what was asked for — so a session can say what it is really
+ * hearing rather than what it hoped to.
+ */
+export interface BerxLiveConnection {
+	close(): void;
+	readonly channels?: readonly string[];
 }
 
 export interface BerxAppShell {
@@ -186,9 +201,31 @@ export interface BerxAppShell {
 	 * no on-screen control, because a microphone button is a piece of 2D
 	 * interface that is always there whether or not anyone is talking.
 	 */
+	/**
+	 * The live connection, once it is open. Undefined while it is being
+	 * made, and while it has failed — in which case `failures` says why
+	 * under `realtime`, and the world is honestly not live.
+	 */
+	readonly live?: BerxLiveConnection;
 	readonly voice?: BerxVoiceToWorld;
 	/** Open the microphone and run whatever was said. Nothing when silent. */
 	listen(): Promise<void>;
+	/**
+	 * What this device will really grant, asked of the browser once the
+	 * world exists. Undefined until that answer has come back.
+	 */
+	readonly xr?: BerxXrAvailability;
+	/**
+	 * Enter a headset, or a phone's AR camera.
+	 *
+	 * MUST be called from a real user gesture — WebXR requires one, and
+	 * a world that put someone in a headset by itself would deserve the
+	 * rejection it gets. Rejects with the browser's own reason where the
+	 * device cannot; there is no simulated XR to fall back to.
+	 */
+	enterXr(mode?: BerxXrMode): Promise<BerxXrSession>;
+	/** The session, while one is running. */
+	readonly xrSession?: BerxXrSession;
 	/** What did not load, named. Never hidden behind a plausible world. */
 	readonly failures: readonly {source: string; message: string}[];
 	/**
@@ -441,6 +478,34 @@ export async function startBerxApp(options: BerxAppShellOptions): Promise<BerxAp
 	};
 
 	/**
+	 * WHAT THIS DEVICE CAN ACTUALLY DO ABOUT XR.
+	 *
+	 * Asked once, of the browser, and never assumed: the presence of
+	 * navigator.xr is not support — a desktop Chrome with no headset
+	 * exposes the object and grants no session. Nothing is entered here;
+	 * entering needs a gesture, and the gesture is the person's.
+	 */
+	let xr: BerxXrAvailability | undefined;
+	void berxXrAvailability().then((answer) => {
+		xr = answer;
+	});
+	let xrSession: BerxXrSession | undefined;
+	const enterXr = async (mode: BerxXrMode = 'immersive-vr') => {
+		if (xrSession) return xrSession;
+		const session = await berxEnterXr(mode, {
+			world, renderer, canvas,
+			onState: (state, detail) => {
+				if (state === 'ended') xrSession = undefined;
+				outline.textContent = state === 'ended'
+					? describe(world)
+					: `BERX в ${mode === 'immersive-ar' ? 'дополненной' : 'виртуальной'} реальности${detail ? `: ${detail}` : ''}`;
+			},
+		});
+		xrSession = session;
+		return session;
+	};
+
+	/**
 	 * Browsers will not make sound until someone has touched the page,
 	 * and there is no way around that worth taking. The first real
 	 * gesture on the world resumes the context; until then the listener
@@ -477,6 +542,20 @@ export async function startBerxApp(options: BerxAppShellOptions): Promise<BerxAp
 	};
 	canvas.addEventListener('keydown', onSpeak);
 
+	/* And into a headset, from the same keyboard and from inside the
+	   world. A keypress IS the user gesture WebXR requires. Nothing
+	   happens where the device cannot: the promise rejects with the
+	   browser's reason and the live region says so. */
+	const onEnterXr = (event: KeyboardEvent) => {
+		if (event.key !== 'x' && event.key !== 'ч') return;
+		if (composer) return;
+		event.preventDefault();
+		void enterXr().catch((error) => {
+			outline.textContent = `${describe(world)} | ${error instanceof Error ? error.message : String(error)}`;
+		});
+	};
+	canvas.addEventListener('keydown', onEnterXr);
+
 	await pull();
 
 	/**
@@ -488,7 +567,7 @@ export async function startBerxApp(options: BerxAppShellOptions): Promise<BerxAp
 	 * and what it does when it fails is say so, in the same list every
 	 * other unreachable thing is named in.
 	 */
-	let liveWorld: {close(): void} | undefined;
+	let liveWorld: BerxLiveConnection | undefined;
 	const connected = options.live?.(world)
 		.then((connection) => {
 			liveWorld = connection;
@@ -522,8 +601,18 @@ export async function startBerxApp(options: BerxAppShellOptions): Promise<BerxAp
 		world,
 		audio,
 		connected,
+		get live() {
+			return liveWorld;
+		},
 		voice,
 		listen,
+		get xr() {
+			return xr;
+		},
+		enterXr,
+		get xrSession() {
+			return xrSession;
+		},
 		failures,
 		refresh: pull,
 		compose,
@@ -532,6 +621,8 @@ export async function startBerxApp(options: BerxAppShellOptions): Promise<BerxAp
 			liveWorld?.close();
 			canvas.removeEventListener('keydown', onCompose);
 			canvas.removeEventListener('keydown', onSpeak);
+			canvas.removeEventListener('keydown', onEnterXr);
+			void xrSession?.end();
 			speech?.stop();
 			canvas.removeEventListener('pointerdown', resumeAudio);
 			canvas.removeEventListener('keydown', resumeAudio);

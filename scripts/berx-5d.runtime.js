@@ -3728,6 +3728,15 @@ function berxAudioAttenuation(source, listener, at) {
   const window2 = 1 - (d - source.refDistance) / (source.maxDistance - source.refDistance);
   return source.gain * inverse * window2;
 }
+function berxListenerFromCamera(position, target) {
+  const f = { x: target.x - position.x, y: target.y - position.y, z: target.z - position.z };
+  const l = Math.hypot(f.x, f.y, f.z) || 1;
+  return {
+    position: { ...position },
+    forward: { x: f.x / l, y: f.y / l, z: f.z / l },
+    up: { x: 0, y: 1, z: 0 }
+  };
+}
 var init_spatialAudio = __esm({
   "packages/spatial/src/spatialAudio.ts"() {
     "use strict";
@@ -4261,6 +4270,65 @@ var init_runtime5d = __esm({
   }
 });
 
+// packages/spatial/src/geometry.ts
+function geometryForEntity(kind) {
+  return { ...specs[kind] };
+}
+function geometryScale(spec) {
+  return { x: spec.width ?? spec.radius ?? 1, y: spec.height ?? spec.radius ?? 1, z: spec.depth ?? spec.radius ?? 1 };
+}
+function primitiveHalfExtent(kind) {
+  const p = BERX_PRIMITIVES[kind];
+  switch (p.form) {
+    case "sphere":
+      return { x: p.radius, y: p.radius, z: p.radius };
+    case "box":
+      return { x: p.width / 2, y: p.height / 2, z: p.depth / 2 };
+    /* the tube's centre line plus its own radius IS the outer radius; the
+       tube is only as thick as half the gap between the two radii */
+    case "torus":
+      return { x: p.outer, y: p.outer, z: (p.outer - p.inner) / 2 };
+    /* the bars stand centred on the edge, so each face reaches half a bar
+       further than the frame's nominal size; createFrame's bars are .12
+       deep whatever the bar width */
+    case "frame":
+      return { x: p.width / 2 + p.bar / 2, y: p.height / 2 + p.bar / 2, z: 0.06 };
+  }
+}
+function berxDrawnHalfExtent(kind, scale) {
+  const mesh = primitiveHalfExtent(specs[kind].kind);
+  return { x: mesh.x * Math.abs(scale.x), y: mesh.y * Math.abs(scale.y), z: mesh.z * Math.abs(scale.z) };
+}
+var specs, BERX_PRIMITIVES;
+var init_geometry = __esm({
+  "packages/spatial/src/geometry.ts"() {
+    "use strict";
+    specs = {
+      person: { kind: "orb", radius: 0.72, segments: 32, bevel: 0.08 },
+      moment: { kind: "surface", width: 1.9, height: 2.35, depth: 0.045, bevel: 0.08 },
+      place: { kind: "portal", width: 1.8, height: 2.1, depth: 0.22, bevel: 0.14 },
+      event: { kind: "ring", radius: 0.95, segments: 48, emissive: 0.12 },
+      experience: { kind: "frame", width: 1.9, height: 1.4, depth: 0.18, bevel: 0.1 },
+      community: { kind: "node", radius: 0.86, segments: 24 },
+      business: { kind: "stack", width: 1.7, height: 1.15, depth: 0.45, bevel: 0.1 },
+      collection: { kind: "stack", width: 1.6, height: 1.05, depth: 0.34, bevel: 0.1 },
+      message: { kind: "message", width: 1.55, height: 0.72, depth: 0.12, bevel: 0.16 },
+      create: { kind: "create", radius: 0.82, segments: 40, emissive: 0.08 }
+    };
+    BERX_PRIMITIVES = {
+      orb: { form: "sphere", radius: 0.5 },
+      ring: { form: "torus", outer: 0.62, inner: 0.42 },
+      frame: { form: "frame", width: 1, height: 1, bar: 0.12 },
+      surface: { form: "box", width: 1, height: 1, depth: 0.06, bevel: 0.02 },
+      portal: { form: "frame", width: 1, height: 1.2, bar: 0.16 },
+      node: { form: "sphere", radius: 0.58 },
+      stack: { form: "box", width: 1, height: 1, depth: 0.32, bevel: 0.1 },
+      message: { form: "box", width: 1, height: 0.46, depth: 0.12, bevel: 0.05 },
+      create: { form: "sphere", radius: 0.58 }
+    };
+  }
+});
+
 // packages/spatial/src/spatialInteraction.ts
 function objectAxes(r) {
   const cx = Math.cos(r.x), sx = Math.sin(r.x);
@@ -4279,10 +4347,11 @@ function hitTestObject(ray, object) {
   const d = norm(ray.direction);
   const o = [dot(oc, axes.x), dot(oc, axes.y), dot(oc, axes.z)];
   const dir = [dot(d, axes.x), dot(d, axes.y), dot(d, axes.z)];
+  const drawn = berxDrawnHalfExtent(object.kind, object.transform.scale);
   const half = [
-    Math.max(Math.abs(object.transform.scale.x) * 0.5, MIN_HALF_EXTENT),
-    Math.max(Math.abs(object.transform.scale.y) * 0.5, MIN_HALF_EXTENT),
-    Math.max(Math.abs(object.transform.scale.z) * 0.5, MIN_HALF_EXTENT)
+    Math.max(drawn.x, MIN_HALF_EXTENT),
+    Math.max(drawn.y, MIN_HALF_EXTENT),
+    Math.max(drawn.z, MIN_HALF_EXTENT)
   ];
   let near = -Infinity, far = Infinity;
   for (let i = 0; i < 3; i++) {
@@ -4326,13 +4395,14 @@ function pickSpatialCandidates(ray, objects) {
   }
   return hits.sort((a, b) => a.distance - b.distance);
 }
-function berxResolveByDepth(candidates, drawnDepth, tolerance = 1.5) {
+function berxResolveByDepth(candidates, drawnDepth, forwardCosine = 1, tolerance = BERX_PICK_DEPTH_TOLERANCE) {
   if (candidates.length === 0) return void 0;
   if (drawnDepth === void 0 || !Number.isFinite(drawnDepth) || drawnDepth <= 0) return candidates[0];
+  const cos = Number.isFinite(forwardCosine) && forwardCosine > 1e-6 ? forwardCosine : 1;
   let best;
   let bestGap = Infinity;
   for (const hit of candidates) {
-    const gap = Math.abs(hit.distance - drawnDepth);
+    const gap = Math.abs(hit.distance * cos - drawnDepth);
     if (gap < bestGap) {
       bestGap = gap;
       best = hit;
@@ -4363,10 +4433,11 @@ function rayFromNdc(camera, ndcX, ndcY, aspect) {
     })
   };
 }
-var dot, sub, len, norm, MIN_HALF_EXTENT, cross;
+var dot, sub, len, norm, MIN_HALF_EXTENT, BERX_PICK_DEPTH_TOLERANCE, cross;
 var init_spatialInteraction = __esm({
   "packages/spatial/src/spatialInteraction.ts"() {
     "use strict";
+    init_geometry();
     dot = (a, b) => a.x * b.x + a.y * b.y + a.z * b.z;
     sub = (a, b) => ({ x: a.x - b.x, y: a.y - b.y, z: a.z - b.z });
     len = (v) => Math.hypot(v.x, v.y, v.z);
@@ -4375,6 +4446,7 @@ var init_spatialInteraction = __esm({
       return { x: v.x / l, y: v.y / l, z: v.z / l };
     };
     MIN_HALF_EXTENT = 0.12;
+    BERX_PICK_DEPTH_TOLERANCE = 1.5;
     cross = (a, b) => ({ x: a.y * b.z - a.z * b.y, y: a.z * b.x - a.x * b.z, z: a.x * b.y - a.y * b.x });
   }
 });
@@ -4530,7 +4602,7 @@ function berxActionRing(object, camera, affordances, measure) {
     };
   });
 }
-function pickActionSlot(slots, camera, rayDirection, aspect) {
+function pickActionSlot(slots, camera, rayDirection, aspect, drawnDepth) {
   const basis = cameraBasis(camera);
   if (!basis) return void 0;
   let best;
@@ -4544,6 +4616,7 @@ function pickActionSlot(slots, camera, rayDirection, aspect) {
     };
     const along = d.x * basis.forward.x + d.y * basis.forward.y + d.z * basis.forward.z;
     if (along <= 0) continue;
+    if (drawnDepth !== void 0 && drawnDepth > 0 && along > drawnDepth + SLOT_DEPTH_BIAS) continue;
     const scale = along / Math.max(1e-4, rayDirection.x * basis.forward.x + rayDirection.y * basis.forward.y + rayDirection.z * basis.forward.z);
     const hit = { x: rayDirection.x * scale, y: rayDirection.y * scale, z: rayDirection.z * scale };
     const dx = (hit.x - d.x) * basis.right.x + (hit.y - d.y) * basis.right.y + (hit.z - d.z) * basis.right.z;
@@ -4579,7 +4652,7 @@ function berxNearActionSlots(slots, camera, rayDirection, aspect, widen = 2.6) {
   }
   return near;
 }
-var PRESENTATION, BERX_SLOT_FOCUS_SCALE, RING_GAP, SLOT_HEIGHT, BERX_SLOT_GAP, ARC, REACH, DEPTH, WIDTH_PER_CHARACTER, aspectFor;
+var PRESENTATION, BERX_SLOT_FOCUS_SCALE, RING_GAP, SLOT_HEIGHT, SLOT_DEPTH_BIAS, BERX_SLOT_GAP, ARC, REACH, DEPTH, WIDTH_PER_CHARACTER, aspectFor;
 var init_actionRing = __esm({
   "packages/spatial/src/actionRing.ts"() {
     "use strict";
@@ -4612,6 +4685,7 @@ var init_actionRing = __esm({
     BERX_SLOT_FOCUS_SCALE = PRESENTATION.focus.scale;
     RING_GAP = 0.55;
     SLOT_HEIGHT = 0.26;
+    SLOT_DEPTH_BIAS = 0.05;
     BERX_SLOT_GAP = SLOT_HEIGHT;
     ARC = Math.PI * 0.9;
     REACH = 1.35;
@@ -5341,32 +5415,6 @@ var init_runtimeAssertions = __esm({
 var init_renderer = __esm({
   "packages/spatial/src/renderer.ts"() {
     "use strict";
-  }
-});
-
-// packages/spatial/src/geometry.ts
-function geometryForEntity(kind) {
-  return { ...specs[kind] };
-}
-function geometryScale(spec) {
-  return { x: spec.width ?? spec.radius ?? 1, y: spec.height ?? spec.radius ?? 1, z: spec.depth ?? spec.radius ?? 1 };
-}
-var specs;
-var init_geometry = __esm({
-  "packages/spatial/src/geometry.ts"() {
-    "use strict";
-    specs = {
-      person: { kind: "orb", radius: 0.72, segments: 32, bevel: 0.08 },
-      moment: { kind: "surface", width: 1.9, height: 2.35, depth: 0.045, bevel: 0.08 },
-      place: { kind: "portal", width: 1.8, height: 2.1, depth: 0.22, bevel: 0.14 },
-      event: { kind: "ring", radius: 0.95, segments: 48, emissive: 0.12 },
-      experience: { kind: "frame", width: 1.9, height: 1.4, depth: 0.18, bevel: 0.1 },
-      community: { kind: "node", radius: 0.86, segments: 24 },
-      business: { kind: "stack", width: 1.7, height: 1.15, depth: 0.45, bevel: 0.1 },
-      collection: { kind: "stack", width: 1.6, height: 1.05, depth: 0.34, bevel: 0.1 },
-      message: { kind: "message", width: 1.55, height: 0.72, depth: 0.12, bevel: 0.16 },
-      create: { kind: "create", radius: 0.82, segments: 40, emissive: 0.08 }
-    };
   }
 });
 
@@ -6534,28 +6582,20 @@ function gpuMesh(gl, mesh) {
 }
 function meshFor(kind, lod) {
   const far = lod === 1;
-  switch (kind) {
-    case "orb":
-      return createSphere(0.5, far ? 10 : 24, far ? 7 : 16);
-    case "ring":
-      return createTorus(0.62, 0.42, far ? 18 : 48, far ? 6 : 12);
+  const p = BERX_PRIMITIVES[kind];
+  const t = TESSELLATION[kind];
+  switch (p.form) {
+    case "sphere":
+      return createSphere(p.radius, far ? t[2] : t[0], far ? t[3] : t[1]);
+    case "torus":
+      return createTorus(p.outer, p.inner, far ? t[2] : t[0], far ? t[3] : t[1]);
     case "frame":
-      return createFrame(1, 1, 0.12);
-    case "surface":
-      return createBevelBox(1, 1, 0.06, 0.02);
-    case "portal":
-      return createFrame(1, 1.2, 0.16);
-    case "node":
-      return createSphere(0.58, far ? 9 : 20, far ? 6 : 12);
-    case "stack":
-      return createBevelBox(1, 1, 0.32, 0.1);
-    case "message":
-      return createBevelBox(1, 0.46, 0.12, 0.05);
-    case "create":
-      return createSphere(0.58, far ? 11 : 28, far ? 7 : 18);
+      return createFrame(p.width, p.height, p.bar);
+    case "box":
+      return createBevelBox(p.width, p.height, p.depth, p.bevel);
   }
 }
-var V, SV, SF, F, TV, TF, GV, GF, AV, AF, VV, VF, CV, CF, DF, POSTF, PV, PF, BerxThreeRuntimeRenderer;
+var V, SV, SF, F, TV, TF, GV, GF, AV, AF, TESSELLATION, VV, VF, CV, CF, DF, POSTF, PV, PF, BerxThreeRuntimeRenderer;
 var init_threeRuntime = __esm({
   "packages/spatial-web/src/threeRuntime.ts"() {
     "use strict";
@@ -6802,6 +6842,17 @@ void main(){
   float ratio=occluded/float(max(taps,1));
   C=vec4(max(0.,1.-pow(ratio,power)*strength),0.,0.,1.);
 }`;
+    TESSELLATION = {
+      orb: [24, 16, 10, 7],
+      ring: [48, 12, 18, 6],
+      node: [20, 12, 9, 6],
+      create: [28, 18, 11, 7],
+      frame: [0, 0, 0, 0],
+      surface: [0, 0, 0, 0],
+      portal: [0, 0, 0, 0],
+      stack: [0, 0, 0, 0],
+      message: [0, 0, 0, 0]
+    };
     VV = `#version 300 es
 precision highp float;out vec2 UV;void main(){vec2 c=vec2((gl_VertexID==1)?3.:-1.,(gl_VertexID==2)?3.:-1.);UV=vec2(c.x*.5+.5,c.y*.5+.5);gl_Position=vec4(c,0.,1.);}`;
     VF = `#version 300 es
@@ -8083,7 +8134,9 @@ void main(){
       pick(frame, x, y) {
         const ray = rayFromNdc(frame.camera, x / this.width * 2 - 1, 1 - y / this.height * 2, this.width / this.height);
         if (!ray) return void 0;
-        return berxResolveByDepth(pickSpatialCandidates(ray, frame.world.objects), this.depthAt(x, y));
+        const basis = cameraBasis(frame.camera);
+        const cos = basis ? ray.direction.x * basis.forward.x + ray.direction.y * basis.forward.y + ray.direction.z * basis.forward.z : 1;
+        return berxResolveByDepth(pickSpatialCandidates(ray, frame.world.objects), this.depthAt(x, y), cos);
       }
       /**
        * Deleting the objects is not the same as giving the GPU its memory
@@ -8376,27 +8429,18 @@ __export(webgpuRuntime_exports, {
 });
 function meshFor2(primitive, lod) {
   const far = lod === 1;
-  switch (primitive) {
-    case "orb":
-      return createSphere(0.5, far ? 10 : 24, far ? 7 : 16);
-    case "ring":
-      return createTorus(0.62, 0.42, far ? 18 : 48, far ? 6 : 12);
+  const p = BERX_PRIMITIVES[primitive];
+  if (!p) throw new Error(`BERX 5D WebGPU: unknown primitive '${primitive}'`);
+  const t = TESSELLATION2[primitive] ?? [0, 0, 0, 0];
+  switch (p.form) {
+    case "sphere":
+      return createSphere(p.radius, far ? t[2] : t[0], far ? t[3] : t[1]);
+    case "torus":
+      return createTorus(p.outer, p.inner, far ? t[2] : t[0], far ? t[3] : t[1]);
     case "frame":
-      return createFrame(1, 1, 0.12);
-    case "surface":
-      return createBevelBox(1, 1, 0.06, 0.02);
-    case "portal":
-      return createFrame(1, 1.2, 0.16);
-    case "node":
-      return createSphere(0.58, far ? 9 : 20, far ? 6 : 12);
-    case "stack":
-      return createBevelBox(1, 1, 0.32, 0.1);
-    case "message":
-      return createBevelBox(1, 0.46, 0.12, 0.05);
-    case "create":
-      return createSphere(0.58, far ? 11 : 28, far ? 7 : 18);
-    default:
-      throw new Error(`BERX 5D WebGPU: unknown primitive '${primitive}'`);
+      return createFrame(p.width, p.height, p.bar);
+    case "box":
+      return createBevelBox(p.width, p.height, p.depth, p.bevel);
   }
 }
 function glToWgpuDepth(projection) {
@@ -8451,7 +8495,7 @@ async function berxWebGPUCanvasPresentable() {
     }
   }
 }
-var DRAW_STRIDE, GLOBALS_BYTES, SHADOW_FORMAT, VOL_GLOBALS_BYTES, PARTICLE_GLOBALS_BYTES, LABEL_STRIDE, LABEL_GLOBALS_BYTES, SAMPLE_COUNT, BerxWebGPURuntimeRenderer;
+var DRAW_STRIDE, GLOBALS_BYTES, SHADOW_FORMAT, VOL_GLOBALS_BYTES, PARTICLE_GLOBALS_BYTES, LABEL_STRIDE, LABEL_GLOBALS_BYTES, SAMPLE_COUNT, TESSELLATION2, BerxWebGPURuntimeRenderer;
 var init_webgpuRuntime = __esm({
   "packages/spatial-web/src/webgpuRuntime.ts"() {
     "use strict";
@@ -8468,6 +8512,12 @@ var init_webgpuRuntime = __esm({
     LABEL_STRIDE = 256;
     LABEL_GLOBALS_BYTES = 160;
     SAMPLE_COUNT = 4;
+    TESSELLATION2 = {
+      orb: [24, 16, 10, 7],
+      ring: [48, 12, 18, 6],
+      node: [20, 12, 9, 6],
+      create: [28, 18, 11, 7]
+    };
     BerxWebGPURuntimeRenderer = class _BerxWebGPURuntimeRenderer {
       constructor(canvas, device, context, format, hdrFormat, pipeline, drawLayout, mediaLayout, labelPipeline, labelLayout, shadowPipeline, gbufferPipeline, ssaoPipeline, volPipeline, compositePipeline, volLayout, compositeLayout, particlePipeline, particleLayout, postPipeline, postLayout, options) {
         this.canvas = canvas;
@@ -10711,6 +10761,9 @@ function createBerx5DWebHost(options = {}) {
       haptics.moment("focus");
     }
   };
+  const listen = (scene) => {
+    options.audio?.setListener(berxListenerFromCamera(scene.camera.position, scene.camera.target));
+  };
   const frame = (now) => {
     if (!running) return;
     const dt = Math.min(0.05, Math.max(0, (now - last) / 1e3));
@@ -10722,7 +10775,9 @@ function createBerx5DWebHost(options = {}) {
       syncQualityToLoad();
       if (world) renderer.setAffordances(world.affordances());
       core = berxCoreStep(core, dt);
-      renderer.render(world ? world.frame(dt) : runtime.frame(dt), {
+      const scene = world ? world.frame(dt) : runtime.frame(dt);
+      listen(scene);
+      renderer.render(scene, {
         maxObjects: quality.maxObjects,
         ambientMotion: quality.ambientMotion,
         particles,
@@ -10731,8 +10786,7 @@ function createBerx5DWebHost(options = {}) {
         core: core.field
       });
     } else {
-      if (world) world.frame(dt);
-      else runtime.frame(dt);
+      listen(world ? world.frame(dt) : runtime.frame(dt));
     }
     raf = requestAnimationFrame(frame);
   };
@@ -10787,7 +10841,10 @@ function createBerx5DWebHost(options = {}) {
       x,
       y,
       frameState,
-      over: pickActionSlot(renderer.actionSlots, frameState.camera, ray.direction, aspect),
+      /* the same depth the entity pick resolves against, so a
+         highlight and a press cannot disagree with each other or
+         with what is drawn */
+      over: pickActionSlot(renderer.actionSlots, frameState.camera, ray.direction, aspect, renderer.depthAt?.(x, y)),
       near: berxNearActionSlots(renderer.actionSlots, frameState.camera, ray.direction, aspect)
     };
   };
@@ -10806,7 +10863,8 @@ function createBerx5DWebHost(options = {}) {
     const y = (e.clientY - rect.top) * dpr;
     const frameState = world ? world.latestFrame : runtime.latestFrame;
     const ray = rayFromNdc(frameState.camera, x / canvas.width * 2 - 1, 1 - y / canvas.height * 2, canvas.width / canvas.height);
-    const slot = ray && world ? pickActionSlot(renderer.actionSlots, frameState.camera, ray.direction, canvas.width / canvas.height) : void 0;
+    const drawnDepth = renderer.depthAt?.(x, y);
+    const slot = ray && world ? pickActionSlot(renderer.actionSlots, frameState.camera, ray.direction, canvas.width / canvas.height, drawnDepth) : void 0;
     if (slot && world) {
       activate(slot.affordance.id, slot.affordance.label);
       return;
@@ -11059,6 +11117,7 @@ function createBerx5DWebHost(options = {}) {
       };
     },
     coreCause,
+    audio: options.audio,
     get quality() {
       return quality;
     },
@@ -11317,6 +11376,114 @@ async function createBerxWebRenderer(canvas, options = {}) {
 
 // packages/spatial-web/src/appShell.ts
 init_spatialText();
+
+// packages/spatial-web/src/voiceWeb.ts
+var BerxWebVoice = class {
+  constructor(options = {}) {
+    const w = globalThis;
+    this.synthesis = options.synthesis ?? w.speechSynthesis;
+    this.Recognition = options.recognition ?? w.SpeechRecognition ?? w.webkitSpeechRecognition;
+    this.lang = options.lang ?? "ru-RU";
+    this.preferVoice = options.preferVoice;
+  }
+  /** Speaking is the half that must work; listening is optional. */
+  get available() {
+    return typeof this.synthesis?.speak === "function";
+  }
+  get canListen() {
+    return this.Recognition !== void 0;
+  }
+  /**
+   * True where recognition is known to leave the device.
+   *
+   * Chromium's implementation posts audio to a remote service. A
+   * person deserves to be told that before the microphone opens, so
+   * this is exposed rather than buried.
+   */
+  get requiresNetwork() {
+    return this.canListen;
+  }
+  /** The installed voices, so a deployment can choose a good one. */
+  voices() {
+    return (this.synthesis?.getVoices() ?? []).map((v) => ({ name: v.name, lang: v.lang }));
+  }
+  speak(text, prosody) {
+    if (!this.available) return Promise.resolve();
+    return new Promise((resolve) => {
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = this.lang;
+      utterance.rate = prosody.rate;
+      utterance.pitch = prosody.pitch;
+      const chosen = this.preferVoice ? (this.synthesis.getVoices() ?? []).find((v) => v.name === this.preferVoice) : void 0;
+      if (chosen) utterance.voice = chosen;
+      let settled = false;
+      const done = () => {
+        if (settled) return;
+        settled = true;
+        resolve();
+      };
+      utterance.onend = done;
+      utterance.onerror = done;
+      this.synthesis.speak(utterance);
+    });
+  }
+  async listen(timeoutMs) {
+    if (!this.Recognition) return void 0;
+    const started = Date.now();
+    return await new Promise((resolve) => {
+      const recognition = new this.Recognition();
+      this.active = recognition;
+      recognition.lang = this.lang;
+      recognition.continuous = false;
+      recognition.interimResults = false;
+      recognition.maxAlternatives = 1;
+      let settled = false;
+      const finish = (heard) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        this.active = void 0;
+        try {
+          recognition.abort();
+        } catch {
+        }
+        resolve(heard);
+      };
+      const timer = setTimeout(() => finish(void 0), timeoutMs);
+      recognition.onresult = (event) => {
+        const best = event.results[0]?.[0];
+        if (!best) return finish(void 0);
+        finish({
+          transcript: best.transcript,
+          /* some engines omit confidence entirely; a missing number
+             is not a confident one */
+          confidence: Number.isFinite(best.confidence) ? best.confidence : 0.5,
+          hesitationMs: Date.now() - started
+        });
+      };
+      recognition.onerror = () => finish(void 0);
+      recognition.onend = () => finish(void 0);
+      try {
+        recognition.start();
+      } catch {
+        finish(void 0);
+      }
+    });
+  }
+  stop() {
+    try {
+      this.synthesis?.cancel();
+    } catch {
+    }
+    try {
+      this.active?.abort();
+    } catch {
+    }
+    this.active = void 0;
+  }
+};
+
+// packages/spatial-web/src/appShell.ts
 function describe(world) {
   const frame = world.latestFrame;
   const position = world.worldPosition;
@@ -11372,10 +11539,12 @@ async function startBerxApp(options) {
     prefer: options.renderer ?? "auto"
   });
   const renderer = await buildRenderer();
+  const audio = options.audio === false ? void 0 : options.audio ?? new BerxWebSpatialAudio();
   const host = createBerx5DWebHost({
     canvas,
     world,
     renderer,
+    audio,
     /* a lost GPU device costs pixels and nothing else: the world, the
        camera, the time cursor and the focus are in @berx/spatial, so
        a new backend picks up exactly where the old one stopped */
@@ -11416,6 +11585,7 @@ async function startBerxApp(options) {
       notice.hidden = true;
     }
   };
+  let destroyed = false;
   let composer;
   const compose = () => {
     if (composer || !options.publish) return;
@@ -11462,6 +11632,33 @@ async function startBerxApp(options) {
       }
     });
   };
+  const speech = options.voice ? new BerxWebVoice() : void 0;
+  const voice = options.voice && speech ? berxVoiceToWorld({
+    host,
+    client: options.voice.client,
+    location: options.voice.location,
+    permissions: options.voice.permissions,
+    voice: speech,
+    stopSpeaking: () => speech.stop(),
+    onTurn: (turn) => {
+      outline.textContent = describe(world);
+      if (turn.say.text.length > 0) outline.textContent += ` | ${turn.say.text}`;
+    }
+  }) : void 0;
+  const listenMs = options.voice ? options.voice.listenMs ?? 8e3 : 8e3;
+  const listen = async () => {
+    if (!voice) return;
+    await voice.hear(listenMs);
+  };
+  const resumeAudio = () => {
+    canvas.removeEventListener("pointerdown", resumeAudio);
+    canvas.removeEventListener("keydown", resumeAudio);
+    void audio?.resume?.();
+  };
+  if (audio) {
+    canvas.addEventListener("pointerdown", resumeAudio);
+    canvas.addEventListener("keydown", resumeAudio);
+  }
   const onCompose = (event) => {
     if (event.key !== "n" && event.key !== "\u0442") return;
     if (composer) return;
@@ -11469,7 +11666,21 @@ async function startBerxApp(options) {
     compose();
   };
   canvas.addEventListener("keydown", onCompose);
+  const onSpeak = (event) => {
+    if (event.key !== "v" && event.key !== "\u043C") return;
+    if (composer || !voice) return;
+    event.preventDefault();
+    void listen();
+  };
+  canvas.addEventListener("keydown", onSpeak);
   await pull();
+  let liveWorld;
+  const connected = options.live?.(world).then((connection) => {
+    liveWorld = connection;
+    if (destroyed) connection.close();
+  }).catch((error) => {
+    failures.push({ source: "realtime", message: error instanceof Error ? error.message : String(error) });
+  });
   const remembered = options.restore?.();
   if (remembered) {
     world.restore(remembered);
@@ -11478,23 +11689,40 @@ async function startBerxApp(options) {
   host.start();
   globalThis.__berxWorld = world;
   globalThis.__berxHost = host;
-  return {
+  const shell = {
     host,
     world,
+    audio,
+    connected,
+    get live() {
+      return liveWorld;
+    },
+    voice,
+    listen,
     failures,
     refresh: pull,
     compose,
     destroy: () => {
+      destroyed = true;
+      liveWorld?.close();
       canvas.removeEventListener("keydown", onCompose);
+      canvas.removeEventListener("keydown", onSpeak);
+      speech?.stop();
+      canvas.removeEventListener("pointerdown", resumeAudio);
+      canvas.removeEventListener("keydown", resumeAudio);
+      audio?.dispose();
       composer?.remove();
       delete globalThis.__berxWorld;
       delete globalThis.__berxHost;
+      delete globalThis.__berxShell;
       host.destroy();
       notice.remove();
       outline.remove();
       canvas.remove();
     }
   };
+  globalThis.__berxShell = shell;
+  return shell;
 }
 export {
   BERX_DEPTH_KEYS,

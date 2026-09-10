@@ -60,8 +60,31 @@ export const BERX_GPU_FLAGS = [
 	'--use-vulkan=native',
 ];
 
+/**
+ * SHARED MEMORY GOES IN SHARED MEMORY.
+ *
+ * Playwright launches Chromium with `--disable-dev-shm-usage`, which is
+ * right on a CI image whose /dev/shm is the Docker default 64 MB: the
+ * renderer's buffers go to /tmp instead and nothing crashes. It is
+ * wrong here, and expensively so. A gate that renders a few hundred
+ * frames and reads pixels back leaves the renderer holding thousands of
+ * those buffers — 13,096 open and deleted /tmp/.org.chromium.Chromium.*
+ * files, 26 GB of them, measured during a single app-shell run — and
+ * this container's writable space is a fixed allowance, so the run dies
+ * of ENOSPC somewhere in the middle and every result after that point
+ * is worthless.
+ *
+ * /dev/shm here is a 16 GB tmpfs, so the default is simply removed and
+ * the buffers live where Chromium means them to live. Nothing about
+ * what is measured changes: this decides where a renderer keeps its
+ * scratch memory, not what it draws.
+ */
 export async function launchChromium(options = {}) {
-	options = {...options, args: [...BERX_GPU_FLAGS, ...(options.args ?? [])]};
+	options = {
+		...options,
+		args: [...BERX_GPU_FLAGS, ...(options.args ?? [])],
+		ignoreDefaultArgs: ['--disable-dev-shm-usage', ...(options.ignoreDefaultArgs ?? [])],
+	};
 	const override = process.env.BERX_CHROMIUM_PATH;
 	if (override) return chromium.launch({...options, executablePath: override});
 	try {

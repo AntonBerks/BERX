@@ -418,6 +418,11 @@ gate('an entity the server cannot return leaves the world exactly as it was',
 		&& liveOut.broken?.state === 'open',
 	`the read threw "сеть не ответила": ${liveOut.broken?.before} entities before and ${liveOut.broken?.after} after, and the socket is still ${liveOut.broken?.state}. One unreachable entity is not a reason to drop a live session, and it is never a reason to show something the server did not give`);
 
+gate('a server that keeps refusing is retried, never multiplied',
+	liveOut.storm?.opened > 0 && liveOut.storm?.opened <= liveOut.storm?.ceiling
+		&& liveOut.storm?.stoppedAfterClose === true,
+	`${liveOut.storm?.opened} sockets opened against a server that refused every one, over 400ms at a 20ms floor — linear, and none after close(). One failure used to schedule TWO reconnects (the socket's close handler and the rejected promise's catch), each of which became two: a real session held 4,546 open connections. Anything that doubles blows the ceiling of ${liveOut.storm?.ceiling} immediately`);
+
 gate('closing the session closes the socket',
 	liveOut.closed?.socketClosed === true && liveOut.closed?.state === 'closed',
 	'destroy() reaches the socket — a world that is gone must not keep a connection open behind it');
