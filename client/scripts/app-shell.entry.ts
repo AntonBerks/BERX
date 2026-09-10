@@ -17,6 +17,7 @@ import {
 	mapFeedItemToSpatial,
 	mapPlaceToSpatial,
 } from '@berx/scenes';
+import {berxDrawnHalfExtent} from '@berx/spatial';
 import {startBerxApp} from '@berx/spatial-web/appShell';
 
 /**
@@ -88,6 +89,18 @@ const whereAmI = () => {
 	}
 	return fix;
 };
+
+/**
+ * How big an entity really is, for anything reaching in from outside.
+ *
+ * The same pure function the picker tests against and both renderers
+ * build their mesh from — exposed for the same reason `__berxWorld` is:
+ * so verification can ask the world's own question instead of
+ * re-deriving the answer and then measuring its own arithmetic. No
+ * state, no side effect, and the alternative was a gate carrying a
+ * second copy of the geometry table.
+ */
+(globalThis as unknown as {__berxDrawnHalfExtent?: typeof berxDrawnHalfExtent}).__berxDrawnHalfExtent = berxDrawnHalfExtent;
 
 async function enterWorld(): Promise<void> {
 	gate?.remove();

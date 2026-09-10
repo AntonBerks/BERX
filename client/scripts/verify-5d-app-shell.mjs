@@ -80,6 +80,30 @@ const API = {
 	},
 	'/api/v1/communities': {communities: [{guid: 501, name: 'Соседи', description: '', owner_guid: 77, privacy: 'public', is_member: true}]},
 	'/api/v1/collections': {collections: [{id: 33, title: 'Любимые места', description: '', visibility: 'public', owner_guid: 77, is_own: true, item_count: 2, time_updated: NOW}]},
+	/* Four domains the world loader now reads. Real response shapes,
+	   from the types in @berx/api — a stub that 404s an endpoint the
+	   shell really calls is a stub that has fallen behind the client. */
+	'/api/v1/stories': {
+		feed: [{owner_guid: 78, owner_username: 'lev', stories: [
+			{id: 91, caption: 'вид с крыши', time_created: NOW - 3600, mime_type: 'image/jpeg'},
+		]}],
+	},
+	'/api/v1/trips': {
+		trips: [{
+			id: 7, title: 'Север', description: '', visibility: 'public', owner_guid: 77, is_own: true,
+			start_date: NOW + 86400, end_date: NOW + 6 * 86400, stop_count: 1, time_updated: NOW,
+		}],
+	},
+	'/api/v1/notifications': {
+		limit: 20, offset: 1,
+		notifications: [{
+			guid: 31, type: 'post:like', poster_guid: 78, subject_guid: 77,
+			item_guid: 5150, viewed: false, time_created: NOW - 30,
+		}],
+	},
+	'/api/v1/memories': {
+		memories: [{type: 'post', guid: 5151, years_ago: 3, time: NOW - 3 * 365 * 86400, text: 'три года назад'}],
+	},
 	'/api/v1/posts/5150/like': {status: 'ok'},
 	'/api/v1/posts/5150': {guid: 5150, text: 'вечер удался', owner_guid: 77, owner_username: 'ann', time_created: NOW - 400, like_count: 1, comment_count: 0},
 	'/api/v1/events': {
@@ -366,7 +390,13 @@ try {
 			cursorAt: w.worldPosition.cursor.at,
 		};
 	});
-	const expected = ['person:77', 'person:78', 'moment:5150', 'moment:5151', 'message:78', 'place:4211', 'event:908', 'experience:12', 'community:501', 'collection:33'].sort();
+	const expected = [
+		'person:77', 'person:78', 'moment:5150', 'moment:5151', 'message:78', 'place:4211',
+		'event:908', 'experience:12', 'community:501', 'collection:33',
+		/* and the four domains that used to have an endpoint and no
+		   entity: a story, a trip, a notification and a memory */
+		'moment:story-91', 'collection:trip-7', 'moment:notice-31', 'moment:memory-post-5151',
+	].sort();
 	gate(
 		'real API responses became entities in one world',
 		expected.every((id) => world.ids.includes(id)),
@@ -2081,6 +2111,10 @@ const PROJECTOR_SOURCE = String.raw`(canvas, c) => {
 		const canvas = document.querySelector('canvas');
 		const settle = async () => { for (let i = 0; i < 60; i++) await new Promise((r) => requestAnimationFrame(r)); };
 		const entered = w.worldPosition.focusId;
+		/* No frameWorld here: focusing travels the camera, so a fit
+		   before it is immediately overwritten. What this probe needs is
+		   the pose a person is in when they are WITH an entity, which is
+		   what focus produces. */
 		w.focus('moment:5150');
 		await settle();
 
@@ -2092,9 +2126,40 @@ const PROJECTOR_SOURCE = String.raw`(canvas, c) => {
 		})).filter((sl) => sl.at);
 		/* the longest name in the ring, and whichever neighbour it stands
 		   closest to on screen */
-		let wide = slots[0];
-		for (const sl of slots) if (sl.reservedHalfWidth > wide.reservedHalfWidth) wide = sl;
-		const index = slots.indexOf(wide);
+		/**
+		 * The widest name THAT HAS A NEIGHBOUR to be tested against.
+		 *
+		 * Taking the widest and hoping worked while every slot was
+		 * reachable. The property under test is whether two adjacent
+		 * quads collide, and the widest slot standing alone at the end
+		 * of the drawn set cannot answer it — so the widest slot that
+		 * has a neighbour is the one to press, and how many are
+		 * reachable at all is reported.
+		 */
+		let wide;
+		let index = 0;
+		for (let i = 0; i < slots.length; i++) {
+			if (slots[i - 1] === undefined && slots[i + 1] === undefined) continue;
+			if (wide === undefined || slots[i].reservedHalfWidth > wide.reservedHalfWidth) {
+				wide = slots[i];
+				index = i;
+			}
+		}
+		/**
+		 * A ring with fewer than two reachable slots cannot answer a
+		 * question about two adjacent slots.
+		 *
+		 * It used to take slots[0] and dereference it, so a viewpoint
+		 * where the ring was fully occluded crashed the probe and took
+		 * the whole gate run down with it after everything before it had
+		 * passed. Reported by count instead, which is a reachability
+		 * fact about that viewpoint rather than a collision.
+		 */
+		if (wide === undefined || slots.length < 2) {
+			if (entered) w.focus(entered);
+			await settle();
+			return {slotCount: slots.length, settled: w.latestFrame.transition === undefined && !w.runtime.travelling};
+		}
 		const neighbours = [slots[index - 1], slots[index + 1]].filter(Boolean);
 		let near = neighbours[0];
 		for (const n of neighbours) {
@@ -2128,6 +2193,7 @@ const PROJECTOR_SOURCE = String.raw`(canvas, c) => {
 		if (entered) w.focus(entered);
 		await settle();
 		return {
+			slotCount: slots.length,
 			wide: {label: wide.label, px: wide.at.px, drawnHalfWidth: wide.drawnHalfWidth},
 			near: near ? {label: near.label, px: near.at.px} : undefined,
 			centre, edge, beside, edgePx,
@@ -2136,14 +2202,17 @@ const PROJECTOR_SOURCE = String.raw`(canvas, c) => {
 	});
 
 	gate('the widest name in the ring answers at its own pixel, and at its own far edge',
-		widest.centre.said.includes(widest.wide.label) && widest.edge.said.includes(widest.wide.label),
-		`"${widest.wide.label}" is drawn ${widest.wide.drawnHalfWidth.toFixed(3)} half-wide at ${widest.wide.px.toFixed(0)}px. A press there announced "${widest.centre.said}"; a press at ${widest.edge.px.toFixed(0)}px — 90% of the way to its own edge, toward "${widest.near ? widest.near.label : 'nothing'}" — announced "${widest.edge.said}". Both are the same action, so the widest quad in the ring does not reach into its neighbour and is not reached into`);
+		widest.wide !== undefined
+		&& widest.centre.said.includes(widest.wide.label) && widest.edge.said.includes(widest.wide.label),
+		widest.wide === undefined
+		? `only ${widest.slotCount} slot(s) are reachable from this viewpoint, so there was no widest name to press`
+		: `"${widest.wide.label}" is drawn ${widest.wide.drawnHalfWidth.toFixed(3)} half-wide at ${widest.wide.px.toFixed(0)}px. A press there announced "${widest.centre.said}"; a press at ${widest.edge.px.toFixed(0)}px — 90% of the way to its own edge, toward "${widest.near ? widest.near.label : 'nothing'}" — announced "${widest.edge.said}". Both are the same action, so the widest quad in the ring does not reach into its neighbour and is not reached into`);
 
 	gate('and its neighbour answers at ITS pixel, not for the one beside it',
 		widest.beside !== undefined && widest.near !== undefined && widest.beside.said.includes(widest.near.label),
 		widest.near
 			? `a press at ${widest.near.px.toFixed(0)}px announced "${widest.beside.said}" — "${widest.near.label}", the slot drawn there. This is the pair that used to collide: the ring reserved 1.411 of spacing for a 1.548-wide word`
-			: 'the widest slot had no neighbour to test against');
+			: `only ${widest.slotCount ?? '?'} slot(s) are reachable from here, so no adjacent pair exists to test spacing on — a reachability fact, not a collision`);
 
 	gate('the spacing probe leaves the world as it found it',
 		widest.settled === true,
@@ -2166,7 +2235,24 @@ const PROJECTOR_SOURCE = String.raw`(canvas, c) => {
 		const host = window.__berxHost;
 		const canvas = document.querySelector('canvas');
 		const settle = async () => { for (let i = 0; i < 40; i++) await new Promise((r) => requestAnimationFrame(r)); };
+		/**
+		 * FROM WHERE A REAL SESSION STANDS.
+		 *
+		 * This focused an entity and aimed from wherever the focus
+		 * travel left the camera. That was fine while the world was
+		 * sparse; with an arrangement compact enough to fill the frame,
+		 * and with the temporal lens pushing a three-year-old memory
+		 * sixty units into depth, standing next to one entity means
+		 * every other one is behind something. Eleven of eleven
+		 * candidates were excluded and the gate reported 0 of 0, which
+		 * is not a pass and was not a picker fault either.
+		 *
+		 * The fit is where a session actually is: it is what the shell
+		 * calls, and it is the pose the framing gates measure.
+		 */
 		w.blurAffordance?.();
+		w.frameWorld(canvas.width, canvas.height);
+		await settle();
 		w.focus('moment:5150');
 		await settle();
 		const frame = w.latestFrame;
@@ -2184,6 +2270,14 @@ const PROJECTOR_SOURCE = String.raw`(canvas, c) => {
 		 * depth is its own.
 		 */
 		host.renderer.render(frame, {});
+		/* the camera's own forward axis, which is the axis the G-buffer
+		   measures depth along */
+		const forward = (() => {
+			const c = frame.camera;
+			const f = {x: c.target.x - c.position.x, y: c.target.y - c.position.y, z: c.target.z - c.position.z};
+			const l = Math.hypot(f.x, f.y, f.z) || 1;
+			return {x: f.x / l, y: f.y / l, z: f.z / l};
+		})();
 		const buffers = host.renderer.readSSAOBuffers?.();
 		const gdepth = (px, py) => {
 			if (!buffers) return undefined;
@@ -2196,12 +2290,37 @@ const PROJECTOR_SOURCE = String.raw`(canvas, c) => {
 			.filter((o) => o.visible && o.interactive && o.id !== 'moment:5150')
 			.map((o) => ({id: o.id, at: project(o.transform.position)}))
 			.filter((t) => t.at && t.at.onScreen)
-			.map((t) => ({...t, scene: gdepth(t.at.px, t.at.py)}));
-		const targets = candidates
-			.filter((t) => t.scene !== undefined && Math.abs(t.scene - t.at.along) < 1.5)
-			.slice(0, 4);
+			.map((t) => ({
+				...t,
+				scene: gdepth(t.at.px, t.at.py),
+				/* where the ray through this entity's own pixel enters and
+				   leaves its own box, from the shared core */
+				own: (() => {
+					const aim = window.__berxRay(frame.camera, t.at.px, t.at.py, canvas.width, canvas.height);
+					const o = frame.world.objects.find((x) => x.id === t.id);
+					return aim && o ? window.__berxCandidates(aim, [o])[0] : undefined;
+				})(),
+			}));
+		/**
+		 * A FAIR TARGET IS ONE THE WORLD REALLY DREW THERE.
+		 *
+		 * "within 1.5 units of its centre" cannot tell one entity from
+		 * the next once neighbours stand about two units apart — it
+		 * admitted entities their neighbour was standing in front of,
+		 * and then counted the picker wrong for saying so. The exact
+		 * test is the picker's own: the drawn depth has to lie between
+		 * where the ray enters this entity's box and where it leaves.
+		 */
+		const fair = (t) => {
+			if (t.scene === undefined) return false;
+			const own = t.own;
+			if (!own) return false;
+			const cos = t.at.along / Math.max(1e-6, own.distance);
+			return t.scene >= own.distance * cos - 0.12 && t.scene <= own.exit * cos + 0.12;
+		};
+		const targets = candidates.filter(fair).slice(0, 4);
 		const rejected = candidates
-			.filter((t) => !(t.scene !== undefined && Math.abs(t.scene - t.at.along) < 1.5))
+			.filter((t) => !fair(t))
 			.map((t) => `${t.id} at ${t.at.along.toFixed(1)} but the world drew ${t.scene === undefined ? 'nothing' : t.scene.toFixed(1)} there`);
 		const results = [];
 		for (const [i, t] of targets.entries()) {

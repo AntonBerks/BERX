@@ -140,6 +140,90 @@ projection matrix, and the browser's framebuffer and canvas size restored on
 exit. A frame with no pose, or one the shared core will not trust, leaves the
 camera where it was.
 
+### 1.7 The 40–60% framing band, closed by the layout
+
+It was recorded as a product decision requiring one of three proven
+invariants to be given up. It was a measurement nobody had taken.
+
+**What the numbers said.** Entities with a bounding radius of 1.38 standing
+7.73 apart, spread over sixteen metres, max lateral extent 8.4 — six
+diameters of empty space between one thing and the next. The relation
+distances were absolute metres (`related: 4.0`, divided by a strength of
+0.5, so eight) chosen with no reference to how big the things being placed
+actually are. No camera can make that read as a place: the distance that
+contains it all is a distance at which everything in it is tiny.
+
+| | desktop | phone | tablet | wide |
+|---|---|---|---|---|
+| before | 22.4% | 3.6% | 14.8% | 21.2% |
+| distances in units of entity size | 31.2% | 8.7% | 28.5% | 27.7% |
+| ring aspect = frame aspect | 21.9% | 25.5% | 23.3% | 20.8% |
+| even angular spacing | 44.1% | 39.1% | 47.8% | 41.1% |
+| **final** | **46.5%** | **41.5%** | **50.0%** | **43.4%** |
+
+Four changes, each one measured:
+
+1. **Distance in units of the entities' own size.** A relation between two
+   large things holds them proportionally further apart than the same
+   relation between two small ones. The order of the relation kinds is
+   untouched, so a weaker kind still reaches further; and weakness now means
+   half again rather than four times, because dividing by strength was the
+   single biggest reason the world was enormous.
+2. **The ring's shape IS the frame's shape** — the exact proportion, `sqrt`
+   on each side so the product stays constant and a change of frame
+   reshapes the world rather than growing it. An arrangement with the
+   frame's own aspect is the only one whose bounding box can touch all four
+   edges at once. The layout takes the viewport aspect from `frameWorld` and
+   re-lays out when the frame changes ORIENTATION, not on every resize.
+3. **Evenly, now that the count is known.** The golden angle was the right
+   answer to the question the placement loop can ask, but it is a *sample*
+   of a uniform distribution: four multiples come out 0°, 52°, 137°, 275°.
+   A second pass deals the angles out in equal shares, keeping every radius
+   its relation earned. Worth about thirty points.
+4. **And nothing stands inside anything else** — a relaxation pass on real
+   overlaps, tested against `berxDrawnHalfExtent` rather than the bounding
+   sphere, because a moment's sphere is 1.4 where its panel is 0.95 × 1.18 ×
+   0.001 and sphere separation would undo the whole compaction.
+
+Tablet landing on exactly 50.0% is the fit's own back-off: the layout only
+has to be compact ENOUGH and the camera finds the middle of the band by
+itself. The gate now runs four screen shapes rather than three, and its
+BLOCKED branch is gone because the condition is met.
+
+**Two things the compact world then exposed, both real.**
+`berxResolveByDepth` compared the drawn depth against where each box
+*starts*; that approximation held at seven units apart and broke at two. It
+now asks the exact question — whose box does the drawn point lie *inside*,
+along the ray — and among those takes the one whose front face sits nearest
+below it, since a drawn surface is always at or behind the front face of
+whatever was drawn. And a world invariant was testing the arrangement's old
+size rather than the property it names (`nearFocus(4)` vs `nearFocus(100)`);
+its radii now come from the distances actually in the world.
+
+### 1.8 Five domains that had an endpoint and no place in the world
+
+STORIES, MEMORIES, TRIPS, NOTIFICATIONS and dating profiles were each a real
+API method with real response types that nothing spatial had ever read. The
+world loader read eleven endpoints; it reads sixteen now.
+
+None of them gets a new entity kind — a story is a moment that expires, a
+memory is a moment that already happened, a trip is a collection with a
+route, a notification is a moment addressed to you — so each arrives with a
+form, a material, a geometry and a picker for free.
+
+T and R come from the server, never from the clock: a story leaves the
+present on the server's `time_expires` (and one the feed gave no expiry for
+is not given one); a memory is stamped with when it *happened*, which is the
+whole point, since the temporal cursor is what brings it forward; a trip's
+stops are relations to places already in the world rather than copies; a
+notification stands beside whoever caused it and points at what it is about,
+with `viewed` as its energy.
+
+A dating profile is a pseudonym and its own entity, not `person:<guid>` —
+mapping it onto the public profile would merge two identities the privacy
+model deliberately keeps apart. No compatibility score is invented, because
+the endpoint returns none.
+
 ### 1.6 Two harness defects that were destroying evidence
 
 - The gate's own WebSocket server dropped the bytes Node hands over in the
@@ -168,7 +252,7 @@ in this pass.
 | One geometry authority | PASS | `BERX_PRIMITIVES` → both `meshFor`s and `berxDrawnHalfExtent` | `packages/spatial/src/geometry.ts` | `verify:5d-picking`, `verify:5d-geometry` | — |
 | Spatial audio listener | PASS | rAF frame → `berxListenerFromCamera` → `BerxWebSpatialAudio.setListener` → real `AudioListener` | `runtimeHost5d.ts`, `appShell.ts`, `spatialAudioWeb.ts` | `verify:5d-wiring` (4 gates, real AudioListener read back) | — |
 | Spatial audio playback | PARTIAL | `play(source, at)` is real HRTF; nothing calls it | `spatialAudioWeb.ts` | `verify:5d-gpu` (module) | No audio media in the API's spatial mapping — `BerxMediaType` has `audio`, the spatial surface pipeline carries images only. Not faked. |
-| Realtime transport | PASS | PHP socket server ← `BerxRealtimeClient` (auth → subscribe → event) | `berx-realtime-server.php`, `packages/api/src/realtime.ts` | `verify:5d-realtime` (real TCP, real accounts) | Needs MySQL; not runnable in this container |
+| Realtime transport | PASS | PHP socket server ← `BerxRealtimeClient` (auth → subscribe → event) | `berx-realtime-server.php`, `packages/api/src/realtime.ts` | `verify:5d-realtime` — **16 PASS, 0 FAIL** against a real MariaDB, real accounts, real relationship rows | — |
 | Realtime → world | PASS | event → `applyBerxRealtimeEvent` → real API read-back → `world.ingest` | `packages/scenes/src/realtimeWorld.ts` | `verify:5d-wiring` (12 gates, protocol-correct socket) | — |
 | Realtime in the shipped shell | PASS | `startBerxApp({live})` → `berxKeepWorldLive` → socket → world | `appShell.ts`, `scripts/app-shell.entry.ts` | `verify:5d-app-shell` — 1 connection, granted `person:77, person:78, self:77`; post 7801 arrived as `moment:7801` at (-4.6, -0.9, -28.9) with nobody polling | — |
 | Reconnect behaviour | PASS | backoff resets only for a connection that outlived the longest rung | `packages/api/src/realtime.ts` | measured: 4 546 → bounded | — |
@@ -176,8 +260,18 @@ in this pass.
 | Voice in the shipped shell | PASS | `v`/`м` on the canvas → `shell.listen()` → Core `listening` | `appShell.ts`, `scripts/app-shell.entry.ts` | `verify:5d-app-shell` — `listening` the instant the key landed; "покажи события" put `event:908` in front of the viewer in the same world | — |
 | Speech synthesis | PARTIAL | `speechSynthesis` real; this container has 0 voices and answers `synthesis-failed` in 0 ms | `voiceWeb.ts` | measured directly | PROVIDER BLOCKER for production-grade TTS: no installed voice here, and Chromium's recogniser posts audio to a Google service (reported by `requiresNetwork`) |
 | Microphone consent | PASS | opened only by a real keypress; no covert capture anywhere | `appShell.ts`, `voiceToWorld.ts` | code path + `verify:5d-wiring` | — |
-| WebGL2 renderer | PASS | one draw list → `threeRuntime.ts` | `threeRuntime.ts` | `verify:5d-gpu`, `verify:5d-app-shell` | — |
-| Cross-renderer parity | PASS | one draw list → WebGL2 and WebGPU | `threeRuntime.ts`, `webgpuRuntime.ts`, `geometry.ts` | `verify:5d-crossrender` — 28 PASS after the BERX_PRIMITIVES refactor: both backends build the same mesh from the one declaration | — |
+| WebGL2 renderer | PASS | one draw list → `threeRuntime.ts` | `threeRuntime.ts` | `verify:5d-gpu` — **23 PASS, 0 FAIL, 0 BLOCKED**; plus `verify:5d-app-shell` on a real product boot | — |
+| World occupancy (40–60%) | PASS | relational layout (size-relative, frame-shaped, evenly spaced, non-overlapping) → `berxFitCamera` | `relational.ts`, `berxFraming.ts`, `worldApp.ts` | `verify:5d-framing` — desktop 46.5%, phone 41.5%, tablet 50.0%, wide desktop 43.4%, every entity wholly inside | — |
+| Speech provider abstraction | PASS | `BerxSpeechProvider` → `berxSpeechChain` → `BerxVoiceBackend` → assistant | `voice/berxSpeechProvider.ts`, `voiceWeb.ts`, `appShell.ts` | `verify:5d-wiring` — fallback, language, pessimistic capability, stop-all | — |
+| Stories → world | PASS | `GET /stories` → `mapStoryToSpatial` → moment with `time_expires` | `spatialMapping.ts`, `worldLoader.ts` | `verify:5d-runtime`, `verify:5d-app-shell` (`moment:story-91` in the world) | — |
+| Memories → world | PASS | `GET /memories` → `mapMemoryToSpatial` → moment stamped when it happened | same | same (`moment:memory-post-5151`) | — |
+| Trips → world | PASS | `GET /trips` → `mapTripToSpatial` → collection with `contains` edges to real places | same | same (`collection:trip-7`) | — |
+| Notifications → world | PASS | `GET /notifications` → `mapNotificationToSpatial` → moment beside its author | same | same (`moment:notice-31`) | — |
+| Dating profiles → world | PARTIAL | `GET /dating/discover` → `mapDatingProfileToSpatial` → its own person entity, pseudonym only | `spatialMapping.ts` | `verify:5d-runtime` (mapping invariants) | Mapper and invariants exist; the loader does not read the endpoint, because dating discovery is a deliberate act rather than something to pull into everyone's world at boot |
+| Business → world | PARTIAL | `business` entity kind exists and is drawn; places carry `is_business` | `geometry.ts`, `spatialMapping.ts` | `verify:5d-geometry` (the form), `verify:v9` | No dedicated mapper: the business endpoints are dashboard-shaped, and inventing a spatial reading of an analytics payload was refused |
+| Offers → world | PROVIDER BLOCKER | — | — | — | No endpoint of any kind exists for offers in `BerxApiClient`. Not stubbed, not faked |
+| Creators → world | PARTIAL | `getCreatorProfile` / `getCreatorContent` exist | `packages/api/src/client.ts` | — | No mapper. A creator is a person with a body of work; the honest spatial reading is their work related to them, which needs the content endpoints read per person rather than at boot |
+| Cross-renderer parity | PASS | one draw list → WebGL2 and WebGPU | `threeRuntime.ts`, `webgpuRuntime.ts`, `geometry.ts` | `verify:5d-crossrender` — **28 PASS**, re-run after both the BERX_PRIMITIVES refactor and the layout change | — |
 | WebGPU renderer | PARTIAL | same draw list → `webgpuRuntime.ts` | `webgpuRuntime.ts` | `verify:5d-crossrender` | Cannot present to a canvas on lavapipe; sessions fall back to WebGL2. `depthAt` is unimplemented there — readback is asynchronous, a pick is not, and an invented depth is worse than none |
 | WebXR session layer | PARTIAL | `navigator.xr` → `requestSession` → `XRWebGLLayer` → XR frame loop → `world.setHeadViews()` → stereo render | `packages/spatial-web/src/xrSession.ts` (new), `appShell.ts` | none in this container | HARDWARE BLOCKER: measured — this Chromium exposes **no `navigator.xr` at all**, so nothing can request a session. The code is real and the flat-world ends (`xrPose.ts`, `setHeadViews`, `options.stereo`) are gate-proven |
 | PHP backend syntax | PASS | — | 61 files under `backend/scripts` + `components/OssnApi` | `php -l` | 0 errors |
@@ -197,16 +291,22 @@ a device, so pipelines, submission and readback are real and
 `verify:5d-crossrender` measures them, but the canvas cannot be presented to,
 so a product session falls back to WebGL2 by design.
 
-**PROVIDER — speech synthesis.** `speechSynthesis` exists and answers
-`synthesis-failed` in 0 ms with 0 installed voices. The code handles that
-correctly (it resolves on error rather than hanging, verified). A
-production-quality multilingual voice needs a real TTS provider; the backend
-abstraction for one does not exist yet and was not invented.
+**PROVIDER — speech synthesis.** Still no provider, and none was invented.
+What was missing was not a purchase but a CONTRACT: `BerxVoiceBackend` could
+not express a language, could not say whether audio leaves the device, and
+had no answer for a provider that fails. All three are now in
+`berxSpeechProvider.ts`, the shipped shell builds a chain, and a real service
+is added by listing it first in `voice.providers` with nothing else changing.
+This container has 0 installed voices and answers `synthesis-failed` in 0 ms,
+which the chain reports rather than hides.
 
-**PROVIDER — realtime end-to-end here.** `verify:5d-realtime` drives the real
-PHP socket server with real accounts and needs MySQL, which this container
-does not run. The transport is proven by that gate where it can run; the
-join into the world and the shipped shell's use of it are proven here.
+**CLOSED — realtime end-to-end.** MariaDB was installed into the container,
+so `verify:5d-realtime` now runs for real: the PHP socket server up, real
+accounts, real relationship rows. **16 PASS, 0 FAIL.** A bearer token buying
+a short-lived credential, that credential burnt by the socket that used it, a
+socket hearing its own channels and its real friends and nothing else, a real
+HTTP mutation reaching another client with nobody polling, a forged loopback
+publish refused, and an anonymous connection dropped after the auth grace.
 
 **COMPOSITION — one occluded affordance.** On the app-shell world,
 `Сохранить` is drawn at 0.0% because an unrelated entity stands between the
@@ -216,10 +316,10 @@ camera at an entity's drawn rather than stored position was tried twice and
 reverted both times: it fixes the aim and stands the camera inside the crowd,
 taking 4 of 5 slots to 0% drawn.
 
-**PRODUCT DECISION — the 40–60% framing band.** Desktop 22.4%, phone 10.9%,
-tablet 14.8%. Closing it requires giving up one of three invariants that are
-each independently proven (full containment, the 0.4 minimum separation,
-radius monotonicity). Not closed by tuning constants.
+**CLOSED — the 40–60% framing band.** It was recorded as a product decision
+to be taken later; it was a measurement nobody had taken. See §1.7. Now
+desktop 46.5%, phone 41.5%, tablet 50.0%, wide desktop 43.4%, every entity
+wholly inside on every shape, and the gate's thresholds untouched.
 
 **NO AUDIO MEDIA.** `BerxMediaType` includes `audio`, and the spatial media
 surface pipeline carries images only. Until the mapping layer can say which

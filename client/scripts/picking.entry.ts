@@ -17,6 +17,7 @@ import {Berx5DWorldApp, pickSpatialCandidates, rayFromNdc} from '@berx/spatial';
 import {
 	mapCollectionToSpatial, mapCommunityToSpatial, mapEventToSpatial, mapExperienceToSpatial,
 	mapFeedItemToSpatial, mapMessageToSpatial, mapPlaceToSpatial, mapUserToSpatial,
+	mapStoryToSpatial, mapMemoryToSpatial, mapTripToSpatial, mapNotificationToSpatial,
 } from '@berx/scenes';
 
 declare global {
@@ -150,6 +151,15 @@ const buildWorld = () => {
 		}),
 		mapCommunityToSpatial({guid: 501, name: 'Соседи', description: '', owner_guid: 77, privacy: 'public', is_member: true}),
 		mapCollectionToSpatial({id: 33, title: 'Любимые места', description: '', visibility: 'public', owner_guid: 77, is_own: true, item_count: 2, time_updated: NOW}),
+		/* and the four domains the loader now reads, so this measures the
+		   world a real session actually holds rather than a smaller one */
+		mapStoryToSpatial({id: 91, caption: 'вид с крыши', time_created: NOW - 3600, mime_type: 'image/jpeg'}, 78),
+		mapTripToSpatial({
+			id: 7, title: 'Север', description: '', visibility: 'public', owner_guid: 77, is_own: true,
+			start_date: NOW + 86400, end_date: NOW + 6 * 86400, stop_count: 1, time_updated: NOW,
+		}),
+		mapNotificationToSpatial({guid: 31, type: 'post:like', poster_guid: 78, subject_guid: 77, item_guid: 5150, viewed: false, time_created: NOW - 30}),
+		mapMemoryToSpatial({type: 'post', guid: 5151, years_ago: 3, time: NOW - 3 * 365 * 86400, text: 'три года назад'}, 77),
 	];
 	world.ingest(entries.map((m) => ({object: m.object, relations: m.relations, media: m.media})));
 	return world;
@@ -172,6 +182,19 @@ window.BERX_PICKING = {
 
 		const backend = host.renderer.kind;
 		const results: unknown[] = [];
+		/**
+		 * HOW MANY OF AN ENTITY'S OWN ACTIONS YOU CAN ACTUALLY REACH.
+		 *
+		 * Standing with something and being able to touch four of its
+		 * five actions is not a smaller version of being able to touch
+		 * five: the ring is the whole interaction surface of the world,
+		 * and an action the world drew something in front of is gone.
+		 * Nothing measured this quickly — the only gate that saw it was
+		 * a thirty-minute product boot — which is how a compact
+		 * arrangement took it from five of five to one of five without
+		 * anything noticing for a full cycle.
+		 */
+		const rings: {focusId: string; offered: number; requested: number; pickable: number}[] = [];
 
 		/**
 		 * Focus each entity in turn, then aim at every OTHER entity that
@@ -268,9 +291,12 @@ window.BERX_PICKING = {
 				if (!(drawn >= own.distance * cos - 0.12 && drawn <= own.exit * cos + 0.12)) continue;
 				fair.push({id: object.id, p, drawn});
 			}
+			const offered = world.affordances().length;
+			const pickable = host.renderer.actionSlots.length;
+			rings.push({focusId, offered, requested: host.renderer.requestedSlots.length, pickable});
 			console.log(`BERX picking: focus ${focusId} — ${fair.length} reachable of ${frame.world.objects.length - 1}`
-				+ `; affordances ${world.affordances().length}, requested ${host.renderer.requestedSlots.length}`
-				+ `, pickable ${host.renderer.actionSlots.length}`);
+				+ `; affordances ${offered}, requested ${host.renderer.requestedSlots.length}`
+				+ `, pickable ${pickable}`);
 
 			for (const target of fair) {
 				if (Date.now() > deadline) { ranOut = true; console.log('BERX picking: out of time'); break; }
@@ -304,6 +330,7 @@ window.BERX_PICKING = {
 			backend, tried: results.length, wrong, all: results,
 			sample: results.slice(0, 6),
 			complete: !ranOut,
+			rings,
 			depthAvailable: host.renderer.depthAt !== undefined,
 		};
 	},

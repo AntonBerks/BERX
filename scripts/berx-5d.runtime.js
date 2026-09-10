@@ -1524,6 +1524,349 @@ var init_temporal = __esm({
   }
 });
 
+// packages/spatial/src/frustum.ts
+function berxFrustumPlanes(viewProjection) {
+  const p = new Float32Array(24);
+  const m = (r, c) => viewProjection[c * 4 + r];
+  const set = (i, a, b, c, d) => {
+    const l = Math.hypot(a, b, c) || 1;
+    p[i * 4] = a / l;
+    p[i * 4 + 1] = b / l;
+    p[i * 4 + 2] = c / l;
+    p[i * 4 + 3] = d / l;
+  };
+  set(0, m(3, 0) + m(0, 0), m(3, 1) + m(0, 1), m(3, 2) + m(0, 2), m(3, 3) + m(0, 3));
+  set(1, m(3, 0) - m(0, 0), m(3, 1) - m(0, 1), m(3, 2) - m(0, 2), m(3, 3) - m(0, 3));
+  set(2, m(3, 0) + m(1, 0), m(3, 1) + m(1, 1), m(3, 2) + m(1, 2), m(3, 3) + m(1, 3));
+  set(3, m(3, 0) - m(1, 0), m(3, 1) - m(1, 1), m(3, 2) - m(1, 2), m(3, 3) - m(1, 3));
+  set(4, m(3, 0) + m(2, 0), m(3, 1) + m(2, 1), m(3, 2) + m(2, 2), m(3, 3) + m(2, 3));
+  set(5, m(3, 0) - m(2, 0), m(3, 1) - m(2, 1), m(3, 2) - m(2, 2), m(3, 3) - m(2, 3));
+  return p;
+}
+function berxSphereInFrustum(planes, centre, radius) {
+  for (let i = 0; i < 6; i++) {
+    if (planes[i * 4] * centre.x + planes[i * 4 + 1] * centre.y + planes[i * 4 + 2] * centre.z + planes[i * 4 + 3] < -radius) {
+      return false;
+    }
+  }
+  return true;
+}
+function berxMultiplyMat4(a, b) {
+  const o = new Float32Array(16);
+  for (let c = 0; c < 4; c++) {
+    for (let r = 0; r < 4; r++) {
+      let v = 0;
+      for (let k = 0; k < 4; k++) v += a[k * 4 + r] * b[c * 4 + k];
+      o[c * 4 + r] = v;
+    }
+  }
+  return o;
+}
+function berxPerspective(fovDegrees, aspect, near, far) {
+  const q = 1 / Math.tan(fovDegrees * Math.PI / 360);
+  const nf = 1 / (near - far);
+  const m = new Float32Array(16);
+  m[0] = q / aspect;
+  m[5] = q;
+  m[10] = (far + near) * nf;
+  m[11] = -1;
+  m[14] = 2 * far * near * nf;
+  return m;
+}
+function berxLookAt(position, target) {
+  const sub2 = (a, b) => ({ x: a.x - b.x, y: a.y - b.y, z: a.z - b.z });
+  const norm2 = (v) => {
+    const l = Math.hypot(v.x, v.y, v.z) || 1;
+    return { x: v.x / l, y: v.y / l, z: v.z / l };
+  };
+  const cross2 = (a, b) => ({
+    x: a.y * b.z - a.z * b.y,
+    y: a.z * b.x - a.x * b.z,
+    z: a.x * b.y - a.y * b.x
+  });
+  const z = norm2(sub2(position, target));
+  const up = Math.abs(z.y) > 0.98 ? { x: 1, y: 0, z: 0 } : { x: 0, y: 1, z: 0 };
+  const x = norm2(cross2(up, z));
+  const y = cross2(z, x);
+  const m = new Float32Array(16);
+  m[0] = x.x;
+  m[1] = y.x;
+  m[2] = z.x;
+  m[4] = x.y;
+  m[5] = y.y;
+  m[6] = z.y;
+  m[8] = x.z;
+  m[9] = y.z;
+  m[10] = z.z;
+  m[12] = -x.x * position.x - x.y * position.y - x.z * position.z;
+  m[13] = -y.x * position.x - y.y * position.y - y.z * position.z;
+  m[14] = -z.x * position.x - z.y * position.y - z.z * position.z;
+  m[15] = 1;
+  return m;
+}
+function berxInvertMat4(m) {
+  const a00 = m[0], a01 = m[1], a02 = m[2], a03 = m[3];
+  const a10 = m[4], a11 = m[5], a12 = m[6], a13 = m[7];
+  const a20 = m[8], a21 = m[9], a22 = m[10], a23 = m[11];
+  const a30 = m[12], a31 = m[13], a32 = m[14], a33 = m[15];
+  const b00 = a00 * a11 - a01 * a10;
+  const b01 = a00 * a12 - a02 * a10;
+  const b02 = a00 * a13 - a03 * a10;
+  const b03 = a01 * a12 - a02 * a11;
+  const b04 = a01 * a13 - a03 * a11;
+  const b05 = a02 * a13 - a03 * a12;
+  const b06 = a20 * a31 - a21 * a30;
+  const b07 = a20 * a32 - a22 * a30;
+  const b08 = a20 * a33 - a23 * a30;
+  const b09 = a21 * a32 - a22 * a31;
+  const b10 = a21 * a33 - a23 * a31;
+  const b11 = a22 * a33 - a23 * a32;
+  const det = b00 * b11 - b01 * b10 + b02 * b09 + b03 * b08 - b04 * b07 + b05 * b06;
+  const out = new Float32Array(16);
+  if (!det) {
+    out[0] = 1;
+    out[5] = 1;
+    out[10] = 1;
+    out[15] = 1;
+    return out;
+  }
+  const d = 1 / det;
+  out[0] = (a11 * b11 - a12 * b10 + a13 * b09) * d;
+  out[1] = (a02 * b10 - a01 * b11 - a03 * b09) * d;
+  out[2] = (a31 * b05 - a32 * b04 + a33 * b03) * d;
+  out[3] = (a22 * b04 - a21 * b05 - a23 * b03) * d;
+  out[4] = (a12 * b08 - a10 * b11 - a13 * b07) * d;
+  out[5] = (a00 * b11 - a02 * b08 + a03 * b07) * d;
+  out[6] = (a32 * b02 - a30 * b05 - a33 * b01) * d;
+  out[7] = (a20 * b05 - a22 * b02 + a23 * b01) * d;
+  out[8] = (a10 * b10 - a11 * b08 + a13 * b06) * d;
+  out[9] = (a01 * b08 - a00 * b10 - a03 * b06) * d;
+  out[10] = (a30 * b04 - a31 * b02 + a33 * b00) * d;
+  out[11] = (a21 * b02 - a20 * b04 - a23 * b00) * d;
+  out[12] = (a11 * b07 - a10 * b09 - a12 * b06) * d;
+  out[13] = (a00 * b09 - a01 * b07 + a02 * b06) * d;
+  out[14] = (a31 * b01 - a30 * b03 - a32 * b00) * d;
+  out[15] = (a20 * b03 - a21 * b01 + a22 * b00) * d;
+  return out;
+}
+var init_frustum = __esm({
+  "packages/spatial/src/frustum.ts"() {
+    "use strict";
+  }
+});
+
+// packages/spatial/src/berxFraming.ts
+function berxBoundingRadius(o) {
+  return Math.max(o.transform.scale.x, o.transform.scale.y, o.transform.scale.z) * 0.75;
+}
+function berxFraming(frame, width, height, grid = 96) {
+  const c = frame.camera;
+  const projection = berxPerspective(c.fov, Math.max(1e-6, width / height), c.near, c.far);
+  const view = berxLookAt(c.position, c.target);
+  const viewProjection = berxMultiplyMat4(projection, view);
+  const cells = new Uint8Array(grid * grid);
+  let onScreen = 0, whole = 0, sumX = 0, sumY = 0, weight = 0;
+  let minX = 1, minY = 1, maxX = 0, maxY = 0;
+  for (const o of frame.world.objects) {
+    if (!o.visible) continue;
+    const p = project(viewProjection, o.transform.position);
+    if (p.w <= 1e-6) continue;
+    const ndcX = p.x / p.w, ndcY = p.y / p.w;
+    const r = berxBoundingRadius(o);
+    const radiusY = r * projection[5] / p.w;
+    const radiusX = r * projection[0] / p.w;
+    if (radiusX <= 0 || radiusY <= 0) continue;
+    const fx = ndcX * 0.5 + 0.5, fy = 0.5 - ndcY * 0.5;
+    const rx = radiusX * 0.5, ry = radiusY * 0.5;
+    let touched = false;
+    const x0 = Math.max(0, Math.floor((fx - rx) * grid));
+    const x1 = Math.min(grid - 1, Math.ceil((fx + rx) * grid));
+    const y0 = Math.max(0, Math.floor((fy - ry) * grid));
+    const y1 = Math.min(grid - 1, Math.ceil((fy + ry) * grid));
+    for (let gy = y0; gy <= y1; gy++) {
+      for (let gx = x0; gx <= x1; gx++) {
+        const cx = (gx + 0.5) / grid, cy = (gy + 0.5) / grid;
+        const dx = (cx - fx) / rx, dy = (cy - fy) / ry;
+        if (dx * dx + dy * dy <= 1) {
+          cells[gy * grid + gx] = 1;
+          touched = true;
+        }
+      }
+    }
+    if (!touched) continue;
+    onScreen++;
+    if (fx - rx >= 0 && fx + rx <= 1 && fy - ry >= 0 && fy + ry <= 1) whole++;
+    const w = rx * ry;
+    sumX += fx * w;
+    sumY += fy * w;
+    weight += w;
+    minX = Math.min(minX, fx - rx);
+    maxX = Math.max(maxX, fx + rx);
+    minY = Math.min(minY, fy - ry);
+    maxY = Math.max(maxY, fy + ry);
+  }
+  let covered = 0;
+  for (let i = 0; i < cells.length; i++) covered += cells[i];
+  const centreX = weight > 0 ? sumX / weight : 0.5;
+  const centreY = weight > 0 ? sumY / weight : 0.5;
+  const offCentre = weight > 0 ? Math.min(1, Math.hypot(centreX - 0.5, centreY - 0.5) * 2) : 0;
+  return {
+    covered: covered / cells.length,
+    onScreen,
+    whole,
+    offCentre,
+    bounds: onScreen > 0 ? { minX, minY, maxX, maxY } : void 0
+  };
+}
+function berxFrameTheWorld(frame, width, height, target = (BERX_FRAMING_MIN + BERX_FRAMING_MAX) / 2) {
+  const visible = frame.world.objects.filter((o) => o.visible);
+  const camera = frame.camera;
+  if (visible.length === 0) {
+    return { position: camera.position, target: camera.target, framing: berxFraming(frame, width, height) };
+  }
+  let cx = 0, cy = 0, cz = 0;
+  for (const o of visible) {
+    cx += o.transform.position.x;
+    cy += o.transform.position.y;
+    cz += o.transform.position.z;
+  }
+  const centre = { x: cx / visible.length, y: cy / visible.length, z: cz / visible.length };
+  let dx = camera.position.x - centre.x;
+  let dy = camera.position.y - centre.y;
+  let dz = camera.position.z - centre.z;
+  const len2 = Math.hypot(dx, dy, dz) || 1;
+  if (len2 <= 1e-6) {
+    dx = 0;
+    dy = 0;
+    dz = 1;
+  }
+  dx /= len2;
+  dy /= len2;
+  dz /= len2;
+  let reach = 0;
+  for (const o of visible) {
+    reach = Math.max(reach, Math.hypot(
+      o.transform.position.x - centre.x,
+      o.transform.position.y - centre.y,
+      o.transform.position.z - centre.z
+    ) + berxBoundingRadius(o));
+  }
+  const at = (distance3) => {
+    const position = {
+      x: centre.x + dx * distance3,
+      y: centre.y + dy * distance3,
+      z: centre.z + dz * distance3
+    };
+    return {
+      position,
+      framing: berxFraming({ ...frame, camera: { ...camera, position, target: centre } }, width, height)
+    };
+  };
+  const wanted = visible.length;
+  const fits = (f) => f.whole >= wanted;
+  let near = Math.max(camera.near * 2, reach * 0.05);
+  let far = Math.max(near * 2, reach * 12 + 1);
+  let best = at(far);
+  if (!fits(best.framing)) return { position: best.position, target: centre, framing: best.framing };
+  for (let i = 0; i < 24; i++) {
+    const mid = (near + far) / 2;
+    const probe = at(mid);
+    if (fits(probe.framing)) {
+      best = probe;
+      far = mid;
+    } else {
+      near = mid;
+    }
+  }
+  if (best.framing.covered > target) {
+    let lo = far, hi = Math.max(far * 2, reach * 12 + 1);
+    for (let i = 0; i < 16; i++) {
+      const mid = (lo + hi) / 2;
+      const probe = at(mid);
+      if (probe.framing.covered > target) lo = mid;
+      else {
+        best = probe;
+        hi = mid;
+      }
+    }
+  }
+  return { position: best.position, target: centre, framing: best.framing };
+}
+var BERX_FRAMING_MIN, BERX_FRAMING_MAX, project;
+var init_berxFraming = __esm({
+  "packages/spatial/src/berxFraming.ts"() {
+    "use strict";
+    init_frustum();
+    BERX_FRAMING_MIN = 0.4;
+    BERX_FRAMING_MAX = 0.6;
+    project = (m, p) => {
+      const x = m[0] * p.x + m[4] * p.y + m[8] * p.z + m[12];
+      const y = m[1] * p.x + m[5] * p.y + m[9] * p.z + m[13];
+      const w = m[3] * p.x + m[7] * p.y + m[11] * p.z + m[15];
+      return { x, y, w };
+    };
+  }
+});
+
+// packages/spatial/src/geometry.ts
+function geometryForEntity(kind) {
+  return { ...specs[kind] };
+}
+function geometryScale(spec) {
+  return { x: spec.width ?? spec.radius ?? 1, y: spec.height ?? spec.radius ?? 1, z: spec.depth ?? spec.radius ?? 1 };
+}
+function primitiveHalfExtent(kind) {
+  const p = BERX_PRIMITIVES[kind];
+  switch (p.form) {
+    case "sphere":
+      return { x: p.radius, y: p.radius, z: p.radius };
+    case "box":
+      return { x: p.width / 2, y: p.height / 2, z: p.depth / 2 };
+    /* the tube's centre line plus its own radius IS the outer radius; the
+       tube is only as thick as half the gap between the two radii */
+    case "torus":
+      return { x: p.outer, y: p.outer, z: (p.outer - p.inner) / 2 };
+    /* the bars stand centred on the edge, so each face reaches half a bar
+       further than the frame's nominal size; createFrame's bars are .12
+       deep whatever the bar width */
+    case "frame":
+      return { x: p.width / 2 + p.bar / 2, y: p.height / 2 + p.bar / 2, z: 0.06 };
+  }
+}
+function berxDrawnHalfExtent(kind, scale) {
+  const mesh = primitiveHalfExtent(specs[kind].kind);
+  return { x: mesh.x * Math.abs(scale.x), y: mesh.y * Math.abs(scale.y), z: mesh.z * Math.abs(scale.z) };
+}
+var specs, BERX_PRIMITIVES;
+var init_geometry = __esm({
+  "packages/spatial/src/geometry.ts"() {
+    "use strict";
+    specs = {
+      person: { kind: "orb", radius: 0.72, segments: 32, bevel: 0.08 },
+      moment: { kind: "surface", width: 1.9, height: 2.35, depth: 0.045, bevel: 0.08 },
+      place: { kind: "portal", width: 1.8, height: 2.1, depth: 0.22, bevel: 0.14 },
+      event: { kind: "ring", radius: 0.95, segments: 48, emissive: 0.12 },
+      experience: { kind: "frame", width: 1.9, height: 1.4, depth: 0.18, bevel: 0.1 },
+      community: { kind: "node", radius: 0.86, segments: 24 },
+      business: { kind: "stack", width: 1.7, height: 1.15, depth: 0.45, bevel: 0.1 },
+      collection: { kind: "stack", width: 1.6, height: 1.05, depth: 0.34, bevel: 0.1 },
+      message: { kind: "message", width: 1.55, height: 0.72, depth: 0.12, bevel: 0.16 },
+      create: { kind: "create", radius: 0.82, segments: 40, emissive: 0.08 }
+    };
+    BERX_PRIMITIVES = {
+      orb: { form: "sphere", radius: 0.5 },
+      ring: { form: "torus", outer: 0.62, inner: 0.42 },
+      frame: { form: "frame", width: 1, height: 1, bar: 0.12 },
+      surface: { form: "box", width: 1, height: 1, depth: 0.06, bevel: 0.02 },
+      portal: { form: "frame", width: 1, height: 1.2, bar: 0.16 },
+      node: { form: "sphere", radius: 0.58 },
+      stack: { form: "box", width: 1, height: 1, depth: 0.32, bevel: 0.1 },
+      message: { form: "box", width: 1, height: 0.46, depth: 0.12, bevel: 0.05 },
+      create: { form: "sphere", radius: 0.58 }
+    };
+  }
+});
+
 // packages/spatial/src/relational.ts
 function berxStableAngle(id) {
   let hash = 2166136261;
@@ -1534,7 +1877,10 @@ function berxStableAngle(id) {
   return hash / 4294967296 * Math.PI * 2;
 }
 function berxRelationalLayout(objects, relations, options = {}) {
-  const rise = options.rise ?? 1.15;
+  const rise = options.rise ?? 0.6;
+  const shape = Math.sqrt(Math.max(0.25, Math.min(4, options.aspect ?? 1.6)));
+  const across = RING_SHAPE.size * shape;
+  const upward = RING_SHAPE.size / shape;
   const positions = /* @__PURE__ */ new Map();
   if (objects.length === 0) return positions;
   const edges = /* @__PURE__ */ new Map();
@@ -1552,20 +1898,31 @@ function berxRelationalLayout(objects, relations, options = {}) {
   }
   const byId = new Map(objects.map((o) => [o.id, o]));
   const placedAround = /* @__PURE__ */ new Map();
+  const ring = /* @__PURE__ */ new Map();
   const place = (id, at) => {
     positions.set(id, at);
   };
-  const beside = (anchorId, _id, type, strength) => {
+  const beside = (anchorId, id, type, strength) => {
     const origin = positions.get(anchorId);
-    const radius = RELATION_RADIUS[type] / Math.max(0.25, Math.min(1, strength));
+    const anchor = byId.get(anchorId);
+    const self = byId.get(id);
+    const reach = (anchor ? berxBoundingRadius(anchor) : 1) + (self ? berxBoundingRadius(self) : 1);
+    const weakness = 1 + (1 - Math.max(0.25, Math.min(1, strength))) * WEAKNESS_REACH;
+    const radius = Math.max(reach * NEAREST_STANDING, reach * RELATION_SEPARATION[type] * weakness);
     const rank = placedAround.get(anchorId) ?? 0;
     placedAround.set(anchorId, rank + 1);
     const angle = berxStableAngle(anchorId) + rank * GOLDEN_ANGLE;
-    const spread = radius + rank * 0.42;
+    const lateral = Math.cos(angle) * across;
+    const vertical = Math.sin(angle) * upward;
+    const spread = radius + rank * reach * 0.22;
+    ring.set(id, { anchorId, radius: spread, rise: Math.sin(angle * 2.3) * rise });
     return {
-      x: origin.x + Math.cos(angle) * spread,
-      y: origin.y + Math.sin(angle * 1.7) * rise,
-      z: origin.z + Math.sin(angle) * spread
+      x: origin.x + lateral * spread,
+      y: origin.y + vertical * spread,
+      /* depth is the third axis, and it is the one no frame charges
+         for: a real share of the arrangement, so the world has
+         parallax, without paying for it in camera distance */
+      z: origin.z + Math.sin(angle * 1.7) * spread * RING_SHAPE.depth + Math.sin(angle * 2.3) * rise
     };
   };
   const grow = (seedId, seedAt) => {
@@ -1613,13 +1970,69 @@ function berxRelationalLayout(objects, relations, options = {}) {
   for (const object of [...byId.values()].sort((a, b) => a.id.localeCompare(b.id))) {
     if (positions.has(object.id)) continue;
     const angle = berxStableAngle(object.id);
-    const ring = UNRELATED_RING + Math.floor(island / 8) * 4.5;
+    const ring2 = UNRELATED_RING + Math.floor(island / 8) * 4.5;
     island++;
     grow(object.id, {
-      x: Math.cos(angle) * ring,
+      x: Math.cos(angle) * ring2,
       y: Math.sin(angle * 1.7) * rise,
-      z: Math.sin(angle) * ring
+      z: Math.sin(angle) * ring2
     });
+  }
+  const siblings = /* @__PURE__ */ new Map();
+  for (const [id, at] of ring) {
+    const list = siblings.get(at.anchorId) ?? [];
+    list.push(id);
+    siblings.set(at.anchorId, list);
+  }
+  for (const [anchorId, children] of siblings) {
+    const origin = positions.get(anchorId);
+    if (!origin || children.length === 0) continue;
+    children.sort();
+    const phase = berxStableAngle(anchorId);
+    for (let i = 0; i < children.length; i++) {
+      const child = children[i];
+      const at = ring.get(child);
+      const angle = phase + i * Math.PI * 2 / children.length;
+      positions.set(child, {
+        x: origin.x + Math.cos(angle) * across * at.radius,
+        y: origin.y + Math.sin(angle) * upward * at.radius,
+        z: origin.z + Math.sin(angle * 1.7) * at.radius * RING_SHAPE.depth + at.rise
+      });
+    }
+  }
+  const movable = [...positions.keys()].filter((id) => id !== options.rootId).sort();
+  const all = [...positions.keys()].sort();
+  const halfOf = (id) => {
+    const o = byId.get(id);
+    return o ? berxDrawnHalfExtent(o.kind, o.transform.scale) : { x: 0.5, y: 0.5, z: 0.5 };
+  };
+  for (let pass = 0; pass < 6; pass++) {
+    let moved = false;
+    for (const id of movable) {
+      for (const other of all) {
+        if (other === id) continue;
+        const a = positions.get(id);
+        const b = positions.get(other);
+        const ha = halfOf(id), hb = halfOf(other);
+        const ox = ha.x + hb.x + BREATHING - Math.abs(a.x - b.x);
+        const oy = ha.y + hb.y + BREATHING - Math.abs(a.y - b.y);
+        const oz = ha.z + hb.z + BREATHING - Math.abs(a.z - b.z);
+        if (ox <= 0 || oy <= 0 || oz <= 0) continue;
+        let dx = a.x - b.x, dy = a.y - b.y, dz = a.z - b.z;
+        let d = Math.hypot(dx, dy, dz);
+        if (d < 1e-6) {
+          const angle = berxStableAngle(id);
+          dx = Math.cos(angle);
+          dy = 0;
+          dz = Math.sin(angle);
+          d = 1;
+        }
+        const push2 = Math.min(ox, oy, oz);
+        positions.set(id, { x: a.x + dx / d * push2, y: a.y + dy / d * push2, z: a.z + dz / d * push2 });
+        moved = true;
+      }
+    }
+    if (!moved) break;
   }
   return positions;
 }
@@ -1630,21 +2043,49 @@ function berxRelationalWeight(id, relations) {
   }
   return total === 0 ? 0 : 1 - 1 / (1 + total);
 }
-var RELATION_RADIUS, UNRELATED_RING, GOLDEN_ANGLE;
+var RELATION_SEPARATION, WEAKNESS_REACH, NEAREST_STANDING, BREATHING, RING_SHAPE, UNRELATED_RING, GOLDEN_ANGLE;
 var init_relational = __esm({
   "packages/spatial/src/relational.ts"() {
     "use strict";
-    RELATION_RADIUS = {
+    init_berxFraming();
+    init_geometry();
+    RELATION_SEPARATION = {
       /* contained things sit inside their container */
-      contains: 1.6,
-      /* a thing at a place stands with it */
-      "located-at": 2.4,
+      contains: 0.62,
       /* the author is the closest relation a moment has */
-      "created-by": 2,
-      attending: 3,
-      messages: 2.2,
-      shares: 3.4,
-      related: 4
+      "created-by": 0.78,
+      messages: 0.85,
+      /* a thing at a place stands with it */
+      "located-at": 0.92,
+      attending: 1.15,
+      shares: 1.3,
+      related: 1.55
+    };
+    WEAKNESS_REACH = 0.6;
+    NEAREST_STANDING = 0.58;
+    BREATHING = 0.12;
+    RING_SHAPE = {
+      /**
+       * How big the ring is, as a fraction of the distance the relations
+       * themselves ask for.
+       *
+       * Derived, not chosen: five entities of radius r pack into a block
+       * about 3 discs by 2, so the arrangement wants a semi-axis near
+       * 3r along the frame's long side. With the relation distances this
+       * world produces — a related pair at half strength stands about
+       * 4.8 apart — that is a ring 0.74 of the relation radius. Every
+       * number in this file is checked by verify:5d-framing on four frame
+       * shapes at once, so a wrong one is visible immediately.
+       */
+      size: 0.51,
+      /**
+       * And into depth, which no frame charges for.
+       *
+       * Kept deliberately, and kept small. A world with no parallax is a
+       * poster; a world that is mostly depth is a corridor whose far end
+       * contributes nothing to the frame.
+       */
+      depth: 0.25
     };
     UNRELATED_RING = 9.5;
     GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
@@ -1657,7 +2098,7 @@ function berxCompositionFor(region) {
 }
 function berxComposeLayout(composition, objects, relations, options = {}) {
   if (composition === "relational" || objects.length === 0) {
-    return berxRelationalLayout(objects, relations, { rootId: options.rootId });
+    return berxRelationalLayout(objects, relations, { rootId: options.rootId, aspect: options.aspect });
   }
   const radius = options.radius ?? RADIUS[composition];
   const rise = options.rise ?? 1.15;
@@ -1809,6 +2250,95 @@ var init_BerxVoiceAssistant = __esm({
       confident: "warm",
       plain: "calm"
     });
+  }
+});
+
+// packages/spatial/src/voice/berxSpeechProvider.ts
+function claims(capability, language) {
+  if (capability.languages.length === 0) return true;
+  const want = language.toLowerCase();
+  const base = want.split("-")[0];
+  return capability.languages.some((tag) => {
+    const has2 = tag.toLowerCase();
+    return has2 === want || has2.split("-")[0] === base;
+  });
+}
+function berxSpeechChain(providers, options = {}) {
+  let language = options.language ?? "ru-RU";
+  let using;
+  const speakers = () => providers.filter((p) => p.capability.speaks && p.available);
+  const listeners = () => providers.filter((p) => p.capability.listens);
+  return {
+    get capability() {
+      const all = providers.map((p) => p.capability);
+      return {
+        id: all.length === 1 ? all[0].id : `chain(${all.map((c) => c.id).join(",")})`,
+        speaks: speakers().length > 0,
+        listens: listeners().length > 0,
+        /* if ANY provider that might be used leaves the device, the
+           chain does: the honest answer is the pessimistic one */
+        offDevice: all.some((c) => c.offDevice),
+        languages: [...new Set(all.flatMap((c) => c.languages))]
+      };
+    },
+    get providers() {
+      return providers.map((p) => p.capability);
+    },
+    get using() {
+      return using;
+    },
+    get language() {
+      return language;
+    },
+    setLanguage(tag) {
+      language = tag;
+    },
+    get available() {
+      return speakers().length > 0;
+    },
+    async speak(text, prosody) {
+      const wanted = speakers().filter((p) => claims(p.capability, language));
+      const order = wanted.length > 0 ? wanted : speakers();
+      for (const provider of order) {
+        try {
+          if (provider.speakIn) await provider.speakIn(text, prosody, language);
+          else await provider.speak(text, prosody);
+          using = provider.capability.id;
+          options.onProvider?.(provider.capability.id, "spoke");
+          return;
+        } catch (error) {
+          options.onProvider?.(provider.capability.id, "failed", error instanceof Error ? error.message : String(error));
+        }
+      }
+      if (order.length === 0) options.onProvider?.("none", "failed", "no provider can speak");
+    },
+    async listen(timeoutMs) {
+      for (const provider of listeners()) {
+        try {
+          const heard = await provider.listen(timeoutMs);
+          if (heard) {
+            options.onProvider?.(provider.capability.id, "listened");
+            return heard;
+          }
+        } catch (error) {
+          options.onProvider?.(provider.capability.id, "failed", error instanceof Error ? error.message : String(error));
+        }
+      }
+      return void 0;
+    },
+    stop() {
+      for (const provider of providers) {
+        try {
+          provider.stop();
+        } catch {
+        }
+      }
+    }
+  };
+}
+var init_berxSpeechProvider = __esm({
+  "packages/spatial/src/voice/berxSpeechProvider.ts"() {
+    "use strict";
   }
 });
 
@@ -2294,290 +2824,6 @@ var init_berxRenderQuality = __esm({
       medium: "a half-resolution march at 20 steps, which is a sixth of the cost and the same shaft",
       low: "a half-resolution march at 12 steps and a 512 map: every pass still runs, none of them at full price"
     });
-  }
-});
-
-// packages/spatial/src/frustum.ts
-function berxFrustumPlanes(viewProjection) {
-  const p = new Float32Array(24);
-  const m = (r, c) => viewProjection[c * 4 + r];
-  const set = (i, a, b, c, d) => {
-    const l = Math.hypot(a, b, c) || 1;
-    p[i * 4] = a / l;
-    p[i * 4 + 1] = b / l;
-    p[i * 4 + 2] = c / l;
-    p[i * 4 + 3] = d / l;
-  };
-  set(0, m(3, 0) + m(0, 0), m(3, 1) + m(0, 1), m(3, 2) + m(0, 2), m(3, 3) + m(0, 3));
-  set(1, m(3, 0) - m(0, 0), m(3, 1) - m(0, 1), m(3, 2) - m(0, 2), m(3, 3) - m(0, 3));
-  set(2, m(3, 0) + m(1, 0), m(3, 1) + m(1, 1), m(3, 2) + m(1, 2), m(3, 3) + m(1, 3));
-  set(3, m(3, 0) - m(1, 0), m(3, 1) - m(1, 1), m(3, 2) - m(1, 2), m(3, 3) - m(1, 3));
-  set(4, m(3, 0) + m(2, 0), m(3, 1) + m(2, 1), m(3, 2) + m(2, 2), m(3, 3) + m(2, 3));
-  set(5, m(3, 0) - m(2, 0), m(3, 1) - m(2, 1), m(3, 2) - m(2, 2), m(3, 3) - m(2, 3));
-  return p;
-}
-function berxSphereInFrustum(planes, centre, radius) {
-  for (let i = 0; i < 6; i++) {
-    if (planes[i * 4] * centre.x + planes[i * 4 + 1] * centre.y + planes[i * 4 + 2] * centre.z + planes[i * 4 + 3] < -radius) {
-      return false;
-    }
-  }
-  return true;
-}
-function berxMultiplyMat4(a, b) {
-  const o = new Float32Array(16);
-  for (let c = 0; c < 4; c++) {
-    for (let r = 0; r < 4; r++) {
-      let v = 0;
-      for (let k = 0; k < 4; k++) v += a[k * 4 + r] * b[c * 4 + k];
-      o[c * 4 + r] = v;
-    }
-  }
-  return o;
-}
-function berxPerspective(fovDegrees, aspect, near, far) {
-  const q = 1 / Math.tan(fovDegrees * Math.PI / 360);
-  const nf = 1 / (near - far);
-  const m = new Float32Array(16);
-  m[0] = q / aspect;
-  m[5] = q;
-  m[10] = (far + near) * nf;
-  m[11] = -1;
-  m[14] = 2 * far * near * nf;
-  return m;
-}
-function berxLookAt(position, target) {
-  const sub2 = (a, b) => ({ x: a.x - b.x, y: a.y - b.y, z: a.z - b.z });
-  const norm2 = (v) => {
-    const l = Math.hypot(v.x, v.y, v.z) || 1;
-    return { x: v.x / l, y: v.y / l, z: v.z / l };
-  };
-  const cross2 = (a, b) => ({
-    x: a.y * b.z - a.z * b.y,
-    y: a.z * b.x - a.x * b.z,
-    z: a.x * b.y - a.y * b.x
-  });
-  const z = norm2(sub2(position, target));
-  const up = Math.abs(z.y) > 0.98 ? { x: 1, y: 0, z: 0 } : { x: 0, y: 1, z: 0 };
-  const x = norm2(cross2(up, z));
-  const y = cross2(z, x);
-  const m = new Float32Array(16);
-  m[0] = x.x;
-  m[1] = y.x;
-  m[2] = z.x;
-  m[4] = x.y;
-  m[5] = y.y;
-  m[6] = z.y;
-  m[8] = x.z;
-  m[9] = y.z;
-  m[10] = z.z;
-  m[12] = -x.x * position.x - x.y * position.y - x.z * position.z;
-  m[13] = -y.x * position.x - y.y * position.y - y.z * position.z;
-  m[14] = -z.x * position.x - z.y * position.y - z.z * position.z;
-  m[15] = 1;
-  return m;
-}
-function berxInvertMat4(m) {
-  const a00 = m[0], a01 = m[1], a02 = m[2], a03 = m[3];
-  const a10 = m[4], a11 = m[5], a12 = m[6], a13 = m[7];
-  const a20 = m[8], a21 = m[9], a22 = m[10], a23 = m[11];
-  const a30 = m[12], a31 = m[13], a32 = m[14], a33 = m[15];
-  const b00 = a00 * a11 - a01 * a10;
-  const b01 = a00 * a12 - a02 * a10;
-  const b02 = a00 * a13 - a03 * a10;
-  const b03 = a01 * a12 - a02 * a11;
-  const b04 = a01 * a13 - a03 * a11;
-  const b05 = a02 * a13 - a03 * a12;
-  const b06 = a20 * a31 - a21 * a30;
-  const b07 = a20 * a32 - a22 * a30;
-  const b08 = a20 * a33 - a23 * a30;
-  const b09 = a21 * a32 - a22 * a31;
-  const b10 = a21 * a33 - a23 * a31;
-  const b11 = a22 * a33 - a23 * a32;
-  const det = b00 * b11 - b01 * b10 + b02 * b09 + b03 * b08 - b04 * b07 + b05 * b06;
-  const out = new Float32Array(16);
-  if (!det) {
-    out[0] = 1;
-    out[5] = 1;
-    out[10] = 1;
-    out[15] = 1;
-    return out;
-  }
-  const d = 1 / det;
-  out[0] = (a11 * b11 - a12 * b10 + a13 * b09) * d;
-  out[1] = (a02 * b10 - a01 * b11 - a03 * b09) * d;
-  out[2] = (a31 * b05 - a32 * b04 + a33 * b03) * d;
-  out[3] = (a22 * b04 - a21 * b05 - a23 * b03) * d;
-  out[4] = (a12 * b08 - a10 * b11 - a13 * b07) * d;
-  out[5] = (a00 * b11 - a02 * b08 + a03 * b07) * d;
-  out[6] = (a32 * b02 - a30 * b05 - a33 * b01) * d;
-  out[7] = (a20 * b05 - a22 * b02 + a23 * b01) * d;
-  out[8] = (a10 * b10 - a11 * b08 + a13 * b06) * d;
-  out[9] = (a01 * b08 - a00 * b10 - a03 * b06) * d;
-  out[10] = (a30 * b04 - a31 * b02 + a33 * b00) * d;
-  out[11] = (a21 * b02 - a20 * b04 - a23 * b00) * d;
-  out[12] = (a11 * b07 - a10 * b09 - a12 * b06) * d;
-  out[13] = (a00 * b09 - a01 * b07 + a02 * b06) * d;
-  out[14] = (a31 * b01 - a30 * b03 - a32 * b00) * d;
-  out[15] = (a20 * b03 - a21 * b01 + a22 * b00) * d;
-  return out;
-}
-var init_frustum = __esm({
-  "packages/spatial/src/frustum.ts"() {
-    "use strict";
-  }
-});
-
-// packages/spatial/src/berxFraming.ts
-function berxBoundingRadius(o) {
-  return Math.max(o.transform.scale.x, o.transform.scale.y, o.transform.scale.z) * 0.75;
-}
-function berxFraming(frame, width, height, grid = 96) {
-  const c = frame.camera;
-  const projection = berxPerspective(c.fov, Math.max(1e-6, width / height), c.near, c.far);
-  const view = berxLookAt(c.position, c.target);
-  const viewProjection = berxMultiplyMat4(projection, view);
-  const cells = new Uint8Array(grid * grid);
-  let onScreen = 0, whole = 0, sumX = 0, sumY = 0, weight = 0;
-  let minX = 1, minY = 1, maxX = 0, maxY = 0;
-  for (const o of frame.world.objects) {
-    if (!o.visible) continue;
-    const p = project(viewProjection, o.transform.position);
-    if (p.w <= 1e-6) continue;
-    const ndcX = p.x / p.w, ndcY = p.y / p.w;
-    const r = berxBoundingRadius(o);
-    const radiusY = r * projection[5] / p.w;
-    const radiusX = r * projection[0] / p.w;
-    if (radiusX <= 0 || radiusY <= 0) continue;
-    const fx = ndcX * 0.5 + 0.5, fy = 0.5 - ndcY * 0.5;
-    const rx = radiusX * 0.5, ry = radiusY * 0.5;
-    let touched = false;
-    const x0 = Math.max(0, Math.floor((fx - rx) * grid));
-    const x1 = Math.min(grid - 1, Math.ceil((fx + rx) * grid));
-    const y0 = Math.max(0, Math.floor((fy - ry) * grid));
-    const y1 = Math.min(grid - 1, Math.ceil((fy + ry) * grid));
-    for (let gy = y0; gy <= y1; gy++) {
-      for (let gx = x0; gx <= x1; gx++) {
-        const cx = (gx + 0.5) / grid, cy = (gy + 0.5) / grid;
-        const dx = (cx - fx) / rx, dy = (cy - fy) / ry;
-        if (dx * dx + dy * dy <= 1) {
-          cells[gy * grid + gx] = 1;
-          touched = true;
-        }
-      }
-    }
-    if (!touched) continue;
-    onScreen++;
-    if (fx - rx >= 0 && fx + rx <= 1 && fy - ry >= 0 && fy + ry <= 1) whole++;
-    const w = rx * ry;
-    sumX += fx * w;
-    sumY += fy * w;
-    weight += w;
-    minX = Math.min(minX, fx - rx);
-    maxX = Math.max(maxX, fx + rx);
-    minY = Math.min(minY, fy - ry);
-    maxY = Math.max(maxY, fy + ry);
-  }
-  let covered = 0;
-  for (let i = 0; i < cells.length; i++) covered += cells[i];
-  const centreX = weight > 0 ? sumX / weight : 0.5;
-  const centreY = weight > 0 ? sumY / weight : 0.5;
-  const offCentre = weight > 0 ? Math.min(1, Math.hypot(centreX - 0.5, centreY - 0.5) * 2) : 0;
-  return {
-    covered: covered / cells.length,
-    onScreen,
-    whole,
-    offCentre,
-    bounds: onScreen > 0 ? { minX, minY, maxX, maxY } : void 0
-  };
-}
-function berxFrameTheWorld(frame, width, height, target = (BERX_FRAMING_MIN + BERX_FRAMING_MAX) / 2) {
-  const visible = frame.world.objects.filter((o) => o.visible);
-  const camera = frame.camera;
-  if (visible.length === 0) {
-    return { position: camera.position, target: camera.target, framing: berxFraming(frame, width, height) };
-  }
-  let cx = 0, cy = 0, cz = 0;
-  for (const o of visible) {
-    cx += o.transform.position.x;
-    cy += o.transform.position.y;
-    cz += o.transform.position.z;
-  }
-  const centre = { x: cx / visible.length, y: cy / visible.length, z: cz / visible.length };
-  let dx = camera.position.x - centre.x;
-  let dy = camera.position.y - centre.y;
-  let dz = camera.position.z - centre.z;
-  const len2 = Math.hypot(dx, dy, dz) || 1;
-  if (len2 <= 1e-6) {
-    dx = 0;
-    dy = 0;
-    dz = 1;
-  }
-  dx /= len2;
-  dy /= len2;
-  dz /= len2;
-  let reach = 0;
-  for (const o of visible) {
-    reach = Math.max(reach, Math.hypot(
-      o.transform.position.x - centre.x,
-      o.transform.position.y - centre.y,
-      o.transform.position.z - centre.z
-    ) + berxBoundingRadius(o));
-  }
-  const at = (distance3) => {
-    const position = {
-      x: centre.x + dx * distance3,
-      y: centre.y + dy * distance3,
-      z: centre.z + dz * distance3
-    };
-    return {
-      position,
-      framing: berxFraming({ ...frame, camera: { ...camera, position, target: centre } }, width, height)
-    };
-  };
-  const wanted = visible.length;
-  const fits = (f) => f.whole >= wanted;
-  let near = Math.max(camera.near * 2, reach * 0.05);
-  let far = Math.max(near * 2, reach * 12 + 1);
-  let best = at(far);
-  if (!fits(best.framing)) return { position: best.position, target: centre, framing: best.framing };
-  for (let i = 0; i < 24; i++) {
-    const mid = (near + far) / 2;
-    const probe = at(mid);
-    if (fits(probe.framing)) {
-      best = probe;
-      far = mid;
-    } else {
-      near = mid;
-    }
-  }
-  if (best.framing.covered > target) {
-    let lo = far, hi = Math.max(far * 2, reach * 12 + 1);
-    for (let i = 0; i < 16; i++) {
-      const mid = (lo + hi) / 2;
-      const probe = at(mid);
-      if (probe.framing.covered > target) lo = mid;
-      else {
-        best = probe;
-        hi = mid;
-      }
-    }
-  }
-  return { position: best.position, target: centre, framing: best.framing };
-}
-var BERX_FRAMING_MIN, BERX_FRAMING_MAX, project;
-var init_berxFraming = __esm({
-  "packages/spatial/src/berxFraming.ts"() {
-    "use strict";
-    init_frustum();
-    BERX_FRAMING_MIN = 0.4;
-    BERX_FRAMING_MAX = 0.6;
-    project = (m, p) => {
-      const x = m[0] * p.x + m[4] * p.y + m[8] * p.z + m[12];
-      const y = m[1] * p.x + m[5] * p.y + m[9] * p.z + m[13];
-      const w = m[3] * p.x + m[7] * p.y + m[11] * p.z + m[15];
-      return { x, y, w };
-    };
   }
 });
 
@@ -4270,65 +4516,6 @@ var init_runtime5d = __esm({
   }
 });
 
-// packages/spatial/src/geometry.ts
-function geometryForEntity(kind) {
-  return { ...specs[kind] };
-}
-function geometryScale(spec) {
-  return { x: spec.width ?? spec.radius ?? 1, y: spec.height ?? spec.radius ?? 1, z: spec.depth ?? spec.radius ?? 1 };
-}
-function primitiveHalfExtent(kind) {
-  const p = BERX_PRIMITIVES[kind];
-  switch (p.form) {
-    case "sphere":
-      return { x: p.radius, y: p.radius, z: p.radius };
-    case "box":
-      return { x: p.width / 2, y: p.height / 2, z: p.depth / 2 };
-    /* the tube's centre line plus its own radius IS the outer radius; the
-       tube is only as thick as half the gap between the two radii */
-    case "torus":
-      return { x: p.outer, y: p.outer, z: (p.outer - p.inner) / 2 };
-    /* the bars stand centred on the edge, so each face reaches half a bar
-       further than the frame's nominal size; createFrame's bars are .12
-       deep whatever the bar width */
-    case "frame":
-      return { x: p.width / 2 + p.bar / 2, y: p.height / 2 + p.bar / 2, z: 0.06 };
-  }
-}
-function berxDrawnHalfExtent(kind, scale) {
-  const mesh = primitiveHalfExtent(specs[kind].kind);
-  return { x: mesh.x * Math.abs(scale.x), y: mesh.y * Math.abs(scale.y), z: mesh.z * Math.abs(scale.z) };
-}
-var specs, BERX_PRIMITIVES;
-var init_geometry = __esm({
-  "packages/spatial/src/geometry.ts"() {
-    "use strict";
-    specs = {
-      person: { kind: "orb", radius: 0.72, segments: 32, bevel: 0.08 },
-      moment: { kind: "surface", width: 1.9, height: 2.35, depth: 0.045, bevel: 0.08 },
-      place: { kind: "portal", width: 1.8, height: 2.1, depth: 0.22, bevel: 0.14 },
-      event: { kind: "ring", radius: 0.95, segments: 48, emissive: 0.12 },
-      experience: { kind: "frame", width: 1.9, height: 1.4, depth: 0.18, bevel: 0.1 },
-      community: { kind: "node", radius: 0.86, segments: 24 },
-      business: { kind: "stack", width: 1.7, height: 1.15, depth: 0.45, bevel: 0.1 },
-      collection: { kind: "stack", width: 1.6, height: 1.05, depth: 0.34, bevel: 0.1 },
-      message: { kind: "message", width: 1.55, height: 0.72, depth: 0.12, bevel: 0.16 },
-      create: { kind: "create", radius: 0.82, segments: 40, emissive: 0.08 }
-    };
-    BERX_PRIMITIVES = {
-      orb: { form: "sphere", radius: 0.5 },
-      ring: { form: "torus", outer: 0.62, inner: 0.42 },
-      frame: { form: "frame", width: 1, height: 1, bar: 0.12 },
-      surface: { form: "box", width: 1, height: 1, depth: 0.06, bevel: 0.02 },
-      portal: { form: "frame", width: 1, height: 1.2, bar: 0.16 },
-      node: { form: "sphere", radius: 0.58 },
-      stack: { form: "box", width: 1, height: 1, depth: 0.32, bevel: 0.1 },
-      message: { form: "box", width: 1, height: 0.46, depth: 0.12, bevel: 0.05 },
-      create: { form: "sphere", radius: 0.58 }
-    };
-  }
-});
-
 // packages/spatial/src/spatialInteraction.ts
 function objectAxes(r) {
   const cx = Math.cos(r.x), sx = Math.sin(r.x);
@@ -4375,6 +4562,7 @@ function hitTestObject(ray, object) {
   return {
     objectId: object.id,
     distance: near,
+    exit: far,
     point: { x: ray.origin.x + d.x * near, y: ray.origin.y + d.y * near, z: ray.origin.z + d.z * near }
   };
 }
@@ -4399,6 +4587,19 @@ function berxResolveByDepth(candidates, drawnDepth, forwardCosine = 1, tolerance
   if (candidates.length === 0) return void 0;
   if (drawnDepth === void 0 || !Number.isFinite(drawnDepth) || drawnDepth <= 0) return candidates[0];
   const cos = Number.isFinite(forwardCosine) && forwardCosine > 1e-6 ? forwardCosine : 1;
+  let inside;
+  let insideGap = Infinity;
+  for (const hit of candidates) {
+    const entry = hit.distance * cos;
+    if (entry - EDGE_BIAS <= drawnDepth && drawnDepth <= hit.exit * cos + EDGE_BIAS) {
+      const gap = drawnDepth - entry;
+      if (gap < insideGap) {
+        insideGap = gap;
+        inside = hit;
+      }
+    }
+  }
+  if (inside) return inside;
   let best;
   let bestGap = Infinity;
   for (const hit of candidates) {
@@ -4433,7 +4634,7 @@ function rayFromNdc(camera, ndcX, ndcY, aspect) {
     })
   };
 }
-var dot, sub, len, norm, MIN_HALF_EXTENT, BERX_PICK_DEPTH_TOLERANCE, cross;
+var dot, sub, len, norm, MIN_HALF_EXTENT, BERX_PICK_DEPTH_TOLERANCE, EDGE_BIAS, cross;
 var init_spatialInteraction = __esm({
   "packages/spatial/src/spatialInteraction.ts"() {
     "use strict";
@@ -4447,6 +4648,7 @@ var init_spatialInteraction = __esm({
     };
     MIN_HALF_EXTENT = 0.12;
     BERX_PICK_DEPTH_TOLERANCE = 1.5;
+    EDGE_BIAS = 0.08;
     cross = (a, b) => ({ x: a.y * b.z - a.z * b.y, y: a.z * b.x - a.x * b.z, z: a.x * b.y - a.y * b.x });
   }
 });
@@ -4752,6 +4954,14 @@ function berxStereoCamerasFromPose(views, previous, minConfidence = BERX_MIN_POS
   const right = views.right ? berxCameraFromPose(views.right, previous, minConfidence) : void 0;
   return { left, right };
 }
+function berxPoseIpd(views) {
+  if (!views.right) return void 0;
+  return Math.hypot(
+    views.right.position.x - views.left.position.x,
+    views.right.position.y - views.left.position.y,
+    views.right.position.z - views.left.position.z
+  );
+}
 function berxEulerFromQuaternion(q) {
   const l = Math.hypot(q.x, q.y, q.z, q.w) || 1;
   const x = q.x / l;
@@ -4889,7 +5099,14 @@ var init_worldApp = __esm({
         const present = new Set(snapshot.objects.map((o) => o.id));
         const usable = [...this.relations.values()].filter((r) => present.has(r.from) && present.has(r.to));
         const composition = berxCompositionFor(this.position.region);
-        this.layout = berxComposeLayout(composition, snapshot.objects, usable, { rootId: this.viewerId });
+        this.layout = berxComposeLayout(composition, snapshot.objects, usable, {
+          rootId: this.viewerId,
+          /* the shape of the frame this world is being seen in: the
+             arrangement's long axis follows it, which is what lets one
+             world fill a desktop and a portrait phone rather than
+             filling one and rattling around in the other */
+          aspect: this.viewportAspect
+        });
         for (const object of snapshot.objects) {
           if (!object.geo) continue;
           this.geoOrigin ?? (this.geoOrigin = { ...object.geo });
@@ -4965,6 +5182,15 @@ var init_worldApp = __esm({
        * world away from them.
        */
       frameWorld(width, height) {
+        const aspect = width > 0 && height > 0 ? width / height : void 0;
+        if (aspect !== void 0) {
+          const was = this.viewportAspect;
+          this.viewportAspect = aspect;
+          if (was === void 0 || was < 1 !== aspect < 1) {
+            this.layoutDirty = true;
+            this.relayout();
+          }
+        }
         const frame = this.latestFrame;
         if (frame.world.objects.filter((o) => o.visible).length === 0) return false;
         const fitted = berxFrameTheWorld(frame, width, height);
@@ -5974,6 +6200,7 @@ var init_src = __esm({
     init_relational();
     init_composition();
     init_BerxVoiceAssistant();
+    init_berxSpeechProvider();
     init_berxPhrases();
     init_berxVoiceWorld();
     init_berxRegistrationVoice();
@@ -9883,6 +10110,16 @@ function mapNearbyEventToSpatial(event, placement = {}) {
     }]
   };
 }
+var NOTIFICATION_LABEL = Object.freeze({
+  "friend:request": "\u0417\u0430\u044F\u0432\u043A\u0430 \u0432 \u0434\u0440\u0443\u0437\u044C\u044F",
+  "friend:accepted": "\u0417\u0430\u044F\u0432\u043A\u0430 \u043F\u0440\u0438\u043D\u044F\u0442\u0430",
+  "post:like": "\u041F\u043E\u043D\u0440\u0430\u0432\u0438\u043B\u0441\u044F \u043F\u043E\u0441\u0442",
+  "post:comment": "\u041A\u043E\u043C\u043C\u0435\u043D\u0442\u0430\u0440\u0438\u0439",
+  "message:new": "\u0421\u043E\u043E\u0431\u0449\u0435\u043D\u0438\u0435",
+  "event:invite": "\u041F\u0440\u0438\u0433\u043B\u0430\u0448\u0435\u043D\u0438\u0435 \u043D\u0430 \u0441\u043E\u0431\u044B\u0442\u0438\u0435",
+  "community:request": "\u0417\u0430\u044F\u0432\u043A\u0430 \u0432 \u0441\u043E\u043E\u0431\u0449\u0435\u0441\u0442\u0432\u043E",
+  poke: "\u0422\u0435\u0431\u044F \u043A\u043E\u0441\u043D\u0443\u043B\u0438\u0441\u044C"
+});
 
 // packages/spatial-web/src/voiceToWorld.ts
 var TONE_OF = Object.freeze({
@@ -10777,6 +11014,7 @@ function createBerx5DWebHost(options = {}) {
       core = berxCoreStep(core, dt);
       const scene = world ? world.frame(dt) : runtime.frame(dt);
       listen(scene);
+      framesDrawn++;
       renderer.render(scene, {
         maxObjects: quality.maxObjects,
         ambientMotion: quality.ambientMotion,
@@ -10828,6 +11066,17 @@ function createBerx5DWebHost(options = {}) {
       announce(error instanceof Error ? error.message : `${label}: \u043D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C`);
     });
   };
+  let depthCache;
+  let framesDrawn = 0;
+  const drawnDepthAt = (x, y) => {
+    const px = Math.round(x), py = Math.round(y);
+    if (depthCache && depthCache.frame === framesDrawn && depthCache.x === px && depthCache.y === py) {
+      return depthCache.value;
+    }
+    const value = renderer.depthAt?.(px, py);
+    depthCache = { frame: framesDrawn, x: px, y: py, value };
+    return value;
+  };
   const slotsUnder = (e) => {
     const rect = canvas.getBoundingClientRect();
     const dpr = canvas.width / Math.max(1, rect.width);
@@ -10844,7 +11093,7 @@ function createBerx5DWebHost(options = {}) {
       /* the same depth the entity pick resolves against, so a
          highlight and a press cannot disagree with each other or
          with what is drawn */
-      over: pickActionSlot(renderer.actionSlots, frameState.camera, ray.direction, aspect, renderer.depthAt?.(x, y)),
+      over: pickActionSlot(renderer.actionSlots, frameState.camera, ray.direction, aspect, drawnDepthAt(x, y)),
       near: berxNearActionSlots(renderer.actionSlots, frameState.camera, ray.direction, aspect)
     };
   };
@@ -10863,7 +11112,7 @@ function createBerx5DWebHost(options = {}) {
     const y = (e.clientY - rect.top) * dpr;
     const frameState = world ? world.latestFrame : runtime.latestFrame;
     const ray = rayFromNdc(frameState.camera, x / canvas.width * 2 - 1, 1 - y / canvas.height * 2, canvas.width / canvas.height);
-    const drawnDepth = renderer.depthAt?.(x, y);
+    const drawnDepth = drawnDepthAt(x, y);
     const slot = ray && world ? pickActionSlot(renderer.actionSlots, frameState.camera, ray.direction, canvas.width / canvas.height, drawnDepth) : void 0;
     if (slot && world) {
       activate(slot.affordance.id, slot.affordance.label);
@@ -11407,14 +11656,58 @@ var BerxWebVoice = class {
   voices() {
     return (this.synthesis?.getVoices() ?? []).map((v) => ({ name: v.name, lang: v.lang }));
   }
+  /**
+   * What this provider can really do — see BerxSpeechCapability.
+   *
+   * `languages` comes from the voices the browser has actually
+   * installed, which on a bare Linux container is none: an empty list
+   * says "it has not told us" rather than "it cannot", because a
+   * voice list loads asynchronously and claiming otherwise would make
+   * a chain skip a provider that was about to work.
+   *
+   * `offDevice` is true because Chromium's recogniser posts audio to a
+   * remote service. It is true for the WHOLE provider even though only
+   * the listening half leaves the device: a person deciding whether to
+   * open a microphone is entitled to the pessimistic answer.
+   */
+  get capability() {
+    return {
+      id: "web-speech",
+      speaks: this.available,
+      listens: this.canListen,
+      offDevice: this.requiresNetwork,
+      languages: [...new Set(this.voices().map((v) => v.lang))]
+    };
+  }
+  /**
+   * Speak in a named language.
+   *
+   * A voice installed for that language where the browser has one,
+   * and the utterance's own `lang` regardless — which is what a
+   * synthesiser uses to decide pronunciation even when it substitutes
+   * a voice. Nothing is refused for want of a matching voice: a
+   * Russian voice reading French badly is a real outcome a person can
+   * hear and correct, and silence is not.
+   */
+  async speakIn(text, prosody, language) {
+    const previous = this.spoken;
+    this.spoken = language;
+    try {
+      await this.speak(text, prosody);
+    } finally {
+      this.spoken = previous;
+    }
+  }
   speak(text, prosody) {
     if (!this.available) return Promise.resolve();
     return new Promise((resolve) => {
       const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = this.lang;
+      const language = this.spoken ?? this.lang;
+      utterance.lang = language;
       utterance.rate = prosody.rate;
       utterance.pitch = prosody.pitch;
-      const chosen = this.preferVoice ? (this.synthesis.getVoices() ?? []).find((v) => v.name === this.preferVoice) : void 0;
+      const installed = this.synthesis.getVoices() ?? [];
+      const chosen = this.preferVoice ? installed.find((v) => v.name === this.preferVoice) : installed.find((v) => v.lang.toLowerCase() === language.toLowerCase()) ?? installed.find((v) => v.lang.toLowerCase().split("-")[0] === language.toLowerCase().split("-")[0]);
       if (chosen) utterance.voice = chosen;
       let settled = false;
       const done = () => {
@@ -11482,6 +11775,132 @@ var BerxWebVoice = class {
     this.active = void 0;
   }
 };
+
+// packages/spatial-web/src/xrSession.ts
+init_src();
+async function berxXrAvailability() {
+  const xr = navigator.xr;
+  if (!xr) return { present: false, supported: { "immersive-vr": false, "immersive-ar": false }, reason: "this browser exposes no navigator.xr" };
+  const ask = async (mode) => {
+    try {
+      return await xr.isSessionSupported(mode);
+    } catch (error) {
+      return error;
+    }
+  };
+  const [vr, ar] = await Promise.all([ask("immersive-vr"), ask("immersive-ar")]);
+  const failed = [vr, ar].find((r) => r instanceof Error);
+  return {
+    present: true,
+    supported: { "immersive-vr": vr === true, "immersive-ar": ar === true },
+    reason: failed ? `${failed.name}: ${failed.message}` : vr === true || ar === true ? void 0 : "this device supports no immersive session"
+  };
+}
+async function berxEnterXr(mode, options) {
+  const xr = navigator.xr;
+  if (!xr) throw new Error("BERX XR: this browser exposes no navigator.xr");
+  if (!await xr.isSessionSupported(mode)) throw new Error(`BERX XR: this device does not support ${mode}`);
+  options.onState?.("entering");
+  const session = await xr.requestSession(mode, {
+    /* asked for, never assumed: a device without floor tracking gets
+       'local' below rather than a world sunk into the ground */
+    optionalFeatures: ["local-floor", "bounded-floor"]
+  });
+  const gl = options.canvas.getContext("webgl2");
+  if (!gl) {
+    await session.end();
+    throw new Error("BERX XR: the canvas has no WebGL2 context to make an XR layer from");
+  }
+  await gl.makeXRCompatible();
+  const XRWebGLLayerCtor = globalThis.XRWebGLLayer;
+  if (!XRWebGLLayerCtor) {
+    await session.end();
+    throw new Error("BERX XR: this browser has navigator.xr but no XRWebGLLayer to draw through");
+  }
+  await session.updateRenderState({ baseLayer: new XRWebGLLayerCtor(session, gl) });
+  let space;
+  try {
+    space = await session.requestReferenceSpace(options.referenceSpace ?? "local-floor");
+  } catch {
+    space = await session.requestReferenceSpace("local");
+  }
+  const frames = { posed: 0, unposed: 0 };
+  let ipd;
+  let running = true;
+  const onFrame = (_time, frame) => {
+    if (!running) return;
+    session.requestAnimationFrame(onFrame);
+    const pose = frame.getViewerPose(space);
+    if (!pose || pose.views.length === 0) {
+      frames.unposed++;
+      options.onPoseLost?.();
+      return;
+    }
+    const layer = session.renderState.baseLayer;
+    if (!layer) return;
+    const views = viewsFrom(pose);
+    if (!views) {
+      frames.unposed++;
+      options.onPoseLost?.();
+      return;
+    }
+    const cameras = options.world.setHeadViews(views);
+    if (!cameras) {
+      frames.unposed++;
+      options.onPoseLost?.();
+      return;
+    }
+    frames.posed++;
+    ipd = berxPoseIpd(views) ?? ipd;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, layer.framebuffer);
+    options.renderer.resize(layer.framebufferWidth, layer.framebufferHeight);
+    options.renderer.render(options.world.frame(1 / 90), cameras.right && ipd ? { stereo: { ipd } } : void 0);
+  };
+  const ended = new Promise((resolve) => {
+    session.addEventListener("end", () => {
+      running = false;
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      options.renderer.resize(options.canvas.width, options.canvas.height);
+      options.onState?.("ended");
+      resolve();
+    }, { once: true });
+  });
+  session.requestAnimationFrame(onFrame);
+  options.onState?.("running");
+  return {
+    mode,
+    session,
+    get ipd() {
+      return ipd;
+    },
+    get frames() {
+      return { ...frames };
+    },
+    end: async () => {
+      if (!running) return ended;
+      await session.end();
+      return ended;
+    }
+  };
+}
+function viewsFrom(pose) {
+  const poses = [];
+  for (const view of pose.views) {
+    const t = view.transform;
+    const fy = view.projectionMatrix[5];
+    if (!Number.isFinite(fy) || fy <= 0) return void 0;
+    poses.push({
+      position: { x: t.position.x, y: t.position.y, z: t.position.z },
+      orientation: { x: t.orientation.x, y: t.orientation.y, z: t.orientation.z, w: t.orientation.w },
+      fovDegrees: 2 * Math.atan(1 / fy) * 180 / Math.PI,
+      /* WebXR reports emulated positions for devices with rotation
+         only, and a 3-DoF pose is not a 6-DoF one */
+      confidence: pose.emulatedPosition ? 0.4 : 1
+    });
+  }
+  if (poses.length === 0) return void 0;
+  return { left: poses[0], right: poses[1] };
+}
 
 // packages/spatial-web/src/appShell.ts
 function describe(world) {
@@ -11632,7 +12051,10 @@ async function startBerxApp(options) {
       }
     });
   };
-  const speech = options.voice ? new BerxWebVoice() : void 0;
+  const speech = options.voice ? berxSpeechChain(
+    options.voice.providers ?? [new BerxWebVoice({ lang: options.voice.language })],
+    { language: options.voice.language, onProvider: options.voice.onProvider }
+  ) : void 0;
   const voice = options.voice && speech ? berxVoiceToWorld({
     host,
     client: options.voice.client,
@@ -11649,6 +12071,25 @@ async function startBerxApp(options) {
   const listen = async () => {
     if (!voice) return;
     await voice.hear(listenMs);
+  };
+  let xr;
+  void berxXrAvailability().then((answer) => {
+    xr = answer;
+  });
+  let xrSession;
+  const enterXr = async (mode = "immersive-vr") => {
+    if (xrSession) return xrSession;
+    const session = await berxEnterXr(mode, {
+      world,
+      renderer,
+      canvas,
+      onState: (state, detail) => {
+        if (state === "ended") xrSession = void 0;
+        outline.textContent = state === "ended" ? describe(world) : `BERX \u0432 ${mode === "immersive-ar" ? "\u0434\u043E\u043F\u043E\u043B\u043D\u0435\u043D\u043D\u043E\u0439" : "\u0432\u0438\u0440\u0442\u0443\u0430\u043B\u044C\u043D\u043E\u0439"} \u0440\u0435\u0430\u043B\u044C\u043D\u043E\u0441\u0442\u0438${detail ? `: ${detail}` : ""}`;
+      }
+    });
+    xrSession = session;
+    return session;
   };
   const resumeAudio = () => {
     canvas.removeEventListener("pointerdown", resumeAudio);
@@ -11673,6 +12114,15 @@ async function startBerxApp(options) {
     void listen();
   };
   canvas.addEventListener("keydown", onSpeak);
+  const onEnterXr = (event) => {
+    if (event.key !== "x" && event.key !== "\u0447") return;
+    if (composer) return;
+    event.preventDefault();
+    void enterXr().catch((error) => {
+      outline.textContent = `${describe(world)} | ${error instanceof Error ? error.message : String(error)}`;
+    });
+  };
+  canvas.addEventListener("keydown", onEnterXr);
   await pull();
   let liveWorld;
   const connected = options.live?.(world).then((connection) => {
@@ -11698,7 +12148,15 @@ async function startBerxApp(options) {
       return liveWorld;
     },
     voice,
+    speech,
     listen,
+    get xr() {
+      return xr;
+    },
+    enterXr,
+    get xrSession() {
+      return xrSession;
+    },
     failures,
     refresh: pull,
     compose,
@@ -11707,6 +12165,8 @@ async function startBerxApp(options) {
       liveWorld?.close();
       canvas.removeEventListener("keydown", onCompose);
       canvas.removeEventListener("keydown", onSpeak);
+      canvas.removeEventListener("keydown", onEnterXr);
+      void xrSession?.end();
       speech?.stop();
       canvas.removeEventListener("pointerdown", resumeAudio);
       canvas.removeEventListener("keydown", resumeAudio);
@@ -11735,11 +12195,13 @@ export {
   BerxWebSpatialAudio,
   atmosphereBackground,
   atmosphereCustomProperties,
+  berxEnterXr,
   berxLabelBox,
   berxLayerContent,
   berxMeasureLabel,
   berxRasteriseLabel,
   berxVoiceToWorld,
+  berxXrAvailability,
   createBerx5DWebHost,
   createBerxCard,
   createBerxControl,

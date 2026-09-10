@@ -155,6 +155,18 @@ const ARC = Math.PI * 0.9;
 const REACH = 1.35;
 const DEPTH = 0.35;
 /**
+ * How far in front of the entity the ring stands, as a share of the
+ * distance to the eye.
+ *
+ * A third of the way is close enough to read as belonging to the thing
+ * and far enough to clear the world around it. Not a fudge factor: it
+ * is the answer to "how do the actions of what you are looking at stay
+ * in front of what happens to be standing between you and it", and the
+ * only quantity available that scales with how much room there is for
+ * something to be in the way.
+ */
+const TOWARD_THE_EYE = 0.34;
+/**
  * How wide a label is, in multiples of its own height — the quad's
  * aspect, from whoever rasterises the glyphs.
  *
@@ -322,6 +334,46 @@ export function berxActionRing(
 	const {places} = berxRingGeometry(object, affordances, measure);
 	if (places.length === 0) return [];
 	const drop = object.transform.scale.y * 0.5 + SLOT_HEIGHT * 1.4;
+	/**
+	 * AND IN FRONT OF IT.
+	 *
+	 * The ring stood in the entity's own depth plane, offset sideways
+	 * and downward and not one unit toward the viewer. That was
+	 * survivable while the world was sparse enough that nothing else
+	 * was ever between the two; with an arrangement compact enough to
+	 * fill a frame it stopped being survivable at once — standing with
+	 * an entity, four of its five actions were behind a neighbour, and
+	 * the renderer's depth test correctly removed them from the
+	 * pickable set. Measured: 1 of 5 reachable, from a world of
+	 * fourteen entities.
+	 *
+	 * The actions of the thing you are looking at belong BETWEEN you and
+	 * it. That is what the pointer path has said all along — "an action
+	 * beside the focused entity is nearer to hand than the entity behind
+	 * it" is why the ring is tested before the entities — and the
+	 * geometry now agrees with it. Far enough forward to clear the
+	 * entity's own surface and a slot's own height, and no further: a
+	 * ring floating halfway to the camera would read as interface rather
+	 * than as part of the world.
+	 */
+	const eye = Math.hypot(
+		camera.position.x - object.transform.position.x,
+		camera.position.y - object.transform.position.y,
+		camera.position.z - object.transform.position.z,
+	);
+	const toward = Math.max(
+		/* never inside the entity's own surface */
+		Math.max(object.transform.scale.x, object.transform.scale.y, object.transform.scale.z) * 0.5 + SLOT_HEIGHT,
+		/* and a share of the way toward whoever is looking, so the ring
+		   clears whatever the world has put between the two — which the
+		   ring cannot know about and does not need to, because standing
+		   further back is exactly when there is more room for something
+		   to be in the way. A fixed offset in world units cleared a
+		   neighbour two units away and not one three units away:
+		   measured 29 of 34 slots reachable, short on three of ten
+		   entities. */
+		eye * TOWARD_THE_EYE,
+	);
 
 	return places.map((place) => {
 		const look = berxSlotPresentation(place.affordance.state);
@@ -329,9 +381,9 @@ export function berxActionRing(
 		return {
 			affordance: place.affordance,
 			position: {
-				x: object.transform.position.x + basis.right.x * place.across - basis.up.x * down,
-				y: object.transform.position.y + basis.right.y * place.across - basis.up.y * down,
-				z: object.transform.position.z + basis.right.z * place.across - basis.up.z * down,
+				x: object.transform.position.x + basis.right.x * place.across - basis.up.x * down - basis.forward.x * toward,
+				y: object.transform.position.y + basis.right.y * place.across - basis.up.y * down - basis.forward.y * toward,
+				z: object.transform.position.z + basis.right.z * place.across - basis.up.z * down - basis.forward.z * toward,
 			},
 			/* State as GEOMETRY, so every renderer honours it without a
 			   shader knowing what a state is. */

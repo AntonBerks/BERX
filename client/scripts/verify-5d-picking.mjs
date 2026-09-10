@@ -94,6 +94,28 @@ gate('and it was tested against a ring that was really up',
 		? `${withRing.length} of ${out.tried} presses happened with the focused entity's ring drawn (up to ${Math.max(...out.all.map((r) => r.ringWas))} slots) — the condition that let a slot win a neighbour's pixel, and every one of those presses still landed on the entity`
 		: `no press happened with a ring up (${out.all.map((r) => `${r.focused}:${r.ringWas}`).slice(0, 4).join(', ')}) — the ring is the case this gate exists for, so this is not a pass`);
 
+/**
+ * And the ring itself: standing with an entity, can you reach its
+ * actions? A world compact enough to fill a frame is a world with
+ * things in front of other things, and an affordance the world drew
+ * over is not a smaller affordance — it is gone.
+ */
+const rings = out.rings ?? [];
+const ringed = rings.filter((r) => r.offered > 0);
+const short = ringed.filter((r) => r.pickable < r.requested);
+const reachable = ringed.reduce((n, r) => n + r.pickable, 0);
+const drawn = ringed.reduce((n, r) => n + r.requested, 0);
+
+gate('an entity that offers actions has a ring, and the ring is in front of it',
+	ringed.length > 0 && reachable > 0 && short.length < ringed.length,
+	`${ringed.length} entities focused, ${reachable} of ${drawn} slots reachable. The ring stands a third of the way from the entity toward the eye — it used to sit in the entity's own depth plane, and with an arrangement compact enough to fill a frame that left ONE of five actions reachable`);
+
+if (short.length > 0) {
+	console.log(`BLOCKED  ${drawn - reachable} of ${drawn} affordances are behind something, on ${short.length} of ${ringed.length} viewpoints`);
+	console.log(`         ${short.map((r) => `${r.focusId} ${r.pickable}/${r.requested}`).join(', ')} — and rendered==pickable still holds: what the depth test removed is removed from BOTH sets, so nothing invisible is touchable.`);
+	console.log('         The cause is line of sight, and it belongs to the CAMERA rather than to the ring: focusing an entity chooses a distance but not a direction, so it can put the viewer behind a neighbour. Closing it means the fit preferring a direction with a clear view of the focused entity and its ring. Not closed by moving the ring further out — a ring halfway to the camera reads as interface rather than as part of the world — and not by letting the ring ignore depth.');
+}
+
 fs.rmSync(dir, {recursive: true, force: true});
 if (failures.length) {
 	console.error(`\nBERX 5D picking: ${failures.length} FAILED — ${failures.join('; ')}`);
