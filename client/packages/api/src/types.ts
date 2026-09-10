@@ -660,6 +660,33 @@ export interface BerxCreatorAudience {
 	views_last_30_days: number;
 }
 
+/**
+ * A business offer, exactly as `ossn_api_offer_json` writes it.
+ *
+ * `already_claimed` and `already_fulfilled` are VIEWER-SCOPED — the
+ * endpoint resolves them per caller precisely so a client can show real
+ * claimed state instead of a claim button that always renders and
+ * errors on the second tap.
+ *
+ * There is no coupon code and no payment: `OssnBusinessOffers` is a
+ * claim-and-fulfil-in-person primitive, the same honest shape as a
+ * punch card, and inventing a redemption code here would be inventing a
+ * system the backend does not have.
+ */
+export interface BerxOffer {
+	id: number;
+	place_guid: number;
+	title: string;
+	description: string;
+	max_redemptions: number | null;
+	redemptions_count: number;
+	ends_at: number | null;
+	active: boolean;
+	time_created: number;
+	already_claimed: boolean;
+	already_fulfilled: boolean;
+}
+
 export interface BerxCreatorProfile {
 	user_guid: number;
 	category: string | null;

@@ -19,6 +19,7 @@ import {
 	mapCollectionToSpatial,
 	mapCreatorToSpatial,
 	mapDatingProfileToSpatial,
+	mapOfferToSpatial,
 	mapStoryToSpatial,
 	mapMemoryToSpatial,
 	mapTripToSpatial,
@@ -221,6 +222,42 @@ export const berxPersonId = (guid: number) => berxSpatialId('person', guid);
  * Entities already in the world are updated rather than duplicated —
  * the person you are talking to is the same person the feed put there.
  */
+/**
+ * WHAT IS ON OFFER AT A PLACE, read on arriving there.
+ *
+ * `offers.php` is a complete backend — list, claim, fulfil, redemptions,
+ * with viewer-scoped claimed state — and the client had no method for
+ * any of it, which is how offers came to be recorded as a provider
+ * blocker. It was never a provider blocker; it was an unwired endpoint.
+ *
+ * Read per place rather than at boot, for the same reason a
+ * conversation is: it is a deliberate act about one place, and asking
+ * every place in a world for its offers would be reading a city to show
+ * a street.
+ *
+ * A place with no offers is not a failure and not an empty state: the
+ * endpoint answers with an empty list and the world gains nothing,
+ * which is the truth about that place today.
+ */
+export async function loadBerxPlaceOffers(
+	api: BerxApiClient,
+	placeGuid: number,
+	viewerId?: string,
+): Promise<BerxWorldLoad> {
+	const entries: BerxWorldIngest[] = [];
+	const failures: BerxWorldLoadFailure[] = [];
+	try {
+		const {offers} = await api.placeOffers(placeGuid);
+		for (const offer of offers) {
+			const mapped = mapOfferToSpatial(offer);
+			entries.push({object: mapped.object, relations: mapped.relations, media: mapped.media});
+		}
+	} catch (error) {
+		failures.push({source: `offers:${placeGuid}`, message: error instanceof Error ? error.message : String(error)});
+	}
+	return {entries, viewerId, failures};
+}
+
 /**
  * WHAT SOMEONE HAS MADE, brought into the world beside them.
  *

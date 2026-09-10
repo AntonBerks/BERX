@@ -27,6 +27,7 @@ import {berxApplyTemporal, berxTemporalCursor, type BerxTemporalCursor} from './
 import {berxRelationalWeight} from './relational';
 import {berxComposeLayout, berxCompositionFor} from './composition';
 import {berxFraming, berxFrameTheWorld, type BerxFraming} from './berxFraming';
+import type {BerxAudioSource} from './spatialAudio';
 import {berxClampToWorld, berxNear, berxWorldBounds} from './proximity';
 
 /**
@@ -138,6 +139,17 @@ export interface BerxWorldIngest {
 	object: BerxSpatialObject;
 	relations?: readonly BerxSpatialRelation[];
 	media?: readonly {uri: string}[];
+	/**
+	 * What this entity SOUNDS like, where the server sent audio.
+	 *
+	 * Separate from `media` because a sound is not a surface: a surface
+	 * is a texture on a shape, and a sound is a position you hear from.
+	 * `BerxAudioSource` has carried `objectId` — "the entity this sound
+	 * belongs to; its position is the sound's" — since spatial audio was
+	 * written, and nothing had ever put one into a world. This is the
+	 * channel that does.
+	 */
+	sounds?: readonly BerxAudioSource[];
 }
 
 export class Berx5DWorldApp {

@@ -48,6 +48,8 @@ import type {
 	BerxDatingProfileCard,
 	BerxCreatorProfile,
 	BerxCreatorContent,
+	BerxMediaAsset,
+	BerxOffer,
 } from '@berx/api/types';
 import {
 	berxWorldMaterial,
@@ -58,6 +60,7 @@ import {
 	type BerxSpatialGeoAnchor,
 	type BerxSpatialEntityKind,
 	type BerxSpatialMediaSurface,
+	type BerxAudioSource,
 	type BerxSpatialObject,
 	type BerxSpatialRelation,
 	type BerxVec3,
@@ -640,6 +643,109 @@ const NOTIFICATION_LABEL: Readonly<Record<string, string>> = Object.freeze({
  * distance is the relational layout's, from a relation the caller
  * supplies.
  */
+/**
+ * WHAT AN ENTITY SOUNDS LIKE, from the media the server really has.
+ *
+ * `BerxMediaAsset` carries a `media_type` of image, video or AUDIO and
+ * a url, and the audio case had nowhere to go: `surfaceFor` builds
+ * textures, and a sound is not a texture — it is a position you hear
+ * from. So an image or a video becomes a media surface as before, and
+ * an audio asset becomes a `BerxAudioSource` at the entity's own
+ * position, which is what `BerxWebSpatialAudio.play` has always taken.
+ *
+ * The numbers are the ones a voice at conversational distance needs: at
+ * full gain within two metres, silent past eighteen, once through
+ * rather than looped, because a voice note that repeated forever is a
+ * haunting rather than a message.
+ *
+ * An asset with no url is skipped. It is a row the server has not
+ * finished processing (`status`), and a sound with no source would be
+ * a fetch that fails a second after the world appears.
+ */
+/**
+ * AN OFFER IS SOMETHING TO DO, HERE, UNTIL THEN.
+ *
+ * Mapped to an `experience` rather than to a new kind, and the fit is
+ * not a compromise: an experience already means "something available
+ * that you can reserve", it already has a frame to be drawn as, and its
+ * affordances are already `view-experience / reserve / share`. Reserve
+ * IS the claim, and the shell routes it to `claimOffer`.
+ *
+ * T is the whole point of an offer and it comes from the server:
+ * `ends_at` makes it leave the present when it really expires, so the
+ * temporal cursor carries it out of the world rather than a client
+ * timer hiding it. An offer with no end date does not get one invented.
+ *
+ * R is the place it is at — `located-at`, the same structural edge an
+ * event at a venue has, so an offer stands with its business rather
+ * than in a list of offers.
+ *
+ * Energy is how much of it is left, which is a real quantity:
+ * `max_redemptions - redemptions_count` over the maximum. An unlimited
+ * offer is not more exciting for being unlimited, so it sits at the
+ * same half as one that is half gone.
+ */
+export function mapOfferToSpatial(offer: BerxOffer, placement: BerxSpatialPlacement = {}): BerxSpatialMapping {
+	const left = offer.max_redemptions === null
+		? 0.5
+		: Math.max(0, Math.min(1, (offer.max_redemptions - offer.redemptions_count) / Math.max(1, offer.max_redemptions)));
+	const object = baseObject(
+		'experience', `offer-${offer.id}`, offer.title, String(offer.id), left, placement,
+		{
+			at: offer.time_created,
+			startsAt: offer.time_created,
+			...(offer.ends_at !== null ? {endsAt: offer.ends_at} : {}),
+		},
+	);
+	/* the place this belongs to, recoverable from the entity alone: the
+	   claim has to be read back from that place's offer list, and an
+	   action only ever receives the object */
+	object.parentId = berxSpatialId('place', offer.place_guid);
+	return {
+		object,
+		media: [],
+		relations: [{
+			id: `${object.id}->${berxSpatialId('place', offer.place_guid)}:located-at`,
+			from: object.id,
+			to: berxSpatialId('place', offer.place_guid),
+			type: 'located-at',
+			strength: 1,
+		}],
+	};
+}
+
+export function mapMediaAssetsToSpatial(
+	object: BerxSpatialObject,
+	assets: readonly BerxMediaAsset[],
+): {media: BerxSpatialMediaSurface[]; sounds: BerxAudioSource[]} {
+	const media: BerxSpatialMediaSurface[] = [];
+	const sounds: BerxAudioSource[] = [];
+	for (const asset of assets) {
+		if (!asset.url) continue;
+		if (asset.media_type === 'audio') {
+			sounds.push({
+				id: `${object.id}:audio-${asset.guid}`,
+				objectId: object.id,
+				uri: asset.url,
+				gain: 0.9,
+				loop: false,
+				refDistance: 2,
+				maxDistance: 18,
+			});
+			continue;
+		}
+		const aspect = asset.width && asset.height ? asset.width / asset.height : 1;
+		media.push(createMediaSurface(object, {
+			mediaId: `${object.id}:media-${asset.guid}`,
+			uri: asset.url,
+			aspectRatio: aspect,
+			fit: 'cover',
+			opacity: 1,
+		}));
+	}
+	return {media, sounds};
+}
+
 /**
  * A CREATOR IS A PERSON WITH A BODY OF WORK.
  *

@@ -32,7 +32,7 @@ import {
 	type BerxHapticBackend, type BerxSpatialObject, type BerxWorldIngest,
 	type BerxSpatialGesture,
 	type BerxRenderQuality, type BerxCoreMotion, type BerxCoreCause,
-	type BerxSpatialAudioBackend, type Berx5DFrame,
+	type BerxSpatialAudioBackend, type Berx5DFrame, type BerxAudioSource,
 } from '@berx/spatial';
 import { BerxThreeRuntimeRenderer } from './threeRuntime';
 import type { BerxWebRendererBackend } from './webRenderer';
@@ -427,6 +427,57 @@ export function createBerx5DWebHost(options: Berx5DWebHostOptions = {}): Berx5DW
 
 	const visibleObjects = () => (world ? world.latestFrame : runtime.latestFrame).world.objects.filter((o) => o.visible);
 
+	/**
+	 * THE WORLD'S OWN SOUNDS, kept where their entities are.
+	 *
+	 * `BerxAudioSource` has said since spatial audio was written that
+	 * "the entity this sound belongs to; its position is the sound's" —
+	 * and nothing had ever put one into a world. An ingest can now carry
+	 * them, and this is what makes them true: played once at the
+	 * entity's position, moved to it every frame it changes, and stopped
+	 * the moment the entity leaves the world or the host does.
+	 *
+	 * Playing is deliberately not awaited. `play` fetches and decodes,
+	 * and a world must not wait on a sound to appear; a fetch that fails
+	 * is reported and costs nothing else.
+	 */
+	const soundsByObject = new Map<string, readonly BerxAudioSource[]>();
+	const soundFailures: string[] = [];
+	const soundAt = (id: string) => {
+		const frame = world ? world.latestFrame : runtime.latestFrame;
+		return frame.world.objects.find((o) => o.id === id)?.transform.position;
+	};
+	const startSounds = (objectId: string, sources: readonly BerxAudioSource[]) => {
+		if (!options.audio || sources.length === 0) return;
+		soundsByObject.set(objectId, sources);
+		const at = soundAt(objectId);
+		if (!at) return;
+		for (const source of sources) {
+			void options.audio.play(source, {...at}).catch((error) => {
+				soundFailures.push(`${source.id}: ${error instanceof Error ? error.message : String(error)}`);
+			});
+		}
+	};
+	const stopSounds = (objectId: string) => {
+		const sources = soundsByObject.get(objectId);
+		if (!sources) return;
+		soundsByObject.delete(objectId);
+		for (const source of sources) options.audio?.stop(source.id);
+	};
+	/* one pass per frame, and only for objects that really moved */
+	const soundWhere = new Map<string, string>();
+	const followSounds = () => {
+		if (!options.audio || soundsByObject.size === 0) return;
+		for (const [objectId, sources] of soundsByObject) {
+			const at = soundAt(objectId);
+			if (!at) continue;
+			const key = `${at.x.toFixed(3)},${at.y.toFixed(3)},${at.z.toFixed(3)}`;
+			if (soundWhere.get(objectId) === key) continue;
+			soundWhere.set(objectId, key);
+			for (const source of sources) options.audio.move(source.id, {...at});
+		}
+	};
+
 	/** Re-resolve quality and the backing store. Only on real size or load changes. */
 	const applySize = () => {
 		const nativeDpr = (typeof window !== 'undefined' ? window.devicePixelRatio : 1) || 1;
@@ -585,6 +636,11 @@ export function createBerx5DWebHost(options: Berx5DWebHostOptions = {}): Berx5DW
 			/* a new frame: whatever depth was read from the last one is
 			   no longer what is on the screen */
 			framesDrawn++;
+			/* a sound belongs to an entity, so it goes where the entity
+			   goes — the relational layout moves things when the world
+			   changes, and a sound left behind would be a voice coming
+			   from where somebody used to stand */
+			followSounds();
 			renderer.render(scene, {
 				maxObjects: quality.maxObjects,
 				ambientMotion: quality.ambientMotion,
@@ -1241,6 +1297,10 @@ export function createBerx5DWebHost(options: Berx5DWebHostOptions = {}): Berx5DW
 			for (const entry of entries) {
 				mediaByObject.set(entry.object.id, entry.media ?? []);
 				renderer.setObjectMedia(entry.object.id, entry.media ?? []);
+				/* re-ingesting the same entity must not stack a second
+				   copy of its sound on top of the first */
+				stopSounds(entry.object.id);
+				if (entry.sounds && entry.sounds.length > 0) startSounds(entry.object.id, entry.sounds);
 			}
 		},
 		addObject: (object, media) => {
@@ -1250,6 +1310,7 @@ export function createBerx5DWebHost(options: Berx5DWebHostOptions = {}): Berx5DW
 		},
 		removeObject: (id) => {
 			runtime.removeObject(id);
+			stopSounds(id);
 			/* an object that has left the world must stop holding a
 			   texture open, or a long session leaks one per thing seen */
 			mediaByObject.delete(id);
@@ -1279,6 +1340,7 @@ export function createBerx5DWebHost(options: Berx5DWebHostOptions = {}): Berx5DW
 		destroy: () => {
 			/* a pending hold must not fire into a host that is gone */
 			cancelHold();
+			for (const id of [...soundsByObject.keys()]) stopSounds(id);
 			running = false;
 			cancelAnimationFrame(raf);
 			canvas.removeEventListener('pointerdown', onPointerDown);

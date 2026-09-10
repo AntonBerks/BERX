@@ -14,9 +14,11 @@ import {
 	loadBerxConversation,
 	loadBerxCreator,
 	loadBerxDating,
+	loadBerxPlaceOffers,
 	loadBerxWorld,
 	mapEventToSpatial,
 	mapFeedItemToSpatial,
+	mapOfferToSpatial,
 	mapPlaceToSpatial,
 } from '@berx/scenes';
 import {berxDrawnHalfExtent, cameraBasis, pickSpatialCandidates, rayFromNdc} from '@berx/spatial';
@@ -218,6 +220,19 @@ async function enterWorld(): Promise<void> {
 			 * about them, rather than an empty state pretending to be
 			 * one.
 			 */
+			/**
+			 * ARRIVING AT A PLACE brings what is on offer there.
+			 *
+			 * A business and an ordinary place are the same server row —
+			 * `is_business` decides only what the world draws — so both
+			 * are asked, and a place with nothing on offer simply gains
+			 * nothing.
+			 */
+			if (position.region === 'place' && (focused?.kind === 'place' || focused?.kind === 'business')) {
+				const guid = Number(focused.sourceId);
+				if (!Number.isFinite(guid)) return undefined;
+				return loadBerxPlaceOffers(api, guid);
+			}
 			if (position.region === 'person' && focused?.kind === 'person') {
 				const guid = Number(focused.sourceId);
 				if (!Number.isFinite(guid)) return undefined;
@@ -335,6 +350,37 @@ async function enterWorld(): Promise<void> {
 				case 'join':
 					await api.joinCommunity(guid);
 					return undefined;
+				case 'reserve': {
+					/**
+					 * RESERVING AN OFFER IS CLAIMING IT.
+					 *
+					 * The only `reserve` BERX has an endpoint for. An
+					 * offer entity's id is `experience:offer-<id>`, and
+					 * `sourceId` is the offer's own id, so this claims
+					 * the offer the person is actually looking at.
+					 *
+					 * A reserve on anything else still fails loudly
+					 * below: the server has no reservation for a place
+					 * or an experience, and a button that pretended
+					 * otherwise would be worse than one that says so.
+					 */
+					if (!object.id.startsWith('experience:offer-')) {
+						throw new Error(`BERX: «${action}» пока нет на сервере для «${object.kind}»`);
+					}
+					const claimed = await api.claimOffer(guid);
+					if (claimed.status !== 'ok' && claimed.already_claimed !== true) {
+						throw new Error('BERX: не удалось забронировать');
+					}
+					/* read the offer back from the server, so what the
+					   world shows is the redemption count the server
+					   now has rather than one counted here */
+					const {offers} = await api.placeOffers(Number(object.parentId?.split(':')[1] ?? 0))
+						.catch(() => ({offers: []}));
+					const fresh = offers.find((o) => o.id === guid);
+					if (!fresh) return undefined;
+					const mapped = mapOfferToSpatial(fresh);
+					return {object: mapped.object, relations: mapped.relations, media: mapped.media};
+				}
 				default:
 					throw new Error(`BERX: «${action}» пока нет на сервере`);
 			}

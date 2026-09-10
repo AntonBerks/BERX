@@ -89,6 +89,56 @@ try {
 		JSON.stringify(business.offered) === JSON.stringify(['view-business', 'directions', 'reserve']),
 		`focused, it offers ${(business.offered ?? []).join(', ')} — from spatialAffordances' own business row, not a place's`);
 
+	/* --- OFFERS: what is on offer where you are standing --- */
+	const offers = await page.evaluate(async () => {
+		const w = window.__berxWorld;
+		const before = w.latestFrame.world.objects.length;
+		w.travelTo('place:4212');
+		const region = w.worldPosition.region;
+		for (let i = 0; i < 400; i++) {
+			if (w.latestFrame.world.objects.some((o) => o.id === 'experience:offer-501')) break;
+			await new Promise((r) => requestAnimationFrame(r));
+		}
+		const o = w.latestFrame.world.objects.find((x) => x.id === 'experience:offer-501');
+		if (!o) return {present: false, before, after: w.latestFrame.world.objects.length, region};
+		w.blurAffordance?.();
+		w.focus('experience:offer-501');
+		const offered = w.affordances().map((a) => a.action);
+		const reserve = w.affordances().find((a) => a.action === 'reserve');
+		const edge = w.latestFrame.world.relations.find((r) => r.from === o.id && r.to === 'place:4212');
+		const claimed = reserve ? await w.act(reserve.id) : false;
+		/* the world holds what the SERVER said after the claim */
+		const after = w.latestFrame.world.objects.find((x) => x.id === 'experience:offer-501');
+		return {
+			present: true, before, after: w.latestFrame.world.objects.length, region,
+			kind: o.kind, label: o.label, parentId: o.parentId,
+			time: o.time ? {...o.time} : undefined,
+			energyBefore: o.energy, energyAfter: after?.energy,
+			edgeType: edge?.type, edgeStrength: edge?.strength,
+			offered, claimed,
+		};
+	});
+
+	gate('arriving at a place brings what is on offer there',
+		offers.present && offers.region === 'place' && offers.kind === 'experience'
+		&& offers.time?.endsAt !== undefined && offers.parentId === 'place:4212',
+		offers.present
+			? `experience:offer-501 "${offers.label}" arrived on travelling to place:4212 (region "${offers.region}"), read from /offers/places/4212.`
+			+ ` It is an experience — something available that you can reserve, which is what an offer is — ending at ${offers.time?.endsAt} from the SERVER's own ends_at,`
+			+ ` and its parent is ${offers.parentId}. ${offers.before} entities before, ${offers.after} after.`
+			+ ' offers.php has been a complete backend all along; the client simply had no method for it, which is how offers came to be recorded as a provider blocker'
+			: `no offer arrived; region was "${offers.region}" and the world went ${offers.before} → ${offers.after}`);
+
+	gate('and it stands with its business by a structural edge',
+		offers.edgeType === 'located-at' && offers.edgeStrength === 1,
+		`${offers.edgeType} at strength ${offers.edgeStrength} into place:4212 — the same edge an event at a venue has, so an offer stands with its business rather than in a list of offers`);
+
+	gate('reserving an offer is claiming it, on the server',
+		offers.claimed === true && offers.energyAfter !== undefined && offers.energyAfter < offers.energyBefore,
+		`focused, it offers ${(offers.offered ?? []).join(', ')}; act('reserve') returned ${offers.claimed}.`
+		+ ` Energy — how much of the offer is left — went ${offers.energyBefore?.toFixed(2)} → ${offers.energyAfter?.toFixed(2)} because the SERVER's redemptions_count went up and the world was rebuilt from what it answered.`
+		+ ' There is no coupon code and no payment anywhere in this: OssnBusinessOffers is a claim-and-fulfil-in-person primitive, the same honest shape as a punch card');
+
 	/* --- CREATORS: travelling to someone brings what they have made --- */
 	const creator = await page.evaluate(async () => {
 		const w = window.__berxWorld;

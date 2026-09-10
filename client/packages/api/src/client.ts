@@ -66,6 +66,7 @@ import type {
 	BerxExperience,
 	BerxExperienceDetail,
 	BerxCreatorProfile,
+	BerxOffer,
 	BerxCreatorContent,
 	BerxVideoPost,
 	BerxTrackPost,
@@ -509,6 +510,29 @@ export class BerxApiClient {
 	// experiences. No engagement rate, growth trend, or follower
 	// projection anywhere — none of those have a real data source.
 	// ---------------------------------------------------------------
+
+	/**
+	 * WHAT IS ON OFFER AT A PLACE. Active offers only.
+	 *
+	 * `offers.php` has been a complete backend all along — list, claim,
+	 * fulfil, redemptions, with viewer-scoped claimed state — and this
+	 * client had no method for any of it, which is why the audit had
+	 * offers down as a provider blocker. It was never a provider
+	 * blocker. It was an unwired endpoint.
+	 *
+	 * `/offers/places/{guid}/all` exists too and is deliberately not
+	 * here: it returns inactive, expired and exhausted offers for the
+	 * owner's dashboard, and a world shows what a person can actually
+	 * have.
+	 */
+	async placeOffers(placeGuid: number): Promise<{offers: BerxOffer[]}> {
+		return this.request<{offers: BerxOffer[]}>(`/offers/places/${placeGuid}`);
+	}
+
+	/** Claim one. The server answers with the claim it recorded. */
+	async claimOffer(offerId: number): Promise<{status: string; already_claimed?: boolean}> {
+		return this.request<{status: string; already_claimed?: boolean}>(`/offers/${offerId}/claim`, {method: 'POST'});
+	}
 
 	async getCreatorProfile(username: string): Promise<BerxCreatorProfile> {
 		return this.request<BerxCreatorProfile>(`/creator/${username}`);

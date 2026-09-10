@@ -122,6 +122,32 @@ export class BerxWebSpatialAudio implements BerxSpatialAudioBackend {
 		this.playing.set(spec.id, {source, panner, gain, spec});
 	}
 
+	/**
+	 * WHAT IS SOUNDING, AND WHERE, read off the graph itself.
+	 *
+	 * Not a copy of what `play` was asked for: the position comes back
+	 * out of the real `PannerNode` and the gain out of the real
+	 * `GainNode`, so a gate can prove a sound is at an entity's position
+	 * rather than that a function was called with one. There is no other
+	 * way to tell a working spatial audio graph from a bookkeeping map
+	 * that agrees with itself.
+	 */
+	get live(): {id: string; at: BerxVec3; gain: number; uri: string}[] {
+		const out: {id: string; at: BerxVec3; gain: number; uri: string}[] = [];
+		for (const [id, entry] of this.playing) {
+			const p = entry.panner;
+			out.push({
+				id,
+				at: p.positionX
+					? {x: p.positionX.value, y: p.positionY.value, z: p.positionZ.value}
+					: {x: 0, y: 0, z: 0},
+				gain: entry.gain.gain.value,
+				uri: entry.spec.uri,
+			});
+		}
+		return out;
+	}
+
 	move(sourceId: string, to: BerxVec3): void {
 		const entry = this.playing.get(sourceId);
 		if (!entry) return;

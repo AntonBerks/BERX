@@ -119,6 +119,18 @@ export async function startBerxAppServer() {
 			events: [{guid: 6003, title: 'Концерт в четверг'}],
 			experiences: [{id: 6004, title: 'Репетиция'}],
 		},
+		/* What is on offer at the business. `offers.php` is a complete
+		   backend — list, claim, fulfil, redemptions — and the client
+		   had no method for it, which is how offers came to be recorded
+		   as a provider blocker. */
+		'/api/v1/offers/places/4212': {
+			offers: [{
+				id: 501, place_guid: 4212, title: 'Второй кофе бесплатно', description: 'до конца недели',
+				max_redemptions: 20, redemptions_count: 8, ends_at: NOW + 5 * 86400, active: true,
+				time_created: NOW - 86400, already_claimed: false, already_fulfilled: false,
+			}],
+		},
+		'/api/v1/offers/places/4211': {offers: []},
 		/* The viewer's own dating world, read only when they travel to
 		   their own presence. Pseudonyms, never `person:<guid>`. */
 		'/api/v1/dating/discover': {
@@ -199,7 +211,21 @@ export async function startBerxAppServer() {
 					protocol: 'berx-realtime-1',
 				}));
 			}
-			if (name === '/api/v1/posts' && req.method === 'POST') {
+			if (name === '/api/v1/offers/501/claim' && req.method === 'POST') {
+			/* a real claim: the count goes up and the viewer's own
+			   claimed state flips, exactly as the PHP does, so a client
+			   reading the offer back sees the server's number */
+			const offer = API['/api/v1/offers/places/4212'].offers[0];
+			if (offer.already_claimed) {
+				res.writeHead(409, {'content-type': 'application/json; charset=utf-8'});
+				return void res.end(JSON.stringify({error: 'already_claimed'}));
+			}
+			offer.already_claimed = true;
+			offer.redemptions_count += 1;
+			res.writeHead(200, {'content-type': 'application/json; charset=utf-8'});
+			return void res.end(JSON.stringify({status: 'ok', already_claimed: true}));
+		}
+		if (name === '/api/v1/posts' && req.method === 'POST') {
 				const guid = 7700 + created.length;
 				created.push(guid);
 				API[`/api/v1/posts/${guid}`] = {
