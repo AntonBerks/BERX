@@ -456,22 +456,118 @@ try {
 		/* --- HOLD: BERX listens, and only because a hand asked it to --- */
 		const hold = await page.evaluate(async () => {
 			const t = window.__t, host = window.__berxHost, w = window.__berxWorld;
-			const midX = t.canvas.width / 2, midY = t.canvas.height / 2;
-			const before = host.core?.state;
+			await t.still();
+			await t.settle(8);
+			/**
+			 * A HOLD ON THE WORLD, NOT ON AN ACTION.
+			 *
+			 * The host rules out a hold whose finger is resting on an
+			 * affordance — that is the affordance pressing in, which is
+			 * already a state, and stealing it would make a slow press
+			 * on a button do something else entirely. So a probe that
+			 * presses the centre of the frame is pressing the ring
+			 * of whatever the tap just focused, and the correct
+			 * behaviour is exactly the "nothing happened" it then
+			 * reports as a failure.
+			 *
+			 * This finds a pixel with NO slot near it by projecting the
+			 * ring the renderer is really drawing, and holds there. The
+			 * slot's own pixel is held too, in the second half, because
+			 * the rule has two sides and only testing one of them would
+			 * leave the other free to break.
+			 */
+			const slots = host.renderer.actionSlots.map((sl) => t.project(sl.position)).filter((p) => p && p.onScreen);
+			const far = (px, py) => slots.every((p) => Math.hypot(p.px - px, p.py - py) > 140);
+			let onWorld;
+			for (const [fx, fy] of [[0.12, 0.85], [0.88, 0.85], [0.12, 0.15], [0.88, 0.15], [0.5, 0.92]]) {
+				const px = t.canvas.width * fx, py = t.canvas.height * fy;
+				if (far(px, py)) { onWorld = {px, py}; break; }
+			}
+			const beforeWorld = host.core?.state;
 			const focusBefore = w.latestFrame.world.activeObjectId;
-			t.send('pointerdown', t.at(midX, midY, {pointerId: 3}));
-			/* longer than BERX_HOLD_MS, and the finger does not move */
-			await new Promise((r) => setTimeout(r, 900));
-			const during = host.core?.state;
+			/**
+			 * SAMPLE THE PATH, NOT THE END OF IT.
+			 *
+			 * Reading the Core once, at some chosen moment after the
+			 * hold, measures whatever state happens to be current then —
+			 * and `listening` lasts exactly as long as the microphone is
+			 * open, which on a machine with no speech recogniser is
+			 * barely any time at all. Read at 900ms it had already
+			 * settled back to `aware`, and the gate reported a hold that
+			 * had worked as a hold that did nothing.
+			 *
+			 * So this samples every 10ms across the hold and keeps the
+			 * whole path, which is what verify:5d-app-shell's own voice
+			 * gate does for the same reason. The assertion is that
+			 * `listening` HAPPENED, because that is the claim: a held
+			 * finger opens the microphone.
+			 */
+			let during = beforeWorld;
+			let path = [];
+			if (onWorld) {
+				t.send('pointerdown', t.at(onWorld.px, onWorld.py, {pointerId: 3}));
+				const seen = [];
+				for (let i = 0; i < 130; i++) {
+					const now = host.core?.state;
+					if (seen[seen.length - 1] !== now) seen.push(now);
+					await new Promise((r) => setTimeout(r, 10));
+				}
+				path = seen;
+				during = seen.includes('listening') ? 'listening' : (host.core?.state ?? beforeWorld);
+				t.send('pointerup', t.at(onWorld.px, onWorld.py, {pointerId: 3}));
+				await t.settle();
+			}
 			const captured = window.__berxCapture?.length ?? 0;
-			t.send('pointerup', t.at(midX, midY, {pointerId: 3}));
-			await t.settle();
+
+			/**
+			 * AND THE OTHER SIDE OF THE RULE: a hold ON an action.
+			 *
+			 * The ring has to be up for this half to mean anything, and
+			 * it may not be: the probes before this one drag, pinch and
+			 * resize the backing store, and the renderer's slot list is
+			 * rebuilt per frame. So focus something that really offers
+			 * actions and wait for the renderer to be drawing them,
+			 * rather than testing whatever happens to be there.
+			 */
+			const ringUp = w.latestFrame.world.objects.find((o) => o.kind === 'moment' && o.interactive);
+			if (ringUp) {
+				w.blurAffordance?.();
+				w.focus(ringUp.id);
+				await t.still();
+				for (let i = 0; i < 60; i++) {
+					if (host.renderer.actionSlots.length > 0) break;
+					await new Promise((r) => requestAnimationFrame(r));
+				}
+			}
+			const slotsNow = host.renderer.actionSlots.map((sl) => t.project(sl.position)).filter((p) => p && p.onScreen);
+			let onSlot;
+			if (slotsNow.length > 0) {
+				const before = host.core?.state;
+				t.send('pointerdown', t.at(slotsNow[0].px, slotsNow[0].py, {pointerId: 4}));
+				const seen = [];
+				for (let i = 0; i < 130; i++) {
+					const now = host.core?.state;
+					if (seen[seen.length - 1] !== now) seen.push(now);
+					await new Promise((r) => setTimeout(r, 10));
+				}
+				t.send('pointerup', t.at(slotsNow[0].px, slotsNow[0].py, {pointerId: 4}));
+				await t.settle();
+				onSlot = {
+					before, mid: seen.includes('listening') ? 'listening' : (host.core?.state ?? before),
+					path: seen, at: `${slotsNow[0].px.toFixed(0)},${slotsNow[0].py.toFixed(0)}`,
+					of: slotsNow.length, on: ringUp?.id,
+				};
+			}
 			return {
-				before, during, captured, after: host.core?.state,
+				before: beforeWorld, during, captured, after: host.core?.state,
 				focusBefore, focusAfter: w.latestFrame.world.activeObjectId,
+				at: onWorld ? `${onWorld.px.toFixed(0)},${onWorld.py.toFixed(0)}` : undefined,
+				path,
+				slotCount: slots.length, onSlot,
 			};
 		});
-		step(`hold → core ${hold.before} → ${hold.during}`);
+		step(`hold on world @${hold.at ?? 'nowhere free'} → ${(hold.path ?? []).join(' → ') || 'nowhere'}`
+			+ `; hold on a slot @${hold.onSlot?.at ?? '-'} → ${(hold.onSlot?.path ?? []).join(' → ') || 'no ring'}`);
 
 		const audioAfterGesture = await page.evaluate(() => window.__berxHost?.audio ? window.__berxHost.audio.running : undefined);
 		const touch = {tap, swipe, pinch, hold, audioAfterGesture};
@@ -686,10 +782,18 @@ try {
 
 		gate(`${d.id}: a held finger is how a phone asks BERX to listen`,
 			r.touch.hold.during === 'listening',
-			`the drawn Core went ${r.touch.hold.before} -> ${r.touch.hold.during} while a finger stayed on the world for 900ms without moving.`
+			`held at ${r.touch.hold.at} — a pixel with no ring slot within 140px of it, out of ${r.touch.hold.slotCount} the renderer is drawing.`
+			+ ` Sampled every 10ms across the hold, the drawn Core went ${(r.touch.hold.path ?? []).join(' → ') || 'nowhere'}.`
 			+ ` "aware" would not do: a pointerdown ALONE reports presence and reaches aware, so only a state a plain tap cannot produce is evidence the hold did anything.`
 			+ ` "v" does this from a keyboard and a phone has no "v", so voice — and the fifteen intents behind it — was unreachable on mobile web.`
 			+ ` It is the gesture the Core already modelled: berxTouchField, berxGestureCause and berxTouchHaptic all handle 'hold', and nothing had ever produced one`);
+
+		gate(`${d.id}: and a finger resting on an action is that action, not a request to listen`,
+			r.touch.hold.onSlot !== undefined && r.touch.hold.onSlot.mid !== 'listening',
+			r.touch.hold.onSlot === undefined
+				? 'no entity in this world offers an action, so there was no ring to hold — a fact about the world, and this half cannot be measured against it'
+				: `held on one of ${r.touch.hold.onSlot.of} slots around ${r.touch.hold.onSlot.on}, at ${r.touch.hold.onSlot.at}, and the Core went ${(r.touch.hold.onSlot.path ?? []).join(' → ')} — never listening.`
+				+ ' A slow press on an action must do what the action does, and the host rules out a hold whose finger is on one BEFORE asking what a hold means');
 
 		gate(`${d.id}: and the same gesture does not also choose something`,
 			r.touch.hold.focusAfter === r.touch.hold.focusBefore,
