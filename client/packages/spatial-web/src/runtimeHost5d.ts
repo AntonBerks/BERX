@@ -27,8 +27,10 @@
 import {
 	Berx5DRuntime, Berx5DWorldApp, BerxHaptics, cameraBasis, pickActionSlot, berxNearActionSlots, rayFromNdc,
 	berxRenderQuality, berxResolveRenderTier, berxCoreAt, berxCoreStep, berxCoreEnter, berxCoreCause,
+	berxListenerFromCamera,
 	type BerxHapticBackend, type BerxSpatialObject, type BerxWorldIngest,
 	type BerxRenderQuality, type BerxCoreMotion, type BerxCoreCause,
+	type BerxSpatialAudioBackend, type Berx5DFrame,
 } from '@berx/spatial';
 import { BerxThreeRuntimeRenderer } from './threeRuntime';
 import type { BerxWebRendererBackend } from './webRenderer';
@@ -72,6 +74,19 @@ export interface Berx5DWebHostOptions {
 	 * it entirely.
 	 */
 	haptics?: BerxHapticBackend | false;
+	/**
+	 * Where the world is heard from.
+	 *
+	 * Given a backend, the listener is moved to the camera every frame —
+	 * the same camera the pixels come from, so a sound placed at an
+	 * entity is behind you exactly when the entity is. The host never
+	 * plays anything: BERX has no audio assets and invents no media, so
+	 * what is heard is whatever a caller `play`s from a real URL the
+	 * server handed over.
+	 *
+	 * Left out, nothing listens and nothing costs anything.
+	 */
+	audio?: BerxSpatialAudioBackend;
 	/** Whether the air carries dust, energy and the far field. Default on. */
 	particles?: boolean;
 	/** Whether the key light is visible in the air. Default on. */
@@ -119,6 +134,8 @@ export interface Berx5DWebHost {
 	readonly renderTier: {tier: string; reason: string; quality: BerxRenderQuality};
 	/** The Core this session's frame loop is stepping. Same reason. */
 	readonly core: BerxCoreMotion;
+	/** Where the world is heard from, when this host was given ears. */
+	readonly audio?: BerxSpatialAudioBackend;
 	/**
 	 * Move the Core, by naming something that happened.
 	 *
@@ -362,6 +379,24 @@ export function createBerx5DWebHost(options: Berx5DWebHostOptions = {}): Berx5DW
 		}
 	};
 
+	/**
+	 * The ears go where the eyes are.
+	 *
+	 * Driven from the frame that is about to be drawn rather than from
+	 * the camera object, so what is heard is the pose the pixels were
+	 * made with — including mid-travel, where the camera's own state is
+	 * the destination and the frame's is where it currently is. One
+	 * conversion, in @berx/spatial, so every backend agrees which way
+	 * forward is.
+	 *
+	 * It keeps running with the GPU context gone: the world is still
+	 * there and still moving, and sound that froze on a driver reset
+	 * would jump when the pixels came back.
+	 */
+	const listen = (scene: Berx5DFrame) => {
+		options.audio?.setListener(berxListenerFromCamera(scene.camera.position, scene.camera.target));
+	};
+
 	const frame = (now: number) => {
 		if (!running) return;
 		const dt = Math.min(0.05, Math.max(0, (now - last) / 1000));
@@ -380,7 +415,9 @@ export function createBerx5DWebHost(options: Berx5DWebHostOptions = {}): Berx5DW
 			   half speed — the integrator is exponential for exactly
 			   this reason. */
 			core = berxCoreStep(core, dt);
-			renderer.render(world ? world.frame(dt) : runtime.frame(dt), {
+			const scene = world ? world.frame(dt) : runtime.frame(dt);
+			listen(scene);
+			renderer.render(scene, {
 				maxObjects: quality.maxObjects,
 				ambientMotion: quality.ambientMotion,
 				particles, volumetric,
@@ -390,8 +427,7 @@ export function createBerx5DWebHost(options: Berx5DWebHostOptions = {}): Berx5DW
 		} else {
 			/* the world keeps time even with no GPU to draw it, so a
 			   restore resumes where it was rather than snapping */
-			if (world) world.frame(dt);
-			else runtime.frame(dt);
+			listen(world ? world.frame(dt) : runtime.frame(dt));
 		}
 		raf = requestAnimationFrame(frame);
 	};
@@ -839,6 +875,7 @@ export function createBerx5DWebHost(options: Berx5DWebHostOptions = {}): Berx5DW
 			};
 		},
 		coreCause,
+		audio: options.audio,
 		get quality() {
 			return quality;
 		},

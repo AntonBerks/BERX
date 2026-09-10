@@ -7,6 +7,7 @@
  * the Core sit unwired behind passing gates for a whole branch.
  */
 import {createBerx5DWebHost} from '@berx/spatial-web/runtimeHost5d';
+import {BerxWebSpatialAudio} from '@berx/spatial-web/spatialAudioWeb';
 import {berxBuildDrawList, berxVolumetricUniform, berxCoreTarget, BERX_CORE_REST} from '@berx/spatial';
 import {Berx5DWorldApp} from '@berx/spatial';
 import {mapUserToSpatial} from '@berx/scenes';
@@ -30,7 +31,26 @@ window.BERX_WIRING = {
 		/* A real world in a real host — the same object a browser session
 		   builds, not a fixture handed to a module. */
 		const world = new Berx5DWorldApp({viewerId: 'person:77'});
-		const host = createBerx5DWebHost({canvas, world});
+		/**
+		 * Real Web Audio, rendered offline so it is deterministic — the
+		 * same backend a browser session runs, with a real AudioListener
+		 * whose position is a real AudioParam. Held here so the gate can
+		 * read what the session actually did to it: the host takes a
+		 * backend and never hands its listener back.
+		 */
+		const audioContext = new OfflineAudioContext({numberOfChannels: 2, length: 128, sampleRate: 44100});
+		const audio = new BerxWebSpatialAudio(audioContext);
+		const listenerNow = () => {
+			const l = audioContext.listener;
+			return {
+				position: {x: l.positionX.value, y: l.positionY.value, z: l.positionZ.value},
+				forward: {x: l.forwardX.value, y: l.forwardY.value, z: l.forwardZ.value},
+				up: {x: l.upX.value, y: l.upY.value, z: l.upZ.value},
+			};
+		};
+		/* where Web Audio puts a listener nobody has moved */
+		const beforeAnyFrame = listenerNow();
+		const host = createBerx5DWebHost({canvas, world, audio});
 		const user = {guid: 77, username: 'ann', fullname: 'Анна', email: '', icon_url: '', profile_url: '', time_created: 0};
 		const mapped = mapUserToSpatial(user);
 		host.ingest([{object: mapped.object, relations: [], media: []}]);
@@ -66,8 +86,34 @@ window.BERX_WIRING = {
 		const baseDensity = berxVolumetricUniform()[0];
 		const expectedDensity = baseDensity * Math.max(0.4, Math.min(2.5, host.core.field.haze / BERX_CORE_REST.haze));
 
+		/**
+		 * DO THE EARS FOLLOW THE CAMERA?
+		 *
+		 * Not "was setListener called" — where the real AudioListener
+		 * ended up, against where the frame the pixels came from says the
+		 * camera is. Then the camera is sent somewhere by the product's
+		 * own path (travelling to an entity), and the listener has to
+		 * have gone with it.
+		 */
+		const heardFrom = listenerNow();
+		const cameraAt = {...world.latestFrame.camera.position};
+
+		const other = mapUserToSpatial({guid: 78, username: 'boris', fullname: 'Борис', email: '', icon_url: '', profile_url: '', time_created: 0});
+		host.ingest([{object: other.object, relations: [], media: []}]);
+		const travelled2 = world.travelTo(other.object.id);
+		/* long enough for the camera transition to finish, not merely start */
+		await settle(90);
+		const heardAfter = listenerNow();
+		const cameraAfter = {...world.latestFrame.camera.position};
+
 		host.stop();
+		audio.dispose();
 		return {
+			audio: {
+				spatial: audio.spatial,
+				beforeAnyFrame, heardFrom, cameraAt,
+				travelled: travelled2, heardAfter, cameraAfter,
+			},
 			tier,
 			core: {
 				atStart, afterEvent, idleFrames,

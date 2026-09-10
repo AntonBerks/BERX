@@ -22,10 +22,11 @@
  * Signing in is text input, so it is a real form. Everything after it
  * is space.
  */
-import {Berx5DWorldApp, berxTemporalCursor, type BerxSocialAction, type BerxSpatialObject, type BerxWorldIngest, type BerxWorldPersistence, type BerxWorldPosition} from '@berx/spatial';
+import {Berx5DWorldApp, berxTemporalCursor, type BerxSocialAction, type BerxSpatialAudioBackend, type BerxSpatialObject, type BerxWorldIngest, type BerxWorldPersistence, type BerxWorldPosition} from '@berx/spatial';
 import {createBerx5DWebHost, type Berx5DWebHost} from './runtimeHost5d';
 import {createBerxWebRenderer} from './webRenderer';
 import {berxMeasureLabel} from './spatialText';
+import {BerxWebSpatialAudio} from './spatialAudioWeb';
 
 export interface BerxAppShellOptions {
 	/** Where the world is drawn. Created and appended when omitted. */
@@ -47,6 +48,20 @@ export interface BerxAppShellOptions {
 	 * measurement came from.
 	 */
 	renderer?: 'auto' | 'webgl2' | 'webgpu';
+	/**
+	 * Where the world is heard from.
+	 *
+	 * On by default: a real Web Audio listener that follows the camera,
+	 * so a sound placed at an entity is behind you exactly when the
+	 * entity is. It plays nothing by itself — BERX ships no audio assets
+	 * and invents no media — so a session with no sounds is silent, and
+	 * that silence is the truth rather than a broken pipeline.
+	 *
+	 * Browsers refuse audio before a gesture, so the context starts
+	 * suspended and is resumed by the first real one on the canvas.
+	 * Pass a backend to drive different hardware, or false for none.
+	 */
+	audio?: BerxSpatialAudioBackend | false;
 	/** Told what the viewer is looking at, for the accessibility outline. */
 	onPositionChange?: (position: BerxWorldPosition) => void;
 	/**
@@ -99,6 +114,15 @@ export interface BerxAppShellOptions {
 export interface BerxAppShell {
 	readonly host: Berx5DWebHost;
 	readonly world: Berx5DWorldApp;
+	/**
+	 * Where the world is heard from, unless the caller turned it off.
+	 *
+	 * Exposed because playing is the caller's: whatever real audio URL
+	 * the server hands over is played from the position of the entity it
+	 * belongs to, and the panning is correct because this listener is
+	 * the camera.
+	 */
+	readonly audio?: BerxSpatialAudioBackend;
 	/** What did not load, named. Never hidden behind a plausible world. */
 	readonly failures: readonly {source: string; message: string}[];
 	/**
@@ -191,10 +215,16 @@ export async function startBerxApp(options: BerxAppShellOptions): Promise<BerxAp
 	});
 	const renderer = await buildRenderer();
 
+	/* Real Web Audio ears, moved to the camera by the host's frame loop.
+	   Constructed here rather than in the host because the shell is what
+	   owns a session's lifetime, and it is the shell that disposes it. */
+	const audio = options.audio === false ? undefined : (options.audio ?? new BerxWebSpatialAudio());
+
 	const host = createBerx5DWebHost({
 		canvas,
 		world,
 		renderer,
+		audio,
 		/* a lost GPU device costs pixels and nothing else: the world, the
 		   camera, the time cursor and the focus are in @berx/spatial, so
 		   a new backend picks up exactly where the old one stopped */
@@ -305,6 +335,22 @@ export async function startBerxApp(options: BerxAppShellOptions): Promise<BerxAp
 		});
 	};
 
+	/**
+	 * Browsers will not make sound until someone has touched the page,
+	 * and there is no way around that worth taking. The first real
+	 * gesture on the world resumes the context; until then the listener
+	 * still tracks the camera, so nothing has to catch up afterwards.
+	 */
+	const resumeAudio = () => {
+		canvas.removeEventListener('pointerdown', resumeAudio);
+		canvas.removeEventListener('keydown', resumeAudio);
+		void (audio as {resume?: () => Promise<void>} | undefined)?.resume?.();
+	};
+	if (audio) {
+		canvas.addEventListener('pointerdown', resumeAudio);
+		canvas.addEventListener('keydown', resumeAudio);
+	}
+
 	/* Enter creation from the world, on the same keyboard everything
 	   else uses. Not a button in a bar: a key, from inside the world. */
 	const onCompose = (event: KeyboardEvent) => {
@@ -337,11 +383,15 @@ export async function startBerxApp(options: BerxAppShellOptions): Promise<BerxAp
 	return {
 		host,
 		world,
+		audio,
 		failures,
 		refresh: pull,
 		compose,
 		destroy: () => {
 			canvas.removeEventListener('keydown', onCompose);
+			canvas.removeEventListener('pointerdown', resumeAudio);
+			canvas.removeEventListener('keydown', resumeAudio);
+			audio?.dispose();
 			composer?.remove();
 			delete (globalThis as unknown as {__berxWorld?: Berx5DWorldApp}).__berxWorld;
 			delete (globalThis as unknown as {__berxHost?: Berx5DWebHost}).__berxHost;

@@ -254,6 +254,23 @@ try {
 
 	gate('the world is focusable and announced', shape.role === 'application' && shape.tabIndex === 0 && shape.liveRegions >= 1, `role=${shape.role} tabIndex=${shape.tabIndex}, ${shape.liveRegions} live regions`);
 
+	/* The shipped shell's ears. The backend and the frame loop that
+	   moves its listener are proved by verify:5d-wiring; what a real
+	   product boot has to prove is that the shell HANDS the host one,
+	   which is the line that was missing for the whole of this branch.
+	   BERX ships no sounds, so nothing plays — the session is honestly
+	   silent, with a listener in the right place for whatever real
+	   audio URL the server one day hands over. */
+	const ears = await page.evaluate(() => {
+		const audio = window.__berxHost?.audio;
+		return {present: audio !== undefined, spatial: audio?.spatial === true, listens: typeof audio?.setListener === 'function'};
+	});
+	gate('a real product session has ears, and they really pan by position',
+		ears.present && ears.spatial && ears.listens,
+		ears.present
+			? `the shell gave the host a backend that reports spatial=${ears.spatial} — real HRTF panning, not stereo gain. Nothing plays: BERX ships no audio assets and invents none`
+			: 'the shipped shell gave the host no audio backend, so any sound would be panned from the origin');
+
 	/* --- ZERO FLAT: the DOM owns no product UI --- */
 	/* Only these tags may exist in the product document. Everything a
 	   2D application is built from — lists, tables, headings, buttons,

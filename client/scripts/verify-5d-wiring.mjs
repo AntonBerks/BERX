@@ -106,6 +106,39 @@ gate('a real event moves the Core, and nothing else does',
 	out.core?.afterEvent !== out.core?.atStart && out.core?.idleStaysPut === true,
 	`${out.core?.atStart} → ${out.core?.afterEvent} when something actually happened; ${out.core?.idleFrames} frames with nothing happening left the state where it was. Every cause is a thing that occurred — there is no function that makes the Core look interesting`);
 
+/* ---------------- the ears ----------------
+
+   BerxWebSpatialAudio had a gate proving a sound to the right is louder
+   on the right, and a real session had no listener at all: the backend
+   was a library nothing called, so every sound BERX could ever play
+   would have been panned from the origin facing -Z while the camera was
+   somewhere else entirely. These read the REAL AudioListener a real
+   session moved. */
+
+const near = (a, b, tolerance) => a !== undefined && b !== undefined
+	&& Math.abs(a.x - b.x) <= tolerance && Math.abs(a.y - b.y) <= tolerance && Math.abs(a.z - b.z) <= tolerance;
+const say = (v) => v ? `(${v.x.toFixed(2)}, ${v.y.toFixed(2)}, ${v.z.toFixed(2)})` : 'nowhere';
+const au = out.audio ?? {};
+
+gate('a real session gives the world real ears',
+	au.spatial === true && !near(au.beforeAnyFrame?.position, au.heardFrom?.position, 1e-6),
+	`Web Audio starts every listener at ${say(au.beforeAnyFrame?.position)}; after real frames this session's listener is at ${say(au.heardFrom?.position)} — a backend nobody drove would still be at the origin`);
+
+gate('and the ears are where the camera is',
+	near(au.heardFrom?.position, au.cameraAt, 0.05),
+	`the frame the pixels came from puts the camera at ${say(au.cameraAt)}, and the real AudioListener is at ${say(au.heardFrom?.position)}. Delete the setListener line in the frame loop and this is the check that fails`);
+
+gate('travelling carries the ears with it',
+	au.travelled === true && !near(au.heardFrom?.position, au.heardAfter?.position, 0.05)
+		&& near(au.heardAfter?.position, au.cameraAfter, 0.05),
+	`travelling to an entity moved the camera from ${say(au.cameraAt)} to ${say(au.cameraAfter)}, and the listener went from ${say(au.heardFrom?.position)} to ${say(au.heardAfter?.position)} — one pose, not two`);
+
+gate('and the ears face the way the camera looks',
+	au.heardFrom?.forward !== undefined
+		&& Math.abs(Math.hypot(au.heardAfter.forward.x, au.heardAfter.forward.y, au.heardAfter.forward.z) - 1) < 1e-3
+		&& Math.abs(au.heardAfter.up.y - 1) < 1e-6,
+	`facing ${say(au.heardAfter?.forward)} with up ${say(au.heardAfter?.up)} — a unit direction from the same camera, so what is behind you sounds behind you`);
+
 /* ---------------- the voice, attached to the world ----------------
 
    BerxWebVoice turned a microphone into a transcript and
