@@ -41,6 +41,11 @@ import type {
 	BerxPlace,
 	BerxProfileSummary,
 	BerxUser,
+	BerxStorySummary,
+	BerxMemory,
+	BerxTrip,
+	BerxNotification,
+	BerxDatingProfileCard,
 } from '@berx/api/types';
 import {
 	berxWorldMaterial,
@@ -452,4 +457,173 @@ export function mapConversationToSpatial(conversation: BerxConversationSummary, 
 			strength: 1,
 		}],
 	};
+}
+
+/**
+ * FOUR DOMAINS THAT HAD AN ENDPOINT AND NO PLACE IN THE WORLD.
+ *
+ * Every one of these is a real API method with real response types that
+ * nothing spatial had ever read. The endpoint existed, the screen
+ * contracts named the domain, and the world contained no entity for it —
+ * so "BERX has stories" meant BERX could fetch them, not that a person
+ * could stand next to one.
+ *
+ * None of them gets a new entity kind. A story is a moment that expires,
+ * a memory is a moment that already happened, a trip is a collection
+ * with a route, a notification is a moment addressed to you — and using
+ * the kinds the world already draws is what makes them arrive with a
+ * form, a material, a geometry and a picker for free. A fifteenth kind
+ * would be a fifteenth thing for every renderer to learn.
+ *
+ * T and R are carried by the SERVER's own values, never invented: a
+ * story's time_created and its owner, a memory's `time` from however
+ * many years ago the server says, a trip's start and end dates when it
+ * has them, a notification's poster and subject.
+ */
+
+/**
+ * A story: a moment with an end.
+ *
+ * `time_expires` is what makes it a story rather than a post, and the
+ * temporal projection already knows what to do with an entity that
+ * stops — so a story fades out of the present on its own, from the
+ * server's own clock.
+ */
+export function mapStoryToSpatial(
+	story: BerxStorySummary & {time_expires?: number},
+	ownerGuid: number,
+	placement: BerxSpatialPlacement = {},
+): BerxSpatialMapping {
+	const object = baseObject('moment', `story-${story.id}`, story.caption || 'История', String(story.id), 0.5, placement, {
+		at: story.time_created,
+		startsAt: story.time_created,
+		/* a story the server gave no expiry for is one of somebody
+		   else's: the feed does not disclose it, and inventing a
+		   twenty-four-hour window would be inventing the rule */
+		...(story.time_expires !== undefined ? {endsAt: story.time_expires} : {}),
+	});
+	return {object, media: [], relations: [ownedBy(object.id, ownerGuid)]};
+}
+
+/**
+ * A memory: a moment the server has decided is worth standing in front
+ * of again.
+ *
+ * Its position in TIME is the original one — `time`, years ago — not
+ * now. That is the whole point: the temporal cursor is what brings it
+ * forward, and a memory stamped with today's date would be a new post.
+ */
+export function mapMemoryToSpatial(memory: BerxMemory, viewerGuid: number, placement: BerxSpatialPlacement = {}): BerxSpatialMapping {
+	const object = baseObject('moment', `memory-${memory.type}-${memory.guid}`, memory.text || `${memory.years_ago} года назад`, String(memory.guid), 0.35, placement, {
+		at: memory.time,
+		startsAt: memory.time,
+	});
+	return {
+		object,
+		media: surfaceFor(object, memory.url),
+		/* a memory is the viewer's own — the endpoint returns nobody
+		   else's — so it belongs to them */
+		relations: [ownedBy(object.id, viewerGuid)],
+	};
+}
+
+/**
+ * A trip: a collection with a route through real places.
+ *
+ * The stops are what make it spatial, and they are RELATIONS to places
+ * that are already in the world rather than copies of them: travelling
+ * to a trip and travelling to one of its places is travelling in the
+ * same graph. A trip whose detail has not been read yet has no stops
+ * and says so by having none, rather than by inventing a line.
+ */
+export function mapTripToSpatial(
+	trip: BerxTrip & {stops?: readonly {place_guid: number}[]},
+	placement: BerxSpatialPlacement = {},
+): BerxSpatialMapping {
+	const object = baseObject('collection', `trip-${trip.id}`, trip.title, String(trip.id), 0.3, placement, {
+		...(trip.start_date !== null ? {at: trip.start_date, startsAt: trip.start_date} : {}),
+		...(trip.end_date !== null ? {endsAt: trip.end_date} : {}),
+	});
+	const relations: BerxSpatialRelation[] = [ownedBy(object.id, trip.owner_guid)];
+	for (const stop of trip.stops ?? []) {
+		relations.push({
+			id: `${object.id}->${berxSpatialId('place', stop.place_guid)}:stop`,
+			from: object.id,
+			to: berxSpatialId('place', stop.place_guid),
+			type: 'contains',
+			strength: 1,
+		});
+	}
+	return {object, media: [], relations};
+}
+
+/**
+ * A notification: something that happened, addressed to you.
+ *
+ * A moment, because that is what it is — and it stands beside whoever
+ * caused it, which is the thing a list of notifications cannot show.
+ * `viewed` is its energy: what you have not seen yet is brighter.
+ */
+export function mapNotificationToSpatial(notification: BerxNotification, placement: BerxSpatialPlacement = {}): BerxSpatialMapping {
+	const object = baseObject('moment', `notice-${notification.guid}`, NOTIFICATION_LABEL[notification.type] ?? notification.type, String(notification.guid), notification.viewed ? 0.2 : 0.75, placement, {
+		at: notification.time_created,
+		startsAt: notification.time_created,
+	});
+	const relations: BerxSpatialRelation[] = [{
+		id: `${object.id}->${berxSpatialId('person', notification.poster_guid)}:from`,
+		from: object.id,
+		to: berxSpatialId('person', notification.poster_guid),
+		type: 'created-by',
+		strength: 0.9,
+	}];
+	/* and to the thing it is about, when the server named one */
+	if (notification.item_guid !== null) {
+		relations.push({
+			id: `${object.id}->${berxSpatialId('moment', notification.item_guid)}:about`,
+			from: object.id,
+			to: berxSpatialId('moment', notification.item_guid),
+			type: 'related',
+			strength: 0.7,
+		});
+	}
+	return {object, media: [], relations};
+}
+
+/**
+ * What each kind of notification is called, in the viewer's language.
+ *
+ * Only the types the server really sends. An unknown type falls through
+ * to the server's own word rather than to "уведомление", because a
+ * label nobody can act on is worse than an untranslated one.
+ */
+const NOTIFICATION_LABEL: Readonly<Record<string, string>> = Object.freeze({
+	'friend:request': 'Заявка в друзья',
+	'friend:accepted': 'Заявка принята',
+	'post:like': 'Понравился пост',
+	'post:comment': 'Комментарий',
+	'message:new': 'Сообщение',
+	'event:invite': 'Приглашение на событие',
+	'community:request': 'Заявка в сообщество',
+	poke: 'Тебя коснулись',
+});
+
+/**
+ * A dating profile: a person, at a distance that means something.
+ *
+ * A PSEUDONYM, not a name, because that is what the endpoint returns —
+ * dating profiles are deliberately not the person's public identity, and
+ * mapping them onto `person:<guid>` would merge the two. The id is its
+ * own, so a dating card and a profile are two entities about one human
+ * being, which is what the privacy model actually says.
+ *
+ * No compatibility score is invented. The endpoint returns none, so
+ * energy comes from what it does return — a profile that has said what
+ * it is looking for is more present than a blank one — and the orbital
+ * distance is the relational layout's, from a relation the caller
+ * supplies.
+ */
+export function mapDatingProfileToSpatial(card: BerxDatingProfileCard, placement: BerxSpatialPlacement = {}): BerxSpatialMapping {
+	const said = [card.goal, card.bio, card.interests].filter((v) => v !== null && v !== '').length;
+	const object = baseObject('person', `dating-${card.guid}`, card.pseudonym, String(card.guid), 0.3 + said * 0.15, placement);
+	return {object, media: [], relations: []};
 }

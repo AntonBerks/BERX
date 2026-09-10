@@ -17,6 +17,10 @@ import type {BerxWorldIngest} from '@berx/spatial';
 import {
 	berxSpatialId,
 	mapCollectionToSpatial,
+	mapStoryToSpatial,
+	mapMemoryToSpatial,
+	mapTripToSpatial,
+	mapNotificationToSpatial,
 	mapCommunityToSpatial,
 	mapConversationToSpatial,
 	mapExperienceToSpatial,
@@ -130,6 +134,31 @@ export async function loadBerxWorld(api: BerxApiClient, options: BerxWorldLoadOp
 			for (const collection of response.collections) entries.push(toEntry(mapCollectionToSpatial(collection)));
 		}),
 
+		/**
+		 * FOUR DOMAINS THAT HAD AN ENDPOINT AND NO PLACE IN THE WORLD.
+		 *
+		 * Every one of these was a real API method nothing spatial read:
+		 * BERX could fetch its stories and a person could not stand next
+		 * to one. Each fails on its own, like everything else here — a
+		 * deployment whose stories plugin is off loses its stories and
+		 * keeps its world.
+		 */
+		attempt('stories', () => api.storiesFeed(), (response) => {
+			for (const group of response.feed) {
+				for (const story of group.stories) {
+					entries.push(toEntry(mapStoryToSpatial(story, group.owner_guid)));
+				}
+			}
+		}),
+
+		attempt('trips', () => api.trips(), (response) => {
+			for (const trip of response.trips) entries.push(toEntry(mapTripToSpatial(trip)));
+		}),
+
+		attempt('notifications', () => api.notifications(), (response) => {
+			for (const notification of response.notifications) entries.push(toEntry(mapNotificationToSpatial(notification)));
+		}),
+
 		/* NOW only where real coordinates were given. There is no
 		   location provider in this repository, so a caller that has no
 		   position simply has no NOW rather than a fabricated one. */
@@ -145,6 +174,22 @@ export async function loadBerxWorld(api: BerxApiClient, options: BerxWorldLoadOp
 	/* The viewer's own edges: friendship and conversation are relations
 	   the responses state by being the viewer's lists, and they are what
 	   put the people a person knows within reach of them. */
+	/**
+	 * Memories are the VIEWER'S OWN, so they need to know who that is.
+	 *
+	 * Which is why they are not in the batch above: `me` resolves the
+	 * viewer, and a memory attributed to a guid that had not come back
+	 * yet would belong to nobody. Read here, from the guid the server
+	 * actually returned, and skipped entirely when it did not.
+	 */
+	if (viewerId) {
+		const viewerGuid = Number(viewerId.slice('person:'.length));
+		if (Number.isFinite(viewerGuid)) {
+			await attempt('memories', () => api.memories(), (response) => {
+				for (const memory of response.memories) entries.push(toEntry(mapMemoryToSpatial(memory, viewerGuid)));
+			});
+		}
+	}
 	if (viewerId) {
 		for (const entry of entries) {
 			if (entry.object.id === viewerId) continue;

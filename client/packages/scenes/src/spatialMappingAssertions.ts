@@ -26,6 +26,11 @@ import {
 	mapNearbyPlaceToSpatial,
 	mapPlaceToSpatial,
 	mapUserToSpatial,
+	mapStoryToSpatial,
+	mapMemoryToSpatial,
+	mapTripToSpatial,
+	mapNotificationToSpatial,
+	mapDatingProfileToSpatial,
 } from './spatialMapping';
 
 const fail = (message: string): never => {
@@ -164,9 +169,59 @@ export function assertBerxSpatialMappingInvariants(): void {
 		fail('a message and a place are the same shape');
 	}
 
+	/**
+	 * ---- FOUR DOMAINS THAT NOW REACH THE WORLD ----
+	 *
+	 * Stories, memories, trips and notifications each had a real
+	 * endpoint and no entity. These check what mattered about adding
+	 * them: that the SERVER's own time is what places them in T rather
+	 * than the moment they were mapped, that their relations point at
+	 * ids the rest of the world already uses, and that none of them
+	 * invented a fifteenth entity kind for every renderer to learn.
+	 */
+	const story = mapStoryToSpatial({id: 91, caption: 'вид с крыши', time_created: now - 3600, mime_type: 'image/jpeg', time_expires: now + 3600}, 78);
+	if (story.object.time?.at !== now - 3600) fail('a story is stamped with when it was mapped, not when it was posted');
+	if (story.object.time?.endsAt !== now + 3600) fail('a story has no end, so it is a post');
+	if (story.object.kind !== 'moment') fail('a story invented its own entity kind');
+	if (!story.relations.some((r) => r.to === berxSpatialId('person', 78))) fail('a story belongs to nobody');
+
+	const undisclosed = mapStoryToSpatial({id: 92, caption: '', time_created: now - 60, mime_type: 'image/jpeg'}, 78);
+	if (undisclosed.object.time?.endsAt !== undefined) {
+		fail('a story the server gave no expiry for was given one anyway');
+	}
+
+	const memory = mapMemoryToSpatial({type: 'post', guid: 5150, years_ago: 3, time: now - 3 * 365 * 86400, text: 'три года назад'}, 77);
+	if (memory.object.time?.at !== now - 3 * 365 * 86400) {
+		fail('a memory is stamped with today, which would make it a new post');
+	}
+	if (!memory.relations.some((r) => r.to === berxSpatialId('person', 77))) fail('a memory belongs to nobody');
+
+	const trip = mapTripToSpatial({
+		id: 7, title: 'Север', description: '', visibility: 'public', owner_guid: 77, is_own: true,
+		start_date: now, end_date: now + 5 * 86400, stop_count: 2, time_updated: now,
+		stops: [{place_guid: PLACE_GUID}, {place_guid: 4212}],
+	});
+	if (!trip.relations.some((r) => r.to === berxSpatialId('place', PLACE_GUID) && r.type === 'contains')) {
+		fail('a trip does not reach the places it goes to');
+	}
+	if (trip.object.time?.endsAt !== now + 5 * 86400) fail('a trip has no end');
+
+	const notice = mapNotificationToSpatial({guid: 31, type: 'post:like', poster_guid: 78, subject_guid: 77, item_guid: 5150, viewed: false, time_created: now - 30});
+	const seen = mapNotificationToSpatial({guid: 32, type: 'post:like', poster_guid: 78, subject_guid: 77, item_guid: null, viewed: true, time_created: now - 300});
+	if (!(notice.object.energy > seen.object.energy)) fail('a notification you have not seen is no brighter than one you have');
+	if (!notice.relations.some((r) => r.to === berxSpatialId('person', 78))) fail('a notification came from nobody');
+	if (!notice.relations.some((r) => r.to === berxSpatialId('moment', 5150))) fail('a notification about something does not point at it');
+	if (seen.relations.some((r) => r.id.endsWith(':about'))) fail('a notification about nothing invented a target');
+
+	const dating = mapDatingProfileToSpatial({guid: 78, pseudonym: 'Лев из центра', age: 31, city: 'Москва', goal: 'встречи', bio: 'ищу', interests: 'музыка'});
+	if (dating.object.id === berxSpatialId('person', 78)) {
+		fail('a dating profile and a public profile are the same entity, which merges two identities the privacy model keeps apart');
+	}
+	if (dating.object.label !== 'Лев из центра') fail('a dating profile lost its pseudonym');
+
 	/* ---- the world holds one of each, and its relations resolve ---- */
 	const world = new BerxSpatialWorld();
-	for (const mapping of [mapPlaceToSpatial(place), mapNearbyPlaceToSpatial(nearbyPlaceLive, now), event, nearbyEvent, moment, conversation, {object: person, media: [], relations: []}]) {
+	for (const mapping of [mapPlaceToSpatial(place), mapNearbyPlaceToSpatial(nearbyPlaceLive, now), event, nearbyEvent, moment, conversation, story, memory, trip, notice, dating, {object: person, media: [], relations: []}]) {
 		world.upsertObject(mapping.object);
 	}
 	for (const mapping of [event, nearbyEvent, moment, conversation]) {
