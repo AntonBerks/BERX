@@ -131,9 +131,11 @@ try {
 	 * to come up anyway, and it has to be honest about what it cannot
 	 * reach.
 	 */
-	await context.route('**/*', (route) => route.abort('internetdisconnected'));
-	const offlineErrors = [];
-	page.on('pageerror', (e) => offlineErrors.push(e.message));
+	/* setOffline, not a route interceptor: routing does not reliably reach
+	   the fetches a SERVICE WORKER makes, and the whole question here is
+	   what the worker does when its own `fetch(request)` fails. This turns
+	   the context's network off at the stack, the way a lift does. */
+	await context.setOffline(true);
 	let reloaded = true;
 	try {
 		await page.reload({waitUntil: 'domcontentloaded', timeout: 20000});

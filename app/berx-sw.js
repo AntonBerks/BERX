@@ -87,6 +87,13 @@ self.addEventListener('fetch', (event) => {
 		} catch (error) {
 			const cached = await caches.match(request, {ignoreSearch: true});
 			if (cached) return cached;
+			/* BERX has no routes — the world is the application — so any
+			   navigation is the same page, and offline it should open
+			   rather than fail because the URL carried a path */
+			if (request.mode === 'navigate') {
+				const shell = await caches.match('./', {ignoreSearch: true});
+				if (shell) return shell;
+			}
 			throw error;
 		}
 	})());

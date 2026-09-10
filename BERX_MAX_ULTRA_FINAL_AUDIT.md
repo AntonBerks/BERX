@@ -389,7 +389,7 @@ in this pass.
 | Reconnect behaviour | PASS | backoff resets only for a connection that outlived the longest rung | `packages/api/src/realtime.ts` | measured: 4 546 → bounded | — |
 | Voice → world | PASS | `BerxWebVoice` → `berxVoiceToWorld` → real client method → world | `voiceWeb.ts`, `voiceToWorld.ts` | `verify:5d-wiring` (19 voice gates) | — |
 | Voice in the shipped shell | PASS | `v`/`м` on the canvas → `shell.listen()` → Core `listening` | `appShell.ts`, `scripts/app-shell.entry.ts` | `verify:5d-app-shell` — `listening` the instant the key landed; "покажи события" put `event:908` in front of the viewer in the same world | — |
-| Speech synthesis | PARTIAL | `speechSynthesis` real; this container has 0 voices and answers `synthesis-failed` in 0 ms | `voiceWeb.ts` | measured directly | PROVIDER BLOCKER for production-grade TTS: no installed voice here, and Chromium's recogniser posts audio to a Google service (reported by `requiresNetwork`) |
+| Speech synthesis | PROVIDER BLOCKER | `speechSynthesis` real; this container has 0 voices and answers `synthesis-failed` in 0 ms | `voiceWeb.ts` | measured directly | PROVIDER BLOCKER for production-grade TTS: no installed voice here, and Chromium's recogniser posts audio to a Google service (reported by `requiresNetwork`) |
 | Microphone consent | PASS | opened only by a real keypress; no covert capture anywhere | `appShell.ts`, `voiceToWorld.ts` | code path + `verify:5d-wiring` | — |
 | WebGL2 renderer | PASS | one draw list → `threeRuntime.ts` | `threeRuntime.ts` | `verify:5d-gpu` — **23 PASS, 0 FAIL, 0 BLOCKED**; plus `verify:5d-app-shell` on a real product boot | — |
 | World occupancy (40–60%) | PASS | relational layout (size-relative, frame-shaped, evenly spaced, non-overlapping) → `berxFitCamera` | `relational.ts`, `berxFraming.ts`, `worldApp.ts` | `verify:5d-framing` — desktop 46.5%, phone 41.5%, tablet 50.0%, wide desktop 43.4%, every entity wholly inside | — |
@@ -403,11 +403,44 @@ in this pass.
 | Offers → world | PROVIDER BLOCKER | — | — | — | No endpoint of any kind exists for offers in `BerxApiClient`. Not stubbed, not faked |
 | Creators → world | PARTIAL | `getCreatorProfile` / `getCreatorContent` exist | `packages/api/src/client.ts` | — | No mapper. A creator is a person with a body of work; the honest spatial reading is their work related to them, which needs the content endpoints read per person rather than at boot |
 | Cross-renderer parity | PASS | one draw list → WebGL2 and WebGPU | `threeRuntime.ts`, `webgpuRuntime.ts`, `geometry.ts` | `verify:5d-crossrender` — **28 PASS**, re-run after both the BERX_PRIMITIVES refactor and the layout change | — |
-| WebGPU renderer | PARTIAL | same draw list → `webgpuRuntime.ts` | `webgpuRuntime.ts` | `verify:5d-crossrender` | Cannot present to a canvas on lavapipe; sessions fall back to WebGL2. `depthAt` is unimplemented there — readback is asynchronous, a pick is not, and an invented depth is worse than none |
-| WebXR session layer | PARTIAL | `navigator.xr` → `requestSession` → `XRWebGLLayer` → XR frame loop → `world.setHeadViews()` → stereo render | `packages/spatial-web/src/xrSession.ts` (new), `appShell.ts` | none in this container | HARDWARE BLOCKER: measured — this Chromium exposes **no `navigator.xr` at all**, so nothing can request a session. The code is real and the flat-world ends (`xrPose.ts`, `setHeadViews`, `options.stereo`) are gate-proven |
+| WebGPU renderer | HARDWARE BLOCKER | same draw list → `webgpuRuntime.ts` | `webgpuRuntime.ts` | `verify:5d-crossrender` | Cannot present to a canvas on lavapipe; sessions fall back to WebGL2. `depthAt` is unimplemented there — readback is asynchronous, a pick is not, and an invented depth is worse than none |
+| WebXR session layer | HARDWARE BLOCKER | `navigator.xr` → `requestSession` → `XRWebGLLayer` → XR frame loop → `world.setHeadViews()` → stereo render | `packages/spatial-web/src/xrSession.ts` (new), `appShell.ts` | none in this container | HARDWARE BLOCKER: measured — this Chromium exposes **no `navigator.xr` at all**, so nothing can request a session. The code is real and the flat-world ends (`xrPose.ts`, `setHeadViews`, `options.stereo`) are gate-proven |
+| Held touch → voice | PASS | 500 ms without moving → `BerxSpatialGesture{kind:'hold'}` → `berxGestureCause` → Core, `berxTouchField` → the field, `berxTouchHaptic` → the device, `options.onHold` → `shell.listen()` | `core/berxTouch.ts`, `runtimeHost5d.ts`, `appShell.ts` | `verify:5d-mobile` — Core `aware → listening` on both device profiles; `aware` alone is refused as evidence because a plain pointerdown reaches it | — |
+| One gesture, one meaning | PASS | a pointer that produced a hold does not also run the pick on release | `runtimeHost5d.ts` | `verify:5d-mobile` — the focus is byte-identical across the hold | — |
+| Direct-manipulation pan | PASS | pointermove → world units per CSS pixel at the focal depth → `Berx5DRuntime.nudge` → `BerxSpatialCamera.nudge` along the camera's own right/up | `spatialCamera.ts`, `runtime5d.ts`, `runtimeHost5d.ts` | `verify:5d-mobile` — measured against the distance 120 CSS px subtend at the focal depth, not against "it moved" | — |
+| Browser gesture ownership | PASS | `touch-action:none`, `-webkit-touch-callout:none`, `user-select:none`, transparent tap highlight on the canvas; `overscroll-behavior:none` on the page | `appShell.ts`, `app/index.html` | `verify:5d-mobile` — read off `getComputedStyle` on both profiles | — |
+| Safe areas | PASS | `viewport-fit=cover` + `env(safe-area-inset-*)` with `max()`/`calc()` on every fixed element | `app/index.html`, `appShell.ts` | `verify:5d-mobile` — **real insets emulated over CDP** (`Emulation.setSafeAreaInsetsOverride`: 59/34 iPhone, 24/24 Android) and the elements measured after | — |
+| Virtual keyboard | PASS | `interactive-widget=resizes-content` for Chrome; `visualViewport` resize/scroll → the composer lifts by the height the keyboard took | `app/index.html`, `appShell.ts` | `verify:5d-mobile` — the shipped listener driven with a keyboard's geometry, and the field's bottom measured against the keyboard's top | — |
+| Orientation | PASS | `ResizeObserver` → `applySize` → quality + backing store re-resolved; the world is untouched | `runtimeHost5d.ts` | `verify:5d-mobile` — same entity ids and same focus in landscape, re-framed, no horizontal scroll | — |
+| Mobile boot + frame cost | PASS | the whole path, on a phone's viewport and density | — | `verify:5d-mobile` | Frame cost is a CEILING, not a phone's number: every pixel here is rasterised on the CPU by mesa lavapipe |
+| Core state under a hand | PASS | `presence` reaches `aware` only from `idle`, `aware` or `success` | `core/berxCoreWorld.ts` | `verify:5d-wiring` — 46 PASS; two gates had been failing because a hand demoted a search in flight | — |
+| Service worker / offline shell | PASS | `app/berx-sw.js` — shell network-first, `/api/` NEVER intercepted | `app/berx-sw.js`, `scripts/app-shell.entry.ts` | `verify:5d-pwa` — CacheStorage read back after a signed-in session; then every request aborted and the page reloaded | — |
+| Installable | PASS | `app/berx.webmanifest`, linked from the shipped page, in the Visual DNA's own colours | `app/berx.webmanifest`, `app/index.html` | `verify:5d-pwa` — fetched and parsed as the browser sees it | — |
+| `collapse` transition | PASS | scale carries the effect; the fov narrowing is a tunnel closing rather than a zoom | `packages/spatial/src/transitions.ts` | `verify:5d-transitions` — GPU readback, lit-pixel count | — |
+| Product copy language | PARTIAL | one language throughout: `lang="ru"`, Russian labels, Russian phrases | `app/index.html`, `voice/berxPhrases.ts`, `scripts/app-shell.entry.ts` | — | Russian only. The voice layer carries a language (`BerxSpeechProvider.languages`, `berxSpeechChain({language})`) and the site has one server-side setting (`ossn_site_settings('language')`); there is no per-user locale, no RTL pass and no translated product copy. ru/en/de/fr/es/ar is NOT claimed |
+| Registration fields | PARTIAL | `POST /auth/register` with username, firstname, lastname, email, password — exactly `auth.php`'s real action | `packages/api/src/client.ts`, `components/OssnApi/v1/auth.php` | `verify:5d-backend` | Language and a persisted visual-world preference have no backend field: `auth.php` accepts those five and no more. The arrival intent (love / friendship / creation / search) is collected by the spoken flow and shapes the arrival scene; it is not stored, because there is nowhere to store it |
 | PHP backend syntax | PASS | — | 61 files under `backend/scripts` + `components/OssnApi` | `php -l` | 0 errors |
 | Typecheck | PASS | — | whole client workspace | `npm run typecheck` | — |
 | Production build | PASS | — | `app/berx-app.js`, `scripts/berx-5d.runtime.js`, `scripts/berx-5d.scenes.js` | `npm run build:spatial-web` | — |
+
+| iPhone Safari behaviour | HARDWARE BLOCKER | — | — | `verify:5d-mobile` iPhone profile | Playwright's WebKit is not installed here, so what WebKit itself does — iOS's WebGL2 limits, its absent `interactive-widget`, its own `touch-action`, its total lack of WebXR — is not measured and is not claimed. Everything the profile measures about BERX's own code is real. `npx playwright install webkit` closes it |
+
+### Totals
+
+| STATUS | COUNT |
+|---|---|
+| **PASS** | 33 |
+| **PARTIAL** | 6 |
+| **FAIL** | 0 |
+| **HARDWARE BLOCKER** | 3 |
+| **PROVIDER BLOCKER** | 2 |
+
+The six PARTIAL are all the same shape and none is a defect being hidden:
+a real mechanism exists and one deliberate half of it is missing because
+the thing it would need does not exist — no audio media in the API's
+spatial mapping, no mapper for a dashboard-shaped payload, no per-user
+locale field, no server field for a registration preference. Every one
+names what is absent in its own row.
 
 ## 3. Blockers that remain, and why they are blockers
 
@@ -416,6 +449,17 @@ directly: `{"present": false}`). No session can be requested, so the session
 layer cannot be exercised here. It is written against the W3C specification
 and the flat-world ends it drives are gate-proven; what is missing is a
 device.
+
+**ENGINE — iPhone Safari.** Playwright's WebKit is not installed in this
+container (`/opt/pw-browsers` holds chromium and ffmpeg only), so the iPhone
+profile in `verify:5d-mobile` is the real Chromium engine at an iPhone's
+viewport, density, user agent, touch capability and safe-area insets.
+Everything it measures about BERX's OWN code is real, and everything that
+depends on WebKit's behaviour rather than BERX's is not measured here and is
+not claimed: iOS's WebGL2 limits, its absent `interactive-widget` support
+(which is exactly why the `visualViewport` path exists), its own
+`touch-action` implementation, and the fact that iOS has no WebXR at all.
+`npx playwright install webkit` closes this. It is not a code defect.
 
 **HARDWARE — WebGPU presentation.** The container has no GPU. lavapipe grants
 a device, so pipelines, submission and readback are real and
@@ -475,12 +519,21 @@ npm run verify:5d-composition
 npm run verify:5d-dimensions
 npm run verify:5d-wiring     # tiers, Core, ears, live world, voice
 npm run verify:5d-app-shell  # the shipped shell, booted as a browser boots it
+npm run verify:5d-mobile     # NEW — iPhone and Android profiles, touch, safe areas, keyboard
+npm run verify:5d-pwa        # NEW — the manifest, the worker, and a reload with no network
+npm run verify:5d-transitions
 npm run verify:5d-crossrender
 npm run verify:5d            # the whole chain, in order
 
 # backend
 for f in $(find backend/scripts backend/opensource-socialnetwork-master/components/OssnApi -name '*.php'); do php -l "$f"; done
 ```
+
+`verify:5d-mobile` needs a Chromium new enough for
+`Emulation.setSafeAreaInsetsOverride` (Chrome 133+; 141 here). Without it the
+safe-area gates report BLOCKED rather than passing — there is no way to apply
+a real inset, and asserting that the CSS *mentions* `env()` would be asserting
+the source rather than the behaviour.
 
 `verify:5d-app-shell` takes roughly half an hour on a software rasteriser:
 every probe settles sixty real frames and the full 5D pipeline is being
@@ -527,7 +580,29 @@ stands.
   arriving over the socket is placed by the same relational layout (post 7801
   landed at a real finite position, not at the origin).
 
-## 7. Git
+## 7. The production path, stage by stage
+
+Asked of the code rather than of the file listing: for each stage, what
+calls it, what it does when the thing it depends on fails, and what ends
+it. **A file existing is not wiring.**
+
+| STAGE | REAL CODE | THE REAL CALL | WHEN IT FAILS | LIFECYCLE | MEASURED BY |
+|---|---|---|---|---|---|
+| REAL API | `packages/api/src/client.ts` — `request()` | `fetch(baseUrl + '/api/v1' + path)` with a bearer header from `BerxTokenStorage`; form-encoded bodies; `FormData` left to set its own boundary | `throw new BerxApiError(res.status, json)` — the server's own status and body, never a generic message | the token is read from storage per request; `setToken(null)` on sign-out | `verify:5d-backend` (20), `verify:5d-app-shell` |
+| WORLD LOADER | `packages/scenes/src/worldLoader.ts` | `attempt(name, () => api.X(), apply)` for twelve domain endpoints | each `attempt` records `{source, message}` in `failures` and the load continues — a world is never completed by inventing what did not arrive, and the shell names the failure | one load per region, `loadedRegions` keyed by region + focus, so travelling back does not re-read | `verify:5d-runtime`, `verify:5d-app-shell` (an unmatched API path is printed by name) |
+| WORLD STATE | `packages/spatial/src/worldApp.ts`, `world.ts` | `world.ingest(entries)` — identities persist across re-reads | an action that throws ingests NOTHING: id, kind, createdAt, updatedAt and material stay byte-identical | `persist()` and restore put a viewer back where they were; entities are re-read from the server, never restored from disk | `verify:5d-app-shell` (byte-equality across a refused action), `verify:5d-world` |
+| X / Y / Z | `packages/spatial/src/relational.ts` → `berxFitCamera` | relations decide separation in units of `(r_a + r_b)`, then an even angular re-spacing pass, then six relaxation passes using `berxDrawnHalfExtent` | a relation with an undefined strength used to produce NaN coordinates; a strength is finite or the edge is dropped | recomputed on ingest; the root stays fixed so the world does not swim | `verify:5d-framing` (46.5 / 41.5 / 50.0 / 43.4 % occupancy, containment 5/5), `verify:5d-composition` |
+| T | `berxTemporalCursor`, `berxApplyTemporal` | the cursor offsets `z` by `depthOffset` in `latestFrame`/`frame()` and NEVER in `runtime.world` | a story the feed gave no `time_expires` for is not given one | scrubbing moves the world in depth; the canonical world is untouched | `verify:5d-dimensions` (15), `verify:5d-app-shell` (NOW travels, and is empty in a year when nothing happened) |
+| R | `relational.ts`, `worldLighting.ts`, `spatialAffordances.ts` | relations set layout, gravity, energy, which affordances exist, and what the picker can reach | an edge whose type the layout does not know is dropped rather than guessed | re-derived per ingest | `verify:5d-world`, `verify:5d-wiring` |
+| DRAW LIST | `packages/spatial/src/drawList.ts` | ONE list per frame; `berxTransitionModulation` folds a transition's opacity, emissive, scale and fov into it | an object with no geometry is not drawn; nothing invents a mesh | rebuilt every frame from world + camera + cursor | `verify:5d-crossrender` (28) |
+| WEBGL2 | `packages/spatial-web/src/threeRuntime.ts` | the same draw list → real GL calls; the G-buffer alpha stores `-view_pos.z`, the one depth authority | `webglcontextlost` pauses the frame loop and the meshes rebuild on restore, rather than a black canvas until reload | `destroy()` releases meshes, textures and listeners | `verify:5d-gpu` (23), `verify:5d-app-shell` |
+| WEBGPU | `packages/spatial-web/src/webgpuRuntime.ts` | the same draw list; adapter and device requested, pipelines built, submission and readback real on lavapipe | cannot present to a canvas here, so `startBerxApp` falls back to WebGL2 by design; `depthAt` is deliberately unimplemented rather than invented, because readback is asynchronous and a pick is not | the device-loss path exists; `verify:5d-app-shell` reports it BLOCKED here | `verify:5d-crossrender`; HARDWARE BLOCKER for presentation |
+| INTERACTION | `runtimeHost5d.ts`, `spatialInteraction.ts`, `actionRing.ts` | pointer / keyboard / hold → `pickActionSlot(slots, camera, ray, aspect, drawnDepth)` first, then `renderer.pick` → `berxResolveByDepth` → `runtime.focus` or `world.act` | `setPointerCapture` and `releasePointerCapture` are both wrapped — a capture that never took used to throw and abandon the pick; `berxCanActivate` is a positive list, so an unknown state refuses | one `activate` closure serves pointerup and Enter; a drag is not a tap, and a hold is not a tap | `verify:5d-picking` (47/47 presses, 31/31 slots), `verify:5d-mobile`, `verify:5d-app-shell` |
+| REALTIME | `packages/scenes/src/realtimeWorld.ts`, `packages/api/src/realtime.ts` | `POST /realtime/token` → one WebSocket → `auth` → `subscribe` → `event` → the same endpoint a cold load uses → `world.ingest` | a socket that refuses is a named failure and does not hold the world behind it; ONE failure schedules ONE reconnect chain — this had produced 4 546 sockets and 4 462 file descriptors | `close()` tears down the socket and the timer; a spent credential is refused by the server | `verify:5d-realtime` (16, real MariaDB), `verify:5d-app-shell` (a real write elsewhere arrives with nobody polling) |
+| VOICE | `voiceWeb.ts`, `voiceToWorld.ts`, `voice/berxSpeechProvider.ts` | `v`/`м`, or a held finger → `shell.listen()` → recogniser → `berxIntent` → a real API method → the same world | a provider that fails is fallen back from and named (`paid-tts:failed(...) web-speech:spoke`); an unresolvable reference carries `needs` rather than a guess | the microphone opens only from a real gesture; `stop()` reaches every provider in the chain | `verify:5d-wiring` (19 voice gates), `verify:5d-voice` (46), `verify:5d-app-shell`, `verify:5d-mobile` |
+| SPATIAL AUDIO | `spatialAudioWeb.ts`, `berxListenerFromCamera` | every rAF frame → `berxListenerFromCamera(camera)` → `AudioListener.positionX` / `forwardX` / `upX` | the context starts suspended and is resumed by the first real gesture; an `OfflineAudioContext` has no `resume` and both are guarded | `close()` releases the context | `verify:5d-wiring` (4 ears gates, a real `AudioListener` read back), `verify:5d-mobile` |
+
+## 8. Git
 
 **Branch:** `berx-max-ultra-final`
 
