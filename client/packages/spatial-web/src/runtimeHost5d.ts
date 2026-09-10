@@ -170,7 +170,19 @@ export interface Berx5DWebHost {
 	 * table was built and verified before anything called it, and no gate
 	 * could see the gap because every gate drove the module directly.
 	 */
-	readonly renderTier: {tier: string; reason: string; quality: BerxRenderQuality};
+	/**
+	 * What the renderer is doing per pixel, and why.
+	 *
+	 * `boot` is what the static signals said before a frame had been
+	 * drawn; `tier` is what the measured frame rate has since decided.
+	 * Both, because they disagree exactly when the guess was wrong, and
+	 * that is the interesting case — a machine whose RAM promised more
+	 * than its GPU can deliver.
+	 */
+	readonly renderTier: {
+		tier: string; reason: string; quality: BerxRenderQuality;
+		boot: string; bootReason: string;
+	};
 	/** The Core this session's frame loop is stepping. Same reason. */
 	readonly core: BerxCoreMotion;
 	/** Where the world is heard from, when this host was given ears. */
@@ -349,7 +361,8 @@ export function createBerx5DWebHost(options: Berx5DWebHostOptions = {}): Berx5DW
 		saveData: (navigator as unknown as {connection?: {saveData?: boolean}}).connection?.saveData,
 		prefersReducedMotion: reducedMotion,
 	};
-	let renderTier = berxResolveRenderTier(tierSignals);
+	const bootTier = berxResolveRenderTier(tierSignals);
+	let renderTier = bootTier;
 	let renderQuality: BerxRenderQuality = berxRenderQuality(renderTier.tier);
 
 	/**
@@ -1182,7 +1195,7 @@ export function createBerx5DWebHost(options: Berx5DWebHostOptions = {}): Berx5DW
 		 * frame loop stepped.
 		 */
 		get renderTier() {
-			return {...renderTier, quality: renderQuality};
+			return {...renderTier, quality: renderQuality, boot: bootTier.tier, bootReason: bootTier.reason};
 		},
 		get core() {
 			return {

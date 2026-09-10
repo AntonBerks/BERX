@@ -198,6 +198,8 @@ try {
 				backend: host?.renderer?.kind,
 				tier: host?.renderTier?.tier,
 				tierReason: host?.renderTier?.reason,
+				bootTier: host?.renderTier?.boot,
+				bootReason: host?.renderTier?.bootReason,
 				objects: world?.latestFrame.world.objects.length ?? 0,
 				canvas: {
 					cssWidth: rect.width, cssHeight: rect.height,
@@ -584,6 +586,8 @@ try {
 				fps: median > 0 ? 1000 / median : 0,
 				tier: host?.renderTier?.tier,
 				tierReason: host?.renderTier?.reason,
+				bootTier: host?.renderTier?.boot,
+				bootReason: host?.renderTier?.bootReason,
 				frames: times.length,
 				quality: host?.quality?.quality,
 				pixelRatio: host?.quality?.pixelRatio,
@@ -769,12 +773,23 @@ try {
 				`${cost}, drawn by ${r.shell.gpu}`);
 		}
 
+		/**
+		 * THE ONE THING A FRAME BUDGET CANNOT EXCUSE.
+		 *
+		 * Whatever the hardware is, a runtime that is behind has to
+		 * NOTICE. Below 24fps `berxResolveRenderTier` says `low`; below
+		 * 50 it says `medium`; above that the boot tier stands. This
+		 * asserts the runtime ended where its own resolver says it
+		 * should have, from the frame rate it actually measured — and it
+		 * is measurable on any hardware, including none.
+		 */
+		const expectTier = r.perf.fps < 24 ? ['low'] : r.perf.fps < 50 ? ['low', 'medium'] : [r.perf.bootTier];
 		gate(`${d.id}: a runtime that is behind steps down instead of insisting`,
-			r.perf.fps >= 50 ? r.perf.tier === r.shell.tier : r.perf.tier === 'low' || r.perf.tier === 'medium',
+			expectTier.includes(r.perf.tier),
 			`the median frame was ${r.perf.medianMs.toFixed(1)}ms — ${r.perf.fps.toFixed(1)}fps — and the render tier is "${r.perf.tier}" because ${r.perf.tierReason}.`
-			+ ` It booted at "${r.shell.tier}" from static signals (${r.shell.tierReason}).`
-			+ ` berxResolveRenderTier says a real measurement outranks memory and core count; the host was measuring a rolling p95, exposing it on host.performance, and never feeding it back,`
-			+ ` so a machine that turned out to be behind kept the tier its RAM had suggested. It now re-resolves at most every two seconds off a full window's MEDIAN, with 56fps sustained for four seconds required to climb back`);
+			+ ` It booted at "${r.perf.bootTier}" from static signals (${r.perf.bootReason}), and at this frame rate its own resolver says ${expectTier.map((t) => `"${t}"`).join(' or ')}.`
+			+ ` berxResolveRenderTier holds that a real measurement outranks memory and core count; the host was measuring a rolling p95, exposing it on host.performance, and never feeding it back,`
+			+ ` so a machine that turned out to be behind kept the tier its RAM had suggested. It re-resolves at most every two seconds off a full window's MEDIAN now, with 56fps sustained for four seconds required to climb back`);
 
 		gate(`${d.id}: no page or console errors anywhere in that`,
 			r.pageErrors.length === 0,
