@@ -16,9 +16,11 @@
  *
  * WHAT THE PICTURES CANNOT SHOW, and every one of them says so in the
  * manifest: this container has no GPU. Every pixel is rasterised on the
- * CPU by mesa's lavapipe at roughly one frame per second, so nothing
- * here is evidence about performance, and WebGPU cannot present to a
- * canvas so the backend is WebGL2 in all of them.
+ * CPU by whichever software rasteriser the browser found — the driver
+ * string the runtime reports is what gets written down, never a guess —
+ * at roughly one frame per second, so nothing here is evidence about
+ * performance, and WebGPU cannot present to a canvas so the backend is
+ * WebGL2 in all of them.
  *
  * Output: one PNG per state, a JSON manifest with the route, viewport,
  * world mode, renderer and limitation for each, a Markdown table of the
@@ -392,6 +394,12 @@ try {
 		'390x844 at 3x with real 59/34 safe-area insets emulated over CDP, signed in with a TAP. touch-action is none so the browser cannot take the gesture; a held finger opens the microphone because a phone has no "v" key. Chromium at an iPhone\'s geometry — WebKit is not installed here, so iOS\'s own engine behaviour is not shown and not claimed.');
 	await phoneCtx.close();
 
+	/* The rasteriser is whatever the runtime said it was, not what we
+	   expected it to be: the same string every shot recorded. */
+	const driver = manifest.find((m) => m.state?.gpu)?.state.gpu ?? 'unknown';
+	const noGpu = `this container has no GPU: every pixel was rasterised on the CPU by ${driver}`;
+	const NoGpu = noGpu[0].toUpperCase() + noGpu.slice(1);
+
 	/* ---------- the contact sheet: a real screenshot of the sheet ---------- */
 	const sheetHtml = path.join(OUT, 'contact-sheet.html');
 	fs.writeFileSync(sheetHtml, `<!doctype html><meta charset="utf-8">
@@ -406,9 +414,9 @@ try {
  b{color:#4FD6E8;font-weight:600}
 </style>
 <h1>BERX WEB — real runtime screenshots</h1>
-<p class="sub">Captured from the shipped app/index.html and the shipped bundle, signed in through the real form, on WebGL2. No GPU: every pixel rasterised on the CPU by mesa lavapipe.</p>
+<p class="sub">Captured from the shipped app/index.html and the shipped bundle, signed in through the real form, on WebGL2. ${NoGpu}.</p>
 <div class="grid">
-${manifest.filter((m) => m.status === 'CAPTURED').map((m) => `<figure><img src="${m.id}.png"><figcaption><b>${m.id}</b> ${m.title}<br>${m.viewport} · ${m.worldMode} · ${m.renderer} · ${m.verified.entitiesInFrame} of ${m.verified.entitiesVisible} in frame</figcaption></figure>`).join('\n')}
+${manifest.filter((m) => m.status === 'CAPTURED').map((m) => `<figure><img src="${m.id}.png"><figcaption><b>${m.id}</b> ${m.title}<br>${m.viewport} · ${m.worldMode} · ${m.renderer} · ${m.verified.entitiesVisible === undefined ? 'entry form, no world yet' : `${m.verified.entitiesInFrame} of ${m.verified.entitiesVisible} in frame`}</figcaption></figure>`).join('\n')}
 </div>`);
 	const sheetCtx = await browser.newContext({viewport: {width: 1800, height: 1200}, deviceScaleFactor: 1});
 	const sheet = await sheetCtx.newPage();
@@ -421,7 +429,7 @@ ${manifest.filter((m) => m.status === 'CAPTURED').map((m) => `<figure><img src="
 		capturedAt: new Date().toISOString(),
 		route: base,
 		realRuntime: true,
-		hardware: 'no GPU in this container; mesa lavapipe software rasteriser; WebGPU cannot present to a canvas, so every screenshot is WebGL2',
+		hardware: `${noGpu}. WebGPU cannot present to a canvas here, so every screenshot is WebGL2`,
 		pageErrors: errors,
 		shots: manifest,
 	}, null, 2));
@@ -437,11 +445,12 @@ Every state was reached by driving the product — \`world.travelTo\`,
 \`world.focus\`, \`world.scrubTime\`, \`world.enterRegion\` — never by
 building a scene for a picture.
 
-**Hardware limitation, true of every image here:** this container has no
-GPU. Every pixel is rasterised on the CPU by mesa's lavapipe at roughly
+**Hardware limitation, true of every image here:** ${noGpu}, at roughly
 one frame per second, and WebGPU cannot present to a canvas, so the
 backend is WebGL2 in all of them. Nothing here is evidence about
-performance.
+performance. The headless GPU gates run under a different software
+rasteriser (mesa llvmpipe/lavapipe); neither is hardware, and this file
+reports the one that drew these pixels.
 
 | # | Status | State | Viewport | World mode | Renderer | In frame |
 |---|---|---|---|---|---|---|
