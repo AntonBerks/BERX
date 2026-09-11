@@ -579,7 +579,66 @@ is `aware → listening → aware`. Its other half held whatever slot
 happened to be under an earlier probe's ring, which by then was no ring
 at all.
 
-### 1.13 Two harness defects that were destroying evidence
+### 1.18 A probe that pressed the thing it was asking about
+
+`verify:5d-mobile`'s hold gate needs a pixel the affordance ring does not
+own, and it used to find one by PRESSING each candidate and watching
+whether an affordance went into `press`. A press is not a question. The
+pointerup that ended each probe ran the shell's own pick, focused
+whatever stood there, raised that entity's ring and started a camera
+travel — and the hold then landed one frame later, on a world that was
+moving, at a pixel that had just grown a ring. It failed about half the
+time and blamed the product every time.
+
+The shipped entry already exposes the ray and the candidate test for
+exactly this reason, so it now exposes the third function the pointer
+path consults — `pickActionSlot`, the one the host itself asks before
+deciding a hold is a hold. Asking it changes nothing, and the probe waits
+for the world to stop moving before it holds.
+
+**And then the measurement itself was wrong twice more.** Reading the
+Core once at 900ms had already been fixed by sampling every 10ms; on the
+slower profile the whole visit to `listening` still fell between two
+reads, because `listening` lasts as long as the microphone is open and
+with no recogniser behind it that is barely any time. Reading
+`core.previous` beside `core.state` looked like the fix and was worse:
+`previous` is the state the Core came FROM at its last transition and it
+STAYS there, so interleaving the two fields manufactured an endless
+"listening → aware → listening → aware" out of one old transition — and
+the next gate in the file inherited it and failed for seeing a listening
+that had happened a minute earlier.
+
+What is actually durable is the PAIR. `previous>state` changes exactly
+when the Core moves, so a pair that mentions `listening` and is not the
+pair the window opened on is a visit that happened inside the window. The
+watcher yields to the task queue between reads rather than sleeping a
+fixed 10ms, so a transition and its reversal now have to happen inside
+one task to be missed. Both profiles read `aware>listening →
+listening>aware` for a hold on the world, and `nowhere` for a hold on an
+action.
+
+### 1.19 A press that was counted wrong for being right
+
+`verify:5d-app-shell` asserted that a real PointerEvent on the product's
+canvas moves the focus, and required EVERY press in its sample to move
+it. The shipped shell is right to refuse three ways: a press whose pixel
+the ring owns activates that action and returns before the picker is
+asked, a press on empty space focuses nothing, and a press on the entity
+already focused has nowhere to move to — `runtime.focus` returns false
+and the world correctly stands still. Two of four presses were failing
+for being correct, and a third was the same pixel pressed twice, which
+can only ever report "did not move".
+
+Each press now carries production's own answer for its pixel, asked at
+press time against the frame the shell is about to use — `pickActionSlot`
+first, then `renderer.pick`, the same order the host calls them in — and
+the claim is agreement: a slot swallows the press and the focus holds; an
+entity is drawn there and the focus IS it; nothing is drawn there and the
+focus holds. Plus at least one press that really moved the world, because
+a pointer path wired to nothing would satisfy every "holds" clause. It
+reads 3 of 3, two of them by moving the focus.
+
+### 1.20 Two harness defects that were destroying evidence
 
 - The gate's own WebSocket server dropped the bytes Node hands over in the
   `upgrade` event's `head` argument. A client that writes its first frame the
@@ -951,8 +1010,8 @@ concurrently with anything.
 | `verify:5d-domains` *(new)* | **ALL PASS — 12**: business, offers with a real claim, creators, dating |
 | `verify:5d-locale` *(new)* | **ALL PASS — 11**: ru 38/38 and five at 0/38, computed |
 | `verify:5d-pwa` *(new)* | **ALL PASS — 8**: manifest, worker, CacheStorage read back after a signed-in session, and a reload with the network off |
-| `verify:5d-mobile` *(new)* | iPhone and Android profiles, 21 gates each + 1 engine note. See §1.8 |
-| `verify:5d-app-shell` | See below — the shipped shell booted in Chromium |
+| `verify:5d-mobile` *(new)* | **ALL PASS — 44** across the iPhone and Android profiles, 2 HARDWARE BLOCKER (the frame budget, on a CPU rasteriser) + 1 ENGINE BLOCKER (no WebKit installed). See §1.8 and §1.18 |
+| `verify:5d-app-shell` | **ALL PASS — 76** on the shipped shell booted in Chromium. See §1.19 |
 | `build:spatial-web` | PASS — `berx-app.js` 567.3 kB, `berx-5d.runtime.js` 552.2 kB, `berx-5d.scenes.js` 21.0 kB (8 contracts) |
 | PHP syntax | PASS — 61 files, 0 errors |
 | lint | **No linter exists in this workspace.** See §3 — recorded as a PRODUCT CONTENT GAP, not as a pass |
@@ -1020,7 +1079,67 @@ it. **A file existing is not wiring.**
 | VOICE | `voiceWeb.ts`, `voiceToWorld.ts`, `voice/berxSpeechProvider.ts` | `v`/`м`, or a held finger → `shell.listen()` → recogniser → `berxIntent` → a real API method → the same world | a provider that fails is fallen back from and named (`paid-tts:failed(...) web-speech:spoke`); an unresolvable reference carries `needs` rather than a guess | the microphone opens only from a real gesture; `stop()` reaches every provider in the chain | `verify:5d-wiring` (19 voice gates), `verify:5d-voice` (46), `verify:5d-app-shell`, `verify:5d-mobile` |
 | SPATIAL AUDIO | `spatialAudioWeb.ts`, `berxListenerFromCamera` | every rAF frame → `berxListenerFromCamera(camera)` → `AudioListener.positionX` / `forwardX` / `upX` | the context starts suspended and is resumed by the first real gesture; an `OfflineAudioContext` has no `resume` and both are guarded | `close()` releases the context | `verify:5d-wiring` (4 ears gates, a real `AudioListener` read back), `verify:5d-mobile` |
 
-## 8. Git
+## 8. The product, photographed
+
+Seventeen states of the shipped Web app, captured by
+`client/scripts/berx-web-screenshots.mjs` from `app/index.html` and the
+bundle built from `client/scripts/app-shell.entry.ts`, signed in through
+the real entry form against the same `/api/v1/*` server every gate uses.
+Nothing here is a mockup, a reconstruction, or a scene built for a
+picture: every state was reached by driving the product's own
+`travelTo`, `focus`, `scrubTime` and `enterRegion`.
+
+**A screenshot of a canvas is not evidence of a world**, so no file is
+written until the harness has checked, on that exact frame: the runtime
+is alive, the renderer is WebGL2 or WebGPU, the camera pose, the Z
+spread, the temporal cursor, the relation count, the entity count, the
+world mode, and — by projecting every visible entity through the frame's
+own camera — how many of them are actually inside the viewport. Fewer
+than three in frame and the harness re-focuses and re-checks; fewer than
+one and the state is marked BLOCKED with no file written. That check is
+what caught the two black frames an earlier version of this harness had
+produced, where it had overridden the product's camera with its own
+framing call.
+
+**Result: 17 captured, 0 blocked, 0 page errors across the whole run.**
+
+| file | status | state | viewport | world mode | renderer | in frame | Z spread | R | ring |
+|---|---|---|---|---|---|---|---|---|---|
+| `01-boot-entry.png` | CAPTURED | BERX boot / entry | 1600x1000 @2 | not signed in (entry form) | none yet | — | — | — | — |
+| `02-entry-locale-rtl.png` | CAPTURED | Locale resolution and RTL, on the real entry | 1600x1000 @2 | not signed in (entry form) | none yet | — | — | — | — |
+| `03-living-world.png` | CAPTURED | The 5D living world | 1600x1000 @2 | region "world" | webgl2 | 15 of 15 | -29.9 … 2.3 | 18 | 0 |
+| `04-now.png` | CAPTURED | BERX NOW | 1600x1000 @2 | region "now" | webgl2 | 7 of 15 | -29.9 … 2.3 | 18 | 0 |
+| `05-people-gravity.png` | CAPTURED | People, and social gravity | 1600x1000 @2 | region "person", focused person:78 | webgl2 | 16 of 19 | -34.8 … 7.8 | 22 | 3 |
+| `06-dating-world.png` | CAPTURED | The dating world, and only your own | 1600x1000 @2 | region "person", focused person:77 | webgl2 | 17 of 21 | -31.4 … 8.8 | 22 | 1 |
+| `07-place-business.png` | CAPTURED | A place the server calls a business | 1600x1000 @2 | region "place", focused place:4212 | webgl2 | 22 of 22 | -62.5 … 0.0 | 23 | 3 |
+| `12-offer-at-a-place.png` | CAPTURED | An offer, attached to a real place | 1600x1000 @2 | region "place", focused experience:offer-501 | webgl2 | 13 of 22 | -62.5 … 0.0 | 23 | 1 |
+| `08-events.png` | CAPTURED | The events world | 1600x1000 @2 | region "event", focused event:908 | webgl2 | 22 of 22 | -62.5 … 0.0 | 23 | 3 |
+| `09-conversation.png` | CAPTURED | Messages, as a region you stand in | 1600x1000 @2 | region "conversation", focused message:78 | webgl2 | 24 of 25 | -28.2 … 1.7 | 29 | 3 |
+| `10-stories.png` | CAPTURED | Stories, which leave when the server says they do | 1600x1000 @2 | region "now", focused moment:story-91 | webgl2 | 25 of 25 | -28.2 … 1.7 | 29 | 5 |
+| `11-memories-temporal.png` | CAPTURED | T, scrubbed three years back | 1600x1000 @2 | region "now", focused moment:story-91 | webgl2 | 13 of 25 | -1.2 … 30.6 | 29 | 0 |
+| `13-creator-world.png` | CAPTURED | A creator, with their work standing around them | 1600x1000 @2 | region "person", focused person:78 | webgl2 | 21 of 25 | -28.2 … 1.7 | 29 | 3 |
+| `14-profile-in-world.png` | CAPTURED | A profile, inside the world | 1600x1000 @2 | region "person", focused person:77 | webgl2 | 25 of 25 | -28.2 … 1.7 | 29 | 3 |
+| `15-spoken-search.png` | CAPTURED | A spoken question, answered in the world | 1600x1000 @2 | region "person", focused person:77 | webgl2 | 25 of 25 | -28.2 … 1.7 | 29 | 3 |
+| `17-desktop-wide.png` | CAPTURED | Wide desktop | 2560x1080 @2 | region "person", focused person:77 | webgl2 | 25 of 25 | -28.2 … 1.7 | 29 | 3 |
+| `16-mobile-iphone.png` | CAPTURED | Mobile web, at an iPhone's viewport and density | 390x844 @3 | region "world" | webgl2 | 9 of 15 | -29.9 … 2.3 | 18 | 0 |
+
+Plus `00-contact-sheet.png` — itself a real screenshot of a page that
+references those seventeen files and nothing else.
+
+**Hardware, stated exactly.** This capture ran on
+`ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero)), SwiftShader driver)`.
+The headless GPU gates run on mesa llvmpipe/lavapipe. Both are software
+rasterisers, neither is a GPU, and they are not the same one — the
+manifest, the README and the sheet caption now all take the string from
+the runtime rather than from an assumption, because a hardware caption
+is only useful if it names the right hardware. WebGPU cannot present to
+a canvas here, so every image is WebGL2. **Nothing in these images is
+evidence about performance.**
+
+Output: `docs/web-screenshots/` — the PNGs, `manifest.json` (per-shot
+verification record), `README.md`, `contact-sheet.html`.
+
+## 9. Git
 
 **Branch:** `berx-max-ultra-final`
 

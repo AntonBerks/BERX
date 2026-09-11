@@ -2219,14 +2219,47 @@ const PROJECTOR_SOURCE = String.raw`(canvas, c) => {
 		}
 		const {targets, rejected, rect, dpr} = picked;
 		const results = [];
+		const pressed = new Set();
 		for (const [i, t] of targets.entries()) {
-			const opts = {pointerType: 'mouse', clientX: rect.left + t.at.px / dpr, clientY: rect.top + t.at.py / dpr,
+			/* the same pixel twice is one measurement, and the second
+			   copy can only ever report "the focus did not move" */
+			const key = `${Math.round(t.at.px)},${Math.round(t.at.py)}`;
+			if (pressed.has(key)) continue;
+			pressed.add(key);
+			/**
+			 * WHAT THE PRODUCT SAYS IS THERE, ASKED AT PRESS TIME.
+			 *
+			 * Every press before this one moved the camera, so the pixel
+			 * these candidates were projected at no longer belongs to
+			 * the entity it belonged to when they were projected. The
+			 * expectation therefore cannot come from the projection; it
+			 * has to come from the same two functions the shell's own
+			 * pointerup path calls, against the frame it is about to
+			 * call them on: the ring first (`pickActionSlot`), then the
+			 * entity picker (`renderer.pick`).
+			 *
+			 * This is not a second copy of picking's arithmetic — it is
+			 * production's own answer, and what is asserted is that the
+			 * SHELL agreed with it.
+			 */
+			const frame = w.latestFrame;
+			host.renderer.render(frame, {});
+			const px = t.at.px, py = t.at.py;
+			const aspect = canvas.width / canvas.height;
+			const ray = window.__berxRayFromNdc(frame.camera,
+				(px / canvas.width) * 2 - 1, 1 - (py / canvas.height) * 2, aspect);
+			const slot = ray && window.__berxPickActionSlot
+				? window.__berxPickActionSlot(host.renderer.actionSlots, frame.camera, ray.direction, aspect, drawnAt(px, py))
+				: undefined;
+			const said = slot ? undefined : host.renderer.pick(frame, px, py)?.objectId;
+			const opts = {pointerType: 'mouse', clientX: rect.left + px / dpr, clientY: rect.top + py / dpr,
 				bubbles: true, isPrimary: true, pointerId: 40 + i};
-			const wasFocused = w.latestFrame.world.activeObjectId;
+			const wasFocused = frame.world.activeObjectId;
 			canvas.dispatchEvent(new PointerEvent('pointerdown', opts));
 			canvas.dispatchEvent(new PointerEvent('pointerup', opts));
 			await settle();
-			results.push({aimedAt: t.id, px: t.at.px, py: t.at.py, wasFocused,
+			results.push({aimedAt: t.id, px, py, wasFocused,
+				slot: slot?.affordance?.id, said,
 				focused: w.latestFrame.world.activeObjectId});
 		}
 		return {from: picked.from, targets: targets.map((t) => t.id), rejected, results,
@@ -2253,15 +2286,42 @@ const PROJECTOR_SOURCE = String.raw`(canvas, c) => {
 	 * with no test hook anywhere in the path, moves the world's focus to
 	 * a real entity and announces it.
 	 */
+	/**
+	 * THE SHELL AGREED WITH THE PICKER, PRESS FOR PRESS.
+	 *
+	 * The old form of this assertion demanded that every press MOVE the
+	 * focus, which the shell is right to refuse three ways: a press
+	 * whose pixel the affordance ring owns activates that action
+	 * (`pickActionSlot` runs first and returns), a press on empty space
+	 * focuses nothing, and a press on the entity already focused has
+	 * nowhere to move to — `runtime.focus` returns false and the world
+	 * correctly stands still. Two of four presses were being counted
+	 * wrong for being right.
+	 *
+	 * So each press now carries production's own answer for its pixel,
+	 * asked at press time against the frame the shell is about to use,
+	 * and the claim is agreement: a slot swallows the press and the
+	 * focus holds; an entity is drawn there and the focus IS it; nothing
+	 * is drawn there and the focus holds. Plus at least one press that
+	 * really moved the world, because a pointer path wired to nothing at
+	 * all would satisfy every "holds" clause above.
+	 */
+	const asProductionSaid = (r) => (r.slot !== undefined || r.said === undefined
+		? r.focused === r.wasFocused
+		: r.focused === r.said);
+	const agreed = world_pick.results.filter(asProductionSaid);
 	const focusMoved = world_pick.results.filter((r) => r.focused !== undefined && r.focused !== r.wasFocused);
 	const known = world_pick.results.every((r) => r.focused === undefined || world_pick.ids.includes(r.focused));
 	gate('a real press on the shipped canvas reaches the picker and moves the world',
-		world_pick.results.length > 0 && focusMoved.length === world_pick.results.length && known,
-		world_pick.results.map((r) => `press at ${r.px.toFixed(0)},${r.py.toFixed(0)} → ${r.wasFocused ?? 'nothing'} became ${r.focused}`).join('  ')
-		+ ` — ${focusMoved.length} of ${world_pick.results.length} presses moved the focus to an entity that really exists in this world, standing at ${world_pick.from}.`
-		+ ' PointerEvents on the product canvas, down the shell\'s own pointerup path: pickActionSlot first, then renderer.pick, then runtime.focus.'
-		+ ' WHICH entity a pixel belongs to is verify:5d-picking\'s question, and it answers it 45 times from nine viewpoints with the ring up on every press;'
-		+ ' a second copy of that arithmetic here is how a gate ends up measuring itself.');
+		world_pick.results.length > 0 && agreed.length === world_pick.results.length
+			&& focusMoved.length > 0 && known,
+		world_pick.results.map((r) => `press at ${r.px.toFixed(0)},${r.py.toFixed(0)}: production said `
+			+ (r.slot !== undefined ? `the ring's "${r.slot}" owns this pixel` : r.said === undefined ? 'nothing is drawn here' : r.said)
+			+ `, the shell went ${r.wasFocused ?? 'nothing'} → ${r.focused ?? 'nothing'}`).join('  ')
+		+ ` — ${agreed.length} of ${world_pick.results.length} presses agreed with the product's own picker, ${focusMoved.length} of them by moving the focus, standing at ${world_pick.from}.`
+		+ ' PointerEvents on the product canvas, down the shell\'s own pointerup path: pickActionSlot first, then renderer.pick, then runtime.focus —'
+		+ ' and the expectation for each press comes from those same two functions, not from a second copy of their arithmetic.'
+		+ ' WHICH entity a pixel belongs to is verify:5d-picking\'s question, and it answers it 45 times from nine viewpoints with the ring up on every press.');
 
 	/* --- the world stays live, on the session's own socket ---
 

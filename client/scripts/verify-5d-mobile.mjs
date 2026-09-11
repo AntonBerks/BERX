@@ -288,6 +288,47 @@ try {
 					clientX: rect.left + px / dpr, clientY: rect.top + py / dpr, pressure: 0.5, ...extra,
 				}),
 				send: (type, opts) => canvas.dispatchEvent(new PointerEvent(type, opts)),
+				/**
+				 * WHAT THE CORE DID, NOT WHAT IT WAS WHEN ASKED.
+				 *
+				 * `listening` lasts as long as the microphone is open,
+				 * and with no recogniser behind it that can be shorter
+				 * than the gap between two samples — on the slower
+				 * profile the whole visit fell between reads and the
+				 * gate called a working hold a dead one.
+				 *
+				 * Reading `core.previous` beside `core.state` looked
+				 * like the fix and is not: `previous` is the state the
+				 * Core came FROM at its last transition and it STAYS
+				 * there, so interleaving the two fields invents an
+				 * endless "listening → aware → listening → aware" out
+				 * of one old transition, and the next gate inherits it.
+				 *
+				 * The pair is the record. `previous>state` changes
+				 * exactly when the Core moves, so a pair that mentions
+				 * listening and is not the pair this window STARTED on
+				 * is a visit that happened inside the window. Sampling
+				 * yields to the task queue rather than waiting a fixed
+				 * 10ms, so a transition and its reversal have to happen
+				 * inside ONE task to be missed.
+				 */
+				watchCore: async (ms = 220) => {
+					const host = window.__berxHost;
+					const pair = () => `${host.core?.previous}>${host.core?.state}`;
+					const started = pair();
+					const pairs = [started];
+					const until = performance.now() + ms * 10;
+					while (performance.now() < until) {
+						const p = pair();
+						if (pairs[pairs.length - 1] !== p) pairs.push(p);
+						await new Promise((r) => setTimeout(r, 0));
+					}
+					return {started, pairs};
+				},
+				/* the pairs this window is entitled to claim: the one it
+				   opened on is the state of the world before the
+				   gesture, not something the gesture did */
+				corePath: (watched) => watched.pairs.filter((p, i) => !(i === 0 && p === watched.started)),
 				project: (p) => {
 					const w = window.__berxWorld;
 					const c = w.latestFrame.camera;
@@ -494,18 +535,43 @@ try {
 			 * world rather than an action.
 			 */
 			const slots = host.renderer.actionSlots.map((sl) => t.project(sl.position)).filter((p) => p && p.onScreen);
-			const pressedNow = () => w.affordances().some((a) => a.state === 'press');
+			/**
+			 * ASK, DO NOT PRESS.
+			 *
+			 * This used to find a world pixel by pressing each candidate
+			 * and watching whether an affordance went into 'press' — and
+			 * a press is not a question. The pointerup that ended each
+			 * probe ran the shell's pick, focused whatever was there,
+			 * raised that entity's ring and started a camera travel; the
+			 * hold then landed a frame later, on a world that was moving
+			 * and had grown a ring where the finger was about to go. It
+			 * failed about half the time, and blamed the product.
+			 *
+			 * `pickActionSlot` is the function the host itself consults
+			 * before deciding a hold is a hold, exposed by the shipped
+			 * entry beside the ray and the candidates. Asking it changes
+			 * nothing.
+			 */
+			const slotAt = (x, y) => {
+				const frame = w.latestFrame;
+				const aspect = t.canvas.width / t.canvas.height;
+				const ray = window.__berxRayFromNdc(frame.camera,
+					(x / t.canvas.width) * 2 - 1, 1 - (y / t.canvas.height) * 2, aspect);
+				return ray && window.__berxPickActionSlot
+					? window.__berxPickActionSlot(host.renderer.actionSlots, frame.camera, ray.direction, aspect, host.renderer.depthAt?.(x, y))
+					: undefined;
+			};
 			let onWorld;
 			let rejected = 0;
 			for (const [fx, fy] of [[0.12, 0.85], [0.88, 0.85], [0.12, 0.15], [0.88, 0.15], [0.5, 0.94], [0.5, 0.06]]) {
 				const px = t.canvas.width * fx, py = t.canvas.height * fy;
-				t.send('pointerdown', t.at(px, py, {pointerId: 8}));
-				const onAction = pressedNow();
-				t.send('pointerup', t.at(px, py, {pointerId: 8}));
-				await new Promise((r) => requestAnimationFrame(r));
-				if (!onAction) { onWorld = {px, py}; break; }
-				rejected++;
+				if (slotAt(px, py)) { rejected++; continue; }
+				onWorld = {px, py};
+				break;
 			}
+			/* and a still world, because a hold that arrives during a
+			   camera travel is measuring the travel */
+			await t.still();
 			const beforeWorld = host.core?.state;
 			const focusBefore = w.latestFrame.world.activeObjectId;
 			/**
@@ -529,14 +595,9 @@ try {
 			let path = [];
 			if (onWorld) {
 				t.send('pointerdown', t.at(onWorld.px, onWorld.py, {pointerId: 3}));
-				const seen = [];
-				for (let i = 0; i < 130; i++) {
-					const now = host.core?.state;
-					if (seen[seen.length - 1] !== now) seen.push(now);
-					await new Promise((r) => setTimeout(r, 10));
-				}
+				const seen = t.corePath(await t.watchCore(220));
 				path = seen;
-				during = seen.includes('listening') ? 'listening' : (host.core?.state ?? beforeWorld);
+				during = seen.some((p) => p.includes('listening')) ? 'listening' : (host.core?.state ?? beforeWorld);
 				t.send('pointerup', t.at(onWorld.px, onWorld.py, {pointerId: 3}));
 				await t.settle();
 			}
@@ -572,16 +633,11 @@ try {
 			if (slotsNow.length > 0) {
 				const before = host.core?.state;
 				t.send('pointerdown', t.at(slotsNow[0].px, slotsNow[0].py, {pointerId: 4}));
-				const seen = [];
-				for (let i = 0; i < 130; i++) {
-					const now = host.core?.state;
-					if (seen[seen.length - 1] !== now) seen.push(now);
-					await new Promise((r) => setTimeout(r, 10));
-				}
+				const seen = t.corePath(await t.watchCore(220));
 				t.send('pointerup', t.at(slotsNow[0].px, slotsNow[0].py, {pointerId: 4}));
 				await t.settle();
 				onSlot = {
-					before, mid: seen.includes('listening') ? 'listening' : (host.core?.state ?? before),
+					before, mid: seen.some((p) => p.includes('listening')) ? 'listening' : (host.core?.state ?? before),
 					path: seen, at: `${slotsNow[0].px.toFixed(0)},${slotsNow[0].py.toFixed(0)}`,
 					of: slotsNow.length, on: ringUp?.id,
 				};
@@ -810,9 +866,8 @@ try {
 
 		gate(`${d.id}: a held finger is how a phone asks BERX to listen`,
 			r.touch.hold.during === 'listening',
-			`held at ${r.touch.hold.at} — a pixel the SHELL itself confirmed is the world and not an action, after rejecting ${r.touch.hold.rejected} that pressed one (${r.touch.hold.slotCount} slots drawn).`
-			+ ` Sampled every 10ms across the hold, the drawn Core went ${(r.touch.hold.path ?? []).join(' → ') || 'nowhere'}.`
-			+ ` Sampled every 10ms across the hold, the drawn Core went ${(r.touch.hold.path ?? []).join(' → ') || 'nowhere'}.`
+			`held at ${r.touch.hold.at} — a pixel the product's own pickActionSlot says no ring owns, after rejecting ${r.touch.hold.rejected} that one did (${r.touch.hold.slotCount} slots drawn), on a world that had stopped moving.`
+			+ ` Watched as previous>state pairs across the hold, yielding to the task queue between reads, the drawn Core went ${(r.touch.hold.path ?? []).slice(0, 10).join(' → ') || 'nowhere'}${(r.touch.hold.path ?? []).length > 10 ? ` (+${r.touch.hold.path.length - 10} more)` : ''}.`
 			+ ` "aware" would not do: a pointerdown ALONE reports presence and reaches aware, so only a state a plain tap cannot produce is evidence the hold did anything.`
 			+ ` "v" does this from a keyboard and a phone has no "v", so voice — and the fifteen intents behind it — was unreachable on mobile web.`
 			+ ` It is the gesture the Core already modelled: berxTouchField, berxGestureCause and berxTouchHaptic all handle 'hold', and nothing had ever produced one`);
@@ -821,7 +876,7 @@ try {
 			r.touch.hold.onSlot !== undefined && r.touch.hold.onSlot.mid !== 'listening',
 			r.touch.hold.onSlot === undefined
 				? 'no entity in this world offers an action, so there was no ring to hold — a fact about the world, and this half cannot be measured against it'
-				: `held on one of ${r.touch.hold.onSlot.of} slots around ${r.touch.hold.onSlot.on}, at ${r.touch.hold.onSlot.at}, and the Core went ${(r.touch.hold.onSlot.path ?? []).join(' → ')} — never listening.`
+				: `held on one of ${r.touch.hold.onSlot.of} slots around ${r.touch.hold.onSlot.on}, at ${r.touch.hold.onSlot.at}, and the Core went ${(r.touch.hold.onSlot.path ?? []).slice(0, 10).join(' → ') || 'nowhere'}${(r.touch.hold.onSlot.path ?? []).length > 10 ? ` (+${r.touch.hold.onSlot.path.length - 10} more)` : ''} — never listening.`
 				+ ' A slow press on an action must do what the action does, and the host rules out a hold whose finger is on one BEFORE asking what a hold means');
 
 		gate(`${d.id}: and the same gesture does not also choose something`,

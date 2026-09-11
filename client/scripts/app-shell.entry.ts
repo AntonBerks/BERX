@@ -23,7 +23,7 @@ import {
 } from '@berx/scenes';
 import {
 	berxDrawnHalfExtent, berxLocaleDirection, berxResolveLocale, berxTranslate, cameraBasis,
-	pickSpatialCandidates, rayFromNdc, type BerxCatalogues,
+	pickActionSlot, pickSpatialCandidates, rayFromNdc, type BerxCatalogues,
 } from '@berx/spatial';
 import {startBerxApp} from '@berx/spatial-web/appShell';
 
@@ -132,6 +132,12 @@ const whereAmI = () => {
    centre of the screen and would have reported a perfect layout however
    broken the real one was. */
 (globalThis as unknown as {__berxCameraBasis?: typeof cameraBasis}).__berxCameraBasis = cameraBasis;
+/* and the ring's own hit test, which the pointer path consults BEFORE
+   the entity picker: a press whose pixel a slot owns activates that
+   action and never moves the focus. A gate that does not ask this
+   function cannot tell a correctly-swallowed press from a broken one,
+   and will read the ring working as the picker failing. */
+(globalThis as unknown as {__berxPickActionSlot?: typeof pickActionSlot}).__berxPickActionSlot = pickActionSlot;
 
 /**
  * THE PRODUCT'S WORDS, in the one language it has.
